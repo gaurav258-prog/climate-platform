@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
 import DataProcessor from '../services/DataProcessor'
+import PDFGenerator from '../services/PDFGenerator'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -149,56 +150,105 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
         filename += 'json'
         mimeType = 'application/json'
       } else if (format === 'pdf') {
-        let pdfContent = `REGULATORY REPORTING ANALYSIS
-Execution ID: ${executionId}
-Bank: ${bd.orgName}
-Total Assets: €${bd.totalAssets}M | Assets: ${bd.assetCount}
-Date: ${new Date().toLocaleString()}
-================================================================================\n\n`
+        // Generate properly formatted HTML/PDF
+        const sections = [
+          {
+            title: 'Executive Summary',
+            data: {
+              'Bank': bd.orgName,
+              'Execution ID': executionId,
+              'Total Assets': `€${bd.totalAssets}M`,
+              'Asset Count': bd.assetCount,
+              'Report Date': new Date().toLocaleString(),
+              'Modules Processed': selectedModules.join(', ')
+            }
+          }
+        ]
 
         if (pd.scenarioImpact) {
-          pdfContent += `SCENARIO FINANCIAL IMPACT ANALYSIS\n`
-          Object.entries(pd.scenarioImpact.scenarios).forEach(([scenario, data]) => {
-            pdfContent += `${scenario}:\n`
-            pdfContent += `  • NPV: €${data.npvEUR_M}M\n`
-            pdfContent += `  • Revenue Impact: ${data.revenueImpactPercent}%\n`
-            pdfContent += `  • Stranded Assets Risk: €${data.strandedAssetsEUR_M}M\n`
-            pdfContent += `  • Transition Risk: ${data.transitionRisk}\n`
-            pdfContent += `  • Physical Risk: ${data.physicalRisk}\n\n`
+          const scenarioData = Object.entries(pd.scenarioImpact.scenarios).map(([scenario, data]) => ({
+            Scenario: scenario,
+            'Warming (°C)': data.warming,
+            'NPV (€M)': data.npvEUR_M,
+            'Revenue Impact (%)': data.revenueImpactPercent,
+            'Stranded Assets (€M)': data.strandedAssetsEUR_M,
+            'Transition Risk': data.transitionRisk,
+            'Physical Risk': data.physicalRisk
+          }))
+          sections.push({
+            title: 'Scenario Financial Impact Analysis',
+            data: scenarioData
           })
         }
 
         if (pd.complianceGap) {
-          pdfContent += `\nCOMPLIANCE GAP ANALYSIS\n`
-          pdfContent += `Overall Completeness: ${pd.complianceGap.overallCompletenessPercent}%\n`
-          pdfContent += `Emissions Coverage: ${pd.complianceGap.emissionsCoveragePercent}%\n`
-          pdfContent += `EU Taxonomy Alignment: ${pd.complianceGap.taxonomyAlignmentPercent}%\n`
-          pdfContent += `Urgent Gaps: ${pd.complianceGap.urgentGaps}\n`
-          pdfContent += `Estimated Effort: ${pd.complianceGap.estimatedTotalEffort}\n\n`
+          sections.push({
+            title: 'Compliance Gap Analysis',
+            data: {
+              'Overall Completeness': `${pd.complianceGap.overallCompletenessPercent}%`,
+              'Emissions Data Coverage': `${pd.complianceGap.emissionsCoveragePercent}%`,
+              'EU Taxonomy Alignment': `${pd.complianceGap.taxonomyAlignmentPercent}%`,
+              'Urgent Gaps': pd.complianceGap.urgentGaps,
+              'Estimated Total Effort': pd.complianceGap.estimatedTotalEffort
+            }
+          })
+
+          sections.push({
+            title: 'Compliance Gaps Detail',
+            data: pd.complianceGap.gaps.map(gap => ({
+              'Framework': gap.framework,
+              'Requirement': gap.requirement,
+              'Status': gap.status,
+              'Completeness (%)': gap.completeness,
+              'Effort (h)': gap.effort,
+              'Priority': gap.priority
+            }))
+          })
         }
 
         if (pd.riskMateriality) {
-          pdfContent += `\nRISK MATERIALITY ASSESSMENT\n`
-          pdfContent += `Portfolio Materiality: ${pd.riskMateriality.summary.portfolioMaterialityPercent}%\n`
-          pdfContent += `Materiality Threshold: ${pd.riskMateriality.summary.materiality_Threshold}%\n`
-          pdfContent += `Over Threshold: ${pd.riskMateriality.summary.overThreshold ? 'YES - REQUIRES DISCLOSURE' : 'NO'}\n`
-          pdfContent += `Assets Requiring Disclosure: ${pd.riskMateriality.summary.assetsRequiringDisclosure}\n`
-          pdfContent += `Total Emissions: ${pd.riskMateriality.summary.totalEmissions_tCO2e} tCO2e\n`
-          pdfContent += `High Risk Assets: ${pd.riskMateriality.summary.highRiskAssets}\n\n`
+          sections.push({
+            title: 'Risk Materiality Assessment',
+            data: {
+              'Portfolio Materiality': `${pd.riskMateriality.summary.portfolioMaterialityPercent}%`,
+              'Materiality Threshold': `${pd.riskMateriality.summary.materiality_Threshold}%`,
+              'Over Threshold': pd.riskMateriality.summary.overThreshold ? 'YES - REQUIRES DISCLOSURE' : 'NO',
+              'Assets Requiring Disclosure': pd.riskMateriality.summary.assetsRequiringDisclosure,
+              'Total Financed Emissions': `${pd.riskMateriality.summary.totalEmissions_tCO2e} tCO2e`,
+              'High Risk Assets': pd.riskMateriality.summary.highRiskAssets
+            }
+          })
+
+          sections.push({
+            title: 'Asset-Level Materiality',
+            data: pd.riskMateriality.assets.map(asset => ({
+              'Asset': asset.assetName,
+              'Type': asset.assetType,
+              'Exposure (€M)': asset.exposureEUR_M,
+              'Risk Score': asset.climateRiskScore,
+              'Materiality (%)': asset.materialityPercent,
+              'Disclosure Required': asset.requiresDisclosure ? 'YES' : 'NO'
+            }))
+          })
         }
 
         if (pd.benchmarking) {
-          pdfContent += `\nPEER BENCHMARKING\n`
-          pdfContent += `Your Score: ${pd.benchmarking.yourBank.overallScore}/100\n`
-          pdfContent += `Peer Average: ${pd.benchmarking.peerAverage}/100\n`
-          pdfContent += `Your Ranking: ${pd.benchmarking.ranking}\n`
-          pdfContent += `Green Allocation: ${pd.benchmarking.yourBank.greenAllocation}%\n`
-          pdfContent += `High Risk Allocation: ${pd.benchmarking.yourBank.highRiskAllocation}%\n\n`
+          sections.push({
+            title: 'Peer Benchmarking',
+            data: {
+              'Your Score': `${pd.benchmarking.yourBank.overallScore}/100`,
+              'Peer Average': `${pd.benchmarking.peerAverage}/100`,
+              'Your Ranking': pd.benchmarking.ranking,
+              'Green Assets': `${pd.benchmarking.yourBank.greenAllocation}%`,
+              'High Risk Assets': `${pd.benchmarking.yourBank.highRiskAllocation}%`,
+              'Gap to Leader': pd.benchmarking.gaps.overallScore
+            }
+          })
         }
 
-        content = pdfContent
-        filename += 'pdf'
-        mimeType = 'application/pdf'
+        content = PDFGenerator.generateHTMLPDF('Regulatory Reporting Analysis', sections)
+        filename += 'html'
+        mimeType = 'text/html'
       } else if (format === 'excel') {
         let excelContent = ''
 
