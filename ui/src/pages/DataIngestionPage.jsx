@@ -55,6 +55,52 @@ export default function DataIngestionPage() {
     setUploadedData(bankDataTemplate)
   }
 
+  const downloadCSV = (filename, content) => {
+    const element = document.createElement('a')
+    element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(content))
+    element.setAttribute('download', filename)
+    element.style.display = 'none'
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+  }
+
+  const portfolioAssetCSV = `Asset_ID,Asset_Name,Asset_Type,Sector,Region,Exposure_EUR_M,Annual_Revenue_EUR_M,Climate_Risk_Score,Materiality_Score,Description
+ASSET_001,Coal Mining Company,Coal,Energy,Poland,450,120,92,85,"Large coal mining operations in Poland. High physical and transition risk."
+ASSET_002,Oil & Gas Portfolio,Oil & Gas,Energy,North Sea,2400,580,88,82,"Upstream oil and gas operations. Exposed to transition risk and regulatory changes."
+ASSET_003,Renewable Solar Farm,Renewable Energy,Energy,Spain,320,45,12,5,"Large-scale solar PV facility. Low climate risk, supports transition."
+ASSET_004,Wind Energy Assets,Renewable Energy,Energy,Germany,280,38,8,3,"Onshore wind farms across Germany. Excellent climate profile."
+ASSET_005,Commercial Real Estate Portfolio,Real Estate,Real Estate,Munich,2100,280,35,40,"Premium office and retail properties in Munich. Flood and heat risk exposure."
+ASSET_006,Residential Properties,Real Estate,Real Estate,Berlin,3500,420,42,45,"Multi-family residential across Berlin. Urban flood and heat wave risks."
+ASSET_007,Agricultural Land Holdings,Agriculture,Agriculture,France,420,65,55,48,"Grain farming and viticulture assets. Drought and heat stress risks."
+ASSET_008,Thermal Power Plant,Power Generation,Energy,Germany,680,95,76,70,"Coal-fired power station. Phase-out risk. Transition essential."
+ASSET_009,Steel Manufacturing,Manufacturing,Manufacturing,Ruhr,580,125,48,42,"Steel production facility. Moderate climate exposure and transition risk."
+ASSET_010,Transportation Infrastructure,Infrastructure,Infrastructure,EU,890,105,38,35,"Road and rail assets. Flood and extreme weather risks."
+ASSET_011,Chemical Production,Manufacturing,Manufacturing,Belgium,420,98,45,38,"Chemical manufacturing plant. Water stress and operational risks."
+ASSET_012,Food & Beverage Processing,Manufacturing,Food,Netherlands,310,72,52,44,"Agricultural commodity processing. Supply chain climate risks."
+ASSET_013,Fishing Fleet,Agriculture,Agriculture,Atlantic,180,42,68,55,"Commercial fishing operations. Ocean acidification and temperature risks."
+ASSET_014,Water Utility Company,Utilities,Utilities,Spain,520,85,61,58,"Water supply infrastructure. Drought and flood related risks."
+ASSET_015,Tourism Infrastructure,Hospitality,Hospitality,Alps,290,38,45,32,"Alpine ski resorts and hotels. Snow cover and heat wave risks."`
+
+  const ghgEmissionsCSV = `Emission_ID,Asset_ID,Asset_Name,Scope,Category,Emissions_tCO2e,Unit,Year,Data_Quality,Verification_Status,Notes
+EMIT_001,ASSET_001,Coal Mining Company,1,Direct Operations,125000,tCO2e,2023,High,Verified,"Scope 1: Mining equipment, blasting, processing"
+EMIT_002,ASSET_001,Coal Mining Company,2,Electricity,45000,tCO2e,2023,High,Verified,"Scope 2: Purchased electricity for operations"
+EMIT_003,ASSET_001,Coal Mining Company,3,Upstream Coal,680000,tCO2e,2023,Medium,Third-Party,"Scope 3: Coal combustion at customer power plants"
+EMIT_004,ASSET_002,Oil & Gas Portfolio,1,Production Flaring,280000,tCO2e,2023,High,Verified,"Scope 1: Flaring and fugitive emissions"
+EMIT_005,ASSET_002,Oil & Gas Portfolio,2,Electricity,95000,tCO2e,2023,High,Verified,"Scope 2: Purchased power for extraction"
+EMIT_006,ASSET_002,Oil & Gas Portfolio,3,Combustion,1250000,tCO2e,2023,Medium,Third-Party,"Scope 3: Oil and gas burned by end-customers"
+EMIT_007,ASSET_003,Renewable Solar Farm,1,Direct Emissions,0,tCO2e,2023,High,Verified,"Scope 1: Negligible emissions"
+EMIT_008,ASSET_003,Renewable Solar Farm,2,Electricity,500,tCO2e,2023,High,Verified,"Scope 2: Minimal purchased electricity"
+EMIT_009,ASSET_003,Renewable Solar Farm,3,Manufacturing,2500,tCO2e,2023,Medium,Calculated,"Scope 3: Embedded emissions in solar panels"
+EMIT_010,ASSET_004,Wind Energy Assets,1,Direct Emissions,0,tCO2e,2023,High,Verified,"Scope 1: Negligible emissions"
+EMIT_011,ASSET_004,Wind Energy Assets,2,Electricity,200,tCO2e,2023,High,Verified,"Scope 2: Minimal purchased electricity"
+EMIT_012,ASSET_004,Wind Energy Assets,3,Manufacturing,1800,tCO2e,2023,Medium,Calculated,"Scope 3: Embedded in turbine manufacturing"`
+
+  const climarioCSV = `Scenario_ID,Scenario_Name,Warming_Target_C,Probability_Percent,Type,Description,Policy_Stringency,Carbon_Price_EUR_per_tonne,Renewable_Energy_Share_2050,Key_Assumptions
+SCEN_001,1.5°C Paris Aligned,1.5,35,Ambitious,"Rapid decarbonization with immediate policy action. Consistent with Paris Agreement 1.5°C target.","Very High",180,95,"Rapid coal phase-out, 5% annual renewables growth, aggressive carbon pricing, strong regulatory frameworks"
+SCEN_002,2°C Moderate Transition,2.0,40,Moderate,"Current policies trajectory with gradual improvements. Achieves 2°C goal with delayed action.","Medium",95,78,"Coal phase-out by 2040, 3% annual renewables growth, moderate carbon price, mixed policy support"
+SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond current pledges. Market forces drive some change but insufficient.","Low",25,45,"Coal continues, 1.5% annual renewables growth, weak carbon pricing, fragmented policies"`
+
   const toggleModule = (moduleId) => {
     setSelectedModules(prev =>
       prev.includes(moduleId) ? prev.filter(m => m !== moduleId) : [...prev, moduleId]
@@ -126,26 +172,26 @@ export default function DataIngestionPage() {
           <h2 className="text-2xl font-light text-gray-900 mb-4">📥 Download Data Templates</h2>
           <p className="text-gray-600 mb-6">Download these CSV templates, edit with your bank's data, and upload back for processing.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <a href="/data-templates/portfolio_assets.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+            <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">📊 Portfolio Assets</p>
               <p className="text-xs text-gray-600 mb-3">Your asset portfolio with climate risk scores</p>
-              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
-            </a>
-            <a href="/data-templates/ghg_emissions.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <button onClick={() => downloadCSV('portfolio_assets.csv', portfolioAssetCSV)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">🌱 GHG Emissions</p>
               <p className="text-xs text-gray-600 mb-3">Scope 1, 2, 3 emissions by asset</p>
-              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
-            </a>
-            <a href="/data-templates/climate_scenarios.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <button onClick={() => downloadCSV('ghg_emissions.csv', ghgEmissionsCSV)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">🌍 Climate Scenarios</p>
               <p className="text-xs text-gray-600 mb-3">1.5°C, 2°C, 4°C scenarios with assumptions</p>
-              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
-            </a>
-            <a href="/data-templates/README.md" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <button onClick={() => downloadCSV('climate_scenarios.csv', climarioCSV)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">📋 Documentation</p>
               <p className="text-xs text-gray-600 mb-3">How to use templates & field descriptions</p>
-              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download Guide</button>
-            </a>
+              <button onClick={() => alert('📋 README Guide:\n\n1. Download CSV files\n2. Edit with your bank data in Excel/Sheets\n3. Drag files onto the drop zone\n4. Select modules (Scenario, Gap Analysis, etc)\n5. Select output formats (PDF, Excel, Dashboard)\n6. Execute workflows\n7. Download results\n\nEach CSV has required columns:\n- Portfolio: Asset_ID, Asset_Name, Exposure_EUR_M, Climate_Risk_Score\n- Emissions: Asset_ID, Scope, Emissions_tCO2e, Category\n- Scenarios: Scenario_Name, Warming_Target_C, Probability_Percent')} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">View Guide</button>
+            </div>
           </div>
         </div>
       </section>
