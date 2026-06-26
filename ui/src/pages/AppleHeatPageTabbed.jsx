@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Thermometer, TrendingUp, AlertTriangle, Activity, ChevronRight } from 'lucide-react'
+import { Thermometer, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
 import RiskMap from '../components/RiskMap'
 
 /**
- * Tabbed Heat Stress Risk Dashboard
- * - Animated heat background
- * - Clickable tab navigation
- * - Map view with temperature zones
- * - Risk analysis by region
+ * Heat Stress Risk Dashboard - Scrollable with Tabs
+ * Hero + Animated Background → Tabs → Content → Full Map
  */
 export default function AppleHeatPageTabbed() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -17,7 +14,6 @@ export default function AppleHeatPageTabbed() {
     avgRisk: 0,
     populationAtRisk: 0
   })
-  const [selectedRegion, setSelectedRegion] = useState(null)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -40,16 +36,15 @@ export default function AppleHeatPageTabbed() {
   ]
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Activity },
-    { id: 'map', label: 'Heat Map', icon: Thermometer },
-    { id: 'regions', label: 'Regions', icon: AlertTriangle },
-    { id: 'analysis', label: 'Analysis', icon: TrendingUp },
+    { id: 'overview', label: 'Overview' },
+    { id: 'regions', label: 'Regions' },
+    { id: 'analysis', label: 'Analysis' },
   ]
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-white">
-      {/* Animated Heat Background */}
-      <div className="fixed inset-0 pointer-events-none">
+    <div className="w-full overflow-y-auto bg-white">
+      {/* Animated Background (Fixed) */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
         <div
           className="absolute inset-0"
           style={{
@@ -57,7 +52,6 @@ export default function AppleHeatPageTabbed() {
             animation: 'float 12s ease-in-out infinite'
           }}
         />
-        {/* Heat wave pattern */}
         <svg className="absolute inset-0 w-full h-full opacity-5" viewBox="0 0 1200 600">
           <defs>
             <pattern id="heat" patternUnits="userSpaceOnUse" width="100" height="100">
@@ -74,108 +68,87 @@ export default function AppleHeatPageTabbed() {
         </svg>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 w-full">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-light text-gray-900">☀️ Heat Stress Intelligence</h1>
-                <p className="text-sm text-gray-600 mt-1">Monitor extreme heat events and health risks</p>
-              </div>
-            </div>
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-12 pb-20">
+        <div className="text-center px-6 max-w-4xl mx-auto w-full">
+          <div className="text-7xl mb-4">☀️</div>
+          <h1 className="text-7xl md:text-8xl font-light text-gray-900 mb-6 leading-tight">
+            Heat Stress
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-600">
+              Intelligence
+            </span>
+          </h1>
 
-            {/* Tabs */}
-            <div className="flex gap-1 border-b border-gray-200 -mx-6 px-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 flex items-center gap-2 border-b-2 transition-all font-medium text-sm ${
-                      activeTab === tab.id
-                        ? 'border-yellow-600 text-yellow-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon size={16} />
-                    {tab.label}
-                  </button>
-                )
-              })}
+          <p className="text-xl text-gray-600 font-light mb-8 max-w-2xl mx-auto leading-relaxed">
+            Monitor extreme heat events, forecast health impacts, and coordinate emergency response for vulnerable populations
+          </p>
+
+          {/* Live metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-8 border-t border-gray-200">
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-yellow-600">{stats.extremeHeatEvents}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Heat Waves</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-orange-600">{stats.affectedRegions}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Regions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-yellow-500">{stats.avgRisk}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Avg Risk</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl md:text-3xl font-light text-yellow-600">
+                {(stats.populationAtRisk / 1000000).toFixed(0)}M
+              </div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Population</div>
             </div>
           </div>
-        </header>
+        </div>
+      </section>
 
+      {/* Tabs Section */}
+      <section className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 font-medium text-sm border-b-2 transition-all ${
+                  activeTab === tab.id
+                    ? 'border-yellow-600 text-yellow-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Tab Content Area */}
+      <section className="max-w-7xl mx-auto px-6 py-12">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">HEAT WAVES</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.extremeHeatEvents}</p>
-                    <p className="text-xs text-gray-500 mt-2">Current events</p>
-                  </div>
-                  <Activity className="text-yellow-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">AFFECTED REGIONS</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.affectedRegions}</p>
-                    <p className="text-xs text-gray-500 mt-2">High heat zones</p>
-                  </div>
-                  <Thermometer className="text-orange-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">AVG RISK LEVEL</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.avgRisk}/100</p>
-                    <p className="text-xs text-gray-500 mt-2">Regional average</p>
-                  </div>
-                  <TrendingUp className="text-yellow-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-yellow-600 font-medium mb-1">POPULATION AT RISK</p>
-                    <p className="text-3xl font-light text-yellow-600">
-                      {(stats.populationAtRisk / 1000000).toFixed(0)}M
-                    </p>
-                    <p className="text-xs text-yellow-500 mt-2">Exposure</p>
-                  </div>
-                  <AlertTriangle className="text-yellow-600" size={24} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-8">
-              <h2 className="text-2xl font-light text-gray-900 mb-6">Heat Stress Monitoring</h2>
+          <div className="space-y-12">
+            <div>
+              <h2 className="text-3xl font-light text-gray-900 mb-8">Heat Stress Monitoring</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Detection</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Real-time temperature monitoring from weather stations and satellites. Heat wave identification based on temperature anomalies and duration thresholds.
                   </p>
                 </div>
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Health Impact</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Estimate excess mortality risk based on temperature, humidity, and vulnerable population distribution. Calculate strain on healthcare systems.
                   </p>
                 </div>
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Response</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Automated alerts to public health agencies and vulnerable groups. Cool center location recommendations and medical resource allocation.
@@ -183,40 +156,23 @@ export default function AppleHeatPageTabbed() {
                 </div>
               </div>
             </div>
-          </section>
-        )}
-
-        {/* Map Tab */}
-        {activeTab === 'map' && (
-          <section className="w-full h-[calc(100vh-200px)]">
-            <RiskMap />
-          </section>
+          </div>
         )}
 
         {/* Regions Tab */}
         {activeTab === 'regions' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
+          <div>
             <h2 className="text-3xl font-light text-gray-900 mb-8">High-Heat Regions</h2>
-
             <div className="space-y-4">
               {regions.map((region) => (
-                <div
-                  key={region.id}
-                  onClick={() => setSelectedRegion(region)}
-                  className={`bg-white rounded-2xl p-6 border-2 cursor-pointer transition-all ${
-                    selectedRegion?.id === region.id
-                      ? 'border-yellow-600 bg-yellow-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                <div key={region.id} className="bg-white rounded-2xl p-6 border border-gray-200 hover:border-yellow-300 hover:shadow-lg transition-all">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">{region.name}</h3>
                       <p className="text-sm text-gray-600 mt-1">{region.trend}</p>
                     </div>
-
                     <div className="text-center">
-                      <p className="text-sm text-gray-600 mb-1">HEAT RISK</p>
+                      <p className="text-sm text-gray-600 mb-2">HEAT RISK</p>
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
@@ -224,132 +180,91 @@ export default function AppleHeatPageTabbed() {
                             style={{ width: `${region.risk}%` }}
                           />
                         </div>
-                        <p className="text-lg font-semibold text-yellow-600 w-12">{region.risk}</p>
+                        <span className="text-lg font-semibold text-yellow-600 w-12">{region.risk}</span>
                       </div>
                     </div>
-
                     <div className="text-center">
-                      <p className="text-sm text-gray-600 mb-1">HEAT EVENTS</p>
-                      <p className="text-3xl font-light text-gray-900">{region.events}</p>
+                      <p className="text-sm text-gray-600 mb-1">EVENTS</p>
+                      <p className="text-2xl font-light text-gray-900">{region.events}</p>
                     </div>
-
                     <div className="text-center">
                       <p className="text-sm text-gray-600 mb-1">PEAK TEMP</p>
-                      <p className="text-xl font-semibold text-red-600">
-                        {region.temp}°C
-                      </p>
+                      <p className="text-lg font-semibold text-red-600">{region.temp}°C</p>
                     </div>
-
                     <div className="text-right">
-                      <ChevronRight className="text-gray-400 ml-auto" size={24} />
+                      <ChevronRight className="text-gray-400" size={24} />
                     </div>
                   </div>
-
-                  {selectedRegion?.id === region.id && (
-                    <div className="mt-6 pt-6 border-t border-yellow-200">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Excess Mortality Risk</p>
-                          <p className="text-2xl font-light text-red-600">+12%</p>
-                          <p className="text-xs text-gray-500 mt-1">Estimated increase</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Heat Wave Duration</p>
-                          <p className="text-2xl font-light">8 days</p>
-                          <p className="text-xs text-gray-500 mt-1">Expected length</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Vulnerable Population</p>
-                          <p className="text-2xl font-light text-yellow-600">2.4M</p>
-                          <p className="text-xs text-gray-500 mt-1">Age 65+</p>
-                        </div>
-                      </div>
-                      <button className="mt-6 w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors">
-                        View Health Response Plan →
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
-            <h2 className="text-3xl font-light text-gray-900 mb-8">Heat Risk Analysis</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Regional Heat Hazard</h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Southern Mediterranean (Extreme)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-5/5 h-full bg-red-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Iberian Peninsula (Very High)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-orange-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Central Europe (Moderate)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-3/5 h-full bg-yellow-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Northern Europe (Low)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-2/5 h-full bg-green-500" />
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Regional Heat Hazard</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Southern Mediterranean (Extreme)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-5/5 h-full bg-red-600" />
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Forecast Skill</h3>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">7-day Heat Prediction</p>
-                      <p className="text-sm font-semibold text-gray-900">85%</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-85/100 h-full bg-green-600" />
-                    </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Iberian Peninsula (Very High)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-4/5 h-full bg-orange-500" />
                   </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">Temperature Forecast</p>
-                      <p className="text-sm font-semibold text-gray-900">±1.5°C</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-green-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">Health Impact Model</p>
-                      <p className="text-sm font-semibold text-gray-900">68%</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-68/100 h-full bg-blue-600" />
-                    </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Central Europe (Moderate)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-3/5 h-full bg-yellow-500" />
                   </div>
                 </div>
               </div>
             </div>
-          </section>
-        )}
 
-        {/* Footer spacing */}
-        <div className="h-20" />
-      </div>
+            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Forecast Skill</h3>
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <p className="text-sm text-gray-600">7-day Heat Prediction</p>
+                    <p className="text-sm font-semibold">85%</p>
+                  </div>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-85/100 h-full bg-green-600" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <p className="text-sm text-gray-600">Temperature Forecast</p>
+                    <p className="text-sm font-semibold">±1.5°C</p>
+                  </div>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-4/5 h-full bg-green-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Full Map Section - Always Visible */}
+      <section className="py-20 px-6 max-w-7xl mx-auto w-full">
+        <h2 className="text-3xl font-light text-gray-900 mb-8">Real-time Heat Risk Map</h2>
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
+          <RiskMap />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <div className="h-20" />
 
       <style>{`
         @keyframes float {

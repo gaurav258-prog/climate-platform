@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
-import { MapPin, Activity, TrendingUp, AlertTriangle, ChevronRight, Info } from 'lucide-react'
+import { Activity, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
 import EnhancedSeismicMap from '../components/EnhancedSeismicMap'
 
 /**
- * Tabbed Seismic Risk Dashboard
- * - Animated video background
- * - Clickable tab navigation
- * - Map view with danger zones
- * - Risk analysis by region
+ * Seismic Risk Dashboard - Scrollable with Tabs
+ * Hero + Animated Background → Tabs → Content → Full Map
  */
 export default function AppleSeismicPageTabbed() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -17,7 +14,6 @@ export default function AppleSeismicPageTabbed() {
     maxRisk: 0,
     affectedRegions: 0
   })
-  const [selectedRegion, setSelectedRegion] = useState(null)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -48,16 +44,15 @@ export default function AppleSeismicPageTabbed() {
   ]
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Activity },
-    { id: 'map', label: 'Risk Map', icon: MapPin },
-    { id: 'regions', label: 'Regions', icon: AlertTriangle },
-    { id: 'analysis', label: 'Analysis', icon: TrendingUp },
+    { id: 'overview', label: 'Overview' },
+    { id: 'regions', label: 'Regions' },
+    { id: 'analysis', label: 'Analysis' },
   ]
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-white">
-      {/* Animated Background Video/Gradient */}
-      <div className="fixed inset-0 pointer-events-none">
+    <div className="w-full overflow-y-auto bg-white">
+      {/* Animated Background (Fixed) */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
         <div
           className="absolute inset-0"
           style={{
@@ -65,7 +60,6 @@ export default function AppleSeismicPageTabbed() {
             animation: 'float 12s ease-in-out infinite'
           }}
         />
-        {/* Seismic wave pattern overlay */}
         <svg className="absolute inset-0 w-full h-full opacity-5" viewBox="0 0 1200 600">
           <defs>
             <pattern id="seismic" patternUnits="userSpaceOnUse" width="100" height="100">
@@ -82,106 +76,85 @@ export default function AppleSeismicPageTabbed() {
         </svg>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 w-full">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-light text-gray-900">🌍 Seismic Intelligence</h1>
-                <p className="text-sm text-gray-600 mt-1">Real-time earthquake risk monitoring and forecasting</p>
-              </div>
-            </div>
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-12 pb-20">
+        <div className="text-center px-6 max-w-4xl mx-auto w-full">
+          <div className="text-7xl mb-4">🌍</div>
+          <h1 className="text-7xl md:text-8xl font-light text-gray-900 mb-6 leading-tight">
+            Seismic
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">
+              Intelligence
+            </span>
+          </h1>
 
-            {/* Tabs */}
-            <div className="flex gap-1 border-b border-gray-200 -mx-6 px-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 flex items-center gap-2 border-b-2 transition-all font-medium text-sm ${
-                      activeTab === tab.id
-                        ? 'border-red-600 text-red-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon size={16} />
-                    {tab.label}
-                  </button>
-                )
-              })}
+          <p className="text-xl text-gray-600 font-light mb-8 max-w-2xl mx-auto leading-relaxed">
+            Real-time earthquake risk forecasting, damage assessment, and aftershock prediction for Europe
+          </p>
+
+          {/* Live metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-8 border-t border-gray-200">
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-gray-900">{stats.totalEvents}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Total Events</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-red-600">{stats.avgMagnitude}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Avg Magnitude</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-light text-orange-600">{stats.affectedRegions}</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Regions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl md:text-3xl font-light text-red-600">{stats.maxRisk}/100</div>
+              <div className="text-xs md:text-sm text-gray-600 font-light mt-2">Max Risk</div>
             </div>
           </div>
-        </header>
+        </div>
+      </section>
 
+      {/* Tabs Section */}
+      <section className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 font-medium text-sm border-b-2 transition-all ${
+                  activeTab === tab.id
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Tab Content Area */}
+      <section className="max-w-7xl mx-auto px-6 py-12">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">TOTAL EVENTS</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.totalEvents}</p>
-                    <p className="text-xs text-gray-500 mt-2">Last 30 days (M≥4.5)</p>
-                  </div>
-                  <Activity className="text-red-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">AVG MAGNITUDE</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.avgMagnitude}</p>
-                    <p className="text-xs text-gray-500 mt-2">Richter scale</p>
-                  </div>
-                  <TrendingUp className="text-orange-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">AFFECTED REGIONS</p>
-                    <p className="text-4xl font-light text-gray-900">{stats.affectedRegions}</p>
-                    <p className="text-xs text-gray-500 mt-2">Earthquake zones</p>
-                  </div>
-                  <MapPin className="text-yellow-600" size={24} />
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-6 border border-red-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-red-600 font-medium mb-1">MAX RISK LEVEL</p>
-                    <p className="text-4xl font-light text-red-600">{stats.maxRisk}/100</p>
-                    <p className="text-xs text-red-500 mt-2">Highest alert</p>
-                  </div>
-                  <AlertTriangle className="text-red-600" size={24} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-8">
-              <h2 className="text-2xl font-light text-gray-900 mb-6">What is Seismic Risk?</h2>
+          <div className="space-y-12">
+            <div>
+              <h2 className="text-3xl font-light text-gray-900 mb-8">Seismic Risk Management</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Detection</h3>
                   <p className="text-gray-600 leading-relaxed">
                     We monitor earthquake patterns, fault lines, and GNSS deformation data from across Europe. Our systems detect seismic events within minutes of occurrence.
                   </p>
                 </div>
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Analysis</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Real-time magnitude calculation, epicenter location, and depth assessment. We provide immediate impact forecasts for affected regions and infrastructure.
                   </p>
                 </div>
-                <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Forecasting</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Aftershock prediction, hazard zone mapping, and medium-term risk assessment using ETAS models and machine learning techniques.
@@ -189,42 +162,23 @@ export default function AppleSeismicPageTabbed() {
                 </div>
               </div>
             </div>
-          </section>
-        )}
-
-        {/* Map Tab */}
-        {activeTab === 'map' && (
-          <section className="w-full h-[calc(100vh-200px)]">
-            <div className="w-full h-full">
-              <EnhancedSeismicMap />
-            </div>
-          </section>
+          </div>
         )}
 
         {/* Regions Tab */}
         {activeTab === 'regions' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
+          <div>
             <h2 className="text-3xl font-light text-gray-900 mb-8">High-Risk Regions</h2>
-
             <div className="space-y-4">
               {regions.map((region) => (
-                <div
-                  key={region.id}
-                  onClick={() => setSelectedRegion(region)}
-                  className={`bg-white rounded-2xl p-6 border-2 cursor-pointer transition-all ${
-                    selectedRegion?.id === region.id
-                      ? 'border-red-600 bg-red-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                <div key={region.id} className="bg-white rounded-2xl p-6 border border-gray-200 hover:border-red-300 hover:shadow-lg transition-all">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">{region.name}</h3>
                       <p className="text-sm text-gray-600 mt-1">{region.trend}</p>
                     </div>
-
                     <div className="text-center">
-                      <p className="text-sm text-gray-600 mb-1">RISK LEVEL</p>
+                      <p className="text-sm text-gray-600 mb-2">SEISMIC RISK</p>
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
@@ -232,133 +186,91 @@ export default function AppleSeismicPageTabbed() {
                             style={{ width: `${region.risk}%` }}
                           />
                         </div>
-                        <p className="text-lg font-semibold text-red-600 w-12">{region.risk}</p>
+                        <span className="text-lg font-semibold text-red-600 w-12">{region.risk}</span>
                       </div>
                     </div>
-
                     <div className="text-center">
-                      <p className="text-sm text-gray-600 mb-1">RECENT EVENTS</p>
-                      <p className="text-3xl font-light text-gray-900">{region.events}</p>
+                      <p className="text-sm text-gray-600 mb-1">EVENTS</p>
+                      <p className="text-2xl font-light text-gray-900">{region.events}</p>
                     </div>
-
                     <div className="text-center">
                       <p className="text-sm text-gray-600 mb-1">POPULATION</p>
-                      <p className="text-xl font-semibold text-gray-900">
-                        {(region.population / 1000000).toFixed(1)}M
-                      </p>
+                      <p className="text-lg font-semibold">{(region.population / 1000000).toFixed(1)}M</p>
                     </div>
-
                     <div className="text-right">
-                      <ChevronRight className="text-gray-400 ml-auto" size={24} />
+                      <ChevronRight className="text-gray-400" size={24} />
                     </div>
                   </div>
-
-                  {/* Expanded view */}
-                  {selectedRegion?.id === region.id && (
-                    <div className="mt-6 pt-6 border-t border-red-200">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Latest Magnitude</p>
-                          <p className="text-2xl font-light text-red-600">6.2 M</p>
-                          <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Depth</p>
-                          <p className="text-2xl font-light">15 km</p>
-                          <p className="text-xs text-gray-500 mt-1">Below surface</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 font-medium mb-2">Aftershocks Expected</p>
-                          <p className="text-2xl font-light text-orange-600">12-18</p>
-                          <p className="text-xs text-gray-500 mt-1">Next 7 days</p>
-                        </div>
-                      </div>
-                      <button className="mt-6 w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
-                        View Detailed Analysis →
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
-            <h2 className="text-3xl font-light text-gray-900 mb-8">Risk Analysis</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Seismic Hazard Assessment</h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Mediterranean (Very High)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-5/5 h-full bg-red-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Alpine Region (High)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-orange-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Eastern Europe (Moderate)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-3/5 h-full bg-yellow-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Atlantic Ridge (Moderate)</p>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-2/5 h-full bg-green-500" />
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Regional Seismic Hazard</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Mediterranean (Very High)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-5/5 h-full bg-red-600" />
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Forecast Accuracy</h3>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">7-day Prediction Skill</p>
-                      <p className="text-sm font-semibold text-gray-900">72%</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-72/100 h-full bg-blue-600" />
-                    </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Alpine Region (High)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-4/5 h-full bg-orange-500" />
                   </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">Magnitude Estimation</p>
-                      <p className="text-sm font-semibold text-gray-900">±0.2</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-green-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <p className="text-sm text-gray-600">Location Accuracy</p>
-                      <p className="text-sm font-semibold text-gray-900">±5km</p>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="w-4/5 h-full bg-green-600" />
-                    </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Eastern Europe (Moderate)</p>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-3/5 h-full bg-yellow-500" />
                   </div>
                 </div>
               </div>
             </div>
-          </section>
-        )}
 
-        {/* Footer spacing */}
-        <div className="h-20" />
-      </div>
+            <div className="bg-white rounded-2xl border border-gray-200 p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Forecast Accuracy</h3>
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <p className="text-sm text-gray-600">7-day Prediction Skill</p>
+                    <p className="text-sm font-semibold">72%</p>
+                  </div>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-72/100 h-full bg-blue-600" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <p className="text-sm text-gray-600">Magnitude Estimation</p>
+                    <p className="text-sm font-semibold">±0.2</p>
+                  </div>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-4/5 h-full bg-green-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Full Map Section - Always Visible */}
+      <section className="py-20 px-6 max-w-7xl mx-auto w-full">
+        <h2 className="text-3xl font-light text-gray-900 mb-8">Real-time Seismic Risk Map</h2>
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
+          <EnhancedSeismicMap />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <div className="h-20" />
 
       <style>{`
         @keyframes float {
