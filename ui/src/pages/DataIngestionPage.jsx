@@ -4,6 +4,7 @@ import DataProcessor from '../services/DataProcessor'
 import PDFGenerator from '../services/PDFGenerator'
 import CSVParser from '../services/CSVParser'
 import TCFDReportGenerator from '../services/TCFDReportGenerator'
+import WorkflowResultsStorage from '../services/WorkflowResultsStorage'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -525,7 +526,7 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
       const duration = ((Date.now() - startTime) / 1000).toFixed(2)
       const executionId = Math.random().toString(36).substring(7).toUpperCase()
 
-      setResult({
+      const resultData = {
         success: true,
         executionId,
         modulesProcessed: selectedModules.length,
@@ -546,7 +547,12 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
           api: { endpoint: `/api/reports/${executionId}`, status: 'active' },
         },
         timestamp: new Date().toLocaleString(),
-      })
+      }
+
+      // Save results to browser storage for dashboard access
+      WorkflowResultsStorage.saveResults(resultData)
+
+      setResult(resultData)
     } catch (error) {
       setResult({
         success: false,
