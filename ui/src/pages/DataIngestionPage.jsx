@@ -3,6 +3,7 @@ import SimpleIcon from '../components/SimpleIcon'
 import DataProcessor from '../services/DataProcessor'
 import PDFGenerator from '../services/PDFGenerator'
 import CSVParser from '../services/CSVParser'
+import TCFDReportGenerator from '../services/TCFDReportGenerator'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -249,7 +250,9 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
         filename += 'json'
         mimeType = 'application/json'
       } else if (format === 'pdf') {
-        // Generate properly formatted HTML/PDF
+        // Generate complete TCFD report with all 11 disclosures
+        const tcfdReport = TCFDReportGenerator.generateTCFDReport(bd, pd, emissionsData)
+
         const sections = [
           {
             title: 'Executive Summary',
@@ -259,10 +262,50 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
               'Total Assets': `€${bd.totalAssets}M`,
               'Asset Count': bd.assetCount,
               'Report Date': new Date().toLocaleString(),
-              'Modules Processed': selectedModules.join(', ')
+              'Report Type': 'TCFD Complete Disclosure'
             }
           }
         ]
+
+        // Add GOVERNANCE pillar (Disclosures 1-2)
+        if (tcfdReport.governance && tcfdReport.governance.disclosures) {
+          tcfdReport.governance.disclosures.forEach(disclosure => {
+            sections.push({
+              title: `GOVERNANCE - Disclosure ${disclosure.number}: ${disclosure.title}`,
+              content: disclosure.content
+            })
+          })
+        }
+
+        // Add STRATEGY pillar (Disclosures 3a-3c)
+        if (tcfdReport.strategy && tcfdReport.strategy.disclosures) {
+          tcfdReport.strategy.disclosures.forEach(disclosure => {
+            sections.push({
+              title: `STRATEGY - Disclosure ${disclosure.number}: ${disclosure.title}`,
+              content: disclosure.content
+            })
+          })
+        }
+
+        // Add RISK MANAGEMENT pillar (Disclosures 4-5)
+        if (tcfdReport.riskManagement && tcfdReport.riskManagement.disclosures) {
+          tcfdReport.riskManagement.disclosures.forEach(disclosure => {
+            sections.push({
+              title: `RISK MANAGEMENT - Disclosure ${disclosure.number}: ${disclosure.title}`,
+              content: disclosure.content
+            })
+          })
+        }
+
+        // Add METRICS & TARGETS pillar (Disclosures 7-8)
+        if (tcfdReport.metricsTargets && tcfdReport.metricsTargets.disclosures) {
+          tcfdReport.metricsTargets.disclosures.forEach(disclosure => {
+            sections.push({
+              title: `METRICS & TARGETS - Disclosure ${disclosure.number}: ${disclosure.title}`,
+              content: disclosure.content
+            })
+          })
+        }
 
         if (pd.scenarioImpact) {
           const scenarioData = Object.entries(pd.scenarioImpact.scenarios).map(([scenario, data]) => ({
@@ -345,7 +388,7 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
           })
         }
 
-        content = PDFGenerator.generateHTMLPDF('Regulatory Reporting Analysis', sections)
+        content = PDFGenerator.generateHTMLPDF('TCFD Complete Disclosure Report', sections)
         filename += 'html'
         mimeType = 'text/html'
       } else if (format === 'excel') {
