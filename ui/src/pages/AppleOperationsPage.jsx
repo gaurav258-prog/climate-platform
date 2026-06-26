@@ -81,10 +81,10 @@ export default function AppleOperationsPage() {
 
   const getStatusIcon = (status) => {
     switch(status) {
-      case 'active': return <Activity size={20} className="text-red-600 animate-pulse" />
-      case 'response': return <CheckCircle size={20} className="text-blue-600" />
+      case 'active': return <div><SimpleIcon type="bars" /></div>
+      case 'response': return <div><SimpleIcon type="check" /></div>
       case 'monitoring': return <Clock size={20} className="text-yellow-600" />
-      default: return <AlertCircle size={20} className="text-gray-600" />
+      default: return <div><SimpleIcon type="alert" /></div>
     }
   }
 

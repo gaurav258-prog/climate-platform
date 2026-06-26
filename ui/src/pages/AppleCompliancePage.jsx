@@ -158,7 +158,7 @@ export default function AppleCompliancePage() {
                   <div className="space-y-3">
                     {pkg.features.map((feature, i) => (
                       <div key={i} className="flex items-start gap-3">
-                        <CheckCircle size={16} className={`text-${pkg.color}-600 flex-shrink-0 mt-0.5`} />
+                        <div><SimpleIcon type="check" /></div>
                         <span className="text-sm text-gray-700 font-light">{feature}</span>
                       </div>
                     ))}
@@ -238,7 +238,7 @@ export default function AppleCompliancePage() {
                 <div className="space-y-3">
                   {selectedPackage.features.map((feature, i) => (
                     <div key={i} className="flex items-center gap-3 p-2">
-                      <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
+                      <div><SimpleIcon type="check" /></div>
                       <span className="text-gray-700 font-light">{feature}</span>
                     </div>
                   ))}

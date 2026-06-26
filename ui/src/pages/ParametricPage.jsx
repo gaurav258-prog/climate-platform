@@ -33,7 +33,7 @@ const TRIGGER_STYLES = {
     label:   'Monitoring',
   },
   clear: {
-    icon:    <CheckCircle size={12} strokeWidth={1.5} />,
+    icon:    <div><SimpleIcon type="check" /></div>,
     color:   'text-emerald-500',
     bg:      'bg-slate-900 border-slate-800',
     dot:     'bg-emerald-500',

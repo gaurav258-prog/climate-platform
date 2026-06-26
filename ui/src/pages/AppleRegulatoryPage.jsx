@@ -187,7 +187,7 @@ export default function AppleRegulatoryPage() {
 
           {error && (
             <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-2">
-              <AlertCircle size={16} />
+              <div><SimpleIcon type="alert" /></div>
               {error}
             </div>
           )}
@@ -203,7 +203,7 @@ export default function AppleRegulatoryPage() {
 
           {!loading && alerts.length === 0 && (
             <div className="text-center py-20">
-              <AlertCircle size={48} className="mx-auto text-gray-300 mb-4" />
+              <div><SimpleIcon type="alert" /></div>
               <p className="text-gray-500 text-lg">No alerts detected</p>
               <p className="text-gray-400">Regulatory changes will appear here</p>
             </div>

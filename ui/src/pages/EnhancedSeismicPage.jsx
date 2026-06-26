@@ -79,7 +79,7 @@ export default function EnhancedSeismicPage() {
 
             {/* Live status badge */}
             <div className="flex items-center gap-2 px-4 py-2 bg-red-900/20 border border-red-500/50 rounded-lg">
-              <Activity size={16} className="text-red-400 animate-pulse" />
+              <div><SimpleIcon type="bars" /></div>
               <span className="text-sm font-medium text-red-300">Live Feed Active</span>
             </div>
           </div>
@@ -87,14 +87,14 @@ export default function EnhancedSeismicPage() {
           {/* Real-time stats grid (like earth.nullschool.net info display) */}
           <div className="grid grid-cols-5 gap-3">
             <StatCard
-              icon={<AlertTriangle size={16} />}
+              icon={<div><SimpleIcon type="alert" /></div>}
               label="Total Events"
               value={stats.totalEvents}
               unit="(30d)"
               trend={Math.random() > 0.5 ? '↑' : '↓'}
             />
             <StatCard
-              icon={<TrendingUp size={16} />}
+              icon={<div><SimpleIcon type="trend" /></div>}
               label="Avg Magnitude"
               value={`M${stats.avgMagnitude}`}
               unit="ML scale"
@@ -250,7 +250,7 @@ export default function EnhancedSeismicPage() {
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center rounded-lg border border-slate-700 bg-gradient-to-br from-slate-900/50 to-blue-900/20 backdrop-blur-sm p-6">
-              <AlertTriangle size={48} className="text-slate-600 mb-3" />
+              <div><SimpleIcon type="alert" /></div>
               <p className="text-center text-slate-400 text-sm">
                 <span className="font-semibold block mb-1">Select an Earthquake Event</span>
                 <span>Click on a recent earthquake in the list to view detailed analysis</span>

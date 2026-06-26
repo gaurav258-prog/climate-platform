@@ -1,5 +1,18 @@
 import { useState } from 'react'
-import { BarChart3, TrendingDown, DollarSign, Activity } from 'lucide-react'
+
+const SimpleIcon = ({ type }) => {
+  const s = 'w-10 h-10 stroke-current stroke-1.5'
+  if (type === 'bars') return <svg className={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="3" height="9" /><rect x="10" y="6" width="3" height="15" /><rect x="17" y="3" width="3" height="18" /></svg>
+  if (type === 'check') return <svg className={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" /><path d="M7 12 L11 16 L17 8" /></svg>
+  if (type === 'trend') return <svg className={s} viewBox="0 0 24 24" fill="none"><path d="M3 21 L8 13 L13 16 L21 5" /></svg>
+  if (type === 'cal') return <svg className={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="1" /><line x1="3" y1="9" x2="21" y2="9" /></svg>
+  if (type === 'stack') return <svg className={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="4" /><rect x="3" y="9" width="18" height="4" /><rect x="3" y="15" width="18" height="4" /></svg>
+  if (type === 'compare') return <svg className={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="7" height="12" /><rect x="14" y="3" width="7" height="15" /></svg>
+  if (type === 'alert') return <svg className={s} viewBox="0 0 24 24" fill="none"><path d="M12 3 L21 18 H3 Z" /></svg>
+  if (type === 'file') return <svg className={s} viewBox="0 0 24 24" fill="none"><path d="M4 4 L4 20 Q4 21 5 21 L19 21 Q20 21 20 20 L20 9 L14 3 L5 3 Q4 3 4 4" /><line x1="14" y1="3" x2="14" y2="9" x2="20" y2="9" /></svg>
+  if (type === 'activity') return <svg className={s} viewBox="0 0 24 24" fill="none"><path d="M3 12 L8 7 L12 13 L18 5" /></svg>
+  return null
+}
 
 /**
  * Scenario Financial Impact Analysis
@@ -64,7 +77,7 @@ export default function ScenarioFinancialImpactPage() {
               <h1 className="text-4xl font-light text-gray-900 mb-2">Scenario Financial Impact</h1>
               <p className="text-gray-600">Calculate projected revenue impact, NPV, and stranded assets across climate scenarios</p>
             </div>
-            <BarChart3 className="text-blue-600" size={40} />
+            <div className="text-blue-600"><SimpleIcon type="bars" /></div>
           </div>
         </div>
       </section>
@@ -99,7 +112,7 @@ export default function ScenarioFinancialImpactPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Revenue Impact (%)</h3>
-              <TrendingDown className="text-red-600" size={24} />
+              <div><SimpleIcon type="trend" /></div>
             </div>
             <div className="space-y-4">
               {timeHorizons.map((year, idx) => (
@@ -123,7 +136,7 @@ export default function ScenarioFinancialImpactPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">NPV (€M)</h3>
-              <DollarSign className="text-blue-600" size={24} />
+              <div><SimpleIcon type="bars" /></div>
             </div>
             <div className="space-y-4">
               {timeHorizons.map((year, idx) => (
@@ -147,7 +160,7 @@ export default function ScenarioFinancialImpactPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Stranded Assets (€M)</h3>
-              <Activity className="text-orange-600" size={24} />
+              <div><SimpleIcon type="bars" /></div>
             </div>
             <div className="space-y-4">
               {timeHorizons.map((year, idx) => (

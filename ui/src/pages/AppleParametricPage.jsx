@@ -153,7 +153,7 @@ export default function AppleParametricPage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <TrendingUp size={16} className="text-green-600" />
+                      <div><SimpleIcon type="trend" /></div>
                       <span className="text-sm font-light text-green-700">ROI: {contract.roi}</span>
                     </div>
                     <span className="text-sm font-light text-gray-500">Click to edit →</span>
