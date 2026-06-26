@@ -56,13 +56,20 @@ export default function DataIngestionPage() {
   }
 
   const downloadCSV = (filename, content) => {
-    const element = document.createElement('a')
-    element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(content))
-    element.setAttribute('download', filename)
-    element.style.display = 'none'
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
+    try {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', filename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Error downloading file: ${error.message}`)
+    }
   }
 
   const portfolioAssetCSV = `Asset_ID,Asset_Name,Asset_Type,Sector,Region,Exposure_EUR_M,Annual_Revenue_EUR_M,Climate_Risk_Score,Materiality_Score,Description
