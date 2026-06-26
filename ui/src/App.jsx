@@ -19,6 +19,7 @@ import AppleOperationsPage from './pages/AppleOperationsPage'
 import SeismicPage from './pages/SeismicPage'
 import EnhancedSeismicPage from './pages/EnhancedSeismicPage'
 import AppleSeismicPage from './pages/AppleSeismicPage'
+import AppleSeismicPageTabbed from './pages/AppleSeismicPageTabbed'
 import AppleFloodPage from './pages/AppleFloodPage'
 import AppleWildfirePage from './pages/AppleWildfirePage'
 import AppleHeatPage from './pages/AppleHeatPage'
@@ -97,7 +98,7 @@ export default function App() {
           ) : view === 'map' && hazard === 'heat' ? (
             <AppleHeatPage />
           ) : view === 'map' && hazard === 'seismic' ? (
-            <AppleSeismicPage />
+            <AppleSeismicPageTabbed />
           ) : view === 'operations' ? (
             <AppleOperationsPage />
           ) : view === 'parametric' ? (
