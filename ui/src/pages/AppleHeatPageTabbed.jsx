@@ -43,29 +43,27 @@ export default function AppleHeatPageTabbed() {
 
   return (
     <div className="w-full overflow-y-auto bg-white">
-      {/* Animated Background (Fixed) */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
+      {/* Video Background */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            filter: 'brightness(0.9) saturate(1.4) hue-rotate(20deg)'
+          }}
+        >
+          <source src="/videos/heat-background.mp4" type="video/mp4" />
+          <source src="/videos/heat-background.webm" type="video/webm" />
+        </video>
+        {/* Overlay for gradient effect */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'radial-gradient(circle at 20% 50%, rgba(251, 191, 36, 0.08), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.06), transparent 50%)',
-            animation: 'float 12s ease-in-out infinite'
+            background: 'radial-gradient(circle at 20% 50%, rgba(251, 191, 36, 0.15), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.1), transparent 50%)'
           }}
         />
-        <svg className="absolute inset-0 w-full h-full opacity-5" viewBox="0 0 1200 600">
-          <defs>
-            <pattern id="heat" patternUnits="userSpaceOnUse" width="100" height="100">
-              <path
-                d="M0,50 Q25,35 50,50 T100,50"
-                stroke="#fbbf24"
-                strokeWidth="2"
-                fill="none"
-                opacity="0.3"
-              />
-            </pattern>
-          </defs>
-          <rect width="1200" height="600" fill="url(#heat)" />
-        </svg>
       </div>
 
       {/* Hero Section */}
