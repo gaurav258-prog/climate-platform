@@ -120,6 +120,36 @@ export default function DataIngestionPage() {
         </div>
       </section>
 
+      {/* Template Download Section */}
+      <section className="bg-blue-50 border-b border-blue-200 py-8 px-6">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl font-light text-gray-900 mb-4">📥 Download Data Templates</h2>
+          <p className="text-gray-600 mb-6">Download these CSV templates, edit with your bank's data, and upload back for processing.</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <a href="/data-templates/portfolio_assets.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <p className="font-semibold text-gray-900 mb-2">📊 Portfolio Assets</p>
+              <p className="text-xs text-gray-600 mb-3">Your asset portfolio with climate risk scores</p>
+              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </a>
+            <a href="/data-templates/ghg_emissions.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <p className="font-semibold text-gray-900 mb-2">🌱 GHG Emissions</p>
+              <p className="text-xs text-gray-600 mb-3">Scope 1, 2, 3 emissions by asset</p>
+              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </a>
+            <a href="/data-templates/climate_scenarios.csv" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <p className="font-semibold text-gray-900 mb-2">🌍 Climate Scenarios</p>
+              <p className="text-xs text-gray-600 mb-3">1.5°C, 2°C, 4°C scenarios with assumptions</p>
+              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+            </a>
+            <a href="/data-templates/README.md" download className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
+              <p className="font-semibold text-gray-900 mb-2">📋 Documentation</p>
+              <p className="text-xs text-gray-600 mb-3">How to use templates & field descriptions</p>
+              <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download Guide</button>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Main Content */}
       <section className="py-12 px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
