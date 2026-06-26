@@ -24,6 +24,7 @@ import AppleFloodPageTabbed from './pages/AppleFloodPageTabbed'
 import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
 import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
 import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
+import RegulatoryReportingHome from './pages/RegulatoryReportingHome'
 import RiskMapHome from './pages/RiskMapHome'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
@@ -31,10 +32,11 @@ import { ACTION_TEMPLATES } from './mockRegions'
 const POLICIES_COUNT = 5 // matches ParametricPage
 
 export default function App() {
-  const [view, setView]         = useState('dashboard')
-  const [hazard, setHazard]     = useState(null)
-  const [dayIndex, setDayIndex] = useState(10)
-  const [selected, setSelected] = useState(null)
+  const [view, setView]                = useState('dashboard')
+  const [hazard, setHazard]            = useState(null)
+  const [regulatoryModule, setRegulatoryModule] = useState(null)
+  const [dayIndex, setDayIndex]        = useState(10)
+  const [selected, setSelected]        = useState(null)
 
   const dates  = useMemo(() => hazard ? getDates(hazard) : [], [hazard])
   const scores = useMemo(() => hazard ? generateMockScores(hazard, dayIndex) : [], [hazard, dayIndex])
@@ -109,7 +111,11 @@ export default function App() {
           ) : view === 'parametric' ? (
             <AppleParametricPage />
           ) : view === 'regulatory' ? (
-            <AppleRegulatoryPage />
+            regulatoryModule ? (
+              <AppleRegulatoryPage />
+            ) : (
+              <RegulatoryReportingHome onModuleSelect={m => setRegulatoryModule(m)} />
+            )
           ) : (
             <AppleCompliancePage />
           )}
