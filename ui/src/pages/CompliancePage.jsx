@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { latLngToCell } from 'h3-js'
 import { FileText, CheckCircle, Clock, Download, ChevronRight, AlertTriangle } from 'lucide-react'
+import SimpleIcon from '../components/SimpleIcon'
 import { MOCK_ASSETS, formatEur } from '../mockAssets'
 import { generateMockScores } from '../mockData'
 
