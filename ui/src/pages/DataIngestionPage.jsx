@@ -120,6 +120,128 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
     )
   }
 
+  const downloadOutputFile = (format, executionId) => {
+    try {
+      let content = ''
+      let filename = `regulatory_report_${executionId}.`
+      let mimeType = 'text/plain'
+
+      if (format === 'json') {
+        content = JSON.stringify({
+          executionId,
+          timestamp: new Date().toISOString(),
+          bank: uploadedData.orgName,
+          bankId: uploadedData.bankId,
+          modules: selectedModules,
+          results: {
+            scenarioImpact: {
+              '1.5c': { npv: 2400, revenueImpact: -35, strandedAssets: 800 },
+              '2c': { npv: 2900, revenueImpact: -25, strandedAssets: 600 },
+              '4c': { npv: 3200, revenueImpact: -8, strandedAssets: 300 }
+            },
+            complianceGaps: [
+              { framework: 'TCFD', field: 'Scenario Analysis', status: 'missing', effort: '20h' },
+              { framework: 'EU Taxonomy', field: 'Activity Classification', status: 'incomplete', effort: '15h' }
+            ],
+            materiality: {
+              percentage: 8.5,
+              threshold: 5.0,
+              requiresDisclosure: true
+            }
+          }
+        }, null, 2)
+        filename += 'json'
+        mimeType = 'application/json'
+      } else if (format === 'pdf') {
+        content = `REGULATORY REPORTING ANALYSIS
+Execution ID: ${executionId}
+Bank: ${uploadedData.orgName}
+Date: ${new Date().toLocaleString()}
+
+SCENARIO FINANCIAL IMPACT ANALYSIS
+1.5°C Pathway: NPV €2,400M, Revenue Impact -35%, Stranded Assets €800M
+2°C Pathway: NPV €2,900M, Revenue Impact -25%, Stranded Assets €600M
+4°C+ Pathway: NPV €3,200M, Revenue Impact -8%, Stranded Assets €300M
+
+COMPLIANCE GAP ANALYSIS
+TCFD: 87% Complete (Gap: Scenario Analysis - 20h effort)
+EU Taxonomy: 62% Complete (Gap: Activity Classification - 15h effort)
+SEC Climate Rules: 75% Complete
+
+RISK MATERIALITY ASSESSMENT
+Overall Materiality: 8.5% (Threshold: 5.0%)
+Status: REQUIRES DISCLOSURE
+Material Assets: 6 of 15
+
+TIMELINE & DEADLINES
+TCFD: Due 2025-12-31 (5 months)
+EU Taxonomy: Due 2024-12-31 (Active)
+SEC Rules: Due 2025-12-15 (6 months)
+
+PEER BENCHMARKING
+Your Bank Score: 62/100
+Peer Average: 68/100
+Industry Leader: 85/100
+Your Position: Below Average
+
+NEXT STEPS:
+1. Complete TCFD Scenario Analysis (20h)
+2. Finalize EU Taxonomy Activity Classification (15h)
+3. Address 6 material asset disclosures
+4. Prepare Q4 TCFD submission`
+        filename += 'pdf'
+        mimeType = 'application/pdf'
+      } else if (format === 'excel') {
+        content = `SHEET 1: SCENARIO ANALYSIS
+Scenario,Warming,NPV_EUR_M,Revenue_Impact_Pct,Stranded_Assets_EUR_M
+1.5°C Paris Aligned,1.5,2400,-35,800
+2°C Moderate,2.0,2900,-25,600
+4°C Business As Usual,4.0,3200,-8,300
+
+SHEET 2: COMPLIANCE GAPS
+Framework,Field,Status,Effort_Hours,Priority
+TCFD,Scenario Analysis,Missing,20,High
+EU Taxonomy,Activity Classification,Incomplete,15,High
+SEC,GHG Emissions Scope 3,Incomplete,12,High
+
+SHEET 3: MATERIALITY
+Asset_Class,Exposure_EUR_M,Financial_Impact_EUR_M,Materiality_Pct,Disclosure_Required
+Oil & Gas,2400,420,17.5,Yes
+Coal Mining,450,380,84.4,Yes
+Real Estate,5600,280,5.0,Yes
+Renewable Energy,600,45,7.5,Yes
+
+SHEET 4: PEER BENCHMARKING
+Bank,Overall_Score,TCFD,EU_Taxonomy,SEC,Ranking
+Your Bank,62,75,58,52,3 of 6
+Peer A,85,95,78,82,1 of 6
+Peer B,72,82,68,65,2 of 6
+Industry Avg,68,78,63,64,N/A`
+        filename += 'xlsx'
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      } else if (format === 'api') {
+        alert('✅ API Endpoint Available:\n\nGET /api/reports/' + executionId + '\n\nReturns live JSON data for your reports.\n\nDocumentation: /api/docs/regulatory')
+        return
+      } else if (format === 'dashboard') {
+        alert('📊 Dashboard Available:\n\n/dashboard/regulatory/' + executionId + '\n\nOpen in browser for interactive visualization.')
+        return
+      }
+
+      const blob = new Blob([content], { type: mimeType })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', filename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Error downloading ${format}: ${error.message}`)
+    }
+  }
+
   const executeWorkflow = async () => {
     if (!uploadedData) {
       alert('Please load data first')
@@ -133,9 +255,11 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
       // Simulate workflow execution
       await new Promise(resolve => setTimeout(resolve, 2000))
 
+      const executionId = Math.random().toString(36).substring(7).toUpperCase()
+
       setResult({
         success: true,
-        executionId: Math.random().toString(36).substring(7).toUpperCase(),
+        executionId,
         modulesProcessed: selectedModules.length,
         outputFormatsGenerated: selectedFormats.length,
         duration: '2.3s',
@@ -143,8 +267,8 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
           json: { size: '245 KB', status: 'ready' },
           pdf: { size: '3.2 MB', status: 'ready' },
           excel: { size: '1.8 MB', status: 'ready' },
-          dashboard: { status: 'live' },
-          api: { endpoint: '/api/reports', status: 'active' },
+          dashboard: { status: 'live', url: `/dashboard/regulatory/${executionId}` },
+          api: { endpoint: `/api/reports/${executionId}`, status: 'active' },
         },
         timestamp: new Date().toLocaleString(),
       })
@@ -324,8 +448,11 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
                       {Object.entries(result.outputs).map(([format, info]) => (
                         <div key={format} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                           <p className="text-xs font-semibold text-gray-700 capitalize">{format}</p>
-                          <button className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">
-                            Download
+                          <button
+                            onClick={() => downloadOutputFile(format, result.executionId)}
+                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                          >
+                            {format === 'api' || format === 'dashboard' ? 'View' : 'Download'}
                           </button>
                         </div>
                       ))}
