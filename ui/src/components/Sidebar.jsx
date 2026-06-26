@@ -64,7 +64,7 @@ export default function Sidebar({
         <NavItem id="compliance" active={activeView === 'compliance'} onClick={nav('compliance')}
           icon={<FileText size={18} strokeWidth={1.5} />} label="Packages" />
         <NavItem id="regulatory" active={activeView === 'regulatory'} onClick={nav('regulatory')}
-          icon={<AlertCircle size={18} strokeWidth={1.5} />} label="Regulatory Alerts" />
+          icon={<AlertCircle size={18} strokeWidth={1.5} />} label="Regulatory Reporting for Banks" />
       </Section>
 
       {/* Analytics (placeholder) */}
