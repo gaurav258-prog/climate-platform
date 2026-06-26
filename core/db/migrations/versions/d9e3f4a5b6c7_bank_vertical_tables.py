@@ -76,29 +76,32 @@ VIEWS = [
 ]
 
 SEED = [
+    # PKs supplied via gen_random_uuid(): the ORM UUID PKs use a Python-side
+    # default (default=uuid.uuid4), which does not apply to raw SQL inserts, so
+    # the seed must generate the id itself.
     """
     INSERT INTO climate_scenarios
-      (scenario_name, pathway, temperature_increase_celsius,
+      (scenario_id, scenario_name, pathway, temperature_increase_celsius,
        carbon_price_eur_per_ton_2030, carbon_price_eur_per_ton_2050,
        renewable_energy_cost_decline_pct_2030, baseline_year, short_term_year,
        medium_term_year, long_term_year, scenario_source)
     VALUES
-      ('Paris Agreement (1.5°C)', '1.5c', 1.5, 150, 200, 45, 2024, 2030, 2040, 2050, 'IPCC SSP1-2.6'),
-      ('Moderate Pathway (2°C)',  '2c',  2.0,  80, 120, 35, 2024, 2030, 2040, 2050, 'IPCC SSP2-4.5'),
-      ('Business-As-Usual (4°C)', '4c',  4.0,  20,  50, 15, 2024, 2030, 2040, 2050, 'IPCC SSP5-8.5')
+      (gen_random_uuid(), 'Paris Agreement (1.5°C)', '1.5c', 1.5, 150, 200, 45, 2024, 2030, 2040, 2050, 'IPCC SSP1-2.6'),
+      (gen_random_uuid(), 'Moderate Pathway (2°C)',  '2c',  2.0,  80, 120, 35, 2024, 2030, 2040, 2050, 'IPCC SSP2-4.5'),
+      (gen_random_uuid(), 'Business-As-Usual (4°C)', '4c',  4.0,  20,  50, 15, 2024, 2030, 2040, 2050, 'IPCC SSP5-8.5')
     ON CONFLICT DO NOTHING;
     """,
     """
     INSERT INTO regulatory_frameworks
-      (framework_name, framework_region, mandatory_effective_date,
+      (framework_id, framework_name, framework_region, mandatory_effective_date,
        enforcing_body, reporting_format, reporting_frequency)
     VALUES
-      ('TCFD', 'Global', '2025-01-01', 'National regulators', 'Narrative + Quantitative', 'Annual'),
-      ('EU Taxonomy', 'EU', '2024-01-01', 'European Commission', 'XBRL/iXBRL', 'Annual'),
-      ('SEC Climate Disclosure', 'US', '2026-01-01', 'SEC', 'Form 10-K', 'Annual'),
-      ('Basel III Climate', 'Global', '2027-01-01', 'Basel Committee', 'Stress Test', 'Annual'),
-      ('EBA/ECB Guidelines', 'EU', '2026-01-11', 'ECB', 'Regulatory Report', 'Annual'),
-      ('UK FCA Climate', 'UK', '2024-06-30', 'FCA', 'Climate Disclosure', 'Annual')
+      (gen_random_uuid(), 'TCFD', 'Global', '2025-01-01', 'National regulators', 'Narrative + Quantitative', 'Annual'),
+      (gen_random_uuid(), 'EU Taxonomy', 'EU', '2024-01-01', 'European Commission', 'XBRL/iXBRL', 'Annual'),
+      (gen_random_uuid(), 'SEC Climate Disclosure', 'US', '2026-01-01', 'SEC', 'Form 10-K', 'Annual'),
+      (gen_random_uuid(), 'Basel III Climate', 'Global', '2027-01-01', 'Basel Committee', 'Stress Test', 'Annual'),
+      (gen_random_uuid(), 'EBA/ECB Guidelines', 'EU', '2026-01-11', 'ECB', 'Regulatory Report', 'Annual'),
+      (gen_random_uuid(), 'UK FCA Climate', 'UK', '2024-06-30', 'FCA', 'Climate Disclosure', 'Annual')
     ON CONFLICT DO NOTHING;
     """,
 ]
