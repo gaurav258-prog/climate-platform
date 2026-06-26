@@ -42,7 +42,7 @@ export default function AppleFloodPageTabbed() {
   ]
 
   return (
-    <div className="w-full overflow-y-auto bg-white">
+    <div className="w-full h-screen overflow-y-auto bg-white">
       {/* Animated Gradient Background */}
       <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-br from-blue-900 via-blue-700 to-cyan-500" />
       <div className="fixed inset-0 pointer-events-none -z-10">

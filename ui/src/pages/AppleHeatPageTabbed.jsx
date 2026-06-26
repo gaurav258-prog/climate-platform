@@ -42,7 +42,7 @@ export default function AppleHeatPageTabbed() {
   ]
 
   return (
-    <div className="w-full overflow-y-auto bg-white">
+    <div className="w-full h-screen overflow-y-auto bg-white">
       {/* Animated Gradient Background */}
       <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-br from-yellow-900 via-yellow-700 to-orange-500" />
       <div className="fixed inset-0 pointer-events-none -z-10">
