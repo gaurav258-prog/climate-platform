@@ -1,0 +1,121 @@
+# Scoring CronJob — runs the risk scoring engine daily at 06:00 UTC for each hazard.
+# Results land in canonical_scores and are immediately queryable via the API.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scorer-flood
+  namespace: climate-platform
+spec:
+  schedule: "0 6 * * *"          # 06:00 UTC daily
+  concurrencyPolicy: Forbid       # don't overlap — scoring is single-writer
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: scorer
+              image: ghcr.io/OWNER/climate-platform-worker:latest  # replaced by CI
+              imagePullPolicy: Always
+              command:
+                - python
+                - scripts/run_scoring_engine.py
+                - --hazard
+                - flood
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+                - name: H3_RESOLUTION
+                  value: "8"
+              resources:
+                requests:
+                  cpu:    "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu:    "2000m"
+                  memory: "4Gi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scorer-wildfire
+  namespace: climate-platform
+spec:
+  schedule: "30 6 * * *"         # 06:30 UTC daily (30 min after flood)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: scorer
+              image: ghcr.io/OWNER/climate-platform-worker:latest
+              imagePullPolicy: Always
+              command:
+                - python
+                - scripts/run_scoring_engine.py
+                - --hazard
+                - wildfire
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+                - name: H3_RESOLUTION
+                  value: "8"
+              resources:
+                requests:
+                  cpu:    "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu:    "2000m"
+                  memory: "4Gi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scorer-heat
+  namespace: climate-platform
+spec:
+  schedule: "0 7 * * *"          # 07:00 UTC daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: scorer
+              image: ghcr.io/OWNER/climate-platform-worker:latest
+              imagePullPolicy: Always
+              command:
+                - python
+                - scripts/run_scoring_engine.py
+                - --hazard
+                - heat_acute
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+                - name: H3_RESOLUTION
+                  value: "8"
+              resources:
+                requests:
+                  cpu:    "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu:    "2000m"
+                  memory: "4Gi"

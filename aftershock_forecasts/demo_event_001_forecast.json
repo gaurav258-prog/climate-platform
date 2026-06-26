@@ -1,0 +1,515 @@
+{
+  "mainshock_event_id": "demo_event_001",
+  "mainshock_magnitude": 6.5,
+  "mainshock_time": "2026-06-25T20:57:08.700152+00:00",
+  "forecast_issued_at": "2026-06-25T20:57:10.037124+00:00",
+  "forecast_windows": [
+    {
+      "window": "24h",
+      "start_time": "2026-06-25T20:57:08.700152+00:00",
+      "end_time": "2026-06-26T20:57:08.700152+00:00",
+      "probability": 0.02976166270673275,
+      "expected_magnitude_range": [
+        4.5,
+        6.5
+      ],
+      "expected_aftershock_count": 0,
+      "most_probable_region": {
+        "latitude": 45.0,
+        "longitude": 15.0,
+        "radius_km": 1581138.8300841898
+      },
+      "forecast_grid": [
+        {
+          "latitude": -14199.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.0
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.0
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -14229.49,
+          "distance_km": 1581138.8,
+          "probability": 0.0
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -7107.25,
+          "distance_km": 790569.4,
+          "probability": 0.0
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 15.0,
+          "distance_km": 0.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 7137.25,
+          "distance_km": 790569.4,
+          "probability": 0.0
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 14259.49,
+          "distance_km": 1581138.8,
+          "probability": 0.0
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.0
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.0
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.0
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.0
+        }
+      ],
+      "confidence_level": "CSEP-validated (R\u00b2=0.66)"
+    },
+    {
+      "window": "72h",
+      "start_time": "2026-06-25T20:57:08.700152+00:00",
+      "end_time": "2026-06-28T20:57:08.700152+00:00",
+      "probability": 0.04283267632126808,
+      "expected_magnitude_range": [
+        4.5,
+        6.5
+      ],
+      "expected_aftershock_count": 4,
+      "most_probable_region": {
+        "latitude": 45.0,
+        "longitude": 15.0,
+        "radius_km": 1581138.8300841898
+      },
+      "forecast_grid": [
+        {
+          "latitude": -14199.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.03889867750947427
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.058860710587430774
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.03889867750947427
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.07889099062323837
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.09704490555402134
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.07889099062323837
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -14229.49,
+          "distance_km": 1581138.8,
+          "probability": 0.058860710587430774
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -7107.25,
+          "distance_km": 790569.4,
+          "probability": 0.09704490555402134
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 15.0,
+          "distance_km": 0.0,
+          "probability": 0.16
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 7137.25,
+          "distance_km": 790569.4,
+          "probability": 0.09704490555402134
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 14259.49,
+          "distance_km": 1581138.8,
+          "probability": 0.058860710587430774
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.07889099062323837
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.09704490555402134
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.07889099062323837
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.03889867750947427
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.058860710587430774
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.05230750325628128
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.03889867750947427
+        }
+      ],
+      "confidence_level": "CSEP-validated (R\u00b2=0.66)"
+    },
+    {
+      "window": "7d",
+      "start_time": "2026-06-25T20:57:08.700152+00:00",
+      "end_time": "2026-07-02T20:57:08.700152+00:00",
+      "probability": 0.05067826062440872,
+      "expected_magnitude_range": [
+        4.5,
+        6.5
+      ],
+      "expected_aftershock_count": 11,
+      "most_probable_region": {
+        "latitude": 45.0,
+        "longitude": 15.0,
+        "radius_km": 1581138.8300841898
+      },
+      "forecast_grid": [
+        {
+          "latitude": -14199.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.10697136315105425
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.1618669541154346
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": -14199.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.10697136315105425
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.2169502242139055
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.2668734902735587
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.2169502242139055
+        },
+        {
+          "latitude": -7077.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -14229.49,
+          "distance_km": 1581138.8,
+          "probability": 0.1618669541154346
+        },
+        {
+          "latitude": 45.0,
+          "longitude": -7107.25,
+          "distance_km": 790569.4,
+          "probability": 0.2668734902735587
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 15.0,
+          "distance_km": 0.0,
+          "probability": 0.44
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 7137.25,
+          "distance_km": 790569.4,
+          "probability": 0.2668734902735587
+        },
+        {
+          "latitude": 45.0,
+          "longitude": 14259.49,
+          "distance_km": 1581138.8,
+          "probability": 0.1618669541154346
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -14229.49,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": -7107.25,
+          "distance_km": 1118034.0,
+          "probability": 0.2169502242139055
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 15.0,
+          "distance_km": 790569.4,
+          "probability": 0.2668734902735587
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 7137.25,
+          "distance_km": 1118034.0,
+          "probability": 0.2169502242139055
+        },
+        {
+          "latitude": 7167.25,
+          "longitude": 14259.49,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -14229.49,
+          "distance_km": 2236068.0,
+          "probability": 0.10697136315105425
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": -7107.25,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 15.0,
+          "distance_km": 1581138.8,
+          "probability": 0.1618669541154346
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 7137.25,
+          "distance_km": 1767767.0,
+          "probability": 0.1438456339547735
+        },
+        {
+          "latitude": 14289.49,
+          "longitude": 14259.49,
+          "distance_km": 2236068.0,
+          "probability": 0.10697136315105425
+        }
+      ],
+      "confidence_level": "CSEP-validated (R\u00b2=0.66)"
+    }
+  ]
+}

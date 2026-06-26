@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "investor-brief",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "7891", "--directory", "docs"],
+      "port": 7891
+    }
+  ]
+}

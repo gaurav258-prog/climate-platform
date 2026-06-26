@@ -1,0 +1,72 @@
+version: "3.9"
+
+# Production compose — uses external managed Postgres + MLflow.
+# Override with a .env.prod file or inject secrets via CI.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+
+x-common-env: &common-env
+  DATABASE_URL:          ${DATABASE_URL}
+  MLFLOW_TRACKING_URI:   ${MLFLOW_TRACKING_URI:-http://mlflow:5001}
+  H3_RESOLUTION:         ${H3_RESOLUTION:-8}
+  APP_ENV:               production
+  LOG_LEVEL:             ${LOG_LEVEL:-INFO}
+  FIRMS_API_KEY:         ${FIRMS_API_KEY}
+  COPERNICUS_USER:       ${COPERNICUS_USER}
+  COPERNICUS_PASSWORD:   ${COPERNICUS_PASSWORD}
+
+services:
+
+  # ── API (FastAPI + uvicorn) ──────────────────────────────────────────
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: api
+    image: climate-platform-api:${IMAGE_TAG:-latest}
+    environment:
+      <<: *common-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Scoring worker (runs on schedule via cron / k8s CronJob) ────────
+  scorer:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      target: worker
+    image: climate-platform-worker:${IMAGE_TAG:-latest}
+    environment:
+      <<: *common-env
+      SCORING_HAZARD:   ${SCORING_HAZARD:-flood}
+      SCORING_DATE:     ${SCORING_DATE:-}       # blank = today
+    restart: "no"
+
+  # ── MLflow tracking (self-hosted; swap for Databricks / W&B in prod) ─
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /mlflow
+    command: >
+      sh -c "pip install mlflow psycopg2-binary --quiet &&
+             mlflow server
+               --host 0.0.0.0
+               --port 5001
+               --backend-store-uri ${MLFLOW_BACKEND_URI:-sqlite:///mlflow.db}
+               --default-artifact-root ${MLFLOW_ARTIFACT_ROOT:-/mlflow/artifacts}"
+    ports:
+      - "5001:5001"
+    volumes:
+      - mlflow_data:/mlflow
+    restart: unless-stopped
+
+volumes:
+  mlflow_data:
