@@ -419,8 +419,8 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
         }
 
         content = excelContent
-        filename += 'xlsx'
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        filename += 'csv'
+        mimeType = 'text/csv;charset=utf-8;'
       } else if (format === 'api') {
         alert('✅ API Endpoint Available:\n\nGET /api/reports/' + executionId + '\n\nYour processed data is available at this endpoint.\n\nDocumentation: /api/docs/regulatory')
         return
