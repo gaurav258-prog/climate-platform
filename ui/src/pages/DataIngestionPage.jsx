@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
+import DataProcessor from '../services/DataProcessor'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -122,108 +123,117 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
 
   const downloadOutputFile = (format, executionId) => {
     try {
+      if (!result || !result.processedData) {
+        alert('No processed data available. Please execute workflows first.')
+        return
+      }
+
       let content = ''
       let filename = `regulatory_report_${executionId}.`
       let mimeType = 'text/plain'
+
+      const pd = result.processedData // processed data
+      const bd = result.bankData // bank data
 
       if (format === 'json') {
         content = JSON.stringify({
           executionId,
           timestamp: new Date().toISOString(),
-          bank: uploadedData.orgName,
-          bankId: uploadedData.bankId,
-          modules: selectedModules,
-          results: {
-            scenarioImpact: {
-              '1.5c': { npv: 2400, revenueImpact: -35, strandedAssets: 800 },
-              '2c': { npv: 2900, revenueImpact: -25, strandedAssets: 600 },
-              '4c': { npv: 3200, revenueImpact: -8, strandedAssets: 300 }
-            },
-            complianceGaps: [
-              { framework: 'TCFD', field: 'Scenario Analysis', status: 'missing', effort: '20h' },
-              { framework: 'EU Taxonomy', field: 'Activity Classification', status: 'incomplete', effort: '15h' }
-            ],
-            materiality: {
-              percentage: 8.5,
-              threshold: 5.0,
-              requiresDisclosure: true
-            }
-          }
+          bank: bd.orgName,
+          bankId: bd.bankId,
+          totalAssetsEUR_M: bd.totalAssets,
+          assetCount: bd.assetCount,
+          modulesProcessed: selectedModules,
+          results: pd
         }, null, 2)
         filename += 'json'
         mimeType = 'application/json'
       } else if (format === 'pdf') {
-        content = `REGULATORY REPORTING ANALYSIS
+        let pdfContent = `REGULATORY REPORTING ANALYSIS
 Execution ID: ${executionId}
-Bank: ${uploadedData.orgName}
+Bank: ${bd.orgName}
+Total Assets: €${bd.totalAssets}M | Assets: ${bd.assetCount}
 Date: ${new Date().toLocaleString()}
+================================================================================\n\n`
 
-SCENARIO FINANCIAL IMPACT ANALYSIS
-1.5°C Pathway: NPV €2,400M, Revenue Impact -35%, Stranded Assets €800M
-2°C Pathway: NPV €2,900M, Revenue Impact -25%, Stranded Assets €600M
-4°C+ Pathway: NPV €3,200M, Revenue Impact -8%, Stranded Assets €300M
+        if (pd.scenarioImpact) {
+          pdfContent += `SCENARIO FINANCIAL IMPACT ANALYSIS\n`
+          Object.entries(pd.scenarioImpact.scenarios).forEach(([scenario, data]) => {
+            pdfContent += `${scenario}:\n`
+            pdfContent += `  • NPV: €${data.npvEUR_M}M\n`
+            pdfContent += `  • Revenue Impact: ${data.revenueImpactPercent}%\n`
+            pdfContent += `  • Stranded Assets Risk: €${data.strandedAssetsEUR_M}M\n`
+            pdfContent += `  • Transition Risk: ${data.transitionRisk}\n`
+            pdfContent += `  • Physical Risk: ${data.physicalRisk}\n\n`
+          })
+        }
 
-COMPLIANCE GAP ANALYSIS
-TCFD: 87% Complete (Gap: Scenario Analysis - 20h effort)
-EU Taxonomy: 62% Complete (Gap: Activity Classification - 15h effort)
-SEC Climate Rules: 75% Complete
+        if (pd.complianceGap) {
+          pdfContent += `\nCOMPLIANCE GAP ANALYSIS\n`
+          pdfContent += `Overall Completeness: ${pd.complianceGap.overallCompletenessPercent}%\n`
+          pdfContent += `Emissions Coverage: ${pd.complianceGap.emissionsCoveragePercent}%\n`
+          pdfContent += `EU Taxonomy Alignment: ${pd.complianceGap.taxonomyAlignmentPercent}%\n`
+          pdfContent += `Urgent Gaps: ${pd.complianceGap.urgentGaps}\n`
+          pdfContent += `Estimated Effort: ${pd.complianceGap.estimatedTotalEffort}\n\n`
+        }
 
-RISK MATERIALITY ASSESSMENT
-Overall Materiality: 8.5% (Threshold: 5.0%)
-Status: REQUIRES DISCLOSURE
-Material Assets: 6 of 15
+        if (pd.riskMateriality) {
+          pdfContent += `\nRISK MATERIALITY ASSESSMENT\n`
+          pdfContent += `Portfolio Materiality: ${pd.riskMateriality.summary.portfolioMaterialityPercent}%\n`
+          pdfContent += `Materiality Threshold: ${pd.riskMateriality.summary.materiality_Threshold}%\n`
+          pdfContent += `Over Threshold: ${pd.riskMateriality.summary.overThreshold ? 'YES - REQUIRES DISCLOSURE' : 'NO'}\n`
+          pdfContent += `Assets Requiring Disclosure: ${pd.riskMateriality.summary.assetsRequiringDisclosure}\n`
+          pdfContent += `Total Emissions: ${pd.riskMateriality.summary.totalEmissions_tCO2e} tCO2e\n`
+          pdfContent += `High Risk Assets: ${pd.riskMateriality.summary.highRiskAssets}\n\n`
+        }
 
-TIMELINE & DEADLINES
-TCFD: Due 2025-12-31 (5 months)
-EU Taxonomy: Due 2024-12-31 (Active)
-SEC Rules: Due 2025-12-15 (6 months)
+        if (pd.benchmarking) {
+          pdfContent += `\nPEER BENCHMARKING\n`
+          pdfContent += `Your Score: ${pd.benchmarking.yourBank.overallScore}/100\n`
+          pdfContent += `Peer Average: ${pd.benchmarking.peerAverage}/100\n`
+          pdfContent += `Your Ranking: ${pd.benchmarking.ranking}\n`
+          pdfContent += `Green Allocation: ${pd.benchmarking.yourBank.greenAllocation}%\n`
+          pdfContent += `High Risk Allocation: ${pd.benchmarking.yourBank.highRiskAllocation}%\n\n`
+        }
 
-PEER BENCHMARKING
-Your Bank Score: 62/100
-Peer Average: 68/100
-Industry Leader: 85/100
-Your Position: Below Average
-
-NEXT STEPS:
-1. Complete TCFD Scenario Analysis (20h)
-2. Finalize EU Taxonomy Activity Classification (15h)
-3. Address 6 material asset disclosures
-4. Prepare Q4 TCFD submission`
+        content = pdfContent
         filename += 'pdf'
         mimeType = 'application/pdf'
       } else if (format === 'excel') {
-        content = `SHEET 1: SCENARIO ANALYSIS
-Scenario,Warming,NPV_EUR_M,Revenue_Impact_Pct,Stranded_Assets_EUR_M
-1.5°C Paris Aligned,1.5,2400,-35,800
-2°C Moderate,2.0,2900,-25,600
-4°C Business As Usual,4.0,3200,-8,300
+        let excelContent = ''
 
-SHEET 2: COMPLIANCE GAPS
-Framework,Field,Status,Effort_Hours,Priority
-TCFD,Scenario Analysis,Missing,20,High
-EU Taxonomy,Activity Classification,Incomplete,15,High
-SEC,GHG Emissions Scope 3,Incomplete,12,High
+        if (pd.scenarioImpact) {
+          excelContent += `SHEET: SCENARIO IMPACT\nScenario,Warming_C,NPV_EUR_M,Revenue_Impact_Pct,Stranded_Assets_EUR_M,Transition_Risk,Physical_Risk\n`
+          Object.entries(pd.scenarioImpact.scenarios).forEach(([scenario, data]) => {
+            excelContent += `${scenario},${data.warming},${data.npvEUR_M},${data.revenueImpactPercent},${data.strandedAssetsEUR_M},${data.transitionRisk},${data.physicalRisk}\n`
+          })
+          excelContent += `\n\n`
+        }
 
-SHEET 3: MATERIALITY
-Asset_Class,Exposure_EUR_M,Financial_Impact_EUR_M,Materiality_Pct,Disclosure_Required
-Oil & Gas,2400,420,17.5,Yes
-Coal Mining,450,380,84.4,Yes
-Real Estate,5600,280,5.0,Yes
-Renewable Energy,600,45,7.5,Yes
+        if (pd.complianceGap) {
+          excelContent += `SHEET: COMPLIANCE GAPS\nFramework,Requirement,Status,Completeness_Pct,Effort_Hours,Priority\n`
+          pd.complianceGap.gaps.forEach(gap => {
+            excelContent += `${gap.framework},"${gap.requirement}",${gap.status},${gap.completeness},${gap.effort},${gap.priority}\n`
+          })
+          excelContent += `\n\n`
+        }
 
-SHEET 4: PEER BENCHMARKING
-Bank,Overall_Score,TCFD,EU_Taxonomy,SEC,Ranking
-Your Bank,62,75,58,52,3 of 6
-Peer A,85,95,78,82,1 of 6
-Peer B,72,82,68,65,2 of 6
-Industry Avg,68,78,63,64,N/A`
+        if (pd.riskMateriality) {
+          excelContent += `SHEET: MATERIALITY\nAsset_ID,Asset_Name,Type,Exposure_EUR_M,Climate_Risk_Score,Emissions_tCO2e,Materiality_Pct,Requires_Disclosure,Risk_Level\n`
+          pd.riskMateriality.assets.forEach(asset => {
+            excelContent += `${asset.assetId},${asset.assetName},${asset.assetType},${asset.exposureEUR_M},${asset.climateRiskScore},${asset.emissionstCO2e},${asset.materialityPercent},${asset.requiresDisclosure},${asset.riskLevel}\n`
+          })
+          excelContent += `\n\n`
+        }
+
+        content = excelContent
         filename += 'xlsx'
         mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       } else if (format === 'api') {
-        alert('✅ API Endpoint Available:\n\nGET /api/reports/' + executionId + '\n\nReturns live JSON data for your reports.\n\nDocumentation: /api/docs/regulatory')
+        alert('✅ API Endpoint Available:\n\nGET /api/reports/' + executionId + '\n\nYour processed data is available at this endpoint.\n\nDocumentation: /api/docs/regulatory')
         return
       } else if (format === 'dashboard') {
-        alert('📊 Dashboard Available:\n\n/dashboard/regulatory/' + executionId + '\n\nOpen in browser for interactive visualization.')
+        alert('📊 Interactive Dashboard:\n\n/dashboard/regulatory/' + executionId + '\n\nVisualize your scenario impact, compliance gaps, and peer benchmarking.')
         return
       }
 
@@ -252,9 +262,75 @@ Industry Avg,68,78,63,64,N/A`
     setResult(null)
 
     try {
-      // Simulate workflow execution
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const startTime = Date.now()
 
+      // Process data based on selected modules
+      const processedResults = {}
+
+      // Normalize data from uploadedData
+      const portfolioData = uploadedData.portfolio.map((p, idx) => ({
+        id: p.id || `ASSET_${idx + 1}`,
+        name: p.name || `Asset ${idx + 1}`,
+        type: p.type || 'Other',
+        region: p.region || 'EU',
+        exposure: p.exposure || 0,
+        climateRisk: p.climateRisk || 50,
+        materiality: p.materiality || 0
+      }))
+
+      const emissionsData = uploadedData.emissions.map((e, idx) => ({
+        id: `EMIT_${idx + 1}`,
+        assetId: e.assetId || portfolioData[idx % portfolioData.length].id,
+        scope: e.scope || 1,
+        emissions: e.emissions || 0,
+        category: e.category || 'Operations'
+      }))
+
+      const scenariosData = uploadedData.scenarios.map((s, idx) => ({
+        name: s.name || `Scenario ${idx + 1}`,
+        warming: s.warming || 2.0,
+        probability: s.probability || 0.33,
+        carbonPrice: s.carbonPrice || 100,
+        renewable: s.renewable || 50
+      }))
+
+      // Execute selected modules with real processing
+      if (selectedModules.includes('scenario-impact')) {
+        processedResults.scenarioImpact = DataProcessor.processScenarioImpact(
+          portfolioData,
+          emissionsData,
+          scenariosData
+        )
+      }
+
+      if (selectedModules.includes('compliance-gap')) {
+        processedResults.complianceGap = DataProcessor.processComplianceGaps(
+          portfolioData,
+          emissionsData
+        )
+      }
+
+      if (selectedModules.includes('risk-materiality')) {
+        processedResults.riskMateriality = DataProcessor.processRiskMateriality(
+          portfolioData,
+          emissionsData
+        )
+      }
+
+      if (selectedModules.includes('portfolio-aggregation')) {
+        processedResults.portfolioAggregation = DataProcessor.processPortfolioAggregation(
+          portfolioData
+        )
+      }
+
+      if (selectedModules.includes('benchmarking')) {
+        processedResults.benchmarking = DataProcessor.processBenchmarking(
+          portfolioData,
+          emissionsData
+        )
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2)
       const executionId = Math.random().toString(36).substring(7).toUpperCase()
 
       setResult({
@@ -262,7 +338,14 @@ Industry Avg,68,78,63,64,N/A`
         executionId,
         modulesProcessed: selectedModules.length,
         outputFormatsGenerated: selectedFormats.length,
-        duration: '2.3s',
+        duration: `${duration}s`,
+        processedData: processedResults,
+        bankData: {
+          orgName: uploadedData.orgName,
+          bankId: uploadedData.bankId,
+          totalAssets: portfolioData.reduce((sum, a) => sum + a.exposure, 0),
+          assetCount: portfolioData.length
+        },
         outputs: {
           json: { size: '245 KB', status: 'ready' },
           pdf: { size: '3.2 MB', status: 'ready' },
