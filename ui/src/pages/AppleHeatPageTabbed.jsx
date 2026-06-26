@@ -44,19 +44,12 @@ export default function AppleHeatPageTabbed() {
   return (
     <div className="w-full overflow-y-auto bg-white">
       {/* Animated Gradient Background */}
-      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-br from-yellow-900 via-yellow-700 to-orange-500" />
+      <div className="fixed inset-0 pointer-events-none -z-10">
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #78350f 0%, #92400e 25%, #d97706 50%, #f59e0b 75%, #fbbf24 100%)',
-            backgroundSize: '400% 400%',
-            animation: 'gradientShift 15s ease infinite'
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'radial-gradient(circle at 20% 50%, rgba(251, 191, 36, 0.2), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.15), transparent 50%)',
+            background: 'radial-gradient(circle at 20% 50%, rgba(251, 191, 36, 0.3), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.2), transparent 50%)',
             animation: 'float 8s ease-in-out infinite'
           }}
         />

@@ -44,19 +44,12 @@ export default function AppleFloodPageTabbed() {
   return (
     <div className="w-full overflow-y-auto bg-white">
       {/* Animated Gradient Background */}
-      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-br from-blue-900 via-blue-700 to-cyan-500" />
+      <div className="fixed inset-0 pointer-events-none -z-10">
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #1e3a8a 0%, #0369a1 25%, #0891b2 50%, #06b6d4 75%, #0369a1 100%)',
-            backgroundSize: '400% 400%',
-            animation: 'gradientShift 15s ease infinite'
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.2), transparent 50%), radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15), transparent 50%)',
+            background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3), transparent 50%), radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.2), transparent 50%)',
             animation: 'float 8s ease-in-out infinite'
           }}
         />
