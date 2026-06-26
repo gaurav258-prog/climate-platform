@@ -22,6 +22,7 @@ import AppleSeismicPage from './pages/AppleSeismicPage'
 import AppleFloodPage from './pages/AppleFloodPage'
 import AppleWildfirePage from './pages/AppleWildfirePage'
 import AppleHeatPage from './pages/AppleHeatPage'
+import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
 
@@ -101,6 +102,8 @@ export default function App() {
             <AppleOperationsPage />
           ) : view === 'parametric' ? (
             <AppleParametricPage />
+          ) : view === 'regulatory' ? (
+            <AppleRegulatoryPage />
           ) : (
             <AppleCompliancePage />
           )}

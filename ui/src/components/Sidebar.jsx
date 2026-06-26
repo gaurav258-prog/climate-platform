@@ -1,4 +1,4 @@
-import { Map, Shield, Zap, FileText, LayoutDashboard, Waves, Flame, Thermometer, TrendingUp, Zap as Seismic } from 'lucide-react'
+import { Map, Shield, Zap, FileText, LayoutDashboard, Waves, Flame, Thermometer, TrendingUp, Zap as Seismic, AlertCircle } from 'lucide-react'
 
 const HAZARD_ICONS = {
   flood:    <Waves       size={18} strokeWidth={1.5} />,
@@ -63,6 +63,8 @@ export default function Sidebar({
       <Section label="Compliance">
         <NavItem id="compliance" active={activeView === 'compliance'} onClick={nav('compliance')}
           icon={<FileText size={18} strokeWidth={1.5} />} label="Packages" />
+        <NavItem id="regulatory" active={activeView === 'regulatory'} onClick={nav('regulatory')}
+          icon={<AlertCircle size={18} strokeWidth={1.5} />} label="Regulatory Alerts" />
       </Section>
 
       {/* Analytics (placeholder) */}

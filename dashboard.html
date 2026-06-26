@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate Intelligence Platform - Regulatory Alerts Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+            color: white;
+            padding: 30px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .config {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .config-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .config-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .config-field label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #999;
+            margin-bottom: 6px;
+        }
+
+        .config-field input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .config-field input:focus {
+            outline: none;
+            border-color: #1976d2;
+            box-shadow: 0 0 0 3px rgba(25,118,210,0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1565c0;
+        }
+
+        button.secondary {
+            background: #fff;
+            color: #1976d2;
+            border: 2px solid #1976d2;
+        }
+
+        button.secondary:hover {
+            background: #f5f5f5;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1976d2;
+            margin-bottom: 4px;
+        }
+
+        .metric-subtext {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .metric-card.critical .metric-value {
+            color: #d32f2f;
+        }
+
+        .metric-card.warning .metric-value {
+            color: #f57c00;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #1976d2;
+        }
+
+        .alerts-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f5f5f5;
+            padding: 15px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            border-bottom: 1px solid #ddd;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-critical {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .badge-high {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .badge-medium {
+            background: #fffde7;
+            color: #f57f17;
+        }
+
+        .badge-new {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .peer-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border-left: 4px solid #1976d2;
+        }
+
+        .peer-box-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1565c0;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .peer-box-content {
+            font-size: 14px;
+            color: #0d47a1;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffebee;
+            border: 1px solid #ef5350;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #e8f5e9;
+            border: 1px solid #66bb6a;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #1976d2;
+            border-bottom-color: #1976d2;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🎯 Climate Intelligence Platform</h1>
+            <p>Real-time Regulatory Change Monitoring & Alerts Dashboard</p>
+        </header>
+
+        <!-- Configuration -->
+        <div class="config">
+            <h3 style="margin-bottom: 15px;">Configuration</h3>
+            <div class="config-group">
+                <div class="config-field">
+                    <label>API Base URL</label>
+                    <input type="text" id="apiUrl" value="https://sadly-unsoiled-widely.ngrok-free.dev" placeholder="https://your-api-url">
+                </div>
+                <div class="config-field">
+                    <label>Organization ID</label>
+                    <input type="text" id="orgId" placeholder="Enter your org ID (or leave blank for demo)">
+                </div>
+                <div class="config-field">
+                    <label>Test Mode</label>
+                    <button class="secondary" onclick="testApi()">Test Connection</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusMessage"></div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('summary')">📊 Dashboard Summary</div>
+            <div class="tab" onclick="switchTab('alerts')">⚠️ Active Alerts</div>
+            <div class="tab" onclick="switchTab('detail')">🔍 Alert Details</div>
+            <div class="tab" onclick="switchTab('peers')">👥 Peer Benchmarking</div>
+            <div class="tab" onclick="switchTab('api')">📡 API Docs</div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div id="summary" class="tab-content active">
+            <button onclick="loadDashboardSummary()">🔄 Load Dashboard Summary</button>
+
+            <div class="grid" id="metricsContainer">
+                <div class="metric-card">
+                    <div class="metric-label">Total Alerts</div>
+                    <div class="metric-value" id="totalAlerts">-</div>
+                    <div class="metric-subtext">All regulatory changes</div>
+                </div>
+                <div class="metric-card critical">
+                    <div class="metric-label">Critical Alerts</div>
+                    <div class="metric-value" id="criticalAlerts">-</div>
+                    <div class="metric-subtext">Require immediate action</div>
+                </div>
+                <div class="metric-card warning">
+                    <div class="metric-label">High Priority</div>
+                    <div class="metric-value" id="highAlerts">-</div>
+                    <div class="metric-subtext">This week</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Next Deadline</div>
+                    <div class="metric-value" id="nextDeadline" style="font-size: 16px;">-</div>
+                    <div class="metric-subtext">Earliest deadline</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Recent Alerts</div>
+                <div id="recentAlertsContainer" class="alerts-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Framework</th>
+                                <th>Affected Assets</th>
+                                <th>Portfolio Value</th>
+                                <th>Dev Hours</th>
+                                <th>Deadline</th>
+                                <th>Urgency</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentAlertsList">
+                            <tr><td colspan="7" style="text-align: center; color: #999;">Click "Load Dashboard Summary" to view alerts</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Tab -->
+        <div id="alerts" class="tab-content">
+            <div style="margin-bottom: 15px;">
+                <button onclick="loadAlerts()">🔄 Load Alerts</button>
+                <button class="secondary" onclick="filterAlerts()" style="margin-left: 10px;">🔽 Filter</button>
+            </div>
+            <div id="alertsContainer" class="alerts-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Framework</th>
+                            <th>Assets</th>
+                            <th>Portfolio Risk</th>
+                            <th>Effort</th>
+                            <th>Deadline</th>
+                            <th>Urgency</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsList">
+                        <tr><td colspan="8" style="text-align: center; color: #999;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detail Tab -->
+        <div id="detail" class="tab-content">
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="alertIdInput" placeholder="Enter alert ID to view details" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 300px;">
+                <button onclick="loadAlertDetail()" style="margin-left: 10px;">View Details</button>
+            </div>
+            <div id="detailContainer"></div>
+        </div>
+
+        <!-- Peers Tab -->
+        <div id="peers" class="tab-content">
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="alertIdForPeers" placeholder="Enter alert ID to see peer context" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 300px;">
+                <button onclick="loadPeerContext()" style="margin-left: 10px;">Load Peer Context</button>
+            </div>
+            <div id="peerContainer"></div>
+        </div>
+
+        <!-- API Docs Tab -->
+        <div id="api" class="tab-content">
+            <div style="background: white; padding: 20px; border-radius: 8px;">
+                <h3 style="margin-bottom: 15px;">📡 API Documentation</h3>
+                <p style="margin-bottom: 15px;">Interactive API documentation available at:</p>
+                <p style="margin-bottom: 20px; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 4px;">
+                    <a href="https://sadly-unsoiled-widely.ngrok-free.dev/docs" target="_blank" style="color: #1976d2; text-decoration: none;">
+                        https://sadly-unsoiled-widely.ngrok-free.dev/docs
+                    </a>
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px;">Available Endpoints:</h4>
+
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.8;">
+                    <strong>Dashboard:</strong><br>
+                    GET  /api/v1/alerts/dashboard/summary<br>
+                    GET  /api/v1/alerts/dashboard/alerts<br>
+                    GET  /api/v1/alerts/dashboard/alerts/{alert_id}<br>
+                    GET  /api/v1/alerts/dashboard/alerts/{alert_id}/peer-context<br>
+                    POST /api/v1/alerts/dashboard/alerts/{alert_id}/acknowledge<br>
+                    <br>
+                    <strong>Notifications:</strong><br>
+                    GET  /api/v1/alerts/dashboard/notifications<br>
+                    POST /api/v1/alerts/dashboard/notifications/{id}/read<br>
+                    <br>
+                    <strong>Detection (Phase 1):</strong><br>
+                    POST /api/v1/regulatory/detect-changes<br>
+                    GET  /api/v1/regulatory/changes<br>
+                    GET  /api/v1/regulatory/scrape-eur-lex<br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value;
+        }
+
+        function getOrgId() {
+            return document.getElementById('orgId').value || 'demo-org';
+        }
+
+        function showMessage(message, type = 'success') {
+            const div = document.getElementById('statusMessage');
+            div.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => div.innerHTML = '', 5000);
+        }
+
+        async function testApi() {
+            try {
+                const response = await fetch(getApiUrl() + '/api/v1/info');
+                const data = await response.json();
+                showMessage('✅ API Connection Successful!', 'success');
+            } catch (e) {
+                showMessage('❌ Connection Failed: ' + e.message, 'error');
+            }
+        }
+
+        async function loadDashboardSummary() {
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/alerts/dashboard/summary?org_id=${getOrgId()}`);
+                const data = await response.json();
+
+                document.getElementById('totalAlerts').textContent = data.total_alerts || 0;
+                document.getElementById('criticalAlerts').textContent = data.critical_alerts || 0;
+                document.getElementById('highAlerts').textContent = data.high_priority_alerts || 0;
+                document.getElementById('nextDeadline').textContent = data.next_deadline ? data.next_deadline.substring(0, 10) : 'No deadline';
+
+                let alertsHtml = '';
+                if (data.recent_alerts && data.recent_alerts.length > 0) {
+                    data.recent_alerts.forEach(alert => {
+                        alertsHtml += `
+                            <tr>
+                                <td><strong>${alert.framework_name}</strong></td>
+                                <td>${alert.affected_assets}</td>
+                                <td>€${(alert.portfolio_value_affected_eur/1000000).toFixed(1)}M</td>
+                                <td>${alert.dev_hours} hrs</td>
+                                <td>${alert.deadline.substring(0, 10)}</td>
+                                <td><span class="badge badge-${alert.urgency_level}">${alert.urgency_level}</span></td>
+                                <td><span class="badge badge-new">${alert.alert_status}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('recentAlertsList').innerHTML = alertsHtml || '<tr><td colspan="7" style="text-align: center; color: #999;">No alerts</td></tr>';
+
+                showMessage('✅ Dashboard loaded successfully!', 'success');
+            } catch (e) {
+                showMessage('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/alerts/dashboard/alerts?org_id=${getOrgId()}&limit=50`);
+                const alerts = await response.json();
+
+                let html = '';
+                if (alerts && alerts.length > 0) {
+                    alerts.forEach(alert => {
+                        html += `
+                            <tr>
+                                <td><strong>${alert.framework_name}</strong></td>
+                                <td>${alert.affected_assets}</td>
+                                <td>€${(alert.portfolio_value_affected_eur/1000000).toFixed(1)}M</td>
+                                <td>${alert.dev_hours}h</td>
+                                <td>${alert.deadline.substring(0, 10)}</td>
+                                <td><span class="badge badge-${alert.urgency_level}">${alert.urgency_level.toUpperCase()}</span></td>
+                                <td><span class="badge badge-new">${alert.alert_status}</span></td>
+                                <td><button class="secondary" onclick="viewAlertDetail('${alert.alert_id}')" style="padding: 6px 12px; font-size: 12px;">View</button></td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('alertsList').innerHTML = html || '<tr><td colspan="8" style="text-align: center; color: #999;">No alerts</td></tr>';
+
+                showMessage(`✅ Loaded ${alerts.length} alerts`, 'success');
+            } catch (e) {
+                showMessage('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        function viewAlertDetail(alertId) {
+            document.getElementById('alertIdInput').value = alertId;
+            loadAlertDetail();
+            switchTab('detail');
+        }
+
+        async function loadAlertDetail() {
+            const alertId = document.getElementById('alertIdInput').value;
+            if (!alertId) {
+                showMessage('❌ Enter an alert ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/alerts/dashboard/alerts/${alertId}?org_id=${getOrgId()}`);
+                const alert = await response.json();
+
+                let html = `
+                    <div style="background: white; padding: 20px; border-radius: 8px;">
+                        <div style="margin-bottom: 20px;">
+                            <h2 style="color: #1976d2; margin-bottom: 10px;">${alert.framework_name}</h2>
+                            <p style="color: #666; margin-bottom: 15px;">Alert ID: ${alert.alert_id}</p>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div>
+                                <h4 style="margin-bottom: 10px;">Impact Analysis</h4>
+                                <table style="width: 100%;">
+                                    <tr><td style="padding: 5px; color: #666;">Affected Assets:</td><td style="padding: 5px; font-weight: 600;">${alert.affected_assets} of ${alert.total_assets}</td></tr>
+                                    <tr><td style="padding: 5px; color: #666;">Portfolio Risk:</td><td style="padding: 5px; font-weight: 600;">€${(alert.portfolio_value_affected_eur/1000000).toFixed(1)}M</td></tr>
+                                    <tr><td style="padding: 5px; color: #666;">Dev Hours:</td><td style="padding: 5px; font-weight: 600;">${alert.estimated_dev_hours}h</td></tr>
+                                    <tr><td style="padding: 5px; color: #666;">Test Hours:</td><td style="padding: 5px; font-weight: 600;">${alert.estimated_test_hours}h</td></tr>
+                                </table>
+                            </div>
+
+                            <div>
+                                <h4 style="margin-bottom: 10px;">Timeline</h4>
+                                <table style="width: 100%;">
+                                    <tr><td style="padding: 5px; color: #666;">Deadline:</td><td style="padding: 5px; font-weight: 600;">${alert.deadline}</td></tr>
+                                    <tr><td style="padding: 5px; color: #666;">Urgency:</td><td style="padding: 5px;"><span class="badge badge-${alert.urgency_level}">${alert.urgency_level.toUpperCase()}</span></td></tr>
+                                    <tr><td style="padding: 5px; color: #666;">Status:</td><td style="padding: 5px; font-weight: 600;">${alert.alert_status}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="peer-box">
+                            <div class="peer-box-title">Peer Context</div>
+                            <div class="peer-box-content">
+                                ${alert.peer_count_affected} similar banks affected • Average implementation: ${alert.peer_avg_implementation_weeks} weeks
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button onclick="loadPeerContextForAlert('${alert.alert_id}')">👥 View Peer Benchmarking</button>
+                            <button class="secondary" style="margin-left: 10px;">📋 Create Task (Coming Week 3)</button>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('detailContainer').innerHTML = html;
+                showMessage('✅ Alert details loaded', 'success');
+            } catch (e) {
+                showMessage('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        function loadPeerContextForAlert(alertId) {
+            document.getElementById('alertIdForPeers').value = alertId;
+            loadPeerContext();
+            switchTab('peers');
+        }
+
+        async function loadPeerContext() {
+            const alertId = document.getElementById('alertIdForPeers').value;
+            if (!alertId) {
+                showMessage('❌ Enter an alert ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/alerts/dashboard/alerts/${alertId}/peer-context?org_id=${getOrgId()}`);
+                const peers = await response.json();
+
+                let html = `
+                    <div style="background: white; padding: 20px; border-radius: 8px;">
+                        <h3 style="margin-bottom: 20px;">Competitive Benchmarking</h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                                <div class="metric-label">Affected Peers</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #1976d2;">${peers.peer_count || 0}</div>
+                                <div style="font-size: 12px; color: #666;">Similar banks in your sector</div>
+                            </div>
+
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                                <div class="metric-label">Adoption Rate</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #1976d2;">${peers.peer_adoption_rate_pct || 0}%</div>
+                                <div style="font-size: 12px; color: #666;">Have this framework</div>
+                            </div>
+
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                                <div class="metric-label">Avg Implementation</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #1976d2;">${peers.avg_implementation_weeks || 0}w</div>
+                                <div style="font-size: 12px; color: #666;">Typical timeline</div>
+                            </div>
+
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                                <div class="metric-label">Your Speed</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #1976d2;">${peers.your_speed_percentile || 0}%</div>
+                                <div style="font-size: 12px; color: #666;">${peers.speed_assessment || 'average'}</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-bottom: 10px;">Status Breakdown</h4>
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
+                                <p style="margin: 5px 0;">🆕 New: ${peers.status_breakdown?.new || 0}</p>
+                                <p style="margin: 5px 0;">👀 Acknowledged: ${peers.status_breakdown?.acknowledged || 0}</p>
+                                <p style="margin: 5px 0;">⚙️ In Progress: ${peers.status_breakdown?.in_progress || 0}</p>
+                                <p style="margin: 5px 0;">✅ Complete: ${peers.status_breakdown?.complete || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('peerContainer').innerHTML = html;
+                showMessage('✅ Peer context loaded', 'success');
+            } catch (e) {
+                showMessage('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            showMessage('💡 Tip: Leave Organization ID blank for demo data, or enter your org ID to see real alerts', 'success');
+        });
+    </script>
+</body>
+</html>
