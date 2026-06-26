@@ -25,6 +25,17 @@ import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
 import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
 import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
 import RegulatoryReportingHome from './pages/RegulatoryReportingHome'
+import ScenarioFinancialImpactPage from './pages/ScenarioFinancialImpactPage'
+import ComplianceGapAnalysisPage from './pages/ComplianceGapAnalysisPage'
+import RiskMaterialityPage from './pages/RiskMaterialityPage'
+import TimelineTrackingPage from './pages/TimelineTrackingPage'
+import PortfolioAggregationPage from './pages/PortfolioAggregationPage'
+import RegulatoryChangeDetectionPage from './pages/RegulatoryChangeDetectionPage'
+import BenchmarkingPage from './pages/BenchmarkingPage'
+import AuditTrailPage from './pages/AuditTrailPage'
+import TCFDReportPage from './pages/TCFDReportPage'
+import EUTaxonomyReportPage from './pages/EUTaxonomyReportPage'
+import RegulatoryRiskDashboardPage from './pages/RegulatoryRiskDashboardPage'
 import RiskMapHome from './pages/RiskMapHome'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
@@ -111,11 +122,19 @@ export default function App() {
           ) : view === 'parametric' ? (
             <AppleParametricPage />
           ) : view === 'regulatory' ? (
-            regulatoryModule ? (
-              <AppleRegulatoryPage />
-            ) : (
-              <RegulatoryReportingHome onModuleSelect={m => setRegulatoryModule(m)} />
-            )
+            regulatoryModule === 'scenario-impact' ? <ScenarioFinancialImpactPage /> :
+            regulatoryModule === 'compliance-gap' ? <ComplianceGapAnalysisPage /> :
+            regulatoryModule === 'risk-materiality' ? <RiskMaterialityPage /> :
+            regulatoryModule === 'timeline-tracking' ? <TimelineTrackingPage /> :
+            regulatoryModule === 'portfolio-aggregation' ? <PortfolioAggregationPage /> :
+            regulatoryModule === 'regulatory-changes' ? <RegulatoryChangeDetectionPage /> :
+            regulatoryModule === 'benchmarking' ? <BenchmarkingPage /> :
+            regulatoryModule === 'audit-trail' ? <AuditTrailPage /> :
+            regulatoryModule === 'tcfd-report' ? <TCFDReportPage /> :
+            regulatoryModule === 'taxonomy-report' ? <EUTaxonomyReportPage /> :
+            regulatoryModule === 'risk-dashboard' ? <RegulatoryRiskDashboardPage /> :
+            regulatoryModule === 'alerts' ? <AppleRegulatoryPage /> :
+            <RegulatoryReportingHome onModuleSelect={m => setRegulatoryModule(m)} />
           ) : (
             <AppleCompliancePage />
           )}

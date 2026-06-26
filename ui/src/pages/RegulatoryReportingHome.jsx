@@ -176,15 +176,27 @@ export default function RegulatoryReportingHome({ onModuleSelect }) {
       <section className="py-12 px-6 max-w-7xl mx-auto w-full">
         <h2 className="text-3xl font-light text-gray-900 mb-8">Report Templates</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {reports.map((report, idx) => (
-            <div key={idx} className="bg-white rounded-lg border border-gray-300 p-8 hover:shadow-md transition-all">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{report.name}</h3>
-              <p className="text-gray-600 text-sm mb-6">{report.description}</p>
-              <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                Generate Report →
-              </button>
-            </div>
-          ))}
+          <button onClick={() => onModuleSelect('tcfd-report')} className="bg-white rounded-lg border border-gray-300 p-8 hover:shadow-md transition-all text-left">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{reports[0].name}</h3>
+            <p className="text-gray-600 text-sm mb-6">{reports[0].description}</p>
+            <span className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+              View Report →
+            </span>
+          </button>
+          <button onClick={() => onModuleSelect('taxonomy-report')} className="bg-white rounded-lg border border-gray-300 p-8 hover:shadow-md transition-all text-left">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{reports[1].name}</h3>
+            <p className="text-gray-600 text-sm mb-6">{reports[1].description}</p>
+            <span className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+              View Report →
+            </span>
+          </button>
+          <button onClick={() => onModuleSelect('risk-dashboard')} className="bg-white rounded-lg border border-gray-300 p-8 hover:shadow-md transition-all text-left">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{reports[2].name}</h3>
+            <p className="text-gray-600 text-sm mb-6">{reports[2].description}</p>
+            <span className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+              View Dashboard →
+            </span>
+          </button>
         </div>
       </section>
 
