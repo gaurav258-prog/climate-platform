@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState } from 'react'
 import { CheckCircle, FileText, Shield, Zap, TrendingUp, Lock } from 'lucide-react'
 

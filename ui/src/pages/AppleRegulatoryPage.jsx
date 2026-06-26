@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState, useEffect, useMemo } from 'react'
 import { AlertCircle, CheckCircle, Clock, TrendingUp, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react'
 

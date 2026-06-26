@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState, useMemo } from 'react'
 import { latLngToCell } from 'h3-js'
 import { Shield, CheckCircle, Clock, Radio, Users, Zap, AlertTriangle, ChevronRight } from 'lucide-react'

@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState, useEffect } from 'react'
 import { Activity, AlertTriangle, Gauge, Clock, TrendingUp, Eye } from 'lucide-react'
 import EnhancedSeismicMap from '../components/EnhancedSeismicMap'

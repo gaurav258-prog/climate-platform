@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState, useEffect } from 'react'
 import { AlertCircle, CheckCircle, Clock, Users, MapPin, Activity } from 'lucide-react'
 

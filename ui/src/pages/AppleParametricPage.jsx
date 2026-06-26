@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState } from 'react'
 import { Zap, TrendingUp, Shield, DollarSign, BarChart3, AlertCircle } from 'lucide-react'
 
