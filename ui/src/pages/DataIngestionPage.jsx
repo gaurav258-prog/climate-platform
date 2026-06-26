@@ -717,8 +717,87 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
 function DragDropZone({ onDataLoaded, onTemplateLoad }) {
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState(null)
+  const [validationIssues, setValidationIssues] = useState(null)
   const fileInputRef = useRef(null)
 
+  const handleFiles = (files) => {
+    setError(null)
+    setValidationIssues(null)
+
+    let portfolioData = null
+    let emissionsData = null
+    let scenariosData = null
+    let filesProcessed = 0
+
+    const processFiles = () => {
+      filesProcessed++
+
+      // All files processed - combine and validate
+      if (filesProcessed === Array.from(files).length) {
+        if (!portfolioData || !emissionsData || !scenariosData) {
+          setError('Please upload all three files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv')
+          return
+        }
+
+        // Validate data (TCFD compliance check)
+        const validation = CSVParser.validateAll(portfolioData, emissionsData, scenariosData)
+        if (!validation.valid) {
+          setValidationIssues(validation.issues)
+          setError(`Data validation failed. ${validation.issues.length} issues found.`)
+          return
+        }
+
+        // Data is valid - load it
+        onDataLoaded({
+          bankId: 'BANK_UPLOADED',
+          orgName: 'Your Bank',
+          portfolio: portfolioData,
+          emissions: emissionsData,
+          scenarios: scenariosData,
+        })
+        setError(null)
+        setValidationIssues(null)
+      }
+    }
+
+    try {
+      for (const file of files) {
+        if (!file.name.endsWith('.csv')) {
+          setError(`Invalid file: ${file.name}. Please upload CSV files only.`)
+          return
+        }
+
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target.result
+
+          try {
+            if (file.name.includes('portfolio')) {
+              portfolioData = CSVParser.parsePortfolioAssets(text)
+            } else if (file.name.includes('emission')) {
+              emissionsData = CSVParser.parseGHGEmissions(text)
+            } else if (file.name.includes('scenario')) {
+              scenariosData = CSVParser.parseClimateScenarios(text)
+            } else {
+              setError(`Unknown file type: ${file.name}. Use portfolio_assets.csv, ghg_emissions.csv, or climate_scenarios.csv`)
+              return
+            }
+          } catch (parseError) {
+            setError(`Error parsing ${file.name}: ${parseError.message}`)
+            return
+          }
+
+          processFiles()
+        }
+        reader.onerror = () => {
+          setError(`Error reading file: ${file.name}`)
+        }
+        reader.readAsText(file)
+      }
+    } catch (err) {
+      setError(`Error processing files: ${err.message}`)
+    }
+  }
 
   const handleDrag = (e) => {
     e.preventDefault()
@@ -776,7 +855,14 @@ function DragDropZone({ onDataLoaded, onTemplateLoad }) {
       {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-300 rounded-lg p-4">
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm font-semibold text-red-800 mb-2">{error}</p>
+          {validationIssues && validationIssues.length > 0 && (
+            <ul className="text-xs text-red-700 space-y-1">
+              {validationIssues.map((issue, idx) => (
+                <li key={idx}>• {issue}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
