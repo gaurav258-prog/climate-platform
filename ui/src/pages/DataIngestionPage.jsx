@@ -411,9 +411,9 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
         }
 
         if (pd.riskMateriality) {
-          excelContent += `SHEET: MATERIALITY\nAsset_ID,Asset_Name,Type,Exposure_EUR_M,Climate_Risk_Score,Emissions_tCO2e,Materiality_Pct,Requires_Disclosure,Risk_Level\n`
+          excelContent += `SHEET: MATERIALITY\nAsset_ID,Asset_Name,Type,Exposure_EUR_M,Physical_Risk_Score,Transition_Risk_Score,Emissions_tCO2e,Materiality_Pct,Requires_Disclosure\n`
           pd.riskMateriality.assets.forEach(asset => {
-            excelContent += `${asset.assetId},${asset.assetName},${asset.assetType},${asset.exposureEUR_M},${asset.climateRiskScore},${asset.emissionstCO2e},${asset.materialityPercent},${asset.requiresDisclosure},${asset.riskLevel}\n`
+            excelContent += `${asset.assetId},${asset.assetName},${asset.assetType},${asset.exposureEUR_M},${asset.physicalRiskScore},${asset.transitionRiskScore},${asset.emissionstCO2e},${asset.materialityPercent},${asset.requiresDisclosure}\n`
           })
           excelContent += `\n\n`
         }
