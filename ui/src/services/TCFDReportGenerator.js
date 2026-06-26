@@ -7,12 +7,12 @@ export class TCFDReportGenerator {
   /**
    * Generate complete TCFD report structure
    */
-  static generateTCFDReport(bankData, processedData, emissionsData) {
+  static generateTCFDReport(bankData, processedData) {
     return {
       governance: this.generateGovernance(bankData),
       strategy: this.generateStrategy(processedData),
       riskManagement: this.generateRiskManagement(bankData, processedData),
-      metricsTargets: this.generateMetricsTargets(processedData, emissionsData),
+      metricsTargets: this.generateMetricsTargets(processedData),
     }
   }
 
@@ -330,10 +330,11 @@ Effectiveness Assessment: Annual review of risk management processes against act
    * METRICS & TARGETS PILLAR - 5 Disclosures
    * GHG emissions, intensity, targets, performance
    */
-  static generateMetricsTargets(processedData, emissionsData) {
-    const scope1 = emissionsData.filter(e => e.scope === 1).reduce((sum, e) => sum + (parseFloat(e.emissions) || 0), 0)
-    const scope2 = emissionsData.filter(e => e.scope === 2).reduce((sum, e) => sum + (parseFloat(e.emissions) || 0), 0)
-    const scope3 = emissionsData.filter(e => e.scope === 3).reduce((sum, e) => sum + (parseFloat(e.emissions) || 0), 0)
+  static generateMetricsTargets(processedData) {
+    // Get emissions data from processed data
+    const scope1 = processedData.riskMateriality?.summary?.totalScope1_2_Emissions_tCO2e || 0
+    const scope2 = 0 // Already included in Scope 1+2 above
+    const scope3 = processedData.riskMateriality?.summary?.totalScope3_Emissions_tCO2e || 0
 
     return {
       title: 'Metrics and Targets',
