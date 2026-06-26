@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
 import DataProcessor from '../services/DataProcessor'
 import PDFGenerator from '../services/PDFGenerator'
+import CSVParser from '../services/CSVParser'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -15,6 +16,10 @@ export default function DataIngestionPage() {
   const [selectedFormats, setSelectedFormats] = useState(['json', 'pdf', 'dashboard'])
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [error, setError] = useState(null)
+  const [validationIssues, setValidationIssues] = useState(null)
+  const fileInputRef = useRef(null)
 
   const bankDataTemplate = {
     bankId: 'BANK_001',
@@ -53,8 +58,101 @@ export default function DataIngestionPage() {
     { id: 'api', name: 'REST API', desc: 'Live data endpoint' },
   ]
 
+  const handleFiles = (files) => {
+    setError(null)
+    setValidationIssues(null)
+
+    let portfolioData = null
+    let emissionsData = null
+    let scenariosData = null
+    let filesProcessed = 0
+
+    const processFiles = () => {
+      filesProcessed++
+
+      // All files processed - combine and validate
+      if (filesProcessed === Array.from(files).length) {
+        if (!portfolioData || !emissionsData || !scenariosData) {
+          setError('Please upload all three files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv')
+          return
+        }
+
+        // Validate data (TCFD compliance check)
+        const validation = CSVParser.validateAll(portfolioData, emissionsData, scenariosData)
+        if (!validation.valid) {
+          setValidationIssues(validation.issues)
+          setError(`Data validation failed. ${validation.issues.length} issues found.`)
+          return
+        }
+
+        // Data is valid - load it
+        setUploadedData({
+          bankId: 'BANK_UPLOADED',
+          orgName: 'Your Bank',
+          portfolio: portfolioData,
+          emissions: emissionsData,
+          scenarios: scenariosData,
+        })
+        setError(null)
+        setValidationIssues(null)
+      }
+    }
+
+    try {
+      for (const file of files) {
+        if (!file.name.endsWith('.csv')) {
+          setError(`Invalid file: ${file.name}. Please upload CSV files only.`)
+          return
+        }
+
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target.result
+
+          try {
+            if (file.name.includes('portfolio')) {
+              portfolioData = CSVParser.parsePortfolioAssets(text)
+            } else if (file.name.includes('emission')) {
+              emissionsData = CSVParser.parseGHGEmissions(text)
+            } else if (file.name.includes('scenario')) {
+              scenariosData = CSVParser.parseClimateScenarios(text)
+            }
+          } catch (parseError) {
+            setError(`Error parsing ${file.name}: ${parseError.message}`)
+            return
+          }
+
+          processFiles()
+        }
+        reader.onerror = () => {
+          setError(`Error reading file: ${file.name}`)
+        }
+        reader.readAsText(file)
+      }
+    } catch (err) {
+      setError(`Error processing files: ${err.message}`)
+    }
+  }
+
   const loadTemplateData = () => {
-    setUploadedData(bankDataTemplate)
+    // Parse the embedded TCFD CSV data using the parser
+    try {
+      const portfolio = CSVParser.parsePortfolioAssets(portfolioAssetCSV)
+      const emissions = CSVParser.parseGHGEmissions(ghgEmissionsCSV)
+      const scenarios = CSVParser.parseClimateScenarios(climateScenarioCSV)
+
+      setUploadedData({
+        bankId: 'BANK_TEMPLATE',
+        orgName: 'Example Bank AG',
+        portfolio,
+        emissions,
+        scenarios,
+      })
+      setError(null)
+      setValidationIssues(null)
+    } catch (err) {
+      setError(`Error loading template: ${err.message}`)
+    }
   }
 
   const downloadCSV = (filename, content) => {
@@ -74,24 +172,25 @@ export default function DataIngestionPage() {
     }
   }
 
-  const portfolioAssetCSV = `Asset_ID,Asset_Name,Asset_Type,Sector,Region,Exposure_EUR_M,Annual_Revenue_EUR_M,Climate_Risk_Score,Materiality_Score,Description
-ASSET_001,Coal Mining Company,Coal,Energy,Poland,450,120,92,85,"Large coal mining operations in Poland. High physical and transition risk."
-ASSET_002,Oil & Gas Portfolio,Oil & Gas,Energy,North Sea,2400,580,88,82,"Upstream oil and gas operations. Exposed to transition risk and regulatory changes."
-ASSET_003,Renewable Solar Farm,Renewable Energy,Energy,Spain,320,45,12,5,"Large-scale solar PV facility. Low climate risk, supports transition."
-ASSET_004,Wind Energy Assets,Renewable Energy,Energy,Germany,280,38,8,3,"Onshore wind farms across Germany. Excellent climate profile."
-ASSET_005,Commercial Real Estate Portfolio,Real Estate,Real Estate,Munich,2100,280,35,40,"Premium office and retail properties in Munich. Flood and heat risk exposure."
-ASSET_006,Residential Properties,Real Estate,Real Estate,Berlin,3500,420,42,45,"Multi-family residential across Berlin. Urban flood and heat wave risks."
-ASSET_007,Agricultural Land Holdings,Agriculture,Agriculture,France,420,65,55,48,"Grain farming and viticulture assets. Drought and heat stress risks."
-ASSET_008,Thermal Power Plant,Power Generation,Energy,Germany,680,95,76,70,"Coal-fired power station. Phase-out risk. Transition essential."
-ASSET_009,Steel Manufacturing,Manufacturing,Manufacturing,Ruhr,580,125,48,42,"Steel production facility. Moderate climate exposure and transition risk."
-ASSET_010,Transportation Infrastructure,Infrastructure,Infrastructure,EU,890,105,38,35,"Road and rail assets. Flood and extreme weather risks."
-ASSET_011,Chemical Production,Manufacturing,Manufacturing,Belgium,420,98,45,38,"Chemical manufacturing plant. Water stress and operational risks."
-ASSET_012,Food & Beverage Processing,Manufacturing,Food,Netherlands,310,72,52,44,"Agricultural commodity processing. Supply chain climate risks."
-ASSET_013,Fishing Fleet,Agriculture,Agriculture,Atlantic,180,42,68,55,"Commercial fishing operations. Ocean acidification and temperature risks."
-ASSET_014,Water Utility Company,Utilities,Utilities,Spain,520,85,61,58,"Water supply infrastructure. Drought and flood related risks."
-ASSET_015,Tourism Infrastructure,Hospitality,Hospitality,Alps,290,38,45,32,"Alpine ski resorts and hotels. Snow cover and heat wave risks."`
+  // Updated CSV templates with TCFD-compliant fields
+  const portfolioAssetCSV = `Asset_ID,Asset_Name,Asset_Type,Sector,Region,Country,Latitude,Longitude,Exposure_EUR_M,Annual_Revenue_EUR_M,Physical_Risk_Type,Physical_Risk_Score_0_100,Transition_Risk_Score_0_100,Capital_Expenditure_2024_2030_EUR_M,Supply_Chain_Risk_Level,Insurance_Coverage_Percent,Time_Horizon_Impact,Materiality_Assessment_Notes
+ASSET_001,Coal Mining Company,Coal,Energy,Poland,Poland,51.5,19.0,450,120,Drought_Subsidence,72,95,180,High,45,"Transition risk peaks 2030-2040 as coal demand falls. NPV severely negative in <2C scenario","Coal assets face existential risk in 1.5C/2C scenarios. Stranded asset risk 60-80% of exposure."
+ASSET_002,Oil & Gas Portfolio,Oil & Gas,Energy,North Sea,Norway,58.5,2.5,2400,580,"Physical: Storms,Flooding",65,92,250,Medium,60,"Regulatory risk materializes 2025-2035 with carbon pricing. Revenue impact -35% by 2040 in 1.5C","Oil & Gas faces policy-driven transition risk. Upstream operations face commodity price collapse risk in low-carbon scenarios."
+ASSET_003,Renewable Solar Farm,Renewable Energy,Energy,Spain,Spain,39.5,-3.0,320,45,Heat_Stress,15,5,80,Low,90,"Solar assets benefit from transition. Physical risk minimal. Long-term revenue protected under all scenarios.",Renewable energy benefits from transition to low-carbon. Minimal climate exposure. Strategic value increases post-2030.
+ASSET_004,Wind Energy Assets,Renewable Energy,Energy,Germany,Germany,51.5,10.0,280,38,Extreme_Weather,20,3,60,Low,85,"Wind farms resilient to climate change. Physical risks manageable with maintenance investment.",Renewable assets de-risk portfolio. Physical risks offset by operational resilience investments.
+ASSET_005,Commercial Real Estate Portfolio,Real Estate,Real Estate,Munich,Germany,48.1,11.6,2100,280,"Flood,Heat_Stress",55,25,150,Medium,70,"Urban flood risk in Munich increases post-2035. Heat stress reduces rental income. Adaptation capex required 200-300M EUR by 2050.","Munich real estate faces increasing physical risk. Flood mitigation capex essential by 2040. Rental demand at risk from climate migration."
+ASSET_006,Residential Properties,Real Estate,Real Estate,Berlin,Germany,52.5,13.4,3500,420,"Flood,Extreme_Heat_Waves",48,22,200,Medium,65,"Berlin faces urban heat island + occasional flooding. Migration risk if adaptation not implemented. Long-term demand uncertain.","Largest asset class. Physical risks moderate but consistent. Adaptation costs 250-400M EUR by 2050. Demand resilience depends on climate adaptation policy."
+ASSET_007,Agricultural Land Holdings,Agriculture,Agriculture,France,France,46.5,2.0,420,65,"Drought,Extreme_Heat",70,35,45,High,35,"Agricultural assets face severe drought risk in 1.5C/2C scenarios. Crop viability at risk. Supply chain disruption likely.",Agricultural sector most vulnerable to physical climate risks. Drought impact: -40-60% revenue in adverse scenarios. Adaptation through irrigation requires massive capex (100M+ EUR).
+ASSET_008,Thermal Power Plant,Power Generation,Energy,Germany,Germany,51.2,7.8,680,95,"Water_Stress,Cooling_Failure",62,96,80,High,40,"Coal power facing regulatory phase-out by 2030-2035 across EU. Physical water stress risk high.","Coal power plant faces existential risk. TCFD scenario analysis shows NPV = 0 or negative under 1.5C/2C. Immediate stranded asset risk."
+ASSET_009,Steel Manufacturing,Manufacturing,Manufacturing,Ruhr,Germany,51.4,7.2,580,125,"Water_Stress,Air_Quality",48,55,120,Medium,50,"Steel production faces EU carbon pricing (from 2025). Water stress risk in Ruhr region increasing. Capex for green steel transition 200-300M EUR by 2035.","Steel sector faces dual transition (technology + carbon pricing). Physical water risks moderate. Capex required for green steel conversion 200-300M EUR."
+ASSET_010,Transportation Infrastructure,Infrastructure,Infrastructure,EU,EU,50.0,10.0,890,105,"Flood,Extreme_Heat",52,28,300,Medium,55,"Transportation infrastructure faces increasing flooding/heat damage. Maintenance capex rising. Long-term viability depends on climate adaptation investment.","Infrastructure assets essential but climate-exposed. Flood/heat risk increasing across EU regions. Adaptation capex 300-500M EUR by 2050."
+ASSET_011,Chemical Production,Manufacturing,Manufacturing,Belgium,Belgium,50.9,4.4,420,98,"Water_Stress,Hazmat_Risk",58,42,90,High,45,"Chemical production highly sensitive to water availability and extreme flood events. Capex for resilience 100-150M EUR by 2035.","Chemical manufacturing faces water stress + flood risks. Extreme event damage potential high. Capex for disaster-proofing essential."
+ASSET_012,Food & Beverage Processing,Manufacturing,Food,Netherlands,Netherlands,52.1,5.3,310,72,"Flood,Drought",65,45,75,High,60,"Food processing vulnerable to agricultural supply shocks from drought. Flood risk in Netherlands. Supply chain adaptation capex 80-120M EUR.","Food processing faces severe supply chain risk from agricultural climate impacts. Flood/drought dual exposure. Capex for supply chain resilience essential."
+ASSET_013,Fishing Fleet,Agriculture,Agriculture,Atlantic,Ireland,53.5,-10.0,180,42,"Ocean_Acidification,Temperature_Shift",78,50,20,High,25,"Fishing industry faces existential risk from ocean acidification + regulatory response. Revenue decline -30-50% by 2040 likely. Limited capex = divestment scenario.","Fishing assets face highest physical risk (ocean chemistry change). Regulatory quotas declining. NPV strongly negative by 2035 in all scenarios."
+ASSET_014,Water Utility Company,Utilities,Utilities,Spain,Spain,39.5,-3.5,520,85,"Drought,Extreme_Heat",72,15,250,Medium,80,"Water utilities face severe drought risk in Spain/S. Europe. Regulation ensures revenue protection, but capex for desalination/adaptation 250-400M EUR by 2040.","Water utilities face extreme physical risk (drought) but regulatory protection maintains revenues. Massive capex required for drought adaptation (desalination, storage)."
+ASSET_015,Tourism Infrastructure,Hospitality,Hospitality,Alps,Switzerland,46.5,10.5,290,38,"Snow_Loss,Extreme_Heat",82,35,60,Medium,40,"Alpine ski infrastructure faces severe physical risk (snow loss). Revenue decline -40-70% by 2050 likely. Transition to year-round tourism requires capex 100-150M EUR but demand uncertain.","Ski resort assets face existential risk from snow loss. Transition to summer tourism uncertain. High stranded asset risk by 2040-2050."`
 
-  const ghgEmissionsCSV = `Emission_ID,Asset_ID,Asset_Name,Scope,Category,Emissions_tCO2e,Unit,Year,Data_Quality,Verification_Status,Notes
+  const ghgEmissionsCSV = `Emission_ID,Asset_ID,Asset_Name,Year,Scope,Category,Emissions_tCO2e,Calculation_Methodology,Emission_Factor_Source,Data_Quality,Verification_Status,Notes
 EMIT_001,ASSET_001,Coal Mining Company,1,Direct Operations,125000,tCO2e,2023,High,Verified,"Scope 1: Mining equipment, blasting, processing"
 EMIT_002,ASSET_001,Coal Mining Company,2,Electricity,45000,tCO2e,2023,High,Verified,"Scope 2: Purchased electricity for operations"
 EMIT_003,ASSET_001,Coal Mining Company,3,Upstream Coal,680000,tCO2e,2023,Medium,Third-Party,"Scope 3: Coal combustion at customer power plants"
@@ -105,10 +204,10 @@ EMIT_010,ASSET_004,Wind Energy Assets,1,Direct Emissions,0,tCO2e,2023,High,Verif
 EMIT_011,ASSET_004,Wind Energy Assets,2,Electricity,200,tCO2e,2023,High,Verified,"Scope 2: Minimal purchased electricity"
 EMIT_012,ASSET_004,Wind Energy Assets,3,Manufacturing,1800,tCO2e,2023,Medium,Calculated,"Scope 3: Embedded in turbine manufacturing"`
 
-  const climarioCSV = `Scenario_ID,Scenario_Name,Warming_Target_C,Probability_Percent,Type,Description,Policy_Stringency,Carbon_Price_EUR_per_tonne,Renewable_Energy_Share_2050,Key_Assumptions
-SCEN_001,1.5°C Paris Aligned,1.5,35,Ambitious,"Rapid decarbonization with immediate policy action. Consistent with Paris Agreement 1.5°C target.","Very High",180,95,"Rapid coal phase-out, 5% annual renewables growth, aggressive carbon pricing, strong regulatory frameworks"
-SCEN_002,2°C Moderate Transition,2.0,40,Moderate,"Current policies trajectory with gradual improvements. Achieves 2°C goal with delayed action.","Medium",95,78,"Coal phase-out by 2040, 3% annual renewables growth, moderate carbon price, mixed policy support"
-SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond current pledges. Market forces drive some change but insufficient.","Low",25,45,"Coal continues, 1.5% annual renewables growth, weak carbon pricing, fragmented policies"`
+  const climateScenarioCSV = `Scenario_ID,Scenario_Name,Warming_Target_C,Probability_Percent,Scenario_Type,Description,Time_Horizon_Years,Carbon_Price_EUR_per_tonne_2025,Carbon_Price_EUR_per_tonne_2030,Carbon_Price_EUR_per_tonne_2050,Renewable_Energy_Share_2025_Percent,Renewable_Energy_Share_2050_Percent,Oil_Price_USD_per_barrel_2030,Gas_Price_USD_per_MMBTU_2030,Technology_Cost_Reduction_PERCENT_2030,Policy_Stringency,Key_Assumptions,Revenue_Impact_Transition_Percent,Capex_Requirement_Addition_Percent
+SCEN_001,1.5C_Paris_Aligned,1.5,35,Ambitious,"Rapid decarbonization with immediate policy action. Consistent with Paris Agreement 1.5C target.",2050,180,250,300,35,95,45,8,55,"Very High","Rapid coal phase-out (2025-2030), 5% annual renewables growth, carbon pricing drives transition, net-zero by 2050 mandatory, technology costs fall 60% by 2050",-35,35
+SCEN_002,2C_Moderate_Transition,2.0,40,Moderate,"Current policies trajectory with gradual improvements. Achieves 2C goal with delayed action.",2050,95,150,200,28,78,65,10,40,"Medium","Coal phase-out 2035-2045, 3% annual renewables growth, carbon pricing moderate (50-100), net-zero by 2070, slower technology cost curves",-25,20
+SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond current pledges. Market forces drive some change but insufficient.",2050,25,40,60,18,45,120,15,20,"Low","Coal continues for baseload (phase-out only post-2050), 1.5% annual renewables growth, weak carbon pricing (10-40), net-zero not committed, technology costs fall only 20-30%",5,-10`
 
   const toggleModule = (moduleId) => {
     setSelectedModules(prev =>
@@ -449,7 +548,7 @@ SCEN_003,4°C+ Business as Usual,4.0,25,Baseline,"Limited climate action beyond 
             <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">🌍 Climate Scenarios</p>
               <p className="text-xs text-gray-600 mb-3">1.5°C, 2°C, 4°C scenarios with assumptions</p>
-              <button onClick={() => downloadCSV('climate_scenarios.csv', climarioCSV)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
+              <button onClick={() => downloadCSV('climate_scenarios.csv', climateScenarioCSV)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Download CSV</button>
             </div>
             <div className="bg-white p-4 rounded-lg border border-blue-300 hover:shadow-md transition-all">
               <p className="font-semibold text-gray-900 mb-2">📋 Documentation</p>
@@ -620,77 +719,6 @@ function DragDropZone({ onDataLoaded, onTemplateLoad }) {
   const [error, setError] = useState(null)
   const fileInputRef = useRef(null)
 
-  const parseCSV = (text) => {
-    const lines = text.trim().split('\n')
-    const headers = lines[0].split(',').map(h => h.trim())
-    const data = []
-    for (let i = 1; i < lines.length; i++) {
-      const obj = {}
-      const values = lines[i].split(',')
-      headers.forEach((header, index) => {
-        obj[header] = values[index]?.trim() || ''
-      })
-      data.push(obj)
-    }
-    return data
-  }
-
-  const handleFiles = (files) => {
-    setError(null)
-    let portfolioData = null
-    let emissionsData = null
-    let scenariosData = null
-
-    try {
-      for (const file of files) {
-        if (!file.name.endsWith('.csv')) {
-          setError(`Invalid file: ${file.name}. Please upload CSV files only.`)
-          return
-        }
-
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const text = e.target.result
-          const parsed = parseCSV(text)
-
-          if (file.name.includes('portfolio')) {
-            portfolioData = parsed.map(p => ({
-              id: p.Asset_ID,
-              name: p.Asset_Name,
-              type: p.Asset_Type,
-              exposure: parseFloat(p.Exposure_EUR_M) || 0,
-            }))
-          } else if (file.name.includes('emission')) {
-            emissionsData = parsed.map(e => ({
-              scope: parseInt(e.Scope),
-              emissions: parseFloat(e.Emissions_tCO2e) || 0,
-              category: e.Category,
-            }))
-          } else if (file.name.includes('scenario')) {
-            scenariosData = parsed.map(s => ({
-              name: s.Scenario_Name,
-              warming: parseFloat(s.Warming_Target_C),
-              probability: parseFloat(s.Probability_Percent) / 100,
-            }))
-          }
-
-          // If all files loaded, create combined data
-          if (portfolioData && emissionsData && scenariosData) {
-            onDataLoaded({
-              bankId: 'BANK_UPLOADED',
-              orgName: 'Your Bank',
-              portfolio: portfolioData,
-              emissions: emissionsData,
-              scenarios: scenariosData,
-            })
-          }
-        }
-        reader.readAsText(file)
-      }
-    } catch (err) {
-      setError(`Error parsing files: ${err.message}`)
-    }
-  }
 
   const handleDrag = (e) => {
     e.preventDefault()
