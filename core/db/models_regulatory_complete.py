@@ -131,6 +131,17 @@ class BankAsset(Base):
 
 
 class ClimateHazardExposure(Base):
+    """
+    Bank-vertical physical risk exposure per asset × hazard.
+
+    NOTE (reconciliation #1): `physical_risk_score` is DEPRECATED as an
+    independently stored value. The source of truth for an asset's physical
+    risk is `canonical_scores`, projected by H3 cell. Read it via the
+    `v_bank_asset_physical_risk` view or
+    `services.intelligence.asset_risk_projection.project_org_assets()`, not from
+    this column. The column is retained only for backfill/transition and will be
+    dropped once all readers use the projection.
+    """
     __tablename__ = 'climate_hazard_exposure'
 
     exposure_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -138,7 +149,7 @@ class ClimateHazardExposure(Base):
     asset_id = Column(UUID(as_uuid=True), ForeignKey('bank_assets.asset_id', ondelete='CASCADE'), nullable=False)
     hazard_type = Column(String(50), nullable=False)
     exposure_level = Column(String(20))
-    physical_risk_score = Column(DECIMAL(5, 2))
+    physical_risk_score = Column(DECIMAL(5, 2))  # DEPRECATED — project from canonical_scores
     hazard_probability_pct = Column(DECIMAL(5, 2))
     hazard_intensity = Column(DECIMAL(10, 2))
     expected_annual_loss_eur = Column(DECIMAL(15, 2))
