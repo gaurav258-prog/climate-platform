@@ -7,11 +7,11 @@ export class TCFDReportGenerator {
   /**
    * Generate complete TCFD report structure
    */
-  static generateTCFDReport(bankData, processedData, governanceData) {
+  static generateTCFDReport(bankData, processedData, governanceData, responseImplementation) {
     return {
       governance: this.generateGovernance(bankData, governanceData),
       strategy: this.generateStrategy(processedData),
-      riskManagement: this.generateRiskManagement(bankData, processedData, governanceData),
+      riskManagement: this.generateRiskManagement(bankData, processedData, governanceData, responseImplementation),
       metricsTargets: this.generateMetricsTargets(processedData, governanceData),
     }
   }
@@ -219,10 +219,57 @@ Contingency planning: Accelerated transition if 1.5°C pathway becomes more like
   }
 
   /**
+   * Format response implementation data for display
+   */
+  static formatResponseImplementationSummary(responses = []) {
+    if (!responses || responses.length === 0) {
+      return 'Risk response implementation data not provided.'
+    }
+
+    // Group by risk category
+    const byCategory = {}
+    responses.forEach(r => {
+      if (!byCategory[r.riskCategory]) {
+        byCategory[r.riskCategory] = []
+      }
+      byCategory[r.riskCategory].push(r)
+    })
+
+    let summary = 'RISK RESPONSE IMPLEMENTATION TRACKING:\n\n'
+
+    Object.entries(byCategory).forEach(([category, items]) => {
+      summary += `${category.toUpperCase()} RISKS:\n`
+      items.forEach(item => {
+        const progress = `${item.capexSpentToDate_EUR_M}/${item.plannedCapexEUR_M}M`
+        const percent = item.plannedCapexEUR_M > 0 ? Math.round((item.capexSpentToDate_EUR_M / item.plannedCapexEUR_M) * 100) : 0
+        summary += `• ${item.assetName} - ${item.strategy}\n`
+        summary += `  Timeline: ${item.plannedStartYear}-${item.plannedEndYear} | Status: ${item.timelineStatus} | Progress: ${progress} (${percent}%)\n`
+        summary += `  Governance: ${item.governanceApproval} | Insurance: €${item.insuranceCoverage_EUR_M}M\n`
+        summary += `  Monitoring: ${item.monitoringFrequency} | Metric: ${item.effectivenessMetric}\n\n`
+      })
+    })
+
+    // Add aggregated metrics
+    const totalPlanned = responses.reduce((sum, r) => sum + r.plannedCapexEUR_M, 0)
+    const totalSpent = responses.reduce((sum, r) => sum + r.capexSpentToDate_EUR_M, 0)
+    const onSchedule = responses.filter(r => r.timelineStatus === 'On Schedule').length
+    const delayed = responses.filter(r => r.timelineStatus === 'Delayed' || r.timelineStatus === 'Behind Schedule').length
+
+    summary += `AGGREGATED IMPLEMENTATION STATUS:\n`
+    summary += `• Total Planned Capex: €${totalPlanned}M\n`
+    summary += `• Total Spent to Date: €${totalSpent}M (${Math.round((totalSpent / (totalPlanned || 1)) * 100)}% complete)\n`
+    summary += `• Responses On Schedule: ${onSchedule}/${responses.length}\n`
+    summary += `• Responses Behind Schedule: ${delayed}/${responses.length}\n`
+    summary += `• Total Insurance Coverage: €${responses.reduce((sum, r) => sum + r.insuranceCoverage_EUR_M, 0)}M\n`
+
+    return summary
+  }
+
+  /**
    * RISK MANAGEMENT PILLAR - 2 Disclosures
    * Risk identification, assessment, management processes
    */
-  static generateRiskManagement(bankData, processedData, governanceData = {}) {
+  static generateRiskManagement(bankData, processedData, governanceData = {}, responseImplementation = []) {
     return {
       title: 'Risk Management',
       disclosures: [
@@ -319,6 +366,8 @@ IMPLEMENTATION & MONITORING:
 • Capital requirements: Climate-adjusted capital adequacy ratios
 • Approval authority: Board for >€50M climate-related decisions
 • Reporting: Monthly to CRO, quarterly to Risk Committee, annual to Board
+
+${this.formatResponseImplementationSummary(responseImplementation)}
 
 Effectiveness Assessment: Annual review of risk management processes against actual outcomes, with adjustment of strategy as needed.`,
         },

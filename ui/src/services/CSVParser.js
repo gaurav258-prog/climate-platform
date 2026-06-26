@@ -400,6 +400,79 @@ export class CSVParser {
   }
 
   /**
+   * Parse risk response implementation data from CSV
+   */
+  static parseRiskResponseImplementation(csvText) {
+    const lines = csvText.trim().split('\n')
+    if (lines.length < 2) return []
+
+    const headers = lines[0].split(',').map(h => h.trim())
+    const responses = []
+
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue
+
+      const row = this.parseCSVLine(lines[i])
+      const obj = {}
+
+      headers.forEach((header, idx) => {
+        obj[header] = row[idx] ? row[idx].trim() : ''
+      })
+
+      responses.push({
+        riskCategory: obj.Risk_Category || '',
+        riskType: obj.Risk_Type || '',
+        assetName: obj.Asset_Name || '',
+        strategy: obj.Response_Strategy || '',
+        plannedStartYear: parseInt(obj.Planned_Start_Year || 2025),
+        plannedEndYear: parseInt(obj.Planned_End_Year || 2030),
+        plannedCapexEUR_M: parseFloat(obj.Planned_Capex_EUR_M || 0),
+        capexSpentToDate_EUR_M: parseFloat(obj.Capex_Spent_To_Date_EUR_M || 0),
+        implementationStatus: obj.Implementation_Status || 'Planned',
+        timelineStatus: obj.Timeline_Status || 'On Schedule',
+        keyMilestones: obj.Key_Milestones || '',
+        insuranceCoverage_EUR_M: parseFloat(obj.Insurance_Coverage_EUR_M || 0),
+        governanceApproval: obj.Governance_Approval || '',
+        escalationAuthority: obj.Escalation_Authority || '',
+        monitoringFrequency: obj.Monitoring_Frequency || 'Quarterly',
+        effectivenessMetric: obj.Effectiveness_Metric || '',
+        notes: obj.Notes || '',
+        completionPercent: parseFloat(obj.Capex_Spent_To_Date_EUR_M || 0) / parseFloat(obj.Planned_Capex_EUR_M || 1) * 100
+      })
+    }
+
+    return responses
+  }
+
+  /**
+   * Validate risk response implementation data
+   */
+  static validateRiskResponseImplementation(responses) {
+    const issues = []
+
+    if (!responses || responses.length === 0) {
+      return { valid: true, issues } // Empty is OK - optional data
+    }
+
+    responses.forEach((response, idx) => {
+      if (!response.riskCategory) {
+        issues.push(`Row ${idx + 2}: Risk category is required`)
+      }
+      if (!response.assetName) {
+        issues.push(`Row ${idx + 2}: Asset name is required`)
+      }
+      if (response.plannedCapexEUR_M < 0) {
+        issues.push(`Row ${idx + 2}: Planned capex cannot be negative`)
+      }
+      if (response.capexSpentToDate_EUR_M > response.plannedCapexEUR_M) {
+        issues.push(`Row ${idx + 2}: Spent capex cannot exceed planned capex`)
+      }
+    })
+
+    return { valid: issues.length === 0, issues }
+  }
+
+  /**
    * Validate all data together
    */
   static validateAll(portfolio, emissions, scenarios, governance) {

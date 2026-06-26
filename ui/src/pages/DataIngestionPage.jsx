@@ -68,6 +68,7 @@ export default function DataIngestionPage() {
     let emissionsData = null
     let scenariosData = null
     let governanceData = null
+    let responseImplementationData = null
     let filesProcessed = 0
 
     const processFiles = () => {
@@ -76,7 +77,7 @@ export default function DataIngestionPage() {
       // All files processed - combine and validate
       if (filesProcessed === Array.from(files).length) {
         if (!portfolioData || !emissionsData || !scenariosData) {
-          setError('Please upload all required files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv (governance_structure.csv is optional)')
+          setError('Please upload all required files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv (governance_structure.csv and risk_response_implementation.csv are optional)')
           return
         }
 
@@ -95,7 +96,8 @@ export default function DataIngestionPage() {
           portfolio: portfolioData,
           emissions: emissionsData,
           scenarios: scenariosData,
-          governance: governanceData
+          governance: governanceData,
+          responseImplementation: responseImplementationData
         })
         setError(null)
         setValidationIssues(null)
@@ -122,8 +124,10 @@ export default function DataIngestionPage() {
               scenariosData = CSVParser.parseClimateScenarios(text)
             } else if (file.name.includes('governance')) {
               governanceData = CSVParser.parseGovernanceStructure(text)
+            } else if (file.name.includes('response') || file.name.includes('implementation')) {
+              responseImplementationData = CSVParser.parseRiskResponseImplementation(text)
             } else {
-              setError(`Unknown file type: ${file.name}. Use portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv, or governance_structure.csv`)
+              setError(`Unknown file type: ${file.name}. Use portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv, governance_structure.csv, or risk_response_implementation.csv`)
               return
             }
           } catch (parseError) {
@@ -150,6 +154,7 @@ export default function DataIngestionPage() {
       const emissions = CSVParser.parseGHGEmissions(ghgEmissionsCSV)
       const scenarios = CSVParser.parseClimateScenarios(climateScenarioCSV)
       const governance = CSVParser.parseGovernanceStructure(governanceStructureCSV)
+      const responseImplementation = CSVParser.parseRiskResponseImplementation(riskResponseImplementationCSV)
 
       setUploadedData({
         bankId: 'BANK_TEMPLATE',
@@ -158,6 +163,7 @@ export default function DataIngestionPage() {
         emissions,
         scenarios,
         governance,
+        responseImplementation,
       })
       setError(null)
       setValidationIssues(null)
@@ -243,6 +249,17 @@ policy_monitoring_team,Yes
 third_party_assurance,Yes
 climate_risk_culture_initiatives,Board training, Employee engagement, Supplier engagement`
 
+  const riskResponseImplementationCSV = `Risk_Category,Risk_Type,Asset_Name,Response_Strategy,Planned_Start_Year,Planned_End_Year,Planned_Capex_EUR_M,Capex_Spent_To_Date_EUR_M,Implementation_Status,Timeline_Status,Key_Milestones,Insurance_Coverage_EUR_M,Governance_Approval,Escalation_Authority,Monitoring_Frequency,Effectiveness_Metric,Notes
+Physical,Flood,Commercial Real Estate Portfolio,Flood-proofing and water management systems,2025,2030,200,45,In Progress,On Schedule,"Q2 2025: Design complete, Q3 2025: Construction begins",150,Board Risk Committee,CFO >50M,Quarterly,Annual damage reduction vs baseline,Munich location highest priority
+Physical,Heat_Stress,Commercial Real Estate Portfolio,Cool roofs and HVAC upgrades,2026,2032,120,15,Planned,On Schedule,"Q3 2026: Retrofit phase 1, Q4 2027: Retrofit phase 2",80,Risk Committee,CRO,Quarterly,Energy cost reduction and occupancy,Tied to renewable expansion
+Transition,Coal_Assets,Coal Mining Company,Managed divestment and closure planning,2025,2030,0,200,In Progress,Behind Schedule,"Q2 2025: Buyer search, Q4 2027: Sale target",0,Board Risk Committee,CFO >50M,Monthly,Divestment completion %,Behind schedule - accelerate buyer ID
+Transition,Oil_Gas,Oil & Gas Portfolio,Portfolio reduction and clean energy pivot,2025,2040,250,45,In Progress,On Schedule,"2026: -10% exposure, 2030: -20% exposure",0,Board Risk Committee,CFO >50M,Quarterly,Quarterly divestment progress,Aligned with EU regulatory timeline
+Transition,Renewable_Energy,Portfolio_Wide,Renewable energy expansion and investment,2025,2030,600,120,In Progress,On Schedule,"2025: €200M, 2027: €400M, 2030: €600M target",0,Board Risk Committee,CFO >50M,Quarterly,Green assets % of portfolio,Target: 40% by 2030
+Financial,Insurance_Gap,Physical_Assets,Expand insurance coverage for physical risks,2025,2027,0,50,Planned,On Schedule,"Q2 2026: Additional policies, Q4 2026: Full coverage",350,Risk Committee,CFO,Annual,Insurance settlement time,Gap: €300M - closing through 2026
+Financial,Capital_Reserve,Emergency_Fund,Build climate incident financial reserves,2025,2030,0,60,In Progress,On Schedule,"Annual: €100M allocated, Target: €300M by 2030",0,Board,CFO,Monthly,Reserve balance vs target,€300M available for emergencies
+Governance,Response_Team,Enterprise_Wide,Build and train climate response teams,2025,Ongoing,3,1,Active,On Schedule,"Q1 2026: Initial training, Annual: Refresher training",0,Risk Committee,CRO,Annual,Response time to incidents,25 FTE dedicated team
+Governance,Incident_Drills,Enterprise_Wide,Annual climate incident simulation,2025,Ongoing,1,0.5,Active,On Schedule,"Semi-Annual: Incident drills, Quarterly: Tabletop exercises",0,Risk Committee,CRO,Semi-Annual,Drill outcomes and improvements,2 major drills completed Q1 2026`
+
   const toggleModule = (moduleId) => {
     setSelectedModules(prev =>
       prev.includes(moduleId) ? prev.filter(m => m !== moduleId) : [...prev, moduleId]
@@ -284,7 +301,7 @@ climate_risk_culture_initiatives,Board training, Employee engagement, Supplier e
         mimeType = 'application/json'
       } else if (format === 'pdf') {
         // Generate complete TCFD report with all 11 disclosures
-        const tcfdReport = TCFDReportGenerator.generateTCFDReport(bd, pd, uploadedData.governance)
+        const tcfdReport = TCFDReportGenerator.generateTCFDReport(bd, pd, uploadedData.governance, uploadedData.responseImplementation)
 
         const sections = [
           {
