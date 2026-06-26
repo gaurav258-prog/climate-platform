@@ -61,6 +61,8 @@ export default function Sidebar({
 
       {/* Compliance */}
       <Section label="Compliance">
+        <NavItem id="data-ingestion" active={activeView === 'data-ingestion'} onClick={nav('data-ingestion')}
+          icon={<FileText size={18} strokeWidth={1.5} />} label="Data Ingestion" />
         <NavItem id="compliance" active={activeView === 'compliance'} onClick={nav('compliance')}
           icon={<FileText size={18} strokeWidth={1.5} />} label="Packages" />
         <NavItem id="regulatory" active={activeView === 'regulatory'} onClick={nav('regulatory')}

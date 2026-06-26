@@ -25,6 +25,7 @@ import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
 import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
 import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
 import RegulatoryReportingHome from './pages/RegulatoryReportingHome'
+import DataIngestionPage from './pages/DataIngestionPage'
 import ScenarioFinancialImpactPage from './pages/ScenarioFinancialImpactPage'
 import ComplianceGapAnalysisPage from './pages/ComplianceGapAnalysisPage'
 import RiskMaterialityPage from './pages/RiskMaterialityPage'
@@ -46,6 +47,7 @@ export default function App() {
   const [view, setView]                = useState('dashboard')
   const [hazard, setHazard]            = useState(null)
   const [regulatoryModule, setRegulatoryModule] = useState(null)
+  const [showDataIngestion, setShowDataIngestion] = useState(false)
   const [dayIndex, setDayIndex]        = useState(10)
   const [selected, setSelected]        = useState(null)
 
@@ -100,7 +102,9 @@ export default function App() {
 
         {/* Content */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {view === 'dashboard' ? (
+          {view === 'data-ingestion' ? (
+            <DataIngestionPage />
+          ) : view === 'dashboard' ? (
             <AppleDashboard
               onViewChange={setView}
               onHazardChange={handleHazardChange}
