@@ -20,9 +20,9 @@ import SeismicPage from './pages/SeismicPage'
 import EnhancedSeismicPage from './pages/EnhancedSeismicPage'
 import AppleSeismicPage from './pages/AppleSeismicPage'
 import AppleSeismicPageTabbed from './pages/AppleSeismicPageTabbed'
-import AppleFloodPage from './pages/AppleFloodPage'
-import AppleWildfirePage from './pages/AppleWildfirePage'
-import AppleHeatPage from './pages/AppleHeatPage'
+import AppleFloodPageTabbed from './pages/AppleFloodPageTabbed'
+import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
+import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
 import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
@@ -92,11 +92,11 @@ export default function App() {
               onHazardChange={handleHazardChange}
             />
           ) : view === 'map' && hazard === 'flood' ? (
-            <AppleFloodPage />
+            <AppleFloodPageTabbed />
           ) : view === 'map' && hazard === 'wildfire' ? (
-            <AppleWildfirePage />
+            <AppleWildfirePageTabbed />
           ) : view === 'map' && hazard === 'heat' ? (
-            <AppleHeatPage />
+            <AppleHeatPageTabbed />
           ) : view === 'map' && hazard === 'seismic' ? (
             <AppleSeismicPageTabbed />
           ) : view === 'operations' ? (
