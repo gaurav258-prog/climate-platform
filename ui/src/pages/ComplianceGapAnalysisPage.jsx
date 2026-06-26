@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
 
-}
-
-}
-
 /**
  * Compliance Gap Analysis
  * Map bank assets + emissions to TCFD/Taxonomy/SEC frameworks

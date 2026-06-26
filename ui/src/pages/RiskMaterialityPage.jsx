@@ -1,6 +1,5 @@
 
 import SimpleIcon from '../components/SimpleIcon'
-}
 
 /**
  * Risk Materiality Calculation

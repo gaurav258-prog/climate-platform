@@ -1,10 +1,9 @@
-/**
 import SimpleIcon from '../components/SimpleIcon'
+
+/**
  * Regulatory Reporting Module Home - Minimalist BCG/McKinsey Style
  * Central hub for all regulatory reporting tools
  */
-
-}
 
 export default function RegulatoryReportingHome({ onModuleSelect }) {
   const modules = [

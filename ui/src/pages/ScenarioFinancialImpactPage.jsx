@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
 
-}
-
 /**
  * Scenario Financial Impact Analysis
  * Calculate projected revenue, NPV, and stranded asset risk

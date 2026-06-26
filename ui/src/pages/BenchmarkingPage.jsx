@@ -1,6 +1,5 @@
 
 import SimpleIcon from '../components/SimpleIcon'
-}
 
 export default function BenchmarkingPage() {
   const peers = [
