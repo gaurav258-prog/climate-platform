@@ -62,7 +62,7 @@ export default function AppleParametricPage() {
   ]
 
   return (
-    <div className="w-full bg-white">
+    <div className="w-full h-screen overflow-y-auto bg-white">
       {/* Hero Section */}
       <section className="relative h-96 flex items-center justify-center overflow-hidden pt-12">
         <div className="absolute inset-0 opacity-20"
