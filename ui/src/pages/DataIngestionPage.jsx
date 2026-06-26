@@ -67,6 +67,7 @@ export default function DataIngestionPage() {
     let portfolioData = null
     let emissionsData = null
     let scenariosData = null
+    let governanceData = null
     let filesProcessed = 0
 
     const processFiles = () => {
@@ -75,12 +76,12 @@ export default function DataIngestionPage() {
       // All files processed - combine and validate
       if (filesProcessed === Array.from(files).length) {
         if (!portfolioData || !emissionsData || !scenariosData) {
-          setError('Please upload all three files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv')
+          setError('Please upload all required files: portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv (governance_structure.csv is optional)')
           return
         }
 
         // Validate data (TCFD compliance check)
-        const validation = CSVParser.validateAll(portfolioData, emissionsData, scenariosData)
+        const validation = CSVParser.validateAll(portfolioData, emissionsData, scenariosData, governanceData)
         if (!validation.valid) {
           setValidationIssues(validation.issues)
           setError(`Data validation failed. ${validation.issues.length} issues found.`)
@@ -94,6 +95,7 @@ export default function DataIngestionPage() {
           portfolio: portfolioData,
           emissions: emissionsData,
           scenarios: scenariosData,
+          governance: governanceData
         })
         setError(null)
         setValidationIssues(null)
@@ -118,6 +120,11 @@ export default function DataIngestionPage() {
               emissionsData = CSVParser.parseGHGEmissions(text)
             } else if (file.name.includes('scenario')) {
               scenariosData = CSVParser.parseClimateScenarios(text)
+            } else if (file.name.includes('governance')) {
+              governanceData = CSVParser.parseGovernanceStructure(text)
+            } else {
+              setError(`Unknown file type: ${file.name}. Use portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv, or governance_structure.csv`)
+              return
             }
           } catch (parseError) {
             setError(`Error parsing ${file.name}: ${parseError.message}`)
@@ -142,6 +149,7 @@ export default function DataIngestionPage() {
       const portfolio = CSVParser.parsePortfolioAssets(portfolioAssetCSV)
       const emissions = CSVParser.parseGHGEmissions(ghgEmissionsCSV)
       const scenarios = CSVParser.parseClimateScenarios(climateScenarioCSV)
+      const governance = CSVParser.parseGovernanceStructure(governanceStructureCSV)
 
       setUploadedData({
         bankId: 'BANK_TEMPLATE',
@@ -149,6 +157,7 @@ export default function DataIngestionPage() {
         portfolio,
         emissions,
         scenarios,
+        governance,
       })
       setError(null)
       setValidationIssues(null)
@@ -211,6 +220,29 @@ SCEN_001,1.5C_Paris_Aligned,1.5,35,Ambitious,"Rapid decarbonization with immedia
 SCEN_002,2C_Moderate_Transition,2.0,40,Moderate,"Current policies trajectory with gradual improvements. Achieves 2C goal with delayed action.",2050,95,150,200,28,78,65,10,40,"Medium","Coal phase-out 2035-2045, 3% annual renewables growth, carbon pricing moderate (50-100), net-zero by 2070, slower technology cost curves",-25,20
 SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond current pledges. Market forces drive some change but insufficient.",2050,25,40,60,18,45,120,15,20,"Low","Coal continues for baseload (phase-out only post-2050), 1.5% annual renewables growth, weak carbon pricing (10-40), net-zero not committed, technology costs fall only 20-30%",5,-10`
 
+  const governanceStructureCSV = `Field,Value
+board_committee_name,Risk Committee
+board_reporting_frequency,Quarterly
+board_members_climate_oversight,8
+cfo_role,Oversees integration of climate risk into financial planning and capital allocation
+cro_role,Leads enterprise climate risk identification and assessment
+climate_team_size,25
+climate_team_reports_to,Chief Risk Officer
+compensation_climate_percentage,15
+risk_identification_frequency,Annual with Quarterly Updates
+risk_limits_fossil_fuel_max_percent,30
+capital_expenditure_approval_threshold_EUR_M,50
+disclosure_frequency,Annual TCFD + Quarterly Updates
+science_based_targets_commitment,Yes
+sbt_scope_1_2030_percent,-50
+sbt_scope_1_2050_target,Net-zero
+portfolio_green_assets_target_2030_percent,40
+fossil_fuel_divestment_target_2035_percent,5
+renewable_energy_investment_target_EUR_M,600
+policy_monitoring_team,Yes
+third_party_assurance,Yes
+climate_risk_culture_initiatives,Board training, Employee engagement, Supplier engagement`
+
   const toggleModule = (moduleId) => {
     setSelectedModules(prev =>
       prev.includes(moduleId) ? prev.filter(m => m !== moduleId) : [...prev, moduleId]
@@ -252,7 +284,7 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
         mimeType = 'application/json'
       } else if (format === 'pdf') {
         // Generate complete TCFD report with all 11 disclosures
-        const tcfdReport = TCFDReportGenerator.generateTCFDReport(bd, pd)
+        const tcfdReport = TCFDReportGenerator.generateTCFDReport(bd, pd, uploadedData.governance)
 
         const sections = [
           {

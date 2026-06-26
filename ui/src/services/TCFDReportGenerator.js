@@ -7,12 +7,12 @@ export class TCFDReportGenerator {
   /**
    * Generate complete TCFD report structure
    */
-  static generateTCFDReport(bankData, processedData) {
+  static generateTCFDReport(bankData, processedData, governanceData) {
     return {
-      governance: this.generateGovernance(bankData),
+      governance: this.generateGovernance(bankData, governanceData),
       strategy: this.generateStrategy(processedData),
-      riskManagement: this.generateRiskManagement(bankData, processedData),
-      metricsTargets: this.generateMetricsTargets(processedData),
+      riskManagement: this.generateRiskManagement(bankData, processedData, governanceData),
+      metricsTargets: this.generateMetricsTargets(processedData, governanceData),
     }
   }
 
@@ -20,16 +20,16 @@ export class TCFDReportGenerator {
    * GOVERNANCE PILLAR - 2 Disclosures
    * Board oversight and management role in climate risk
    */
-  static generateGovernance(bankData) {
+  static generateGovernance(bankData, governanceData = {}) {
     return {
       title: 'Governance',
       disclosures: [
         {
           number: '1',
           title: 'Board Oversight of Climate-Related Risks and Opportunities',
-          content: `The Board of Directors maintains oversight of climate-related risks and opportunities through the Risk Committee, which reports quarterly to the full Board.
+          content: `The Board of Directors maintains oversight of climate-related risks and opportunities through the ${governanceData.board?.committeeName || 'Risk Committee'}, which reports ${governanceData.board?.reportingFrequency || 'quarterly'} to the full Board.
 
-The Risk Committee:
+The ${governanceData.board?.committeeName || 'Risk Committee'}:
 • Reviews the organization's climate strategy and alignment with business objectives
 • Monitors progress against climate-related targets and commitments
 • Assesses material climate risks to financial condition and strategic planning
@@ -38,10 +38,10 @@ The Risk Committee:
 Board-level climate governance ensures that climate considerations are integrated into:
 • Strategic planning and capital allocation decisions
 • Risk assessment and management frameworks
-• Compensation and performance metrics
+• Compensation and performance metrics tied to climate targets (${governanceData.compensation?.climatePercentage || 15}% of incentive compensation)
 • Stakeholder engagement on climate matters
 
-The Board meets quarterly to review climate risk reports, scenario analyses, and compliance with TCFD recommendations. Climate risk is treated as a material financial risk comparable to credit, operational, and market risks.`,
+The Board meets ${governanceData.board?.meetingCadence || '4 times per year'} to review climate risk reports, scenario analyses, and compliance with TCFD recommendations. Climate risk is treated as a material financial risk comparable to credit, operational, and market risks.`,
         },
         {
           number: '2',
@@ -49,27 +49,27 @@ The Board meets quarterly to review climate risk reports, scenario analyses, and
           content: `Management responsibility for climate-related risks is assigned through the following structure:
 
 Chief Financial Officer (CFO):
-• Oversees integration of climate risk into financial planning and capital allocation
+${governanceData.management?.cfo?.role ? `• ${governanceData.management.cfo.role}` : '• Oversees integration of climate risk into financial planning and capital allocation'}
 • Ensures climate risk is reflected in asset valuation and impairment assessments
 • Manages climate-related disclosures and financial reporting
 
 Chief Risk Officer (CRO):
-• Leads enterprise climate risk identification and assessment
+${governanceData.management?.cro?.role ? `• ${governanceData.management.cro.role}` : '• Leads enterprise climate risk identification and assessment'}
 • Integrates climate risk into credit risk, operational risk, and market risk frameworks
 • Develops climate risk policies and monitoring standards
 
 Climate Risk Management Team:
-• Size: 25 professionals across risk, sustainability, and strategy functions
+• Size: ${governanceData.management?.teamSize || 25} professionals across ${governanceData.management?.teamStructure || 'risk, sustainability, and strategy functions'}
 • Responsibilities: scenario analysis, emissions accounting, target-setting, stakeholder engagement
-• Reports to CRO with direct escalation to Risk Committee
+• Reports to ${governanceData.management?.reportsTo || 'Chief Risk Officer'} with direct escalation to ${governanceData.board?.committeeName || 'Risk Committee'}
 
 Management Compensation:
 Climate risk management performance is reflected in executive compensation:
-• 15% of incentive compensation tied to meeting climate-related targets
+• ${governanceData.compensation?.climatePercentage || 15}% of incentive compensation tied to meeting climate-related targets
 • Climate risk management included in performance evaluations
 • Alignment of compensation with long-term climate resilience strategy
 
-Disclosure Frequency: Annual review with quarterly updates to the Board on material climate matters.`,
+Disclosure Frequency: ${governanceData.disclosure?.frequency || 'Annual'} review with ${governanceData.disclosure?.stakeholderCadence || 'quarterly'} updates to the Board on material climate matters.`,
         },
       ],
     }
@@ -222,7 +222,7 @@ Contingency planning: Accelerated transition if 1.5°C pathway becomes more like
    * RISK MANAGEMENT PILLAR - 2 Disclosures
    * Risk identification, assessment, management processes
    */
-  static generateRiskManagement(bankData, processedData) {
+  static generateRiskManagement(bankData, processedData, governanceData = {}) {
     return {
       title: 'Risk Management',
       disclosures: [
@@ -330,7 +330,7 @@ Effectiveness Assessment: Annual review of risk management processes against act
    * METRICS & TARGETS PILLAR - 5 Disclosures
    * GHG emissions, intensity, targets, performance
    */
-  static generateMetricsTargets(processedData) {
+  static generateMetricsTargets(processedData, governanceData = {}) {
     // Get emissions data from processed data
     const scope1 = processedData.riskMateriality?.summary?.totalScope1_2_Emissions_tCO2e || 0
     const scope2 = 0 // Already included in Scope 1+2 above

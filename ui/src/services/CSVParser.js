@@ -281,13 +281,133 @@ export class CSVParser {
   }
 
   /**
+   * Parse governance structure from CSV (Field,Value format)
+   */
+  static parseGovernanceStructure(csvText) {
+    const lines = csvText.trim().split('\n')
+    const governance = {}
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+
+      const [field, ...valueParts] = this.parseCSVLine(line)
+      const value = valueParts.join(',').trim()
+      governance[field] = value
+    }
+
+    return {
+      board: {
+        committeeName: governance.board_committee_name || 'Risk Committee',
+        reportingFrequency: governance.board_reporting_frequency || 'Quarterly',
+        meetingCadence: governance.board_meeting_cadence || '4 times per year',
+        membersCount: parseInt(governance.board_members_climate_oversight || 8)
+      },
+      management: {
+        cfo: {
+          role: governance.cfo_role || '',
+          responsibilities: governance.cfo_key_responsibilities || ''
+        },
+        cro: {
+          role: governance.cro_role || '',
+          responsibilities: governance.cro_key_responsibilities || ''
+        },
+        cso: {
+          exists: governance.chief_sustainability_officer === 'Yes',
+          role: governance.sustainability_officer_role || ''
+        },
+        teamSize: parseInt(governance.climate_team_size || 25),
+        teamStructure: governance.climate_team_structure || '',
+        reportsTo: governance.climate_team_reports_to || 'Chief Risk Officer'
+      },
+      compensation: {
+        climatePercentage: parseInt(governance.compensation_climate_percentage || 15),
+        tiedTo: governance.compensation_tied_to || ''
+      },
+      riskManagement: {
+        process: governance.risk_management_process || '',
+        identificationFrequency: governance.risk_identification_frequency || 'Annual',
+        escalationThreshold: parseInt(governance.risk_committee_escalation_threshold_percent || 5),
+        fossilFuelLimit: parseInt(governance.risk_limits_fossil_fuel_max_percent || 30),
+        transitionRiskLimit: parseInt(governance.risk_limits_high_transition_risk_percent || 30)
+      },
+      capex: {
+        approvalThreshold: parseInt(governance.capital_expenditure_approval_threshold_EUR_M || 50),
+        approvalAuthority: governance.capex_climate_approval_authority || 'Board',
+        budget_2025_2030: parseInt(governance.climate_capex_2025_2030_EUR_M || 400),
+        adaptationBudgetAnnual: parseInt(governance.adaptation_investment_budget_annual_EUR_M || 20)
+      },
+      disclosure: {
+        frequency: governance.disclosure_frequency || 'Annual',
+        stakeholderCadence: governance.stakeholder_communication_cadence || 'Annual',
+        thirdPartyAssurance: governance.third_party_assurance === 'Yes',
+        assuranceFrequency: governance.assurance_frequency || 'Annual'
+      },
+      targets: {
+        scienceBasedTargets: governance.science_based_targets_commitment === 'Yes',
+        validation: governance.science_based_targets_validation || 'SBTi-validated',
+        scope1_2030: parseInt(governance.sbt_scope_1_2030_percent || -50),
+        scope2_2030: parseInt(governance.sbt_scope_2_2030_percent || -50),
+        scope1_2050: governance.sbt_scope_1_2050_target || 'Net-zero',
+        scope2_2050: governance.sbt_scope_2_2050_target || 'Net-zero',
+        scope3_2030: parseInt(governance.sbt_scope_3_2030_percent || -25)
+      },
+      milestones: {
+        '2025': {
+          emissionsReduction: parseInt(governance.interim_milestone_2025_emissions_reduction_percent || 15),
+          greenAssets: parseInt(governance.interim_milestone_2025_green_assets_percent || 30)
+        },
+        '2030': {
+          emissionsReduction: parseInt(governance.interim_milestone_2030_emissions_reduction_percent || 50),
+          greenAssets: parseInt(governance.interim_milestone_2030_green_assets_percent || 40)
+        },
+        '2040': {
+          emissionsReduction: parseInt(governance.interim_milestone_2040_emissions_reduction_percent || 85),
+          greenAssets: parseInt(governance.interim_milestone_2040_green_assets_percent || 70)
+        }
+      },
+      portfolio: {
+        greenAssetsTarget2030: parseInt(governance.portfolio_green_assets_target_2030_percent || 40),
+        fossilDivestment2030: parseInt(governance.fossil_fuel_divestment_target_2030_percent || 20),
+        fossilDivestment2035: parseInt(governance.fossil_fuel_divestment_target_2035_percent || 5),
+        renewableInvestmentTarget: parseInt(governance.renewable_energy_investment_target_EUR_M || 600)
+      }
+    }
+  }
+
+  /**
+   * Validate governance data
+   */
+  static validateGovernance(governance) {
+    const issues = []
+
+    if (!governance || Object.keys(governance).length === 0) {
+      issues.push('Governance structure data is empty')
+      return { valid: false, issues }
+    }
+
+    // Validate percentages are between 0-100
+    if (governance.compensation?.climatePercentage < 0 || governance.compensation?.climatePercentage > 100) {
+      issues.push('Compensation climate percentage must be between 0-100')
+    }
+
+    // Validate team size is positive
+    if (governance.management?.teamSize < 1) {
+      issues.push('Climate team size must be at least 1')
+    }
+
+    return { valid: issues.length === 0, issues }
+  }
+
+  /**
    * Validate all data together
    */
-  static validateAll(portfolio, emissions, scenarios) {
+  static validateAll(portfolio, emissions, scenarios, governance) {
     const issues = [
       ...this.validatePortfolio(portfolio),
       ...this.validateEmissions(emissions),
-      ...this.validateScenarios(scenarios)
+      ...this.validateScenarios(scenarios),
+      ...(governance ? this.validateGovernance(governance).issues : [])
     ]
 
     return {
