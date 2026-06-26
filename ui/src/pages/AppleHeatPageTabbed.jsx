@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Thermometer, TrendingUp, AlertTriangle, ChevronRight } from 'lucide-react'
-import RiskMap from '../components/RiskMap'
+import CesiumGlobe from '../components/CesiumGlobe'
 
 /**
  * Heat Stress Risk Dashboard - Scrollable with Tabs
@@ -255,9 +255,9 @@ export default function AppleHeatPageTabbed() {
 
       {/* Full Map Section - Always Visible */}
       <section className="py-20 px-6 max-w-7xl mx-auto w-full">
-        <h2 className="text-3xl font-light text-gray-900 mb-8">Real-time Heat Risk Map</h2>
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
-          <RiskMap />
+        <h2 className="text-3xl font-light text-gray-900 mb-8">3D Globe Risk Map</h2>
+        <div className="bg-black rounded-2xl border border-gray-200 overflow-hidden" style={{ height: '700px' }}>
+          <CesiumGlobe hazardType="heat" />
         </div>
       </section>
 
