@@ -5,6 +5,7 @@ import PDFGenerator from '../services/PDFGenerator'
 import CSVParser from '../services/CSVParser'
 import TCFDReportGenerator from '../services/TCFDReportGenerator'
 import WorkflowResultsStorage from '../services/WorkflowResultsStorage'
+import { resolveCanonicalRisk } from '../services/CanonicalRiskResolver'
 
 /**
  * Data Ingestion Page - Bank Data Upload & Workflow Initialization
@@ -21,7 +22,28 @@ export default function DataIngestionPage() {
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState(null)
   const [validationIssues, setValidationIssues] = useState(null)
+  const [canonicalResolution, setCanonicalResolution] = useState(null)
+  const [resolvingRisk, setResolvingRisk] = useState(false)
   const fileInputRef = useRef(null)
+
+  const resolvePlatformRisk = async () => {
+    if (!uploadedData) return
+    setResolvingRisk(true)
+    setCanonicalResolution(null)
+    try {
+      const result = await resolveCanonicalRisk(uploadedData.portfolio, {
+        scenario: 'baseline',
+        horizon: 'current',
+      })
+      setCanonicalResolution(result.summary)
+      // attach canonical risk to the loaded portfolio so reports use it
+      setUploadedData(prev => ({ ...prev, portfolio: result.assets, canonicalResolved: true }))
+    } catch (err) {
+      setCanonicalResolution({ error: String(err), total: uploadedData.portfolio.length })
+    } finally {
+      setResolvingRisk(false)
+    }
+  }
 
   const bankDataTemplate = {
     bankId: 'BANK_001',
@@ -510,16 +532,28 @@ Governance,Incident_Drills,Enterprise_Wide,Annual climate incident simulation,20
       // Process data based on selected modules
       const processedResults = {}
 
-      // Normalize data from uploadedData
-      const portfolioData = uploadedData.portfolio.map((p, idx) => ({
-        id: p.id || `ASSET_${idx + 1}`,
-        name: p.name || `Asset ${idx + 1}`,
-        type: p.type || 'Other',
-        region: p.region || 'EU',
-        exposure: p.exposure || 0,
-        climateRisk: p.climateRisk || 50,
-        materiality: p.materiality || 0
-      }))
+      // Normalize data from uploadedData. Physical risk prefers the platform's
+      // canonical score (Step 1b) when present; only falls back to the uploaded
+      // CSV value otherwise — and records which source was used.
+      const portfolioData = uploadedData.portfolio.map((p, idx) => {
+        const useCanonical = p.riskSource === 'canonical' && p.canonicalRisk
+        const physicalRisk = useCanonical
+          ? p.canonicalRisk.riskScore
+          : (parseFloat(p.physicalRisk) || 0)
+        return {
+          id: p.id || `ASSET_${idx + 1}`,
+          name: p.name || `Asset ${idx + 1}`,
+          type: p.type || 'Other',
+          region: p.region || 'EU',
+          exposure: p.exposure || 0,
+          revenue: p.revenue || 0,
+          physicalRisk,
+          transitionRisk: parseFloat(p.transitionRisk) || 0,
+          physicalRiskSource: useCanonical ? 'canonical' : 'uploaded',
+          climateRisk: p.climateRisk || 50,
+          materiality: p.materiality || 0
+        }
+      })
 
       const emissionsData = uploadedData.emissions.map((e, idx) => ({
         id: `EMIT_${idx + 1}`,
@@ -700,6 +734,54 @@ Governance,Incident_Drills,Enterprise_Wide,Annual climate incident simulation,20
                 )}
               </div>
             </div>
+
+            {/* Step 1b: Source physical risk from the platform (canonical_scores) */}
+            {uploadedData && (
+              <div className="bg-white rounded-lg border border-gray-200 p-8">
+                <h2 className="text-2xl font-light text-gray-900 mb-2">Step 1b: Source Physical Risk from Platform</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Replaces the uploaded <code className="text-xs bg-gray-100 px-1 rounded">Physical_Risk_Score</code> with
+                  the platform's canonical score for each asset's H3 cell. Assets without a platform score are flagged —
+                  never silently backfilled with the uploaded number.
+                </p>
+                <button
+                  onClick={resolvePlatformRisk}
+                  disabled={resolvingRisk}
+                  className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+                >
+                  {resolvingRisk ? 'Resolving from canonical_scores…' : 'Source from canonical_scores'}
+                </button>
+
+                {canonicalResolution && (
+                  <div className="mt-4 text-sm">
+                    {canonicalResolution.error ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800">
+                        Could not reach the platform: {canonicalResolution.error}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <p className="text-2xl font-semibold text-green-700">{canonicalResolution.canonical}</p>
+                          <p className="text-xs text-green-800">From canonical_scores</p>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-2xl font-semibold text-gray-700">{canonicalResolution.noCanonicalScore}</p>
+                          <p className="text-xs text-gray-600">Cell not yet scored</p>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <p className="text-2xl font-semibold text-amber-700">{canonicalResolution.platformUnreachable}</p>
+                          <p className="text-xs text-amber-800">Platform unreachable</p>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-2xl font-semibold text-gray-700">{canonicalResolution.noCoordinates}</p>
+                          <p className="text-xs text-gray-600">No lat/lng to match</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Step 2: Module Selection */}
             <div className="bg-white rounded-lg border border-gray-200 p-8">
