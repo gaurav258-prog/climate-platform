@@ -426,7 +426,8 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
         alert('✅ API Endpoint Available:\n\nGET /api/reports/' + executionId + '\n\nYour processed data is available at this endpoint.\n\nDocumentation: /api/docs/regulatory')
         return
       } else if (format === 'dashboard') {
-        alert('📊 Interactive Dashboard:\n\n/dashboard/regulatory/' + executionId + '\n\nVisualize your scenario impact, compliance gaps, and peer benchmarking.')
+        // Dashboard will auto-load with latest results from storage
+        alert('✅ Results saved! Go to the Regulatory Risk Dashboard to visualize your analysis.')
         return
       }
 
