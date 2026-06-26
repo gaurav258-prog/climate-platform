@@ -605,3 +605,57 @@ class KPISummary(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (UniqueConstraint('org_id', 'reporting_year'),)
+
+
+# ============================================================================
+# ALERTS & REAL-TIME NOTIFICATIONS (PHASE 2)
+# ============================================================================
+
+class RegulatoryAlert(Base):
+    __tablename__ = 'regulatory_alerts'
+
+    alert_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    change_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_changes.change_id', ondelete='CASCADE'))
+    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
+
+    # Org-specific impact
+    affected_asset_count = Column(Integer, default=0)
+    total_assets = Column(Integer)
+    portfolio_value_affected_eur = Column(DECIMAL(18, 2))
+    total_portfolio_value_eur = Column(DECIMAL(18, 2))
+
+    # Technical impact
+    affected_tables = Column(JSONB)
+    affected_modules = Column(JSONB)
+    estimated_dev_hours = Column(Integer)
+    estimated_test_hours = Column(Integer)
+
+    # Timeline
+    regulatory_deadline = Column(Date)
+    org_implementation_deadline = Column(Date)
+    urgency_level = Column(String(20))  # 'low', 'medium', 'high', 'critical'
+
+    # Status tracking
+    alert_status = Column(String(50), default='new')  # 'new', 'viewed', 'acknowledged', 'in_progress', 'complete'
+    email_sent_at = Column(DateTime(timezone=True))
+    dashboard_viewed_at = Column(DateTime(timezone=True))
+    acknowledged_at = Column(DateTime(timezone=True))
+
+    # Benchmarking
+    peer_count_affected = Column(Integer)
+    peer_response_avg_weeks = Column(Integer)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('org_id', 'change_id'),
+        Index('idx_alerts_org_status', 'org_id', 'alert_status'),
+        Index('idx_alerts_urgency', 'org_id', 'urgency_level'),
+        Index('idx_alerts_deadline', 'org_implementation_deadline'),
+    )
+
+    organization = relationship('Organization')
+    change = relationship('RegulatoryChange')
+    framework = relationship('RegulatoryFramework')

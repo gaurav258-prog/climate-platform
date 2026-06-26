@@ -29,9 +29,12 @@ from core.db.models_regulatory_complete import Base
 # Existing routers (keep)
 try:
     from api.routers import auth, locations, packages, scores
+    from api.routes import regulatory_monitoring, analyst_dashboard
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
+    regulatory_monitoring = None
+    analyst_dashboard = None
 
 # Configure logging
 logging.basicConfig(
@@ -93,6 +96,14 @@ if ROUTERS_AVAILABLE:
     app.include_router(scores.router)
     app.include_router(locations.router)
     app.include_router(packages.router)
+
+# Regulatory monitoring (CRCS) - Phase 1
+if regulatory_monitoring:
+    app.include_router(regulatory_monitoring.router)
+
+# Analyst dashboard - Internal review interface
+if analyst_dashboard:
+    app.include_router(analyst_dashboard.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────
