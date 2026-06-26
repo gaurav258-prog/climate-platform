@@ -5,7 +5,7 @@ import { H3HexagonLayer } from '@deck.gl/geo-layers'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { scoreToColor, INITIAL_VIEW_STATE, HAZARD_VIEWS } from '../mockData'
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
 export default function RiskMap({ scores, onCellClick, hazard }) {
   const containerRef = useRef(null)
