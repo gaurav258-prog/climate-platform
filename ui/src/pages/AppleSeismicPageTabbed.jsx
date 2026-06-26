@@ -50,7 +50,7 @@ export default function AppleSeismicPageTabbed() {
   ]
 
   return (
-    <div className="w-full overflow-y-auto bg-transparent relative">
+    <div className="w-full overflow-y-auto bg-white">
       {/* Animated Gradient Background */}
       <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-br from-red-900 via-red-700 to-orange-500" />
       <div className="fixed inset-0 pointer-events-none -z-10">
