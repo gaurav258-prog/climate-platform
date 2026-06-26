@@ -24,6 +24,7 @@ import AppleFloodPageTabbed from './pages/AppleFloodPageTabbed'
 import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
 import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
 import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
+import RiskMapHome from './pages/RiskMapHome'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
 
@@ -31,13 +32,13 @@ const POLICIES_COUNT = 5 // matches ParametricPage
 
 export default function App() {
   const [view, setView]         = useState('dashboard')
-  const [hazard, setHazard]     = useState('flood')
+  const [hazard, setHazard]     = useState(null)
   const [dayIndex, setDayIndex] = useState(10)
   const [selected, setSelected] = useState(null)
 
-  const dates  = useMemo(() => getDates(hazard), [hazard])
-  const scores = useMemo(() => generateMockScores(hazard, dayIndex), [hazard, dayIndex])
-  const alerts = useMemo(() => generateAlerts(hazard), [hazard])
+  const dates  = useMemo(() => hazard ? getDates(hazard) : [], [hazard])
+  const scores = useMemo(() => hazard ? generateMockScores(hazard, dayIndex) : [], [hazard, dayIndex])
+  const alerts = useMemo(() => hazard ? generateAlerts(hazard) : [], [hazard])
 
   const urgentCount = useMemo(() =>
     (ACTION_TEMPLATES[hazard] ?? []).filter(a => a.priority === 'URGENT').length,
@@ -91,14 +92,18 @@ export default function App() {
               onViewChange={setView}
               onHazardChange={handleHazardChange}
             />
-          ) : view === 'map' && hazard === 'flood' ? (
-            <AppleFloodPageTabbed />
-          ) : view === 'map' && hazard === 'wildfire' ? (
-            <AppleWildfirePageTabbed />
-          ) : view === 'map' && hazard === 'heat' ? (
-            <AppleHeatPageTabbed />
-          ) : view === 'map' && hazard === 'seismic' ? (
-            <AppleSeismicPageTabbed />
+          ) : view === 'map' ? (
+            hazard === 'flood' ? (
+              <AppleFloodPageTabbed />
+            ) : hazard === 'wildfire' ? (
+              <AppleWildfirePageTabbed />
+            ) : hazard === 'heat' ? (
+              <AppleHeatPageTabbed />
+            ) : hazard === 'seismic' ? (
+              <AppleSeismicPageTabbed />
+            ) : (
+              <RiskMapHome onHazardSelect={h => { setView('map'); handleHazardChange(h) }} />
+            )
           ) : view === 'operations' ? (
             <AppleOperationsPage />
           ) : view === 'parametric' ? (
