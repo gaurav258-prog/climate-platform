@@ -659,3 +659,33 @@ class RegulatoryAlert(Base):
     organization = relationship('Organization')
     change = relationship('RegulatoryChange')
     framework = relationship('RegulatoryFramework')
+
+
+class DashboardNotification(Base):
+    __tablename__ = 'dashboard_notifications'
+
+    notification_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    alert_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_alerts.alert_id', ondelete='CASCADE'))
+
+    title = Column(String(255), nullable=False)
+    message = Column(Text)
+    notification_type = Column(String(50))  # 'regulatory_change', 'deadline_warning', 'task_update'
+    severity = Column(String(20))  # 'critical', 'high', 'medium', 'low'
+
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True))
+
+    action_url = Column(Text)
+    action_data = Column(JSONB)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index('idx_notifications_org_unread', 'org_id', 'is_read'),
+        Index('idx_notifications_type', 'notification_type'),
+    )
+
+    organization = relationship('Organization')
+    alert = relationship('RegulatoryAlert')
