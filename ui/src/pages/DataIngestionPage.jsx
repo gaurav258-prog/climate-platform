@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import SimpleIcon from '../components/SimpleIcon'
 
 /**
@@ -180,17 +180,15 @@ export default function DataIngestionPage() {
                         <p className="text-xs">Emission Scopes</p>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <p className="text-gray-600 mb-4">No data uploaded yet</p>
                     <button
-                      onClick={loadTemplateData}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-all"
+                      onClick={() => setUploadedData(null)}
+                      className="mt-4 text-sm bg-gray-200 hover:bg-gray-300 text-gray-900 px-4 py-2 rounded-lg transition-all"
                     >
-                      Load Template Data
+                      Clear & Load Different Data
                     </button>
                   </div>
+                ) : (
+                  <DragDropZone onDataLoaded={setUploadedData} onTemplateLoad={loadTemplateData} />
                 )}
               </div>
             </div>
@@ -296,6 +294,162 @@ export default function DataIngestionPage() {
       </section>
 
       <div className="h-12" />
+    </div>
+  )
+}
+
+/**
+ * Drag & Drop Zone Component
+ * Allows users to drag CSV files directly
+ */
+function DragDropZone({ onDataLoaded, onTemplateLoad }) {
+  const [dragActive, setDragActive] = useState(false)
+  const [error, setError] = useState(null)
+  const fileInputRef = useRef(null)
+
+  const parseCSV = (text) => {
+    const lines = text.trim().split('\n')
+    const headers = lines[0].split(',').map(h => h.trim())
+    const data = []
+    for (let i = 1; i < lines.length; i++) {
+      const obj = {}
+      const values = lines[i].split(',')
+      headers.forEach((header, index) => {
+        obj[header] = values[index]?.trim() || ''
+      })
+      data.push(obj)
+    }
+    return data
+  }
+
+  const handleFiles = (files) => {
+    setError(null)
+    let portfolioData = null
+    let emissionsData = null
+    let scenariosData = null
+
+    try {
+      for (const file of files) {
+        if (!file.name.endsWith('.csv')) {
+          setError(`Invalid file: ${file.name}. Please upload CSV files only.`)
+          return
+        }
+
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target.result
+          const parsed = parseCSV(text)
+
+          if (file.name.includes('portfolio')) {
+            portfolioData = parsed.map(p => ({
+              id: p.Asset_ID,
+              name: p.Asset_Name,
+              type: p.Asset_Type,
+              exposure: parseFloat(p.Exposure_EUR_M) || 0,
+            }))
+          } else if (file.name.includes('emission')) {
+            emissionsData = parsed.map(e => ({
+              scope: parseInt(e.Scope),
+              emissions: parseFloat(e.Emissions_tCO2e) || 0,
+              category: e.Category,
+            }))
+          } else if (file.name.includes('scenario')) {
+            scenariosData = parsed.map(s => ({
+              name: s.Scenario_Name,
+              warming: parseFloat(s.Warming_Target_C),
+              probability: parseFloat(s.Probability_Percent) / 100,
+            }))
+          }
+
+          // If all files loaded, create combined data
+          if (portfolioData && emissionsData && scenariosData) {
+            onDataLoaded({
+              bankId: 'BANK_UPLOADED',
+              orgName: 'Your Bank',
+              portfolio: portfolioData,
+              emissions: emissionsData,
+              scenarios: scenariosData,
+            })
+          }
+        }
+        reader.readAsText(file)
+      }
+    } catch (err) {
+      setError(`Error parsing files: ${err.message}`)
+    }
+  }
+
+  const handleDrag = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    handleFiles(e.dataTransfer.files)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Drag & Drop Zone */}
+      <div
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer ${
+          dragActive
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+        }`}
+      >
+        <div className="mb-4 text-4xl">📁</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Drag & Drop CSV Files Here</h3>
+        <p className="text-gray-600 mb-4">
+          Upload your bank data files (portfolio_assets.csv, ghg_emissions.csv, climate_scenarios.csv)
+        </p>
+        <p className="text-sm text-gray-500 mb-6">or</p>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-all"
+        >
+          Click to Browse Files
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".csv"
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+        />
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {/* Template Option */}
+      <div className="border border-gray-300 rounded-lg p-6 text-center">
+        <p className="text-gray-600 mb-4">Don't have your data ready yet?</p>
+        <button
+          onClick={onTemplateLoad}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold transition-all"
+        >
+          Load Example/Template Data
+        </button>
+        <p className="text-xs text-gray-500 mt-3">Use template to test the workflow with sample data</p>
+      </div>
     </div>
   )
 }
