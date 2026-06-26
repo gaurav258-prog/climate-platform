@@ -9,8 +9,3 @@ ASSET_007,Agricultural Land Holdings,Agriculture,Agriculture,France,420,65,55,48
 ASSET_008,Thermal Power Plant,Power Generation,Energy,Germany,680,95,76,70,"Coal-fired power station. Phase-out risk. Transition essential."
 ASSET_009,Steel Manufacturing,Manufacturing,Manufacturing,Ruhr,580,125,48,42,"Steel production facility. Moderate climate exposure and transition risk."
 ASSET_010,Transportation Infrastructure,Infrastructure,Infrastructure,EU,890,105,38,35,"Road and rail assets. Flood and extreme weather risks."
-ASSET_011,Chemical Production,Manufacturing,Manufacturing,Belgium,420,98,45,38,"Chemical manufacturing plant. Water stress and operational risks."
-ASSET_012,Food & Beverage Processing,Manufacturing,Food,Netherlands,310,72,52,44,"Agricultural commodity processing. Supply chain climate risks."
-ASSET_013,Fishing Fleet,Agriculture,Agriculture,Atlantic,180,42,68,55,"Commercial fishing operations. Ocean acidification and temperature risks."
-ASSET_014,Water Utility Company,Utilities,Utilities,Spain,520,85,61,58,"Water supply infrastructure. Drought and flood related risks."
-ASSET_015,Tourism Infrastructure,Hospitality,Hospitality,Alps,290,38,45,32,"Alpine ski resorts and hotels. Snow cover and heat wave risks."
