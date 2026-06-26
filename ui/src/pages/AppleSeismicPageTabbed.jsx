@@ -51,25 +51,21 @@ export default function AppleSeismicPageTabbed() {
 
   return (
     <div className="w-full overflow-y-auto bg-white">
-      {/* Video Background */}
+      {/* Animated Gradient Background */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            filter: 'brightness(0.85) saturate(1.2) hue-rotate(-20deg)'
-          }}
-        >
-          <source src="/videos/seismic-background.mp4" type="video/mp4" />
-          <source src="/videos/seismic-background.webm" type="video/webm" />
-        </video>
-        {/* Overlay for gradient effect */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'radial-gradient(circle at 20% 50%, rgba(220, 38, 38, 0.15), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.1), transparent 50%)'
+            background: 'linear-gradient(-45deg, #7f1d1d 0%, #991b1b 25%, #dc2626 50%, #ef4444 75%, #fca5a5 100%)',
+            backgroundSize: '400% 400%',
+            animation: 'gradientShift 15s ease infinite'
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(circle at 20% 50%, rgba(220, 38, 38, 0.2), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.15), transparent 50%)',
+            animation: 'float 8s ease-in-out infinite'
           }}
         />
       </div>
@@ -271,6 +267,11 @@ export default function AppleSeismicPageTabbed() {
       <div className="h-20" />
 
       <style>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(30px); }

@@ -43,25 +43,21 @@ export default function AppleFloodPageTabbed() {
 
   return (
     <div className="w-full overflow-y-auto bg-white">
-      {/* Video Background */}
+      {/* Animated Gradient Background */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            filter: 'brightness(0.8) saturate(1.2)'
-          }}
-        >
-          <source src="/videos/flood-background.mp4" type="video/mp4" />
-          <source src="/videos/flood-background.webm" type="video/webm" />
-        </video>
-        {/* Overlay for gradient effect */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15), transparent 50%), radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.1), transparent 50%)'
+            background: 'linear-gradient(-45deg, #1e3a8a 0%, #0369a1 25%, #0891b2 50%, #06b6d4 75%, #0369a1 100%)',
+            backgroundSize: '400% 400%',
+            animation: 'gradientShift 15s ease infinite'
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.2), transparent 50%), radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15), transparent 50%)',
+            animation: 'float 8s ease-in-out infinite'
           }}
         />
       </div>
@@ -265,6 +261,11 @@ export default function AppleFloodPageTabbed() {
       <div className="h-20" />
 
       <style>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(30px); }
