@@ -310,11 +310,11 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
             title: 'Risk Materiality Assessment',
             data: {
               'Portfolio Materiality': `${pd.riskMateriality.summary.portfolioMaterialityPercent}%`,
-              'Materiality Threshold': `${pd.riskMateriality.summary.materiality_Threshold}%`,
+              'Materiality Threshold': '5%',
               'Over Threshold': pd.riskMateriality.summary.overThreshold ? 'YES - REQUIRES DISCLOSURE' : 'NO',
-              'Assets Requiring Disclosure': pd.riskMateriality.summary.assetsRequiringDisclosure,
-              'Total Financed Emissions': `${pd.riskMateriality.summary.totalEmissions_tCO2e} tCO2e`,
-              'High Risk Assets': pd.riskMateriality.summary.highRiskAssets
+              'Assets Requiring Disclosure': `${pd.riskMateriality.summary.assetsRequiringDisclosure}`,
+              'Total Financed Emissions': `${Math.round(pd.riskMateriality.summary.totalScope1_2_Emissions_tCO2e)} tCO2e`,
+              'High Risk Assets': `${pd.riskMateriality.summary.highPhysicalRiskAssets + pd.riskMateriality.summary.highTransitionRiskAssets}`
             }
           })
 
@@ -324,7 +324,7 @@ SCEN_003,4C_Business_As_Usual,4.0,25,Baseline,"Limited climate action beyond cur
               'Asset': asset.assetName,
               'Type': asset.assetType,
               'Exposure (€M)': asset.exposureEUR_M,
-              'Risk Score': asset.climateRiskScore,
+              'Risk Score': asset.physicalRiskScore > 0 ? asset.physicalRiskScore : asset.transitionRiskScore,
               'Materiality (%)': asset.materialityPercent,
               'Disclosure Required': asset.requiresDisclosure ? 'YES' : 'NO'
             }))
