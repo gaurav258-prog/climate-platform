@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from core.db.models import Base
+# Import the regulatory (bank-vertical) models so their tables register on the
+# shared Base.metadata — without this import Alembic cannot see them.
+import core.db.models_regulatory_complete  # noqa: F401
 
 config = context.config
 

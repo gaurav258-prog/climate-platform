@@ -21,7 +21,9 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "c8d2b3e4f5a6"
-down_revision: Union[str, None] = "b7c1a2d3e4f5"
+# Runs AFTER d9e3 (bank tables): this view joins bank_assets ⋈ canonical_scores
+# and comments on climate_hazard_exposure, so those tables must already exist.
+down_revision: Union[str, None] = "d9e3f4a5b6c7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

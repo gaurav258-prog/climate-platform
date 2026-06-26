@@ -1,5 +1,20 @@
 /**
- * CLIMATE INTELLIGENCE PLATFORM - UNIFIED DATABASE SCHEMA v2.0
+ * ⚠️ DEPRECATED — DO NOT APPLY THIS FILE TO A DATABASE.
+ *
+ * Superseded by Alembic (reconciliation step #3). The bank-vertical schema is
+ * now defined by the ORM in core/db/models_regulatory_complete.py and built by
+ * migration d9e3f4a5b6c7_bank_vertical_tables. Run `alembic upgrade head` —
+ * that is the single source of truth for the whole schema (platform + bank).
+ *
+ * Differences vs. the live schema, kept here only for reference:
+ *   - This file's `audit_log` is the ORM's `regulatory_audit_log` (renamed to
+ *     avoid colliding with the platform's generic audit_log).
+ *   - `compliance_status`, `compliance_requirements`, `materiality_assessments`
+ *     and the `v_org_compliance_status` view are NOT in the live schema — no
+ *     code uses them. They survive only in this file.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CLIMATE INTELLIGENCE PLATFORM - UNIFIED DATABASE SCHEMA v2.0  (reference only)
  *
  * Design Principles:
  * 1. "Strengthen foundation first" - comprehensive schema before data pipelines
