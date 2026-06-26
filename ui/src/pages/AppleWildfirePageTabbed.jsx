@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Flame, TrendingUp, AlertTriangle, Activity, ChevronRight } from 'lucide-react'
+import RiskMap from '../components/RiskMap'
 
 /**
  * Tabbed Wildfire Risk Dashboard
@@ -187,12 +188,8 @@ export default function AppleWildfirePageTabbed() {
 
         {/* Map Tab */}
         {activeTab === 'map' && (
-          <section className="w-full h-[calc(100vh-200px)] flex items-center justify-center">
-            <div className="text-center">
-              <Flame size={64} className="mx-auto text-orange-300 mb-4" />
-              <p className="text-gray-600 text-lg">Interactive wildfire risk map</p>
-              <p className="text-gray-500 text-sm mt-2">Map visualization loading...</p>
-            </div>
+          <section className="w-full h-[calc(100vh-200px)]">
+            <RiskMap />
           </section>
         )}
 
