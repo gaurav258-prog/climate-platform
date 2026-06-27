@@ -69,6 +69,33 @@ class PolicyPricing:
     technical_premium: Optional[float]      # EAL × (1 + loadings)
     currency: str
     source: str                             # 'canonical' | 'no_canonical_score' | ...
+    loss_curve_source: str = "placeholder"  # 'placeholder' | 'isotonic_outcome_feedback'
+
+
+class LossCurve:
+    """
+    Maps a 0–100 canonical score to an annual loss-event probability. Two
+    implementations: the parametric placeholder, and a CalibratedLossCurve fitted
+    from OutcomeFeedback (services/intelligence/loss_curve_calibration.py).
+    Pricing depends on this interface, not on a fixed curve.
+    """
+    calibrated: bool = False
+    provenance: dict = {}
+
+    def annual_loss_probability(self, score: float) -> float:  # pragma: no cover
+        raise NotImplementedError
+
+
+class PlaceholderLossCurve(LossCurve):
+    """The documented geometric placeholder — used until calibration data exists."""
+    calibrated = False
+
+    def __init__(self, params: "PricingParams" = None, reason: str = "no calibration applied"):
+        self.params = params or PricingParams()
+        self.provenance = {"method": "placeholder_geometric", "reason": reason}
+
+    def annual_loss_probability(self, score: float) -> float:
+        return annual_loss_probability(score, self.params)
 
 
 # ── Pure actuarial functions (the only sector-specific logic) ────────────────
@@ -86,9 +113,14 @@ def annual_loss_probability(score: float, params: PricingParams = PricingParams(
 
 
 def expected_annual_loss(sum_insured: float, score: float,
-                         params: PricingParams = PricingParams()) -> float:
-    """EAL (pure premium) = sum insured × annual loss probability × damage ratio."""
-    return sum_insured * annual_loss_probability(score, params) * params.mean_damage_ratio
+                         params: PricingParams = PricingParams(),
+                         loss_curve: "LossCurve" = None) -> float:
+    """
+    EAL (pure premium) = sum insured × annual loss probability × damage ratio.
+    Uses `loss_curve` if given (e.g. a CalibratedLossCurve), else the placeholder.
+    """
+    curve = loss_curve or PlaceholderLossCurve(params)
+    return sum_insured * curve.annual_loss_probability(score) * params.mean_damage_ratio
 
 
 def technical_premium(eal: float, params: PricingParams = PricingParams()) -> float:
@@ -105,17 +137,24 @@ def price_portfolio(
     scenario: str = "baseline",
     time_horizon: str = "current",
     params: PricingParams = PricingParams(),
+    loss_curve: "LossCurve" = None,
 ) -> list[PolicyPricing]:
     """
     Price each insured location off canonical_scores. The risk lookup is the
     SHARED projection (asset_risk_projection.project) — identical to how the
     bank vertical derives an asset's physical risk. Only the math on top differs.
 
+    `loss_curve` selects the score→probability mapping: pass a CalibratedLossCurve
+    (fitted from OutcomeFeedback) to price on realized outcomes, or leave None to
+    use the documented placeholder. Each PolicyPricing records which was used.
+
     Locations whose cell has no canonical score are returned priced=None with the
     projection's reason — never given a made-up premium.
     """
     locations = list(locations)
     by_id = {loc.location_id: loc for loc in locations}
+    curve = loss_curve or PlaceholderLossCurve(params)
+    curve_source = "isotonic_outcome_feedback" if curve.calibrated else "placeholder"
 
     # Same substrate as banking: project canonical scores onto located assets.
     risks = project(
@@ -134,20 +173,21 @@ def price_portfolio(
                 scenario=r.scenario, time_horizon=r.time_horizon,
                 risk_score=None, risk_bucket=None, annual_loss_probability=None,
                 expected_annual_loss=None, technical_premium=None,
-                currency=loc.currency, source=r.source,
+                currency=loc.currency, source=r.source, loss_curve_source=curve_source,
             ))
             continue
-        eal = expected_annual_loss(loc.sum_insured, r.risk_score, params)
+        eal = expected_annual_loss(loc.sum_insured, r.risk_score, params, loss_curve=curve)
         out.append(PolicyPricing(
             location_id=loc.location_id, h3_cell=r.h3_cell, hazard_type=r.hazard_type,
             scenario=r.scenario, time_horizon=r.time_horizon,
             risk_score=r.risk_score,
             risk_bucket=r.risk_bucket or score_to_bucket(r.risk_score).value,
-            annual_loss_probability=annual_loss_probability(r.risk_score, params),
+            annual_loss_probability=curve.annual_loss_probability(r.risk_score),
             expected_annual_loss=eal,
             technical_premium=technical_premium(eal, params),
             currency=loc.currency,
             source="canonical",
+            loss_curve_source=curve_source,
         ))
     return out
 
