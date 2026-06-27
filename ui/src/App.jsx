@@ -42,13 +42,16 @@ import PlatformOverviewPage from './pages/PlatformOverviewPage'
 import IndustryModulePage from './pages/IndustryModulePage'
 import ModelsPage from './pages/ModelsPage'
 import LiveEventsPage from './pages/LiveEventsPage'
+import CommandCenter from './pages/bank/CommandCenter'
+import RiskMapBank from './pages/bank/RiskMapBank'
+import Portfolio from './pages/bank/Portfolio'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
 
 const POLICIES_COUNT = 5 // matches ParametricPage
 
 export default function App() {
-  const [view, setView]                = useState('platform')
+  const [view, setView]                = useState('bank-command')
   const [hazard, setHazard]            = useState(null)
   const [regulatoryModule, setRegulatoryModule] = useState(null)
   const [industryId, setIndustryId] = useState(null)
@@ -99,15 +102,17 @@ export default function App() {
         <Sidebar
           activeView={view}
           onViewChange={v => { setView(v); setSelected(null) }}
-          activeIndustry={industryId}
-          onSelectIndustry={id => { setIndustryId(id); setView('industry') }}
-          urgentCount={urgentCount}
-          triggeredCount={triggeredCount}
         />
 
         {/* Content */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {view === 'platform' ? (
+          {view === 'bank-command' ? (
+            <CommandCenter onGoto={setView} />
+          ) : view === 'bank-map' ? (
+            <RiskMapBank />
+          ) : view === 'bank-portfolio' ? (
+            <Portfolio />
+          ) : view === 'platform' ? (
             <PlatformOverviewPage onSelectIndustry={id => { setIndustryId(id); setView('industry') }} />
           ) : view === 'models' ? (
             <ModelsPage />

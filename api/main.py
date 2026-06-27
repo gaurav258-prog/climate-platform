@@ -32,6 +32,7 @@ from core.db.models_regulatory_complete import Base
 try:
     from api.routers import auth, locations, packages, scores
     from api.routers import platform as platform_router
+    from api.routers import bank as bank_router
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
@@ -110,6 +111,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(locations.router)
     app.include_router(packages.router)
     app.include_router(platform_router.router)
+    app.include_router(bank_router.router)
 
 # Regulatory monitoring (CRCS) - Phase 1
 if regulatory_monitoring:

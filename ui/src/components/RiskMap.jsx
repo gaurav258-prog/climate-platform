@@ -2,12 +2,18 @@ import { useEffect, useRef, useMemo } from 'react'
 import maplibregl from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { H3HexagonLayer } from '@deck.gl/geo-layers'
+import { ScatterplotLayer } from '@deck.gl/layers'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { scoreToColor, INITIAL_VIEW_STATE, HAZARD_VIEWS } from '../mockData'
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
-export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
+// Bucket → RGB, matching RiskAtom so an asset reads the same colour on the map.
+const BUCKET_RGB = {
+  L: [26, 138, 74], M: [181, 106, 0], H: [194, 65, 12], VH: [200, 30, 30],
+}
+
+export default function RiskMap({ scores, onCellClick, hazard, viewOverride, assets, onAssetClick }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlayRef = useRef(null)
@@ -27,6 +33,18 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
     highlightColor: [255, 255, 255, 60],
     onClick: ({ object }) => object && onCellClick(object),
   }), [scores, onCellClick])
+
+  // Optional bank-asset layer — same drill-through target as the portfolio table.
+  const assetLayer = useMemo(() => assets?.length ? new ScatterplotLayer({
+    id: 'bank-assets',
+    data: assets,
+    getPosition: d => [d.lon, d.lat],
+    getFillColor: d => BUCKET_RGB[d.headline_bucket] || [120, 120, 130],
+    radiusUnits: 'pixels', getRadius: 5, radiusMinPixels: 4, radiusMaxPixels: 10,
+    stroked: true, getLineColor: [255, 255, 255], lineWidthMinPixels: 1.5,
+    pickable: true, autoHighlight: true, highlightColor: [0, 113, 227, 140],
+    onClick: ({ object }) => object && onAssetClick?.(object),
+  }) : null, [assets, onAssetClick])
 
   // Mount the map once
   useEffect(() => {
@@ -65,10 +83,10 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
     }
   }, [])
 
-  // Update layers whenever scores change
+  // Update layers whenever scores or assets change
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: [h3Layer] })
-  }, [h3Layer])
+    overlayRef.current?.setProps({ layers: [h3Layer, assetLayer].filter(Boolean) })
+  }, [h3Layer, assetLayer])
 
   // Fly to the data's actual region (override) or the hazard's default view
   useEffect(() => {

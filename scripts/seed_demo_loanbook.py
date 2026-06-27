@@ -1,0 +1,144 @@
+"""
+Seed a realistic demo bank loan book into bank_assets.
+
+The banking flagship needs assets to project canonical_scores onto. This inserts
+~120 assets for one demo org, deliberately placing a chunk of them in cells that
+ARE already scored (Valencia flood zone → real High/Very-High physical risk; EU
+wildfire cells → Low/Medium) so the portfolio tells a true story, plus assets in
+European financial centres that fall outside scored cells (honest
+`no_canonical_score`). Idempotent: clears the demo org first.
+
+Run:  .venv/bin/python scripts/seed_demo_loanbook.py
+"""
+import random
+import uuid
+
+import h3
+from sqlalchemy import text
+
+from core.db.session import get_session
+
+random.seed(42)
+DEMO_ORG = "11111111-1111-4111-8111-111111111111"
+
+# sector → (asset_type, nace, gics, value range €m, lifespan, taxonomy options, ghg/€m profile)
+SECTORS = [
+    ("Commercial real estate", "commercial_real_estate", "68.20", "60101010", (8, 60), 50,
+     ["aligned", "eligible", "not_eligible"], 18),
+    ("Residential mortgages", "residential_real_estate", "68.20", "60101070", (2, 18), 60,
+     ["aligned", "eligible"], 12),
+    ("Manufacturing", "industrial", "25.50", "20104010", (10, 80), 35,
+     ["eligible", "not_eligible"], 140),
+    ("Energy & utilities", "energy", "35.11", "55101010", (20, 120), 40,
+     ["aligned", "not_eligible"], 320),
+    ("Logistics & transport", "logistics", "52.10", "20303010", (6, 45), 40,
+     ["eligible", "not_eligible"], 90),
+    ("Hospitality", "hospitality", "55.10", "25301020", (4, 35), 45,
+     ["eligible", "not_eligible"], 60),
+    ("Agriculture & food", "agriculture", "01.50", "30202010", (1, 20), 30,
+     ["aligned", "eligible", "not_eligible"], 110),
+]
+
+COUNTRY_BOXES = [  # (ISO-2, lon_min, lon_max, lat_min, lat_max) — first match wins
+    ("PT", -9.6, -6.0, 37.0, 42.2), ("ES", -9.4, 3.4, 36.0, 43.9),
+    ("FR", -5.2, 8.3, 42.3, 51.1), ("IT", 6.5, 18.6, 36.5, 47.1),
+    ("DE", 5.8, 15.1, 47.2, 55.1), ("GR", 19.3, 28.3, 34.8, 41.8),
+    ("GB", -8.2, 1.8, 49.9, 59.0), ("PL", 14.1, 24.2, 49.0, 54.9),
+]
+
+
+def country_for(lat, lon):
+    for code, lo, hi, la, ha in COUNTRY_BOXES:
+        if lo <= lon <= hi and la <= lat <= ha:
+            return code
+    return "EU"
+
+
+def scored_cells(session, hazard, limit):
+    rows = session.execute(text("""
+        SELECT h3_cell FROM canonical_scores
+        WHERE hazard_type = :h AND valid_to IS NULL
+        ORDER BY risk_score DESC LIMIT :n
+    """), {"h": hazard, "n": limit}).scalars().all()
+    return list(rows)
+
+
+# European financial centres (assets here usually fall outside scored cells)
+CITIES = [
+    ("Frankfurt", 50.110, 8.682), ("Paris", 48.857, 2.352), ("Madrid", 40.417, -3.703),
+    ("Milan", 45.464, 9.190), ("Amsterdam", 52.370, 4.895), ("Munich", 48.137, 11.576),
+    ("Lisbon", 38.722, -9.139), ("Lyon", 45.764, 4.835), ("Hamburg", 53.551, 9.994),
+    ("Barcelona", 41.385, 2.173), ("Rome", 41.903, 12.496), ("Porto", 41.158, -8.629),
+]
+
+
+def make_asset(lat, lon, h3_cell, region):
+    sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = random.choice(SECTORS)
+    value_m = round(random.uniform(vmin, vmax), 1)
+    value = value_m * 1_000_000
+    country = country_for(lat, lon)
+    scope1 = round(value_m * ghg_per_m * random.uniform(0.4, 0.7), 1)
+    return {
+        "asset_id": str(uuid.uuid4()), "org_id": DEMO_ORG,
+        "asset_name": f"{region} {sector.split(' ')[0]} {random.randint(1, 99)}",
+        "asset_type": atype, "latitude": round(lat, 5), "longitude": round(lon, 5),
+        "h3_cell": h3_cell, "region": region, "country": country,
+        "asset_value_eur": value, "annual_revenue_eur": round(value * random.uniform(0.08, 0.22)),
+        "construction_year": random.randint(1962, 2019), "expected_lifespan_years": lifespan,
+        "sector": sector, "nace_code": nace, "gics_code": gics,
+        "taxonomy_status": random.choice(tax_opts),
+        "taxonomy_activity": sector, "dnsh": '{"climate_adaptation": "screened"}',
+        "energy_mwh": round(value_m * random.uniform(40, 160)),
+        "s1": scope1, "s2": round(scope1 * random.uniform(0.3, 0.8), 1),
+        "s3": round(scope1 * random.uniform(1.5, 4.0), 1),
+    }
+
+
+def main():
+    with get_session() as s:
+        flood = scored_cells(s, "flood", 336)          # Valencia — up to VH
+        wildfire = random.sample(scored_cells(s, "wildfire", 8000), 800)  # EU — low/med
+        assets = []
+        # 55 in flood cells (real high risk), 30 in wildfire cells, 40 in financial centres
+        for c in random.sample(flood, min(55, len(flood))):
+            lat, lon = h3.cell_to_latlng(c)
+            assets.append(make_asset(lat, lon, c, "Valencia"))
+        for c in random.sample(wildfire, 30):
+            lat, lon = h3.cell_to_latlng(c)
+            assets.append(make_asset(lat, lon, c, country_for(lat, lon)))
+        for _ in range(40):
+            name, lat, lon = random.choice(CITIES)
+            jlat, jlon = lat + random.uniform(-0.08, 0.08), lon + random.uniform(-0.08, 0.08)
+            assets.append(make_asset(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
+
+        s.execute(text("""
+            INSERT INTO organizations (org_id, name, type, country, aum_eur, employees, created_at, updated_at)
+            VALUES (:o, 'Meridian Bank (demo)', 'bank', 'ES', :aum, 4200, now(), now())
+            ON CONFLICT (org_id) DO NOTHING
+        """), {"o": DEMO_ORG, "aum": 48_000_000_000})
+        s.execute(text("DELETE FROM bank_assets WHERE org_id = :o"), {"o": DEMO_ORG})
+        s.execute(text("""
+            INSERT INTO bank_assets
+                (asset_id, org_id, asset_name, asset_type, latitude, longitude, h3_cell,
+                 region, country, asset_value_eur, annual_revenue_eur, construction_year,
+                 expected_lifespan_years, sector, nace_code, gics_code, taxonomy_status,
+                 taxonomy_activity, dnsh_assessment, energy_consumption_mwh,
+                 ghg_emissions_scope1_tco2e, ghg_emissions_scope2_tco2e, ghg_emissions_scope3_tco2e)
+            VALUES
+                (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude, :h3_cell,
+                 :region, :country, :asset_value_eur, :annual_revenue_eur, :construction_year,
+                 :expected_lifespan_years, :sector, :nace_code, :gics_code, :taxonomy_status,
+                 :taxonomy_activity, CAST(:dnsh AS jsonb), :energy_mwh, :s1, :s2, :s3)
+        """), assets)
+        total = sum(a["asset_value_eur"] for a in assets)
+        print(f"seeded {len(assets)} assets, total book €{total/1e9:.2f}bn, org {DEMO_ORG}")
+        scored = s.execute(text("""
+            SELECT count(DISTINCT ba.asset_id) FROM bank_assets ba
+            JOIN canonical_scores cs ON cs.h3_cell = ba.h3_cell AND cs.valid_to IS NULL
+            WHERE ba.org_id = :o
+        """), {"o": DEMO_ORG}).scalar()
+        print(f"{scored} of {len(assets)} assets fall in scored cells (rest = no_canonical_score)")
+
+
+if __name__ == "__main__":
+    main()

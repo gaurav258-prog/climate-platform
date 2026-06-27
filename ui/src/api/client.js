@@ -73,3 +73,20 @@ export async function fetchVerification(region = 'Venezuela M7.5') {
 export async function fetchSeismicEvents(days = 14, minMag = 4.5) {
   return get(`/v1/platform/seismic-events?days=${days}&min_mag=${minMag}`)
 }
+
+// ── Banking flagship (loan book projected onto the golden source) ─────────────
+
+/** Loan book + per-asset projected risk + rollup: { org_id, rollup, assets:[{asset_id, asset_name, value_eur, headline_score, headline_bucket, hazards:[...], ...}] }. */
+export async function fetchPortfolio({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/bank/portfolio?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Command-center rollup: { org, rollup:{ n_assets, total_value_eur, value_at_risk_eur, pct_value_at_risk, by_bucket, top_assets } }. */
+export async function fetchBankSummary({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/bank/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** One asset: full projection across hazards/scenarios + provenance: { asset, risks:[...] }. */
+export async function fetchAsset(assetId) {
+  return get(`/v1/bank/asset/${assetId}`)
+}
