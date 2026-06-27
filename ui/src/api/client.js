@@ -42,3 +42,12 @@ export async function fetchCellScores(h3Cell, { scenario = 'baseline', horizon =
 export async function fetchCompoundEvents() {
   return get('/v1/scores/compound')
 }
+
+/**
+ * Live aggregates over the current canonical scores — per hazard: cell count,
+ * bucket distribution, score range, model version, data vintage, top cells.
+ * Powers the platform overview and the industry modules.
+ */
+export async function fetchScoresSummary() {
+  return get('/v1/scores/summary')
+}

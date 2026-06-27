@@ -1,4 +1,4 @@
-import { Map, Shield, Zap, FileText, LayoutDashboard, Waves, Flame, Thermometer, TrendingUp, Zap as Seismic, AlertCircle } from 'lucide-react'
+import { Map, Shield, Zap, FileText, LayoutDashboard, Waves, Flame, Thermometer, TrendingUp, Zap as Seismic, AlertCircle, Globe, Landmark, Umbrella, Sprout } from 'lucide-react'
 
 const HAZARD_ICONS = {
   flood:    <Waves       size={18} strokeWidth={1.5} />,
@@ -12,6 +12,7 @@ const HAZARD_COLORS = { flood: '#3b82f6', wildfire: '#f97316', heat: '#eab308', 
 export default function Sidebar({
   activeView, onViewChange,
   activeHazard, onHazardChange,
+  onSelectIndustry = () => {},
   urgentCount = 0, triggeredCount = 0,
 }) {
   function nav(id) { return () => onViewChange(id) }
@@ -23,6 +24,18 @@ export default function Sidebar({
       <Section label="Overview">
         <NavItem id="dashboard" active={activeView === 'dashboard'} onClick={nav('dashboard')}
           icon={<LayoutDashboard size={18} strokeWidth={1.5} />} label="Climate Brief" />
+      </Section>
+
+      {/* Platform & Industries */}
+      <Section label="Platform">
+        <NavItem id="platform" active={activeView === 'platform'} onClick={nav('platform')}
+          icon={<Globe size={18} strokeWidth={1.5} />} label="Overview" />
+        <NavItem id="ind-banking" active={false} onClick={() => onSelectIndustry('banking')}
+          icon={<Landmark size={18} strokeWidth={1.5} />} label="Banking" />
+        <NavItem id="ind-insurance" active={false} onClick={() => onSelectIndustry('insurance')}
+          icon={<Umbrella size={18} strokeWidth={1.5} />} label="Insurance" />
+        <NavItem id="ind-agriculture" active={false} onClick={() => onSelectIndustry('agriculture')}
+          icon={<Sprout size={18} strokeWidth={1.5} />} label="Agriculture" />
       </Section>
 
       {/* Monitoring */}

@@ -268,3 +268,63 @@ def get_compound_events(
 
     cell_set = set(customer_cells)
     return [e for e in events if e["h3_cell"] in cell_set]
+
+
+# ── GET /v1/scores/summary ────────────────────────────────────────────
+
+@router.get(
+    "/summary",
+    summary="Live aggregates over the current canonical scores",
+    description=(
+        "Per-hazard aggregates of the current golden source (valid_to IS NULL): "
+        "cell count, bucket distribution, score range, the model version and data "
+        "vintage, and the top-risk cells. Powers the platform overview and the "
+        "industry modules. No auth — read-only aggregate."
+    ),
+)
+def get_scores_summary(session: DbSession):
+    rows = session.execute(text("""
+        SELECT hazard_type,
+               model_version,
+               MAX(data_vintage)::date::text  AS data_vintage,
+               MAX(scored_at)                 AS scored_at,
+               COUNT(*)                       AS cells,
+               COUNT(*) FILTER (WHERE risk_bucket = 'L')  AS l,
+               COUNT(*) FILTER (WHERE risk_bucket = 'M')  AS m,
+               COUNT(*) FILTER (WHERE risk_bucket = 'H')  AS h,
+               COUNT(*) FILTER (WHERE risk_bucket = 'VH') AS vh,
+               ROUND(AVG(risk_score), 1)::float AS avg_score,
+               ROUND(MAX(risk_score), 1)::float AS max_score
+        FROM   canonical_scores
+        WHERE  valid_to IS NULL
+        GROUP  BY hazard_type, model_version
+        ORDER  BY hazard_type
+    """)).mappings().all()
+
+    hazards = []
+    for r in rows:
+        top = session.execute(text("""
+            SELECT h3_cell, CAST(risk_score AS FLOAT) AS risk_score, risk_bucket
+            FROM   canonical_scores
+            WHERE  valid_to IS NULL AND hazard_type = :h
+            ORDER  BY risk_score DESC
+            LIMIT  5
+        """), {"h": r["hazard_type"]}).mappings().all()
+        hazards.append({
+            "hazard_type": r["hazard_type"],
+            "model_version": r["model_version"],
+            "data_vintage": r["data_vintage"],
+            "scored_at": r["scored_at"],
+            "cells": r["cells"],
+            "buckets": {"L": r["l"], "M": r["m"], "H": r["h"], "VH": r["vh"]},
+            "avg_score": r["avg_score"],
+            "max_score": r["max_score"],
+            "high_plus": (r["h"] or 0) + (r["vh"] or 0),
+            "top_cells": [dict(t) for t in top],
+        })
+
+    return {
+        "hazards": hazards,
+        "total_current_scores": sum(h["cells"] for h in hazards),
+        "hazards_live": [h["hazard_type"] for h in hazards],
+    }

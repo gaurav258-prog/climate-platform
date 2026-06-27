@@ -26,15 +26,26 @@ from sqlalchemy.orm import Session
 from core.db.config import engine, get_db, check_db_connection, init_db
 from core.db.models_regulatory_complete import Base
 
-# Existing routers (keep)
+# Core routers (scores/locations/packages/auth) — must not be coupled to optional
+# features. Each optional router is imported separately so a missing optional
+# dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
 try:
     from api.routers import auth, locations, packages, scores
-    from api.routes import regulatory_monitoring, analyst_dashboard, alerts_dashboard
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
+
+try:
+    from api.routes import regulatory_monitoring
+except ImportError:
     regulatory_monitoring = None
+try:
+    from api.routes import analyst_dashboard
+except ImportError:
     analyst_dashboard = None
+try:
+    from api.routes import alerts_dashboard
+except ImportError:
     alerts_dashboard = None
 
 # Configure logging

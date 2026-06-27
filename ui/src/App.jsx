@@ -38,6 +38,8 @@ import TCFDReportPage from './pages/TCFDReportPage'
 import EUTaxonomyReportPage from './pages/EUTaxonomyReportPage'
 import RegulatoryRiskDashboardPage from './pages/RegulatoryRiskDashboardPage'
 import RiskMapHome from './pages/RiskMapHome'
+import PlatformOverviewPage from './pages/PlatformOverviewPage'
+import IndustryModulePage from './pages/IndustryModulePage'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
 
@@ -47,6 +49,7 @@ export default function App() {
   const [view, setView]                = useState('dashboard')
   const [hazard, setHazard]            = useState(null)
   const [regulatoryModule, setRegulatoryModule] = useState(null)
+  const [industryId, setIndustryId] = useState(null)
   const [showDataIngestion, setShowDataIngestion] = useState(false)
   const [dayIndex, setDayIndex]        = useState(10)
   const [selected, setSelected]        = useState(null)
@@ -96,13 +99,18 @@ export default function App() {
           onViewChange={v => { setView(v); setSelected(null) }}
           activeHazard={hazard}
           onHazardChange={handleHazardChange}
+          onSelectIndustry={id => { setIndustryId(id); setView('industry') }}
           urgentCount={urgentCount}
           triggeredCount={triggeredCount}
         />
 
         {/* Content */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {view === 'data-ingestion' ? (
+          {view === 'platform' ? (
+            <PlatformOverviewPage onSelectIndustry={id => { setIndustryId(id); setView('industry') }} />
+          ) : view === 'industry' ? (
+            <IndustryModulePage industryId={industryId} />
+          ) : view === 'data-ingestion' ? (
             <DataIngestionPage />
           ) : view === 'dashboard' ? (
             <AppleDashboard
