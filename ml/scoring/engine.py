@@ -272,6 +272,29 @@ def _retire_previous_scores(
     return result.rowcount
 
 
+def _resolve_model_version(hazard_type: str, requested: str) -> str:
+    """
+    Resolve 'latest' to the real registered model_version for this hazard so the
+    golden source records WHICH model produced each score (regulatory
+    traceability). Prefers the active model, else the most recently trained.
+    Returns `requested` unchanged if it is already concrete or nothing is
+    registered.
+    """
+    if requested and requested != "latest":
+        return requested
+    try:
+        with get_session() as s:
+            row = s.execute(text("""
+                SELECT model_version FROM model_registry
+                WHERE hazard_type = :h
+                ORDER BY is_active DESC, created_at DESC
+                LIMIT 1
+            """), {"h": hazard_type}).first()
+        return row[0] if row else requested
+    except Exception:
+        return requested
+
+
 def run(
     hazard_type: str,
     target_date: Optional[date] = None,
@@ -302,6 +325,9 @@ def run(
     target_date = target_date or (date.today() - timedelta(days=1))
     scored_at   = datetime.now(timezone.utc)
     errors: list[str] = []
+
+    # Stamp the real model version into canonical_scores, not the literal "latest".
+    model_version = _resolve_model_version(hazard_type, model_version)
 
     logger.info(f"[Engine] ── Scoring run ──────────────────────────")
     logger.info(f"[Engine]   hazard      : {hazard_type}")
