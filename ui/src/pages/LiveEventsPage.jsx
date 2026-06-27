@@ -6,8 +6,8 @@ import ScoreLegend from '../components/ScoreLegend'
 import { fetchGeoScores, fetchSeismicEvents, fetchVerification } from '../api/client'
 
 const HAZARDS = [
-  { id: 'seismic', label: 'Seismic', zoom: 6.5 },
-  { id: 'flood', label: 'Flood', zoom: 7.5 },
+  { id: 'seismic', label: 'Seismic', zoom: 8 },
+  { id: 'flood', label: 'Flood', zoom: 8.5 },
   { id: 'wildfire', label: 'Wildfire', zoom: 4.5 },
 ]
 
@@ -17,7 +17,7 @@ function centroidView(cells, zoom) {
   if (!cells?.length) return null
   let lat = 0, lon = 0
   for (const c of cells) { const [la, lo] = cellToLatLng(c.h3_cell); lat += la; lon += lo }
-  return { latitude: lat / cells.length, longitude: lon / cells.length, zoom, pitch: 35, bearing: 0 }
+  return { latitude: lat / cells.length, longitude: lon / cells.length, zoom, pitch: 20, bearing: 0 }
 }
 
 export default function LiveEventsPage() {

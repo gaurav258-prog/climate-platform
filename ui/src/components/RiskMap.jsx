@@ -48,7 +48,14 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
     mapRef.current = map
     overlayRef.current = overlay
 
+    // Ensure the basemap fetches tiles even if the container settled its size
+    // after the map was created (e.g. flex layout / nav transition).
+    map.on('load', () => map.resize())
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(containerRef.current)
+
     return () => {
+      ro.disconnect()
       overlay.finalize()
       map.remove()
       mapRef.current = null
