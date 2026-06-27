@@ -34,6 +34,11 @@ class ModelRegistry(Base):
     training_data_vintage = Column(Date, nullable=False)
     training_cell_count = Column(Integer)
     validation_auc = Column(Numeric(4, 3))
+    # Average Precision is the honest metric for rare-event models — ROC-AUC is
+    # misleading at very low base rates. validation_note carries the caveat
+    # (e.g. single-event / proxy labels / forecasting untested).
+    validation_avg_precision = Column(Numeric(6, 5))
+    validation_note = Column(Text)
     is_active = Column(Boolean, nullable=False, default=False)
     activated_at = Column(DateTime(timezone=True))
     activated_by = Column(String(255))

@@ -204,6 +204,12 @@ function LivePanel({ ind, live, err, loading }) {
         </div>
       )}
 
+      {live.avg_precision != null && (
+        <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
+          <p className="text-[11px] font-medium text-amber-800">Model skill (honest): Avg-Precision {live.avg_precision}</p>
+          {live.validation_note && <p className="text-[10px] text-amber-700 mt-0.5 leading-snug">{live.validation_note}</p>}
+        </div>
+      )}
       <div className="text-[10px] text-gray-400 border-t border-gray-100 pt-2 font-mono">
         {live.model_version} · vintage {live.data_vintage}
       </div>

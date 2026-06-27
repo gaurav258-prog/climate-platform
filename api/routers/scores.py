@@ -284,21 +284,24 @@ def get_compound_events(
 )
 def get_scores_summary(session: DbSession):
     rows = session.execute(text("""
-        SELECT hazard_type,
-               model_version,
-               MAX(data_vintage)::date::text  AS data_vintage,
-               MAX(scored_at)                 AS scored_at,
-               COUNT(*)                       AS cells,
-               COUNT(*) FILTER (WHERE risk_bucket = 'L')  AS l,
-               COUNT(*) FILTER (WHERE risk_bucket = 'M')  AS m,
-               COUNT(*) FILTER (WHERE risk_bucket = 'H')  AS h,
-               COUNT(*) FILTER (WHERE risk_bucket = 'VH') AS vh,
-               ROUND(AVG(risk_score), 1)::float AS avg_score,
-               ROUND(MAX(risk_score), 1)::float AS max_score
-        FROM   canonical_scores
-        WHERE  valid_to IS NULL
-        GROUP  BY hazard_type, model_version
-        ORDER  BY hazard_type
+        SELECT cs.hazard_type,
+               cs.model_version,
+               MAX(cs.data_vintage)::date::text  AS data_vintage,
+               MAX(cs.scored_at)                 AS scored_at,
+               COUNT(*)                          AS cells,
+               COUNT(*) FILTER (WHERE cs.risk_bucket = 'L')  AS l,
+               COUNT(*) FILTER (WHERE cs.risk_bucket = 'M')  AS m,
+               COUNT(*) FILTER (WHERE cs.risk_bucket = 'H')  AS h,
+               COUNT(*) FILTER (WHERE cs.risk_bucket = 'VH') AS vh,
+               ROUND(AVG(cs.risk_score), 1)::float AS avg_score,
+               ROUND(MAX(cs.risk_score), 1)::float AS max_score,
+               MAX(CAST(mr.validation_avg_precision AS FLOAT)) AS avg_precision,
+               MAX(mr.validation_note)                         AS validation_note
+        FROM   canonical_scores cs
+        LEFT   JOIN model_registry mr ON mr.model_version = cs.model_version
+        WHERE  cs.valid_to IS NULL
+        GROUP  BY cs.hazard_type, cs.model_version
+        ORDER  BY cs.hazard_type
     """)).mappings().all()
 
     hazards = []
@@ -320,6 +323,8 @@ def get_scores_summary(session: DbSession):
             "avg_score": r["avg_score"],
             "max_score": r["max_score"],
             "high_plus": (r["h"] or 0) + (r["vh"] or 0),
+            "avg_precision": r["avg_precision"],   # honest skill metric (not AUC)
+            "validation_note": r["validation_note"],
             "top_cells": [dict(t) for t in top],
         })
 

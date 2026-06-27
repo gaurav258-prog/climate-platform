@@ -237,11 +237,12 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
             INSERT INTO model_registry
                 (model_id, model_version, hazard_type, algorithm,
                  training_data_vintage, training_cell_count,
-                 validation_auc, is_active, created_at)
+                 validation_auc, validation_avg_precision, validation_note,
+                 is_active, created_at)
             VALUES
                 (:model_id, :version, 'wildfire', 'xgboost',
                  :vintage, :n_train,
-                 :auc, false, now())
+                 :auc, :ap, :note, false, now())
             ON CONFLICT (model_version) DO NOTHING
         """), {
             "model_id": str(uuid.uuid4()),
@@ -249,5 +250,9 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
             "vintage":  data_vintage,
             "n_train":  result.n_train,
             "auc":      round(result.roc_auc, 3) if not np.isnan(result.roc_auc) else None,
+            "ap":       round(result.avg_precision, 5) if not np.isnan(result.avg_precision) else None,
+            "note":     ("ROC-AUC overstates rare-event skill; Average Precision is the "
+                         "honest metric. Validated on training holdout (random split) — "
+                         "run scripts/backtest_hazard.py wildfire for the spatial backtest."),
         })
     logger.info(f"Registered model {result.model_version} in model_registry")
