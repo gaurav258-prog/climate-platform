@@ -31,6 +31,7 @@ from core.db.models_regulatory_complete import Base
 # dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
 try:
     from api.routers import auth, locations, packages, scores
+    from api.routers import platform as platform_router
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
@@ -108,6 +109,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(scores.router)
     app.include_router(locations.router)
     app.include_router(packages.router)
+    app.include_router(platform_router.router)
 
 # Regulatory monitoring (CRCS) - Phase 1
 if regulatory_monitoring:
