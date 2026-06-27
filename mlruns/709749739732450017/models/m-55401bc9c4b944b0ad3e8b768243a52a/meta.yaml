@@ -1,0 +1,10 @@
+artifact_location: file:///Users/gauravsachdeva/Downloads/climate-platform/mlruns/709749739732450017/models/m-55401bc9c4b944b0ad3e8b768243a52a/artifacts
+creation_timestamp: 1782562259229
+experiment_id: '709749739732450017'
+last_updated_timestamp: 1782562262554
+model_id: m-55401bc9c4b944b0ad3e8b768243a52a
+model_type: null
+name: xgboost_model
+source_run_id: af0b21d1d61b4625b00895be47eebcdf
+status: 2
+status_message: null

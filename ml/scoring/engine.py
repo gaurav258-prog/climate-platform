@@ -324,6 +324,9 @@ def run(
 
     target_date = target_date or (date.today() - timedelta(days=1))
     scored_at   = datetime.now(timezone.utc)
+    # data_vintage = the vintage of the INPUT data (the scored date), not when the
+    # run happened — that is what regulatory traceability needs.
+    data_vintage = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
     errors: list[str] = []
 
     # Stamp the real model version into canonical_scores, not the literal "latest".
@@ -428,7 +431,7 @@ def run(
             "risk_score":             round(score, 2),
             "risk_bucket":            _score_to_bucket(score),
             "model_version":          actual_model_version,
-            "data_vintage":           scored_at,
+            "data_vintage":           data_vintage,
             "scored_at":              scored_at,
             "valid_from":             scored_at,
             "valid_to":               None,

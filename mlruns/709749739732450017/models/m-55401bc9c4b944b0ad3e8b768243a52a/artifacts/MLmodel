@@ -1,0 +1,22 @@
+artifact_path: file:///Users/gauravsachdeva/Downloads/climate-platform/mlruns/709749739732450017/models/m-55401bc9c4b944b0ad3e8b768243a52a/artifacts
+flavors:
+  python_function:
+    data: model.xgb
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.9.6
+  xgboost:
+    code: null
+    data: model.xgb
+    model_class: xgboost.sklearn.XGBClassifier
+    model_format: xgb
+    xgb_version: 2.1.4
+mlflow_version: 3.1.4
+model_id: m-55401bc9c4b944b0ad3e8b768243a52a
+model_size_bytes: 385070
+model_uuid: m-55401bc9c4b944b0ad3e8b768243a52a
+prompts: null
+run_id: af0b21d1d61b4625b00895be47eebcdf
+utc_time_created: '2026-06-27 12:10:59.249821'

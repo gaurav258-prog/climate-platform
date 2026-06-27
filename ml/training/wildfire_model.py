@@ -135,7 +135,16 @@ def train(
 
     train_df, test_df = load_labeled_features(train_end, test_start)
 
-    active_features = [c for c in FEATURE_COLS if c in train_df.columns]
+    # Use only features that are actually present AND have data. All-NULL columns
+    # (e.g. FIRMS/EFFIS/NDVI not yet ingested) would make the median imputer
+    # produce NaN; drop them so the model trains on real signal only.
+    active_features = [
+        c for c in FEATURE_COLS
+        if c in train_df.columns and train_df[c].notna().any()
+    ]
+    dropped = [c for c in FEATURE_COLS if c not in active_features]
+    if dropped:
+        logger.warning(f"Dropping all-NULL features (no data ingested yet): {dropped}")
     logger.info(f"Training on features: {active_features}")
 
     X_train = train_df[active_features].values
