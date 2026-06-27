@@ -9,8 +9,9 @@ class Settings(BaseSettings):
         extra="ignore",  # tolerate env vars not declared here (ops/deploy keys)
     )
 
-    # Database
-    DATABASE_URL: str = "postgresql://platform:devpassword@localhost:5432/climate"
+    # Database — default matches .env identity + driver (psycopg3). The real
+    # value comes from .env; this is only the fallback when none is set.
+    DATABASE_URL: str = "postgresql+psycopg://climate_app:devpassword@localhost:5432/climate_platform"
 
     # Storage — cloud-agnostic
     STORAGE_PROVIDER: str = "local"  # local | s3 | gcs | azure
