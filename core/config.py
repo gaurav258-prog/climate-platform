@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Database — default matches .env identity + driver (psycopg3). The real
     # value comes from .env; this is only the fallback when none is set.
-    DATABASE_URL: str = "postgresql+psycopg://climate_app:devpassword@localhost:5432/climate_platform"
+    DATABASE_URL: str = "postgresql+psycopg://platform@localhost:5432/climate"
 
     # Storage — cloud-agnostic
     STORAGE_PROVIDER: str = "local"  # local | s3 | gcs | azure

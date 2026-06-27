@@ -20,8 +20,8 @@ export LC_ALL=C
 ADMIN_USER="${PGADMIN_USER:-$(whoami)}"
 HOST="${PGHOST:-127.0.0.1}"
 PORT="${PGPORT:-5432}"
-APP_ROLE="climate_app"
-APP_DB="climate_platform"
+APP_ROLE="platform"
+APP_DB="climate"
 PSQL="$(command -v psql || echo /opt/homebrew/opt/postgresql@16/bin/psql)"
 ADMIN="postgresql://${ADMIN_USER}@${HOST}:${PORT}/postgres"
 
