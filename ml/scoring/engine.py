@@ -54,6 +54,7 @@ HAZARD_FEATURE_TABLES = {
     "flood":     "ml_features_flood",
     "wildfire":  "ml_features_wildfire",
     "heat_acute": "ml_features_heat",
+    "drought":   "ml_features_drought",
 }
 
 HAZARD_FEATURE_COLS = {
@@ -76,6 +77,15 @@ HAZARD_FEATURE_COLS = {
         "lst_kelvin",
         "days_above_35c_ytd",
         "urban_heat_island_factor",
+    ],
+    "drought": [
+        "spi_3month",
+        "spei_3month",
+        "soil_moisture_percentile",
+        "precipitation_deficit_mm",
+        "ndvi_anomaly_vs_baseline",
+        "era5_temp_anomaly_c",
+        "days_since_significant_rain",
     ],
 }
 
@@ -473,6 +483,19 @@ def _rule_based_fallback(df: pd.DataFrame, hazard_type: str) -> pd.DataFrame:
         p_norm = (p / p.max()).clip(0, 1) if p.max() > 0 else p
         r_norm = (r / r.max()).clip(0, 1) if r.max() > 0 else r
         raw = (0.5 * p_norm + 0.3 * r_norm + 0.2 * s) * 70  # cap at 70 (not VERY_HIGH)
+    elif hazard_type == "drought":
+        # Drought stress rises as SPI/SPEI fall, soil dries, deficit and dry-spell
+        # grow. Each signal mapped to 0–1 "stress", then weighted.
+        spi = df.get("spi_3month", pd.Series(0, index=df.index)).fillna(0)
+        spei = df.get("spei_3month", pd.Series(0, index=df.index)).fillna(0)
+        soil = df.get("soil_moisture_percentile", pd.Series(50, index=df.index)).fillna(50)
+        days = df.get("days_since_significant_rain", pd.Series(0, index=df.index)).fillna(0)
+        spi_stress = (-spi / 2.0).clip(0, 1)        # SPI -2 → full stress
+        spei_stress = (-spei / 2.0).clip(0, 1)
+        soil_stress = (1 - soil / 100.0).clip(0, 1)  # low percentile → dry
+        days_stress = (days / days.max()).clip(0, 1) if days.max() > 0 else days * 0
+        raw = (0.3 * spi_stress + 0.3 * spei_stress
+               + 0.25 * soil_stress + 0.15 * days_stress) * 70
     else:
         raw = pd.Series(20.0, index=df.index)  # default LOW
 

@@ -24,6 +24,7 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,15 @@ class EnsembleScorer:
             random_state=42,
             n_jobs=-1,
         )
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("clf", clf)])
+        # StandardScaler is essential for the logistic member: without it,
+        # features on very different scales (e.g. SPI ~±3 vs deficit ~120mm)
+        # cause numerical overflow and a useless sentinel. Trees are scale-free,
+        # so only the logistic pipeline needs it.
+        return Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+            ("clf", clf),
+        ])
 
     # ── Training ─────────────────────────────────────────────────
 
