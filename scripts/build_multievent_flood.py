@@ -41,17 +41,28 @@ EVENTS = [
     {"name": "2016 Seine (Paris)",     "peak": date(2016, 6, 1),  "fetch_area": [49.5, 1.0, 47.0, 4.5],   "flood_bbox": [49.0, 2.0, 48.3, 3.2]},
     {"name": "2021 Rhine/Ahr",         "peak": date(2021, 7, 14), "fetch_area": [52.0, 5.0, 49.0, 9.0],   "flood_bbox": [50.9, 6.3, 50.2, 7.4]},
     {"name": "2024 Storm Boris",       "peak": date(2024, 9, 15), "fetch_area": [51.0, 12.0, 48.0, 19.0], "flood_bbox": [50.6, 16.0, 49.4, 18.0]},
+    # Second batch — wider geography (France, UK, Italy, Spain) for generalisation.
+    {"name": "2002 Gard (France)",     "peak": date(2002, 9, 9),  "fetch_area": [45.0, 3.0, 43.0, 5.5],   "flood_bbox": [44.3, 3.8, 43.6, 4.7]},
+    {"name": "2007 England (Severn)",  "peak": date(2007, 7, 21), "fetch_area": [53.5, -3.0, 51.0, 0.5],  "flood_bbox": [52.5, -2.5, 51.5, -1.2]},
+    {"name": "2011 Genoa (Liguria)",   "peak": date(2011, 11, 4), "fetch_area": [45.0, 7.5, 43.5, 10.0],  "flood_bbox": [44.6, 8.7, 44.3, 9.3]},
+    {"name": "2013 Sardinia",          "peak": date(2013, 11, 18),"fetch_area": [41.5, 8.0, 39.5, 10.0],  "flood_bbox": [41.0, 9.2, 40.5, 9.9]},
+    {"name": "2019 Spain DANA",        "peak": date(2019, 9, 13), "fetch_area": [39.5, -1.5, 37.5, 0.5],  "flood_bbox": [38.4, -1.0, 37.9, -0.5]},
+    {"name": "2020 Storm Alex",        "peak": date(2020, 10, 3), "fetch_area": [45.0, 6.5, 43.5, 8.0],   "flood_bbox": [44.2, 7.2, 43.8, 7.7]},
+    {"name": "2023 Emilia-Romagna",    "peak": date(2023, 5, 16), "fetch_area": [45.0, 10.5, 43.5, 13.0], "flood_bbox": [44.7, 11.2, 44.2, 12.3]},
+    {"name": "2024 Valencia DANA",     "peak": date(2024, 10, 29),"fetch_area": [40.0, -1.5, 38.5, 0.5],  "flood_bbox": [39.6, -0.9, 39.2, -0.2]},
 ]
 
 FEATS = ["precipitation_7d_mm", "soil_saturation_index", "glofas_discharge_m3s"]
 
 
 def build_dataset():
-    if os.path.exists(CACHE):
-        print(f"loading cached dataset {CACHE}")
-        return pd.read_parquet(CACHE)
-    frames = []
+    """Incremental: load cache, fetch only events not already cached, append."""
+    cached = pd.read_parquet(CACHE) if os.path.exists(CACHE) else pd.DataFrame()
+    have = set(cached.event.unique()) if len(cached) else set()
+    frames = [cached] if len(cached) else []
     for ev in EVENTS:
+        if ev["name"] in have:
+            continue
         print(f"• {ev['name']} ({ev['peak']}) — fetching ERA5 …", flush=True)
         try:
             ds = fetch(ev); df = features(ds, ev); ds.close()
