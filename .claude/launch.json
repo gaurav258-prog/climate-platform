@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "7891", "--directory", "docs"],
       "port": 7891
+    },
+    {
+      "name": "climate-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ui", "run", "dev"],
+      "port": 5173
     }
   ]
 }

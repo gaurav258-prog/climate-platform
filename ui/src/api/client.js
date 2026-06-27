@@ -51,3 +51,25 @@ export async function fetchCompoundEvents() {
 export async function fetchScoresSummary() {
   return get('/v1/scores/summary')
 }
+
+// ── Consolidated platform UI (public, read-only) ──────────────────────────
+
+/** H3 risk cells for the live map: { hazard, resolution, count, cells:[{h3_cell, score, bucket}] }. */
+export async function fetchGeoScores(hazard, maxCells = 12000) {
+  return get(`/v1/platform/geo?hazard=${hazard}&max_cells=${maxCells}`)
+}
+
+/** Model registry with honest metrics: { models:[{hazard_type, model_version, algorithm, auc, avg_precision, validation_note, is_active, ...}] }. */
+export async function fetchModels() {
+  return get('/v1/platform/models')
+}
+
+/** Daily forecast-verification series for a region: { region, points:[{as_of_date, predicted_count, sigma, observed_count, z_score, ...}] }. */
+export async function fetchVerification(region = 'Venezuela M7.5') {
+  return get(`/v1/platform/verification?region=${encodeURIComponent(region)}`)
+}
+
+/** Recent seismic events from the live feed: { count, events:[{magnitude, depth_km, lat, lon, origin_time, region_name, ...}] }. */
+export async function fetchSeismicEvents(days = 14, minMag = 4.5) {
+  return get(`/v1/platform/seismic-events?days=${days}&min_mag=${minMag}`)
+}

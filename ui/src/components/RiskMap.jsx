@@ -7,7 +7,7 @@ import { scoreToColor, INITIAL_VIEW_STATE, HAZARD_VIEWS } from '../mockData'
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
-export default function RiskMap({ scores, onCellClick, hazard }) {
+export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlayRef = useRef(null)
@@ -61,20 +61,20 @@ export default function RiskMap({ scores, onCellClick, hazard }) {
     overlayRef.current?.setProps({ layers: [h3Layer] })
   }, [h3Layer])
 
-  // Fly to hazard region when switching
+  // Fly to the data's actual region (override) or the hazard's default view
   useEffect(() => {
-    if (!mapRef.current || !hazard) return
-    const view = HAZARD_VIEWS[hazard]
+    if (!mapRef.current) return
+    const view = viewOverride || HAZARD_VIEWS[hazard]
     if (!view) return
     mapRef.current.flyTo({
       center: [view.longitude, view.latitude],
-      zoom: view.zoom,
-      pitch: view.pitch,
-      bearing: view.bearing,
+      zoom: view.zoom ?? 5,
+      pitch: view.pitch ?? 30,
+      bearing: view.bearing ?? 0,
       duration: 1400,
       essential: true,
     })
-  }, [hazard])
+  }, [hazard, viewOverride])
 
   return (
     <div
