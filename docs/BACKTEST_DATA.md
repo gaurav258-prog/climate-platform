@@ -1,5 +1,34 @@
 # Backtest data — status and runbook
 
+## Update (2026-06-27): multi-event model now validated
+
+The single-event model did not generalise — scored two unseen floods (2002, 2013)
+at random (out-of-event AUC 0.47). We then fetched **8 real European floods**
+(2002–2024) from CDS, built features, labelled documented corridors, and ran a
+**leave-one-event-out** backtest (`scripts/build_multievent_flood.py`):
+
+| held-out flood | AUC | AP | base |
+|---|---|---|---|
+| 2002 Elbe | 0.616 | 0.079 | 0.069 |
+| 2005 Alpine | 0.886 | 0.614 | 0.127 |
+| 2010 Vistula | 0.660 | 0.193 | 0.143 |
+| 2013 Danube | 0.621 | 0.089 | 0.076 |
+| 2014 Sava | 0.592 | 0.157 | 0.137 |
+| 2016 Seine | 0.527 | 0.092 | 0.090 |
+| 2021 Rhine/Ahr | 0.803 | 0.200 | 0.061 |
+| 2024 Storm Boris | 0.677 | 0.229 | 0.104 |
+| **POOLED** | **0.645** | **0.203** | 0.102 |
+
+Pooled LOEO **AUC 0.645, AP 0.203 (2× base rate)** — real but modest forecasting
+skill, validated on events held out entirely. The final model
+(`flood-multievent-v…`, trained on all 8) is registered active with these honest
+metrics. Remaining caveats: corridor labels are approximate; CDS fetch is the
+cost to add more events; deploying it to live scoring needs the same feature
+computation in the pipeline. Below is the original analysis that led here.
+
+---
+
+
 The flood and wildfire models are each trained on **one** event with **approximate**
 labels, so their skill cannot be honestly backtested (see `scripts/backtest_hazard.py`:
 ROC-AUC ~0.99 but Average-Precision ~0.04–0.05, recall@K ~0.07–0.11, and no
