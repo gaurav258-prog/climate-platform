@@ -103,10 +103,12 @@ class ScoringRunResult:
 
 
 def _score_to_bucket(score: float) -> str:
-    for lo, hi, label in BUCKET_BREAKS:
-        if lo <= score < hi:
-            return label
-    return "VERY_HIGH"
+    # Canonical buckets L/M/H/VH (core.types) — must match the vocabulary and the
+    # canonical_scores.risk_bucket VARCHAR(5) column. The old LOW/MEDIUM/HIGH/
+    # VERY_HIGH labels violated both (and were never written because scoring had
+    # never successfully reached the INSERT).
+    from core.types import score_to_bucket
+    return score_to_bucket(score).value
 
 
 def _regulatory_fingerprint(
@@ -447,10 +449,10 @@ def run(
             ) VALUES (
                 :score_id, :h3_cell, :h3_resolution, :hazard_type, :scenario,
                 :time_horizon, :risk_score, :risk_bucket, :model_version,
-                :data_vintage, :shap_factors::jsonb, :scored_at, :valid_from, :valid_to,
+                :data_vintage, CAST(:shap_factors AS jsonb), :scored_at, :valid_from, :valid_to,
                 :score_ci_lower, :score_ci_upper,
                 :score_velocity_6h, :score_velocity_24h, :score_velocity_48h,
-                :ensemble_scores::jsonb, :compound_flag, :regulatory_fingerprint
+                CAST(:ensemble_scores AS jsonb), :compound_flag, :regulatory_fingerprint
             )
         """), records)
 
