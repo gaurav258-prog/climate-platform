@@ -44,18 +44,26 @@ def mmi_to_risk(mmi):
 _RJ_A, _RJ_B, _RJ_P, _RJ_C = -1.67, 0.91, 1.08, 0.05  # c in days
 
 
-def aftershock_probability(mainshock_mag: float, t2_days: float,
-                           t1_days: float = 0.0, mmin: float = 5.0) -> float:
-    """Probability of >=1 aftershock of magnitude >= mmin in (t1, t2] days.
+def expected_aftershocks(mainshock_mag: float, t2_days: float,
+                         t1_days: float = 0.0, mmin: float = 5.0) -> float:
+    """Expected NUMBER of aftershocks of magnitude >= mmin in (t1, t2] days.
 
-    Expected count N = 10^(a + b(Mm - mmin)) * integral_{t1}^{t2} (t + c)^(-p) dt,
-    then Poisson P(>=1) = 1 - exp(-N).
+    N = 10^(a + b(Mm - mmin)) * integral_{t1}^{t2} (t + c)^(-p) dt.
+    This is the count the daily verification compares observations against (Poisson
+    std-dev = sqrt(N)).
     """
     if t2_days <= t1_days:
         return 0.0
     productivity = 10 ** (_RJ_A + _RJ_B * (float(mainshock_mag) - mmin))
     integ = ((t2_days + _RJ_C) ** (1 - _RJ_P) - (t1_days + _RJ_C) ** (1 - _RJ_P)) / (1 - _RJ_P)
-    n_expected = productivity * max(integ, 0.0)
+    return float(productivity * max(integ, 0.0))
+
+
+def aftershock_probability(mainshock_mag: float, t2_days: float,
+                           t1_days: float = 0.0, mmin: float = 5.0) -> float:
+    """Probability of >=1 aftershock of magnitude >= mmin in (t1, t2] days.
+    Poisson: P(>=1) = 1 - exp(-N)."""
+    n_expected = expected_aftershocks(mainshock_mag, t2_days, t1_days, mmin)
     return float(1.0 - np.exp(-n_expected))
 
 
