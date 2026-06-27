@@ -53,8 +53,10 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride }) {
     map.on('load', () => map.resize())
     const ro = new ResizeObserver(() => map.resize())
     ro.observe(containerRef.current)
+    const t = setTimeout(() => map.resize(), 300)
 
     return () => {
+      clearTimeout(t)
       ro.disconnect()
       overlay.finalize()
       map.remove()

@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { cellToLatLng } from 'h3-js'
-import { Activity, MapPin, Radio } from 'lucide-react'
+import { Activity, Radio } from 'lucide-react'
 import RiskMap from '../components/RiskMap'
-import ScoreLegend from '../components/ScoreLegend'
 import { fetchGeoScores, fetchSeismicEvents, fetchVerification } from '../api/client'
 
 const HAZARDS = [
@@ -11,7 +10,13 @@ const HAZARDS = [
   { id: 'wildfire', label: 'Wildfire', zoom: 4.5 },
 ]
 
-const bucketColor = b => ({ L: '#10b981', M: '#f59e0b', H: '#f97316', VH: '#ef4444' }[b] || '#64748b')
+const BANDS = [
+  { label: 'Low', range: '0–25', color: '#34c759' },
+  { label: 'Medium', range: '25–50', color: '#ff9500' },
+  { label: 'High', range: '50–75', color: '#ff6a00' },
+  { label: 'Very High', range: '75–100', color: '#ff3b30' },
+]
+const bucketColor = b => ({ L: '#34c759', M: '#ff9500', H: '#ff6a00', VH: '#ff3b30' }[b] || '#86868b')
 
 function centroidView(cells, zoom) {
   if (!cells?.length) return null
@@ -42,79 +47,89 @@ export default function LiveEventsPage() {
   const view = useMemo(() => geo && centroidView(geo.cells, HAZARDS.find(h => h.id === hazard)?.zoom || 6), [geo, hazard])
   const stats = useMemo(() => {
     const cells = geo?.cells || []
-    const b = { L: 0, M: 0, H: 0, VH: 0 }
-    cells.forEach(c => { b[c.bucket] = (b[c.bucket] || 0) + 1 })
-    return { n: cells.length, b, max: cells.reduce((m, c) => Math.max(m, c.score), 0) }
+    return { n: cells.length, max: cells.reduce((m, c) => Math.max(m, c.score), 0) }
   }, [geo])
-
   const onCell = useCallback(c => setSelected(c), [])
 
   return (
-    <div className="flex h-full bg-slate-950 text-slate-100">
+    <div className="flex h-full bg-[#f5f5f7] text-[#1d1d1f]">
       {/* Map */}
       <div className="relative flex-1">
-        {/* hazard tabs */}
-        <div className="absolute top-3 left-3 z-10 flex gap-1 rounded-lg bg-slate-900/90 p-1 backdrop-blur border border-slate-700">
+        {/* hazard segmented control */}
+        <div className="absolute top-4 left-4 z-10 flex gap-0.5 rounded-full bg-white/85 p-1 shadow-sm backdrop-blur border border-black/[0.06]">
           {HAZARDS.map(h => (
             <button key={h.id} onClick={() => { setHazard(h.id); setSelected(null) }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
-                hazard === h.id ? 'bg-slate-100 text-slate-900' : 'text-slate-300 hover:bg-slate-800'}`}>
+              className={`px-3.5 py-1.5 text-[13px] font-medium rounded-full transition ${
+                hazard === h.id ? 'bg-[#1d1d1f] text-white' : 'text-gray-600 hover:text-[#1d1d1f]'}`}>
               {h.label}
             </button>
           ))}
         </div>
         {/* meta badge */}
-        <div className="absolute top-3 right-3 z-10 rounded-lg bg-slate-900/90 px-3 py-2 text-[11px] backdrop-blur border border-slate-700">
+        <div className="absolute top-4 right-4 z-10 rounded-2xl bg-white/85 px-3.5 py-2.5 text-[11px] shadow-sm backdrop-blur border border-black/[0.06]">
           {geo ? (
             <>
-              <div className="flex items-center gap-1.5 text-emerald-400"><Radio size={12} /> live canonical_scores</div>
-              <div className="mt-1 text-slate-400">{stats.n.toLocaleString()} cells · H3 res {geo.resolution} · peak {Math.round(stats.max)}</div>
+              <div className="flex items-center gap-1.5 font-medium text-emerald-600"><Radio size={12} /> live canonical_scores</div>
+              <div className="mt-1 text-gray-500">{stats.n.toLocaleString()} cells · H3 res {geo.resolution} · peak {Math.round(stats.max)}</div>
             </>
-          ) : <span className="text-slate-400">loading…</span>}
+          ) : <span className="text-gray-400">loading…</span>}
         </div>
         {/* legend */}
-        <div className="absolute bottom-3 left-3 z-10"><ScoreLegend /></div>
+        <div className="absolute bottom-4 left-4 z-10 rounded-2xl bg-white/85 px-3.5 py-3 shadow-sm backdrop-blur border border-black/[0.06]">
+          <p className="mb-2 text-[9px] uppercase tracking-[0.14em] text-gray-400">Risk score</p>
+          <div className="flex flex-col gap-1.5">
+            {BANDS.map(b => (
+              <div key={b.label} className="flex items-center gap-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: b.color }} />
+                <span className="w-16 text-[11px] text-gray-600">{b.label}</span>
+                <span className="text-[10px] tabular-nums text-gray-400">{b.range}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 border-t border-gray-200 pt-2 text-[9px] text-gray-400">H3 res 8 · ≈ 0.7 km² / cell</p>
+        </div>
         {/* cell detail */}
         {selected && (
-          <div className="absolute bottom-3 right-3 z-10 rounded-lg bg-slate-900/95 px-3 py-2 text-[11px] backdrop-blur border border-slate-700">
-            <div className="font-mono text-slate-400">{selected.h3_cell}</div>
+          <div className="absolute bottom-4 right-4 z-10 rounded-2xl bg-white/90 px-3.5 py-2.5 text-[11px] shadow-sm backdrop-blur border border-black/[0.06]">
+            <div className="font-mono text-gray-400">{selected.h3_cell}</div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="font-semibold" style={{ color: bucketColor(selected.bucket) }}>{Math.round(selected.score)}</span>
-              <span className="text-slate-400">/ 100 · {selected.bucket}</span>
+              <span className="text-base font-semibold" style={{ color: bucketColor(selected.bucket) }}>{Math.round(selected.score)}</span>
+              <span className="text-gray-400">/ 100 · {selected.bucket}</span>
             </div>
           </div>
         )}
         {geo?.cells?.length
           ? <RiskMap scores={geo.cells} onCellClick={onCell} hazard={hazard} viewOverride={view} />
-          : <div className="flex h-full items-center justify-center text-slate-500">loading map…</div>}
+          : <div className="flex h-full items-center justify-center text-gray-400">loading map…</div>}
       </div>
 
       {/* Right rail */}
-      <aside className="w-80 shrink-0 overflow-y-auto border-l border-slate-800 p-4 space-y-4">
-        {/* Verification card */}
-        <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold"><Activity size={15} className="text-amber-400" /> Forecast vs reality</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">Venezuela M7.5 aftershocks — Omori-Utsu model checked daily</p>
-          {verif ? <VerificationPanel v={verif} /> : <p className="mt-3 text-xs text-slate-500">no verification data yet</p>}
+      <aside className="w-80 shrink-0 overflow-y-auto border-l border-gray-200 bg-white p-4 space-y-4">
+        <section className="rounded-2xl bg-[#f5f5f7] p-4">
+          <h3 className="flex items-center gap-2 text-[15px] font-semibold"><Activity size={15} className="text-[#ff9500]" /> Forecast vs reality</h3>
+          <p className="mt-0.5 text-[11px] text-gray-500">Venezuela M7.5 aftershocks — Omori-Utsu model checked daily</p>
+          {verif ? <VerificationPanel v={verif} /> : <p className="mt-3 text-xs text-gray-400">no verification data yet</p>}
         </section>
 
-        {/* Live seismic feed */}
-        <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold"><Radio size={15} className="text-emerald-400" /> Live seismic feed</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">USGS global · M≥4.5 · last 14 days</p>
-          <ul className="mt-3 space-y-1.5">
-            {events.slice(0, 12).map(e => (
-              <li key={e.event_id} className="flex items-center gap-2 text-[11px]">
-                <span className="w-9 shrink-0 text-center font-semibold rounded px-1 py-0.5"
-                  style={{ background: e.magnitude >= 6 ? '#7f1d1d' : e.magnitude >= 5 ? '#9a3412' : '#334155',
-                           color: e.magnitude >= 5 ? '#fecaca' : '#cbd5e1' }}>
-                  {e.magnitude.toFixed(1)}
-                </span>
-                <span className="flex-1 truncate text-slate-300">{e.region_name}</span>
-                <span className="shrink-0 text-slate-500">{e.origin_time?.slice(5, 10)}</span>
-              </li>
-            ))}
-            {!events.length && <li className="text-xs text-slate-500">no recent events</li>}
+        <section className="rounded-2xl bg-[#f5f5f7] p-4">
+          <h3 className="flex items-center gap-2 text-[15px] font-semibold"><Radio size={15} className="text-emerald-600" /> Live seismic feed</h3>
+          <p className="mt-0.5 text-[11px] text-gray-500">USGS global · M≥4.5 · last 14 days</p>
+          <ul className="mt-3 space-y-1">
+            {events.slice(0, 12).map(e => {
+              const big = e.magnitude >= 6, mid = e.magnitude >= 5
+              return (
+                <li key={e.event_id} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-[11px]">
+                  <span className="w-9 shrink-0 rounded-md px-1 py-0.5 text-center font-semibold"
+                    style={{ background: big ? '#ffe5e3' : mid ? '#fff0e0' : '#f0f0f2',
+                             color: big ? '#ff3b30' : mid ? '#ff9500' : '#6e6e73' }}>
+                    {e.magnitude.toFixed(1)}
+                  </span>
+                  <span className="flex-1 truncate text-gray-700">{e.region_name}</span>
+                  <span className="shrink-0 text-gray-400">{e.origin_time?.slice(5, 10)}</span>
+                </li>
+              )
+            })}
+            {!events.length && <li className="text-xs text-gray-400">no recent events</li>}
           </ul>
         </section>
       </aside>
@@ -123,7 +138,6 @@ export default function LiveEventsPage() {
 }
 
 function VerificationPanel({ v }) {
-  // band: 0 .. predicted + 3σ, shaded ±2σ, predicted line, observed marker
   const hi = Math.max(v.predicted_count + 3 * v.sigma, v.observed_count + 1, 1)
   const pct = x => `${Math.min(100, Math.max(0, (x / hi) * 100))}%`
   const lo2 = Math.max(0, v.predicted_count - 2 * v.sigma)
@@ -132,28 +146,27 @@ function VerificationPanel({ v }) {
   return (
     <div className="mt-3 space-y-3">
       <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold tabular-nums" style={{ color: outOfBand ? '#ef4444' : '#10b981' }}>
+        <span className="text-3xl font-semibold tabular-nums tracking-tight" style={{ color: outOfBand ? '#ff3b30' : '#34c759' }}>
           {v.z_score > 0 ? '+' : ''}{v.z_score.toFixed(1)}σ
         </span>
-        <span className={`mb-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${outOfBand ? 'bg-red-950 text-red-300' : 'bg-emerald-950 text-emerald-300'}`}>
+        <span className="mb-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          style={{ background: outOfBand ? '#ffe5e3' : '#e3f9e9', color: outOfBand ? '#ff3b30' : '#34c759' }}>
           {outOfBand ? 'OUT OF BAND' : 'within band'}
         </span>
       </div>
-      {/* band track */}
-      <div className="relative h-6 rounded bg-slate-800">
-        <div className="absolute top-0 bottom-0 rounded bg-emerald-500/25"
-          style={{ left: pct(lo2), width: `calc(${pct(hi2)} - ${pct(lo2)})` }} />
-        <div className="absolute top-0 bottom-0 w-px bg-emerald-300" style={{ left: pct(v.predicted_count) }} />
-        <div className="absolute -top-0.5 h-7 w-1 rounded bg-red-500" style={{ left: pct(v.observed_count) }} title="observed" />
+      <div className="relative h-6 rounded-lg bg-gray-200">
+        <div className="absolute top-0 bottom-0 rounded-lg" style={{ left: pct(lo2), width: `calc(${pct(hi2)} - ${pct(lo2)})`, background: 'rgba(52,199,89,0.25)' }} />
+        <div className="absolute top-0 bottom-0 w-px bg-[#34c759]" style={{ left: pct(v.predicted_count) }} />
+        <div className="absolute -top-0.5 h-7 w-1 rounded bg-[#ff3b30]" style={{ left: pct(v.observed_count) }} title="observed" />
       </div>
       <div className="grid grid-cols-2 gap-2 text-[11px]">
         <Stat label="Predicted M≥4.5" value={`${v.predicted_count.toFixed(0)} ± ${v.sigma.toFixed(0)}`} />
-        <Stat label="Observed" value={v.observed_count} accent={outOfBand ? '#ef4444' : '#10b981'} />
+        <Stat label="Observed" value={v.observed_count} accent={outOfBand ? '#ff3b30' : '#34c759'} />
         <Stat label="P(M≥5) forecast" value={(v.m5_forecast * 100).toFixed(0) + '%'} />
         <Stat label="M≥5 occurred" value={v.m5_occurred ? 'yes' : `no (max M${v.largest_obs_mag?.toFixed(1)})`}
-          accent={v.m5_occurred ? '#ef4444' : '#94a3b8'} />
+          accent={v.m5_occurred ? '#ff3b30' : '#6e6e73'} />
       </div>
-      <p className="text-[10px] leading-snug text-slate-500">
+      <p className="text-[10px] leading-snug text-gray-400">
         Day {v.elapsed_days?.toFixed(1)}. Generic California (Reasenberg-Jones) parameters over-predict this
         sequence; the daily series accrues until we recalibrate decay to the observed aftershocks.
       </p>
@@ -162,8 +175,8 @@ function VerificationPanel({ v }) {
 }
 
 const Stat = ({ label, value, accent }) => (
-  <div className="rounded-lg bg-slate-800/40 px-2 py-1.5">
-    <div className="text-[9px] uppercase tracking-wide text-slate-500">{label}</div>
-    <div className="font-semibold tabular-nums" style={{ color: accent || '#e2e8f0' }}>{value}</div>
+  <div className="rounded-lg bg-white px-2.5 py-1.5">
+    <div className="text-[9px] uppercase tracking-wide text-gray-400">{label}</div>
+    <div className="font-semibold tabular-nums" style={{ color: accent || '#1d1d1f' }}>{value}</div>
   </div>
 )
