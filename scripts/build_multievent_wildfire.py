@@ -23,10 +23,17 @@ import pandas as pd
 import xarray as xr
 from sklearn.metrics import roc_auc_score, average_precision_score
 
-CACHE = "data/multievent_wildfire.parquet"
-FEATS = ["gfs_wind_speed_ms", "gfs_relative_humidity_pct", "days_since_last_rain"]
+CACHE = "data/multievent_wildfire_fuel.parquet"
+# Added the missing physics — FUEL: vegetation density (leaf-area-index, high+low veg)
+# and dryness (soil water). Both come from the SAME ERA5-Land/CDS API we already use,
+# so no new credentials. FIRMS/NDVI proper need a NASA key; LAI is a fuel proxy we can
+# act on now. This is the feature the weather-only model was missing.
+FEATS = ["gfs_wind_speed_ms", "gfs_relative_humidity_pct", "days_since_last_rain",
+         "fuel_load_lai", "soil_moisture"]
 VARS = ["10m_u_component_of_wind", "10m_v_component_of_wind",
-        "2m_temperature", "2m_dewpoint_temperature", "total_precipitation"]
+        "2m_temperature", "2m_dewpoint_temperature", "total_precipitation",
+        "leaf_area_index_high_vegetation", "leaf_area_index_low_vegetation",
+        "volumetric_soil_water_layer_1"]
 H3_RES = 8
 WINDOW = 15  # days before peak (for days-since-rain)
 
@@ -80,6 +87,10 @@ def features(ds, ev):
     # peak day = last in window
     wind = np.sqrt(u.isel({tvar: -1}) ** 2 + v.isel({tvar: -1}) ** 2).values
     rh = _rh(t2.isel({tvar: -1}).values, d2.isel({tvar: -1}).values)
+    # FUEL: leaf-area-index (high+low veg) = how much burnable vegetation;
+    #       soil water layer 1 = dryness (low = dry fuel = fire-prone)
+    lai = ds["lai_hv"].isel({tvar: -1}).values + ds["lai_lv"].isel({tvar: -1}).values
+    sm = ds["swvl1"].isel({tvar: -1}).values
     # days since last rain: walk back from peak, count days with precip < 1mm
     tp_mm = (tp * 1000.0).values  # (time, lat, lon)
     nt = tp_mm.shape[0]
@@ -104,12 +115,16 @@ def features(ds, ev):
                 "gfs_wind_speed_ms": float(wind[i, j]),
                 "gfs_relative_humidity_pct": float(rh[i, j]),
                 "days_since_last_rain": float(dslr[i, j]),
+                "fuel_load_lai": float(lai[i, j]) if not np.isnan(lai[i, j]) else 0.0,
+                "soil_moisture": float(sm[i, j]) if not np.isnan(sm[i, j]) else 0.0,
                 "y": int(in_burn),
             })
     return pd.DataFrame(rows).groupby("h3_cell", as_index=False).agg(
         gfs_wind_speed_ms=("gfs_wind_speed_ms", "max"),
         gfs_relative_humidity_pct=("gfs_relative_humidity_pct", "min"),
         days_since_last_rain=("days_since_last_rain", "max"),
+        fuel_load_lai=("fuel_load_lai", "max"),
+        soil_moisture=("soil_moisture", "min"),
         y=("y", "max"))
 
 
@@ -127,7 +142,9 @@ def build():
             print(f"   FAILED: {str(e)[:120]}"); continue
         df["event"] = ev["name"]
         print(f"   {len(df)} cells, {int(df.y.sum())} burn cells, "
-              f"min RH {df.gfs_relative_humidity_pct.min():.0f}%, max dry {df.days_since_last_rain.max():.0f}d")
+              f"min RH {df.gfs_relative_humidity_pct.min():.0f}%, max dry {df.days_since_last_rain.max():.0f}d, "
+              f"LAI {df.fuel_load_lai.mean():.2f} (burn {df[df.y==1].fuel_load_lai.mean():.2f} vs "
+              f"unburn {df[df.y==0].fuel_load_lai.mean():.2f})")
         frames.append(df)
     data = pd.concat(frames, ignore_index=True)
     os.makedirs("data", exist_ok=True); data.to_parquet(CACHE)
