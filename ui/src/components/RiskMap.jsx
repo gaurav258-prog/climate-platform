@@ -6,7 +6,24 @@ import { ScatterplotLayer } from '@deck.gl/layers'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { scoreToColor, INITIAL_VIEW_STATE, HAZARD_VIEWS } from '../mockData'
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+// CARTO Positron as RASTER tiles — same clean light look, but plain image
+// requests per viewport tile, which load far more reliably than vector tiles.
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    basemap: {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+      ],
+      tileSize: 256,
+      attribution: '© CARTO, © OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+}
 
 // Bucket → RGB, matching RiskAtom so an asset reads the same colour on the map.
 const BUCKET_RGB = {
@@ -50,13 +67,16 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride, ass
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
+    // Start already centred on the data if we have it — avoids a fly-to that the
+    // tile-loading nudge below would otherwise cancel.
+    const iv = viewOverride || INITIAL_VIEW_STATE
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
-      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
-      zoom: INITIAL_VIEW_STATE.zoom,
-      pitch: INITIAL_VIEW_STATE.pitch,
-      bearing: INITIAL_VIEW_STATE.bearing,
+      center: [iv.longitude, iv.latitude],
+      zoom: iv.zoom ?? INITIAL_VIEW_STATE.zoom,
+      pitch: iv.pitch ?? 0,
+      bearing: iv.bearing ?? 0,
       antialias: true,
     })
 
@@ -67,11 +87,13 @@ export default function RiskMap({ scores, onCellClick, hazard, viewOverride, ass
     overlayRef.current = overlay
 
     // Ensure the basemap fetches tiles even if the container settled its size
-    // after the map was created (e.g. flex layout / nav transition).
-    map.on('load', () => map.resize())
+    // after the map was created (e.g. flex layout / nav transition). A tiny
+    // camera nudge forces the source to (re)evaluate visible tiles reliably.
+    const kick = () => map.resize()
+    map.on('load', () => requestAnimationFrame(() => requestAnimationFrame(kick)))
     const ro = new ResizeObserver(() => map.resize())
     ro.observe(containerRef.current)
-    const t = setTimeout(() => map.resize(), 300)
+    const t = setTimeout(kick, 400)
 
     return () => {
       clearTimeout(t)

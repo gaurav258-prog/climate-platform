@@ -53,7 +53,7 @@ export default function RiskMapBank() {
             <span className="text-gray-400">Unscored</span>
           </div>
         </div>
-        {geo
+        {geo && view
           ? <RiskMap scores={geo.cells} onCellClick={() => {}} hazard="flood" viewOverride={view}
               assets={assets} onAssetClick={onAsset} />
           : <div className="flex h-full items-center justify-center text-gray-400">loading map…</div>}
