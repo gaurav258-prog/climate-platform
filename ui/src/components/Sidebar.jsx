@@ -9,8 +9,8 @@ const WORKSPACE = [
   { id: 'bank-command', icon: Building2, label: 'Command Center', sub: 'Your world, right now' },
   { id: 'bank-map', icon: Map, label: 'Risk Map', sub: 'Assets on the golden source' },
   { id: 'bank-portfolio', icon: Briefcase, label: 'Portfolio', sub: 'The loan book' },
-  { id: 'live', icon: Radio, label: 'Signals', sub: 'Live events · forecasts' },
-  { id: 'regulatory', icon: FileText, label: 'Reports', sub: 'Disclosure & actions' },
+  { id: 'bank-signals', icon: Radio, label: 'Signals', sub: 'Live events · forecasts' },
+  { id: 'bank-reports', icon: FileText, label: 'Reports', sub: 'Disclosure & actions' },
 ]
 const TRUST = [
   { id: 'platform', icon: Database, label: 'Foundation', sub: 'Data · canonical source' },

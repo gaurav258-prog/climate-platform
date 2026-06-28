@@ -26,8 +26,12 @@ def _assets_with_risk(session, org_id, scenario, horizon):
     assets = session.execute(text("""
         SELECT asset_id::text AS asset_id, asset_name, asset_type, sector, country, region,
                CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(asset_value_eur AS FLOAT) AS value_eur, taxonomy_status,
-               construction_year, nace_code
+               CAST(asset_value_eur AS FLOAT) AS value_eur,
+               CAST(annual_revenue_eur AS FLOAT) AS revenue_eur, taxonomy_status,
+               construction_year, nace_code,
+               CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg1,
+               CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg2,
+               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg3
         FROM bank_assets WHERE org_id = :o ORDER BY asset_value_eur DESC
     """), {"o": org_id}).mappings().all()
 
@@ -100,6 +104,42 @@ def summary(session: DbSession, org_id: str = Query(DEMO_ORG),
     ), {"o": org_id}).mappings().first()
     assets = _assets_with_risk(session, org_id, scenario, horizon)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(assets)}
+
+
+@router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
+def disclosure(session: DbSession, org_id: str = Query(DEMO_ORG),
+               scenario: str = Query("baseline"), horizon: str = Query("current")):
+    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    # physical risk by hazard — value of the book exposed at High+ per hazard
+    hazards: dict = {}
+    for a in assets:
+        for hz in a["hazards"]:
+            h = hazards.setdefault(hz["hazard"], {
+                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
+                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
+            if hz["bucket"] in ("H", "VH"):
+                h["exposed_value_eur"] += a["value_eur"] or 0
+                h["n_exposed"] += 1
+            h["max_score"] = max(h["max_score"], hz["score"])
+    for h in hazards.values():
+        h["exposed_value_eur"] = round(h["exposed_value_eur"])
+        h["max_score"] = round(h["max_score"], 1)
+    # EU-Taxonomy alignment, value-weighted
+    tax = defaultdict(lambda: {"count": 0, "value_eur": 0.0})
+    for a in assets:
+        t = a.get("taxonomy_status") or "unknown"
+        tax[t]["count"] += 1
+        tax[t]["value_eur"] += a["value_eur"] or 0
+    # financed emissions (GHG totals across the book)
+    ghg = {f"scope{i}": round(sum((a.get(f"ghg{i}") or 0) for a in assets))
+           for i in (1, 2, 3)}
+    return {
+        "org_id": org_id, "scenario": scenario, "horizon": horizon,
+        "rollup": _rollup(assets),
+        "by_hazard": hazards,
+        "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
+        "financed_emissions_tco2e": ghg,
+    }
 
 
 @router.get("/asset/{asset_id}", summary="One asset — full projection + provenance")

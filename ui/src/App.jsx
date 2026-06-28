@@ -45,6 +45,8 @@ import LiveEventsPage from './pages/LiveEventsPage'
 import CommandCenter from './pages/bank/CommandCenter'
 import RiskMapBank from './pages/bank/RiskMapBank'
 import Portfolio from './pages/bank/Portfolio'
+import Signals from './pages/bank/Signals'
+import Reports from './pages/bank/Reports'
 import { generateMockScores, generateAlerts, getDates } from './mockData'
 import { ACTION_TEMPLATES } from './mockRegions'
 
@@ -112,6 +114,10 @@ export default function App() {
             <RiskMapBank />
           ) : view === 'bank-portfolio' ? (
             <Portfolio />
+          ) : view === 'bank-signals' ? (
+            <Signals />
+          ) : view === 'bank-reports' ? (
+            <Reports />
           ) : view === 'platform' ? (
             <PlatformOverviewPage onSelectIndustry={id => { setIndustryId(id); setView('industry') }} />
           ) : view === 'models' ? (

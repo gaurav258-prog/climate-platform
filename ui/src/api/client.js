@@ -90,3 +90,8 @@ export async function fetchBankSummary({ scenario = 'baseline', horizon = 'curre
 export async function fetchAsset(assetId) {
   return get(`/v1/bank/asset/${assetId}`)
 }
+
+/** TCFD/EU-Taxonomy disclosure pack: { rollup, by_hazard, taxonomy, financed_emissions_tco2e }. */
+export async function fetchDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
+}
