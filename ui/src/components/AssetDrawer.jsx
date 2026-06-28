@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { X, MapPin } from 'lucide-react'
+import { X, MapPin, ChevronDown } from 'lucide-react'
 import RiskAtom, { BUCKET } from './RiskAtom'
-import { fetchAsset } from '../api/client'
+import { fetchAsset, fetchModels } from '../api/client'
 
 const euro = n => n == null ? '—' : '€' + Math.round(n).toLocaleString()
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
@@ -9,17 +9,20 @@ const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 // The drill-through. Opened from the table OR the map — same component, so an
 // asset reads identically wherever you click it. Every hazard score carries the
 // model version + scored date that produced it (defensible disclosure).
-export default function AssetDrawer({ assetId, onClose }) {
+export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', horizon = 'current' }) {
   const [data, setData] = useState(null)
+  const [models, setModels] = useState([])
+  const [openHz, setOpenHz] = useState(null)
   useEffect(() => {
     if (!assetId) return
-    setData(null)
+    setData(null); setOpenHz(null)
     fetchAsset(assetId).then(setData).catch(() => setData({ error: true }))
   }, [assetId])
+  useEffect(() => { fetchModels().then(d => setModels(d.models || [])).catch(() => {}) }, [])
 
   if (!assetId) return null
   const a = data?.asset
-  const risks = (data?.risks || []).filter(r => r.scenario === 'baseline' && r.time_horizon === 'current')
+  const risks = (data?.risks || []).filter(r => r.scenario === scenario && r.time_horizon === horizon)
   const headline = risks.slice().sort((x, y) => y.score - x.score)[0]
 
   return (
@@ -53,15 +56,39 @@ export default function AssetDrawer({ assetId, onClose }) {
               </div>
               {/* per-hazard rows — the same RiskAtom as the table & map */}
               <div className="mt-4 space-y-2">
-                {risks.length ? risks.map(r => (
-                  <div key={r.hazard_type} className="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                    <div>
-                      <div className="text-[13px] font-medium capitalize text-[#1d1d1f]">{r.hazard_type.replace('_', ' ')}</div>
-                      <div className="font-mono text-[10px] text-gray-400">{r.model_version} · {String(r.scored_at).slice(0, 10)}</div>
+                {risks.length ? risks.map(r => {
+                  const m = models.find(x => x.model_version === r.model_version)
+                  const open = openHz === r.hazard_type
+                  return (
+                    <div key={r.hazard_type} className="overflow-hidden rounded-lg bg-white">
+                      <button onClick={() => setOpenHz(open ? null : r.hazard_type)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50">
+                        <div>
+                          <div className="flex items-center gap-1 text-[13px] font-medium capitalize text-[#1d1d1f]">
+                            {r.hazard_type.replace('_', ' ')}
+                            <ChevronDown size={13} className={`text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
+                          </div>
+                          <div className="font-mono text-[10px] text-gray-400">{r.model_version} · {String(r.scored_at).slice(0, 10)}</div>
+                        </div>
+                        <RiskAtom score={r.score} bucket={r.risk_bucket} size="md" />
+                      </button>
+                      {open && (
+                        <div className="border-t border-gray-100 px-3 py-2.5 text-[11px]">
+                          {m ? (
+                            <>
+                              <div className="text-gray-500">Out-of-sample skill:{' '}
+                                <span className="font-semibold text-[#1d1d1f]">{m.auc != null ? `LOEO AUC ${m.auc.toFixed(3)}` : 'physics-based'}</span>
+                                {m.avg_precision != null ? ` · AP ${m.avg_precision.toFixed(3)}` : ''}
+                                {m.training_cell_count ? ` · ${m.training_cell_count.toLocaleString()} cells` : ''}
+                              </div>
+                              {m.validation_note && <p className="mt-1.5 leading-snug text-gray-500">{m.validation_note}</p>}
+                            </>
+                          ) : <p className="text-gray-400">model metadata unavailable</p>}
+                        </div>
+                      )}
                     </div>
-                    <RiskAtom score={r.score} bucket={r.risk_bucket} size="md" />
-                  </div>
-                )) : <p className="text-[12px] text-gray-400">This asset's cell has not been scored — surfaced honestly, never a silent zero.</p>}
+                  )
+                }) : <p className="text-[12px] text-gray-400">This asset's cell has not been scored — surfaced honestly, never a silent zero.</p>}
               </div>
             </section>
 

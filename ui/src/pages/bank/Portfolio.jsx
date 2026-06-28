@@ -90,7 +90,7 @@ export default function Portfolio() {
         </div>
       </div>
 
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
     </div>
   )
 }

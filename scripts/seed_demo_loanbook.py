@@ -32,7 +32,7 @@ DEMO_ORG = "11111111-1111-4111-8111-111111111111"
 SECTORS = [
     ("Commercial real estate", "commercial_real_estate", "68.20", "60101010", (8, 60), 50,
      ["aligned", "eligible", "not_eligible"], 18),
-    ("Residential mortgages", "residential_real_estate", "68.20", "60101070", (2, 18), 60,
+    ("Residential mortgages", "residential_real_estate", "68.20", "60101070", (0.3, 2.5), 60,
      ["aligned", "eligible"], 12),
     ("Manufacturing", "industrial", "25.50", "20104010", (10, 80), 35,
      ["eligible", "not_eligible"], 140),

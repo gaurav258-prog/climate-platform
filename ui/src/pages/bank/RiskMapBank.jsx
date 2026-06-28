@@ -58,7 +58,7 @@ export default function RiskMapBank() {
               assets={assets} onAssetClick={onAsset} />
           : <div className="flex h-full items-center justify-center text-gray-400">loading map…</div>}
       </div>
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
     </div>
   )
 }
