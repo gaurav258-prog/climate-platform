@@ -14,9 +14,16 @@ import random
 import uuid
 
 import h3
+from global_land_mask import globe
 from sqlalchemy import text
 
 from core.db.session import get_session
+
+
+def on_land(cell):
+    """A bank's financed assets must be on land — flood cells can fall over water."""
+    lat, lon = h3.cell_to_latlng(cell)
+    return bool(globe.is_land(lat, lon))
 
 random.seed(42)
 DEMO_ORG = "11111111-1111-4111-8111-111111111111"
@@ -96,19 +103,25 @@ def make_asset(lat, lon, h3_cell, region):
 
 def main():
     with get_session() as s:
-        flood = scored_cells(s, "flood", 336)          # Valencia — up to VH
-        wildfire = random.sample(scored_cells(s, "wildfire", 8000), 800)  # EU — low/med
+        # keep only land cells — assets in the Mediterranean are not real loans
+        flood = [c for c in scored_cells(s, "flood", 336) if on_land(c)]            # Valencia — up to VH
+        wildfire = [c for c in random.sample(scored_cells(s, "wildfire", 8000), 2000) if on_land(c)]  # EU — low/med
         assets = []
         # 55 in flood cells (real high risk), 30 in wildfire cells, 40 in financial centres
         for c in random.sample(flood, min(55, len(flood))):
             lat, lon = h3.cell_to_latlng(c)
             assets.append(make_asset(lat, lon, c, "Valencia"))
-        for c in random.sample(wildfire, 30):
+        for c in random.sample(wildfire, min(30, len(wildfire))):
             lat, lon = h3.cell_to_latlng(c)
             assets.append(make_asset(lat, lon, c, country_for(lat, lon)))
         for _ in range(40):
             name, lat, lon = random.choice(CITIES)
-            jlat, jlon = lat + random.uniform(-0.08, 0.08), lon + random.uniform(-0.08, 0.08)
+            for _try in range(20):  # jitter, but keep it on land
+                jlat, jlon = lat + random.uniform(-0.08, 0.08), lon + random.uniform(-0.08, 0.08)
+                if globe.is_land(jlat, jlon):
+                    break
+            else:
+                jlat, jlon = lat, lon
             assets.append(make_asset(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
 
         s.execute(text("""
