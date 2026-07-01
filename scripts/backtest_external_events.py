@@ -55,7 +55,7 @@ def fetch(ev):
         "year": sorted({str(d.year) for d in days}),
         "month": sorted({f"{d.month:02d}" for d in days}),
         "day": sorted({f"{d.day:02d}" for d in days}),
-        "time": ["12:00"],
+        "time": ["23:00"],
         "area": ev["fetch_area"],
         "format": "netcdf",
     }, tmp.name)
