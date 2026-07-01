@@ -37,5 +37,27 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
 
+    # Auth / JWT — names match .env.example. The default secret is DEV-ONLY;
+    # in any non-development env a real SECRET_KEY must come from the (gitignored)
+    # .env or a secret manager. See _guard_secret() below.
+    SECRET_KEY: str = "dev-insecure-change-me"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
+    # Comma-separated allowed origins for CORS (used when APP_ENV != development).
+    CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 
-settings = Settings()
+
+_DEV_SECRET = "dev-insecure-change-me"
+
+
+def _guard_secret(s: "Settings") -> "Settings":
+    """Fail fast if a real deployment is still using the dev secret."""
+    if s.APP_ENV != "development" and s.SECRET_KEY == _DEV_SECRET:
+        raise RuntimeError(
+            "SECRET_KEY is still the insecure dev default but APP_ENV != development. "
+            "Set a strong SECRET_KEY in the environment before starting the API."
+        )
+    return s
+
+
+settings = _guard_secret(Settings())

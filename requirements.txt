@@ -13,3 +13,5 @@ aiohttp==3.9.1
 beautifulsoup4==4.12.2
 requests==2.31.0
 global-land-mask
+bcrypt==4.1.2
+PyJWT==2.8.0

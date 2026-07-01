@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Waves, Flame } from 'lucide-react'
+import { FileText, Download, Waves, Flame, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
-import { fetchDisclosure, fetchPortfolio } from '../../api/client'
+import { fetchDisclosure, fetchPortfolio, createApproval } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
@@ -23,11 +23,12 @@ function exportCsv(assets) {
   URL.revokeObjectURL(url)
 }
 
-export default function Reports() {
+export default function Reports({ auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [d, setD] = useState(null)
   const [assets, setAssets] = useState([])
+  const [publish, setPublish] = useState({ state: 'idle' })   // idle | submitting | submitted | error
 
   useEffect(() => {
     setD(null)
@@ -37,6 +38,21 @@ export default function Reports() {
 
   const r = d?.rollup
   const taxTotal = d ? Object.values(d.taxonomy).reduce((s, t) => s + t.value_eur, 0) : 0
+
+  const canSubmit = new Set(auth?.permissions || []).has('approvals.create')
+  async function submitForApproval() {
+    setPublish({ state: 'submitting' })
+    try {
+      await createApproval({
+        request_type: 'report.publish',
+        title: `Publish disclosure — ${scenario} / ${horizon}`,
+        payload: { scenario, horizon, value_at_risk_eur: r?.value_at_risk_eur, n_assets: r?.n_assets },
+      })
+      setPublish({ state: 'submitted' })
+    } catch (e) {
+      setPublish({ state: 'error', msg: e.message || 'Could not submit for approval.' })
+    }
+  }
 
   return (
     <div className="flex h-full flex-col bg-[#f5f5f7]">
@@ -54,11 +70,35 @@ export default function Reports() {
               traces to a model version and data vintage.
             </p>
           </div>
-          <button onClick={() => exportCsv(assets)}
-            className="flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0077ed]">
-            <Download size={15} /> Export disclosure
-          </button>
+          <div className="flex items-center gap-2">
+            {canSubmit && (
+              publish.state === 'submitted' ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-[13px] font-medium text-emerald-700">
+                  <CheckCircle2 size={15} /> Submitted — awaiting approver
+                </span>
+              ) : (
+                <button onClick={submitForApproval} disabled={publish.state === 'submitting' || !d}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-[#1d1d1f] hover:border-gray-300 disabled:opacity-50">
+                  {publish.state === 'submitting'
+                    ? <><Loader2 size={15} className="animate-spin" /> Submitting…</>
+                    : <><ShieldCheck size={15} /> Publish disclosure</>}
+                </button>
+              )
+            )}
+            <button onClick={() => exportCsv(assets)}
+              className="flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0077ed]">
+              <Download size={15} /> Export disclosure
+            </button>
+          </div>
         </header>
+        {publish.state === 'submitted' && (
+          <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
+            Sent to the four-eyes queue. A different user with approval rights must sign off in <b>Admin › Approvals</b> before it’s published.
+          </p>
+        )}
+        {publish.state === 'error' && (
+          <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{publish.msg}</p>
+        )}
 
         {!d ? <p className="text-gray-400">loading…</p> : (
           <div className="space-y-5">

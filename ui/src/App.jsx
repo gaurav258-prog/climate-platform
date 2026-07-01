@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { ChevronRight, Clock } from 'lucide-react'
-import { PERSONAS, catalogFor } from './data/catalog'
+import { catalogForAuth } from './data/catalog'
+import { fetchMe, logout as apiLogout, hasToken } from './api/client'
 import LineageBar from './components/software/LineageBar'
 import CatalogNav from './components/software/CatalogNav'
 import CatalogGrid from './components/software/CatalogGrid'
@@ -13,33 +14,54 @@ import ModelsPage from './pages/ModelsPage'
 import PlatformOverviewPage from './pages/PlatformOverviewPage'
 import LandingPage from './pages/LandingPage'
 import SolutionsPage from './pages/SolutionsPage'
+import LoginPage from './pages/LoginPage'
+import DocumentationPage from './pages/DocumentationPage'
+import ServicePortalPage from './pages/ServicePortalPage'
+import AdminPage from './pages/admin/AdminPage'
 
 const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage }
 const DEFAULT_ROUTE = { offeringId: 'physical-risk', serviceId: 'command' }
 
 export default function App() {
-  const [view, setView] = useState('landing')   // 'landing' | 'solutions' | 'app'
-  const [personaId, setPersonaId] = useState('meridian')
+  const [view, setView] = useState('landing')     // 'landing' | 'solutions' | 'login' | 'app'
+  const [auth, setAuth] = useState(null)           // /me payload once logged in
+  const [authLoading, setAuthLoading] = useState(hasToken())
+  const [area, setArea] = useState('modules')      // 'modules' | 'docs' | 'portal' | 'admin'
   const [route, setRoute] = useState(DEFAULT_ROUTE)
 
-  const persona = useMemo(() => PERSONAS.find(p => p.id === personaId) || PERSONAS[0], [personaId])
-  const catalog = useMemo(() => catalogFor(persona), [persona])
-
-  const onPersona = useCallback(id => {
-    setPersonaId(id)
-    setRoute({})   // land on the new customer's catalog home
+  // Rehydrate the session on load so a refresh keeps you logged in.
+  useEffect(() => {
+    if (!hasToken()) return
+    fetchMe().then(setAuth).catch(() => {}).finally(() => setAuthLoading(false))
   }, [])
 
-  // internal cross-links (e.g. Command Center's "view full portfolio")
+  const catalog = useMemo(() => catalogForAuth(auth), [auth])
+
+  const onLoginSuccess = useCallback((a) => {
+    setAuth(a); setArea('modules'); setRoute(DEFAULT_ROUTE); setView('app')
+  }, [])
+  const onLogout = useCallback(async () => {
+    await apiLogout(); setAuth(null); setView('landing')
+  }, [])
+  const enterApp = useCallback(() => setView(auth ? 'app' : 'login'), [auth])
+
   const onGoto = useCallback(v => {
-    if (v === 'bank-portfolio') setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' })
+    if (v === 'bank-portfolio') { setArea('modules'); setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' }) }
   }, [])
 
-  // All hooks must run before any early return (Rules of Hooks).
+  // ── Marketing / auth views (all hooks above run first) ──
   if (view === 'landing')
-    return <LandingPage onEnter={() => setView('app')} onExplore={() => setView('solutions')} />
+    return <LandingPage onEnter={enterApp} onExplore={() => setView('solutions')} />
   if (view === 'solutions')
-    return <SolutionsPage onHome={() => setView('landing')} onEnter={() => setView('app')} />
+    return <SolutionsPage onHome={() => setView('landing')} onEnter={enterApp} />
+  if (view === 'login')
+    return <LoginPage onSuccess={onLoginSuccess} onHome={() => setView('landing')} />
+
+  // view === 'app' — requires a session
+  if (!auth) {
+    if (authLoading) return <div className="flex h-screen items-center justify-center bg-[#f5f5f7] text-gray-400">Loading…</div>
+    return <LoginPage onSuccess={onLoginSuccess} onHome={() => setView('landing')} />
+  }
 
   const offering = route.offeringId && catalog?.offerings.find(o => o.id === route.offeringId)
   const service = offering && route.serviceId && offering.services.find(s => s.id === route.serviceId)
@@ -47,41 +69,48 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-[#f5f5f7]">
-      <LineageBar personas={PERSONAS} personaId={personaId} onPersona={onPersona} />
-      <div className="flex flex-1 overflow-hidden">
-        <CatalogNav catalog={catalog} route={route} onNavigate={setRoute} />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* breadcrumb + process stages */}
-          <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white/70 px-6 py-2 backdrop-blur">
-            <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
-              <button onClick={() => setRoute({})} className="hover:text-[#1d1d1f]">{catalog?.label || 'Home'}</button>
-              {offering && <><ChevronRight size={13} className="text-gray-300" />
-                <button onClick={() => setRoute({ offeringId: offering.id })}
-                  className={service ? 'hover:text-[#1d1d1f]' : 'font-medium text-[#1d1d1f]'}>{offering.label}</button></>}
-              {service && <><ChevronRight size={13} className="text-gray-300" />
-                <span className="font-medium text-[#1d1d1f]">{service.label}</span></>}
-            </div>
-            {service?.processes && (
-              <div className="hidden items-center gap-1 text-[10px] text-gray-400 lg:flex">
-                <span className="mr-1 uppercase tracking-wide">process</span>
-                {service.processes.map((p, i) => (
-                  <span key={p} className="flex items-center gap-1">
-                    {i > 0 && <span className="text-gray-300">›</span>}{p}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+      <LineageBar auth={auth} area={area} onArea={setArea} onLogout={onLogout} />
 
-          <div className="flex-1 overflow-hidden">
-            {service
-              ? (Workflow
-                  ? <Workflow onGoto={onGoto} onSelectIndustry={() => {}} />
-                  : <ComingSoon service={service} />)
-              : <CatalogGrid catalog={catalog} route={route} onNavigate={setRoute} />}
+      {area === 'modules' && (
+        <div className="flex flex-1 overflow-hidden">
+          <CatalogNav catalog={catalog} route={route} onNavigate={setRoute} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* breadcrumb + process stages */}
+            <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white/70 px-6 py-2 backdrop-blur">
+              <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
+                <button onClick={() => setRoute({})} className="hover:text-[#1d1d1f]">{catalog?.label || 'Home'}</button>
+                {offering && <><ChevronRight size={13} className="text-gray-300" />
+                  <button onClick={() => setRoute({ offeringId: offering.id })}
+                    className={service ? 'hover:text-[#1d1d1f]' : 'font-medium text-[#1d1d1f]'}>{offering.label}</button></>}
+                {service && <><ChevronRight size={13} className="text-gray-300" />
+                  <span className="font-medium text-[#1d1d1f]">{service.label}</span></>}
+              </div>
+              {service?.processes && (
+                <div className="hidden items-center gap-1 text-[10px] text-gray-400 lg:flex">
+                  <span className="mr-1 uppercase tracking-wide">process</span>
+                  {service.processes.map((p, i) => (
+                    <span key={p} className="flex items-center gap-1">
+                      {i > 0 && <span className="text-gray-300">›</span>}{p}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              {service
+                ? (Workflow
+                    ? <Workflow onGoto={onGoto} onSelectIndustry={() => {}} auth={auth} />
+                    : <ComingSoon service={service} />)
+                : <CatalogGrid catalog={catalog} route={route} onNavigate={setRoute} />}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {area === 'docs'   && <div className="flex-1 overflow-hidden"><DocumentationPage auth={auth} /></div>}
+      {area === 'portal' && <div className="flex-1 overflow-hidden"><ServicePortalPage /></div>}
+      {area === 'admin'  && <div className="flex-1 overflow-hidden"><AdminPage auth={auth} /></div>}
     </div>
   )
 }

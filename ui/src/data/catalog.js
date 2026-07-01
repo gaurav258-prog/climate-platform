@@ -75,10 +75,29 @@ export const PERSONAS = [
     entitlements: { offerings: ['underwriting', 'parametric'] } },
 ]
 
-// Entitlement-filtered view of a persona's industry.
+// Entitlement-filtered view of a persona's industry (demo/marketing paths).
 export function catalogFor(persona) {
   const ind = CATALOG[persona.industry]
   if (!ind) return null
   const allowed = new Set(persona.entitlements.offerings)
+  return { ...ind, offerings: ind.offerings.filter(o => allowed.has(o.id)) }
+}
+
+// Map an organization type (from the backend) to a catalog industry.
+const ORG_TYPE_TO_INDUSTRY = { bank: 'banking', insurer: 'insurance', insurance: 'insurance' }
+
+export function industryForOrg(org) {
+  if (!org) return null
+  return ORG_TYPE_TO_INDUSTRY[org.type] || org.type || null
+}
+
+// Entitlement-filtered catalog for a logged-in user. `auth` is the /me payload:
+// { org:{type,...}, entitlements:[offering_id,...] }. This is the real path —
+// industry comes from the org, offerings from DB entitlements.
+export function catalogForAuth(auth) {
+  if (!auth) return null
+  const ind = CATALOG[industryForOrg(auth.org)]
+  if (!ind) return null
+  const allowed = new Set(auth.entitlements || [])
   return { ...ind, offerings: ind.offerings.filter(o => allowed.has(o.id)) }
 }

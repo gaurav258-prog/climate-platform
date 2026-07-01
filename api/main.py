@@ -37,6 +37,23 @@ try:
 except ImportError:
     ROUTERS_AVAILABLE = False
 
+# Auth/RBAC/admin routers — separately guarded so a missing auth dependency
+# (bcrypt/PyJWT) cannot take down the core scoring API. Login is guarded apart
+# from the admin/approvals/portal set so each can land independently.
+try:
+    from api.routers import auth_user
+    AUTH_USER_AVAILABLE = True
+except ImportError:
+    AUTH_USER_AVAILABLE = False
+
+try:
+    from api.routers import admin as admin_router
+    from api.routers import approvals as approvals_router
+    from api.routers import portal as portal_router
+    ADMIN_ROUTERS_AVAILABLE = True
+except ImportError:
+    ADMIN_ROUTERS_AVAILABLE = False
+
 try:
     from api.routes import regulatory_monitoring
 except ImportError:
@@ -97,10 +114,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from core.config import settings as _settings
+
+# In development allow all origins for convenience; otherwise restrict to the
+# configured allowlist (CORS_ORIGINS). PATCH is required by the admin endpoints.
+_cors_origins = (
+    ["*"] if _settings.APP_ENV == "development"
+    else [o.strip() for o in _settings.CORS_ORIGINS.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten to customer domains in Sprint 8
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -112,6 +137,14 @@ if ROUTERS_AVAILABLE:
     app.include_router(packages.router)
     app.include_router(platform_router.router)
     app.include_router(bank_router.router)
+
+if AUTH_USER_AVAILABLE:
+    app.include_router(auth_user.router)
+
+if ADMIN_ROUTERS_AVAILABLE:
+    app.include_router(admin_router.router)
+    app.include_router(approvals_router.router)
+    app.include_router(portal_router.router)
 
 # Regulatory monitoring (CRCS) - Phase 1
 if regulatory_monitoring:

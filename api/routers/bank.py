@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from fastapi import APIRouter, Query
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 
 from api.deps import DbSession
@@ -19,6 +22,29 @@ router = APIRouter(prefix="/v1/bank", tags=["Banking"])
 
 DEMO_ORG = "11111111-1111-4111-8111-111111111111"
 BUCKET_RANK = {"VH": 4, "H": 3, "M": 2, "L": 1}
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def resolve_org(
+    org_id: Optional[str] = Query(None),
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
+) -> str:
+    """
+    Tenant scoping: a user JWT's org wins (real isolation); otherwise fall back to
+    the org_id query param, and finally to DEMO_ORG so the public marketing/demo
+    path keeps working without a token.
+    """
+    token = credentials.credentials if credentials else None
+    if token and not token.startswith("cp_live_"):
+        from api.security import decode_access_token
+        payload = decode_access_token(token)
+        if payload and payload.get("org_id"):
+            return payload["org_id"]
+    return org_id or DEMO_ORG
+
+
+OrgId = Annotated[str, Depends(resolve_org)]
 
 
 def _assets_with_risk(session, org_id, scenario, horizon):
@@ -89,7 +115,7 @@ def _rollup(assets):
 
 
 @router.get("/portfolio", summary="Loan book projected onto the golden source")
-def portfolio(session: DbSession, org_id: str = Query(DEMO_ORG),
+def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
     assets = _assets_with_risk(session, org_id, scenario, horizon)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
@@ -97,7 +123,7 @@ def portfolio(session: DbSession, org_id: str = Query(DEMO_ORG),
 
 
 @router.get("/summary", summary="Command-center rollup")
-def summary(session: DbSession, org_id: str = Query(DEMO_ORG),
+def summary(session: DbSession, org_id: OrgId,
             scenario: str = Query("baseline"), horizon: str = Query("current")):
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
@@ -107,7 +133,7 @@ def summary(session: DbSession, org_id: str = Query(DEMO_ORG),
 
 
 @router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
-def disclosure(session: DbSession, org_id: str = Query(DEMO_ORG),
+def disclosure(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current")):
     assets = _assets_with_risk(session, org_id, scenario, horizon)
     # physical risk by hazard — value of the book exposed at High+ per hazard

@@ -73,3 +73,60 @@ def require_customer_id(
 
 
 CustomerId = Annotated[str, Depends(require_customer_id)]
+
+
+# ── User JWT auth (login sessions) ──────────────────────────────────────
+# Disambiguation: machine API keys start with "cp_live_"; user JWTs never do.
+
+def get_current_user(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
+    session:     DbSession = None,
+) -> dict:
+    """
+    Validate a Bearer user JWT → return the full user context
+    {user, org, roles, permissions, entitlements}.
+    """
+    token = credentials.credentials if credentials else None
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "missing_credentials", "message": "Authorization: Bearer <token> required."},
+        )
+    if token.startswith("cp_live_"):
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "user_token_required", "message": "This endpoint requires a user session token, not an API key."},
+        )
+
+    from api.security import decode_access_token
+    from api.services.rbac import load_user_context
+
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "invalid_token", "message": "Session token is invalid or expired."},
+        )
+
+    ctx = load_user_context(session, payload["sub"])
+    if not ctx or ctx["user"]["status"] != "active":
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "invalid_token", "message": "User not found or disabled."},
+        )
+    return ctx
+
+
+CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+def require_permission(code: str):
+    """Dependency factory: 403 unless the current user holds `code`."""
+    def _dep(ctx: CurrentUser) -> dict:
+        if code not in ctx["permissions"]:
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "forbidden", "message": f"Missing permission: {code}"},
+            )
+        return ctx
+    return _dep

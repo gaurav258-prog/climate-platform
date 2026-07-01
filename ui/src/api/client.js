@@ -1,8 +1,22 @@
 const BASE = '/api'
+const TOKEN_KEY = 'ci_token'
 
-let _apiKey = null
+// Rehydrate the session token from storage so a page refresh stays logged in.
+let _apiKey = (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) || null
 
 export function setApiKey(key) { _apiKey = key }
+
+export function setAuthToken(token) {
+  _apiKey = token
+  try { localStorage.setItem(TOKEN_KEY, token) } catch {}
+}
+
+export function clearAuthToken() {
+  _apiKey = null
+  try { localStorage.removeItem(TOKEN_KEY) } catch {}
+}
+
+export function hasToken() { return !!_apiKey }
 
 function headers() {
   const h = { 'Content-Type': 'application/json' }
@@ -10,11 +24,33 @@ function headers() {
   return h
 }
 
+/** Raise an Error whose .status + .body carry the API's error detail. */
+async function raise(res, path) {
+  let body = null
+  try { body = await res.json() } catch {}
+  const msg = body?.error?.message || body?.detail || body?.error || `${res.status} ${path}`
+  const err = new Error(typeof msg === 'string' ? msg : `${res.status} ${path}`)
+  err.status = res.status
+  err.body = body
+  throw err
+}
+
 async function get(path) {
   const res = await fetch(`${BASE}${path}`, { headers: headers() })
-  if (!res.ok) throw new Error(`${res.status} ${path}`)
+  if (!res.ok) return raise(res, path)
   return res.json()
 }
+
+async function send(method, path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method, headers: headers(), body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) return raise(res, path)
+  if (res.status === 204) return null
+  return res.json()
+}
+const post = (path, body) => send('POST', path, body)
+const patch = (path, body) => send('PATCH', path, body)
 
 export async function fetchPortfolioScores(hazardType, limit = 5000) {
   return get(`/v1/scores/portfolio?hazard_type=${hazardType}&limit=${limit}`)
@@ -95,3 +131,51 @@ export async function fetchAsset(assetId) {
 export async function fetchDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
   return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
 }
+
+// ── Auth (user login sessions) ────────────────────────────────────────────
+
+/** Log in; stores the JWT and returns { user, org, roles, permissions, entitlements }. */
+export async function login(email, password) {
+  const data = await post('/v1/auth/login', { email, password })
+  setAuthToken(data.access_token)
+  return data
+}
+
+export async function logout() {
+  try { await post('/v1/auth/logout') } catch {}
+  clearAuthToken()
+}
+
+/** Current profile from the stored token: { user, org, roles, permissions, entitlements }. */
+export async function fetchMe() {
+  return get('/v1/auth/me')
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────
+
+export const fetchAdminUsers   = () => get('/v1/admin/users')
+export const createAdminUser   = (body) => post('/v1/admin/users', body)
+export const patchAdminUser    = (id, body) => patch(`/v1/admin/users/${id}`, body)
+export const fetchRoles        = () => get('/v1/admin/roles')
+export const fetchPermissions  = () => get('/v1/admin/permissions')
+export const setRolePermissions = (roleId, codes) =>
+  patch(`/v1/admin/roles/${roleId}/permissions`, { permission_codes: codes })
+export const fetchAudit = ({ actor, action, limit = 100 } = {}) => {
+  const q = new URLSearchParams({ limit })
+  if (actor) q.set('actor', actor)
+  if (action) q.set('action', action)
+  return get(`/v1/admin/audit?${q}`)
+}
+
+// ── Approvals (4-eyes) ────────────────────────────────────────────────────
+
+export const fetchApprovals   = (status) => get(`/v1/approvals${status ? `?status=${status}` : ''}`)
+export const createApproval   = (body) => post('/v1/approvals', body)
+export const decideApproval   = (id, decision, reason) =>
+  post(`/v1/approvals/${id}/decide`, { decision, reason })
+
+// ── Service portal ────────────────────────────────────────────────────────
+
+export const fetchServiceRequests = () => get('/v1/portal/requests')
+export const createServiceRequest = (body) => post('/v1/portal/requests', body)
+export const patchServiceRequest  = (id, status) => patch(`/v1/portal/requests/${id}`, { status })
