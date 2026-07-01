@@ -1,172 +1,95 @@
 import { useState, useMemo, useCallback } from 'react'
-import { latLngToCell } from 'h3-js'
-import Topbar from './components/Topbar'
-import Sidebar from './components/Sidebar'
-import StatsBar from './components/StatsBar'
-import RiskMap from './components/RiskMap'
-import AlertFeed from './components/AlertFeed'
-import ScoreLegend from './components/ScoreLegend'
-import CellDetail from './components/CellDetail'
-import TimeSlider from './components/TimeSlider'
-import DashboardPage from './pages/DashboardPage'
-import AppleDashboard from './pages/AppleDashboard'
-import CompliancePage from './pages/CompliancePage'
-import AppleCompliancePage from './pages/AppleCompliancePage'
-import ParametricPage from './pages/ParametricPage'
-import AppleParametricPage from './pages/AppleParametricPage'
-import OperationsPage from './pages/OperationsPage'
-import AppleOperationsPage from './pages/AppleOperationsPage'
-import SeismicPage from './pages/SeismicPage'
-import EnhancedSeismicPage from './pages/EnhancedSeismicPage'
-import AppleSeismicPage from './pages/AppleSeismicPage'
-import AppleSeismicPageTabbed from './pages/AppleSeismicPageTabbed'
-import AppleFloodPageTabbed from './pages/AppleFloodPageTabbed'
-import AppleWildfirePageTabbed from './pages/AppleWildfirePageTabbed'
-import AppleHeatPageTabbed from './pages/AppleHeatPageTabbed'
-import AppleRegulatoryPage from './pages/AppleRegulatoryPage'
-import RegulatoryReportingHome from './pages/RegulatoryReportingHome'
-import DataIngestionPage from './pages/DataIngestionPage'
-import ScenarioFinancialImpactPage from './pages/ScenarioFinancialImpactPage'
-import ComplianceGapAnalysisPage from './pages/ComplianceGapAnalysisPage'
-import RiskMaterialityPage from './pages/RiskMaterialityPage'
-import TimelineTrackingPage from './pages/TimelineTrackingPage'
-import PortfolioAggregationPage from './pages/PortfolioAggregationPage'
-import RegulatoryChangeDetectionPage from './pages/RegulatoryChangeDetectionPage'
-import BenchmarkingPage from './pages/BenchmarkingPage'
-import AuditTrailPage from './pages/AuditTrailPage'
-import TCFDReportPage from './pages/TCFDReportPage'
-import EUTaxonomyReportPage from './pages/EUTaxonomyReportPage'
-import RegulatoryRiskDashboardPage from './pages/RegulatoryRiskDashboardPage'
-import RiskMapHome from './pages/RiskMapHome'
-import PlatformOverviewPage from './pages/PlatformOverviewPage'
-import IndustryModulePage from './pages/IndustryModulePage'
-import ModelsPage from './pages/ModelsPage'
-import LiveEventsPage from './pages/LiveEventsPage'
+import { ChevronRight, Clock } from 'lucide-react'
+import { PERSONAS, catalogFor } from './data/catalog'
+import LineageBar from './components/software/LineageBar'
+import CatalogNav from './components/software/CatalogNav'
+import CatalogGrid from './components/software/CatalogGrid'
 import CommandCenter from './pages/bank/CommandCenter'
-import RiskMapBank from './pages/bank/RiskMapBank'
 import Portfolio from './pages/bank/Portfolio'
+import RiskMapBank from './pages/bank/RiskMapBank'
 import Signals from './pages/bank/Signals'
 import Reports from './pages/bank/Reports'
-import { generateMockScores, generateAlerts, getDates } from './mockData'
-import { ACTION_TEMPLATES } from './mockRegions'
+import ModelsPage from './pages/ModelsPage'
+import PlatformOverviewPage from './pages/PlatformOverviewPage'
 
-const POLICIES_COUNT = 5 // matches ParametricPage
+const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage }
+const DEFAULT_ROUTE = { offeringId: 'physical-risk', serviceId: 'command' }
 
 export default function App() {
-  const [view, setView]                = useState('bank-command')
-  const [hazard, setHazard]            = useState(null)
-  const [regulatoryModule, setRegulatoryModule] = useState(null)
-  const [industryId, setIndustryId] = useState(null)
-  const [showDataIngestion, setShowDataIngestion] = useState(false)
-  const [dayIndex, setDayIndex]        = useState(10)
-  const [selected, setSelected]        = useState(null)
+  const [personaId, setPersonaId] = useState('meridian')
+  const [route, setRoute] = useState(DEFAULT_ROUTE)
 
-  const dates  = useMemo(() => hazard ? getDates(hazard) : [], [hazard])
-  const scores = useMemo(() => hazard ? generateMockScores(hazard, dayIndex) : [], [hazard, dayIndex])
-  const alerts = useMemo(() => hazard ? generateAlerts(hazard) : [], [hazard])
+  const persona = useMemo(() => PERSONAS.find(p => p.id === personaId) || PERSONAS[0], [personaId])
+  const catalog = useMemo(() => catalogFor(persona), [persona])
 
-  const urgentCount = useMemo(() =>
-    (ACTION_TEMPLATES[hazard] ?? []).filter(a => a.priority === 'URGENT').length,
-    [hazard]
-  )
-
-  // Count triggered parametric policies for badge
-  const triggeredCount = useMemo(() => {
-    const POLICIES = [
-      { lat: 50.529, lng: 6.993, threshold: 60 },
-      { lat: 50.938, lng: 6.960, threshold: 55 },
-      { lat: 50.733, lng: 7.100, threshold: 50 },
-      { lat: 50.937, lng: 6.961, threshold: 65 },
-      { lat: 50.356, lng: 7.591, threshold: 58 },
-    ]
-    const scoreMap = new Map(scores.map(s => [s.h3_cell, s.score]))
-    return POLICIES.filter(p => {
-      const cell = latLngToCell(p.lat, p.lng, 8)
-      return (scoreMap.get(cell) ?? 0) >= p.threshold
-    }).length
-  }, [scores])
-
-  const handleHazardChange = useCallback(h => {
-    setHazard(h)
-    setSelected(null)
-    setDayIndex(10)
+  const onPersona = useCallback(id => {
+    setPersonaId(id)
+    setRoute({})   // land on the new customer's catalog home
   }, [])
 
-  const handleDayChange = useCallback(v => {
-    setDayIndex(typeof v === 'function' ? v : Number(v))
+  const offering = route.offeringId && catalog?.offerings.find(o => o.id === route.offeringId)
+  const service = offering && route.serviceId && offering.services.find(s => s.id === route.serviceId)
+  const Workflow = service?.workflow && WORKFLOWS[service.workflow]
+
+  // internal cross-links (e.g. Command Center's "view full portfolio")
+  const onGoto = useCallback(v => {
+    if (v === 'bank-portfolio') setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' })
   }, [])
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
-      <Topbar alertCount={urgentCount} />
-
+    <div className="flex h-screen flex-col bg-[#f5f5f7]">
+      <LineageBar personas={PERSONAS} personaId={personaId} onPersona={onPersona} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          activeView={view}
-          onViewChange={v => { setView(v); setSelected(null) }}
-        />
-
-        {/* Content */}
+        <CatalogNav catalog={catalog} route={route} onNavigate={setRoute} />
         <div className="flex flex-1 flex-col overflow-hidden">
-          {view === 'bank-command' ? (
-            <CommandCenter onGoto={setView} />
-          ) : view === 'bank-map' ? (
-            <RiskMapBank />
-          ) : view === 'bank-portfolio' ? (
-            <Portfolio />
-          ) : view === 'bank-signals' ? (
-            <Signals />
-          ) : view === 'bank-reports' ? (
-            <Reports />
-          ) : view === 'platform' ? (
-            <PlatformOverviewPage onSelectIndustry={id => { setIndustryId(id); setView('industry') }} />
-          ) : view === 'models' ? (
-            <ModelsPage />
-          ) : view === 'live' ? (
-            <LiveEventsPage />
-          ) : view === 'industry' ? (
-            <IndustryModulePage industryId={industryId} />
-          ) : view === 'data-ingestion' ? (
-            <DataIngestionPage />
-          ) : view === 'dashboard' ? (
-            <AppleDashboard
-              onViewChange={setView}
-              onHazardChange={handleHazardChange}
-            />
-          ) : view === 'map' ? (
-            hazard === 'flood' ? (
-              <AppleFloodPageTabbed />
-            ) : hazard === 'wildfire' ? (
-              <AppleWildfirePageTabbed />
-            ) : hazard === 'heat' ? (
-              <AppleHeatPageTabbed />
-            ) : hazard === 'seismic' ? (
-              <AppleSeismicPageTabbed />
-            ) : (
-              <RiskMapHome onHazardSelect={h => { setView('map'); handleHazardChange(h) }} />
-            )
-          ) : view === 'operations' ? (
-            <AppleOperationsPage />
-          ) : view === 'parametric' ? (
-            <AppleParametricPage />
-          ) : view === 'regulatory' ? (
-            regulatoryModule === 'scenario-impact' ? <ScenarioFinancialImpactPage /> :
-            regulatoryModule === 'compliance-gap' ? <ComplianceGapAnalysisPage /> :
-            regulatoryModule === 'risk-materiality' ? <RiskMaterialityPage /> :
-            regulatoryModule === 'timeline-tracking' ? <TimelineTrackingPage /> :
-            regulatoryModule === 'portfolio-aggregation' ? <PortfolioAggregationPage /> :
-            regulatoryModule === 'regulatory-changes' ? <RegulatoryChangeDetectionPage /> :
-            regulatoryModule === 'benchmarking' ? <BenchmarkingPage /> :
-            regulatoryModule === 'audit-trail' ? <AuditTrailPage /> :
-            regulatoryModule === 'tcfd-report' ? <TCFDReportPage /> :
-            regulatoryModule === 'taxonomy-report' ? <EUTaxonomyReportPage /> :
-            regulatoryModule === 'risk-dashboard' ? <RegulatoryRiskDashboardPage /> :
-            regulatoryModule === 'alerts' ? <AppleRegulatoryPage /> :
-            <RegulatoryReportingHome onModuleSelect={m => setRegulatoryModule(m)} />
-          ) : (
-            <AppleCompliancePage />
-          )}
+          {/* breadcrumb + process stages */}
+          <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white/70 px-6 py-2 backdrop-blur">
+            <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
+              <button onClick={() => setRoute({})} className="hover:text-[#1d1d1f]">{catalog?.label || 'Home'}</button>
+              {offering && <><ChevronRight size={13} className="text-gray-300" />
+                <button onClick={() => setRoute({ offeringId: offering.id })}
+                  className={service ? 'hover:text-[#1d1d1f]' : 'font-medium text-[#1d1d1f]'}>{offering.label}</button></>}
+              {service && <><ChevronRight size={13} className="text-gray-300" />
+                <span className="font-medium text-[#1d1d1f]">{service.label}</span></>}
+            </div>
+            {service?.processes && (
+              <div className="hidden items-center gap-1 text-[10px] text-gray-400 lg:flex">
+                <span className="mr-1 uppercase tracking-wide">process</span>
+                {service.processes.map((p, i) => (
+                  <span key={p} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-gray-300">›</span>}{p}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {service
+              ? (Workflow
+                  ? <Workflow onGoto={onGoto} onSelectIndustry={() => {}} />
+                  : <ComingSoon service={service} />)
+              : <CatalogGrid catalog={catalog} route={route} onNavigate={setRoute} />}
+          </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ComingSoon({ service }) {
+  return (
+    <div className="flex h-full items-center justify-center bg-[#f5f5f7]">
+      <div className="max-w-sm rounded-2xl border border-gray-200/70 bg-white p-8 text-center shadow-sm">
+        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+          <Clock size={20} />
+        </span>
+        <h2 className="mt-3 text-lg font-semibold text-[#1d1d1f]">{service.label}</h2>
+        <p className="mt-1 text-[13px] text-gray-500">{service.blurb}</p>
+        <p className="mt-3 text-[11px] text-gray-400">
+          Same golden source, different output maths — workflow on the roadmap.
+          Process: {service.processes?.join(' › ')}
+        </p>
       </div>
     </div>
   )
