@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { INDUSTRIES, PROCESSING_CHAIN } from '../data/industries'
 import { fetchScoresSummary } from '../api/client'
+import LiveEarthHero from '../components/LiveEarthHero'
 
 const ICONS = {
   landmark: Landmark, umbrella: Umbrella, sprout: Sprout, layers: Layers,
@@ -26,17 +27,17 @@ export default function PlatformOverviewPage({ onSelectIndustry }) {
 
   return (
     <div className="w-full h-screen overflow-y-auto bg-gray-50">
-      {/* Hero */}
-      <section className="bg-white border-b border-gray-200 py-14 px-8">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-indigo-600 mb-3">Climate Intelligence Platform</p>
-          <h1 className="text-5xl font-light text-gray-900 leading-tight">One climate-risk engine.<br/><span className="text-indigo-600">Every sector.</span></h1>
-          <p className="text-lg text-gray-600 mt-5 max-w-2xl mx-auto">
-            We turn three decades of satellite and climate data into one auditable risk score per location —
-            then every industry reads that same golden source and applies its own maths.
-          </p>
-        </div>
-      </section>
+      {/* Hero — live Earth from the ISS */}
+      <LiveEarthHero>
+        <p className="text-[11px] uppercase tracking-[0.25em] text-white/70 mb-3">Climate Intelligence Platform</p>
+        <h1 className="text-5xl md:text-6xl font-light leading-tight text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
+          One climate-risk engine.<br /><span className="text-sky-300">Every sector.</span>
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg text-white/85 drop-shadow-[0_1px_10px_rgba(0,0,0,0.6)]">
+          We turn live satellite and climate data — like the Earth you're watching now, streamed from the ISS —
+          into one auditable risk score per location. Every industry reads that same golden source.
+        </p>
+      </LiveEarthHero>
 
       {/* 1 · DATA STORY */}
       <section className="max-w-6xl mx-auto px-8 py-12">
