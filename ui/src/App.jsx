@@ -11,11 +11,14 @@ import Signals from './pages/bank/Signals'
 import Reports from './pages/bank/Reports'
 import ModelsPage from './pages/ModelsPage'
 import PlatformOverviewPage from './pages/PlatformOverviewPage'
+import LandingPage from './pages/LandingPage'
+import SolutionsPage from './pages/SolutionsPage'
 
 const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage }
 const DEFAULT_ROUTE = { offeringId: 'physical-risk', serviceId: 'command' }
 
 export default function App() {
+  const [view, setView] = useState('landing')   // 'landing' | 'solutions' | 'app'
   const [personaId, setPersonaId] = useState('meridian')
   const [route, setRoute] = useState(DEFAULT_ROUTE)
 
@@ -27,14 +30,20 @@ export default function App() {
     setRoute({})   // land on the new customer's catalog home
   }, [])
 
-  const offering = route.offeringId && catalog?.offerings.find(o => o.id === route.offeringId)
-  const service = offering && route.serviceId && offering.services.find(s => s.id === route.serviceId)
-  const Workflow = service?.workflow && WORKFLOWS[service.workflow]
-
   // internal cross-links (e.g. Command Center's "view full portfolio")
   const onGoto = useCallback(v => {
     if (v === 'bank-portfolio') setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' })
   }, [])
+
+  // All hooks must run before any early return (Rules of Hooks).
+  if (view === 'landing')
+    return <LandingPage onEnter={() => setView('app')} onExplore={() => setView('solutions')} />
+  if (view === 'solutions')
+    return <SolutionsPage onHome={() => setView('landing')} onEnter={() => setView('app')} />
+
+  const offering = route.offeringId && catalog?.offerings.find(o => o.id === route.offeringId)
+  const service = offering && route.serviceId && offering.services.find(s => s.id === route.serviceId)
+  const Workflow = service?.workflow && WORKFLOWS[service.workflow]
 
   return (
     <div className="flex h-screen flex-col bg-[#f5f5f7]">

@@ -8,7 +8,7 @@ const SEN_CHANNEL = 'UCkvW_7kp9LJrztmgA4q4bJQ'
 const SRC = `https://www.youtube.com/embed/live_stream?channel=${SEN_CHANNEL}` +
   '&autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1'
 
-export default function LiveEarthHero({ children }) {
+export default function LiveEarthHero({ children, showBadge = true, height = '78vh' }) {
   const ref = useRef(null)
   const [dim, setDim] = useState({ w: 0, h: 0 })
 
@@ -32,7 +32,7 @@ export default function LiveEarthHero({ children }) {
 
   return (
     <section ref={ref} className="relative overflow-hidden"
-      style={{ height: '78vh', minHeight: 540, background: '#04070f' }}>
+      style={{ height, minHeight: 540, background: '#04070f' }}>
       <iframe
         src={SRC} title="Live Earth from the ISS — Sen SpaceTV-1"
         allow="autoplay; encrypted-media; picture-in-picture"
@@ -48,10 +48,12 @@ export default function LiveEarthHero({ children }) {
           'rgba(4,7,15,0.30) 66%, rgba(4,7,15,0.88) 100%)',
       }} />
       {/* live badge */}
-      <div className="absolute left-6 top-6 z-10 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur">
-        <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-        LIVE · EARTH FROM THE ISS · powered by Sen
-      </div>
+      {showBadge && (
+        <div className="absolute left-6 top-6 z-10 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur">
+          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          LIVE · EARTH FROM THE ISS · powered by Sen
+        </div>
+      )}
       {/* content */}
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-8 text-center">
         {children}
