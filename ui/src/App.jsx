@@ -26,25 +26,33 @@ import ServicePortalPage from './pages/ServicePortalPage'
 import AdminPage from './pages/admin/AdminPage'
 
 const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels }
-const DEFAULT_ROUTE = { offeringId: 'physical-risk', serviceId: 'command' }
+
+// Land on the tenant's OWN first service (not a hardcoded banking route), so a
+// bank lands on Command Center, a food maker on COGS-at-risk, an insurer on theirs.
+function firstRoute(catalog) {
+  const off = catalog?.offerings?.[0]
+  const svc = off?.services?.find(s => s.workflow) || off?.services?.[0]
+  return off && svc ? { offeringId: off.id, serviceId: svc.id } : {}
+}
 
 export default function App() {
   const [view, setView] = useState('landing')     // 'landing' | 'solutions' | 'login' | 'app'
   const [auth, setAuth] = useState(null)           // /me payload once logged in
   const [authLoading, setAuthLoading] = useState(hasToken())
   const [area, setArea] = useState('modules')      // 'modules' | 'docs' | 'portal' | 'admin'
-  const [route, setRoute] = useState(DEFAULT_ROUTE)
+  const [route, setRoute] = useState({})
 
   // Rehydrate the session on load so a refresh keeps you logged in.
   useEffect(() => {
     if (!hasToken()) return
-    fetchMe().then(setAuth).catch(() => {}).finally(() => setAuthLoading(false))
+    fetchMe().then(a => { setAuth(a); setRoute(firstRoute(catalogForAuth(a))) })
+      .catch(() => {}).finally(() => setAuthLoading(false))
   }, [])
 
   const catalog = useMemo(() => catalogForAuth(auth), [auth])
 
   const onLoginSuccess = useCallback((a) => {
-    setAuth(a); setArea('modules'); setRoute(DEFAULT_ROUTE); setView('app')
+    setAuth(a); setArea('modules'); setRoute(firstRoute(catalogForAuth(a))); setView('app')
   }, [])
   const onLogout = useCallback(async () => {
     await apiLogout(); setAuth(null); setView('landing')
