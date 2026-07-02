@@ -14,3 +14,11 @@ body {
 }
 
 .maplibregl-map { font: unset; }
+
+/* LiveEarthHero: slow drift for the animated fallback when the ISS stream is offline */
+@keyframes tl-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1.05); }
+  50%  { transform: translate3d(-2.5%, -1.5%, 0) scale(1.12); }
+  100% { transform: translate3d(0, 0, 0) scale(1.05); }
+}
+.tl-drift { animation: tl-drift 26s ease-in-out infinite; will-change: transform; }

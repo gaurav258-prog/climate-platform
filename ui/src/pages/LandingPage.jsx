@@ -65,10 +65,7 @@ export default function LandingPage({ onEnter, onExplore }) {
       </nav>
 
       {/* hero */}
-      <LiveEarthHero showBadge={false} height="92vh">
-        <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur">
-          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> live · Earth from the ISS · powered by Sen
-        </p>
+      <LiveEarthHero height="92vh">
         <h1 className="text-5xl font-light leading-[1.05] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)] md:text-7xl">
           One climate-risk engine.<br /><span className="text-sky-300">Every sector.</span>
         </h1>
