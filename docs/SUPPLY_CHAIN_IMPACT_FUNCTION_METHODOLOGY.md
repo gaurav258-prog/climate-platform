@@ -116,6 +116,31 @@ Our backtest must reproduce the **climate-attributable share**, not the whole mo
 - **Publish where it misses** (same ethos as the flood LOEO AUC 0.689 and the Venezuela
   forecast-vs-reality z-scores) — disagreement is disclosed, not hidden.
 
+### 6.1 Backtest results — first run (v0.1, `scripts/backtest_supply_impact.py`)
+Scope caveat: our engine does not yet score West-Africa cocoa or Brazil coffee, so only the
+**economic half** of the chain (production shock → price → cost) is tested here, fed the *realised*
+production shocks. The hazard → yield link awaits the drought/heat foundation.
+
+| Event | Climate supply shock | Naïve constant-η price | Realised | Direction | Implied amplification A |
+|---|---|---|---|---|---|
+| Cocoa 2023/24 (ICCO: −12.9% prod, 26% stocks-to-use, 45-yr low) | −12.9% | +64% | **+177% avg / +300% peak** | ✓ | **≈2.7–4.7×** |
+| Coffee 2021 (ICO: ~−20% arabica crop, frost 20 Jul) | −20% | +71% | **+44% avg / +60% peak** | ✓ | **≈0.6–0.8×** |
+
+**Findings (honest):**
+- **Direction 2/2.** Supply down → price up, both times.
+- **A constant elasticity is wrong in BOTH directions** — it *under*-predicts cocoa ~3× (stocks at a
+  45-yr low → highly non-linear response) and *over*-predicts coffee's 2021 spot move (stocks buffered,
+  and the frost's damage largely hit the *2022/23* crop). ⇒ the **stock-to-use amplification A(s) is
+  essential and steep** (≈3–5× at 26% stocks vs ≈0.6× at 40%).
+- **Two points is a direction, not a calibrated curve.** `amplification()` now implements
+  A(s)=(34.7/s)^3.62 through those two anchors, capped [0.3, 6.0], and defaults to the flat factor when
+  stock-to-use is unknown — pending a full stocks-to-use panel.
+- **Attribution:** cocoa's +300% peak is *not* 100% climate (EUDR uncertainty, black-pod disease,
+  depleted stocks, speculation). Wheat 2010 (Russia heat + **export ban**) is the counter-case where a
+  policy shock, not yield, drove most of the move. We report the climate-attributable **share** with a band.
+- **Governance outcome (applied):** engine bumped to `sc-impact-v0.1` with A(s); euro outputs stay
+  **ranges**; a single-number COGS-at-risk per commodity is withheld until multi-event, held-out calibration.
+
 ## 7. Auditability & versioning
 Every COGS-at-risk euro carries: the **impact-function id + version**, the **input data vintage**,
 the **hazard model_version** behind the score, and the **scenario/horizon**. Reproducible end to

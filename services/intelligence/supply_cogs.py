@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-IMPACT_VERSION = "sc-impact-v0"
+IMPACT_VERSION = "sc-impact-v0.1"
 
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
 # pending calibration against yield–weather panels (methodology §1.2).
@@ -66,7 +66,22 @@ class PortfolioCogsAtRisk:
     impact_version: str = IMPACT_VERSION
 
 
-def _commodity_risk(name, eudr, spend, plots) -> CommodityRisk:
+def amplification(stock_to_use):
+    """
+    Stock-to-use price amplification A(s) — methodology §1.3, backtest-anchored (v0.1).
+    Backtest (scripts/backtest_supply_impact.py) showed a CONSTANT transmission is wrong in
+    low-stock regimes: cocoa 2023/24 (stocks ≈26%, 45-yr low) implied A≈2.7×, coffee 2021
+    (stocks ≈40%) implied A≈0.6×. A(s) = (34.7/s)^3.62 passes through those two points — a
+    DIRECTION, not a calibrated curve (two points); capped [0.3, 6.0] pending a full
+    stocks-to-use panel. Falls back to the flat TRANSMISSION when stock-to-use is unknown
+    (so the demo book, which carries no stock-to-use, is unchanged).
+    """
+    if not stock_to_use:
+        return TRANSMISSION
+    return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
+
+
+def _commodity_risk(name, eudr, spend, plots, elasticity, amp) -> CommodityRisk:
     """plots: list of dicts {hazard→score} aggregated per plot (scored plots only carry hazards)."""
     scored = [p for p in plots if p.get("hazards")]
     n_plots, n_scored = len(plots), len(scored)
@@ -83,9 +98,8 @@ def _commodity_risk(name, eudr, spend, plots) -> CommodityRisk:
     )[0]
 
     sens = CROP_SENSITIVITY.get(name, DEFAULT_SENSITIVITY)
-    elasticity = 0.25  # |demand elasticity| default; overridden by caller when known
     yield_shock = sens * (avg_hazard / 100.0)                       # §1.2
-    price_move = min(PRICE_MOVE_CAP, TRANSMISSION * yield_shock / elasticity)  # §1.3
+    price_move = min(PRICE_MOVE_CAP, amp * yield_shock / elasticity)  # §1.3 (amp = A(stocks) or flat)
     market = price_move * spend                                    # §1.4 market channel
     sourcing = SOURCING_PREMIUM * yield_shock * spend              # §1.4 sourcing channel
     p50 = market + sourcing
@@ -102,22 +116,15 @@ def _commodity_risk(name, eudr, spend, plots) -> CommodityRisk:
 def compute(commodities: list[dict], total_cogs_eur: float) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
-      {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}]}.
+      {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}], stock_to_use?}.
+    A commodity's `stock_to_use` (if known) drives the backtest-anchored amplification; otherwise
+    the flat TRANSMISSION is used.
     """
     risks: list[CommodityRisk] = []
     for c in commodities:
-        cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"])
-        # apply the commodity's own elasticity if provided (recompute price move)
-        if cr.status == "scored" and c.get("elasticity"):
-            sens = CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
-            ys = sens * (cr.avg_hazard / 100.0)
-            pm = min(PRICE_MOVE_CAP, TRANSMISSION * ys / abs(c["elasticity"]))
-            market = pm * c["spend"]; sourcing = SOURCING_PREMIUM * ys * c["spend"]
-            cr.price_move_pct = round(pm * 100, 1)
-            cr.market_eur = round(market, 2); cr.sourcing_eur = round(sourcing, 2)
-            cr.cogs_at_risk_p50 = round(market + sourcing, 2)
-            cr.cogs_at_risk_p90 = round((market + sourcing) * P90_FACTOR, 2)
-        risks.append(cr)
+        elasticity = abs(c["elasticity"]) if c.get("elasticity") else 0.25
+        amp = amplification(c.get("stock_to_use"))
+        risks.append(_commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"], elasticity, amp))
 
     scored = [r for r in risks if r.status == "scored"]
     p50 = sum(r.cogs_at_risk_p50 for r in scored)
