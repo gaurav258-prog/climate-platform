@@ -60,8 +60,8 @@ export const CATALOG = {
         id: 'trust', label: 'Trust & assurance', icon: 'certificate',
         blurb: 'Why every number is defensible.',
         services: [
-          { id: 'models', label: 'Models & provenance', icon: 'stack-2', workflow: 'ModelsPage',
-            blurb: 'Honest out-of-sample skill per hazard.', processes: ['Registry', 'Skill', 'Verify'] },
+          { id: 'models', label: 'Models & validation', icon: 'stack-2', workflow: 'SupplyModels',
+            blurb: 'Event backtests + per-commodity calibration status.', processes: ['Backtest', 'Calibrate', 'Verify'] },
           { id: 'foundation', label: 'Data foundation', icon: 'database', workflow: 'PlatformOverviewPage',
             blurb: 'Live data → AI engine → golden source.', processes: ['Sense', 'Clean', 'Score'] },
         ],

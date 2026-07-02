@@ -135,3 +135,45 @@ def plot_detail(plot_id: str, session: DbSession):
     return {"plot": dict(p), "impact_version": IMPACT_VERSION,
             "risks": [dict(r) for r in risks],
             "note": "€ impact is v0 (uncalibrated); see docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md"}
+
+
+@router.get("/validation", summary="Impact-function backtests (the credibility record)")
+def validation(session: DbSession):
+    rows = session.execute(text("""
+        SELECT event, commodity, hazard,
+               CAST(observed_prod_shock_pct AS FLOAT) AS observed_prod_shock_pct,
+               CAST(model_price_move_pct AS FLOAT) AS model_price_move_pct,
+               CAST(observed_price_move_pct AS FLOAT) AS observed_price_move_pct,
+               skill_note, source, run_at
+        FROM sc_model_validation ORDER BY event
+    """)).mappings().all()
+    return {"impact_version": IMPACT_VERSION, "events": [dict(r) for r in rows]}
+
+
+@router.get("/models", summary="Agriculture hazard models + impact-fn + per-commodity calibration")
+def models(session: DbSession, org_id: OrgId):
+    from services.intelligence.supply_cogs import COMMODITY_PARAMS, BACKTESTED, CROP_SENSITIVITY
+    # ag hazard models (climatology-based) from the registry
+    hz = session.execute(text("""
+        SELECT hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active
+        FROM model_registry
+        WHERE hazard_type IN ('heat_acute','drought','frost') AND is_active = true
+        ORDER BY hazard_type
+    """)).mappings().all()
+    # per-commodity calibration status for this org's book
+    coms = session.execute(text("""
+        SELECT DISTINCT co.name FROM sc_sourcing_plots p
+        JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        WHERE p.org_id = :o ORDER BY co.name
+    """), {"o": org_id}).scalars().all()
+    commodities = [{
+        "commodity": c,
+        "calibration": "backtested" if c in BACKTESTED else "indicative",
+        "params": COMMODITY_PARAMS.get(c) or {"sensitivity": CROP_SENSITIVITY.get(c), "global_share": 1.0, "stock_to_use": None},
+    } for c in coms]
+    return {
+        "impact_version": IMPACT_VERSION,
+        "hazard_models": [dict(r) for r in hz],
+        "commodities": commodities,
+        "frost_note": "Frost hazard is built but not yet scored — CDS daily-min product is ECMWF-flagged unusable; pending fix.",
+    }

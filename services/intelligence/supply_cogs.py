@@ -54,6 +54,10 @@ COMMODITY_PARAMS = {
 }
 _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
 
+# Commodities whose impact function is calibrated to (and reproduces) a real event backtest.
+# Everything else is flagged 'indicative' so unvalidated € is never blended with validated €.
+BACKTESTED = {"Cocoa", "Coffee"}
+
 
 @dataclass
 class CommodityRisk:
@@ -63,6 +67,7 @@ class CommodityRisk:
     n_plots: int
     n_plots_scored: int
     status: str                      # 'scored' | 'pending'
+    calibration: str = "indicative"  # 'backtested' (event-validated) | 'indicative' (v0)
     avg_hazard: Optional[float] = None
     top_hazard: Optional[str] = None
     yield_shock_pct: Optional[float] = None
@@ -149,8 +154,10 @@ def compute(commodities: list[dict], total_cogs_eur: float) -> PortfolioCogsAtRi
         stock = p["stock_to_use"] if p["stock_to_use"] is not None else c.get("stock_to_use")
         amp = amplification(stock)
         sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
-        risks.append(_commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
-                                     elasticity, amp, sens, p["global_share"]))
+        cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
+                             elasticity, amp, sens, p["global_share"])
+        cr.calibration = "backtested" if c["name"] in BACKTESTED else "indicative"
+        risks.append(cr)
 
     scored = [r for r in risks if r.status == "scored"]
     p50 = sum(r.cogs_at_risk_p50 for r in scored)

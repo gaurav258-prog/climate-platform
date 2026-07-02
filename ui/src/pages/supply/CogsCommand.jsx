@@ -80,6 +80,9 @@ export default function CogsCommand() {
                       <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
                         {c.commodity}
                         {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
+                        {c.calibration === 'backtested'
+                          ? <span title="Impact function reproduces a real event" className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-[#0071e3]">backtested</span>
+                          : <span title="v0 defaults — shown for exposure, not yet event-validated" className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">indicative</span>}
                       </div>
                       <div className="text-[11px] text-gray-400">
                         spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard}

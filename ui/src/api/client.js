@@ -149,6 +149,16 @@ export async function fetchSupplyPlot(plotId) {
   return get(`/v1/supply/plot/${plotId}`)
 }
 
+/** Impact-function backtests (credibility record): { impact_version, events:[...] }. */
+export async function fetchSupplyValidation() {
+  return get('/v1/supply/validation')
+}
+
+/** Ag hazard models + per-commodity calibration status: { hazard_models, commodities, frost_note }. */
+export async function fetchSupplyModels() {
+  return get('/v1/supply/models')
+}
+
 // ── Auth (user login sessions) ────────────────────────────────────────────
 
 /** Log in; stores the JWT and returns { user, org, roles, permissions, entitlements }. */
