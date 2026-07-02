@@ -111,7 +111,7 @@ export default function SolutionsPage({ onHome, onEnter }) {
       <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/80 px-8 py-3.5 backdrop-blur">
         <button onClick={onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <ArrowLeft size={16} className="text-gray-400" />
-          Tel<span className="text-[#0071e3]">lumen</span>
+          <span>Tel<span className="text-[#0071e3]">lumen</span></span>
         </button>
         <button onClick={onEnter} className="rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white">
           Enter the platform

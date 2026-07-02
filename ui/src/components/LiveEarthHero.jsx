@@ -145,7 +145,7 @@ export default function LiveEarthHero({ children, showBadge = true, height = '78
 
       {/* live/offline badge — dot + info; text revealed on hover/focus of the i */}
       {showBadge && (
-        <div className="group absolute left-6 top-6 z-20">
+        <div className="group absolute left-1/2 top-5 z-20 -translate-x-1/2">
           <div className="flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1.5 backdrop-blur">
             <span className={`h-2 w-2 rounded-full ${isLive ? 'bg-red-500' : 'bg-emerald-400'} animate-pulse`} />
             <button type="button" aria-label={tip}
@@ -153,7 +153,7 @@ export default function LiveEarthHero({ children, showBadge = true, height = '78
               <Info size={12} strokeWidth={2.2} />
             </button>
           </div>
-          <div className="pointer-events-none absolute left-0 top-full mt-1.5 whitespace-nowrap rounded-md bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white/90 opacity-0 backdrop-blur transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white/90 opacity-0 backdrop-blur transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
             {tip}
           </div>
         </div>

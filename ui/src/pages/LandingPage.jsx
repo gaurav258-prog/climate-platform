@@ -56,7 +56,7 @@ export default function LandingPage({ onEnter, onExplore }) {
     <div className="h-screen overflow-y-auto bg-white text-[#1d1d1f]" style={{ scrollBehavior: 'smooth' }}>
       {/* nav */}
       <nav className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-8 py-4">
-        <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-white"><BrandMark size={20} />Tel<span className="text-sky-300">lumen</span></div>
+        <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-white"><BrandMark size={28} /><span>Tel<span className="text-sky-300">lumen</span></span></div>
         <div className="flex items-center gap-2">
           <button onClick={onExplore} className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">Solutions</button>
           <a href="#how" className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">How it works</a>

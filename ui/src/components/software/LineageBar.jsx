@@ -32,7 +32,7 @@ export default function LineageBar({ auth, area, onArea, onLogout }) {
     <header className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 py-2">
       <div className="flex items-center gap-5">
         <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
-          <BrandMark size={20} />Tel<span className="text-[#0071e3]">lumen</span>
+          <BrandMark size={26} /><span>Tel<span className="text-[#0071e3]">lumen</span></span>
         </div>
         <nav className="hidden items-center gap-1 md:flex">
           {areas.map(a => {

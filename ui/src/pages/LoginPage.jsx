@@ -34,7 +34,7 @@ export default function LoginPage({ onSuccess, onHome }) {
       <nav className="flex items-center justify-between px-8 py-4">
         <button onClick={onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <ArrowLeft size={16} className="text-gray-400" />
-          Tel<span className="text-[#0071e3]">lumen</span>
+          <span>Tel<span className="text-[#0071e3]">lumen</span></span>
         </button>
       </nav>
 
