@@ -45,6 +45,12 @@ P90_FACTOR = 1.8         # width of the reported range (uncertainty propagation 
 #  fixed, the heat→yield coefficient is the fitted free parameter.)
 COMMODITY_PARAMS = {
     "Cocoa": {"sensitivity": 0.294, "global_share": 0.60, "stock_to_use": 26.4},
+    # Coffee (arabica) — calibrated to the DROUGHT share of the 2021 event:
+    #   drought score ≈ 80 (2021 SPEI −0.86) × 0.45 = yield-shock 36% × 35% Brazil share =
+    #   12.7% global supply shock (= observed −12.7%); × A(40% stocks)=0.60 / η=0.28 → +27%.
+    #   That's the drought-attributable move; the Jul-2021 FROST added the rest (to ~+60%) and
+    #   is NOT modelled (pending the CDS daily-min fix) — so coffee's € is a conservative floor.
+    "Coffee": {"sensitivity": 0.45, "global_share": 0.35, "stock_to_use": 40.0},
 }
 _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
 
