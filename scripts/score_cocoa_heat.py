@@ -21,18 +21,23 @@ from ml.features.drought import load_monthly
 from ml.scoring.heat_climatology import heat_score, SCENARIO_WARMING_C, HORIZON_FRACTION
 
 NC = "data/era5_baseline/west_africa_cocoa_1991_2024_monthly.nc"
-MODEL_VERSION = "heat-climatology-v0"
+MODEL_VERSION = "heat-climatology-v1-seasonal"
 CURRENT_YEAR = 2024
+# Cocoa heat-stress window: the Jan–Mar harmattan dry season, when developing pods of the
+# main crop are hit by hot dry winds (the acute driver of the 2023/24 failure). Seasonal is
+# more physically meaningful than an annual mean.
+SEASON = [1, 2, 3]
 COCOA_PLOTS = [("Ashanti (Ghana) cocoa plot", 6.75, -1.62),
                ("Sud-Comoé (Côte d'Ivoire) cocoa plot", 6.10, -3.20)]
 
 
 def main():
     ds = load_monthly(NC)
-    Tann = ds["T"].groupby("time.year").mean("time")          # (year, lat, lon) °C
-    clim = Tann.sel(year=slice(1991, 2020))
+    # seasonal (harmattan) mean per year, not annual — the biologically relevant window
+    Tseas = ds["T"].sel(time=ds["time.month"].isin(SEASON)).groupby("time.year").mean("time")
+    clim = Tseas.sel(year=slice(1991, 2020))
     cmean = clim.mean("year"); cstd = clim.std("year")
-    Tcur = Tann.sel(year=CURRENT_YEAR)
+    Tcur = Tseas.sel(year=CURRENT_YEAR)
     lats = ds["latitude"].values; lons = ds["longitude"].values
     now = datetime.now(timezone.utc)
     vintage = datetime(CURRENT_YEAR, 12, 1, tzinfo=timezone.utc)  # data_vintage is a timestamp
@@ -98,12 +103,12 @@ def main():
     # quick read-back: cocoa plots' current heat
     with get_session() as s:
         for r in s.execute(text("""
-            SELECT p.plot_name, ROUND(v.physical_risk_score::numeric,1) score, v.risk_bucket
+            SELECT p.plot_name, ROUND(v.physical_risk_score::numeric,1) score
             FROM sc_sourcing_plots p JOIN v_sc_plot_physical_risk v ON v.plot_id=p.plot_id
             WHERE p.commodity_id=(SELECT commodity_id FROM sc_commodities WHERE name='Cocoa')
               AND v.scenario='baseline' AND v.time_horizon='current'
         """)).mappings().all():
-            print(f"  {r['plot_name']}: heat {r['score']} ({r['risk_bucket']})")
+            print(f"  {r['plot_name']}: heat {r['score']}")
     print(f"snapped {snapped} cocoa plots onto scored cells")
 
 

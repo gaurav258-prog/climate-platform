@@ -37,11 +37,14 @@ P90_FACTOR = 1.8         # width of the reported range (uncertainty propagation 
 # Per-commodity CALIBRATED parameters (v0.2). Others fall back to CROP_SENSITIVITY,
 # global_share=1.0 (local shock ≈ price shock) and flat transmission — i.e. UNCHANGED.
 #   market channel: price_move = A(stock_to_use) × (yield_shock × global_share) / |elasticity|
-# Cocoa is calibrated to reproduce the real 2023/24 event end-to-end:
-#   heat≈58 → yield_shock ≈ 0.37×0.58 = 21.5%; × 60% world share = 12.9% global supply shock
+# Cocoa is calibrated to reproduce the real 2023/24 event end-to-end, on the SEASONAL
+# (Jan–Mar harmattan) heat score = 73 (heat-climatology-v1-seasonal):
+#   heat 73 → yield_shock ≈ 0.294×0.73 = 21.5%; × 60% world share = 12.9% global supply shock
 #   (= ICCO −12.9%); × A(26% stocks)=2.69 / η=0.20 → +173% (≈ observed +177% 2024 avg; P90 ≈ peak).
+# (sensitivity re-held from 0.37→0.294 when scoring moved annual→seasonal; the event target is
+#  fixed, the heat→yield coefficient is the fitted free parameter.)
 COMMODITY_PARAMS = {
-    "Cocoa": {"sensitivity": 0.37, "global_share": 0.60, "stock_to_use": 26.4},
+    "Cocoa": {"sensitivity": 0.294, "global_share": 0.60, "stock_to_use": 26.4},
 }
 _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
 
