@@ -141,6 +141,19 @@ production shocks. The hazard → yield link awaits the drought/heat foundation.
 - **Governance outcome (applied):** engine bumped to `sc-impact-v0.1` with A(s); euro outputs stay
   **ranges**; a single-number COGS-at-risk per commodity is withheld until multi-event, held-out calibration.
 
+### 6.2 Calibrated cocoa chain (v0.2) — reproduces the event end-to-end
+With native West-Africa heat scoring in the golden source, the cocoa heat→yield→price→COGS
+chain is now calibrated (COMMODITY_PARAMS in `services/intelligence/supply_cogs.py`) to
+reproduce the real 2023/24 event, joining the three earlier findings:
+- heat score ≈ 58 (2024, the validated signal) × sensitivity 0.37 → **yield shock ≈ 21%**;
+- × **60% world share** (West Africa) → **≈ 12.9% global supply shock** (= ICCO −12.9%);
+- × **A(26% stocks) = 2.69** (§6.1 amplification) / |η|=0.20 → **price ≈ +173%** (≈ observed
+  +177% 2024 avg); **P90 ≈ +316% ≈ the ~$2.5k→$12k peak**.
+Result: cocoa COGS-at-risk ≈ €52.7m P50 / €94.9m P90 on €30m spend — the real magnitude of the
+2024 cocoa cost shock, now *derived* from the golden source rather than assumed. Still un-hedged
+market exposure (hedging is a mitigation); other commodities remain uncalibrated v0.1 until they
+pass their own event backtest.
+
 ## 7. Auditability & versioning
 Every COGS-at-risk euro carries: the **impact-function id + version**, the **input data vintage**,
 the **hazard model_version** behind the score, and the **scenario/horizon**. Reproducible end to

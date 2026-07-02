@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-IMPACT_VERSION = "sc-impact-v0.1"
+IMPACT_VERSION = "sc-impact-v0.2"
 
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
 # pending calibration against yield–weather panels (methodology §1.2).
@@ -29,10 +29,21 @@ CROP_SENSITIVITY = {
     "Wine grapes": 0.45, "Cane sugar": 0.35, "Cocoa": 0.55,
 }
 DEFAULT_SENSITIVITY = 0.40
-TRANSMISSION = 0.5      # fraction of origin yield-shock that transmits to the world price (v0)
+TRANSMISSION = 0.5      # fallback transmission when a commodity carries no stock-to-use (v0)
 SOURCING_PREMIUM = 0.12  # idiosyncratic cover/premium as a fraction of yield-shock (v0)
-PRICE_MOVE_CAP = 1.20    # cap the modelled price move at +120% (v0 guardrail)
+PRICE_MOVE_CAP = 3.0     # cap the modelled price move at +300% (cocoa 2024 peaked ~ there)
 P90_FACTOR = 1.8         # width of the reported range (uncertainty propagation proxy, v0)
+
+# Per-commodity CALIBRATED parameters (v0.2). Others fall back to CROP_SENSITIVITY,
+# global_share=1.0 (local shock ≈ price shock) and flat transmission — i.e. UNCHANGED.
+#   market channel: price_move = A(stock_to_use) × (yield_shock × global_share) / |elasticity|
+# Cocoa is calibrated to reproduce the real 2023/24 event end-to-end:
+#   heat≈58 → yield_shock ≈ 0.37×0.58 = 21.5%; × 60% world share = 12.9% global supply shock
+#   (= ICCO −12.9%); × A(26% stocks)=2.69 / η=0.20 → +173% (≈ observed +177% 2024 avg; P90 ≈ peak).
+COMMODITY_PARAMS = {
+    "Cocoa": {"sensitivity": 0.37, "global_share": 0.60, "stock_to_use": 26.4},
+}
+_DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
 
 
 @dataclass
@@ -46,6 +57,7 @@ class CommodityRisk:
     avg_hazard: Optional[float] = None
     top_hazard: Optional[str] = None
     yield_shock_pct: Optional[float] = None
+    global_share: Optional[float] = None
     price_move_pct: Optional[float] = None
     cogs_at_risk_p50: Optional[float] = None
     cogs_at_risk_p90: Optional[float] = None
@@ -81,7 +93,7 @@ def amplification(stock_to_use):
     return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
 
 
-def _commodity_risk(name, eudr, spend, plots, elasticity, amp) -> CommodityRisk:
+def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share) -> CommodityRisk:
     """plots: list of dicts {hazard→score} aggregated per plot (scored plots only carry hazards)."""
     scored = [p for p in plots if p.get("hazards")]
     n_plots, n_scored = len(plots), len(scored)
@@ -97,17 +109,18 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp) -> CommodityRisk:
         key=lambda t: t[1],
     )[0]
 
-    sens = CROP_SENSITIVITY.get(name, DEFAULT_SENSITIVITY)
-    yield_shock = sens * (avg_hazard / 100.0)                       # §1.2
-    price_move = min(PRICE_MOVE_CAP, amp * yield_shock / elasticity)  # §1.3 (amp = A(stocks) or flat)
-    market = price_move * spend                                    # §1.4 market channel
-    sourcing = SOURCING_PREMIUM * yield_shock * spend              # §1.4 sourcing channel
+    yield_shock = sens * (avg_hazard / 100.0)                       # §1.2 hazard → local yield shock
+    global_shock = yield_shock * global_share                      # §1.3 local → world supply shock
+    price_move = min(PRICE_MOVE_CAP, amp * global_shock / elasticity)  # §1.3 world shock → price (amplified)
+    market = price_move * spend                                    # §1.4 market channel (all spend)
+    sourcing = SOURCING_PREMIUM * yield_shock * spend              # §1.4 sourcing channel (own plots)
     p50 = market + sourcing
     return CommodityRisk(
         commodity=name, eudr_covered=eudr, annual_spend_eur=spend,
         n_plots=n_plots, n_plots_scored=n_scored, status="scored",
         avg_hazard=round(avg_hazard, 1), top_hazard=top_hazard,
-        yield_shock_pct=round(yield_shock * 100, 1), price_move_pct=round(price_move * 100, 1),
+        yield_shock_pct=round(yield_shock * 100, 1), global_share=global_share,
+        price_move_pct=round(price_move * 100, 1),
         cogs_at_risk_p50=round(p50, 2), cogs_at_risk_p90=round(p50 * P90_FACTOR, 2),
         market_eur=round(market, 2), sourcing_eur=round(sourcing, 2),
     )
@@ -116,15 +129,19 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp) -> CommodityRisk:
 def compute(commodities: list[dict], total_cogs_eur: float) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
-      {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}], stock_to_use?}.
-    A commodity's `stock_to_use` (if known) drives the backtest-anchored amplification; otherwise
-    the flat TRANSMISSION is used.
+      {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}]}.
+    Per-commodity calibration (sensitivity / global_share / stock_to_use) comes from
+    COMMODITY_PARAMS; uncalibrated commodities keep the v0.1 behaviour.
     """
     risks: list[CommodityRisk] = []
     for c in commodities:
+        p = {**_DEFAULT_PARAMS, **COMMODITY_PARAMS.get(c["name"], {})}
         elasticity = abs(c["elasticity"]) if c.get("elasticity") else 0.25
-        amp = amplification(c.get("stock_to_use"))
-        risks.append(_commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"], elasticity, amp))
+        stock = p["stock_to_use"] if p["stock_to_use"] is not None else c.get("stock_to_use")
+        amp = amplification(stock)
+        sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
+        risks.append(_commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
+                                     elasticity, amp, sens, p["global_share"]))
 
     scored = [r for r in risks if r.status == "scored"]
     p50 = sum(r.cogs_at_risk_p50 for r in scored)
