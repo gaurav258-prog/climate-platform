@@ -45,21 +45,21 @@ const SECTORS = [
     ],
   },
   {
-    id: 'agriculture', label: 'Agriculture', icon: Sprout, live: false,
-    tagline: 'Yield-at-risk across growing regions',
-    headline: 'Protect yield, supply and margins.',
+    id: 'agriculture', label: 'Agriculture', icon: Sprout, live: true,
+    tagline: 'Climate cost-of-goods across the supply chain',
+    headline: 'Know what climate is doing to your cost-of-goods.',
     narrative:
-      'Track climate stress across growing regions and supply sheds — heat, drought, flood — so you can anticipate yield shortfalls, secure sourcing, and price crop risk before the season turns.',
+      'Roll live climate hazard on every sourcing plot up your bill of materials into one auditable "COGS-at-risk" per commodity — event-backtested (cocoa 2023/24, coffee 2021), scenario-projected, and EUDR+CSRD ready. The number no one else builds: hazard on the plots you buy from, not just the assets you own.',
     outcomes: [
-      'Yield-at-risk by region & crop',
-      'Drought and heat-stress monitoring',
-      'Supply-chain resilience mapping',
-      'Season-ahead early warning',
+      'COGS-at-risk by commodity, scenario & horizon',
+      'Every sourcing plot scored & mapped, event-backtested',
+      'Early warning on commodities heating up',
+      'EUDR (deforestation-free + climate-viable) & CSRD packs',
     ],
     outputs: [
-      { t: 'Region monitor', d: 'Live climate stress across your footprint.' },
-      { t: 'Yield risk', d: 'Exposure broken down by crop and geography.' },
-      { t: 'Sourcing resilience', d: 'Spot fragile supply sheds early.' },
+      { t: 'COGS-at-risk', d: 'Climate cost on your bill of materials, per commodity.' },
+      { t: 'Sourcing book + map', d: 'Every plot scored per hazard, traceable to the source.' },
+      { t: 'EUDR + CSRD disclosure', d: 'Deforestation-free and climate-viable, one record.' },
     ],
   },
   {

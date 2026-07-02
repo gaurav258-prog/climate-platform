@@ -13,6 +13,10 @@ import Reports from './pages/bank/Reports'
 import ModelsPage from './pages/ModelsPage'
 import PlatformOverviewPage from './pages/PlatformOverviewPage'
 import CogsCommand from './pages/supply/CogsCommand'
+import SourcingBook from './pages/supply/SourcingBook'
+import RiskMapSupply from './pages/supply/RiskMapSupply'
+import SupplySignals from './pages/supply/SupplySignals'
+import SupplyDisclosure from './pages/supply/SupplyDisclosure'
 import SupplyModels from './pages/supply/SupplyModels'
 import LandingPage from './pages/LandingPage'
 import SolutionsPage from './pages/SolutionsPage'
@@ -21,7 +25,7 @@ import DocumentationPage from './pages/DocumentationPage'
 import ServicePortalPage from './pages/ServicePortalPage'
 import AdminPage from './pages/admin/AdminPage'
 
-const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage, CogsCommand, SupplyModels }
+const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels }
 const DEFAULT_ROUTE = { offeringId: 'physical-risk', serviceId: 'command' }
 
 export default function App() {

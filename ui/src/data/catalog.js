@@ -54,6 +54,14 @@ export const CATALOG = {
         services: [
           { id: 'cogs', label: 'COGS-at-risk', icon: 'layout-dashboard', workflow: 'CogsCommand',
             blurb: 'Your procurement book, projected.', processes: ['Sense', 'Score', 'Project', 'Act'] },
+          { id: 'sourcing', label: 'Sourcing book', icon: 'file-search', workflow: 'SourcingBook',
+            blurb: 'Every plot, scored per hazard.', processes: ['Map', 'Score', 'Sort'] },
+          { id: 'risk-map', label: 'Risk map', icon: 'map-2', workflow: 'RiskMapSupply',
+            blurb: 'Your sourcing plots on the hazard map.', processes: ['Locate', 'Project', 'Drill'] },
+          { id: 'signals', label: 'Early warning', icon: 'radio', workflow: 'SupplySignals',
+            blurb: 'Commodities heating up this season.', processes: ['Sense', 'Screen', 'Alert'] },
+          { id: 'disclosure', label: 'Disclosure', icon: 'file-report', workflow: 'SupplyDisclosure',
+            blurb: 'EUDR overlay + CSRD physical-risk pack.', processes: ['EUDR', 'CSRD', 'Export'] },
         ],
       },
       {
