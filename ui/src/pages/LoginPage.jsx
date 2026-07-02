@@ -34,7 +34,7 @@ export default function LoginPage({ onSuccess, onHome }) {
       <nav className="flex items-center justify-between px-8 py-4">
         <button onClick={onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <ArrowLeft size={16} className="text-gray-400" />
-          Climate <span className="text-[#0071e3]">Intelligence</span>
+          Tel<span className="text-[#0071e3]">lumen</span>
         </button>
       </nav>
 
@@ -45,7 +45,7 @@ export default function LoginPage({ onSuccess, onHome }) {
               <Lock size={20} />
             </span>
             <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in to your workspace</h1>
-            <p className="mt-1 text-[14px] text-gray-500">Your climate-risk platform — scoped to your organization.</p>
+            <p className="mt-1 text-[14px] text-gray-500">Light on the Earth — your risk platform, scoped to your organization.</p>
           </div>
 
           <form onSubmit={submit} className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm">

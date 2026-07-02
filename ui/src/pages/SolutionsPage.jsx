@@ -111,7 +111,7 @@ export default function SolutionsPage({ onHome, onEnter }) {
       <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/80 px-8 py-3.5 backdrop-blur">
         <button onClick={onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <ArrowLeft size={16} className="text-gray-400" />
-          Climate <span className="text-[#0071e3]">Intelligence</span>
+          Tel<span className="text-[#0071e3]">lumen</span>
         </button>
         <button onClick={onEnter} className="rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white">
           Enter the platform
@@ -237,7 +237,7 @@ export default function SolutionsPage({ onHome, onEnter }) {
       </section>
 
       <footer className="border-t border-gray-200 px-8 py-8 text-center text-[12px] text-gray-400">
-        Climate Intelligence · one engine, every sector · Earth view powered by Sen
+        Tellumen — Light on the Earth · one engine, every sector · view powered by Sen
       </footer>
     </div>
   )

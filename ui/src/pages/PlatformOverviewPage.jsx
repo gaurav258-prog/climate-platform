@@ -29,7 +29,7 @@ export default function PlatformOverviewPage({ onSelectIndustry }) {
     <div className="w-full h-screen overflow-y-auto bg-gray-50">
       {/* Hero — live Earth from the ISS */}
       <LiveEarthHero>
-        <p className="text-[11px] uppercase tracking-[0.25em] text-white/70 mb-3">Climate Intelligence Platform</p>
+        <p className="text-[11px] uppercase tracking-[0.25em] text-white/70 mb-3">The Tellumen platform</p>
         <h1 className="text-5xl md:text-6xl font-light leading-tight text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
           One climate-risk engine.<br /><span className="text-sky-300">Every sector.</span>
         </h1>

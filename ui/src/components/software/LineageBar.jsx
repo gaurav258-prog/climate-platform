@@ -1,4 +1,5 @@
 import { LayoutGrid, BookOpen, LifeBuoy, ShieldCheck, LogOut } from 'lucide-react'
+import BrandMark from '../BrandMark'
 
 // Top bar: brand + top-level area nav + the logged-in identity. Replaces the old
 // demo "Customer" select — who you are now comes from the login session, and the
@@ -30,8 +31,8 @@ export default function LineageBar({ auth, area, onArea, onLogout }) {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-5 py-2">
       <div className="flex items-center gap-5">
-        <div className="text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
-          Climate <span className="text-[#0071e3]">Intelligence</span>
+        <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[#1d1d1f]">
+          <BrandMark size={20} />Tel<span className="text-[#0071e3]">lumen</span>
         </div>
         <nav className="hidden items-center gap-1 md:flex">
           {areas.map(a => {

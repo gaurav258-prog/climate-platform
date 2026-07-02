@@ -4,6 +4,7 @@ import {
   Landmark, Umbrella, Sprout, Building2, ArrowRight,
 } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
+import BrandMark from '../components/BrandMark'
 import { fetchScoresSummary } from '../api/client'
 
 const SOURCES = ['Copernicus ERA5', 'GloFAS', 'NASA FIRMS', 'Sentinel', 'EMSC · USGS', 'Sen · ISS']
@@ -55,7 +56,7 @@ export default function LandingPage({ onEnter, onExplore }) {
     <div className="h-screen overflow-y-auto bg-white text-[#1d1d1f]" style={{ scrollBehavior: 'smooth' }}>
       {/* nav */}
       <nav className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-8 py-4">
-        <div className="text-[15px] font-semibold tracking-tight text-white">Climate <span className="text-sky-300">Intelligence</span></div>
+        <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-white"><BrandMark size={20} />Tel<span className="text-sky-300">lumen</span></div>
         <div className="flex items-center gap-2">
           <button onClick={onExplore} className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">Solutions</button>
           <a href="#how" className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">How it works</a>
@@ -201,7 +202,7 @@ export default function LandingPage({ onEnter, onExplore }) {
       </section>
 
       <footer className="border-t border-gray-200 px-8 py-8 text-center text-[12px] text-gray-400">
-        Climate Intelligence · one engine, every sector · Earth view powered by Sen
+        Tellumen — Light on the Earth · one engine, every sector · view powered by Sen
       </footer>
     </div>
   )
