@@ -9,6 +9,7 @@ import httpx
 from core.config import settings
 from core.db.models import SatelliteObservation
 from core.types import HazardType
+from ..regions import get_region, DEFAULT_REGION
 from .base import BaseAdapter, ADAPTER_VERSION
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,8 @@ FIRMS_CSV_URL = (
     "/{api_key}/VIIRS_SNPP_NRT/{area}/{days}"
 )
 
-# EU bounding box for area query
-EU_AREA = "W=-10,S=35,E=30,N=72"
+# EU bounding box for area query (back-compat)
+EU_AREA = get_region("eu").firms
 
 # VIIRS confidence below this = flagged but not discarded
 CONFIDENCE_THRESHOLD = 50
@@ -39,8 +40,9 @@ class NASAFIRMSAdapter(BaseAdapter):
 
     source_provider = "nasa_firms_viirs"
 
-    def __init__(self, days: int = 1):
+    def __init__(self, days: int = 1, region: str = DEFAULT_REGION):
         self.days = days
+        self.region = get_region(region)
 
     def fetch(self) -> list[dict]:
         if not settings.FIRMS_API_KEY:
@@ -49,7 +51,7 @@ class NASAFIRMSAdapter(BaseAdapter):
 
         url = FIRMS_CSV_URL.format(
             api_key=settings.FIRMS_API_KEY,
-            area=EU_AREA,
+            area=self.region.firms,
             days=self.days,
         )
         response = httpx.get(url, timeout=60)
