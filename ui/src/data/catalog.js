@@ -44,6 +44,31 @@ export const CATALOG = {
     ],
   },
 
+  agriculture: {
+    id: 'agriculture', label: 'Agriculture & Food', icon: 'sprout',
+    blurb: 'Climate risk in your supply chain — COGS-at-risk across the bill of materials.',
+    offerings: [
+      {
+        id: 'supply-chain', label: 'Supply-chain risk', icon: 'package',
+        blurb: 'Where climate hits cost-of-goods — per commodity, per sourcing plot.',
+        services: [
+          { id: 'cogs', label: 'COGS-at-risk', icon: 'layout-dashboard', workflow: 'CogsCommand',
+            blurb: 'Your procurement book, projected.', processes: ['Sense', 'Score', 'Project', 'Act'] },
+        ],
+      },
+      {
+        id: 'trust', label: 'Trust & assurance', icon: 'certificate',
+        blurb: 'Why every number is defensible.',
+        services: [
+          { id: 'models', label: 'Models & provenance', icon: 'stack-2', workflow: 'ModelsPage',
+            blurb: 'Honest out-of-sample skill per hazard.', processes: ['Registry', 'Skill', 'Verify'] },
+          { id: 'foundation', label: 'Data foundation', icon: 'database', workflow: 'PlatformOverviewPage',
+            blurb: 'Live data → AI engine → golden source.', processes: ['Sense', 'Clean', 'Score'] },
+        ],
+      },
+    ],
+  },
+
   insurance: {
     id: 'insurance', label: 'Insurance', icon: 'umbrella',
     blurb: 'Underwriting and parametric triggers on the same golden source.',
@@ -84,7 +109,10 @@ export function catalogFor(persona) {
 }
 
 // Map an organization type (from the backend) to a catalog industry.
-const ORG_TYPE_TO_INDUSTRY = { bank: 'banking', insurer: 'insurance', insurance: 'insurance' }
+const ORG_TYPE_TO_INDUSTRY = {
+  bank: 'banking', insurer: 'insurance', insurance: 'insurance',
+  manufacturer: 'agriculture', cpg: 'agriculture', food: 'agriculture',
+}
 
 export function industryForOrg(org) {
   if (!org) return null

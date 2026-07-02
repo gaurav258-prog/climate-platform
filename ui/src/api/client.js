@@ -132,6 +132,23 @@ export async function fetchDisclosure({ scenario = 'baseline', horizon = 'curren
   return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
 }
 
+// ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
+
+/** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */
+export async function fetchSupplySummary({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/supply/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Full book: { commodities, products, bom, plots }. */
+export async function fetchSupplyPortfolio({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/supply/portfolio?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** One sourcing plot: { plot, risks, note }. */
+export async function fetchSupplyPlot(plotId) {
+  return get(`/v1/supply/plot/${plotId}`)
+}
+
 // ── Auth (user login sessions) ────────────────────────────────────────────
 
 /** Log in; stores the JWT and returns { user, org, roles, permissions, entitlements }. */

@@ -1,6 +1,6 @@
 import {
   Landmark, Shield, LayoutDashboard, Briefcase, Map, Radio, FileText,
-  Award, Layers, Database, Umbrella, FileSearch, LineChart, Zap,
+  Award, Layers, Database, Umbrella, FileSearch, LineChart, Zap, Sprout, Package,
 } from 'lucide-react'
 
 export const ICON = {
@@ -8,4 +8,5 @@ export const ICON = {
   briefcase: Briefcase, 'map-2': Map, radio: Radio, 'file-report': FileText,
   certificate: Award, 'stack-2': Layers, database: Database, umbrella: Umbrella,
   'file-search': FileSearch, 'chart-line': LineChart, bolt: Zap,
+  sprout: Sprout, package: Package,
 }
