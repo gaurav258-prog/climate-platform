@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     CDSAPI_URL: str = "https://cds.climate.copernicus.eu/api"
     CDSAPI_KEY: str = ""
 
+    # Copernicus Atmosphere Data Store (CAMS) — a SEPARATE service from CDS
+    # (different host), confirmed to share the same personal access token as
+    # CDS post the 2024 ECMWF unification (verified live 2026-07-03).
+    ADSAPI_URL: str = "https://ads.atmosphere.copernicus.eu/api"
+    ADSAPI_KEY: str = ""
+
+    # OpenAQ v3 — ground-station calibration/validation layer for pollution
+    OPENAQ_API_KEY: str = ""
+
     # MLflow
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
 

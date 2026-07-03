@@ -17,7 +17,7 @@ layers must agree:
 
 | Concept | Canonical values |
 |---------|------------------|
-| **Hazard** | `flood`, `heat_acute`, `heat_chronic`, `wildfire`, `drought`, `storm`, `seismic`, `volcanic` |
+| **Hazard** | `flood`, `heat_acute`, `heat_chronic`, `wildfire`, `drought`, `storm`, `seismic`, `volcanic`, `pollution` |
 | **Scenario** (NGFS) | `baseline`, `orderly_1_5c`, `disorderly_2c`, `hot_house_3_5c` |
 | **Time horizon** | `current`, `2030`, `2050`, `2100` |
 | **Risk bucket** | `L` (0–25), `M` (25–50), `H` (50–75), `VH` (75–100) |

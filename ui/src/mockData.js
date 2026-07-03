@@ -130,6 +130,8 @@ export const HAZARD_VIEWS = {
   volcanic: { longitude: -90.88, latitude: 14.47, zoom: 9.5, pitch: 40, bearing: 0 },
   // Puerto Rico — the storm-hazard backtest geography (Hurricane Maria, Sept 2017).
   storm: { longitude: -66.5, latitude: 18.2, zoom: 8.3, pitch: 35, bearing: 0 },
+  // Delhi — the primary pollution-hazard backtest geography (Nov 2024 smog crisis).
+  pollution: { longitude: 77.21, latitude: 28.61, zoom: 9.5, pitch: 35, bearing: 0 },
 }
 
 export const INITIAL_VIEW_STATE = HAZARD_VIEWS.flood

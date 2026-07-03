@@ -30,7 +30,7 @@ from core.db.models_regulatory_complete import Base
 # features. Each optional router is imported separately so a missing optional
 # dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
 try:
-    from api.routers import auth, locations, packages, scores
+    from api.routers import auth, locations, packages, scores, lookup
     from api.routers import platform as platform_router
     from api.routers import bank as bank_router
     from api.routers import supply as supply_router
@@ -139,6 +139,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(platform_router.router)
     app.include_router(bank_router.router)
     app.include_router(supply_router.router)
+    app.include_router(lookup.router)
 
 if AUTH_USER_AVAILABLE:
     app.include_router(auth_user.router)

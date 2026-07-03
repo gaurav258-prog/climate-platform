@@ -12,6 +12,7 @@
 
 export const HAZARD_VALUES = [
   'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
+  'pollution',
 ]
 
 export const SCENARIO_VALUES = [
@@ -50,6 +51,8 @@ const HAZARD_ALIASES = {
   seismic: 'seismic', earthquake: 'seismic', quake: 'seismic',
   volcanic: 'volcanic', volcanism: 'volcanic', eruption: 'volcanic',
   ashfall: 'volcanic', volcano: 'volcanic',
+  pollution: 'pollution', air_pollution: 'pollution', air_quality: 'pollution',
+  aqi: 'pollution', smog: 'pollution',
 }
 
 const SCENARIO_ALIASES = {

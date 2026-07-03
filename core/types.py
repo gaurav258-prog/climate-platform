@@ -54,6 +54,7 @@ class HazardType(str, Enum):
     STORM = "storm"
     SEISMIC = "seismic"
     VOLCANIC = "volcanic"
+    POLLUTION = "pollution"
 
 
 class RiskScenario(str, Enum):
@@ -161,6 +162,10 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "volcanic": HazardType.VOLCANIC, "volcanism": HazardType.VOLCANIC,
     "eruption": HazardType.VOLCANIC, "ashfall": HazardType.VOLCANIC,
     "volcano": HazardType.VOLCANIC,
+    # pollution
+    "pollution": HazardType.POLLUTION, "air_pollution": HazardType.POLLUTION,
+    "air_quality": HazardType.POLLUTION, "aqi": HazardType.POLLUTION,
+    "smog": HazardType.POLLUTION,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {
