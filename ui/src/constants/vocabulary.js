@@ -11,7 +11,7 @@
  */
 
 export const HAZARD_VALUES = [
-  'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+  'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
 ]
 
 export const SCENARIO_VALUES = [
@@ -48,6 +48,8 @@ const HAZARD_ALIASES = {
   storm: 'storm', extreme_weather: 'storm', cyclone: 'storm', hurricane: 'storm',
   typhoon: 'storm', hail: 'storm', wind: 'storm',
   seismic: 'seismic', earthquake: 'seismic', quake: 'seismic',
+  volcanic: 'volcanic', volcanism: 'volcanic', eruption: 'volcanic',
+  ashfall: 'volcanic', volcano: 'volcanic',
 }
 
 const SCENARIO_ALIASES = {

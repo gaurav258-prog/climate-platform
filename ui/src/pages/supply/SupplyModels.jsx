@@ -41,7 +41,8 @@ export default function SupplyModels() {
                     </div>
                     <div className="text-right text-[11px] text-gray-500">
                       supply <b className="text-[#1d1d1f]">{e.observed_prod_shock_pct}%</b> ·
-                      model <b className="text-[#c2410c]">+{e.model_price_move_pct}%</b> vs obs <b className="text-[#1d1d1f]">+{e.observed_price_move_pct}%</b>
+                      model <b className="text-[#c2410c]">+{e.model_price_move_pct}%</b>
+                      {e.observed_price_move_pct != null && <> vs obs <b className="text-[#1d1d1f]">+{e.observed_price_move_pct}%</b></>}
                     </div>
                   </div>
                   <p className="mt-2 text-[12px] leading-relaxed text-gray-600">{e.skill_note}</p>

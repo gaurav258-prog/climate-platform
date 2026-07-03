@@ -57,6 +57,13 @@ REGIONS: dict[str, Region] = {
     "brazil_coffee": Region("brazil_coffee", "Brazil coffee (Minas/SP)", -25.0, -14.0, -52.0, -40.0),
     # Vietnam robusta (Central Highlands).
     "vietnam_coffee": Region("vietnam_coffee", "Vietnam Central Highlands", 11.0, 15.5, 107.0, 109.5),
+    # Guatemala volcanic highlands — Fuego/Acatenango/Agua, the Antigua coffee belt.
+    # Primary backtest geography for the volcanic hazard: Fuego 2018's documented
+    # destruction footprint (banking) and the volcanic-soil Antigua coffee origin
+    # (agriculture) sit in the same small bbox.
+    "guatemala_volcanic": Region("guatemala_volcanic", "Guatemala volcanic highlands", 14.3, 14.7, -91.0, -90.6),
+    # Taal (Philippines) — secondary backtest, cleaner ashfall-only calibration.
+    "philippines_taal": Region("philippines_taal", "Taal Volcano, Philippines", 13.9, 14.2, 120.8, 121.1),
 }
 
 DEFAULT_REGION = "eu"

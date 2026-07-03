@@ -27,6 +27,21 @@ ROWS = [
                  "in monthly means; pending the CDS daily-min fix. Coffee € is a conservative floor."),
         "source": "ICO/USDA + backtest_coffee_climate.py",
     },
+    {
+        "event": "Fuego 2018 (Guatemala coffee, volcanic)", "commodity": "Coffee", "hazard": "volcanic",
+        "obs_prod": -0.9, "model_price": 1.8, "obs_price": None,
+        "note": ("Guatemala's Alotenango/Antigua plot volcanic score (81, proximal+ashfall physics) "
+                 "against Anacafe's ~0.9% NATIONAL coffee production loss from the June 2018 Fuego "
+                 "eruption. KNOWN LIMITATION: Coffee is one shared commodity (Brazil drought-calibrated "
+                 "sensitivity=0.45, global_share=0.35); the live product borrows Brazil's 15x-larger "
+                 "world share when pricing Guatemala's hazard (no per-origin override in the schema). "
+                 "This row reports the ORIGIN-SPECIFIC figure (Guatemala's real ~2.3% world coffee "
+                 "share) instead: yield-shock 36.4% -> price-move 1.8% -- order-of-magnitude only, since "
+                 "Anacafe's 0.9% is a national average diluted across origins far from Fuego, not a "
+                 "local Antigua-region figure. Disclosed, not resolved -- Guatemala stays 'indicative', "
+                 "not added to BACKTESTED. See docs/VOLCANIC_HAZARD_METHODOLOGY.md."),
+        "source": "Anacafe + MAGA + backtest_volcanic.py",
+    },
 ]
 
 

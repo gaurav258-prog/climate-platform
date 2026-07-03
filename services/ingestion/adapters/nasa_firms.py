@@ -38,11 +38,16 @@ class NASAFIRMSAdapter(BaseAdapter):
     Requires FIRMS_API_KEY in .env (free, instant registration).
     """
 
-    source_provider = "nasa_firms_viirs"
-
-    def __init__(self, days: int = 1, region: str = DEFAULT_REGION):
+    def __init__(self, days: int = 1, region: str = DEFAULT_REGION, hazard_type: HazardType = HazardType.WILDFIRE):
         self.days = days
         self.region = get_region(region)
+        # FIRMS/VIIRS is a generic thermal-anomaly detector, not fire-specific at the
+        # sensor level — pointing it at a volcano-region bbox with hazard_type=VOLCANIC
+        # gives a live thermal-unrest signal without a new satellite integration.
+        self.hazard_type = hazard_type
+        self.source_provider = (
+            "nasa_firms_viirs" if hazard_type == HazardType.WILDFIRE else "nasa_firms_viirs_volcanic"
+        )
 
     def fetch(self) -> list[dict]:
         if not settings.FIRMS_API_KEY:
@@ -85,7 +90,7 @@ class NASAFIRMSAdapter(BaseAdapter):
                     h3_cell=h3.latlng_to_cell(lat, lon, settings.H3_RESOLUTION),
                     h3_resolution=settings.H3_RESOLUTION,
                     source_provider=self.source_provider,
-                    hazard_type=HazardType.WILDFIRE.value,
+                    hazard_type=self.hazard_type.value,
                     observed_at=observed_at,
                     raw_value=frp,
                     raw_unit="MW",

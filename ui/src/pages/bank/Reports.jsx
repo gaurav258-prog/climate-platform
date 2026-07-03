@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Waves, Flame, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
+import { FileText, Download, Waves, Flame, Mountain, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import { fetchDisclosure, fetchPortfolio, createApproval } from '../../api/client'
@@ -7,7 +7,7 @@ import { fetchDisclosure, fetchPortfolio, createApproval } from '../../api/clien
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
 const num = n => Math.round(n).toLocaleString()
-const HAZ_ICON = { flood: Waves, wildfire: Flame }
+const HAZ_ICON = { flood: Waves, wildfire: Flame, volcanic: Mountain }
 const TAX = [['aligned', 'Aligned', '#34c759'], ['eligible', 'Eligible', '#ff9500'], ['not_eligible', 'Not eligible', '#86868b']]
 
 function exportCsv(assets) {

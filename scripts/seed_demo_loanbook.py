@@ -51,6 +51,17 @@ COUNTRY_BOXES = [  # (ISO-2, lon_min, lon_max, lat_min, lat_max) — first match
     ("FR", -5.2, 8.3, 42.3, 51.1), ("IT", 6.5, 18.6, 36.5, 47.1),
     ("DE", 5.8, 15.1, 47.2, 55.1), ("GR", 19.3, 28.3, 34.8, 41.8),
     ("GB", -8.2, 1.8, 49.9, 59.0), ("PL", 14.1, 24.2, 49.0, 54.9),
+    ("GT", -91.0, -90.6, 14.3, 14.7),
+]
+
+# Guatemala volcanic-hazard demo assets — real sites near Fuego, both scored via
+# scripts/score_volcanic_event.py (hazard_type='volcanic'). Not random placements:
+# one echoes the real San Miguel Los Lotes destruction footprint (proximal-driven),
+# one is Antigua Guatemala itself (a UNESCO-heritage hospitality economy, ashfall-
+# exposed but outside the PDC's path) — the same sites backtest_volcanic.py checks.
+GUATEMALA_ASSETS = [
+    ("Los Lotes commercial 1", "Commercial real estate", 14.4180, -90.8590, "San Miguel Los Lotes"),
+    ("Antigua hospitality 1", "Hospitality", 14.5586, -90.7295, "Antigua Guatemala"),
 ]
 
 
@@ -79,15 +90,19 @@ CITIES = [
 ]
 
 
-def make_asset(lat, lon, h3_cell, region):
-    sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = random.choice(SECTORS)
+def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None):
+    if force_sector:
+        sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = next(
+            s for s in SECTORS if s[0] == force_sector)
+    else:
+        sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = random.choice(SECTORS)
     value_m = round(random.uniform(vmin, vmax), 1)
     value = value_m * 1_000_000
     country = country_for(lat, lon)
     scope1 = round(value_m * ghg_per_m * random.uniform(0.4, 0.7), 1)
     return {
         "asset_id": str(uuid.uuid4()), "org_id": DEMO_ORG,
-        "asset_name": f"{region} {sector.split(' ')[0]} {random.randint(1, 99)}",
+        "asset_name": name_override or f"{region} {sector.split(' ')[0]} {random.randint(1, 99)}",
         "asset_type": atype, "latitude": round(lat, 5), "longitude": round(lon, 5),
         "h3_cell": h3_cell, "region": region, "country": country,
         "asset_value_eur": value, "annual_revenue_eur": round(value * random.uniform(0.08, 0.22)),
@@ -123,6 +138,9 @@ def main():
             else:
                 jlat, jlon = lat, lon
             assets.append(make_asset(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
+        for name, sector, glat, glon, region in GUATEMALA_ASSETS:
+            assets.append(make_asset(glat, glon, h3.latlng_to_cell(glat, glon, 8), region,
+                                      force_sector=sector, name_override=name))
 
         s.execute(text("""
             INSERT INTO organizations (org_id, name, type, country, aum_eur, employees, created_at, updated_at)
