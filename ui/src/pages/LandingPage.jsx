@@ -65,7 +65,7 @@ export default function LandingPage({ onEnter, onExplore }) {
       </nav>
 
       {/* hero */}
-      <LiveEarthHero height="92vh">
+      <LiveEarthHero height="92vh" showCaption={false}>
         <h1 className="text-5xl font-light leading-[1.05] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)] md:text-7xl">
           One climate-risk engine.<br /><span className="text-sky-300">Every sector.</span>
         </h1>

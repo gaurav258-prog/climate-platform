@@ -32,7 +32,7 @@ function loadYT() {
   })
 }
 
-export default function LiveEarthHero({ children, showBadge = true, height = '78vh' }) {
+export default function LiveEarthHero({ children, showBadge = true, showCaption = true, height = '78vh' }) {
   const ref = useRef(null)
   const apiReady = useRef(false)
   const [dim, setDim] = useState({ w: 0, h: 0 })
@@ -165,9 +165,11 @@ export default function LiveEarthHero({ children, showBadge = true, height = '78
       </div>
 
       {/* provenance caption */}
-      <div className="absolute bottom-4 right-6 z-10 text-[10px] tracking-wide text-white/55">
-        Sen SpaceTV-1 · 4K · downlinked via NASA · {isLive ? 'live' : 'standby'}
-      </div>
+      {showCaption && (
+        <div className="absolute bottom-4 right-6 z-10 text-[10px] tracking-wide text-white/55">
+          Sen SpaceTV-1 · 4K · downlinked via NASA · {isLive ? 'live' : 'standby'}
+        </div>
+      )}
     </section>
   )
 }
