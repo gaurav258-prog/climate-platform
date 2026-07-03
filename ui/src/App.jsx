@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { ChevronRight, Clock } from 'lucide-react'
-import { catalogForAuth } from './data/catalog'
+import { catalogForAuth, industryForOrg } from './data/catalog'
 import { fetchMe, logout as apiLogout, hasToken } from './api/client'
 import LineageBar from './components/software/LineageBar'
 import CatalogNav from './components/software/CatalogNav'
@@ -57,7 +57,17 @@ export default function App() {
   const onLogout = useCallback(async () => {
     await apiLogout(); setAuth(null); setView('landing')
   }, [])
-  const enterApp = useCallback(() => setView(auth ? 'app' : 'login'), [auth])
+  // `wantIndustry` is set when entering from a specific Solutions sector. If you're signed in
+  // as a different industry's account, drop to login so you can pick the matching demo account
+  // (otherwise you'd silently land in your own — e.g. clicking Agriculture while a bank user).
+  const enterApp = useCallback((wantIndustry) => {
+    // only a string is a real industry hint (generic onClick handlers pass the event object)
+    const want = typeof wantIndustry === 'string' ? wantIndustry : null
+    if (auth && want && industryForOrg(auth.org) !== want) {
+      apiLogout().catch(() => {}); setAuth(null); setView('login'); return
+    }
+    setView(auth ? 'app' : 'login')
+  }, [auth])
 
   const onGoto = useCallback(v => {
     if (v === 'bank-portfolio') { setArea('modules'); setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' }) }

@@ -179,7 +179,7 @@ export default function SolutionsPage({ onHome, onEnter }) {
 
             <div className="mt-8">
               {sector.live ? (
-                <button onClick={onEnter}
+                <button onClick={() => onEnter(sector.id)}
                   className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-3 text-[15px] font-medium text-white transition hover:brightness-110">
                   See it live <ArrowRight size={17} />
                 </button>
