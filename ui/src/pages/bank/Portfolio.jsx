@@ -6,7 +6,7 @@ import AssetDrawer from '../../components/AssetDrawer'
 import { fetchPortfolio } from '../../api/client'
 
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
-const HAZ_COLS = ['flood', 'wildfire', 'volcanic']
+const HAZ_COLS = ['flood', 'wildfire', 'volcanic', 'storm']
 
 export default function Portfolio() {
   const [scenario, setScenario] = useState('baseline')

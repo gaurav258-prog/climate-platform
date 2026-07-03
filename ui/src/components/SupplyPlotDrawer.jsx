@@ -4,7 +4,7 @@ import { fetchSupplyPlot } from '../api/client'
 
 export const HAZ_COLOR = {
   flood: '#2563eb', wildfire: '#c2410c', seismic: '#7c3aed', heat_acute: '#dc2626', drought: '#b45309',
-  volcanic: '#7c2d12',
+  volcanic: '#7c2d12', storm: '#0e7490',
 }
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(1) + 'm'
 

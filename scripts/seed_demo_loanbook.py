@@ -52,6 +52,7 @@ COUNTRY_BOXES = [  # (ISO-2, lon_min, lon_max, lat_min, lat_max) — first match
     ("DE", 5.8, 15.1, 47.2, 55.1), ("GR", 19.3, 28.3, 34.8, 41.8),
     ("GB", -8.2, 1.8, 49.9, 59.0), ("PL", 14.1, 24.2, 49.0, 54.9),
     ("GT", -91.0, -90.6, 14.3, 14.7),
+    ("PR", -67.3, -65.2, 17.8, 18.6),
 ]
 
 # Guatemala volcanic-hazard demo assets — real sites near Fuego, both scored via
@@ -62,6 +63,16 @@ COUNTRY_BOXES = [  # (ISO-2, lon_min, lon_max, lat_min, lat_max) — first match
 GUATEMALA_ASSETS = [
     ("Los Lotes commercial 1", "Commercial real estate", 14.4180, -90.8590, "San Miguel Los Lotes"),
     ("Antigua hospitality 1", "Hospitality", 14.5586, -90.7295, "Antigua Guatemala"),
+]
+
+# Puerto Rico storm-hazard demo assets — real sites tested against Hurricane Maria's
+# actual 2017 track via scripts/score_storm_event.py (hazard_type='storm'). San Juan
+# sat closest to the eyewall (severe direct hit, real ~80% grid destruction); Ponce,
+# on the south coast, was still hit hard but farther from the track — the same
+# proximal-vs-farther contrast used for Guatemala's volcanic assets.
+PUERTO_RICO_ASSETS = [
+    ("San Juan commercial 1", "Commercial real estate", 18.4655, -66.1057, "San Juan"),
+    ("Ponce hospitality 1", "Hospitality", 18.0111, -66.6141, "Ponce"),
 ]
 
 
@@ -140,6 +151,9 @@ def main():
             assets.append(make_asset(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
         for name, sector, glat, glon, region in GUATEMALA_ASSETS:
             assets.append(make_asset(glat, glon, h3.latlng_to_cell(glat, glon, 8), region,
+                                      force_sector=sector, name_override=name))
+        for name, sector, plat, plon, region in PUERTO_RICO_ASSETS:
+            assets.append(make_asset(plat, plon, h3.latlng_to_cell(plat, plon, 8), region,
                                       force_sector=sector, name_override=name))
 
         s.execute(text("""

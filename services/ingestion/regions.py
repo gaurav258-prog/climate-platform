@@ -64,6 +64,10 @@ REGIONS: dict[str, Region] = {
     "guatemala_volcanic": Region("guatemala_volcanic", "Guatemala volcanic highlands", 14.3, 14.7, -91.0, -90.6),
     # Taal (Philippines) — secondary backtest, cleaner ashfall-only calibration.
     "philippines_taal": Region("philippines_taal", "Taal Volcano, Philippines", 13.9, 14.2, 120.8, 121.1),
+    # Puerto Rico — the storm-hazard backtest geography: Hurricane Maria's September 2017
+    # landfall track, San Juan infrastructure (banking) and Puerto Rico coffee (agriculture)
+    # sit in the same small bbox, same dual-purpose logic as Fuego for volcanic.
+    "puerto_rico": Region("puerto_rico", "Puerto Rico", 17.8, 18.6, -67.3, -65.2),
 }
 
 DEFAULT_REGION = "eu"

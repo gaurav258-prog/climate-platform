@@ -42,6 +42,24 @@ ROWS = [
                  "not added to BACKTESTED. See docs/VOLCANIC_HAZARD_METHODOLOGY.md."),
         "source": "Anacafe + MAGA + backtest_volcanic.py",
     },
+    {
+        "event": "Hurricane Maria 2017 (Puerto Rico coffee, storm)", "commodity": "Coffee", "hazard": "storm",
+        "obs_prod": None, "model_price": 0.0, "obs_price": None,
+        "note": ("Puerto Rico's Adjuntas plot storm score (73, Modified Rankine Vortex wind-decay "
+                 "physics vs IBTrACS's real Hurricane Maria track) against Puerto Rico Dept. of "
+                 "Agriculture's ~$780M / ~80% of total island crop value destroyed (economy-wide, "
+                 "NOT coffee-specific -- 18 million coffee trees destroyed is the only coffee-specific "
+                 "figure found, a quantity not a %). KNOWN LIMITATION (same as Guatemala's volcanic "
+                 "row): Coffee is one shared commodity (Brazil drought-calibrated sensitivity=0.45, "
+                 "global_share=0.35); the live product borrows Brazil's much larger world share when "
+                 "pricing Puerto Rico's hazard. This row reports the ORIGIN-SPECIFIC figure (Puerto "
+                 "Rico's real world coffee share, order-of-magnitude ~0.05%) instead: yield-shock "
+                 "32.8% -> price-move ~0.0% -- this anchor is WEAKER than both Guatemala's and the "
+                 "cocoa/coffee climate backtests since no clean coffee-specific national-loss % exists "
+                 "for this event. Disclosed, not smoothed over -- Puerto Rico stays 'indicative', not "
+                 "added to BACKTESTED. See docs/STORM_HAZARD_METHODOLOGY.md."),
+        "source": "Puerto Rico Dept. of Agriculture + NOAA/NCEI + backtest_storm.py",
+    },
 ]
 
 

@@ -6,7 +6,7 @@ import { BUCKET } from '../../components/RiskAtom'
 import { fetchGeoScores, fetchPortfolio } from '../../api/client'
 
 const BANDS = [['VH', 'Very High'], ['H', 'High'], ['M', 'Medium'], ['L', 'Low']]
-const HAZARDS = [['flood', 'Flood'], ['wildfire', 'Wildfire'], ['volcanic', 'Volcanic']]
+const HAZARDS = [['flood', 'Flood'], ['wildfire', 'Wildfire'], ['volcanic', 'Volcanic'], ['storm', 'Storm']]
 
 export default function RiskMapBank() {
   const [scenario, setScenario] = useState('baseline')
@@ -32,10 +32,10 @@ export default function RiskMapBank() {
     for (const a of assets) { lat += a.lat; lon += a.lon }
     return { latitude: lat / assets.length, longitude: lon / assets.length, zoom: 5, pitch: 0, bearing: 0 }
   }, [assets])
-  // Volcanic exposure is a small Guatemala pocket in an otherwise-European book —
-  // centering on the whole book's average would bury it. Let RiskMap's own
-  // per-hazard default view (Guatemala) take over instead of the asset average.
-  const view = hazard === 'volcanic' ? null : assetView
+  // Volcanic/storm exposure are each a small pocket (Guatemala, Puerto Rico) in an
+  // otherwise-European book — centering on the whole book's average would bury them.
+  // Let RiskMap's own per-hazard default view take over instead of the asset average.
+  const view = (hazard === 'volcanic' || hazard === 'storm') ? null : assetView
 
   const onAsset = useCallback(a => setSel(a.asset_id), [])
   const atRisk = assets.filter(a => a.headline_bucket === 'H' || a.headline_bucket === 'VH').length
