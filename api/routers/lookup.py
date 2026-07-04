@@ -64,20 +64,9 @@ from api.schemas.lookup import HazardLookupResult, LookupResponse, OverallRisk, 
 from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
-from services.tasks.hazard_tasks import HAZARD_TASKS
-from scripts.score_point_on_demand import score_seismic_point, score_storm_point
-from ml.features.heat_chronic_point import score_heat_chronic_point
+from services.scoring.on_demand import SYNC_ON_DEMAND_SCORERS, GRIDDED_ON_DEMAND_SCORERS
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
-
-# Hazards scored synchronously, in-request (cheap: no external fetch needed).
-SYNC_ON_DEMAND_SCORERS = {
-    "seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point,
-    "storm": score_storm_point,
-}
-
-# Hazards that need a real data fetch, run as a Celery job (see module docstring).
-GRIDDED_ON_DEMAND_SCORERS = HAZARD_TASKS
 
 
 def _compute_overall(session, cell: str) -> OverallRisk:

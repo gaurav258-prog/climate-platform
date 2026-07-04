@@ -52,6 +52,17 @@ async function send(method, path, body) {
 const post = (path, body) => send('POST', path, body)
 const patch = (path, body) => send('PATCH', path, body)
 
+/** Multipart file upload — no Content-Type header (browser sets the boundary). */
+async function postFile(path, file) {
+  const form = new FormData()
+  form.append('file', file)
+  const h = {}
+  if (_apiKey) h['Authorization'] = `Bearer ${_apiKey}`
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers: h, body: form })
+  if (!res.ok) return raise(res, path)
+  return res.json()
+}
+
 export async function fetchPortfolioScores(hazardType, limit = 5000) {
   return get(`/v1/scores/portfolio?hazard_type=${hazardType}&limit=${limit}`)
 }
@@ -134,14 +145,30 @@ export async function fetchBankSummary({ scenario = 'baseline', horizon = 'curre
   return get(`/v1/bank/summary?scenario=${scenario}&horizon=${horizon}`)
 }
 
-/** One asset: full projection across hazards/scenarios + provenance: { asset, risks:[...] }. */
+/** One asset: full projection + lending decision: { asset, risks:[...], valuation, valuation_audit:[...] }. */
 export async function fetchAsset(assetId) {
   return get(`/v1/bank/asset/${assetId}`)
+}
+
+/** Override the recommended valuation discount for an asset (requires pricing.approve). */
+export async function overrideValuation(assetId, discountPct, reason) {
+  return post(`/v1/bank/asset/${assetId}/valuation-override`, { discount_pct: discountPct, reason })
+}
+
+/** Clear an override, reverting to the recommended discount (requires pricing.approve). */
+export async function clearValuationOverride(assetId) {
+  return send('DELETE', `/v1/bank/asset/${assetId}/valuation-override`)
 }
 
 /** TCFD/EU-Taxonomy disclosure pack: { rollup, by_hazard, taxonomy, financed_emissions_tco2e }. */
 export async function fetchDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
   return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Bulk-upload a CSV of assets into your own org's loan book. Requires login (writes are
+ * always tenant-scoped to the uploader). Returns { n_uploaded, n_cells, n_sync_scored, n_gridded_dispatched }. */
+export async function uploadBankAssets(file) {
+  return postFile('/v1/bank/assets/upload', file)
 }
 
 // ── Insurance (Loss-curve pricing) ────────────────────────────────────────
@@ -152,11 +179,26 @@ export async function fetchInsuranceSummary({ scenario = 'baseline', horizon = '
   return get(`/v1/insurance/summary?scenario=${scenario}&horizon=${horizon}`)
 }
 
+/** Full property book: { rollup, policies:[...] }. */
+export async function fetchInsurancePortfolio({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/insurance/portfolio?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Bulk-upload a CSV of policies into your own org's property book. */
+export async function uploadInsurancePolicies(file) {
+  return postFile('/v1/insurance/policies/upload', file)
+}
+
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
 
 /** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */
 export async function fetchSupplySummary({ scenario = 'baseline', horizon = 'current' } = {}) {
   return get(`/v1/supply/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Bulk-upload a CSV of sourcing plots into your own org's procurement book. */
+export async function uploadSupplyPlots(file) {
+  return postFile('/v1/supply/plots/upload', file)
 }
 
 /** Full book: { commodities, products, bom, plots }. */

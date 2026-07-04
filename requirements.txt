@@ -17,3 +17,4 @@ bcrypt==4.1.2
 PyJWT==2.8.0
 celery==5.6.3
 redis==7.0.1
+python-multipart==0.0.20

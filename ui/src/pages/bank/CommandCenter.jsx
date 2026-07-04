@@ -9,7 +9,7 @@ const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
 const mn = n => '€' + (n / 1e6).toFixed(0) + 'm'
 const ORDER = ['VH', 'H', 'M', 'L', 'none']
 
-export default function CommandCenter({ onGoto }) {
+export default function CommandCenter({ onGoto, auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
@@ -98,7 +98,7 @@ export default function CommandCenter({ onGoto }) {
         )}
       </div>
 
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} />
     </div>
   )
 }

@@ -8,15 +8,24 @@ so the disclosure is defensible. No auth (aggregate read), mirroring platform.py
 """
 from __future__ import annotations
 
+import io
+import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query
+import h3
+import pandas as pd
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import DbSession
+from api.deps import CurrentUser, DbSession
+from api.services.rbac import write_audit
+from ml.scoring.valuation_discount import valuation_block
+from services.scoring.on_demand import process_new_cells
 
 router = APIRouter(prefix="/v1/bank", tags=["Banking"])
 
@@ -77,6 +86,15 @@ def _assets_with_risk(session, org_id, scenario, horizon):
             "scored_at": r["scored_at"],
         })
 
+    valuations = session.execute(text("""
+        SELECT asset_id::text AS asset_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM bank_asset_valuations WHERE asset_id IN (
+            SELECT asset_id FROM bank_assets WHERE org_id = :o
+        )
+    """), {"o": org_id}).mappings().all()
+    val_by_asset = {v["asset_id"]: dict(v) for v in valuations}
+
     out = []
     for a in assets:
         hz = sorted(by_asset.get(a["asset_id"], []), key=lambda x: -x["score"])
@@ -87,6 +105,8 @@ def _assets_with_risk(session, org_id, scenario, horizon):
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": headline["bucket"] if headline else None,
             "headline_hazard": headline["hazard"] if headline else None,
+            "valuation": valuation_block(
+                headline["bucket"] if headline else None, a["value_eur"], val_by_asset.get(a["asset_id"])),
         })
     return out
 
@@ -95,6 +115,7 @@ def _rollup(assets):
     total = sum(a["value_eur"] or 0 for a in assets)
     at_risk = [a for a in assets if a["headline_bucket"] in ("H", "VH")]
     var = sum(a["value_eur"] or 0 for a in at_risk)
+    total_discounted = sum(a["valuation"]["discounted_value_eur"] for a in assets)
     by_bucket = defaultdict(lambda: {"count": 0, "value": 0.0})
     for a in assets:
         b = a["headline_bucket"] or "none"
@@ -107,6 +128,8 @@ def _rollup(assets):
         "value_at_risk_eur": round(var),
         "pct_value_at_risk": round(100 * var / total, 1) if total else 0,
         "n_high": len(at_risk),
+        "total_discounted_value_eur": round(total_discounted),
+        "n_overridden": sum(1 for a in assets if a["valuation"]["is_overridden"]),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value"])} for k, v in by_bucket.items()},
         "top_assets": sorted(
             [a for a in assets if a["headline_score"] is not None],
@@ -168,6 +191,14 @@ def disclosure(session: DbSession, org_id: OrgId,
     }
 
 
+def _valuation_row(session, asset_id):
+    return session.execute(text("""
+        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM bank_asset_valuations WHERE asset_id = :a
+    """), {"a": asset_id}).mappings().first()
+
+
 @router.get("/asset/{asset_id}", summary="One asset — full projection + provenance")
 def asset_detail(asset_id: str, session: DbSession):
     a = session.execute(text("""
@@ -191,4 +222,119 @@ def asset_detail(asset_id: str, session: DbSession):
         FROM v_bank_asset_physical_risk WHERE asset_id = :a
         ORDER BY hazard_type, scenario, time_horizon
     """), {"a": asset_id}).mappings().all()
-    return {"asset": dict(a), "risks": [dict(r) for r in risks]}
+    headline = sorted(risks, key=lambda r: -r["score"])[0] if risks else None
+    val_row = _valuation_row(session, asset_id)
+    audit = session.execute(text("""
+        SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
+        FROM access_audit_log WHERE target_type = 'bank_asset' AND target_id = :a
+        ORDER BY created_at DESC LIMIT 5
+    """), {"a": asset_id}).mappings().all()
+    return {
+        "asset": dict(a), "risks": [dict(r) for r in risks],
+        "valuation": valuation_block(headline["risk_bucket"] if headline else None, a["value_eur"], val_row),
+        "valuation_audit": [dict(x) for x in audit],
+    }
+
+
+class ValuationOverrideRequest(BaseModel):
+    discount_pct: float = Field(..., ge=0, le=100)
+    reason: Optional[str] = None
+
+
+@router.post("/asset/{asset_id}/valuation-override", summary="Override the recommended valuation discount (audited)")
+def override_valuation(asset_id: str, body: ValuationOverrideRequest, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    asset = session.execute(text("SELECT org_id::text AS org_id FROM bank_assets WHERE asset_id = :a"), {"a": asset_id}).mappings().first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="asset not found")
+    if asset["org_id"] != ctx["org"]["org_id"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Asset does not belong to your organization"})
+
+    prior = _valuation_row(session, asset_id)
+    from_pct = prior["override_discount_pct"] if prior else None
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        INSERT INTO bank_asset_valuations (asset_id, override_discount_pct, overridden_by, overridden_at, reason)
+        VALUES (:a, :pct, :u, :now, :reason)
+        ON CONFLICT (asset_id) DO UPDATE
+            SET override_discount_pct = EXCLUDED.override_discount_pct,
+                overridden_by = EXCLUDED.overridden_by,
+                overridden_at = EXCLUDED.overridden_at,
+                reason = EXCLUDED.reason
+    """), {"a": asset_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="asset.valuation.override", target_type="bank_asset", target_id=asset_id,
+                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
+    return {"asset_id": asset_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+
+
+@router.delete("/asset/{asset_id}/valuation-override", summary="Clear an override, revert to the recommended discount (audited)")
+def clear_valuation_override(asset_id: str, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    prior = _valuation_row(session, asset_id)
+    if not prior:
+        return {"asset_id": asset_id, "cleared": False}
+    session.execute(text("DELETE FROM bank_asset_valuations WHERE asset_id = :a"), {"a": asset_id})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="asset.valuation.override_cleared", target_type="bank_asset", target_id=asset_id,
+                detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
+    return {"asset_id": asset_id, "cleared": True}
+
+
+REQUIRED_ASSET_COLUMNS = ["asset_name", "asset_type", "latitude", "longitude", "asset_value_eur", "sector"]
+
+
+@router.post("/assets/upload", summary="Bulk-upload assets from a CSV into your loan book")
+async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Real self-service data entry: a CSV of assets lands in the uploader's OWN
+    org (never DEMO_ORG — this always requires a real login), gets an H3 cell per
+    row, and is immediately processed against the golden source (see
+    services.scoring.on_demand.process_new_cells) exactly the way an any-address
+    lookup query would be -- no separate ingestion pipeline to keep in sync."""
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    raw = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+
+    missing = [c for c in REQUIRED_ASSET_COLUMNS if c not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
+
+    org_id = ctx["org"]["org_id"]
+    records, cell_coords = [], {}
+    for _, row in df.iterrows():
+        try:
+            lat, lon = float(row["latitude"]), float(row["longitude"])
+            value_eur = float(row["asset_value_eur"])
+        except (TypeError, ValueError):
+            continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
+        cell = h3.latlng_to_cell(lat, lon, 8)
+        cell_coords[cell] = (lat, lon)
+        records.append({
+            "asset_id": str(uuid.uuid4()), "org_id": org_id,
+            "asset_name": str(row["asset_name"]), "asset_type": str(row["asset_type"]),
+            "latitude": lat, "longitude": lon, "h3_cell": cell,
+            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
+            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
+            "asset_value_eur": value_eur, "sector": str(row["sector"]),
+        })
+    if not records:
+        raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
+
+    session.execute(text("""
+        INSERT INTO bank_assets (asset_id, org_id, asset_name, asset_type, latitude, longitude,
+                                  h3_cell, region, country, asset_value_eur, sector)
+        VALUES (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude,
+                :h3_cell, :region, :country, :asset_value_eur, :sector)
+    """), records)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
+                target_type="bank_assets", target_id=None,
+                detail={"n_rows": len(records), "filename": file.filename})
+
+    processing = process_new_cells(cell_coords)
+    return {"n_uploaded": len(records), **processing}

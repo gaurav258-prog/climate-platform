@@ -1,21 +1,40 @@
-import { useState, useEffect } from 'react'
-import { Umbrella, TrendingUp, ShieldAlert, Layers } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Umbrella, TrendingUp, ShieldAlert, Layers, Download } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
-import { fetchInsuranceSummary } from '../../api/client'
+import UploadPanel from '../../components/UploadPanel'
+import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const ORDER = ['VH', 'H', 'M', 'L', 'none']
+const TEMPLATE_COLUMNS = ['policy_name', 'latitude', 'longitude', 'sum_insured_eur', 'policy_type', 'deductible_pct', 'region', 'country']
+
+function exportCsv(policies) {
+  const head = ['policy_name', 'region', 'country', 'sum_insured_eur', 'headline_hazard', 'headline_score', 'risk_bucket',
+    'mdr', 'scenario_loss_eur', 'expected_annual_loss_eur', 'gross_premium_eur', 'rate_on_line_pct']
+  const rows = [head, ...policies.map(p => [
+    p.policy_name, p.region, p.country, p.sum_insured_eur, p.headline_hazard ?? '', p.headline_score ?? '',
+    p.headline_bucket ?? 'unscored', p.pricing?.mdr ?? '', p.pricing?.scenario_loss_eur ?? '',
+    p.pricing?.expected_annual_loss_eur ?? '', p.pricing?.gross_premium_eur ?? '', p.pricing?.rate_on_line_pct ?? '',
+  ])]
+  const csv = rows.map(r => r.map(x => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  const link = document.createElement('a')
+  link.href = url; link.download = 'iberia-loss-curve-pricing.csv'; link.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function LossCurvePricing() {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
+  const [policies, setPolicies] = useState([])
 
-  useEffect(() => {
-    setData(null)
+  const reload = useCallback(() => {
     fetchInsuranceSummary({ scenario, horizon }).then(setData).catch(() => setData(null))
+    fetchInsurancePortfolio({ scenario, horizon }).then(x => setPolicies(x.policies || [])).catch(() => {})
   }, [scenario, horizon])
+  useEffect(() => { setData(null); reload() }, [reload])
 
   const r = data?.rollup
   const totalInsured = r ? Object.values(r.by_bucket).reduce((s, b) => s + b.sum_insured_eur, 0) : 0
@@ -26,15 +45,25 @@ export default function LossCurvePricing() {
         vintage="2024-10-29" label={`Insurance · ${data?.org?.name || 'Iberia Mutual (demo)'}`} />
 
       <div className="flex-1 overflow-y-auto px-8 py-8">
-        <header className="mb-6">
-          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
-            <Umbrella size={13} /> Loss-curve pricing
+        <header className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
+              <Umbrella size={13} /> Loss-curve pricing
+            </div>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">Expected loss and premium from the score</h1>
+            <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
+              Same golden source as banking and agriculture, priced through underwriting's own lens: risk score →
+              damage ratio → expected annual loss → premium, one auditable number per policy.
+            </p>
           </div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">Expected loss and premium from the score</h1>
-          <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
-            Same golden source as banking and agriculture, priced through underwriting's own lens: risk score →
-            damage ratio → expected annual loss → premium, one auditable number per policy.
-          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => exportCsv(policies)}
+              className="flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0077ed]">
+              <Download size={15} /> Export pricing
+            </button>
+            <UploadPanel uploadFn={uploadInsurancePolicies} templateColumns={TEMPLATE_COLUMNS}
+              templateFilename="insurance_policies_template.csv" label="Import policies" onUploaded={reload} />
+          </div>
         </header>
 
         {!r ? <p className="text-gray-400">loading…</p> : (

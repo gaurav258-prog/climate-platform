@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { X, MapPin, ChevronDown } from 'lucide-react'
+import { X, MapPin, ChevronDown, Landmark, Loader2 } from 'lucide-react'
 import RiskAtom, { BUCKET } from './RiskAtom'
-import { fetchAsset, fetchModels } from '../api/client'
+import { fetchAsset, fetchModels, overrideValuation, clearValuationOverride } from '../api/client'
 
 const euro = n => n == null ? '—' : '€' + Math.round(n).toLocaleString()
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
@@ -9,14 +9,17 @@ const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 // The drill-through. Opened from the table OR the map — same component, so an
 // asset reads identically wherever you click it. Every hazard score carries the
 // model version + scored date that produced it (defensible disclosure).
-export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', horizon = 'current' }) {
+export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', horizon = 'current', auth }) {
   const [data, setData] = useState(null)
   const [models, setModels] = useState([])
   const [openHz, setOpenHz] = useState(null)
+
+  function reload() { fetchAsset(assetId).then(setData).catch(() => setData({ error: true })) }
   useEffect(() => {
     if (!assetId) return
     setData(null); setOpenHz(null)
-    fetchAsset(assetId).then(setData).catch(() => setData({ error: true }))
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetId])
   useEffect(() => { fetchModels().then(d => setModels(d.models || [])).catch(() => {}) }, [])
 
@@ -24,6 +27,7 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
   const a = data?.asset
   const risks = (data?.risks || []).filter(r => r.scenario === scenario && r.time_horizon === horizon)
   const headline = risks.slice().sort((x, y) => y.score - x.score)[0]
+  const canOverride = new Set(auth?.permissions || []).has('pricing.approve')
 
   return (
     <>
@@ -92,6 +96,12 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
               </div>
             </section>
 
+            {/* lending decision: system-recommended, human-overridable, audited */}
+            {data.valuation && (
+              <ValuationSection asset={a} valuation={data.valuation} audit={data.valuation_audit}
+                canOverride={canOverride} onChanged={reload} />
+            )}
+
             {/* exposure & disclosure facts */}
             <Facts title="Exposure" rows={[
               ['Loan / asset value', euro(a.value_eur)],
@@ -120,6 +130,94 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
 }
 
 const fmt = n => n == null ? '—' : Math.round(n).toLocaleString()
+
+function ValuationSection({ asset, valuation, audit, canOverride, onChanged }) {
+  const [editing, setEditing] = useState(false)
+  const [pct, setPct] = useState(valuation.effective_discount_pct)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    setBusy(true)
+    try { await overrideValuation(asset.asset_id, Number(pct), reason || null); setEditing(false); onChanged() }
+    finally { setBusy(false) }
+  }
+  async function clear() {
+    setBusy(true)
+    try { await clearValuationOverride(asset.asset_id); onChanged() }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <section className="rounded-2xl border border-gray-200 p-4">
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-400">
+        <Landmark size={13} /> Lending decision
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[13px] text-gray-500">Recommended valuation discount</div>
+          <div className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">{valuation.recommended_discount_pct}%</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[13px] text-gray-500">Discounted value</div>
+          <div className="text-lg font-semibold text-[#1d1d1f]">{euroM(valuation.discounted_value_eur)}</div>
+        </div>
+      </div>
+
+      {valuation.is_overridden && !editing && (
+        <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          Overridden to <b>{valuation.override.discount_pct}%</b> on {String(valuation.override.overridden_at).slice(0, 10)}
+          {valuation.override.reason && <> — “{valuation.override.reason}”</>}
+        </div>
+      )}
+
+      {canOverride && !editing && (
+        <button onClick={() => { setPct(valuation.effective_discount_pct); setEditing(true) }}
+          className="mt-3 text-[12px] font-medium text-[#0071e3] hover:underline">
+          {valuation.is_overridden ? 'Change override' : 'Override discount'}
+        </button>
+      )}
+
+      {editing && (
+        <div className="mt-3 space-y-2 rounded-xl bg-gray-50 p-3">
+          <label className="block text-[11px] text-gray-500">Override discount (%)</label>
+          <input type="number" min={0} max={100} step={0.5} value={pct} onChange={e => setPct(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-[13px] outline-none focus:border-[#0071e3]" />
+          <label className="block text-[11px] text-gray-500">Reason (optional)</label>
+          <input type="text" value={reason} onChange={e => setReason(e.target.value)}
+            placeholder="e.g. credit committee adjustment"
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-[13px] outline-none focus:border-[#0071e3]" />
+          <div className="flex gap-2 pt-1">
+            <button onClick={save} disabled={busy}
+              className="rounded-full bg-[#0071e3] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50">
+              {busy ? <Loader2 size={13} className="animate-spin" /> : 'Save override'}
+            </button>
+            {valuation.is_overridden && (
+              <button onClick={clear} disabled={busy} className="rounded-full border border-gray-200 px-3 py-1.5 text-[12px] text-gray-600">
+                Revert to recommended
+              </button>
+            )}
+            <button onClick={() => setEditing(false)} className="rounded-full px-3 py-1.5 text-[12px] text-gray-400">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {audit?.length > 0 && (
+        <details className="mt-3 text-[11px] text-gray-400">
+          <summary className="cursor-pointer hover:text-gray-600">Override history ({audit.length})</summary>
+          <div className="mt-1.5 space-y-1">
+            {audit.map((e, i) => (
+              <div key={i}>
+                {String(e.created_at).slice(0, 19).replace('T', ' ')} · {e.action} ·
+                {' '}{e.detail?.from_pct ?? '—'}% → {e.detail?.to_pct ?? '—'}%
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  )
+}
 
 function Facts({ title, rows }) {
   return (

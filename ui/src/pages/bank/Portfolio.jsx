@@ -1,24 +1,26 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ArrowUpDown } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom from '../../components/RiskAtom'
 import AssetDrawer from '../../components/AssetDrawer'
-import { fetchPortfolio } from '../../api/client'
+import UploadPanel from '../../components/UploadPanel'
+import { fetchPortfolio, uploadBankAssets } from '../../api/client'
 
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 const HAZ_COLS = ['flood', 'wildfire', 'volcanic', 'storm']
+const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'asset_value_eur', 'sector', 'region', 'country']
 
-export default function Portfolio() {
+export default function Portfolio({ auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
   const [sel, setSel] = useState(null)
   const [sort, setSort] = useState({ key: 'risk', dir: -1 })
 
-  useEffect(() => {
-    setData(null)
+  const reload = useCallback(() => {
     fetchPortfolio({ scenario, horizon }).then(setData).catch(() => setData({ assets: [], rollup: {} }))
   }, [scenario, horizon])
+  useEffect(() => { setData(null); reload() }, [reload])
 
   const assets = useMemo(() => {
     const list = [...(data?.assets || [])]
@@ -50,6 +52,8 @@ export default function Portfolio() {
               <span className="font-medium text-[#c2410c]"> {euroM(r.value_at_risk_eur)} ({r.pct_value_at_risk}%) at High+ risk</span>
             </p>
           </div>
+          <UploadPanel uploadFn={uploadBankAssets} templateColumns={TEMPLATE_COLUMNS}
+            templateFilename="bank_assets_template.csv" label="Import assets" onUploaded={reload} />
         </header>
 
         <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm">
@@ -90,7 +94,7 @@ export default function Portfolio() {
         </div>
       </div>
 
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} />
     </div>
   )
 }

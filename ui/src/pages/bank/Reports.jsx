@@ -11,10 +11,13 @@ const HAZ_ICON = { flood: Waves, wildfire: Flame, volcanic: Mountain, storm: Win
 const TAX = [['aligned', 'Aligned', '#34c759'], ['eligible', 'Eligible', '#ff9500'], ['not_eligible', 'Not eligible', '#86868b']]
 
 function exportCsv(assets) {
-  const head = ['asset_name', 'sector', 'country', 'value_eur', 'headline_score', 'risk_bucket', 'taxonomy_status', 'h3_cell']
+  const head = ['asset_name', 'sector', 'country', 'value_eur', 'headline_score', 'risk_bucket', 'taxonomy_status', 'h3_cell',
+    'recommended_discount_pct', 'effective_discount_pct', 'discounted_value_eur', 'overridden']
   const rows = [head, ...assets.map(a => [
     a.asset_name, a.sector, a.country, a.value_eur, a.headline_score ?? '',
     a.headline_bucket ?? 'unscored', a.taxonomy_status ?? '', a.h3_cell,
+    a.valuation?.recommended_discount_pct ?? '', a.valuation?.effective_discount_pct ?? '',
+    a.valuation?.discounted_value_eur ?? '', a.valuation?.is_overridden ? 'yes' : 'no',
   ])]
   const csv = rows.map(r => r.map(x => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))

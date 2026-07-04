@@ -12,15 +12,21 @@ governance rule as every other hazard-projected book here.
 """
 from __future__ import annotations
 
+import io
+import uuid
 from collections import defaultdict
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query
+import h3
+import pandas as pd
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 
-from api.deps import DbSession
+from api.deps import CurrentUser, DbSession
+from api.services.rbac import write_audit
 from ml.scoring.insurance_pricing import price_policy
+from services.scoring.on_demand import process_new_cells
 
 router = APIRouter(prefix="/v1/insurance", tags=["Insurance"])
 
@@ -129,3 +135,61 @@ def summary(session: DbSession, org_id: OrgId,
     ), {"o": org_id}).mappings().first()
     policies = _policies_with_risk(session, org_id, scenario, horizon)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies)}
+
+
+REQUIRED_POLICY_COLUMNS = ["policy_name", "latitude", "longitude", "sum_insured_eur"]
+
+
+@router.post("/policies/upload", summary="Bulk-upload policies from a CSV into your property book")
+async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Same shape as bank.py's assets/upload and supply.py's plots/upload: lands
+    in the uploader's OWN org, resolves an H3 cell per row, then processes new
+    cells against the golden source via the shared
+    services.scoring.on_demand.process_new_cells."""
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    raw = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+
+    missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
+
+    org_id = ctx["org"]["org_id"]
+    records, cell_coords = [], {}
+    for _, row in df.iterrows():
+        try:
+            lat, lon = float(row["latitude"]), float(row["longitude"])
+            sum_insured = float(row["sum_insured_eur"])
+        except (TypeError, ValueError):
+            continue
+        cell = h3.latlng_to_cell(lat, lon, 8)
+        cell_coords[cell] = (lat, lon)
+        records.append({
+            "policy_id": str(uuid.uuid4()), "org_id": org_id,
+            "policy_name": str(row["policy_name"]),
+            "policy_type": str(row["policy_type"]) if "policy_type" in df.columns and pd.notna(row.get("policy_type")) else "property",
+            "latitude": lat, "longitude": lon, "h3_cell": cell,
+            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
+            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
+            "sum_insured_eur": sum_insured,
+            "deductible_pct": float(row["deductible_pct"]) if "deductible_pct" in df.columns and pd.notna(row.get("deductible_pct")) else 0.02,
+        })
+    if not records:
+        raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
+
+    session.execute(text("""
+        INSERT INTO insurance_policies (policy_id, org_id, policy_name, policy_type, latitude, longitude,
+                                         h3_cell, region, country, sum_insured_eur, deductible_pct)
+        VALUES (:policy_id, :org_id, :policy_name, :policy_type, :latitude, :longitude,
+                :h3_cell, :region, :country, :sum_insured_eur, :deductible_pct)
+    """), records)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
+                target_type="insurance_policies", target_id=None,
+                detail={"n_rows": len(records), "filename": file.filename})
+
+    processing = process_new_cells(cell_coords)
+    return {"n_uploaded": len(records), **processing}
