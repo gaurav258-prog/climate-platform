@@ -1,0 +1,92 @@
+"""
+Insurance underwriting — "expected loss and premium from the score" (the
+Loss-curve pricing service catalog.js has advertised since the catalog was
+first written, previously a workflow=null placeholder with nothing behind it).
+
+Three steps, each grounded in a named, citable convention rather than
+invented from scratch:
+
+1. Risk score -> Mean Damage Ratio (MDR): the fraction of insured value lost
+   IF the location's worst on-record hazard scenario recurs. Uses the
+   sigmoid impact-function form popularised by Emanuel (2011) for tropical-
+   cyclone wind damage and now the default vulnerability-curve shape in
+   CLIMADA (ETH Zurich's open-source climate risk model): MDD(v) = v^3 /
+   (1 + v^3), where v=1 is the "half-damage point" (MDD=0.5) and MDD -> 1 as
+   v grows. CLIMADA fits v from a physical hazard intensity (e.g. wind
+   speed) calibrated per peril; this platform's canonical risk_score is
+   already a cross-hazard 0-100 severity currency (see every hazard's
+   score_to_bucket), so v = score / HALF_DAMAGE_SCORE substitutes for it
+   directly. HALF_DAMAGE_SCORE=65 reuses score_to_bucket's existing
+   High/Very-High boundary as the half-damage anchor rather than fitting a
+   new one with no loss data to fit against.
+
+   sum_insured * MDR is a SCENARIO loss (a Probable-Maximum-Loss-style
+   figure: "what this policy loses if its worst-known event recurs"), NOT
+   yet an annual expected loss -- most of this platform's risk_scores are
+   themselves severity-of-worst-known-event numbers (e.g. seismic's worst
+   nearby M>=5 quake, storm's worst nearby track), not annual probabilities.
+   Conflating the two would silently inflate premiums (a "High" score would
+   imply a >=50% ANNUAL loss rate, which is not what "High severity, IF it
+   happens" means) -- caught by sanity-checking a first draft of this module
+   against realistic real-world cat-insurance rate-on-line figures before
+   shipping it, not assumed correct on the first pass.
+
+2. Scenario loss -> Expected Annual Loss (EAL) via an annual occurrence
+   probability, using the same return-period tiers real flood/wind risk
+   mapping already standardises on (e.g. FEMA's 100-year floodplain, ASCE-7
+   wind-hazard return periods) -- RETURN_PERIOD_YEARS below maps this
+   platform's own L/M/H/VH buckets to a 1-in-200 / 1-in-50 / 1-in-20 /
+   1-in-10-year assumption. **Disclosed simplification**: a real return
+   period would be fitted per hazard/location from an event catalog (this
+   platform doesn't have one yet for most hazards); a flat per-bucket tier
+   is a stated placeholder, not a claim of fitted frequency data.
+
+3. Expected Annual Loss -> premium via the Casualty Actuarial Society's
+   loss-cost-multiplier ratemaking method: Gross Premium = Pure Premium /
+   (1 - expense_ratio - profit_margin), where Pure Premium = Expected Annual
+   Loss (CAS Statement of Principles Regarding P&C Ratemaking, Principle 2).
+   EXPENSE_RATIO=0.25 / PROFIT_MARGIN=0.05 are disclosed, round assumptions
+   consistent with typical P&C combined-ratio targets (~70-75% loss ratio),
+   not a fitted or sourced figure for any real insurer.
+"""
+from __future__ import annotations
+
+from core.types import score_to_bucket
+
+HALF_DAMAGE_SCORE = 65.0  # score_to_bucket's High/Very-High boundary — see module docstring
+EXPENSE_RATIO = 0.25
+PROFIT_MARGIN = 0.05
+
+# Bucket -> assumed annual occurrence probability of the scored worst-case
+# scenario recurring (1/return-period-years). See module docstring, step 2.
+RETURN_PERIOD_YEARS = {"L": 200, "M": 50, "H": 20, "VH": 10}
+
+
+def mean_damage_ratio(risk_score: float) -> float:
+    """Emanuel(2011)/CLIMADA-style sigmoid: 0 at score=0, 0.5 at HALF_DAMAGE_SCORE,
+    asymptotic to 1.0 for very severe scores."""
+    v = max(0.0, risk_score) / HALF_DAMAGE_SCORE
+    return v**3 / (1.0 + v**3)
+
+
+def price_policy(risk_score: float, sum_insured_eur: float) -> dict:
+    """Returns {mdr, scenario_loss_eur, annual_occurrence_prob, expected_annual_loss_eur,
+    pure_premium_eur, gross_premium_eur, rate_on_line_pct, risk_bucket} — the full
+    "score -> scenario loss -> annualized loss -> premium" chain, everything
+    traceable back to the single risk_score input."""
+    bucket = score_to_bucket(risk_score).value
+    mdr = mean_damage_ratio(risk_score)
+    scenario_loss = sum_insured_eur * mdr
+    annual_prob = 1.0 / RETURN_PERIOD_YEARS.get(bucket, RETURN_PERIOD_YEARS["L"])
+    eal = scenario_loss * annual_prob
+    gross_premium = eal / (1.0 - EXPENSE_RATIO - PROFIT_MARGIN)
+    return {
+        "mdr": round(mdr, 4),
+        "scenario_loss_eur": round(scenario_loss, 2),
+        "annual_occurrence_prob": annual_prob,
+        "expected_annual_loss_eur": round(eal, 2),
+        "pure_premium_eur": round(eal, 2),
+        "gross_premium_eur": round(gross_premium, 2),
+        "rate_on_line_pct": round(100 * gross_premium / sum_insured_eur, 3) if sum_insured_eur else 0.0,
+        "risk_bucket": bucket,
+    }

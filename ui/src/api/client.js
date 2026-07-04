@@ -144,6 +144,14 @@ export async function fetchDisclosure({ scenario = 'baseline', horizon = 'curren
   return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
 }
 
+// ── Insurance (Loss-curve pricing) ────────────────────────────────────────
+
+/** Property book → loss-curve pricing rollup: { org, rollup:{ n_policies, total_sum_insured_eur,
+ * total_expected_annual_loss_eur, total_gross_premium_eur, by_bucket, top_policies } }. */
+export async function fetchInsuranceSummary({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/insurance/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
 
 /** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */
@@ -169,6 +177,16 @@ export async function fetchSupplyValidation() {
 /** Ag hazard models + per-commodity calibration status: { hazard_models, commodities, frost_note }. */
 export async function fetchSupplyModels() {
   return get('/v1/supply/models')
+}
+
+/** Early-warning alerts: { n_alerts, alerts:[...], pending:[...] }. */
+export async function fetchSupplySignals({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/supply/signals?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** EUDR overlay + CSRD pack: { rollup, csrd:[...], eudr:{summary, plots} }. */
+export async function fetchSupplyDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/supply/disclosure?scenario=${scenario}&horizon=${horizon}`)
 }
 
 // ── Auth (user login sessions) ────────────────────────────────────────────

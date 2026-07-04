@@ -85,7 +85,7 @@ export const CATALOG = {
         id: 'underwriting', label: 'Underwriting', icon: 'file-search',
         blurb: 'Price physical risk into the book.',
         services: [
-          { id: 'pricing', label: 'Loss-curve pricing', icon: 'chart-line', workflow: null,
+          { id: 'pricing', label: 'Loss-curve pricing', icon: 'chart-line', workflow: 'LossCurvePricing',
             blurb: 'Expected loss and premium from the score.', processes: ['Project', 'Loss curve', 'Price'] },
         ],
       },
