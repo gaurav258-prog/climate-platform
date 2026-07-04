@@ -68,12 +68,11 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
       {/* hero */}
       <LiveEarthHero height="92vh" showCaption={false}>
         <h1 className="text-5xl font-light leading-[1.05] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)] md:text-7xl">
-          One climate-risk engine.<br /><span className="text-sky-300">Every sector.</span>
+          One score. Every disaster.<br /><span className="text-sky-300">Any place on Earth.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-white/85 drop-shadow-[0_1px_12px_rgba(0,0,0,0.6)]">
-          We turn live satellite, weather and seismic data into a single forward-looking risk score
-          for any place on Earth — so your business can see what’s coming, disclose with confidence,
-          and act early.
+          Tellumen turns live satellite and sensor data into one simple number that tells you how
+          safe — or how risky — any place on the planet is, right now and in the future.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Btn primary onClick={onLookup}>Check an address <ArrowRight size={16} /></Btn>

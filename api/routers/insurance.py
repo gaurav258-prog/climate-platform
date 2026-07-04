@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -22,11 +23,14 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
+from core.types import HAZARD_VALUES
 from ml.scoring.insurance_pricing import price_policy
+from ml.scoring.parametric_trigger import trigger_block
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -82,11 +86,26 @@ def _policies_with_risk(session, org_id, scenario, horizon):
             "scored_at": r["scored_at"],
         })
 
+    trigger_rows = session.execute(text("""
+        SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
+               CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
+        FROM insurance_policy_triggers WHERE policy_id IN (
+            SELECT policy_id FROM insurance_policies WHERE org_id = :o
+        )
+    """), {"o": org_id}).mappings().all()
+    trigger_by_policy = {t["policy_id"]: dict(t) for t in trigger_rows}
+
     out = []
     for p in policies:
         hz = sorted(by_policy.get(p["policy_id"], []), key=lambda x: -x["score"])
         headline = hz[0] if hz else None
         pricing = price_policy(headline["score"], p["sum_insured_eur"]) if headline else None
+        cfg = trigger_by_policy.get(p["policy_id"])
+        trigger = None
+        if cfg:
+            hz_score = next((h["score"] for h in hz if h["hazard"] == cfg["hazard_type"]), None)
+            trigger = trigger_block(cfg["hazard_type"], hz_score, cfg["attachment_score"], cfg["exhaustion_score"],
+                                     p["sum_insured_eur"], cfg["updated_by"], cfg["updated_at"])
         out.append({
             **{k: p[k] for k in p.keys()},
             "hazards": hz,
@@ -94,6 +113,7 @@ def _policies_with_risk(session, org_id, scenario, horizon):
             "headline_bucket": headline["bucket"] if headline else None,
             "headline_hazard": headline["hazard"] if headline else None,
             "pricing": pricing,
+            "trigger": trigger,
         })
     return out
 
@@ -141,6 +161,68 @@ def summary(session: DbSession, org_id: OrgId,
     ), {"o": org_id}).mappings().first()
     policies = _policies_with_risk(session, org_id, scenario, horizon)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies)}
+
+
+@router.get("/triggers", summary="Parametric trigger monitoring — live payout status across the book")
+def triggers(session: DbSession, org_id: OrgId,
+             scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """No claims process: a policy's configured hazard score crossing its
+    attachment/exhaustion band (ml/scoring/parametric_trigger.py) IS the payout
+    decision, computed live off the same canonical_scores every other insurance
+    view reads -- 'automatic payout the moment real data crosses a threshold'."""
+    org = session.execute(text(
+        "SELECT name, type, country FROM organizations WHERE org_id = :o"
+    ), {"o": org_id}).mappings().first()
+    policies = _policies_with_risk(session, org_id, scenario, horizon)
+    configured = [p for p in policies if p["trigger"]]
+    triggered_now = [p for p in configured if p["trigger"]["is_triggered"]]
+    return {
+        "org_id": org_id, "org": dict(org) if org else None,
+        "rollup": {
+            "n_configured": len(configured),
+            "n_triggered_now": len(triggered_now),
+            "total_payout_if_triggered_eur": round(sum(p["trigger"]["payout_eur"] for p in triggered_now)),
+        },
+        "triggered_now": sorted(triggered_now, key=lambda p: -p["trigger"]["payout_pct"]),
+        "configured": sorted(configured, key=lambda p: -p["trigger"]["payout_pct"]),
+    }
+
+
+class TriggerConfigRequest(BaseModel):
+    hazard_type: str
+    attachment_score: float = Field(..., ge=0, le=100)
+    exhaustion_score: float = Field(..., ge=0, le=100)
+
+
+@router.post("/policies/{policy_id}/trigger-config", summary="Set/update a policy's parametric trigger band (audited)")
+def set_trigger_config(policy_id: str, body: TriggerConfigRequest, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    if body.hazard_type not in HAZARD_VALUES:
+        raise HTTPException(status_code=400, detail=f"unknown hazard '{body.hazard_type}'. Canonical values: {HAZARD_VALUES}")
+    if body.exhaustion_score <= body.attachment_score:
+        raise HTTPException(status_code=400, detail="exhaustion_score must be greater than attachment_score")
+    policy = session.execute(text("SELECT org_id::text AS org_id FROM insurance_policies WHERE policy_id = :p"), {"p": policy_id}).mappings().first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="policy not found")
+    if policy["org_id"] != ctx["org"]["org_id"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Policy does not belong to your organization"})
+
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        INSERT INTO insurance_policy_triggers (policy_id, hazard_type, attachment_score, exhaustion_score, updated_by, updated_at)
+        VALUES (:p, :h, :a, :e, :u, :now)
+        ON CONFLICT (policy_id) DO UPDATE
+            SET hazard_type = EXCLUDED.hazard_type, attachment_score = EXCLUDED.attachment_score,
+                exhaustion_score = EXCLUDED.exhaustion_score, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at
+    """), {"p": policy_id, "h": body.hazard_type, "a": body.attachment_score, "e": body.exhaustion_score,
+           "u": ctx["user"]["id"], "now": now})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="policy.trigger_config.set", target_type="insurance_policy", target_id=policy_id,
+                detail={"hazard_type": body.hazard_type, "attachment_score": body.attachment_score,
+                        "exhaustion_score": body.exhaustion_score})
+    return {"policy_id": policy_id, "hazard_type": body.hazard_type,
+            "attachment_score": body.attachment_score, "exhaustion_score": body.exhaustion_score}
 
 
 # A real Statement of Values (SOV, the ACORD 140-style format insurers/reinsurers

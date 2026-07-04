@@ -93,7 +93,7 @@ export const CATALOG = {
         id: 'parametric', label: 'Parametric', icon: 'bolt',
         blurb: 'Event-triggered payouts.',
         services: [
-          { id: 'triggers', label: 'Trigger monitoring', icon: 'radio', workflow: null,
+          { id: 'triggers', label: 'Trigger monitoring', icon: 'radio', workflow: 'ParametricTriggers',
             blurb: 'Live events vs policy thresholds.', processes: ['Monitor', 'Match', 'Trigger'] },
         ],
       },

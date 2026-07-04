@@ -202,6 +202,18 @@ export async function uploadInsurancePolicies(file) {
   return postFile('/v1/insurance/policies/upload', file)
 }
 
+/** Parametric trigger monitoring: { org, rollup:{n_configured, n_triggered_now,
+ * total_payout_if_triggered_eur}, triggered_now:[...], configured:[...] }. */
+export async function fetchInsuranceTriggers({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/insurance/triggers?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Set/update a policy's parametric trigger band (requires pricing.approve). */
+export async function setTriggerConfig(policyId, hazardType, attachmentScore, exhaustionScore) {
+  return post(`/v1/insurance/policies/${policyId}/trigger-config`,
+    { hazard_type: hazardType, attachment_score: attachmentScore, exhaustion_score: exhaustionScore })
+}
+
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
 
 /** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */
