@@ -28,10 +28,17 @@ cost:
   - pollution/wildfire/heat_acute/drought follow the same Celery job path as flood
     (scripts.score_point_gridded_on_demand / score_heat_on_demand / score_drought_on_demand,
     wrapped as tasks in services.tasks.hazard_tasks).
-  - volcanic/storm outside their curated backtest regions still report
-    'insufficient_data' — they need a live global event catalog, not just a
-    point-scoring function, to go beyond their backtest regions — a genuinely
-    bigger lift, not an oversight.
+  - storm ALSO scores synchronously (scripts.score_point_on_demand.score_storm_point) —
+    reuses the EXISTING Modified Rankine Vortex physics (ml/scoring/storm_physics.py),
+    which already generalizes to any storm without per-storm hand-curation. Needed a
+    real global IBTrACS ingestion first (scripts/ingest_ibtracs_global.py — all 6
+    ocean basins, last 10 years, tropical-storm-strength and up, 966 storms/35,846
+    track points), replacing the single-storm Hurricane Maria backtest data that used
+    to be all that existed in storm_events.
+  - volcanic outside its curated backtest regions still reports 'insufficient_data' —
+    unlike storm, its hazard zones (proximal/ashfall radii) are hand-curated per-volcano
+    from published papers with no generic fallback formula decided yet, a genuinely
+    harder problem than storm's fully-physics-based generalization.
 
 The response also carries `overall` (OverallRisk) — the actual "ONE easy number" the
 platform's own pitch promises, computed as the MAX across every hazard scored for this
@@ -58,13 +65,16 @@ from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
 from services.tasks.hazard_tasks import HAZARD_TASKS
-from scripts.score_point_on_demand import score_seismic_point
+from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from ml.features.heat_chronic_point import score_heat_chronic_point
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
 # Hazards scored synchronously, in-request (cheap: no external fetch needed).
-SYNC_ON_DEMAND_SCORERS = {"seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point}
+SYNC_ON_DEMAND_SCORERS = {
+    "seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point,
+    "storm": score_storm_point,
+}
 
 # Hazards that need a real data fetch, run as a Celery job (see module docstring).
 GRIDDED_ON_DEMAND_SCORERS = HAZARD_TASKS
