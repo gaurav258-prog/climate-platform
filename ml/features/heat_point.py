@@ -68,8 +68,19 @@ ERA5_LAND_LAG_DAYS = 7  # empirically confirmed live (2026-07-04): a bare date.t
 def fetch_era5_land(area: list[float], day: date = None) -> xr.Dataset:
     """One CDS request for a single day's 2m temperature over `area` [N,W,S,E].
 
-    Single variable, single day/time (unlike flood's 8-day window) — this is
-    just "what's the temperature right now," so the simplest possible fetch.
+    Fetches 4 synoptic hours (00/06/12/18 UTC), NOT a single snapshot — a real
+    bug, found and fixed live (2026-07-04): a single "12:00" reading was being
+    compared against climatology_baseline's temp_mean_k, which is ECMWF's
+    "monthly mean of daily means" (confirmed empirically: requesting that same
+    monthly-means dataset at "12:00" is REJECTED with MarsNoDataError — "00:00"
+    is just how the archive labels an already-full-day-averaged value, not a
+    midnight reading). Comparing an afternoon snapshot against a day-and-night
+    average made EVERY sunny summer afternoon look like an extreme anomaly,
+    everywhere, regardless of any real heatwave (caught on a real Frankfurt
+    query: 37C afternoon vs 17.6C day-night July mean -> saturated to 100).
+    Averaging the same 4 hours flood/wildfire already fetch makes "today" and
+    the baseline comparable quantities — both a full-day mean, not a mean vs a
+    peak.
     """
     import cdsapi
     day = day or date.today()
@@ -81,7 +92,7 @@ def fetch_era5_land(area: list[float], day: date = None) -> xr.Dataset:
         "year": [str(day.year)],
         "month": [f"{day.month:02d}"],
         "day": [f"{day.day:02d}"],
-        "time": ["12:00"],
+        "time": ["00:00", "06:00", "12:00", "18:00"],
         "area": area,
         "format": "netcdf",
     }, tmp.name)
@@ -98,20 +109,20 @@ def fetch_era5_land(area: list[float], day: date = None) -> xr.Dataset:
 
 
 def compute_features(ds: xr.Dataset) -> pd.DataFrame:
-    """ERA5-Land dataset -> one row per H3 cell with today's temp_c."""
+    """ERA5-Land dataset -> one row per H3 cell with today's MEAN temp_c across
+    the 4 fetched hours — comparable to climatology_baseline's own day-and-
+    night mean, not a single afternoon snapshot (see fetch_era5_land's
+    docstring for why that distinction is load-bearing, not cosmetic)."""
     tvar = "valid_time" if "valid_time" in ds else "time"
     lat = ds["latitude"].values
     lon = ds["longitude"].values
     t2m = ds["t2m"]
-    # single timestep requested, but be defensive if the API returns a small
-    # stack — take the last (most recent) slice, same convention as flood_era5's
-    # sw_last/ro_last.
-    t2m_last = (t2m.isel({tvar: -1}).values if tvar in t2m.dims else t2m.values)
+    t2m_mean = (t2m.mean(dim=tvar).values if tvar in t2m.dims else t2m.values)
 
     rows = []
     for i, la in enumerate(lat):
         for j, lo in enumerate(lon):
-            val_k = float(t2m_last[i, j])
+            val_k = float(t2m_mean[i, j])
             if np.isnan(val_k):
                 continue
             rows.append({

@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     COPERNICUS_USER: str = ""
     COPERNICUS_PASSWORD: str = ""
 
+    # Redis — Celery broker + result backend for the gridded on-demand hazard
+    # jobs (durability upgrade from FastAPI BackgroundTasks; see services/tasks/).
+    # Was already in .env but never actually declared here, so it was silently
+    # ignored by pydantic-settings (extra="ignore") — a real orphaned config
+    # value, not a working integration, until now.
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     # Copernicus Climate Data Store (ERA5, GloFAS)
     CDSAPI_URL: str = "https://cds.climate.copernicus.eu/api"
     CDSAPI_KEY: str = ""

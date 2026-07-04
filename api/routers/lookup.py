@@ -8,17 +8,20 @@ for every hazard. A cache hit returns instantly. A cache miss is handled per-haz
 cost:
   - seismic scores synchronously in-request (scripts.score_point_on_demand — the
     global USGS catalog is already ingested, no external fetch needed).
-  - flood kicks off a background job (scripts.score_point_gridded_on_demand) since it
-    needs a real Copernicus CDS fetch, which this project's own experience shows takes
-    2-14 minutes to queue — the response returns 'pending' + a lookup_id immediately;
-    poll GET /v1/lookup/score/{lookup_id} until it resolves. FastAPI's built-in
-    BackgroundTasks is used deliberately as the SMALLEST viable step: no new
-    dependency (already part of the fastapi package this project uses), at the cost
-    of no retry/durability if the server restarts mid-job. Celery/SQS+Redis is the
-    correct upgrade path if this gets real traffic — not built here, flagged not
-    silently assumed away.
-  - pollution/wildfire/heat_acute/drought follow the same gridded-job path as flood
-    (scripts.score_point_gridded_on_demand / score_heat_on_demand / score_drought_on_demand).
+  - flood kicks off a Celery job (services.tasks.hazard_tasks) since it needs a real
+    Copernicus CDS fetch, which this project's own experience shows takes 2-14 minutes
+    to queue — the response returns 'pending' + a lookup_id immediately; poll GET
+    /v1/lookup/score/{lookup_id} until it resolves. Originally built on FastAPI's
+    in-process BackgroundTasks (the smallest viable step, no new dependency) —
+    migrated to Celery+Redis for durability: a job now survives an API server
+    restart (a separate worker process executes it, Redis persists the queue), which
+    BackgroundTasks genuinely could not do. This does NOT make the external CDS/ADS/
+    FIRMS queue times themselves any faster — that latency is the other side's, not
+    ours to optimize away. Run the worker separately:
+        .venv/bin/celery -A services.tasks.celery_app worker --loglevel=info
+  - pollution/wildfire/heat_acute/drought follow the same Celery job path as flood
+    (scripts.score_point_gridded_on_demand / score_heat_on_demand / score_drought_on_demand,
+    wrapped as tasks in services.tasks.hazard_tasks).
   - heat_chronic and volcanic/storm outside their curated backtest regions still
     report 'insufficient_data' — heat_chronic has no methodology defined anywhere in
     this project yet (not just "not wired here"); volcanic/storm need a live global
@@ -41,7 +44,7 @@ import uuid
 from typing import Optional
 
 import h3
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 
 from api.deps import DbSession
@@ -49,21 +52,16 @@ from api.schemas.lookup import HazardLookupResult, LookupResponse, OverallRisk, 
 from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
+from services.tasks.hazard_tasks import HAZARD_TASKS
 from scripts.score_point_on_demand import score_seismic_point
-from scripts.score_point_gridded_on_demand import run_flood_lookup, run_pollution_lookup, run_wildfire_lookup
-from scripts.score_heat_on_demand import run_heat_lookup
-from scripts.score_drought_on_demand import run_drought_lookup
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
 # Hazards scored synchronously, in-request (cheap: no external fetch needed).
 SYNC_ON_DEMAND_SCORERS = {"seismic": score_seismic_point}
 
-# Hazards that need a real data fetch, run as a background job (see module docstring).
-GRIDDED_ON_DEMAND_SCORERS = {
-    "flood": run_flood_lookup, "pollution": run_pollution_lookup, "wildfire": run_wildfire_lookup,
-    "heat_acute": run_heat_lookup, "drought": run_drought_lookup,
-}
+# Hazards that need a real data fetch, run as a Celery job (see module docstring).
+GRIDDED_ON_DEMAND_SCORERS = HAZARD_TASKS
 
 
 def _compute_overall(session, cell: str) -> OverallRisk:
@@ -110,7 +108,6 @@ def _compute_overall(session, cell: str) -> OverallRisk:
 @router.get("/score", response_model=LookupResponse, summary="Look up hazard scores for any address or coordinates")
 def lookup_score(
     session: DbSession,
-    background_tasks: BackgroundTasks,
     address: Optional[str] = Query(default=None, description="Free-text address, geocoded via Nominatim"),
     lat: Optional[float] = Query(default=None, ge=-90, le=90),
     lon: Optional[float] = Query(default=None, ge=-180, le=180),
@@ -155,22 +152,17 @@ def lookup_score(
         gridded_job = GRIDDED_ON_DEMAND_SCORERS.get(hazard)
         if gridded_job:
             job_id = str(uuid.uuid4())
-            # Deliberately NOT using the request-scoped `session` here: FastAPI runs
-            # BackgroundTasks BEFORE a Depends(yield) dependency's cleanup commits
-            # (see fastapi.routing.request_response — `await response(...)`, which
-            # executes background tasks, happens INSIDE the dependency's AsyncExitStack,
-            # not after it). If this INSERT rode on `session`, the background job would
-            # start querying `public_lookups` for a row that isn't committed yet -- a
-            # real bug caught live in this project (rowcount=0 on the job's own UPDATE,
-            # confirmed via direct instrumentation, not assumed). A short-lived,
-            # immediately-committing session guarantees the row exists before the
-            # background task can possibly run.
+            # Immediately-committing session, not the request-scoped one: the Celery
+            # worker is a SEPARATE PROCESS that could start executing this job before
+            # our own request's transaction commits (the same class of visibility bug
+            # BackgroundTasks hit here previously — a real, live-confirmed race, not
+            # a hypothetical). Guarantee the row exists before the job can run.
             with get_session() as immediate:
                 immediate.execute(text("""
                     INSERT INTO public_lookups (lookup_id, raw_address, latitude, longitude, h3_cell_r8, hazard_type, status)
                     VALUES (:id, :addr, :lat, :lon, :cell, :hazard, 'computing')
                 """), {"id": job_id, "addr": address, "lat": lat, "lon": lon, "cell": cell, "hazard": hazard})
-            background_tasks.add_task(gridded_job, job_id, lat, lon)
+            gridded_job.delay(job_id, lat, lon)
             results.append(HazardLookupResult(hazard_type=hazard, status="pending", lookup_id=job_id))
             continue
 
