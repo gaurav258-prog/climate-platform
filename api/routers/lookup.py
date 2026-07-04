@@ -8,6 +8,12 @@ for every hazard. A cache hit returns instantly. A cache miss is handled per-haz
 cost:
   - seismic scores synchronously in-request (scripts.score_point_on_demand — the
     global USGS catalog is already ingested, no external fetch needed).
+  - heat_chronic ALSO scores synchronously (ml.features.heat_chronic_point) — unlike
+    heat_acute, it's a pure function of the 30-year climatology_baseline table already
+    built, no live CDS fetch needed, so it's the same cost tier as seismic, not a
+    background job. Methodology: expected days/year where mean temperature exceeds
+    the C3S "Hot Days" 30C reference (disclosed as a mean-temp proxy for C3S's own
+    max-temp definition — see ml/scoring/heat_chronic.py).
   - flood kicks off a Celery job (services.tasks.hazard_tasks) since it needs a real
     Copernicus CDS fetch, which this project's own experience shows takes 2-14 minutes
     to queue — the response returns 'pending' + a lookup_id immediately; poll GET
@@ -22,11 +28,10 @@ cost:
   - pollution/wildfire/heat_acute/drought follow the same Celery job path as flood
     (scripts.score_point_gridded_on_demand / score_heat_on_demand / score_drought_on_demand,
     wrapped as tasks in services.tasks.hazard_tasks).
-  - heat_chronic and volcanic/storm outside their curated backtest regions still
-    report 'insufficient_data' — heat_chronic has no methodology defined anywhere in
-    this project yet (not just "not wired here"); volcanic/storm need a live global
-    event catalog, not just a point-scoring function, to go beyond their backtest
-    regions — genuinely bigger lifts, not oversights.
+  - volcanic/storm outside their curated backtest regions still report
+    'insufficient_data' — they need a live global event catalog, not just a
+    point-scoring function, to go beyond their backtest regions — a genuinely
+    bigger lift, not an oversight.
 
 The response also carries `overall` (OverallRisk) — the actual "ONE easy number" the
 platform's own pitch promises, computed as the MAX across every hazard scored for this
@@ -54,11 +59,12 @@ from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
 from services.tasks.hazard_tasks import HAZARD_TASKS
 from scripts.score_point_on_demand import score_seismic_point
+from ml.features.heat_chronic_point import score_heat_chronic_point
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
 # Hazards scored synchronously, in-request (cheap: no external fetch needed).
-SYNC_ON_DEMAND_SCORERS = {"seismic": score_seismic_point}
+SYNC_ON_DEMAND_SCORERS = {"seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point}
 
 # Hazards that need a real data fetch, run as a Celery job (see module docstring).
 GRIDDED_ON_DEMAND_SCORERS = HAZARD_TASKS
