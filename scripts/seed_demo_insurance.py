@@ -54,16 +54,28 @@ def scored_cells_in_iberia(session, hazard, limit):
     return out
 
 
+CONSTRUCTION_TYPES = ["frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"]
+
+
 def make_policy(lat, lon, h3_cell, region, name_hint=None):
     ptype, (vmin, vmax), ded = random.choice(POLICY_TYPES)
-    sum_insured = round(random.uniform(vmin, vmax), 2) * 1_000_000
+    tiv = round(random.uniform(vmin, vmax), 2) * 1_000_000
     country = "PT" if lon < -6.5 else "ES"
+    # Real Statement-of-Values shape: TIV split into building/contents/business
+    # interruption (see ml/scoring/insurance_pricing.py / services/templates/workbook.py's
+    # SOV template), not one lump figure -- roughly 75/15/10% split, a real-world rule of thumb.
+    building = round(tiv * 0.75, 2)
+    contents = round(tiv * 0.15, 2)
+    bi = round(tiv - building - contents, 2)
     return {
         "policy_id": str(uuid.uuid4()), "org_id": IBERIA,
         "policy_name": name_hint or f"{region} {ptype} {random.randint(1, 999)}",
         "policy_type": ptype, "latitude": round(lat, 5), "longitude": round(lon, 5),
         "h3_cell": h3_cell, "country": country, "region": region,
-        "sum_insured_eur": sum_insured, "deductible_pct": ded,
+        "sum_insured_eur": tiv, "deductible_pct": ded,
+        "building_value_eur": building, "contents_value_eur": contents, "business_interruption_value_eur": bi,
+        "construction_type": random.choice(CONSTRUCTION_TYPES),
+        "year_built": random.randint(1965, 2020), "number_of_stories": random.randint(1, 8),
     }
 
 
@@ -93,10 +105,14 @@ def main():
         s.execute(text("""
             INSERT INTO insurance_policies
                 (policy_id, org_id, policy_name, policy_type, latitude, longitude,
-                 h3_cell, country, region, sum_insured_eur, deductible_pct)
+                 h3_cell, country, region, sum_insured_eur, deductible_pct,
+                 building_value_eur, contents_value_eur, business_interruption_value_eur,
+                 construction_type, year_built, number_of_stories)
             VALUES
                 (:policy_id, :org_id, :policy_name, :policy_type, :latitude, :longitude,
-                 :h3_cell, :country, :region, :sum_insured_eur, :deductible_pct)
+                 :h3_cell, :country, :region, :sum_insured_eur, :deductible_pct,
+                 :building_value_eur, :contents_value_eur, :business_interruption_value_eur,
+                 :construction_type, :year_built, :number_of_stories)
         """), policies)
 
         total = sum(p["sum_insured_eur"] for p in policies)

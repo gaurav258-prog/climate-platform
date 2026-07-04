@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Check, X, AlertTriangle } from 'lucide-react'
+import { FileText, Download, FileSpreadsheet, Check, X, AlertTriangle } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
-import { fetchSupplyDisclosure } from '../../api/client'
+import { fetchSupplyDisclosure, downloadFile } from '../../api/client'
 
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(1) + 'm'
 
@@ -46,9 +46,15 @@ export default function SupplyDisclosure() {
               forward climate-viability, plus a CSRD physical-risk pack — straight from the golden source.
             </p>
           </div>
-          <button onClick={exportCsv} className="mt-6 inline-flex shrink-0 items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white">
-            <Download size={15} /> Export CSV
-          </button>
+          <div className="mt-6 flex shrink-0 items-center gap-2">
+            <button onClick={() => downloadFile(`/v1/supply/disclosure.xlsx?scenario=${scenario}&horizon=${horizon}`, `tellumen-csrd-supply-${scenario}-${horizon}.xlsx`)}
+              className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white">
+              <FileSpreadsheet size={15} /> Export Excel
+            </button>
+            <button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-[#1d1d1f] hover:border-gray-300">
+              <Download size={15} /> Export CSV
+            </button>
+          </div>
         </header>
 
         {!d ? <p className="text-gray-400">loading…</p> : (

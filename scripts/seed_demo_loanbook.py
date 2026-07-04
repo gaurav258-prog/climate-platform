@@ -12,6 +12,7 @@ Run:  .venv/bin/python scripts/seed_demo_loanbook.py
 """
 import random
 import uuid
+from datetime import date, timedelta
 
 import h3
 from global_land_mask import globe
@@ -111,6 +112,10 @@ def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None)
     value = value_m * 1_000_000
     country = country_for(lat, lon)
     scope1 = round(value_m * ghg_per_m * random.uniform(0.4, 0.7), 1)
+    # A real "loan tape" needs the loan side, not just the collateral value —
+    # LTV at origination typically 40-85% for CRE (see ml/scoring/valuation_discount.py).
+    origination = date.today() - timedelta(days=random.randint(180, 8 * 365))
+    outstanding = round(value * random.uniform(0.40, 0.85), 2)
     return {
         "asset_id": str(uuid.uuid4()), "org_id": DEMO_ORG,
         "asset_name": name_override or f"{region} {sector.split(' ')[0]} {random.randint(1, 99)}",
@@ -124,6 +129,7 @@ def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None)
         "energy_mwh": round(value_m * random.uniform(40, 160)),
         "s1": scope1, "s2": round(scope1 * random.uniform(0.3, 0.8), 1),
         "s3": round(scope1 * random.uniform(1.5, 4.0), 1),
+        "outstanding_loan_balance_eur": outstanding, "loan_origination_date": origination.isoformat(),
     }
 
 
@@ -168,12 +174,14 @@ def main():
                  region, country, asset_value_eur, annual_revenue_eur, construction_year,
                  expected_lifespan_years, sector, nace_code, gics_code, taxonomy_status,
                  taxonomy_activity, dnsh_assessment, energy_consumption_mwh,
-                 ghg_emissions_scope1_tco2e, ghg_emissions_scope2_tco2e, ghg_emissions_scope3_tco2e)
+                 ghg_emissions_scope1_tco2e, ghg_emissions_scope2_tco2e, ghg_emissions_scope3_tco2e,
+                 outstanding_loan_balance_eur, loan_origination_date)
             VALUES
                 (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude, :h3_cell,
                  :region, :country, :asset_value_eur, :annual_revenue_eur, :construction_year,
                  :expected_lifespan_years, :sector, :nace_code, :gics_code, :taxonomy_status,
-                 :taxonomy_activity, CAST(:dnsh AS jsonb), :energy_mwh, :s1, :s2, :s3)
+                 :taxonomy_activity, CAST(:dnsh AS jsonb), :energy_mwh, :s1, :s2, :s3,
+                 :outstanding_loan_balance_eur, :loan_origination_date)
         """), assets)
         total = sum(a["asset_value_eur"] for a in assets)
         print(f"seeded {len(assets)} assets, total book €{total/1e9:.2f}bn, org {DEMO_ORG}")

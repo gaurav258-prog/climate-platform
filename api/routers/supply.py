@@ -17,6 +17,7 @@ from typing import Annotated, Optional
 import h3
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 
@@ -24,6 +25,7 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from services.intelligence.supply_cogs import project_org_supply, IMPACT_VERSION
 from services.scoring.on_demand import process_new_cells
+from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
 
@@ -219,6 +221,18 @@ def disclosure(session: DbSession, org_id: OrgId,
     }
 
 
+@router.get("/disclosure.xlsx", summary="EUDR overlay + CSRD physical-risk pack (Excel)")
+def disclosure_xlsx(session: DbSession, org_id: OrgId,
+                     scenario: str = Query("baseline"), horizon: str = Query("current")):
+    r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
+    headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "cogs_at_risk_p50", "cogs_at_risk_p90", "calibration", "status"]
+    rows = [[c.commodity, c.top_hazard or "", c.avg_hazard, c.annual_spend_eur, c.cogs_at_risk_p50,
+             c.cogs_at_risk_p90, c.calibration, c.status] for c in r.commodities]
+    buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})
+
+
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
     rows = session.execute(text("""
@@ -261,7 +275,27 @@ def models(session: DbSession, org_id: OrgId):
     }
 
 
-REQUIRED_PLOT_COLUMNS = ["plot_name", "latitude", "longitude", "commodity", "annual_spend_eur"]
+# EUDR due-diligence-informed fields: geolocation + commodity are the regulation's own
+# core requirement; plot_area_ha matters because EUDR itself splits at >4ha (a full
+# polygon is required) vs <=4ha (a single point suffices) -- see services/templates/workbook.py.
+PLOT_TEMPLATE_FIELDS = [
+    {"name": "plot_name", "required": True, "description": "Free-text plot/farm name.", "example": "Ashanti Plot 4"},
+    {"name": "latitude", "required": True, "description": "Decimal degrees (EUDR requires 6 d.p.).", "example": "6.694400"},
+    {"name": "longitude", "required": True, "description": "Decimal degrees (EUDR requires 6 d.p.).", "example": "-1.605500"},
+    {"name": "commodity", "required": True, "description": "Must match a commodity already on this platform (e.g. Cocoa, Coffee, Citrus).", "example": "Cocoa"},
+    {"name": "annual_spend_eur", "required": True, "description": "Annual procurement spend sourced from this plot.", "example": "150000"},
+    {"name": "plot_area_ha", "required": False, "description": "Plot area in hectares — EUDR requires a full polygon above 4ha.", "example": "2.3"},
+    {"name": "region", "required": False, "description": "Free-text region.", "example": "Ashanti"},
+    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "GH"},
+]
+REQUIRED_PLOT_COLUMNS = [f["name"] for f in PLOT_TEMPLATE_FIELDS if f["required"]]
+
+
+@router.get("/plots/template.xlsx", summary="Download the EUDR-informed sourcing-plot upload template (Excel)")
+def plots_template_xlsx():
+    buf = build_template_workbook(PLOT_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=tellumen_sourcing_plot_template.xlsx"})
 
 
 @router.post("/plots/upload", summary="Bulk-upload sourcing plots from a CSV into your procurement book")
@@ -305,15 +339,16 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
             "annual_spend_eur": spend,
+            "plot_area_ha": float(row["plot_area_ha"]) if "plot_area_ha" in df.columns and pd.notna(row.get("plot_area_ha")) else None,
         })
     if not records:
         raise HTTPException(status_code=400, detail={"error": "no_valid_rows", "unknown_commodities": list(unknown_commodities)})
 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
-                                        h3_cell, region, country, annual_spend_eur)
+                                        h3_cell, region, country, annual_spend_eur, plot_area_ha)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :latitude, :longitude,
-                :h3_cell, :region, :country, :annual_spend_eur)
+                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.upload",
                 target_type="sc_sourcing_plots", target_id=None,

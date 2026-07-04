@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Umbrella, TrendingUp, ShieldAlert, Layers, Download } from 'lucide-react'
+import { Umbrella, TrendingUp, ShieldAlert, Layers, Download, FileSpreadsheet } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
-import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies } from '../../api/client'
+import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies, downloadFile } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const ORDER = ['VH', 'H', 'M', 'L', 'none']
-const TEMPLATE_COLUMNS = ['policy_name', 'latitude', 'longitude', 'sum_insured_eur', 'policy_type', 'deductible_pct', 'region', 'country']
+const TEMPLATE_COLUMNS = ['policy_name', 'latitude', 'longitude', 'building_value_eur', 'contents_value_eur',
+  'business_interruption_value_eur', 'sum_insured_eur', 'construction_type', 'year_built', 'number_of_stories',
+  'deductible_pct', 'region', 'country']
 
 function exportCsv(policies) {
   const head = ['policy_name', 'region', 'country', 'sum_insured_eur', 'headline_hazard', 'headline_score', 'risk_bucket',
@@ -57,12 +59,18 @@ export default function LossCurvePricing() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => exportCsv(policies)}
+            <button onClick={() => downloadFile(`/v1/insurance/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, 'iberia-loss-curve-pricing.xlsx')}
               className="flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0077ed]">
-              <Download size={15} /> Export pricing
+              <FileSpreadsheet size={15} /> Export Excel
+            </button>
+            <button onClick={() => exportCsv(policies)}
+              className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-[#1d1d1f] hover:border-gray-300">
+              <Download size={15} /> Export CSV
             </button>
             <UploadPanel uploadFn={uploadInsurancePolicies} templateColumns={TEMPLATE_COLUMNS}
-              templateFilename="insurance_policies_template.csv" label="Import policies" onUploaded={reload} />
+              templateFilename="insurance_policies_template.csv"
+              templateXlsxUrl="/v1/insurance/policies/template.xlsx" templateXlsxFilename="tellumen_sov_template.xlsx"
+              label="Import policies" onUploaded={reload} />
           </div>
         </header>
 

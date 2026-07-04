@@ -18,6 +18,7 @@ from typing import Annotated, Optional
 import h3
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -26,6 +27,7 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import valuation_block
 from services.scoring.on_demand import process_new_cells
+from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/bank", tags=["Banking"])
 
@@ -66,7 +68,9 @@ def _assets_with_risk(session, org_id, scenario, horizon):
                construction_year, nace_code,
                CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg1,
                CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg2,
-               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg3
+               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg3,
+               CAST(outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
+               loan_origination_date
         FROM bank_assets WHERE org_id = :o ORDER BY asset_value_eur DESC
     """), {"o": org_id}).mappings().all()
 
@@ -106,7 +110,8 @@ def _assets_with_risk(session, org_id, scenario, horizon):
             "headline_bucket": headline["bucket"] if headline else None,
             "headline_hazard": headline["hazard"] if headline else None,
             "valuation": valuation_block(
-                headline["bucket"] if headline else None, a["value_eur"], val_by_asset.get(a["asset_id"])),
+                headline["bucket"] if headline else None, a["value_eur"], val_by_asset.get(a["asset_id"]),
+                outstanding_balance_eur=a["outstanding_loan_balance_eur"]),
         })
     return out
 
@@ -210,7 +215,9 @@ def asset_detail(asset_id: str, session: DbSession):
                taxonomy_activity, construction_year, expected_lifespan_years, nace_code, gics_code,
                CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg_scope1,
                CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg_scope2,
-               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_scope3
+               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_scope3,
+               CAST(outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
+               loan_origination_date
         FROM bank_assets WHERE asset_id = :a
     """), {"a": asset_id}).mappings().first()
     if not a:
@@ -231,7 +238,8 @@ def asset_detail(asset_id: str, session: DbSession):
     """), {"a": asset_id}).mappings().all()
     return {
         "asset": dict(a), "risks": [dict(r) for r in risks],
-        "valuation": valuation_block(headline["risk_bucket"] if headline else None, a["value_eur"], val_row),
+        "valuation": valuation_block(headline["risk_bucket"] if headline else None, a["value_eur"], val_row,
+                                      outstanding_balance_eur=a["outstanding_loan_balance_eur"]),
         "valuation_audit": [dict(x) for x in audit],
     }
 
@@ -283,7 +291,30 @@ def clear_valuation_override(asset_id: str, session: DbSession, ctx: CurrentUser
     return {"asset_id": asset_id, "cleared": True}
 
 
-REQUIRED_ASSET_COLUMNS = ["asset_name", "asset_type", "latitude", "longitude", "asset_value_eur", "sector"]
+# A real "loan tape" -- see ml/scoring/valuation_discount.py's LTV functions and
+# services/templates/workbook.py's template. appraised_value_eur is the CSV/
+# template-facing name (industry-recognizable); it maps onto the existing
+# asset_value_eur DB column (a disclosed rename, not a churny migration).
+ASSET_TEMPLATE_FIELDS = [
+    {"name": "asset_name", "required": True, "description": "Free-text asset/property name.", "example": "Frankfurt Tower 1"},
+    {"name": "asset_type", "required": True, "description": "Property/collateral type.", "example": "commercial_real_estate"},
+    {"name": "latitude", "required": True, "description": "Decimal degrees.", "example": "50.1109"},
+    {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "8.6821"},
+    {"name": "appraised_value_eur", "required": True, "description": "Current appraised/collateral value.", "example": "12000000"},
+    {"name": "sector", "required": True, "description": "Sector / NACE classification.", "example": "Commercial real estate"},
+    {"name": "outstanding_loan_balance_eur", "required": False, "description": "Current outstanding principal — enables LTV.", "example": "8400000"},
+    {"name": "loan_origination_date", "required": False, "description": "YYYY-MM-DD.", "example": "2022-03-01"},
+    {"name": "region", "required": False, "description": "Free-text region/city.", "example": "Frankfurt"},
+    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "DE"},
+]
+REQUIRED_ASSET_COLUMNS = [f["name"] for f in ASSET_TEMPLATE_FIELDS if f["required"]]
+
+
+@router.get("/assets/template.xlsx", summary="Download the loan-tape upload template (Excel)")
+def assets_template_xlsx():
+    buf = build_template_workbook(ASSET_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=tellumen_loan_tape_template.xlsx"})
 
 
 @router.post("/assets/upload", summary="Bulk-upload assets from a CSV into your loan book")
@@ -310,11 +341,13 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
     for _, row in df.iterrows():
         try:
             lat, lon = float(row["latitude"]), float(row["longitude"])
-            value_eur = float(row["asset_value_eur"])
+            value_eur = float(row["appraised_value_eur"])
         except (TypeError, ValueError):
             continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
+        outstanding = row.get("outstanding_loan_balance_eur")
+        origination = row.get("loan_origination_date")
         records.append({
             "asset_id": str(uuid.uuid4()), "org_id": org_id,
             "asset_name": str(row["asset_name"]), "asset_type": str(row["asset_type"]),
@@ -322,15 +355,19 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
             "asset_value_eur": value_eur, "sector": str(row["sector"]),
+            "outstanding_loan_balance_eur": float(outstanding) if pd.notna(outstanding) else None,
+            "loan_origination_date": str(origination)[:10] if pd.notna(origination) else None,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
         INSERT INTO bank_assets (asset_id, org_id, asset_name, asset_type, latitude, longitude,
-                                  h3_cell, region, country, asset_value_eur, sector)
+                                  h3_cell, region, country, asset_value_eur, sector,
+                                  outstanding_loan_balance_eur, loan_origination_date)
         VALUES (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :asset_value_eur, :sector)
+                :h3_cell, :region, :country, :asset_value_eur, :sector,
+                :outstanding_loan_balance_eur, :loan_origination_date)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
                 target_type="bank_assets", target_id=None,
@@ -338,3 +375,22 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
 
     processing = process_new_cells(cell_coords)
     return {"n_uploaded": len(records), **processing}
+
+
+@router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")
+def disclosure_xlsx(session: DbSession, org_id: OrgId,
+                     scenario: str = Query("baseline"), horizon: str = Query("current")):
+    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    headers = ["asset_name", "sector", "country", "value_eur", "headline_score", "risk_bucket",
+               "taxonomy_status", "h3_cell", "recommended_discount_pct", "effective_discount_pct",
+               "discounted_value_eur", "overridden", "outstanding_loan_balance_eur",
+               "original_ltv_pct", "climate_adjusted_ltv_pct"]
+    rows = [[a["asset_name"], a["sector"], a["country"], a["value_eur"], a["headline_score"],
+             a["headline_bucket"] or "unscored", a["taxonomy_status"], a["h3_cell"],
+             a["valuation"]["recommended_discount_pct"], a["valuation"]["effective_discount_pct"],
+             a["valuation"]["discounted_value_eur"], "yes" if a["valuation"]["is_overridden"] else "no",
+             a["valuation"]["outstanding_loan_balance_eur"], a["valuation"]["original_ltv_pct"],
+             a["valuation"]["climate_adjusted_ltv_pct"]] for a in assets]
+    buf = build_export_workbook(headers, rows, sheet_name="Physical risk disclosure")
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=meridian-physical-risk-disclosure.xlsx"})

@@ -164,6 +164,22 @@ function ValuationSection({ asset, valuation, audit, canOverride, onChanged }) {
         </div>
       </div>
 
+      {valuation.original_ltv_pct != null && (
+        <div className="mt-3 flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+          <div>
+            <div className="text-[11px] text-gray-500">Loan-to-value</div>
+            <div className="text-[13px] font-medium text-[#1d1d1f]">{euro(valuation.outstanding_loan_balance_eur)} outstanding</div>
+          </div>
+          <div className="text-right">
+            <span className="text-[13px] text-gray-500">{valuation.original_ltv_pct}%</span>
+            <span className="mx-1.5 text-gray-300">→</span>
+            <span className={`text-[13px] font-semibold ${valuation.climate_adjusted_ltv_pct >= 100 ? 'text-red-600' : 'text-[#1d1d1f]'}`}>
+              {valuation.climate_adjusted_ltv_pct}% climate-adjusted
+            </span>
+          </div>
+        </div>
+      )}
+
       {valuation.is_overridden && !editing && (
         <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
           Overridden to <b>{valuation.override.discount_pct}%</b> on {String(valuation.override.overridden_at).slice(0, 10)}

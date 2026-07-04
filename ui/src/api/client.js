@@ -41,6 +41,19 @@ async function get(path) {
   return res.json()
 }
 
+/** Downloads a server-generated file (e.g. .xlsx) that needs the auth header —
+ * a plain <a href> can't set Authorization, so fetch as a blob and trigger the
+ * download in JS instead. */
+export async function downloadFile(path, filename) {
+  const res = await fetch(`${BASE}${path}`, { headers: headers() })
+  if (!res.ok) return raise(res, path)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 async function send(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method, headers: headers(), body: body === undefined ? undefined : JSON.stringify(body),

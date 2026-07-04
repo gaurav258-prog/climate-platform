@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
+import { FileText, Download, FileSpreadsheet, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
-import { fetchDisclosure, fetchPortfolio, createApproval } from '../../api/client'
+import { fetchDisclosure, fetchPortfolio, createApproval, downloadFile } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
@@ -88,9 +88,13 @@ export default function Reports({ auth }) {
                 </button>
               )
             )}
-            <button onClick={() => exportCsv(assets)}
+            <button onClick={() => downloadFile(`/v1/bank/disclosure.xlsx?scenario=${scenario}&horizon=${horizon}`, 'meridian-physical-risk-disclosure.xlsx')}
               className="flex items-center gap-2 rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0077ed]">
-              <Download size={15} /> Export disclosure
+              <FileSpreadsheet size={15} /> Export Excel
+            </button>
+            <button onClick={() => exportCsv(assets)}
+              className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-[#1d1d1f] hover:border-gray-300">
+              <Download size={15} /> Export CSV
             </button>
           </div>
         </header>

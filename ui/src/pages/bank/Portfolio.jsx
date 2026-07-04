@@ -8,7 +8,7 @@ import { fetchPortfolio, uploadBankAssets } from '../../api/client'
 
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 const HAZ_COLS = ['flood', 'wildfire', 'volcanic', 'storm']
-const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'asset_value_eur', 'sector', 'region', 'country']
+const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'appraised_value_eur', 'sector', 'outstanding_loan_balance_eur', 'loan_origination_date', 'region', 'country']
 
 export default function Portfolio({ auth }) {
   const [scenario, setScenario] = useState('baseline')
@@ -53,7 +53,9 @@ export default function Portfolio({ auth }) {
             </p>
           </div>
           <UploadPanel uploadFn={uploadBankAssets} templateColumns={TEMPLATE_COLUMNS}
-            templateFilename="bank_assets_template.csv" label="Import assets" onUploaded={reload} />
+            templateFilename="bank_assets_template.csv"
+            templateXlsxUrl="/v1/bank/assets/template.xlsx" templateXlsxFilename="tellumen_loan_tape_template.xlsx"
+            label="Import assets" onUploaded={reload} />
         </header>
 
         <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm">

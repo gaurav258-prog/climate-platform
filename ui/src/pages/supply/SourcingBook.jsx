@@ -7,7 +7,7 @@ import { fetchSupplyPortfolio, uploadSupplyPlots } from '../../api/client'
 
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(1) + 'm'
 const BUCKET = { VH: '#c81e1e', H: '#c2410c', M: '#b56a00', L: '#1a8a4a' }
-const TEMPLATE_COLUMNS = ['plot_name', 'latitude', 'longitude', 'commodity', 'annual_spend_eur', 'region', 'country']
+const TEMPLATE_COLUMNS = ['plot_name', 'latitude', 'longitude', 'commodity', 'annual_spend_eur', 'plot_area_ha', 'region', 'country']
 
 // The sourcing book — every plot as a row, scored per hazard, sortable. The
 // agriculture analogue of the banking Portfolio screen.
@@ -57,7 +57,9 @@ export default function SourcingBook() {
             </p>
           </div>
           <UploadPanel uploadFn={uploadSupplyPlots} templateColumns={TEMPLATE_COLUMNS}
-            templateFilename="sourcing_plots_template.csv" label="Import plots" onUploaded={reload} />
+            templateFilename="sourcing_plots_template.csv"
+            templateXlsxUrl="/v1/supply/plots/template.xlsx" templateXlsxFilename="tellumen_sourcing_plot_template.xlsx"
+            label="Import plots" onUploaded={reload} />
         </header>
 
         {!port ? <p className="text-gray-400">loading…</p> : (

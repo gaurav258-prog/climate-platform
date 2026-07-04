@@ -30,7 +30,17 @@ def effective_discount_pct(bucket: str | None, override_pct: float | None) -> fl
     return recommended_discount_pct(bucket) if override_pct is None else float(override_pct)
 
 
-def valuation_block(bucket: str | None, value_eur: float | None, override_row: dict | None) -> dict:
+def ltv_pct(outstanding_balance_eur: float | None, value_eur: float | None) -> float | None:
+    """Loan-to-value: the actual credit-decision number a real loan tape exists to
+    support. None (not 0) when we don't have an outstanding balance -- honest
+    absence, never a fabricated ratio."""
+    if outstanding_balance_eur is None or not value_eur:
+        return None
+    return round(100 * outstanding_balance_eur / value_eur, 2)
+
+
+def valuation_block(bucket: str | None, value_eur: float | None, override_row: dict | None,
+                     outstanding_balance_eur: float | None = None) -> dict:
     """override_row: {override_discount_pct, overridden_by, overridden_at, reason} or None."""
     recommended = recommended_discount_pct(bucket)
     override_pct = override_row["override_discount_pct"] if override_row else None
@@ -41,6 +51,9 @@ def valuation_block(bucket: str | None, value_eur: float | None, override_row: d
         "effective_discount_pct": effective,
         "is_overridden": override_pct is not None,
         "discounted_value_eur": round(discounted_value, 2),
+        "outstanding_loan_balance_eur": outstanding_balance_eur,
+        "original_ltv_pct": ltv_pct(outstanding_balance_eur, value_eur),
+        "climate_adjusted_ltv_pct": ltv_pct(outstanding_balance_eur, discounted_value),
         "override": {
             "discount_pct": override_pct,
             "overridden_by": override_row.get("overridden_by") if override_row else None,

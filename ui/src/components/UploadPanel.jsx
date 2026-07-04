@@ -1,9 +1,13 @@
 import { useState, useRef } from 'react'
-import { Upload, FileDown, Loader2, CheckCircle2 } from 'lucide-react'
+import { Upload, FileDown, FileSpreadsheet, Loader2, CheckCircle2 } from 'lucide-react'
+import { downloadFile } from '../api/client'
 
 // Self-service data entry, reused across all three verticals (bank/supply/insurance) —
 // same shape as RiskAtom/ContextBar/AssetDrawer's Facts: one component, three call sites.
-export default function UploadPanel({ uploadFn, templateColumns, templateFilename, label, onUploaded }) {
+// Excel is the real, market-standard template (required/optional fields marked, a
+// field guide sheet); CSV stays available as the plain-text fallback for systems
+// that need it.
+export default function UploadPanel({ uploadFn, templateColumns, templateFilename, templateXlsxUrl, templateXlsxFilename, label, onUploaded }) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -11,7 +15,7 @@ export default function UploadPanel({ uploadFn, templateColumns, templateFilenam
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
 
-  function downloadTemplate() {
+  function downloadCsvTemplate() {
     const csv = templateColumns.join(',') + '\n'
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
     const a = document.createElement('a')
@@ -50,9 +54,15 @@ export default function UploadPanel({ uploadFn, templateColumns, templateFilenam
         <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{label || 'Import CSV'}</h3>
         <button onClick={() => setOpen(false)} className="text-[12px] text-gray-400 hover:text-gray-600">Close</button>
       </div>
-      <button onClick={downloadTemplate} className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#0071e3] hover:underline">
-        <FileDown size={13} /> Download CSV template
-      </button>
+      <div className="mt-2 flex items-center gap-3">
+        <button onClick={() => downloadFile(templateXlsxUrl, templateXlsxFilename)}
+          className="flex items-center gap-1.5 text-[12px] font-medium text-[#0071e3] hover:underline">
+          <FileSpreadsheet size={13} /> Download Excel template
+        </button>
+        <button onClick={downloadCsvTemplate} className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:underline">
+          <FileDown size={13} /> Download CSV template
+        </button>
+      </div>
       <div className="mt-3 flex items-center gap-2">
         <input ref={inputRef} type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)}
           className="flex-1 text-[12px] text-gray-600 file:mr-3 file:rounded-full file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[12px] file:font-medium" />
