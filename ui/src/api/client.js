@@ -100,6 +100,18 @@ export async function fetchModels() {
   return get('/v1/platform/models')
 }
 
+// ── Any-address hazard lookup (public, no auth) ───────────────────────────
+
+/** Score every hazard for an address: { latitude, longitude, display_name, h3_cell, hazards:[...], overall:{...} }. */
+export async function lookupScore(address) {
+  return get(`/v1/lookup/score?address=${encodeURIComponent(address)}`)
+}
+
+/** Poll a pending gridded-hazard job: { hazard:{...}, overall:{...} }. */
+export async function pollLookup(lookupId) {
+  return get(`/v1/lookup/score/${lookupId}`)
+}
+
 /** Daily forecast-verification series for a region: { region, points:[{as_of_date, predicted_count, sigma, observed_count, z_score, ...}] }. */
 export async function fetchVerification(region = 'Venezuela M7.5') {
   return get(`/v1/platform/verification?region=${encodeURIComponent(region)}`)

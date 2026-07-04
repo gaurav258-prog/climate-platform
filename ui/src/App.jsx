@@ -19,6 +19,7 @@ import SupplySignals from './pages/supply/SupplySignals'
 import SupplyDisclosure from './pages/supply/SupplyDisclosure'
 import SupplyModels from './pages/supply/SupplyModels'
 import LandingPage from './pages/LandingPage'
+import LookupScorePage from './pages/LookupScorePage'
 import SolutionsPage from './pages/SolutionsPage'
 import LoginPage from './pages/LoginPage'
 import DocumentationPage from './pages/DocumentationPage'
@@ -36,7 +37,7 @@ function firstRoute(catalog) {
 }
 
 export default function App() {
-  const [view, setView] = useState('landing')     // 'landing' | 'solutions' | 'login' | 'app'
+  const [view, setView] = useState('landing')     // 'landing' | 'solutions' | 'login' | 'lookup' | 'app'
   const [auth, setAuth] = useState(null)           // /me payload once logged in
   const [authLoading, setAuthLoading] = useState(hasToken())
   const [area, setArea] = useState('modules')      // 'modules' | 'docs' | 'portal' | 'admin'
@@ -75,7 +76,9 @@ export default function App() {
 
   // ── Marketing / auth views (all hooks above run first) ──
   if (view === 'landing')
-    return <LandingPage onEnter={enterApp} onExplore={() => setView('solutions')} />
+    return <LandingPage onEnter={enterApp} onExplore={() => setView('solutions')} onLookup={() => setView('lookup')} />
+  if (view === 'lookup')
+    return <LookupScorePage onHome={() => setView('landing')} />
   if (view === 'solutions')
     return <SolutionsPage onHome={() => setView('landing')} onEnter={enterApp} />
   if (view === 'login')

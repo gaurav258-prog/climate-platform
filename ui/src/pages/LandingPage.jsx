@@ -46,7 +46,7 @@ function Btn({ children, onClick, primary, dark }) {
   return <button onClick={onClick} className={base} style={style}>{children}</button>
 }
 
-export default function LandingPage({ onEnter, onExplore }) {
+export default function LandingPage({ onEnter, onExplore, onLookup }) {
   const [summary, setSummary] = useState(null)
   useEffect(() => { fetchScoresSummary().then(setSummary).catch(() => {}) }, [])
   const liveScores = summary?.total_current_scores
@@ -60,6 +60,7 @@ export default function LandingPage({ onEnter, onExplore }) {
         <div className="flex items-center gap-2">
           <button onClick={onExplore} className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">Solutions</button>
           <a href="#how" className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">How it works</a>
+          <button onClick={onLookup} className="hidden rounded-full px-4 py-2 text-[13px] font-medium text-white/85 hover:text-white sm:inline">Check an address</button>
           <button onClick={onEnter} className="rounded-full bg-white px-4 py-2 text-[13px] font-medium text-[#1d1d1f]">Enter the platform</button>
         </div>
       </nav>
@@ -75,7 +76,8 @@ export default function LandingPage({ onEnter, onExplore }) {
           and act early.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
-          <Btn primary onClick={onExplore}>Explore solutions <ArrowRight size={16} /></Btn>
+          <Btn primary onClick={onLookup}>Check an address <ArrowRight size={16} /></Btn>
+          <Btn dark onClick={onExplore}>Explore solutions</Btn>
           <Btn dark onClick={onEnter}>Enter the platform</Btn>
         </div>
       </LiveEarthHero>
