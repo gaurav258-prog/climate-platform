@@ -23,9 +23,14 @@ pollution.py separately found it under-samples acute, hyper-local smoke plumes
 when misapplied to a past event -- two different products for two different
 questions, not one flawed product used everywhere.
 
-Heat/drought/wildfire would each need their own "compute_for_point" function
-following this same shape -- not built yet, flagged as follow-on work, not
-silently assumed to work.
+Wildfire is the third, reusing models/wildfire_firms/scorer.pkl (trained on real
+FIRMS burn labels, 5 features: wind speed, relative humidity, days-since-rain,
+leaf-area-index fuel load, soil moisture — see ml/features/wildfire_era5.py) --
+all 5 come from ONE ERA5-Land request, no separate satellite fetch needed.
+
+Heat/drought would each need their own "compute_for_point" function following
+this same shape -- not built yet, flagged as follow-on work, not silently
+assumed to work.
 """
 from __future__ import annotations
 
@@ -42,11 +47,15 @@ from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.flood_era5 import FEATURE_COLS, fetch_era5, compute_features
 from ml.features.pollution_cams import fetch_cams_forecast, compute_features as compute_pollution_features
+from ml.features.wildfire_era5 import (FEATURE_COLS as WILDFIRE_FEATURE_COLS,
+                                        fetch_era5 as fetch_era5_wildfire,
+                                        compute_features as compute_wildfire_features)
 from ml.scoring.pollution_aqi import pollution_score, POLLUTION_MODEL_VERSION
 
 logger = logging.getLogger(__name__)
 
 MODEL_PKL = "models/flood_multievent/scorer.pkl"
+WILDFIRE_MODEL_PKL = "models/wildfire_firms/scorer.pkl"
 POINT_BBOX_DEG = 0.5  # small ad-hoc box around the query point, not a named region
 
 
@@ -194,6 +203,84 @@ def run_pollution_lookup(lookup_id: str, lat: float, lon: float) -> None:
 
     except Exception:
         logger.error("run_pollution_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
+        with get_session() as s:
+            s.execute(text("""
+                UPDATE public_lookups SET status='failed', completed_at=:now WHERE lookup_id=:id
+            """), {"now": now, "id": lookup_id})
+        raise
+
+
+def run_wildfire_lookup(lookup_id: str, lat: float, lon: float) -> None:
+    """Background task: fetch+score wildfire for one point, write canonical_scores,
+    update the public_lookups row so the client's poll picks up the result.
+
+    Reuses models/wildfire_firms/scorer.pkl (trained on real FIRMS burn labels)
+    exactly as scripts/build_multievent_wildfire.py trains/backtests it — same
+    ERA5-Land fetch, same 5 features (ml/features/wildfire_era5.py), just pointed
+    at a small ad-hoc bbox around the query point and "today" instead of a named
+    fire's peak date. Empirically, ERA5-Land's on-demand fetch (unlike CAMS's
+    forecast archive) has not hit a "today rejected" publish-lag error across
+    every flood/wildfire test run in this project — no artificial margin added."""
+    now = datetime.now(timezone.utc)
+    try:
+        area = [lat + POINT_BBOX_DEG, lon - POINT_BBOX_DEG, lat - POINT_BBOX_DEG, lon + POINT_BBOX_DEG]
+        scorer = pickle.load(open(WILDFIRE_MODEL_PKL, "rb"))
+        version = _active_model_version("wildfire")
+
+        ds = fetch_era5_wildfire(area, date.today())
+        df = compute_wildfire_features(ds)
+        ds.close()
+        if df.empty:
+            raise RuntimeError("no ERA5-Land cells returned for this bbox (likely over open ocean)")
+        df["score"] = scorer.score_dataframe(df[WILDFIRE_FEATURE_COLS].copy())["score"].values
+
+        records = [{
+            "h3_cell": r.h3_cell, "risk_score": round(float(r.score), 2),
+            "risk_bucket": score_to_bucket(float(r.score)).value,
+            "shap_factors": json.dumps({
+                "on_demand": True, "nearest_neighbor_fill": False,
+                "gfs_wind_speed_ms": round(float(r.gfs_wind_speed_ms), 1),
+                "gfs_relative_humidity_pct": round(float(r.gfs_relative_humidity_pct), 1),
+                "days_since_last_rain": round(float(r.days_since_last_rain), 1),
+                "fuel_load_lai": round(float(r.fuel_load_lai), 2),
+                "soil_moisture": round(float(r.soil_moisture), 3),
+            }),
+        } for r in df.itertuples()]
+
+        # Same ERA5-Land-grid-vs-H3-res8 resolution mismatch as flood/pollution —
+        # nearest-neighbor fill the exact query cell if the fetch didn't naturally
+        # produce it.
+        query_cell = h3.latlng_to_cell(lat, lon, 8)
+        if not any(r["h3_cell"] == query_cell for r in records):
+            nearest = min(records, key=lambda r: h3.great_circle_distance(
+                (lat, lon), h3.cell_to_latlng(r["h3_cell"]), unit="km"))
+            shap = json.loads(nearest["shap_factors"])
+            shap["nearest_neighbor_fill"] = True
+            records.append({"h3_cell": query_cell, "risk_score": nearest["risk_score"],
+                             "risk_bucket": nearest["risk_bucket"], "shap_factors": json.dumps(shap)})
+
+        with get_session() as s:
+            cells = [r["h3_cell"] for r in records]
+            s.execute(text("""
+                UPDATE canonical_scores SET valid_to=:now
+                WHERE hazard_type='wildfire' AND scenario='baseline' AND time_horizon='current'
+                  AND valid_to IS NULL AND h3_cell = ANY(:cells)
+            """), {"now": now, "cells": cells})
+            s.execute(text("""
+                INSERT INTO canonical_scores
+                    (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
+                     risk_score, risk_bucket, model_version, data_vintage, shap_factors,
+                     scored_at, valid_from, valid_to)
+                VALUES
+                    (gen_random_uuid(), :h3_cell, 8, 'wildfire', 'baseline', 'current',
+                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
+            """), [{**r, "mv": version, "now": now} for r in records])
+            s.execute(text("""
+                UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
+            """), {"now": now, "id": lookup_id})
+
+    except Exception:
+        logger.error("run_wildfire_lookup FAILED lookup_id=%s\n%s", lookup_id, traceback.format_exc())
         with get_session() as s:
             s.execute(text("""
                 UPDATE public_lookups SET status='failed', completed_at=:now WHERE lookup_id=:id

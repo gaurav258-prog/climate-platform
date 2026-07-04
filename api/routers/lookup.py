@@ -41,7 +41,9 @@ from core.db.session import get_session
 from core.types import HAZARD_VALUES
 from services.geocoding.nominatim import geocode
 from scripts.score_point_on_demand import score_seismic_point
-from scripts.score_point_gridded_on_demand import run_flood_lookup, run_pollution_lookup
+from scripts.score_point_gridded_on_demand import run_flood_lookup, run_pollution_lookup, run_wildfire_lookup
+from scripts.score_heat_on_demand import run_heat_lookup
+from scripts.score_drought_on_demand import run_drought_lookup
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
@@ -49,7 +51,10 @@ router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 SYNC_ON_DEMAND_SCORERS = {"seismic": score_seismic_point}
 
 # Hazards that need a real data fetch, run as a background job (see module docstring).
-GRIDDED_ON_DEMAND_SCORERS = {"flood": run_flood_lookup, "pollution": run_pollution_lookup}
+GRIDDED_ON_DEMAND_SCORERS = {
+    "flood": run_flood_lookup, "pollution": run_pollution_lookup, "wildfire": run_wildfire_lookup,
+    "heat_acute": run_heat_lookup, "drought": run_drought_lookup,
+}
 
 
 @router.get("/score", response_model=LookupResponse, summary="Look up hazard scores for any address or coordinates")

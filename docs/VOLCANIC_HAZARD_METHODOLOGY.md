@@ -38,9 +38,19 @@ attenuation curve, not a region-specific GMPE with site amplification).
 | Source | Role | Status |
 |---|---|---|
 | Smithsonian Global Volcanism Program (GVP), GeoServer WFS | Eruption/volcano catalog (VEI, dates, location) — the ground-truth catalog, analogous to EMSC/USGS for seismic | **Live, confirmed working, no auth** — `webservices.volcano.si.edu/geoserver/GVP-VOTW/wfs` (note: NOT `volcano.si.edu`, which Cloudflare-blocks; requires a browser-like User-Agent header, no API key) |
-| NASA FIRMS (VIIRS), re-pointed at a volcano region | Live thermal-unrest signal | **Reused, not new** — `hazard_type` is now a constructor param on `NASAFIRMSAdapter` (default `WILDFIRE`); pointing it at `guatemala_volcanic` with `hazard_type=VOLCANIC` gives volcanic thermal detection at zero new integration cost |
+| NASA FIRMS (VIIRS), re-pointed at a volcano region | Supplementary thermal-unrest monitoring signal — **not an input to the volcanic score** | **Reused, not new** — `hazard_type` is now a constructor param on `NASAFIRMSAdapter` (default `WILDFIRE`); pointing it at `guatemala_volcanic` with `hazard_type=VOLCANIC` gives volcanic thermal detection at zero new integration cost |
 | MIROVA (satellite radiative power, volcano-specific) | Considered as an alternative thermal source | **Blocked — no public API** (probed: 403, no documented REST endpoint). Not pursued; FIRMS substitutes. |
 | USGS/PHIVOLCS/INSIVUMEH hazard-zone maps | Real proximal/ashfall radii per volcano | **No unified API** — published per-volcano as GIS/PDF products. Handled via the curated `volcanic_hazard_zones` table (below), same shape of limitation the seismic ESHM20 fallback already has. |
+
+**Scope caveat on FIRMS:** `score_volcanic_event.py` and `volcanic_physics.py` never query
+`satellite_observations` — the volcanic score is computed entirely from the GVP eruption catalog
+and the curated `volcanic_hazard_zones` radii (proximal distance-decay + ashfall, §1/§3). FIRMS
+thermal detections are ingested for operational monitoring dashboards only and do not feed the
+score or the Fuego/Taal backtests. (Also fixed 2026-07-04: `Region.firms` was emitting the bbox
+in a `W=...,S=...,E=...,N=...` format the FIRMS API rejected with HTTP 400 on every call —
+corrected to plain `west,south,east,north`. Since FIRMS was never wired into scoring, this defect
+had zero effect on any published volcanic score or backtest number; it only blocked the
+monitoring feed and wildfire ingestion, which fail loudly via `sys.exit(1)`, not silently.)
 
 ### A genuine GVP data-granularity finding
 

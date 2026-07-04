@@ -31,8 +31,14 @@ class Region:
 
     @property
     def firms(self) -> str:
-        """NASA FIRMS area string."""
-        return f"W={self.min_lon},S={self.min_lat},E={self.max_lon},N={self.max_lat}"
+        """NASA FIRMS area string: plain 'west,south,east,north', no labels.
+
+        Confirmed live against the real FIRMS API: the previous 'W=...,S=...,
+        E=...,N=...' labeled format is genuinely rejected (400 "West greater
+        than East") for every bbox tested (EU, Guatemala) — this adapter's
+        live fetches have been silently failing whenever actually invoked
+        against the real API, not just in this one case."""
+        return f"{self.min_lon},{self.min_lat},{self.max_lon},{self.max_lat}"
 
     @property
     def wkt(self) -> str:

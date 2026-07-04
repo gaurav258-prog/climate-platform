@@ -15,3 +15,7 @@ mlflow.db
 
 # fetched climate data (large, reproducible via scripts/fetch_era5_baseline.py)
 data/era5_baseline/
+data/era5_climatology_baseline/
+
+# local tooling state, not project source
+.claude-flow/
