@@ -108,8 +108,8 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
               ['Annual revenue', euro(a.revenue_eur)],
               ['Value at this risk', headline && (headline.risk_bucket === 'H' || headline.risk_bucket === 'VH') ? euroM(a.value_eur) : '—'],
             ]} />
+            <TaxonomySection asset={a} />
             <Facts title="Disclosure (TCFD / EU Taxonomy)" rows={[
-              ['Taxonomy status', a.taxonomy_status || '—'],
               ['NACE · GICS', `${a.nace_code || '—'} · ${a.gics_code || '—'}`],
               ['Construction year', a.construction_year || '—'],
               ['GHG scope 1 / 2 / 3 (tCO₂e)', `${fmt(a.ghg_scope1)} / ${fmt(a.ghg_scope2)} / ${fmt(a.ghg_scope3)}`],
@@ -231,6 +231,48 @@ function ValuationSection({ asset, valuation, audit, canOverride, onChanged }) {
           </div>
         </details>
       )}
+    </section>
+  )
+}
+
+const TAXONOMY_BADGE = {
+  eligible: 'bg-amber-50 text-amber-700',
+  not_eligible: 'bg-gray-100 text-gray-500',
+  not_assessed: 'bg-gray-100 text-gray-400',
+}
+const TAXONOMY_LABEL = { eligible: 'Eligible', not_eligible: 'Not eligible', not_assessed: 'Not assessed' }
+
+/** EU Taxonomy status shown WITH its reasoning -- never a bare enum. "Eligible" cites the exact
+ * Annex I section; "not eligible"/"not assessed" say why, and never silently claim "aligned"
+ * without the technical-screening + safeguards data that would require (see
+ * ml/regulatory/eu_taxonomy_classifier.py's docstring). */
+function TaxonomySection({ asset: a }) {
+  const status = a.taxonomy_status || 'not_assessed'
+  const reasoning = a.dnsh_assessment || {}
+  return (
+    <section>
+      <h3 className="mb-2 text-[11px] uppercase tracking-wide text-gray-400">EU Taxonomy alignment</h3>
+      <div className="rounded-2xl border border-gray-200 p-3">
+        <div className="flex items-center justify-between">
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TAXONOMY_BADGE[status] || TAXONOMY_BADGE.not_assessed}`}>
+            {TAXONOMY_LABEL[status] || status}
+          </span>
+        </div>
+        {reasoning.activity_ref && (
+          <p className="mt-2 text-[11px] leading-snug text-gray-500">{reasoning.activity_ref}</p>
+        )}
+        {status !== 'not_assessed' && (
+          <p className="mt-2 text-[11px] leading-snug text-gray-400">
+            Never "aligned" without verifying substantial contribution and minimum safeguards —
+            data this platform doesn't yet collect (see Trust &amp; assurance › Methodology).
+          </p>
+        )}
+        {reasoning.dnsh_climate_adaptation_flag && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+            {reasoning.dnsh_climate_adaptation_flag}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

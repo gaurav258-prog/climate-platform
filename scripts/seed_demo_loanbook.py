@@ -10,6 +10,7 @@ European financial centres that fall outside scored cells (honest
 
 Run:  .venv/bin/python scripts/seed_demo_loanbook.py
 """
+import json
 import random
 import uuid
 from datetime import date, timedelta
@@ -19,6 +20,7 @@ from global_land_mask import globe
 from sqlalchemy import text
 
 from core.db.session import get_session
+from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 
 
 def on_land(cell):
@@ -29,22 +31,15 @@ def on_land(cell):
 random.seed(42)
 DEMO_ORG = "11111111-1111-4111-8111-111111111111"
 
-# sector → (asset_type, nace, gics, value range €m, lifespan, taxonomy options, ghg/€m profile)
+# sector → (asset_type, nace, gics, value range €m, lifespan, ghg/€m profile)
 SECTORS = [
-    ("Commercial real estate", "commercial_real_estate", "68.20", "60101010", (8, 60), 50,
-     ["aligned", "eligible", "not_eligible"], 18),
-    ("Residential mortgages", "residential_real_estate", "68.20", "60101070", (0.3, 2.5), 60,
-     ["aligned", "eligible"], 12),
-    ("Manufacturing", "industrial", "25.50", "20104010", (10, 80), 35,
-     ["eligible", "not_eligible"], 140),
-    ("Energy & utilities", "energy", "35.11", "55101010", (20, 120), 40,
-     ["aligned", "not_eligible"], 320),
-    ("Logistics & transport", "logistics", "52.10", "20303010", (6, 45), 40,
-     ["eligible", "not_eligible"], 90),
-    ("Hospitality", "hospitality", "55.10", "25301020", (4, 35), 45,
-     ["eligible", "not_eligible"], 60),
-    ("Agriculture & food", "agriculture", "01.50", "30202010", (1, 20), 30,
-     ["aligned", "eligible", "not_eligible"], 110),
+    ("Commercial real estate", "commercial_real_estate", "68.20", "60101010", (8, 60), 50, 18),
+    ("Residential mortgages", "residential_real_estate", "68.20", "60101070", (0.3, 2.5), 60, 12),
+    ("Manufacturing", "industrial", "25.50", "20104010", (10, 80), 35, 140),
+    ("Energy & utilities", "energy", "35.11", "55101010", (20, 120), 40, 320),
+    ("Logistics & transport", "logistics", "52.10", "20303010", (6, 45), 40, 90),
+    ("Hospitality", "hospitality", "55.10", "25301020", (4, 35), 45, 60),
+    ("Agriculture & food", "agriculture", "01.50", "30202010", (1, 20), 30, 110),
 ]
 
 COUNTRY_BOXES = [  # (ISO-2, lon_min, lon_max, lat_min, lat_max) — first match wins
@@ -104,10 +99,10 @@ CITIES = [
 
 def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None):
     if force_sector:
-        sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = next(
+        sector, atype, nace, gics, (vmin, vmax), lifespan, ghg_per_m = next(
             s for s in SECTORS if s[0] == force_sector)
     else:
-        sector, atype, nace, gics, (vmin, vmax), lifespan, tax_opts, ghg_per_m = random.choice(SECTORS)
+        sector, atype, nace, gics, (vmin, vmax), lifespan, ghg_per_m = random.choice(SECTORS)
     value_m = round(random.uniform(vmin, vmax), 1)
     value = value_m * 1_000_000
     country = country_for(lat, lon)
@@ -116,6 +111,11 @@ def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None)
     # LTV at origination typically 40-85% for CRE (see ml/scoring/valuation_discount.py).
     origination = date.today() - timedelta(days=random.randint(180, 8 * 365))
     outstanding = round(value * random.uniform(0.40, 0.85), 2)
+    # Real EU Taxonomy classification (ml/regulatory/eu_taxonomy_classifier.py). Physical-risk
+    # bucket isn't known yet at seed time (scoring happens after insert) -- the DNSH-adaptation
+    # diagnostic that depends on it is filled in by scripts/recompute_taxonomy_status.py once
+    # the loan book has been scored, not fabricated here.
+    tax = classify_taxonomy(nace)
     return {
         "asset_id": str(uuid.uuid4()), "org_id": DEMO_ORG,
         "asset_name": name_override or f"{region} {sector.split(' ')[0]} {random.randint(1, 99)}",
@@ -124,8 +124,8 @@ def make_asset(lat, lon, h3_cell, region, force_sector=None, name_override=None)
         "asset_value_eur": value, "annual_revenue_eur": round(value * random.uniform(0.08, 0.22)),
         "construction_year": random.randint(1962, 2019), "expected_lifespan_years": lifespan,
         "sector": sector, "nace_code": nace, "gics_code": gics,
-        "taxonomy_status": random.choice(tax_opts),
-        "taxonomy_activity": sector, "dnsh": '{"climate_adaptation": "screened"}',
+        "taxonomy_status": tax["status"],
+        "taxonomy_activity": tax["activity_ref"] or sector, "dnsh": json.dumps(tax["reasoning"]),
         "energy_mwh": round(value_m * random.uniform(40, 160)),
         "s1": scope1, "s2": round(scope1 * random.uniform(0.3, 0.8), 1),
         "s3": round(scope1 * random.uniform(1.5, 4.0), 1),

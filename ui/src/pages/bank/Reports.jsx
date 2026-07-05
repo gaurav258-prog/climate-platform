@@ -8,7 +8,8 @@ const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
 const num = n => Math.round(n).toLocaleString()
 const HAZ_ICON = { flood: Waves, wildfire: Flame, volcanic: Mountain, storm: Wind, pollution: CloudFog }
-const TAX = [['aligned', 'Aligned', '#34c759'], ['eligible', 'Eligible', '#ff9500'], ['not_eligible', 'Not eligible', '#86868b']]
+const TAX = [['aligned', 'Aligned', '#34c759'], ['eligible', 'Eligible', '#ff9500'],
+  ['not_eligible', 'Not eligible', '#86868b'], ['not_assessed', 'Not assessed', '#d1d5db']]
 const STATUS_BADGE = {
   draft: 'bg-gray-100 text-gray-500', pending: 'bg-amber-50 text-amber-700',
   released: 'bg-emerald-50 text-emerald-700', rejected: 'bg-red-50 text-red-700',

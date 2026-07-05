@@ -229,7 +229,8 @@ def asset_detail(asset_id: str, session: DbSession):
                CAST(longitude AS FLOAT) AS lon, h3_cell,
                CAST(asset_value_eur AS FLOAT) AS value_eur,
                CAST(annual_revenue_eur AS FLOAT) AS revenue_eur, taxonomy_status,
-               taxonomy_activity, construction_year, expected_lifespan_years, nace_code, gics_code,
+               taxonomy_activity, dnsh_assessment, construction_year, expected_lifespan_years,
+               nace_code, gics_code,
                CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg_scope1,
                CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg_scope2,
                CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_scope3,
@@ -374,6 +375,10 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
             "asset_value_eur": value_eur, "sector": str(row["sector"]),
             "outstanding_loan_balance_eur": float(outstanding) if pd.notna(outstanding) else None,
             "loan_origination_date": str(origination)[:10] if pd.notna(origination) else None,
+            # No nace_code in today's upload template, so real EU Taxonomy classification
+            # (ml/regulatory/eu_taxonomy_classifier.py) can't run yet -- honest "not assessed",
+            # never a guessed status. Adding a nace_code column is a natural follow-on.
+            "taxonomy_status": "not_assessed",
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
@@ -381,10 +386,10 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
     session.execute(text("""
         INSERT INTO bank_assets (asset_id, org_id, asset_name, asset_type, latitude, longitude,
                                   h3_cell, region, country, asset_value_eur, sector,
-                                  outstanding_loan_balance_eur, loan_origination_date)
+                                  outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)
         VALUES (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude,
                 :h3_cell, :region, :country, :asset_value_eur, :sector,
-                :outstanding_loan_balance_eur, :loan_origination_date)
+                :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
                 target_type="bank_assets", target_id=None,

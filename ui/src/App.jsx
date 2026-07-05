@@ -10,6 +10,7 @@ import Portfolio from './pages/bank/Portfolio'
 import RiskMapBank from './pages/bank/RiskMapBank'
 import Signals from './pages/bank/Signals'
 import Reports from './pages/bank/Reports'
+import MethodologyPage from './pages/bank/MethodologyPage'
 import ModelsPage from './pages/ModelsPage'
 import PlatformOverviewPage from './pages/PlatformOverviewPage'
 import CogsCommand from './pages/supply/CogsCommand'
@@ -28,7 +29,7 @@ import DocumentationPage from './pages/DocumentationPage'
 import ServicePortalPage from './pages/ServicePortalPage'
 import AdminPage from './pages/admin/AdminPage'
 
-const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers }
+const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, MethodologyPage, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers }
 
 // Land on the tenant's OWN first service (not a hardcoded banking route), so a
 // bank lands on Command Center, a food maker on COGS-at-risk, an insurer on theirs.
