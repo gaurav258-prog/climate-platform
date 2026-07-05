@@ -83,7 +83,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
            ctx: dict = Depends(require_permission("approvals.decide"))):
     org_id = ctx["org"]["org_id"]
     row = session.execute(text("""
-        SELECT maker_user_id, status FROM approval_requests
+        SELECT maker_user_id, status, request_type FROM approval_requests
         WHERE  request_id = :r AND org_id = :o
     """), {"r": request_id, "o": org_id}).mappings().first()
     if not row:
@@ -94,12 +94,28 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     if str(row["maker_user_id"]) == ctx["user"]["id"]:
         raise HTTPException(422, {"error": "maker_checker_violation",
                                   "message": "The maker cannot approve their own request (4-eyes)."})
+    if row["request_type"] == "submission.release" and "submissions.release" not in ctx["permissions"]:
+        raise HTTPException(403, {"error": "forbidden",
+                                  "message": "Missing permission: submissions.release"})
 
     session.execute(text("""
         UPDATE approval_requests
         SET    status = :s, checker_user_id = :c, reason = :reason, decided_at = now()
         WHERE  request_id = :r
     """), {"s": body.decision, "c": ctx["user"]["id"], "reason": body.reason, "r": request_id})
+
+    if row["request_type"] == "submission.release":
+        new_status = "released" if body.decision == "approved" else "rejected"
+        try:
+            session.execute(text(f"""
+                UPDATE bank_disclosure_submissions
+                SET    status = :s, checker_user_id = :c, checker_at = now(),
+                       released_at = {"now()" if new_status == "released" else "NULL"}
+                WHERE  approval_request_id = :r
+            """), {"s": new_status, "c": ctx["user"]["id"], "r": request_id})
+        except Exception as e:
+            raise HTTPException(409, {"error": "submission_transition_failed",
+                                      "message": f"Could not {new_status} the linked submission: {e}"})
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, KeyRound, ScrollText, CheckSquare, Plus, Loader2, Check, X } from 'lucide-react'
+import { Users, KeyRound, ScrollText, CheckSquare, Plus, Loader2, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   fetchAdminUsers, createAdminUser, patchAdminUser,
   fetchRoles, fetchPermissions, setRolePermissions,
-  fetchAudit, fetchApprovals, decideApproval,
+  fetchAudit, fetchApprovals, decideApproval, fetchSubmission,
 } from '../../api/client'
+import { DisclosureSummary } from '../bank/Reports'
 
 const TABS = [
   { id: 'users',     label: 'Users',                icon: Users,      perm: 'admin.users.manage' },
@@ -245,9 +246,13 @@ function AuditTab() {
 }
 
 // ── Approvals (4-eyes) ──────────────────────────────────────────────────
+const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
+
 function ApprovalsTab({ auth }) {
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(null)
+  const [expanded, setExpanded] = useState(null)   // request id whose snapshot is shown
+  const [snapshot, setSnapshot] = useState(null)    // { loading } | { data } for the expanded row
   const canDecide = new Set(auth?.permissions || []).has('approvals.decide')
 
   const load = useCallback(() => { fetchApprovals().then(setRows).catch(() => setRows([])) }, [])
@@ -260,6 +265,18 @@ function ApprovalsTab({ auth }) {
     finally { setBusy(null); load() }
   }
 
+  async function toggleSnapshot(r) {
+    if (expanded === r.id) { setExpanded(null); return }
+    setExpanded(r.id)
+    setSnapshot({ loading: true })
+    try {
+      const full = await fetchSubmission(r.payload.submission_id)
+      setSnapshot({ data: full })
+    } catch (e) {
+      setSnapshot(null)
+    }
+  }
+
   const badge = { pending: 'bg-amber-50 text-amber-700', approved: 'bg-emerald-50 text-emerald-700', rejected: 'bg-red-50 text-red-700' }
   return (
     <div>
@@ -269,7 +286,9 @@ function ApprovalsTab({ auth }) {
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-[14px] text-gray-400">No approval requests.</div>
       )}
       <div className="space-y-3">
-        {(rows || []).map(r => (
+        {(rows || []).map(r => {
+          const isSubmission = r.request_type === 'submission.release'
+          return (
           <div key={r.id} className="rounded-2xl border border-gray-200/70 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -282,6 +301,19 @@ function ApprovalsTab({ auth }) {
                   {r.checker_email && ` · checker ${r.checker_email}`}
                   {r.created_at && ` · ${new Date(r.created_at).toLocaleString()}`}
                 </p>
+                {isSubmission && (
+                  <p className="mt-1.5 text-[12px] text-gray-600">
+                    <span className="font-medium">{r.payload.period_label}</span> · {r.payload.framework} ·
+                    value at risk <span className="font-medium text-[#c2410c]">{mn(r.payload.value_at_risk_eur)}</span> ·
+                    {' '}{r.payload.n_assets} assets
+                  </p>
+                )}
+                {isSubmission && (
+                  <button onClick={() => toggleSnapshot(r)}
+                    className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-[#0071e3] hover:underline">
+                    {expanded === r.id ? <><ChevronUp size={13} /> Hide full snapshot</> : <><ChevronDown size={13} /> View full snapshot</>}
+                  </button>
+                )}
               </div>
               {r.status === 'pending' && canDecide && (
                 r.is_own ? (
@@ -300,8 +332,15 @@ function ApprovalsTab({ auth }) {
                 )
               )}
             </div>
+            {isSubmission && expanded === r.id && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                {snapshot?.loading && <p className="text-gray-400">Loading snapshot…</p>}
+                {snapshot?.data && <DisclosureSummary d={snapshot.data.snapshot} />}
+                {!snapshot && <p className="text-gray-400">Could not load snapshot.</p>}
+              </div>
+            )}
           </div>
-        ))}
+        )})}
       </div>
     </div>
   )

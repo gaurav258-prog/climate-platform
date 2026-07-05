@@ -160,10 +160,9 @@ def summary(session: DbSession, org_id: OrgId,
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(assets)}
 
 
-@router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
-def disclosure(session: DbSession, org_id: OrgId,
-               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    assets = _assets_with_risk(session, org_id, scenario, horizon)
+def _hazard_rollup(assets):
+    """Physical risk by hazard, EU-Taxonomy alignment and financed emissions —
+    the three blocks the TCFD/EU-Taxonomy disclosure pack adds on top of _rollup()."""
     # physical risk by hazard — value of the book exposed at High+ per hazard
     hazards: dict = {}
     for a in assets:
@@ -188,12 +187,30 @@ def disclosure(session: DbSession, org_id: OrgId,
     ghg = {f"scope{i}": round(sum((a.get(f"ghg{i}") or 0) for a in assets))
            for i in (1, 2, 3)}
     return {
-        "org_id": org_id, "scenario": scenario, "horizon": horizon,
-        "rollup": _rollup(assets),
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
         "financed_emissions_tco2e": ghg,
     }
+
+
+def build_disclosure_snapshot(session, org_id, scenario, horizon):
+    """The single source of truth for a TCFD/EU-Taxonomy disclosure: live callers
+    (GET /disclosure) and frozen callers (submission snapshots) both go through
+    this, so a submission's numbers can never drift from what the live view shows
+    at the moment it's taken."""
+    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    return {
+        "rollup": _rollup(assets),
+        "assets": assets,
+        **_hazard_rollup(assets),
+    }
+
+
+@router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
+def disclosure(session: DbSession, org_id: OrgId,
+               scenario: str = Query("baseline"), horizon: str = Query("current")):
+    snapshot = build_disclosure_snapshot(session, org_id, scenario, horizon)
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon, **snapshot}
 
 
 def _valuation_row(session, asset_id):

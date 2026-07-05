@@ -33,6 +33,7 @@ try:
     from api.routers import auth, locations, packages, scores, lookup
     from api.routers import platform as platform_router
     from api.routers import bank as bank_router
+    from api.routers import bank_submissions as bank_submissions_router
     from api.routers import supply as supply_router
     from api.routers import insurance as insurance_router
     ROUTERS_AVAILABLE = True
@@ -139,6 +140,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(packages.router)
     app.include_router(platform_router.router)
     app.include_router(bank_router.router)
+    app.include_router(bank_submissions_router.router)
     app.include_router(supply_router.router)
     app.include_router(insurance_router.router)
     app.include_router(lookup.router)

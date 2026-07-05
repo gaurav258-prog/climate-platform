@@ -173,9 +173,25 @@ export async function clearValuationOverride(assetId) {
   return send('DELETE', `/v1/bank/asset/${assetId}/valuation-override`)
 }
 
-/** TCFD/EU-Taxonomy disclosure pack: { rollup, by_hazard, taxonomy, financed_emissions_tco2e }. */
+/** TCFD/EU-Taxonomy disclosure pack: { rollup, assets, by_hazard, taxonomy, financed_emissions_tco2e }. */
 export async function fetchDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
   return get(`/v1/bank/disclosure?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Snapshot the current disclosure for one reporting period and queue it for checker release
+ * (requires reports.publish). Returns { id, approval_request_id, status: 'draft' }. */
+export async function createSubmission(body) {
+  return post('/v1/bank/submissions', body)
+}
+
+/** Prior submissions for this org, newest period first (requires reports.view). */
+export async function fetchSubmissions() {
+  return get('/v1/bank/submissions')
+}
+
+/** One submission incl. its frozen snapshot (requires reports.view). */
+export async function fetchSubmission(id) {
+  return get(`/v1/bank/submissions/${id}`)
 }
 
 /** Bulk-upload a CSV of assets into your own org's loan book. Requires login (writes are
