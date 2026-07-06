@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import {
-  Landmark, Umbrella, Sprout, Building2, TrendingUp,
+  Landmark, Umbrella, Sprout, Building2, TrendingUp, Layers, Truck, Building,
   ArrowRight, ArrowLeft, Check,
 } from 'lucide-react'
 
 // Outward-facing solutions catalogue. One engine, many industries.
-// All five are live in the product today. Descriptions are intentionally
-// plain data (not copy baked into JSX) — expect these to be rewritten as
-// each vertical's offering evolves; keep them short and accurate.
+// Five are live in the product today; three (reinsurance, supply chain, public
+// sector) are the confirmed next targets and carry a "Coming soon" state —
+// this mirrors the in-app Industry-modules grid so the public site shows the
+// same target scope. Descriptions are intentionally plain data (not copy baked
+// into JSX) — expect these to be rewritten as each vertical's offering
+// evolves; keep them short and accurate.
 const SECTORS = [
   {
     id: 'banking', label: 'Banking', icon: Landmark, live: true,
@@ -97,6 +100,57 @@ const SECTORS = [
       { t: 'Portfolio climate VaR', d: 'Value-weighted climate exposure across the book.' },
       { t: 'Screening', d: 'Holdings above the risk threshold, flagged automatically.' },
       { t: 'EU Taxonomy eligibility', d: 'Per-holding status wherever a NACE code is supplied.' },
+    ],
+  },
+  {
+    id: 'reinsurance', label: 'Reinsurance', icon: Layers, live: false,
+    tagline: 'Portfolio tail aggregation & parametric structuring',
+    headline: 'Aggregate the tail. Structure the trigger.',
+    narrative:
+      'Reinsurers price the tail of someone else’s book. The platform already has the parametric primitives — reinsurance aggregates cedent exposures across the same H3 grid into portfolio tail risk, and structures cat bonds on the same objective scores the cedents price on.',
+    outcomes: [
+      'Aggregate many cedent books into one tail view',
+      'Cat-bond structuring on objective, auditable triggers',
+      'Same golden source the cedents already price on',
+    ],
+    outputs: [
+      { t: 'Tail aggregation', d: 'Portfolio PML / occurrence across cells.' },
+      { t: 'Correlation', d: 'Across hazards and geographies.' },
+      { t: 'Cat-bond design', d: 'Parametric triggers, structured on live data.' },
+    ],
+  },
+  {
+    id: 'supply-chain', label: 'Supply Chain', icon: Truck, live: false,
+    tagline: 'Facility & supplier business-interruption exposure',
+    headline: 'Know which nodes climate can break.',
+    narrative:
+      'A facility or supplier is a located asset like any other. The projection surfaces which nodes sit in elevated hazard cells, translating straight into business-interruption exposure and continuity priorities.',
+    outcomes: [
+      'Every facility and supplier mapped to its hazard score',
+      'Business-interruption exposure by node',
+      'Continuity prioritization, not guesswork',
+    ],
+    outputs: [
+      { t: 'Node exposure', d: 'Hazard score for every facility and supplier.' },
+      { t: 'BI estimate', d: 'Business-interruption exposure, quantified.' },
+      { t: 'SPOF flags', d: 'Single-point-of-failure nodes, surfaced.' },
+    ],
+  },
+  {
+    id: 'public-sector', label: 'Public Sector', icon: Building, live: false,
+    tagline: 'Vulnerability mapping & adaptation budgeting',
+    headline: 'Put resilience spend where it counts most.',
+    narrative:
+      'Governments allocate scarce adaptation budgets. Population and infrastructure are located assets — the same projection produces a vulnerability map that ranks where every euro of resilience spend goes furthest.',
+    outcomes: [
+      'Vulnerability map by area and hazard',
+      'Adaptation budget prioritization',
+      'Same auditable scores used by regulated finance',
+    ],
+    outputs: [
+      { t: 'Vulnerability index', d: 'Area-level, per hazard.' },
+      { t: 'Exposure', d: 'Population and infrastructure, mapped.' },
+      { t: 'Spend ranking', d: 'Where adaptation budget goes furthest.' },
     ],
   },
 ]
@@ -218,11 +272,10 @@ export default function SolutionsPage({ onHome, onEnter }) {
       {/* and more */}
       <section className="border-t border-gray-200 bg-[#f5f5f7] py-14">
         <div className="mx-auto max-w-3xl px-8 text-center">
-          <h3 className="text-2xl font-semibold tracking-tight">And beyond these five.</h3>
+          <h3 className="text-2xl font-semibold tracking-tight">Eight sectors. One engine.</h3>
           <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
-            Reinsurance, supply-chain and the public sector read the same engine next — the physical-risk
-            primitives are already built, only the sector-specific output is new. If your world isn’t
-            here yet, it’s on the roadmap.
+            Five are live today. Reinsurance, supply-chain and the public sector are next — the
+            physical-risk primitives are already built, only the sector-specific output is new.
           </p>
           <div className="mt-7 flex items-center justify-center gap-3">
             <button onClick={onEnter}
