@@ -10,6 +10,7 @@ const DEMO = [
   { email: 'approver@meridian.demo', pw: 'Demo!approve1', label: 'Meridian · Approver' },
   { email: 'admin@iberia.demo',      pw: 'Demo!admin1',   label: 'Iberia · Admin' },
   { email: 'analyst@terra.demo',     pw: 'Demo!analyst1', label: 'Terra · Agri' },
+  { email: 'admin@stellar.demo',     pw: 'Demo!admin1',   label: 'Stellar · Admin' },
 ]
 
 export default function LoginPage({ onSuccess, onHome }) {

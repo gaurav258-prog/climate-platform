@@ -230,6 +230,30 @@ export async function setTriggerConfig(policyId, hazardType, attachmentScore, ex
     { hazard_type: hazardType, attachment_score: attachmentScore, exhaustion_score: exhaustionScore })
 }
 
+// ── Real estate (Portfolio & NOI impact) ──────────────────────────────────
+
+/** Property book → portfolio + NOI-impact rollup: { org, rollup:{ n_properties,
+ * total_value_eur, total_annual_noi_eur, total_discounted_value_eur,
+ * total_expected_insurance_premium_eur, portfolio_noi_impact_pct, by_bucket, top_properties } }. */
+export async function fetchRealEstateSummary({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/realestate/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Full property book: { rollup, properties:[...] }. */
+export async function fetchRealEstatePortfolio({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/realestate/portfolio?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Physical-risk exposure + EU Taxonomy status: { rollup, by_hazard, taxonomy }. */
+export async function fetchRealEstateDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/realestate/disclosure?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Bulk-upload a CSV of properties into your own org's portfolio. */
+export async function uploadRealEstateProperties(file) {
+  return postFile('/v1/realestate/properties/upload', file)
+}
+
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
 
 /** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */

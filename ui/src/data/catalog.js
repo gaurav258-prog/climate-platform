@@ -102,6 +102,21 @@ export const CATALOG = {
       },
     ],
   },
+
+  realestate: {
+    id: 'realestate', label: 'Real Estate', icon: 'building',
+    blurb: 'Climate risk in owned properties — NOI impact across the portfolio.',
+    offerings: [
+      {
+        id: 'portfolio-risk', label: 'Portfolio risk', icon: 'shield-half',
+        blurb: 'Where climate hits NOI — per property, per hazard.',
+        services: [
+          { id: 'impact', label: 'Portfolio & NOI impact', icon: 'layout-dashboard', workflow: 'RealEstatePortfolioImpact',
+            blurb: 'Climate-adjusted value + NOI impact, per property.', processes: ['Ingest', 'Project', 'Impact', 'Disclose'] },
+        ],
+      },
+    ],
+  },
 }
 
 export const PERSONAS = [
@@ -109,6 +124,8 @@ export const PERSONAS = [
     entitlements: { offerings: ['physical-risk', 'reporting', 'trust'] } },
   { id: 'iberia', name: 'Iberia Mutual', icon: 'umbrella', industry: 'insurance',
     entitlements: { offerings: ['underwriting', 'parametric'] } },
+  { id: 'stellar', name: 'Stellar Logistics REIT', icon: 'building', industry: 'realestate',
+    entitlements: { offerings: ['portfolio-risk'] } },
 ]
 
 // Entitlement-filtered view of a persona's industry (demo/marketing paths).
@@ -123,6 +140,7 @@ export function catalogFor(persona) {
 const ORG_TYPE_TO_INDUSTRY = {
   bank: 'banking', insurer: 'insurance', insurance: 'insurance',
   manufacturer: 'agriculture', cpg: 'agriculture', food: 'agriculture',
+  reit: 'realestate', real_estate: 'realestate', property_manager: 'realestate',
 }
 
 export function industryForOrg(org) {

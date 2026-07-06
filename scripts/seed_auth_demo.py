@@ -11,6 +11,8 @@ Demo credentials
   approver@meridian.demo / Demo!approve1   (Meridian Bank · approver)
   admin@iberia.demo      / Demo!admin1     (Iberia Mutual · admin)
   analyst@iberia.demo    / Demo!analyst1   (Iberia Mutual · analyst)
+  admin@stellar.demo     / Demo!admin1     (Stellar Logistics REIT · admin)
+  analyst@stellar.demo   / Demo!analyst1   (Stellar Logistics REIT · analyst)
 
 Run:  .venv/bin/python scripts/seed_auth_demo.py
 """
@@ -21,16 +23,19 @@ from api.security import hash_password
 
 MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
+STELLAR  = "33333333-3333-4333-8333-333333333333"
 
 ORGS = [
     # org_id, name, type, country, aum_eur, employees
     (MERIDIAN, "Meridian Bank (demo)", "bank",     "ES", 48_000_000_000, 4200),
     (IBERIA,   "Iberia Mutual (demo)", "insurer",  "ES", 12_000_000_000, 1800),
+    (STELLAR,  "Stellar Logistics REIT (demo)", "reit", "NL", 3_600_000_000, 210),
 ]
 
 ENTITLEMENTS = {
     MERIDIAN: ["physical-risk", "reporting", "trust"],
     IBERIA:   ["underwriting", "parametric"],
+    STELLAR:  ["portfolio-risk"],
 }
 
 # role name -> permission codes
@@ -53,6 +58,8 @@ USERS = [
     ("approver@meridian.demo", "Pieter Approver (Meridian)", "Demo!approve1", MERIDIAN, "approver"),
     ("admin@iberia.demo",      "Iria Admin (Iberia)",      "Demo!admin1",   IBERIA,   "admin"),
     ("analyst@iberia.demo",    "Alba Analyst (Iberia)",    "Demo!analyst1", IBERIA,   "analyst"),
+    ("admin@stellar.demo",     "Sven Admin (Stellar)",     "Demo!admin1",   STELLAR,  "admin"),
+    ("analyst@stellar.demo",   "Sanne Analyst (Stellar)",  "Demo!analyst1", STELLAR,  "analyst"),
 ]
 
 
