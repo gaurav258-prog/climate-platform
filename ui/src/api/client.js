@@ -254,6 +254,29 @@ export async function uploadRealEstateProperties(file) {
   return postFile('/v1/realestate/properties/upload', file)
 }
 
+// ── Asset management (Portfolio climate VaR & screening) ──────────────────
+
+/** Holdings book → portfolio climate VaR rollup: { org, rollup:{ n_holdings, n_flagged,
+ * total_portfolio_value_eur, total_climate_var_eur, portfolio_climate_var_pct, by_bucket, top_holdings } }. */
+export async function fetchAssetMgmtSummary({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/assetmgmt/summary?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Full holdings book: { rollup, holdings:[...] }. */
+export async function fetchAssetMgmtPortfolio({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/assetmgmt/portfolio?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Physical-risk exposure + EU Taxonomy status: { rollup, by_hazard, taxonomy }. */
+export async function fetchAssetMgmtDisclosure({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/assetmgmt/disclosure?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** Bulk-upload a CSV of holdings into your own org's portfolio. */
+export async function uploadAssetMgmtHoldings(file) {
+  return postFile('/v1/assetmgmt/holdings/upload', file)
+}
+
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────
 
 /** Procurement book → COGS-at-risk rollup: { org, rollup, commodities, eudr }. */

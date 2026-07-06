@@ -117,6 +117,21 @@ export const CATALOG = {
       },
     ],
   },
+
+  assetmgmt: {
+    id: 'assetmgmt', label: 'Asset Management', icon: 'trending-up',
+    blurb: 'Portfolio climate VaR and screening on the same golden source.',
+    offerings: [
+      {
+        id: 'portfolio-var', label: 'Portfolio VaR', icon: 'shield-half',
+        blurb: 'Climate value-at-risk and screening, per holding.',
+        services: [
+          { id: 'var', label: 'Portfolio climate VaR', icon: 'layout-dashboard', workflow: 'AssetMgmtPortfolioVaR',
+            blurb: 'Value-weighted climate risk across the holdings book.', processes: ['Ingest', 'Project', 'VaR', 'Screen'] },
+        ],
+      },
+    ],
+  },
 }
 
 export const PERSONAS = [
@@ -126,6 +141,8 @@ export const PERSONAS = [
     entitlements: { offerings: ['underwriting', 'parametric'] } },
   { id: 'stellar', name: 'Stellar Logistics REIT', icon: 'building', industry: 'realestate',
     entitlements: { offerings: ['portfolio-risk'] } },
+  { id: 'nordkap', name: 'Nordkap Asset Management', icon: 'trending-up', industry: 'assetmgmt',
+    entitlements: { offerings: ['portfolio-var'] } },
 ]
 
 // Entitlement-filtered view of a persona's industry (demo/marketing paths).
@@ -141,6 +158,7 @@ const ORG_TYPE_TO_INDUSTRY = {
   bank: 'banking', insurer: 'insurance', insurance: 'insurance',
   manufacturer: 'agriculture', cpg: 'agriculture', food: 'agriculture',
   reit: 'realestate', real_estate: 'realestate', property_manager: 'realestate',
+  asset_manager: 'assetmgmt', 'asset-manager': 'assetmgmt',
 }
 
 export function industryForOrg(org) {

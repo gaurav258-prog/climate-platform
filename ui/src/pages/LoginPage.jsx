@@ -11,6 +11,7 @@ const DEMO = [
   { email: 'admin@iberia.demo',      pw: 'Demo!admin1',   label: 'Iberia · Admin' },
   { email: 'analyst@terra.demo',     pw: 'Demo!analyst1', label: 'Terra · Agri' },
   { email: 'admin@stellar.demo',     pw: 'Demo!admin1',   label: 'Stellar · Admin' },
+  { email: 'admin@nordkap.demo',     pw: 'Demo!admin1',   label: 'Nordkap · Admin' },
 ]
 
 export default function LoginPage({ onSuccess, onHome }) {

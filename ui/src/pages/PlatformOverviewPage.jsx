@@ -118,17 +118,20 @@ export default function PlatformOverviewPage({ onSelectIndustry }) {
           {INDUSTRIES.map(ind => {
             const Icon = ICONS[ind.icon] || Landmark
             const built = ind.status === 'built'
+            const Card = built ? 'button' : 'div'
             return (
-              <button key={ind.id} onClick={() => onSelectIndustry(ind.id)}
-                className="text-left bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-indigo-300 transition-all">
+              <Card key={ind.id} {...(built ? { onClick: () => onSelectIndustry(ind.id) } : {})}
+                className={`text-left bg-white rounded-xl border border-gray-200 p-5 transition-all ${built ? 'hover:shadow-md hover:border-indigo-300' : 'opacity-80'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><Icon size={20} strokeWidth={1.5} /></div>
                   <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full ${built ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>{built ? 'Live' : 'Roadmap'}</span>
                 </div>
                 <p className="font-medium text-gray-900">{ind.name}</p>
                 <p className="text-xs text-gray-500 mt-1 leading-snug">{ind.tagline}</p>
-                <p className="text-xs text-indigo-600 mt-3 flex items-center gap-1">Open module <ArrowRight size={12} /></p>
-              </button>
+                {built
+                  ? <p className="text-xs text-indigo-600 mt-3 flex items-center gap-1">Open module <ArrowRight size={12} /></p>
+                  : <p className="text-xs text-gray-400 mt-3">Same engine, sector layer next</p>}
+              </Card>
             )
           })}
         </div>

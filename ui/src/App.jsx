@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { ChevronRight, Clock } from 'lucide-react'
-import { catalogForAuth, industryForOrg } from './data/catalog'
+import { CATALOG, catalogForAuth, industryForOrg } from './data/catalog'
 import { fetchMe, logout as apiLogout, hasToken } from './api/client'
 import LineageBar from './components/software/LineageBar'
 import CatalogNav from './components/software/CatalogNav'
@@ -22,6 +22,7 @@ import SupplyModels from './pages/supply/SupplyModels'
 import LossCurvePricing from './pages/insurance/LossCurvePricing'
 import ParametricTriggers from './pages/insurance/ParametricTriggers'
 import RealEstatePortfolioImpact from './pages/realestate/PortfolioImpact'
+import AssetMgmtPortfolioVaR from './pages/assetmgmt/PortfolioVaR'
 import LandingPage from './pages/LandingPage'
 import LookupScorePage from './pages/LookupScorePage'
 import SolutionsPage from './pages/SolutionsPage'
@@ -30,7 +31,11 @@ import DocumentationPage from './pages/DocumentationPage'
 import ServicePortalPage from './pages/ServicePortalPage'
 import AdminPage from './pages/admin/AdminPage'
 
-const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, MethodologyPage, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers, RealEstatePortfolioImpact }
+const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, MethodologyPage, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers, RealEstatePortfolioImpact, AssetMgmtPortfolioVaR }
+
+// industries.js (marketing copy) and catalog.js (real nav tree) use different id
+// conventions for the same two sectors — reconcile before looking up CATALOG.
+const INDUSTRY_ID_MAP = { 'asset-management': 'assetmgmt', 'real-estate': 'realestate' }
 
 // Land on the tenant's OWN first service (not a hardcoded banking route), so a
 // bank lands on Command Center, a food maker on COGS-at-risk, an insurer on theirs.
@@ -77,6 +82,19 @@ export default function App() {
   const onGoto = useCallback(v => {
     if (v === 'bank-portfolio') { setArea('modules'); setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' }) }
   }, [])
+
+  // Industry-modules marketing grid (PlatformOverviewPage) → real navigation.
+  // A built sector you're already licensed for jumps in-app; a different licensed
+  // sector routes through the same cross-industry login switch used elsewhere.
+  const onSelectIndustry = useCallback((indId) => {
+    const catId = INDUSTRY_ID_MAP[indId] || indId
+    if (!CATALOG[catId]) return // roadmap sector — nothing built to open yet
+    if (auth && industryForOrg(auth.org) === catId) {
+      setArea('modules'); setRoute(firstRoute(catalogForAuth(auth)))
+    } else {
+      enterApp(catId)
+    }
+  }, [auth, enterApp])
 
   // ── Marketing / auth views (all hooks above run first) ──
   if (view === 'landing')
@@ -131,7 +149,7 @@ export default function App() {
             <div className="flex-1 overflow-hidden">
               {service
                 ? (Workflow
-                    ? <Workflow onGoto={onGoto} onSelectIndustry={() => {}} auth={auth} />
+                    ? <Workflow onGoto={onGoto} onSelectIndustry={onSelectIndustry} auth={auth} />
                     : <ComingSoon service={service} />)
                 : <CatalogGrid catalog={catalog} route={route} onNavigate={setRoute} />}
             </div>
