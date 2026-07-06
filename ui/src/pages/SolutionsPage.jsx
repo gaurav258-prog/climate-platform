@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
-  Landmark, Umbrella, Sprout, Building2, Zap,
+  Landmark, Umbrella, Sprout, Building2, TrendingUp,
   ArrowRight, ArrowLeft, Check,
 } from 'lucide-react'
 
 // Outward-facing solutions catalogue. One engine, many industries.
-// Banking is live (launches the product); the rest carry a full value
-// proposition and a tasteful "Coming soon".
+// All five are live in the product today. Descriptions are intentionally
+// plain data (not copy baked into JSX) — expect these to be rewritten as
+// each vertical's offering evolves; keep them short and accurate.
 const SECTORS = [
   {
     id: 'banking', label: 'Banking', icon: Landmark, live: true,
@@ -27,7 +28,7 @@ const SECTORS = [
     ],
   },
   {
-    id: 'insurance', label: 'Insurance', icon: Umbrella, live: false,
+    id: 'insurance', label: 'Insurance', icon: Umbrella, live: true,
     tagline: 'Underwriting & parametric on live hazard data',
     headline: 'Price the risk you’re actually taking on.',
     narrative:
@@ -63,39 +64,39 @@ const SECTORS = [
     ],
   },
   {
-    id: 'real-estate', label: 'Real Estate', icon: Building2, live: false,
-    tagline: 'Asset resilience & site selection',
-    headline: 'Buy, build and hold with eyes open.',
+    id: 'real-estate', label: 'Real Estate', icon: Building2, live: true,
+    tagline: 'Portfolio value & NOI impact for owned property',
+    headline: 'Know what climate costs your NOI — before it does.',
     narrative:
-      'Screen individual properties and whole portfolios for physical climate risk before you acquire, develop or refinance — and evidence the resilience of what you hold to lenders and investors.',
+      'An owned property is a loan-book asset with no loan attached. We apply the same risk-based valuation haircut banks use, and insurance’s real pricing chain to estimate what each property would cost to insure at its hazard exposure — expressed as a share of net operating income, the number your team already prices against.',
     outcomes: [
-      'Property & portfolio risk screening',
-      'Site-selection due diligence',
-      'Resilience reporting for lenders',
-      'Forward-looking scenario exposure',
+      'Climate-adjusted valuation, per property',
+      'NOI-impact %, not a vague risk score',
+      'EU Taxonomy eligibility per property',
+      'Portfolio rollup by hazard and geography',
     ],
     outputs: [
-      { t: 'Asset screening', d: 'Risk on any address in seconds.' },
-      { t: 'Due diligence', d: 'Climate risk inside the acquisition workflow.' },
-      { t: 'Investor reporting', d: 'Resilience, evidenced.' },
+      { t: 'Portfolio & NOI impact', d: 'Climate-adjusted value and NOI impact, per property.' },
+      { t: 'Climate-adjusted valuation', d: 'Same haircut schedule used across the platform.' },
+      { t: 'EU Taxonomy status', d: 'Eligibility per property, honestly scoped.' },
     ],
   },
   {
-    id: 'energy', label: 'Energy', icon: Zap, live: false,
-    tagline: 'Infrastructure exposure & continuity',
-    headline: 'Keep critical infrastructure running.',
+    id: 'asset-management', label: 'Asset Management', icon: TrendingUp, live: true,
+    tagline: 'Portfolio climate VaR & screening',
+    headline: 'See portfolio climate risk the way your banks already do.',
     narrative:
-      'Map physical climate hazard across generation, grid and network assets to prioritise hardening, plan for extremes, and keep the lights on as conditions shift.',
+      'Reuses the exact same risk-bucket discount schedule as banking and real estate — applied value-weighted across your holdings book — to produce one portfolio-level climate exposure figure, a High/Very-High screen, and EU Taxonomy eligibility per holding. Zero new scoring code, just the same engine pointed at a new book.',
     outcomes: [
-      'Network-wide hazard exposure',
-      'Asset-hardening prioritisation',
-      'Extreme-event preparedness',
-      'Continuity & resilience planning',
+      'Portfolio-level climate VaR, value-weighted',
+      'Screening flags on High/Very-High holdings',
+      'EU Taxonomy eligibility per holding',
+      'Same golden source as every other vertical',
     ],
     outputs: [
-      { t: 'Network map', d: 'Hazard across every asset you operate.' },
-      { t: 'Prioritisation', d: 'Where to harden first — by risk × value.' },
-      { t: 'Preparedness', d: 'Plan for the events that actually matter.' },
+      { t: 'Portfolio climate VaR', d: 'Value-weighted climate exposure across the book.' },
+      { t: 'Screening', d: 'Holdings above the risk threshold, flagged automatically.' },
+      { t: 'EU Taxonomy eligibility', d: 'Per-holding status wherever a NACE code is supplied.' },
     ],
   },
 ]
@@ -219,9 +220,9 @@ export default function SolutionsPage({ onHome, onEnter }) {
         <div className="mx-auto max-w-3xl px-8 text-center">
           <h3 className="text-2xl font-semibold tracking-tight">And beyond these five.</h3>
           <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
-            Logistics, telecoms, the public sector, supply-chain and asset management — any business
-            that lives with a physical footprint reads the same engine. If your world isn’t here yet,
-            it’s on the roadmap.
+            Reinsurance, supply-chain and the public sector read the same engine next — the physical-risk
+            primitives are already built, only the sector-specific output is new. If your world isn’t
+            here yet, it’s on the roadmap.
           </p>
           <div className="mt-7 flex items-center justify-center gap-3">
             <button onClick={onEnter}

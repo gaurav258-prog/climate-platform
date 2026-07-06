@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Waves, Flame, Activity, Mountain, Umbrella as UmbrellaIcon,
-  Landmark, Sprout, ArrowRight,
+  Landmark, Sprout, Building2, TrendingUp, ArrowRight,
 } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
 import BrandMark from '../components/BrandMark'
@@ -47,6 +47,14 @@ const AUDIENCES = [
     ],
   },
   {
+    icon: UmbrellaIcon, kind: 'For insurers', h: 'Price the risk you’re actually taking on.',
+    feats: [
+      ['Loss-curve pricing', 'Turns the live hazard score into a realistic, defensible premium.'],
+      ['Parametric triggers', 'Automatic payouts the moment real data crosses a threshold — no lengthy claims process.'],
+      ['One shared view', 'Underwriters and claims teams look at the exact same live number, always in sync.'],
+    ],
+  },
+  {
     icon: Sprout, kind: 'For farms & food companies', h: 'Know what climate is doing to your cost of goods.',
     feats: [
       ['Sourcing book', 'Every farm plot you buy from, scored for heat, drought, flood and volcanic risk.'],
@@ -55,11 +63,19 @@ const AUDIENCES = [
     ],
   },
   {
-    icon: UmbrellaIcon, kind: 'For insurers', h: 'Price the risk you’re actually taking on.',
+    icon: Building2, kind: 'For real estate', h: 'Know what climate costs your NOI — before it does.',
     feats: [
-      ['Loss-curve pricing', 'Turns the live hazard score into a realistic, defensible premium.'],
-      ['Parametric triggers', 'Automatic payouts the moment real data crosses a threshold — no lengthy claims process.'],
-      ['One shared view', 'Underwriters and claims teams look at the exact same live number, always in sync.'],
+      ['Portfolio & NOI impact', 'Climate-adjusted value and NOI impact for every property you own.'],
+      ['Climate-adjusted valuation', 'The same risk-based haircut schedule banks use, applied to your portfolio.'],
+      ['EU Taxonomy status', 'Know which properties qualify, and why, for every holding.'],
+    ],
+  },
+  {
+    icon: TrendingUp, kind: 'For asset managers', h: 'See portfolio climate risk the way your banks already do.',
+    feats: [
+      ['Portfolio climate VaR', 'Value-weighted climate exposure across the whole book, from one number.'],
+      ['Screening', 'Holdings sitting in high and very-high risk zones, flagged automatically.'],
+      ['EU Taxonomy eligibility', 'Per-holding taxonomy status wherever a NACE code is supplied.'],
     ],
   },
 ]
@@ -125,7 +141,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
           <div className="tl-mono mt-3 text-[12px] uppercase tracking-[0.24em] text-[#38BDF8] opacity-85">Light on the Earth</div>
 
           <p className="tl-serif mx-auto mt-14 max-w-3xl text-[clamp(28px,4.2vw,48px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            One score. Every disaster. <span className="text-[#7DD3FC]">Any place on Earth.</span>
+            See what's coming. <span className="text-[#7DD3FC]">Any place on Earth.</span>
           </p>
           <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed text-[#94A3B8]">
             Tellumen turns live satellite and sensor data into one simple number that tells you how
@@ -275,9 +291,9 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
         <div className="mx-auto max-w-5xl px-8">
           <Eyebrow>Who it's for</Eyebrow>
           <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            Three industries. Same live score. Different decisions.
+            Five industries. Same live score. Different decisions.
           </h2>
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {AUDIENCES.map(a => (
               <button key={a.kind} onClick={onExplore}
                 className="rounded-2xl border border-white/[0.09] bg-white/[0.02] p-7 text-left transition hover:-translate-y-0.5 hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
@@ -318,7 +334,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
               <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">Flood + fire + quake + volcano + more, together.</div>
               <div className="my-5 border-t border-[#38BDF8]/30" />
               <div className="tl-serif text-[22px] italic font-light leading-snug text-[#F4EFE6]">Every industry, same score.</div>
-              <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">Banking, farming and insurance, together.</div>
+              <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">Banking, insurance, farming, real estate and asset management, together.</div>
             </div>
           </div>
         </div>
