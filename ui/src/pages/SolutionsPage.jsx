@@ -185,7 +185,7 @@ export default function SolutionsPage({ onHome, onEnter }) {
 
       {/* tabs */}
       <div className="sticky top-[57px] z-20 border-b border-gray-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-6 py-2">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-1.5 px-6 py-2.5">
           {SECTORS.map(s => {
             const on = s.id === activeId
             const TabIcon = s.icon
