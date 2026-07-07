@@ -7,12 +7,11 @@ import LiveEarthHero from '../components/LiveEarthHero'
 import BrandMark from '../components/BrandMark'
 import { fetchScoresSummary } from '../api/client'
 
-// Dark/editorial redesign (2026-07-05), following the pptx explainer deck's
-// narrative arc 1:1 (Problem -> Gap -> Idea -> How -> Data -> For Who ->
-// Differentiation -> Proof -> Closing) -- see docs snapshot
-// ~/Documents/TELLUMEN_LANDING.html for the source mock. CTAs are wired to
-// the REAL product (onEnter/onExplore/onLookup), not the mock's mailto
-// placeholders -- this is a working platform, not a pre-launch pitch page.
+// Dark/editorial redesign (2026-07-05), condensed 2026-07-07 to cut scroll
+// depth: Problem+Gap merged into one section, Idea+How-it-works merged into
+// one section, Who's-it-for trimmed to a teaser (full detail now lives on
+// /solutions). CTAs are wired to the REAL product (onEnter/onExplore/
+// onLookup), not a mock -- this is a working platform, not a pitch page.
 
 const HAZARDS = [
   { icon: Waves, name: 'Floods', desc: 'Wash away farmland and flood buildings.' },
@@ -20,8 +19,6 @@ const HAZARDS = [
   { icon: Activity, name: 'Earthquakes', desc: 'Shake cities with almost no warning.' },
   { icon: Mountain, name: 'Volcanoes', desc: 'Bury towns in ash or lava overnight.' },
 ]
-
-const ISLANDS = ['Flood agencies', 'Weather services', 'Seismic networks', 'Volcano observatories']
 
 const STEPS = [
   { k: 'Sense', d: 'Live data pours in from satellites, weather stations, seismic networks and volcano monitors.' },
@@ -154,109 +151,58 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
         </div>
       </LiveEarthHero>
 
-      {/* problem */}
-      <section id="problem" className="mx-auto max-w-4xl px-8 py-28">
-        <Eyebrow>The problem</Eyebrow>
-        <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-          Disasters don't send a warning email.
+      {/* the gap — problem + siloed-data gap, merged into one compact section */}
+      <section id="problem" className="mx-auto max-w-4xl px-8 py-14">
+        <Eyebrow>The gap</Eyebrow>
+        <h2 className="tl-serif max-w-3xl text-[clamp(26px,3.6vw,40px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          Disasters don't send a warning email — and the data to see them coming is scattered.
         </h2>
-        <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-[#94A3B8]">
-          Floods, wildfires, earthquakes, volcanoes — they hit banks, farms and insurers without warning, anywhere in the world.
+        <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-[#94A3B8]">
+          Floods, wildfires, earthquakes, volcanoes hit banks, farms and insurers without warning. A flood map
+          here, a weather model there, an earthquake catalog somewhere else — each real, none connected, none
+          tied to what you actually own or grow. The result: climate risk has stayed invisible until it's too late.
         </p>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {HAZARDS.map(h => (
-            <div key={h.name} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-6 transition hover:border-[#38BDF8]/30 hover:bg-[#38BDF8]/[0.04]">
-              <span className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#38BDF8]/10 text-[#7DD3FC]"><h.icon size={20} /></span>
-              <div className="mb-1.5 text-[16px] font-medium text-[#F4EFE6]">{h.name}</div>
-              <div className="text-[13.5px] leading-relaxed text-[#94A3B8]">{h.desc}</div>
+            <div key={h.name} className="flex items-center gap-3 rounded-xl border border-white/[0.09] bg-white/[0.02] p-4 transition hover:border-[#38BDF8]/30 hover:bg-[#38BDF8]/[0.04]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#38BDF8]/10 text-[#7DD3FC]"><h.icon size={17} /></span>
+              <div className="text-[14px] font-medium text-[#F4EFE6]">{h.name}</div>
             </div>
           ))}
         </div>
-        <div className="mt-10 rounded-r-xl border-l-[3px] border-[#EF4444] bg-gradient-to-r from-[#EF4444]/[0.06] to-[#F59E0B]/[0.04] px-7 py-5">
-          <p className="tl-serif text-[19px] italic leading-snug text-[#F4EFE6]">
-            <span className="tl-sans not-italic font-medium text-[#EF4444]">The result · </span>
-            climate risk has been invisible — until it's too late.
-          </p>
-        </div>
       </section>
 
-      {/* gap */}
-      <section className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-28">
-        <div className="mx-auto max-w-4xl px-8">
-          <Eyebrow>The gap</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            Every hazard has its own watchtower. None of them talk.
-          </h2>
-          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[#94A3B8]">
-            A flood map here. A weather model there. An earthquake catalog somewhere else. A volcano bulletin
-            in another. Each one is real and useful — but nobody puts them together, and nobody connects them
-            to what you actually own or grow.
-          </p>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {ISLANDS.map((name, i) => (
-              <div key={name} className="rounded-[10px] border border-white/[0.09] bg-white/[0.02] p-4.5 text-center">
-                <div className="tl-mono mb-2.5 text-[11px] tracking-[0.14em] text-[#64748B]">{String(i + 1).padStart(2, '0')}</div>
-                <div className="tl-serif text-[18px] italic text-[#F4EFE6]">{name}</div>
-              </div>
-            ))}
-          </div>
-          <p className="tl-serif mx-auto mt-8 max-w-2xl text-center text-[20px] italic leading-relaxed text-[#94A3B8]">
-            Four separate islands of data — scattered, disconnected, and blind to each other.
-          </p>
-        </div>
-      </section>
-
-      {/* idea */}
-      <section className="py-28 text-center">
-        <div className="mx-auto max-w-4xl px-8">
-          <Eyebrow>The idea</Eyebrow>
-          <h2 className="tl-serif mx-auto max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            So we built one engine that reads all of it.
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-relaxed text-[#94A3B8]">
-            Point Tellumen at any spot on Earth — a farm, a factory, a house — and it reads live satellite,
-            weather, earthquake and volcano data, then boils it all down into one easy number.
-          </p>
-
-          <div className="mt-14 flex flex-wrap items-center justify-center gap-6">
-            <span className="tl-serif text-[clamp(90px,16vw,200px)] font-light italic leading-[0.9] text-[#F4EFE6]">0</span>
-            <span className="tl-mono text-[14px] uppercase tracking-[0.22em] text-[#94A3B8]">to</span>
-            <span className="tl-serif text-[clamp(90px,16vw,200px)] font-light italic leading-[0.9] text-[#EF4444]">100</span>
-          </div>
-          <div className="tl-mono mt-5 flex flex-wrap justify-center gap-3 text-[12px] text-[#94A3B8]">
-            <span className="rounded-full border border-[#34D399]/35 px-2.5 py-1 text-[#34D399]">0–33 · calm</span>
-            <span className="rounded-full border border-[#F59E0B]/35 px-2.5 py-1 text-[#F59E0B]">34–66 · watch</span>
-            <span className="rounded-full border border-[#EF4444]/35 px-2.5 py-1 text-[#EF4444]">67–100 · real danger</span>
-          </div>
-
-          <p className="mx-auto mt-10 max-w-xl text-[15px] leading-relaxed text-[#94A3B8]">
-            One risk score for any hazard, any place. Low is calm, high means real danger — and it isn't fixed.
-            Check it today, or fast-forward to see the risk in the future.
-          </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-8">
-            {[['2030', 'Near-term'], ['2050', 'Mid-century'], ['2100', 'Long horizon']].map(([y, note]) => (
-              <div key={y} className="text-center">
-                <div className="tl-serif text-[28px] italic text-[#7DD3FC]">{y}</div>
-                <div className="tl-mono mt-1 text-[12px] uppercase tracking-[0.14em] text-[#94A3B8]">{note}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* how it works */}
-      <section id="how" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-28">
+      {/* how it works — one score visual + the 4-step loop, merged */}
+      <section id="how" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-14 text-center">
         <div className="mx-auto max-w-4xl px-8">
           <Eyebrow>How it works</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            Four steps. Running all the time.
+          <h2 className="tl-serif mx-auto max-w-3xl text-[clamp(26px,3.6vw,40px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+            One engine reads all of it. One score, 0 to 100.
           </h2>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <p className="mx-auto mt-4 max-w-2xl text-[14.5px] leading-relaxed text-[#94A3B8]">
+            Point Tellumen at any spot on Earth and it reads live satellite, weather, earthquake and volcano
+            data — low is calm, high is real danger. Run it today, or fast-forward to 2030, 2050 or 2100.
+          </p>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <span className="tl-serif text-[clamp(48px,7vw,80px)] font-light italic leading-[0.9] text-[#F4EFE6]">0</span>
+            <span className="tl-mono text-[13px] uppercase tracking-[0.22em] text-[#94A3B8]">to</span>
+            <span className="tl-serif text-[clamp(48px,7vw,80px)] font-light italic leading-[0.9] text-[#EF4444]">100</span>
+            <div className="tl-mono ml-2 flex flex-wrap gap-2 text-[11px] text-[#94A3B8]">
+              <span className="rounded-full border border-[#34D399]/35 px-2 py-1 text-[#34D399]">calm</span>
+              <span className="rounded-full border border-[#F59E0B]/35 px-2 py-1 text-[#F59E0B]">watch</span>
+              <span className="rounded-full border border-[#EF4444]/35 px-2 py-1 text-[#EF4444]">danger</span>
+            </div>
+          </div>
+
+          <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s, i) => (
-              <div key={s.k} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-6">
-                <div className="tl-serif text-[56px] italic font-light leading-none text-[#7DD3FC]">{String(i + 1).padStart(2, '0')}</div>
-                <div className="tl-mono mt-3.5 mb-2.5 text-[12px] uppercase tracking-[0.20em] text-[#F4EFE6]">{s.k}</div>
-                <div className="text-[13.5px] leading-relaxed text-[#94A3B8]">{s.d}</div>
+              <div key={s.k} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4 text-left">
+                <div className="flex items-baseline gap-2">
+                  <span className="tl-serif text-[26px] italic font-light leading-none text-[#7DD3FC]">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="tl-mono text-[11px] uppercase tracking-[0.18em] text-[#F4EFE6]">{s.k}</span>
+                </div>
+                <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">{s.d}</div>
               </div>
             ))}
           </div>
@@ -264,48 +210,45 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
       </section>
 
       {/* data */}
-      <section id="data" className="py-28">
+      <section id="data" className="py-11">
         <div className="mx-auto max-w-4xl px-8">
           <Eyebrow>The data</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          <h2 className="tl-serif max-w-3xl text-[clamp(24px,3.2vw,34px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             Real feeds. From real space agencies.
           </h2>
-          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[#94A3B8]">
-            Nothing here is guessed or simulated — every score traces back to a live public data source.
-            Reproducible, auditable, and free of black boxes.
+          <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[#94A3B8]">
+            Nothing here is guessed or simulated — every score traces to a live public data source.
           </p>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {SOURCES.map(s => (
-              <div key={s.kind} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-5.5">
-                <div className="tl-mono mb-3 text-[10.5px] uppercase tracking-[0.16em] text-[#38BDF8]">{s.kind}</div>
-                <div className="mb-1.5 text-[15px] font-medium text-[#F4EFE6]">{s.name}</div>
-                <div className="text-[13px] leading-relaxed text-[#94A3B8]">{s.desc}</div>
+              <div key={s.kind} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4">
+                <div className="tl-mono mb-1.5 text-[10px] uppercase tracking-[0.16em] text-[#38BDF8]">{s.kind}</div>
+                <div className="text-[13.5px] font-medium text-[#F4EFE6]">{s.name}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* for who */}
-      <section id="for" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-28">
+      {/* for who — compact teaser; full detail lives on /solutions */}
+      <section id="for" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-14">
         <div className="mx-auto max-w-5xl px-8">
           <Eyebrow>Who it's for</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          <h2 className="tl-serif max-w-3xl text-[clamp(26px,3.6vw,40px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             Five industries. Same live score. Different decisions.
           </h2>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[#94A3B8]">
+            Everyone else picks one hazard, one industry. We read every hazard, into every industry, from the same score.
+          </p>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {AUDIENCES.map(a => (
               <button key={a.kind} onClick={onExplore}
-                className="rounded-2xl border border-white/[0.09] bg-white/[0.02] p-7 text-left transition hover:-translate-y-0.5 hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
-                <span className="mb-3.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]"><a.icon size={19} /></span>
-                <div className="tl-mono mb-3.5 text-[11px] uppercase tracking-[0.20em] text-[#38BDF8]">{a.kind}</div>
-                <div className="tl-serif mb-5.5 text-[24px] italic font-light leading-tight text-[#F4EFE6]">{a.h}</div>
-                {a.feats.map(([t, d], i) => (
-                  <div key={t} className={`py-3 ${i > 0 ? 'border-t border-white/[0.09]' : ''}`}>
-                    <strong className="mb-1 block text-[14px] font-medium text-[#F4EFE6]">{t}</strong>
-                    <span className="text-[12.5px] leading-relaxed text-[#94A3B8]">{d}</span>
-                  </div>
-                ))}
+                className="flex items-center gap-3.5 rounded-xl border border-white/[0.09] bg-white/[0.02] p-4.5 text-left transition hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]"><a.icon size={17} /></span>
+                <div>
+                  <div className="tl-mono text-[10px] uppercase tracking-[0.18em] text-[#38BDF8]">{a.kind}</div>
+                  <div className="mt-0.5 text-[14px] font-medium leading-snug text-[#F4EFE6]">{a.h}</div>
+                </div>
               </button>
             ))}
           </div>
@@ -313,52 +256,44 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
       </section>
 
       {/* differentiation */}
-      <section className="py-28">
+      <section className="py-11">
         <div className="mx-auto max-w-4xl px-8">
           <Eyebrow>Why nothing else in the EU does this</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          <h2 className="tl-serif max-w-3xl text-[clamp(24px,3.2vw,34px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             Everyone else picks one thing. We do all of it.
           </h2>
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
-            <div className="rounded-2xl border border-[#94A3B8]/20 bg-[#94A3B8]/[0.06] p-7">
-              <div className="tl-mono mb-4.5 text-[11px] uppercase tracking-[0.20em] text-[#64748B]">Other tools</div>
-              <div className="tl-serif text-[22px] italic font-light leading-snug text-[#94A3B8]">One hazard at a time.</div>
-              <div className="mt-2 text-[12.5px] leading-relaxed text-[#64748B]">Just flood, or just fire, never both.</div>
-              <div className="my-5 border-t border-[#94A3B8]/20" />
-              <div className="tl-serif text-[22px] italic font-light leading-snug text-[#94A3B8]">One industry at a time.</div>
-              <div className="mt-2 text-[12.5px] leading-relaxed text-[#64748B]">Just banks, or just farms, never both.</div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-[#94A3B8]/20 bg-[#94A3B8]/[0.06] p-5">
+              <div className="tl-mono mb-2.5 text-[10px] uppercase tracking-[0.18em] text-[#64748B]">Other tools</div>
+              <div className="tl-serif text-[17px] italic font-light leading-snug text-[#94A3B8]">One hazard, one industry at a time.</div>
             </div>
-            <div className="rounded-2xl border border-[#38BDF8]/35 bg-gradient-to-br from-[#38BDF8]/10 to-[#34D399]/5 p-7">
-              <div className="tl-mono mb-4.5 text-[11px] uppercase tracking-[0.20em] text-[#7DD3FC]">Tellumen</div>
-              <div className="tl-serif text-[22px] italic font-light leading-snug text-[#F4EFE6]">Every hazard, one engine.</div>
-              <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">Flood + fire + quake + volcano + more, together.</div>
-              <div className="my-5 border-t border-[#38BDF8]/30" />
-              <div className="tl-serif text-[22px] italic font-light leading-snug text-[#F4EFE6]">Every industry, same score.</div>
-              <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">Banking, insurance, farming, real estate and asset management, together.</div>
+            <div className="rounded-xl border border-[#38BDF8]/35 bg-gradient-to-br from-[#38BDF8]/10 to-[#34D399]/5 p-5">
+              <div className="tl-mono mb-2.5 text-[10px] uppercase tracking-[0.18em] text-[#7DD3FC]">Tellumen</div>
+              <div className="tl-serif text-[17px] italic font-light leading-snug text-[#F4EFE6]">Every hazard, every industry, one engine.</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* proof */}
-      <section id="proof" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-28">
+      <section id="proof" className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-14">
         <div className="mx-auto max-w-5xl px-8">
           <Eyebrow>Proof, not promises</Eyebrow>
-          <h2 className="tl-serif max-w-3xl text-[clamp(28px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          <h2 className="tl-serif max-w-3xl text-[clamp(26px,3.6vw,40px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             We test our model against real disasters — misses included.
           </h2>
-          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[#94A3B8]">
+          <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-[#94A3B8]">
             Before we trust a number, we check it against something that already happened. When we're wrong, we say so.
           </p>
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
             {PROOFS.map(p => (
-              <div key={p.badge} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-6.5">
-                <span className={`tl-mono mb-3.5 inline-block rounded-full px-2.5 py-1 text-[10.5px] uppercase tracking-[0.14em] ${p.hit ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
+              <div key={p.badge} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-5">
+                <span className={`tl-mono mb-3 inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] ${p.hit ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
                   {p.badge}
                 </span>
-                <div className="tl-serif mb-3 text-[21px] italic font-light leading-snug text-[#F4EFE6]">{p.title}</div>
-                <p className="text-[13.5px] leading-relaxed text-[#94A3B8]">{p.body}</p>
-                <div className="tl-mono mt-3.5 flex gap-4 border-t border-white/[0.09] pt-3.5 text-[12px] text-[#94A3B8]">
+                <div className="tl-serif mb-2.5 text-[18px] italic font-light leading-snug text-[#F4EFE6]">{p.title}</div>
+                <p className="text-[13px] leading-relaxed text-[#94A3B8]">{p.body}</p>
+                <div className="tl-mono mt-3 flex gap-4 border-t border-white/[0.09] pt-3 text-[11.5px] text-[#94A3B8]">
                   <span>{p.m1[0]} <b className="ml-1 font-medium text-[#7DD3FC]">{p.m1[1]}</b></span>
                   <span>{p.m2[0]} <b className="ml-1 font-medium text-[#7DD3FC]">{p.m2[1]}</b></span>
                 </div>
@@ -368,26 +303,21 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
         </div>
       </section>
 
-      {/* closing */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0F1C] to-[#050810] px-8 py-36 text-center">
+      {/* closing + footer, merged into one compact band */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0F1C] to-[#050810] px-8 py-14 text-center">
         <div className="tl-starfield absolute inset-0 pointer-events-none" />
         <div className="relative">
-          <p className="tl-serif mx-auto max-w-3xl text-[clamp(32px,5.5vw,68px)] font-light italic leading-[1.05] text-[#F4EFE6]">
+          <p className="tl-serif mx-auto max-w-2xl text-[clamp(26px,4vw,44px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             The next disaster <span className="text-[#7DD3FC]">won't be invisible.</span>
           </p>
-          <p className="mx-auto mt-7 max-w-xl text-[16px] leading-relaxed text-[#94A3B8]">
-            One live score. Every hazard. Every industry. Tested against reality, not just theory — so the
-            businesses that feed us, insure us and lend to us can see risk coming, instead of finding out the hard way.
-          </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Btn primary onClick={onExplore}>Explore solutions <ArrowRight size={16} /></Btn>
             <Btn onClick={onEnter}>Enter the platform</Btn>
           </div>
-          <div className="tl-mono mt-14 text-[12px] uppercase tracking-[0.24em] text-[#38BDF8]">Tellumen · Light on the Earth</div>
         </div>
       </section>
 
-      <footer className="border-t border-white/[0.09] px-8 py-9 text-center">
+      <footer className="border-t border-white/[0.09] px-8 py-8 text-center">
         <span className="tl-mono text-[11px] tracking-[0.10em] text-[#64748B]">
           © 2026 Tellumen. Every number traces back to a live public data source.
           {summary?.total_current_scores ? ` · ${summary.total_current_scores.toLocaleString()} risk scores live right now.` : ''}
