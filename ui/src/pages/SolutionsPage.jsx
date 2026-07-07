@@ -339,217 +339,248 @@ const SECTORS = [
   },
 ]
 
-export default function SolutionsPage({ onHome, onEnter }) {
-  const [activeId, setActiveId] = useState('banking')
-  const sector = SECTORS.find(s => s.id === activeId) || SECTORS[0]
-  const Icon = sector.icon
+function Btn({ children, onClick, primary }) {
+  const cls = 'inline-flex items-center gap-2 rounded-lg px-[22px] py-3.5 text-[14px] font-medium transition ' +
+    (primary
+      ? 'bg-[#7DD3FC] text-[#0A0F1C] hover:bg-[#38BDF8]'
+      : 'border border-white/10 text-[#E8EEF7] hover:border-[#7DD3FC] hover:text-[#7DD3FC] hover:bg-[#38BDF8]/5')
+  return <button onClick={onClick} className={cls}>{children}</button>
+}
 
+function Eyebrow({ children }) {
+  return <span className="tl-mono mb-4 inline-block text-[11px] font-medium uppercase tracking-[0.22em] text-[#38BDF8]">{children}</span>
+}
+
+function Nav({ onHome, onEnter, onBack }) {
   return (
-    <div className="h-screen overflow-y-auto bg-white text-[#1d1d1f]">
-      {/* nav */}
-      <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/80 px-8 py-3.5 backdrop-blur">
-        <button onClick={onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-          <ArrowLeft size={16} className="text-gray-400" />
-          <span>Tel<span className="text-[#0071e3]">lumen</span></span>
-        </button>
-        <button onClick={onEnter} className="rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white">
-          Enter the platform
-        </button>
-      </nav>
+    <nav className="sticky top-0 z-30 flex items-center justify-between bg-[#0A0F1C]/80 px-8 py-3.5 backdrop-blur-md">
+      <button onClick={onBack || onHome} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[#F4EFE6]">
+        <ArrowLeft size={16} className="text-[#64748B]" />
+        <span>{onBack ? 'All sectors' : <>Tel<span className="text-[#7DD3FC]">lumen</span></>}</span>
+      </button>
+      <button onClick={onEnter} className="rounded-lg bg-[#7DD3FC] px-4 py-2 text-[13px] font-medium text-[#0A0F1C] hover:bg-[#38BDF8]">
+        Enter the platform
+      </button>
+    </nav>
+  )
+}
 
-      {/* header */}
-      <header className="mx-auto max-w-5xl px-8 pt-14 pb-8 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.15em] text-gray-400">Solutions</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">One engine, tuned to your industry.</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-[17px] leading-relaxed text-gray-500">
+function Footer() {
+  return (
+    <footer className="border-t border-white/[0.09] px-8 py-8 text-center">
+      <span className="tl-mono text-[11px] tracking-[0.10em] text-[#64748B]">
+        Tellumen — Light on the Earth · one engine, every sector · view powered by Sen
+      </span>
+    </footer>
+  )
+}
+
+// index — the only entry point into a sector: 8 cards, nothing else
+function SolutionsIndex({ onOpen, onHome, onEnter }) {
+  return (
+    <div className="tl-sans h-screen overflow-y-auto bg-[#0A0F1C] text-[#E8EEF7]" style={{ scrollBehavior: 'smooth' }}>
+      <Nav onHome={onHome} onEnter={onEnter} />
+
+      <header className="mx-auto max-w-4xl px-8 pt-14 pb-10 text-center">
+        <Eyebrow>Solutions</Eyebrow>
+        <h1 className="tl-serif text-[clamp(30px,4.6vw,48px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          One engine, tuned to your industry.
+        </h1>
+        <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-[#94A3B8]">
           Every sector reads the same live view of climate risk — then applies its own maths.
           Pick your world below.
         </p>
       </header>
 
-      {/* tabs */}
-      <div className="sticky top-[57px] z-20 border-b border-gray-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-1.5 px-6 py-2.5">
+      <section className="mx-auto max-w-5xl px-8 pb-16">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SECTORS.map(s => {
-            const on = s.id === activeId
-            const TabIcon = s.icon
+            const SIcon = s.icon
             return (
-              <button key={s.id} onClick={() => setActiveId(s.id)}
-                className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[14px] font-medium transition ${
-                  on ? 'bg-[#1d1d1f] text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-[#1d1d1f]'}`}>
-                <TabIcon size={15} strokeWidth={1.8} />
-                {s.label}
-                {s.live && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                    on ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-50 text-emerald-600'}`}>LIVE</span>
-                )}
+              <button key={s.id} onClick={() => onOpen(s.id)}
+                className="flex flex-col items-start rounded-2xl border border-white/[0.09] bg-white/[0.02] p-6 text-left transition hover:-translate-y-0.5 hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
+                <div className="flex w-full items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]">
+                    <SIcon size={19} strokeWidth={1.7} />
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                    s.live ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-white/[0.06] text-[#94A3B8]'}`}>
+                    {s.live ? 'Live' : 'Roadmap'}
+                  </span>
+                </div>
+                <div className="mt-4 text-[15px] font-medium text-[#F4EFE6]">{s.label}</div>
+                <div className="mt-1 text-[12.5px] leading-relaxed text-[#94A3B8]">{s.tagline}</div>
+                <div className="mt-4 flex items-center gap-1 text-[12px] text-[#7DD3FC]">
+                  Open sector <ArrowRight size={12} />
+                </div>
               </button>
             )
           })}
         </div>
-      </div>
+      </section>
 
-      {/* sector context — mirrors the landing page's own Gap section, one level deeper */}
-      <section className="mx-auto max-w-5xl px-8 pt-12">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">The sector</p>
-            <p className="mt-2.5 text-[14.5px] leading-relaxed text-gray-600">{sector.overview}</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">How climate hits it</p>
-            <p className="mt-2.5 text-[14.5px] leading-relaxed text-gray-600">{sector.climateImpact}</p>
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0F1C] to-[#050810] px-8 py-24 text-center">
+        <div className="tl-starfield absolute inset-0 pointer-events-none" />
+        <div className="relative mx-auto max-w-2xl">
+          <p className="tl-serif text-[clamp(26px,4vw,40px)] font-light italic leading-[1.15] text-[#F4EFE6]">
+            Eight sectors. <span className="text-[#7DD3FC]">One engine.</span>
+          </p>
+          <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-[#94A3B8]">
+            Five are live today. Reinsurance, supply-chain and the public sector are next — the
+            physical-risk primitives are already built, only the sector-specific output is new.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Btn primary onClick={onEnter}>Enter the platform <ArrowRight size={16} /></Btn>
+            <Btn onClick={onHome}>Back to home</Btn>
           </div>
         </div>
       </section>
 
-      {/* active sector */}
-      <section className="mx-auto max-w-5xl px-8 py-14">
-        <div className="grid gap-12 md:grid-cols-[1.1fr_1fr]">
-          {/* left — narrative */}
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0071e3]/10 text-[#0071e3]">
-                <Icon size={22} strokeWidth={1.7} />
-              </span>
-              <div>
-                <p className="text-[12px] font-medium uppercase tracking-wide text-gray-400">{sector.label}</p>
-                <p className="text-[13px] text-gray-500">{sector.tagline}</p>
+      <Footer />
+    </div>
+  )
+}
+
+// detail — one sector, top to bottom: header -> climate -> proof -> deliverables -> steps -> benefits
+function SolutionsDetail({ sector, onBack, onHome, onEnter }) {
+  const Icon = sector.icon
+
+  return (
+    <div className="tl-sans h-screen overflow-y-auto bg-[#0A0F1C] text-[#E8EEF7]" style={{ scrollBehavior: 'smooth' }}>
+      <Nav onHome={onHome} onEnter={onEnter} onBack={onBack} />
+
+      {/* 1 — header: icon, headline, key points */}
+      <header className="mx-auto max-w-3xl px-8 pt-14 pb-4 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#38BDF8]/10 text-[#7DD3FC]">
+          <Icon size={23} strokeWidth={1.7} />
+        </span>
+        <p className="tl-mono mt-4 text-[11px] uppercase tracking-[0.18em] text-[#38BDF8]">{sector.label} · {sector.tagline}</p>
+        <h1 className="tl-serif mt-3 text-[clamp(30px,4.4vw,48px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+          {sector.headline}
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-[15.5px] leading-relaxed text-[#94A3B8]">{sector.overview}</p>
+      </header>
+
+      {/* 2 — how climate hits it */}
+      <section className="mx-auto max-w-3xl px-8 py-10 text-center">
+        <Eyebrow>How climate hits it</Eyebrow>
+        <p className="mx-auto max-w-2xl text-[15.5px] leading-relaxed text-[#E8EEF7]">{sector.climateImpact}</p>
+      </section>
+
+      {/* 3 — real-world impact + how Tellumen helps */}
+      {sector.caseStudy && (
+        <section className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-16">
+          <div className="mx-auto max-w-4xl px-8 text-center">
+            <Eyebrow>{sector.caseStudy.eyebrow}</Eyebrow>
+            <h3 className="tl-serif mx-auto max-w-2xl text-[clamp(26px,3.8vw,40px)] font-light italic leading-[1.15] text-[#F4EFE6]">
+              {sector.caseStudy.title}
+            </h3>
+            <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-relaxed text-[#94A3B8]">
+              {sector.caseStudy.body}
+            </p>
+            <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-8 rounded-2xl border border-white/[0.09] bg-white/[0.02] px-8 py-6">
+              <div className="text-center">
+                <div className="tl-mono text-[24px] font-medium text-[#7DD3FC]">{sector.caseStudy.stat1[1]}</div>
+                <div className="mt-1 text-[10.5px] uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat1[0]}</div>
+              </div>
+              <div className="h-10 w-px bg-white/[0.09]" />
+              <div className="text-center">
+                <div className="tl-mono text-[24px] font-medium text-[#7DD3FC]">{sector.caseStudy.stat2[1]}</div>
+                <div className="mt-1 text-[10.5px] uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat2[0]}</div>
               </div>
             </div>
-
-            <h2 className="mt-6 text-3xl font-semibold tracking-tight md:text-4xl">{sector.headline}</h2>
-            <p className="mt-4 text-[16px] leading-relaxed text-gray-600">{sector.narrative}</p>
-
-            <ul className="mt-6 space-y-2.5">
-              {sector.outcomes.map(o => (
-                <li key={o} className="flex items-start gap-2.5 text-[15px] text-[#1d1d1f]">
-                  <Check size={17} className="mt-0.5 shrink-0 text-[#0071e3]" strokeWidth={2.4} />
-                  {o}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-8">
-              {sector.live ? (
-                <button onClick={() => onEnter(sector.id)}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-3 text-[15px] font-medium text-white transition hover:brightness-110">
-                  See it live <ArrowRight size={17} />
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-6 py-3 text-[15px] font-medium text-gray-400">
-                  <span className="h-2 w-2 rounded-full bg-amber-400" /> Coming soon
-                </span>
-              )}
+            <div className="mx-auto mt-8 max-w-2xl rounded-xl border-l-[3px] border-[#7DD3FC] bg-[#38BDF8]/[0.06] px-6 py-5 text-left">
+              <p className="tl-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#7DD3FC]">On Tellumen, this doesn’t happen blind</p>
+              <p className="mt-2.5 text-[14.5px] leading-relaxed text-[#E8EEF7]">
+                {sector.caseStudy.whatItMeans}
+              </p>
             </div>
+            <p className="mt-4 text-[11px] text-[#64748B]">{sector.caseStudy.source}</p>
           </div>
+        </section>
+      )}
 
-          {/* right — what you get */}
-          <div className="rounded-3xl bg-[#f5f5f7] p-7">
-            <p className="text-[12px] font-medium uppercase tracking-wide text-gray-400">What you get</p>
-            <div className="mt-4 space-y-3">
-              {sector.outputs.map((o, i) => (
-                <div key={o.t} className="rounded-2xl bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#1d1d1f] text-[12px] font-semibold text-white">{i + 1}</span>
-                    <div>
-                      <h3 className="text-[15px] font-semibold">{o.t}</h3>
-                      <p className="mt-0.5 text-[13px] leading-relaxed text-gray-500">{o.d}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-5 text-[12px] leading-relaxed text-gray-400">
-              Same live data. Same engine. The output is shaped to how {sector.label.toLowerCase()} works.
-            </p>
+      {/* 4 — key deliverables */}
+      <section className="py-16">
+        <div className="mx-auto max-w-3xl px-8 text-center">
+          <Eyebrow>Key deliverables</Eyebrow>
+          <h3 className="tl-serif mx-auto max-w-2xl text-[clamp(24px,3.4vw,34px)] font-light italic leading-[1.1] text-[#F4EFE6]">
+            What Tellumen delivers, out of the box.
+          </h3>
+          <div className="mt-9 grid gap-4 sm:grid-cols-3">
+            {sector.outputs.map((o, i) => (
+              <div key={o.t} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-5 text-left">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#7DD3FC] text-[12px] font-semibold text-[#0A0F1C]">{i + 1}</span>
+                <h4 className="mt-3 text-[14.5px] font-medium text-[#F4EFE6]">{o.t}</h4>
+                <p className="mt-1 text-[13px] leading-relaxed text-[#94A3B8]">{o.d}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* how it works — 3-lane data-flow diagram, sector-specific content */}
-      <section className="border-t border-gray-200 bg-[#f5f5f7] py-14">
-        <div className="mx-auto max-w-5xl px-8">
-          <p className="text-center text-[12px] font-medium uppercase tracking-wide text-gray-400">How it works</p>
-          <h3 className="mt-2 text-center text-2xl font-semibold tracking-tight md:text-3xl">
+      {/* 5 — practical steps: the flow diagram, colour-matched to sit inside the dark theme */}
+      <section className="bg-gradient-to-b from-[#0A0F1C] to-[#111827] py-16">
+        <div className="mx-auto max-w-5xl px-8 text-center">
+          <Eyebrow>Practical steps</Eyebrow>
+          <h3 className="tl-serif mx-auto max-w-2xl text-[clamp(24px,3.4vw,36px)] font-light italic leading-[1.1] text-[#F4EFE6]">
             What you send us. What we do with it. What you get back.
           </h3>
 
-          <div className="mt-8 overflow-x-auto rounded-2xl border border-gray-200 bg-white p-1">
+          <div className="mt-9 overflow-x-auto rounded-2xl border border-white/[0.09] bg-white/[0.015] p-1">
             <SectorFlowDiagram flow={sector.flow} />
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-6 text-[12px] text-gray-500">
-            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-dashed border-[#1d1d1f]" />Automatic hand-off</span>
-            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-[#1d1d1f]" />Computed &amp; scored</span>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-[12px] text-[#94A3B8]">
+            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-dashed border-[#94A3B8]" />Automatic hand-off</span>
+            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-[#94A3B8]" />Computed &amp; scored</span>
             <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#2F4C86' }} />Client input</span>
             <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#147159' }} />Tellumen engine</span>
             <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#A66A26' }} />Disclosure output</span>
           </div>
 
-          <p className="mx-auto mt-6 max-w-2xl text-center text-[13px] leading-relaxed text-gray-500">
-            <strong className="font-semibold text-[#1d1d1f]">{sector.label}.</strong> {sector.flow.footer}
+          <p className="mx-auto mt-6 max-w-2xl text-[13px] leading-relaxed text-[#94A3B8]">
+            <strong className="font-medium text-[#F4EFE6]">{sector.label}.</strong> {sector.flow.footer}
           </p>
         </div>
       </section>
 
-      {/* real-world case study — verified, sourced, no fabricated forecasts */}
-      {sector.caseStudy && (
-        <section className="border-t border-gray-200 py-14">
-          <div className="mx-auto max-w-4xl px-8">
-            <p className="text-center text-[12px] font-medium uppercase tracking-wide text-gray-400">{sector.caseStudy.eyebrow}</p>
-            <h3 className="mx-auto mt-2 max-w-2xl text-center text-2xl font-semibold tracking-tight md:text-3xl">
-              {sector.caseStudy.title}
-            </h3>
-            <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-gray-600">
-              {sector.caseStudy.body}
-            </p>
-            <div className="mx-auto mt-7 flex max-w-md items-center justify-center gap-8 rounded-2xl bg-[#f5f5f7] px-8 py-5">
-              <div className="text-center">
-                <div className="text-[22px] font-semibold tracking-tight text-[#0071e3]">{sector.caseStudy.stat1[1]}</div>
-                <div className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-500">{sector.caseStudy.stat1[0]}</div>
-              </div>
-              <div className="h-10 w-px bg-gray-200" />
-              <div className="text-center">
-                <div className="text-[22px] font-semibold tracking-tight text-[#0071e3]">{sector.caseStudy.stat2[1]}</div>
-                <div className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-500">{sector.caseStudy.stat2[0]}</div>
-              </div>
-            </div>
-            <div className="mx-auto mt-8 max-w-2xl rounded-2xl border-l-[3px] border-[#0071e3] bg-[#0071e3]/[0.04] px-6 py-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0071e3]">On Tellumen, this doesn’t happen blind</p>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-[#1d1d1f]">
-                {sector.caseStudy.whatItMeans}
-              </p>
-            </div>
-            <p className="mt-4 text-center text-[11px] text-gray-400">{sector.caseStudy.source}</p>
-          </div>
-        </section>
-      )}
-
-      {/* and more */}
-      <section className="border-t border-gray-200 bg-[#f5f5f7] py-14">
-        <div className="mx-auto max-w-3xl px-8 text-center">
-          <h3 className="text-2xl font-semibold tracking-tight">Eight sectors. One engine.</h3>
-          <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
-            Five are live today. Reinsurance, supply-chain and the public sector are next — the
-            physical-risk primitives are already built, only the sector-specific output is new.
-          </p>
-          <div className="mt-7 flex items-center justify-center gap-3">
-            <button onClick={onEnter}
-              className="inline-flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-3 text-[15px] font-medium text-white transition hover:brightness-110">
-              Enter the platform <ArrowRight size={17} />
-            </button>
-            <button onClick={onHome}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-[15px] font-medium text-[#1d1d1f]">
-              Back to home
-            </button>
+      {/* 6 — customer benefits, closing with the CTA */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0F1C] to-[#050810] px-8 py-20 text-center">
+        <div className="tl-starfield absolute inset-0 pointer-events-none" />
+        <div className="relative mx-auto max-w-2xl">
+          <Eyebrow>How you benefit</Eyebrow>
+          <ul className="mx-auto max-w-md space-y-3 text-left">
+            {sector.outcomes.map(o => (
+              <li key={o} className="flex items-start gap-2.5 text-[15px] text-[#E8EEF7]">
+                <Check size={17} className="mt-0.5 shrink-0 text-[#7DD3FC]" strokeWidth={2.4} />
+                {o}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-9">
+            {sector.live ? (
+              <Btn primary onClick={() => onEnter(sector.id)}>See it live <ArrowRight size={16} /></Btn>
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-[22px] py-3.5 text-[14px] font-medium text-[#64748B]">
+                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" /> Coming soon
+              </span>
+            )}
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-gray-200 px-8 py-8 text-center text-[12px] text-gray-400">
-        Tellumen — Light on the Earth · one engine, every sector · view powered by Sen
-      </footer>
+      <Footer />
     </div>
   )
+}
+
+export default function SolutionsPage({ onHome, onEnter }) {
+  const [activeId, setActiveId] = useState(null)
+  const sector = activeId ? (SECTORS.find(s => s.id === activeId) || null) : null
+
+  if (sector) {
+    return <SolutionsDetail sector={sector} onBack={() => setActiveId(null)} onHome={onHome} onEnter={onEnter} />
+  }
+  return <SolutionsIndex onOpen={setActiveId} onHome={onHome} onEnter={onEnter} />
 }

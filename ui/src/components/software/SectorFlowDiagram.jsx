@@ -2,20 +2,26 @@
 // output. Same shape for every sector — box count in lane 1 flexes to 1 or 2
 // inputs, lane 2/3 are always 2 boxes. Content is plain data on `sector.flow`
 // (see SolutionsPage.jsx) so it's easy to revise per vertical over time.
+//
+// Dark-native palette — reuses the site's own accent hues (blue/green/amber)
+// rather than the diagram's own colors, so it sits on the dark theme instead
+// of looking like a light screenshot pasted onto it.
 
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-const INPUT = '#2F4C86', ENGINE = '#147159', OUTPUT = '#A66A26', ADMIN = '#6B7480'
-const LINE = '#DCE0E8', INK = '#1C2430', MUTED = '#6B7480'
+const INPUT = '#38BDF8', ENGINE = '#34D399', OUTPUT = '#F59E0B', ADMIN = '#94A3B8'
+const CARD = 'rgba(255,255,255,0.03)', LINE = 'rgba(255,255,255,0.09)'
+const INK = '#F4EFE6', MUTED = '#94A3B8'
+const BAND_INPUT = 'rgba(56,189,248,0.05)', BAND_ENGINE = 'rgba(52,211,153,0.045)', BAND_OUTPUT = 'rgba(245,158,11,0.045)'
 
 function FlowBox({ x, y, accent, title, sub, tag, tagColor }) {
   return (
     <g>
-      <rect x={x} y={y} width={8} height={126} rx={4} fill={accent} />
-      <rect x={x} y={y} width={300} height={130} rx={10} fill="white" stroke={LINE} />
-      <text x={x + 24} y={y + 38} fontSize={15.5} fontWeight={700} fill={INK}>{title}</text>
-      <text x={x + 24} y={y + 60} fontSize={12.5} fill={MUTED}>{sub}</text>
+      <rect x={x} y={y} width={300} height={130} rx={10} fill={CARD} stroke={LINE} />
+      <rect x={x} y={y + 2} width={4} height={126} rx={2} fill={accent} />
+      <text x={x + 22} y={y + 38} fontSize={15.5} fontWeight={600} fill={INK}>{title}</text>
+      <text x={x + 22} y={y + 60} fontSize={12.5} fill={MUTED}>{sub}</text>
       {tag && (
-        <text x={x + 24} y={y + 98} fontSize={11.5} fontWeight={700} fill={tagColor} fontFamily={MONO}>{tag}</text>
+        <text x={x + 22} y={y + 98} fontSize={11.5} fontWeight={700} fill={tagColor} fontFamily={MONO}>{tag}</text>
       )}
     </g>
   )
@@ -24,7 +30,7 @@ function FlowBox({ x, y, accent, title, sub, tag, tagColor }) {
 function FlowPill({ cx, cy, w, label, color }) {
   return (
     <g>
-      <rect x={cx - w / 2} y={cy - 11} width={w} height={22} rx={11} fill="white" />
+      <rect x={cx - w / 2} y={cy - 11} width={w} height={22} rx={11} fill="#0A0F1C" stroke={LINE} />
       <text x={cx} y={cy + 4} textAnchor="middle" fontFamily={MONO} fontSize={11.5} fontWeight={600} fill={color}>{label}</text>
     </g>
   )
@@ -52,10 +58,10 @@ export default function SectorFlowDiagram({ flow }) {
 
   return (
     <svg viewBox="0 0 1400 980" className="block h-auto w-full" style={{ minWidth: 920 }}>
-      {/* lane bands */}
-      <rect x="0" y="0" width="1400" height="300" fill="#E8ECF5" />
-      <rect x="0" y="316" width="1400" height="310" fill="#E4F2EC" />
-      <rect x="0" y="642" width="1400" height="338" fill="#FBF1E1" />
+      {/* lane bands — subtle tints on transparent dark, not light pastels */}
+      <rect x="0" y="0" width="1400" height="300" fill={BAND_INPUT} />
+      <rect x="0" y="316" width="1400" height="310" fill={BAND_ENGINE} />
+      <rect x="0" y="642" width="1400" height="338" fill={BAND_OUTPUT} />
 
       {/* lane labels */}
       <text x="34" y="42" fontFamily={MONO} fontSize={15} fontWeight={700} letterSpacing="0.06em" fill={INPUT}>CLIENT INPUT</text>
