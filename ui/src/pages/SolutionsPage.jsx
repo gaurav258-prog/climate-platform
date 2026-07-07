@@ -16,6 +16,8 @@ const SECTORS = [
   {
     id: 'banking', label: 'Banking', icon: Landmark, live: true,
     tagline: 'Physical climate risk for lending & disclosure',
+    overview: 'Banks lend against physical collateral — homes, offices, farmland, factories — and hold regulatory capital against the risk that collateral loses value. A loan book is really a map of locations, whether the bank has looked at it that way or not.',
+    climateImpact: "Flood, wildfire, heat and drought don't just damage a building — they cut its resale value, its insurability, and the borrower's ability to keep repaying. Regulators now expect banks to quantify this exposure directly, not estimate it at a national or regional average.",
     headline: 'Know which loans climate is coming for.',
     narrative:
       'Project every asset in your book against flood, wildfire and seismic hazard — today and under forward-looking climate scenarios. Quantify value-at-risk, satisfy TCFD, EU Taxonomy and CSRD, and drill from a single portfolio number down to one building — every figure traceable to its source.',
@@ -46,10 +48,21 @@ const SECTORS = [
       ],
       footer: 'Value-at-risk and stranded-asset exposure trace to a model version and data vintage — the defensible basis for TCFD and EU Taxonomy disclosure.',
     },
+    caseStudy: {
+      eyebrow: 'Real world · Valencia, Spain · 2024',
+      title: '€20bn of exposure nobody saw coming — until the water did.',
+      body: 'When the DANA storm flooded Valencia in October 2024, the Bank of Spain found Spanish banks held roughly €20bn of credit exposure concentrated in the flood zone — 1.8% of all Spanish banking credit. The regulator was explicit: this was exposure, not yet realized losses, and the event proved "non-systemic" and "absorbable." But the concentration itself had gone unseen until the flood arrived.',
+      stat1: ['Exposure discovered', '€20bn+'],
+      stat2: ['Share of national credit', '1.8%'],
+      source: 'Source: Banco de España statements, Nov 2024 & Jan 2025',
+      whatItMeans: 'On Tellumen, this isn\'t a discovery — it\'s a standing number. Every loan is scored and screened by location the moment it\'s booked, so flood-zone concentration shows up on the Command Center as a live figure, not something a regulator has to go looking for after the water recedes.',
+    },
   },
   {
     id: 'insurance', label: 'Insurance', icon: Umbrella, live: true,
     tagline: 'Underwriting & parametric on live hazard data',
+    overview: "Insurers price the probability and cost of a bad event before it happens, then hold capital against the worst plausible outcome. Underwriting is a bet on how well the risk was actually understood at the point of sale.",
+    climateImpact: "Floods, wildfires and storms are shifting in frequency and severity faster than most pricing models update — meaning yesterday's 'safe' postcode can be tomorrow's concentrated loss. Underpriced risk shows up years later, all at once, in a single catastrophic season.",
     headline: 'Price the risk you’re actually taking on.',
     narrative:
       'Underwrite with forward-looking loss curves and design parametric cover triggered by the same live hazard data your models already trust — one consistent view of hazard, from the quote to the claim.',
@@ -79,10 +92,21 @@ const SECTORS = [
       ],
       footer: 'The same hazard score prices the policy and arms the parametric trigger — underwriting and claims read one number, always in sync.',
     },
+    caseStudy: {
+      eyebrow: 'Real world · Valencia, Spain · 2024',
+      title: "One flood, 239,000 claims — and the losses weren't where you'd expect.",
+      body: "Spain's public catastrophe insurer, Consorcio de Compensación de Seguros, processed over 239,000 claims and paid out more than €4bn after the 2024 Valencia floods. The losses were hugely concentrated in specific small municipalities along historic flood channels — Paiporta and Catarroja alone outweighed the much larger city of València itself.",
+      stat1: ['Claims processed', '239,000+'],
+      stat2: ['Paid out', '€4bn+'],
+      source: 'Source: Consorcio de Compensación de Seguros, official briefing notes',
+      whatItMeans: 'On Tellumen, Paiporta and València are never priced the same, because the loss curve runs per H3 cell, not per region or postcode. The concentration that caught the wider market off guard is already inside a Tellumen technical premium, on day one.',
+    },
   },
   {
     id: 'agriculture', label: 'Agriculture', icon: Sprout, live: true,
     tagline: 'Climate cost-of-goods across the supply chain',
+    overview: "Food and commodity buyers build their cost base on assumptions about what a harvest will yield — assumptions set months or years before the crop is in the ground. A sourcing plan is a bet on climate staying roughly where it's always been.",
+    climateImpact: "Heat and drought hit yield directly — fewer tonnes, smaller beans, lower quality — and the effect compounds across a concentrated growing region faster than substitute supply can be found. The result shows up as a commodity price spike that looks sudden but was building for a season.",
     headline: 'Know what climate is doing to your cost-of-goods.',
     narrative:
       'Roll live climate hazard on every sourcing plot up your bill of materials into one auditable "COGS-at-risk" per commodity — event-backtested (cocoa 2023/24, coffee 2021), scenario-projected, and EUDR+CSRD ready. The number no one else builds: hazard on the plots you buy from, not just the assets you own.',
@@ -112,10 +136,21 @@ const SECTORS = [
       ],
       footer: 'The plots you buy from, not just the assets you own — event-backtested against real cocoa and coffee price shocks.',
     },
+    caseStudy: {
+      eyebrow: 'Real world · West Africa · 2023–24',
+      title: 'Cocoa prices rose 177% — our backtest called the real driver.',
+      body: "Cocoa prices surged 177% in 2024 after 2023's excess rain triggered a black-pod disease outbreak, followed by an El Niño drought and a February 2024 heatwave that World Weather Attribution found was 4°C hotter and 10x more likely due to climate change. Our own model, calibrated against the real production shock, correctly attributed the crash to heat rather than drought and reproduced a +173% price move against the real +177%.",
+      stat1: ['Model predicted', '+173%'],
+      stat2: ['Actual move', '+177%'],
+      source: 'Source: ICCO, World Weather Attribution, Climate Central; internal backtest',
+      whatItMeans: 'On Tellumen, this shows up as COGS-at-risk rising on the sourcing plots themselves, as heat and rainfall anomalies build through the season — not as a 177% price spike a buyer only feels at the point of purchase.',
+    },
   },
   {
     id: 'real-estate', label: 'Real Estate', icon: Building2, live: true,
     tagline: 'Portfolio value & NOI impact for owned property',
+    overview: "A property's value is a bet that the building, and the land under it, will still be usable — and insurable — for the life of the investment. Valuation models are built on historical stability, not forward climate risk.",
+    climateImpact: "Flood and wildfire don't just cause direct damage — they trigger insurer non-renewals, financing difficulty, and buyer hesitation that erode value long before any water reaches the door. Official flood maps are frequently out of date or too coarse to catch this before the market prices it in the hard way.",
     headline: 'Know what climate costs your NOI — before it does.',
     narrative:
       'An owned property is a loan-book asset with no loan attached. We apply the same risk-based valuation haircut banks use, and insurance’s real pricing chain to estimate what each property would cost to insure at its hazard exposure — expressed as a share of net operating income, the number your team already prices against.',
@@ -145,10 +180,21 @@ const SECTORS = [
       ],
       footer: 'An owned property is a loan-book asset with no loan attached — it reuses banking’s valuation engine directly, not a new model.',
     },
+    caseStudy: {
+      eyebrow: 'Real world · United States & Germany',
+      title: '$200bn of US housing was overvalued — because 83% of at-risk homes sat outside the flood map.',
+      body: "A peer-reviewed Nature Climate Change study — co-authored with the Federal Reserve, EDF and First Street Foundation — found the US flood-exposed housing stock overvalued by $121–237bn, because 83% of at-risk properties sit outside official FEMA flood zones. The same blind spot played out physically in 2021, when floods in Germany's Ahr valley — a region not classified as extreme flood-risk — destroyed or condemned hundreds of buildings.",
+      stat1: ['Overvaluation found', '$121–237bn'],
+      stat2: ['At-risk homes outside FEMA zones', '83%'],
+      source: 'Source: Nature Climate Change, Feb 2023; First Street Foundation',
+      whatItMeans: "On Tellumen, a property's risk score doesn't depend on which side of a FEMA line it happens to sit on. Every property is scored against the same live hazard model regardless of official zone boundaries — so the 83% of at-risk homes invisible to the map are never invisible to a Tellumen portfolio.",
+    },
   },
   {
     id: 'asset-management', label: 'Asset Management', icon: TrendingUp, live: true,
     tagline: 'Portfolio climate VaR & screening',
+    overview: "A diversified portfolio is built to survive any single holding underperforming — but physical climate risk doesn't respect diversification if multiple holdings share the same underlying exposure: same region, same infrastructure type, same hazard.",
+    climateImpact: 'A utility, REIT, or infrastructure holding can carry years of accumulating physical-risk liability that never shows up in a quarterly earnings report — until a single event turns it into a permanent impairment or a bankruptcy filing.',
     headline: 'See portfolio climate risk the way your banks already do.',
     narrative:
       'Reuses the exact same risk-bucket discount schedule as banking and real estate — applied value-weighted across your holdings book — to produce one portfolio-level climate exposure figure, a High/Very-High screen, and EU Taxonomy eligibility per holding. Zero new scoring code, just the same engine pointed at a new book.',
@@ -179,10 +225,21 @@ const SECTORS = [
       ],
       footer: 'Zero new scoring code — the exact same risk-bucket schedule as Banking and Real Estate, pointed at a new book.',
     },
+    caseStudy: {
+      eyebrow: 'Real world · California · 2019',
+      title: "PG&E's wildfire risk wasn't hidden — it was ignored for a decade.",
+      body: 'When PG&E filed for Chapter 11 bankruptcy in January 2019 over $30bn+ in wildfire liability, its credit rating collapsed from investment grade to junk and roughly $29bn in market value was erased — losses spread across the index funds and pension funds that held it as a "safe" utility. The risk wasn\'t a surprise: a 2010 felony safety conviction, a 2015 fire already traced to its equipment, and 27 separate regulatory violations predate the crisis by years.',
+      stat1: ['Wildfire liability', '$30bn+'],
+      stat2: ['Market cap erased', '~$29bn'],
+      source: "Source: SEC filings; S&P/Moody's rating actions; DOJ, CPUC records",
+      whatItMeans: 'On Tellumen, every holding in a portfolio is screened for physical-risk concentration continuously, not discovered in a bankruptcy filing. A utility with this profile shows up flagged High/Very-High on the screening dashboard years before it becomes a 10-K disclosure.',
+    },
   },
   {
     id: 'reinsurance', label: 'Reinsurance', icon: Layers, live: false,
     tagline: 'Portfolio tail aggregation & parametric structuring',
+    overview: "Reinsurers absorb the tail risk that individual insurers can't hold alone — pricing catastrophic, low-frequency, high-severity events across many cedents' books at once.",
+    climateImpact: 'Climate change is fattening the tail: the same event now correlates across more cedents and more geographies simultaneously than historical models assumed, concentrating risk exactly where diversification was supposed to protect against it.',
     headline: 'Aggregate the tail. Structure the trigger.',
     narrative:
       'Reinsurers price the tail of someone else’s book. The platform already has the parametric primitives — reinsurance aggregates cedent exposures across the same H3 grid into portfolio tail risk, and structures cat bonds on the same objective scores the cedents price on.',
@@ -215,6 +272,8 @@ const SECTORS = [
   {
     id: 'supply-chain', label: 'Supply Chain', icon: Truck, live: false,
     tagline: 'Facility & supplier business-interruption exposure',
+    overview: "A supply chain is only as resilient as its most exposed single node — a factory, a port, a supplier's supplier — wherever that happens to sit.",
+    climateImpact: 'Flood, storm and heat can knock out a single facility for weeks, and the disruption cascades through every downstream customer who depended on it, regardless of how resilient the rest of the network is.',
     headline: 'Know which nodes climate can break.',
     narrative:
       'A facility or supplier is a located asset like any other. The projection surfaces which nodes sit in elevated hazard cells, translating straight into business-interruption exposure and continuity priorities.',
@@ -247,6 +306,8 @@ const SECTORS = [
   {
     id: 'public-sector', label: 'Public Sector', icon: Building, live: false,
     tagline: 'Vulnerability mapping & adaptation budgeting',
+    overview: 'Governments allocate a fixed adaptation budget across an entire population and its infrastructure, with imperfect visibility into which specific areas carry the most risk.',
+    climateImpact: 'Flood, heat and wildfire exposure is never distributed evenly — it concentrates in specific neighborhoods and infrastructure corridors, meaning a budget spread evenly across a region can miss where the real risk, and the real need, actually sits.',
     headline: 'Put resilience spend where it counts most.',
     narrative:
       'Governments allocate scarce adaptation budgets. Population and infrastructure are located assets — the same projection produces a vulnerability map that ranks where every euro of resilience spend goes furthest.',
@@ -327,6 +388,20 @@ export default function SolutionsPage({ onHome, onEnter }) {
           })}
         </div>
       </div>
+
+      {/* sector context — mirrors the landing page's own Gap section, one level deeper */}
+      <section className="mx-auto max-w-5xl px-8 pt-12">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">The sector</p>
+            <p className="mt-2.5 text-[14.5px] leading-relaxed text-gray-600">{sector.overview}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">How climate hits it</p>
+            <p className="mt-2.5 text-[14.5px] leading-relaxed text-gray-600">{sector.climateImpact}</p>
+          </div>
+        </div>
+      </section>
 
       {/* active sector */}
       <section className="mx-auto max-w-5xl px-8 py-14">
@@ -417,6 +492,39 @@ export default function SolutionsPage({ onHome, onEnter }) {
           </p>
         </div>
       </section>
+
+      {/* real-world case study — verified, sourced, no fabricated forecasts */}
+      {sector.caseStudy && (
+        <section className="border-t border-gray-200 py-14">
+          <div className="mx-auto max-w-4xl px-8">
+            <p className="text-center text-[12px] font-medium uppercase tracking-wide text-gray-400">{sector.caseStudy.eyebrow}</p>
+            <h3 className="mx-auto mt-2 max-w-2xl text-center text-2xl font-semibold tracking-tight md:text-3xl">
+              {sector.caseStudy.title}
+            </h3>
+            <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-gray-600">
+              {sector.caseStudy.body}
+            </p>
+            <div className="mx-auto mt-7 flex max-w-md items-center justify-center gap-8 rounded-2xl bg-[#f5f5f7] px-8 py-5">
+              <div className="text-center">
+                <div className="text-[22px] font-semibold tracking-tight text-[#0071e3]">{sector.caseStudy.stat1[1]}</div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-500">{sector.caseStudy.stat1[0]}</div>
+              </div>
+              <div className="h-10 w-px bg-gray-200" />
+              <div className="text-center">
+                <div className="text-[22px] font-semibold tracking-tight text-[#0071e3]">{sector.caseStudy.stat2[1]}</div>
+                <div className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-500">{sector.caseStudy.stat2[0]}</div>
+              </div>
+            </div>
+            <div className="mx-auto mt-8 max-w-2xl rounded-2xl border-l-[3px] border-[#0071e3] bg-[#0071e3]/[0.04] px-6 py-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0071e3]">On Tellumen, this doesn’t happen blind</p>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-[#1d1d1f]">
+                {sector.caseStudy.whatItMeans}
+              </p>
+            </div>
+            <p className="mt-4 text-center text-[11px] text-gray-400">{sector.caseStudy.source}</p>
+          </div>
+        </section>
+      )}
 
       {/* and more */}
       <section className="border-t border-gray-200 bg-[#f5f5f7] py-14">
