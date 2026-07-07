@@ -133,7 +133,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
         <div className="relative">
           <div className="flex items-center justify-center gap-3">
             <BrandMark size={44} />
-            <h1 className="tl-serif text-[clamp(52px,8vw,96px)] font-light italic leading-none text-[#F4EFE6]">Tellumen</h1>
+            <h1 className="tl-serif text-[clamp(52px,8vw,96px)] font-light italic leading-none text-[#F4EFE6]">Tel<span className="text-[#7DD3FC]">lumen</span></h1>
           </div>
           <div className="tl-mono mt-3 text-[12px] uppercase tracking-[0.24em] text-[#38BDF8] opacity-85">Light on the Earth</div>
 
