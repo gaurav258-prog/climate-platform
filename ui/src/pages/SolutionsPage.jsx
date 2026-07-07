@@ -3,6 +3,7 @@ import {
   Landmark, Umbrella, Sprout, Building2, TrendingUp, Layers, Truck, Building,
   ArrowRight, ArrowLeft, Check,
 } from 'lucide-react'
+import SectorFlowDiagram from '../components/software/SectorFlowDiagram'
 
 // Outward-facing solutions catalogue. One engine, many industries.
 // Five are live in the product today; three (reinsurance, supply chain, public
@@ -29,6 +30,22 @@ const SECTORS = [
       { t: 'Portfolio screening', d: 'Every asset scored per hazard — sort by risk and value.' },
       { t: 'Regulatory reporting', d: 'Disclosure packs generated straight from the data.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Loan Book', s: 'Property location, type & value', tag: 'CSV / EXCEL' },
+        { t: 'Outstanding Balance', s: 'Optional — enables LTV calc', tag: 'OPTIONAL FIELD' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Flood, wildfire, heat & quake, per location' },
+        { t: 'Valuation & Taxonomy Calc', s: 'Risk-bucket haircut → VaR, stranded-asset exposure' },
+      ],
+      outputs: [
+        { t: 'Portfolio VaR', s: 'By scenario & time horizon, live', tag: 'LIVE DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'TCFD / EU Taxonomy, audit-ready', tag: 'TCFD-READY' },
+      ],
+      footer: 'Value-at-risk and stranded-asset exposure trace to a model version and data vintage — the defensible basis for TCFD and EU Taxonomy disclosure.',
+    },
   },
   {
     id: 'insurance', label: 'Insurance', icon: Umbrella, live: true,
@@ -47,6 +64,21 @@ const SECTORS = [
       { t: 'Accumulation', d: 'See concentration before it becomes a catastrophe.' },
       { t: 'Parametric design', d: 'Data-driven payout triggers you can defend.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Insured Locations', s: 'Address, sum insured & peril', tag: 'CSV / EXCEL' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Per peril, per location, live' },
+        { t: 'Loss-Curve Pricing', s: 'Loss curve → expected annual loss → premium' },
+      ],
+      outputs: [
+        { t: 'Technical Premium', s: 'Defensible, parametric-trigger ready', tag: 'LIVE DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Pricing basis & model version', tag: 'DEFENSIBLE EXPORT' },
+      ],
+      footer: 'The same hazard score prices the policy and arms the parametric trigger — underwriting and claims read one number, always in sync.',
+    },
   },
   {
     id: 'agriculture', label: 'Agriculture', icon: Sprout, live: true,
@@ -65,6 +97,21 @@ const SECTORS = [
       { t: 'Sourcing book + map', d: 'Every plot scored per hazard, traceable to the source.' },
       { t: 'EUDR + CSRD disclosure', d: 'Deforestation-free and climate-viable, one record.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Sourcing Plots', s: 'Commodity, hectares & location', tag: 'CSV / EXCEL' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Drought & heat, per plot, per season' },
+        { t: 'Yield-Loss Model', s: 'Crop-sensitivity → yield-loss fraction' },
+      ],
+      outputs: [
+        { t: 'COGS-at-Risk (€)', s: 'Per commodity, scenario & horizon', tag: 'LIVE DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Deforestation-free & climate-viable', tag: 'EUDR / CSRD' },
+      ],
+      footer: 'The plots you buy from, not just the assets you own — event-backtested against real cocoa and coffee price shocks.',
+    },
   },
   {
     id: 'real-estate', label: 'Real Estate', icon: Building2, live: true,
@@ -83,6 +130,21 @@ const SECTORS = [
       { t: 'Climate-adjusted valuation', d: 'Same haircut schedule used across the platform.' },
       { t: 'EU Taxonomy status', d: 'Eligibility per property, honestly scoped.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Property Schedule', s: 'Address, value & annual NOI', tag: 'CSV / EXCEL' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Per property, per scenario' },
+        { t: 'Valuation & NOI-Impact Calc', s: 'Same haircut + insurance’s pricing chain' },
+      ],
+      outputs: [
+        { t: 'Climate-Adjusted Value', s: 'Plus NOI-impact %, per property', tag: 'LIVE DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Taxonomy status, honestly scoped', tag: 'TAXONOMY EXPORT' },
+      ],
+      footer: 'An owned property is a loan-book asset with no loan attached — it reuses banking’s valuation engine directly, not a new model.',
+    },
   },
   {
     id: 'asset-management', label: 'Asset Management', icon: TrendingUp, live: true,
@@ -101,6 +163,22 @@ const SECTORS = [
       { t: 'Screening', d: 'Holdings above the risk threshold, flagged automatically.' },
       { t: 'EU Taxonomy eligibility', d: 'Per-holding status wherever a NACE code is supplied.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Holdings Book', s: 'Name, position value & location', tag: 'CSV / EXCEL' },
+        { t: 'NACE Code', s: 'Optional — enables Taxonomy check', tag: 'OPTIONAL FIELD' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Value-weighted, across the book' },
+        { t: 'Risk & Taxonomy Calc', s: 'Same discount schedule as banking' },
+      ],
+      outputs: [
+        { t: 'Portfolio Climate VaR', s: '€ / % value-weighted, screening flags', tag: 'LIVE DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Eligibility, model version, scored date', tag: 'TCFD-READY' },
+      ],
+      footer: 'Zero new scoring code — the exact same risk-bucket schedule as Banking and Real Estate, pointed at a new book.',
+    },
   },
   {
     id: 'reinsurance', label: 'Reinsurance', icon: Layers, live: false,
@@ -118,6 +196,21 @@ const SECTORS = [
       { t: 'Correlation', d: 'Across hazards and geographies.' },
       { t: 'Cat-bond design', d: 'Parametric triggers, structured on live data.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Cedent Exposures', s: 'Aggregated across many books', tag: 'BATCH INGEST' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Across every cell, every book' },
+        { t: 'Tail Aggregation', s: 'PML / occurrence, portfolio-level' },
+      ],
+      outputs: [
+        { t: 'Portfolio Tail View', s: 'Cat-bond structuring, objective triggers', tag: 'PLANNED DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Same golden source cedents price on', tag: 'PLANNED EXPORT' },
+      ],
+      footer: 'The parametric primitives already exist — reinsurance aggregates cedent exposures onto the same H3 grid, nothing new to build there.',
+    },
   },
   {
     id: 'supply-chain', label: 'Supply Chain', icon: Truck, live: false,
@@ -135,6 +228,21 @@ const SECTORS = [
       { t: 'BI estimate', d: 'Business-interruption exposure, quantified.' },
       { t: 'SPOF flags', d: 'Single-point-of-failure nodes, surfaced.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Facility & Supplier List', s: 'Locations across the network', tag: 'BATCH INGEST' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Per node' },
+        { t: 'Node Risk Flagging', s: 'Elevated-hazard cells, flagged' },
+      ],
+      outputs: [
+        { t: 'BI Exposure', s: 'Business-interruption, quantified', tag: 'PLANNED DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Single-point-of-failure flags', tag: 'PLANNED EXPORT' },
+      ],
+      footer: 'A facility or supplier is a located asset like any other — the same projection surfaces which nodes sit in elevated hazard.',
+    },
   },
   {
     id: 'public-sector', label: 'Public Sector', icon: Building, live: false,
@@ -152,6 +260,21 @@ const SECTORS = [
       { t: 'Exposure', d: 'Population and infrastructure, mapped.' },
       { t: 'Spend ranking', d: 'Where adaptation budget goes furthest.' },
     ],
+    flow: {
+      onboarding: { t: 'Client Onboarding', s: 'Org, roles & licensed offering', tag: 'ONE-TIME SETUP' },
+      inputs: [
+        { t: 'Population & Infrastructure', s: 'Located assets, area by area', tag: 'BATCH INGEST' },
+      ],
+      engine: [
+        { t: 'Hazard Scoring', s: 'Per area' },
+        { t: 'Vulnerability Ranking', s: 'Vulnerability × value at stake' },
+      ],
+      outputs: [
+        { t: 'Vulnerability Map', s: 'Where every euro goes furthest', tag: 'PLANNED DASHBOARD' },
+        { t: 'Audit & Disclosure Export', s: 'Same auditable scores as regulated finance', tag: 'PLANNED EXPORT' },
+      ],
+      footer: 'Population and infrastructure are located assets — the same engine that prices a loan book ranks adaptation spend.',
+    },
   },
 ]
 
@@ -266,6 +389,32 @@ export default function SolutionsPage({ onHome, onEnter }) {
               Same live data. Same engine. The output is shaped to how {sector.label.toLowerCase()} works.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* how it works — 3-lane data-flow diagram, sector-specific content */}
+      <section className="border-t border-gray-200 bg-[#f5f5f7] py-14">
+        <div className="mx-auto max-w-5xl px-8">
+          <p className="text-center text-[12px] font-medium uppercase tracking-wide text-gray-400">How it works</p>
+          <h3 className="mt-2 text-center text-2xl font-semibold tracking-tight md:text-3xl">
+            What you send us. What we do with it. What you get back.
+          </h3>
+
+          <div className="mt-8 overflow-x-auto rounded-2xl border border-gray-200 bg-white p-1">
+            <SectorFlowDiagram flow={sector.flow} />
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-6 text-[12px] text-gray-500">
+            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-dashed border-[#1d1d1f]" />Automatic hand-off</span>
+            <span className="flex items-center gap-2"><span className="h-0 w-6 border-t-2 border-[#1d1d1f]" />Computed &amp; scored</span>
+            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#2F4C86' }} />Client input</span>
+            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#147159' }} />Tellumen engine</span>
+            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: '#A66A26' }} />Disclosure output</span>
+          </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-center text-[13px] leading-relaxed text-gray-500">
+            <strong className="font-semibold text-[#1d1d1f]">{sector.label}.</strong> {sector.flow.footer}
+          </p>
         </div>
       </section>
 
