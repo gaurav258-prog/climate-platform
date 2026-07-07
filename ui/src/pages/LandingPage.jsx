@@ -80,12 +80,12 @@ const AUDIENCES = [
 const PROOFS = [
   {
     badge: 'Hit · cocoa 2023/24', hit: true, title: 'Model called it — heat, not drought.',
-    body: 'The model said heat drove the crash, not drought. 2024 was the hottest year in 34. Heat was right.',
+    body: 'The model said heat drove the crash, not drought. 2024 ranks as the hottest year in our 34-year regional climate baseline (1991–2024) for the West Africa cocoa belt. Heat was right.',
     m1: ['Predicted price move', '+173%'], m2: ['Real move', '+177%'],
   },
   {
     badge: 'Partial · coffee 2021', hit: false, title: 'Right direction, missing driver.',
-    body: 'The model said drought drove it, not heat. 2021 was the driest year in 34. Predicted +27% — a frost we don’t model yet explains the rest, disclosed openly.',
+    body: 'The model said drought drove it, not heat. 2021 ranks as the driest year in our 34-year regional climate baseline for Brazil’s coffee belt. Predicted +27% — a frost we don’t model yet explains the rest, disclosed openly.',
     m1: ['Model share', '+27%'], m2: ['Gap disclosed', 'Frost'],
   },
   {
