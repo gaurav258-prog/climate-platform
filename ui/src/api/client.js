@@ -319,6 +319,11 @@ export async function fetchSupplyDisclosure({ scenario = 'baseline', horizon = '
   return get(`/v1/supply/disclosure?scenario=${scenario}&horizon=${horizon}`)
 }
 
+export const overrideCommodityCogs = (commodityId, overrideCogsAtRiskP50Eur, reason) =>
+  post(`/v1/supply/commodity/${commodityId}/override`, { override_cogs_at_risk_p50_eur: overrideCogsAtRiskP50Eur, reason })
+export const clearCommodityCogsOverride = (commodityId) =>
+  send('DELETE', `/v1/supply/commodity/${commodityId}/override`)
+
 // ── Auth (user login sessions) ────────────────────────────────────────────
 
 /** Log in; stores the JWT and returns { user, org, roles, permissions, entitlements }. */

@@ -19,11 +19,14 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
-from services.intelligence.supply_cogs import project_org_supply, IMPACT_VERSION
+from services.intelligence.supply_cogs import (
+    apply_commodity_override, clear_commodity_override, project_org_supply, IMPACT_VERSION,
+)
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -258,14 +261,20 @@ def models(session: DbSession, org_id: OrgId):
     """)).mappings().all()
     # per-commodity calibration status for this org's book
     coms = session.execute(text("""
-        SELECT DISTINCT co.name FROM sc_sourcing_plots p
+        SELECT DISTINCT co.commodity_id::text AS commodity_id, co.name FROM sc_sourcing_plots p
         JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         WHERE p.org_id = :o ORDER BY co.name
-    """), {"o": org_id}).scalars().all()
+    """), {"o": org_id}).mappings().all()
+    # override's {model_p50_eur, override_p50_eur, ...} shape is computed inside compute() --
+    # reuse project_org_supply (baseline/current) rather than re-deriving it here from the raw
+    # override row, which carries a differently-named field (override_cogs_at_risk_p50_eur) and
+    # no model figure to compare against.
+    risk_by_commodity = {c.commodity: c for c in project_org_supply(session, org_id).commodities}
     commodities = [{
-        "commodity": c,
-        "calibration": "backtested" if c in BACKTESTED else "indicative",
-        "params": COMMODITY_PARAMS.get(c) or {"sensitivity": CROP_SENSITIVITY.get(c), "global_share": 1.0, "stock_to_use": None},
+        "commodity_id": c["commodity_id"], "commodity": c["name"],
+        "calibration": "backtested" if c["name"] in BACKTESTED else "indicative",
+        "params": COMMODITY_PARAMS.get(c["name"]) or {"sensitivity": CROP_SENSITIVITY.get(c["name"]), "global_share": 1.0, "stock_to_use": None},
+        "override": (risk_by_commodity[c["name"]].override if c["name"] in risk_by_commodity else None),
     } for c in coms]
     return {
         "impact_version": IMPACT_VERSION,
@@ -273,6 +282,47 @@ def models(session: DbSession, org_id: OrgId):
         "commodities": commodities,
         "frost_note": "Frost hazard is built but not yet scored — CDS daily-min product is ECMWF-flagged unusable; pending fix.",
     }
+
+
+class CogsOverrideRequest(BaseModel):
+    override_cogs_at_risk_p50_eur: float = Field(..., ge=0)
+    reason: Optional[str] = None
+
+
+@router.post("/commodity/{commodity_id}/override", summary="Override a commodity's modelled COGS-at-risk (audited)")
+def override_commodity_cogs(commodity_id: str, body: CogsOverrideRequest, session: DbSession, ctx: CurrentUser):
+    """Same discipline as banking/insurance/real-estate/asset-management's valuation
+    overrides: a pricing.approve user can correct a v0/uncalibrated model figure with a
+    mandatory reason, fully audited. Scoped to (org, commodity) since sc_commodities is a
+    small shared reference table, not per-org."""
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    commodity = session.execute(text("SELECT name FROM sc_commodities WHERE commodity_id = :c"), {"c": commodity_id}).scalar()
+    if not commodity:
+        raise HTTPException(status_code=404, detail="commodity not found")
+    org_id = ctx["org"]["org_id"]
+    result = apply_commodity_override(session, org_id, commodity_id, body.override_cogs_at_risk_p50_eur,
+                                       ctx["user"]["id"], body.reason)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                action="commodity.cogs_at_risk.override", target_type="sc_commodity", target_id=commodity_id,
+                detail={"commodity": commodity, "override_cogs_at_risk_p50_eur": body.override_cogs_at_risk_p50_eur,
+                        "reason": body.reason})
+    return {"commodity_id": commodity_id, "commodity": commodity,
+            "override_cogs_at_risk_p50_eur": body.override_cogs_at_risk_p50_eur,
+            "overridden_at": result["overridden_at"].isoformat()}
+
+
+@router.delete("/commodity/{commodity_id}/override", summary="Clear a commodity's COGS-at-risk override, revert to the model figure (audited)")
+def clear_commodity_cogs_override(commodity_id: str, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    org_id = ctx["org"]["org_id"]
+    cleared = clear_commodity_override(session, org_id, commodity_id)
+    if cleared:
+        write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                    action="commodity.cogs_at_risk.override_cleared", target_type="sc_commodity", target_id=commodity_id,
+                    detail={})
+    return {"commodity_id": commodity_id, "cleared": cleared}
 
 
 # EUDR due-diligence-informed fields: geolocation + commodity are the regulation's own

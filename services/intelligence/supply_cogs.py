@@ -115,6 +115,7 @@ class CommodityRisk:
     cogs_at_risk_p90: Optional[float] = None
     market_eur: Optional[float] = None
     sourcing_eur: Optional[float] = None
+    override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
 
 
 @dataclass
@@ -178,13 +179,18 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
     )
 
 
-def compute(commodities: list[dict], total_cogs_eur: float) -> PortfolioCogsAtRisk:
+def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[dict] = None) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
       {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}]}.
     Per-commodity calibration (sensitivity / global_share / stock_to_use) comes from
     COMMODITY_PARAMS; uncalibrated commodities keep the v0.1 behaviour.
+    overrides: optional {commodity_name: {override_cogs_at_risk_p50_eur, overridden_by,
+    overridden_at, reason}} -- a procurement analyst's audited correction to a SCORED
+    commodity's model figure (see sc_commodity_overrides migration). p90 is re-derived
+    from the override at the same P90_FACTOR the model itself uses, for a consistent range.
     """
+    overrides = overrides or {}
     risks: list[CommodityRisk] = []
     for c in commodities:
         p = {**_DEFAULT_PARAMS, **COMMODITY_PARAMS.get(c["name"], {})}
@@ -195,6 +201,16 @@ def compute(commodities: list[dict], total_cogs_eur: float) -> PortfolioCogsAtRi
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
                              elasticity, amp, sens, p["global_share"])
         cr.calibration = "backtested" if c["name"] in BACKTESTED else "indicative"
+        ov = overrides.get(c["name"])
+        if ov and cr.status == "scored":
+            model_p50 = cr.cogs_at_risk_p50
+            cr.cogs_at_risk_p50 = round(ov["override_cogs_at_risk_p50_eur"], 2)
+            cr.cogs_at_risk_p90 = round(cr.cogs_at_risk_p50 * P90_FACTOR, 2)
+            cr.override = {
+                "model_p50_eur": model_p50, "override_p50_eur": cr.cogs_at_risk_p50,
+                "overridden_by": ov.get("overridden_by"), "overridden_at": ov.get("overridden_at"),
+                "reason": ov.get("reason"),
+            }
         risks.append(cr)
 
     scored = [r for r in risks if r.status == "scored"]
@@ -226,6 +242,43 @@ _GRAPH_SQL = """
            ON v.plot_id = p.plot_id AND v.scenario = :scenario AND v.time_horizon = :horizon
     WHERE  p.org_id = :org_id
 """
+
+
+def get_commodity_overrides(session, org_id: str) -> dict:
+    """This org's active commodity overrides, keyed by commodity NAME (compute()'s key),
+    not commodity_id -- sc_commodities is a small shared reference table."""
+    from sqlalchemy import text
+    rows = session.execute(text("""
+        SELECT co.name AS commodity, CAST(o.override_cogs_at_risk_p50_eur AS FLOAT) AS override_cogs_at_risk_p50_eur,
+               o.overridden_by::text AS overridden_by, o.overridden_at, o.reason
+        FROM sc_commodity_overrides o JOIN sc_commodities co ON co.commodity_id = o.commodity_id
+        WHERE o.org_id = :o
+    """), {"o": org_id}).mappings().all()
+    return {r["commodity"]: dict(r) for r in rows}
+
+
+def apply_commodity_override(session, org_id: str, commodity_id: str, override_p50_eur: float,
+                              user_id: str, reason: Optional[str]) -> dict:
+    from datetime import datetime, timezone
+    from sqlalchemy import text
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        INSERT INTO sc_commodity_overrides (org_id, commodity_id, override_cogs_at_risk_p50_eur, overridden_by, overridden_at, reason)
+        VALUES (:o, :c, :p, :u, :now, :reason)
+        ON CONFLICT (org_id, commodity_id) DO UPDATE
+            SET override_cogs_at_risk_p50_eur = EXCLUDED.override_cogs_at_risk_p50_eur,
+                overridden_by = EXCLUDED.overridden_by, overridden_at = EXCLUDED.overridden_at,
+                reason = EXCLUDED.reason
+    """), {"o": org_id, "c": commodity_id, "p": override_p50_eur, "u": user_id, "now": now, "reason": reason})
+    return {"overridden_at": now}
+
+
+def clear_commodity_override(session, org_id: str, commodity_id: str) -> bool:
+    from sqlalchemy import text
+    result = session.execute(text(
+        "DELETE FROM sc_commodity_overrides WHERE org_id = :o AND commodity_id = :c"
+    ), {"o": org_id, "c": commodity_id})
+    return result.rowcount > 0
 
 
 def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizon="current") -> PortfolioCogsAtRisk:
@@ -260,4 +313,5 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
         __import__("sqlalchemy").text("SELECT COALESCE(SUM(annual_cogs_eur),0) FROM sc_products WHERE org_id=:o"),
         {"o": org_id},
     ).scalar() or 0.0
-    return compute(commodities, float(total_cogs))
+    overrides = get_commodity_overrides(session, org_id)
+    return compute(commodities, float(total_cogs), overrides)
