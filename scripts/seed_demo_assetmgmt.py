@@ -1,8 +1,10 @@
 """
-Seed a realistic demo holdings book into assetmgmt_holdings for Nordkap Asset
-Management -- the Portfolio climate VaR & screening workspace needs holdings
-to project canonical_scores onto, the same role every other seed_demo_*.py
-script plays. Deliberately a DIVERSIFIED book across many NACE codes/sectors
+Seed a realistic demo holdings book into portfolio_entities (the unified
+schema -- see the b9c0d1e2f3a4 migration; this used to write directly to
+assetmgmt_holdings, now retired) for Nordkap Asset Management -- the
+Portfolio climate VaR & screening workspace needs holdings to project
+canonical_scores onto, the same role every other seed_demo_*.py script
+plays. Deliberately a DIVERSIFIED book across many NACE codes/sectors
 (unlike real estate's single-sector book) so the EU Taxonomy rollup shows a
 genuine mix of eligible/not_eligible rather than one uniform status --
 demonstrating the classifier's real discrimination, not just echoing one
@@ -95,22 +97,22 @@ def main():
                 jlat, jlon = lat, lon
             holdings.append(make_holding(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
 
-        s.execute(text("DELETE FROM assetmgmt_holdings WHERE org_id = :o"), {"o": NORDKAP})
+        s.execute(text("DELETE FROM portfolio_entities WHERE org_id = :o AND vertical = 'assetmgmt'"), {"o": NORDKAP})
         s.execute(text("""
-            INSERT INTO assetmgmt_holdings
-                (holding_id, org_id, holding_name, sector, nace_code, latitude, longitude,
-                 h3_cell, country, region, position_value_eur)
+            INSERT INTO portfolio_entities
+                (entity_id, org_id, vertical, entity_name, sector, nace_code, latitude, longitude,
+                 h3_cell, country, region, entity_type, primary_value_eur)
             VALUES
-                (:holding_id, :org_id, :holding_name, :sector, :nace_code, :latitude, :longitude,
-                 :h3_cell, :country, :region, :position_value_eur)
+                (:holding_id, :org_id, 'assetmgmt', :holding_name, :sector, :nace_code, :latitude, :longitude,
+                 :h3_cell, :country, :region, :sector, :position_value_eur)
         """), holdings)
 
         total = sum(h["position_value_eur"] for h in holdings)
         print(f"seeded {len(holdings)} holdings, total portfolio €{total/1e6:.1f}m, org {NORDKAP}")
         scored = s.execute(text("""
-            SELECT count(DISTINCT ah.holding_id) FROM assetmgmt_holdings ah
-            JOIN canonical_scores cs ON cs.h3_cell = ah.h3_cell AND cs.valid_to IS NULL
-            WHERE ah.org_id = :o
+            SELECT count(DISTINCT e.entity_id) FROM portfolio_entities e
+            JOIN canonical_scores cs ON cs.h3_cell = e.h3_cell AND cs.valid_to IS NULL
+            WHERE e.org_id = :o AND e.vertical = 'assetmgmt'
         """), {"o": NORDKAP}).scalar()
         print(f"{scored} of {len(holdings)} holdings fall in scored cells (rest = no_canonical_score)")
 

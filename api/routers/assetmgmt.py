@@ -3,9 +3,10 @@ Asset Management — public read-only endpoints for the Portfolio climate VaR
 & screening workspace, the platform's 5th vertical.
 
 Projects the golden source (canonical_scores) onto an asset manager's
-holdings book by H3 cell (v_assetmgmt_holding_physical_risk), the same shape
-as bank_assets, insurance_policies, sc_sourcing_plots and
-realestate_properties. Needs ZERO new scoring code: "climate VaR%" reuses
+holdings book via the shared portfolio engine (services/portfolio_engine.py)
+and the unified v_portfolio_entity_physical_risk view -- the same engine
+banking and real estate use (see the b9c0d1e2f3a4 migration). Needs ZERO new
+scoring code: "climate VaR%" reuses
 ml/scoring/valuation_discount.py's haircut-by-bucket schedule unchanged --
 the same one banking uses for collateral and real estate uses for
 climate-adjusted value -- and ml/regulatory/eu_taxonomy_classifier.py is
@@ -17,7 +18,6 @@ from __future__ import annotations
 import io
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -31,10 +31,38 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
-from ml.scoring.valuation_discount import monte_carlo_var, valuation_block
+from ml.scoring.valuation_discount import monte_carlo_var
 from services.calc_settings import get_calc_settings
+from services.portfolio_engine import (
+    apply_valuation_override as engine_apply_override,
+    clear_valuation_override as engine_clear_override,
+    fetch_entities_with_risk, get_entity_org,
+)
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
+
+
+def _assetmgmt_extra(row, headline, hz):
+    bucket = row["headline_bucket"]
+    tax = classify_taxonomy(row["nace_code"], headline_bucket=bucket, resilience_rating=None)
+    return {"flagged": bucket in ("H", "VH"), "taxonomy_status": tax["status"],
+            "taxonomy_activity_ref": tax["activity_ref"]}
+
+
+def _map_holding_row(row):
+    """Shared-engine row -> the exact shape /portfolio, /summary, /disclosure
+    have always returned (note: this vertical calls it climate_var, not
+    valuation -- same underlying valuation_block, different label)."""
+    return {
+        "holding_id": row["entity_id"], "holding_name": row["entity_name"], "sector": row["sector"],
+        "nace_code": row["nace_code"], "country": row["country"], "region": row["region"],
+        "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "position_value_eur": row["primary_value_eur"],
+        "hazards": row["hazards"], "headline_score": row["headline_score"],
+        "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
+        "climate_var": row["valuation"], "flagged": row["flagged"],
+        "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+    }
 
 router = APIRouter(prefix="/v1/assetmgmt", tags=["Asset Management"])
 
@@ -60,58 +88,13 @@ OrgId = Annotated[str, Depends(resolve_org)]
 
 
 def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
-    """All of an org's holdings (metadata) + their per-hazard projected risk."""
-    holdings = session.execute(text("""
-        SELECT holding_id::text AS holding_id, holding_name, sector, nace_code, country, region,
-               CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(position_value_eur AS FLOAT) AS position_value_eur
-        FROM assetmgmt_holdings WHERE org_id = :o ORDER BY position_value_eur DESC
-    """), {"o": org_id}).mappings().all()
-
-    risks = session.execute(text("""
-        SELECT holding_id::text AS holding_id, hazard_type,
-               physical_risk_score AS score, risk_bucket, model_version, scored_at
-        FROM v_assetmgmt_holding_physical_risk
-        WHERE org_id = :o AND scenario = :s AND time_horizon = :h
-    """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
-
-    by_holding = defaultdict(list)
-    for r in risks:
-        by_holding[r["holding_id"]].append({
-            "hazard": r["hazard_type"], "score": round(r["score"], 1),
-            "bucket": r["risk_bucket"], "model_version": r["model_version"],
-            "scored_at": r["scored_at"],
-        })
-
-    valuations = session.execute(text("""
-        SELECT holding_id::text AS holding_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM assetmgmt_holding_valuations WHERE holding_id IN (
-            SELECT holding_id FROM assetmgmt_holdings WHERE org_id = :o
-        )
-    """), {"o": org_id}).mappings().all()
-    val_by_holding = {v["holding_id"]: dict(v) for v in valuations}
-
-    out = []
-    for h in holdings:
-        hz = sorted(by_holding.get(h["holding_id"], []), key=lambda x: -x["score"])
-        headline = hz[0] if hz else None
-        bucket = headline["bucket"] if headline else None
-        tax = classify_taxonomy(h["nace_code"], headline_bucket=bucket, resilience_rating=None)
-        out.append({
-            **{k: h[k] for k in h.keys()},
-            "hazards": hz,
-            "headline_score": headline["score"] if headline else None,
-            "headline_bucket": bucket,
-            "headline_hazard": headline["hazard"] if headline else None,
-            "climate_var": valuation_block(bucket, h["position_value_eur"], val_by_holding.get(h["holding_id"]),
-                                            hazard=headline["hazard"] if headline else None,
-                                            severity_model=severity_model),
-            "flagged": bucket in ("H", "VH"),
-            "taxonomy_status": tax["status"],
-            "taxonomy_activity_ref": tax["activity_ref"],
-        })
-    return out
+    """All of an org's holdings (metadata) + their per-hazard projected risk.
+    Thin wrapper over the shared portfolio engine (services/portfolio_engine.py) --
+    asset management needs no extension table (sector/nace_code already live
+    on the shared portfolio_entities table)."""
+    rows = fetch_entities_with_risk(session, org_id, "assetmgmt", scenario, horizon, severity_model,
+                                     extra_calc=_assetmgmt_extra)
+    return [_map_holding_row(r) for r in rows]
 
 
 def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=None, severity_model="universal"):
@@ -218,14 +201,6 @@ HOLDING_TEMPLATE_FIELDS = [
 REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["required"]]
 
 
-def _holding_valuation_row(session, holding_id):
-    return session.execute(text("""
-        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM assetmgmt_holding_valuations WHERE holding_id = :h
-    """), {"h": holding_id}).mappings().first()
-
-
 class HoldingValuationOverrideRequest(BaseModel):
     discount_pct: float = Field(..., ge=0, le=100)
     reason: Optional[str] = None
@@ -237,29 +212,18 @@ def override_holding_valuation(holding_id: str, body: HoldingValuationOverrideRe
                                 session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    holding = session.execute(text("SELECT org_id::text AS org_id FROM assetmgmt_holdings WHERE holding_id = :h"),
-                               {"h": holding_id}).mappings().first()
-    if not holding:
+    org_id = get_entity_org(session, holding_id)
+    if not org_id:
         raise HTTPException(status_code=404, detail="holding not found")
-    if holding["org_id"] != ctx["org"]["org_id"]:
+    if org_id != ctx["org"]["org_id"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Holding does not belong to your organization"})
 
-    prior = _holding_valuation_row(session, holding_id)
-    from_pct = prior["override_discount_pct"] if prior else None
-    now = datetime.now(timezone.utc)
-    session.execute(text("""
-        INSERT INTO assetmgmt_holding_valuations (holding_id, override_discount_pct, overridden_by, overridden_at, reason)
-        VALUES (:h, :pct, :u, :now, :reason)
-        ON CONFLICT (holding_id) DO UPDATE
-            SET override_discount_pct = EXCLUDED.override_discount_pct,
-                overridden_by = EXCLUDED.overridden_by,
-                overridden_at = EXCLUDED.overridden_at,
-                reason = EXCLUDED.reason
-    """), {"h": holding_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    result = engine_apply_override(session, holding_id, body.discount_pct, ctx["user"]["id"], body.reason)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="holding.valuation.override", target_type="assetmgmt_holding", target_id=holding_id,
-                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
-    return {"holding_id": holding_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+                detail={"from_pct": result["from_pct"], "to_pct": body.discount_pct, "reason": body.reason})
+    return {"holding_id": holding_id, "override_discount_pct": body.discount_pct,
+            "overridden_at": result["overridden_at"].isoformat()}
 
 
 @router.delete("/holding/{holding_id}/valuation-override",
@@ -267,10 +231,9 @@ def override_holding_valuation(holding_id: str, body: HoldingValuationOverrideRe
 def clear_holding_valuation_override(holding_id: str, session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    prior = _holding_valuation_row(session, holding_id)
+    prior = engine_clear_override(session, holding_id)
     if not prior:
         return {"holding_id": holding_id, "cleared": False}
-    session.execute(text("DELETE FROM assetmgmt_holding_valuations WHERE holding_id = :h"), {"h": holding_id})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="holding.valuation.override_cleared", target_type="assetmgmt_holding", target_id=holding_id,
                 detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
@@ -312,22 +275,22 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
-            "holding_id": str(uuid.uuid4()), "org_id": org_id,
-            "holding_name": str(row["holding_name"]), "sector": str(row["sector"]),
+            "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "entity_name": str(row["holding_name"]), "sector": str(row["sector"]),
             "nace_code": str(row["nace_code"]) if "nace_code" in df.columns and pd.notna(row.get("nace_code")) else None,
             "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "position_value_eur": value_eur,
+            "primary_value_eur": value_eur,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
-        INSERT INTO assetmgmt_holdings (holding_id, org_id, holding_name, sector, nace_code,
-                                         latitude, longitude, h3_cell, region, country, position_value_eur)
-        VALUES (:holding_id, :org_id, :holding_name, :sector, :nace_code,
-                :latitude, :longitude, :h3_cell, :region, :country, :position_value_eur)
+        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code,
+                                         latitude, longitude, h3_cell, region, country, primary_value_eur)
+        VALUES (:entity_id, :org_id, 'assetmgmt', :entity_name, :sector, :nace_code,
+                :latitude, :longitude, :h3_cell, :region, :country, :primary_value_eur)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="holdings.upload",
                 target_type="assetmgmt_holdings", target_id=None,
