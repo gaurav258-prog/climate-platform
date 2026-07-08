@@ -1,11 +1,14 @@
 """
-Seed a realistic demo property book into insurance_policies for Iberia Mutual —
-the underwriting flagship needs policies to project canonical_scores onto, the
+Seed a realistic demo property book into portfolio_entities/ext_insurance
+(the unified schema -- see the b9c0d1e2f3a4 migration; this used to write
+directly to insurance_policies, now retired) for Iberia Mutual — the
+underwriting flagship needs policies to project canonical_scores onto, the
 same role seed_demo_loanbook.py plays for the bank and seed_demo_supply.py
 plays for agriculture. Placed on real scored ground (Valencia flood zone,
 EU/Iberia wildfire cells) plus a few Iberian cities that fall outside scored
 cells (honest 'no_canonical_score'), same true-story mix as the loan book.
-Idempotent: clears the demo org's policies first.
+Idempotent: clears the demo org's policies first (cascades to any
+configured parametric triggers on those policies).
 
 Run:  .venv/bin/python scripts/seed_demo_insurance.py
 """
@@ -101,26 +104,30 @@ def main():
                 jlat, jlon = lat, lon
             policies.append(make_policy(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
 
-        s.execute(text("DELETE FROM insurance_policies WHERE org_id = :o"), {"o": IBERIA})
+        s.execute(text("DELETE FROM portfolio_entities WHERE org_id = :o AND vertical = 'insurance'"), {"o": IBERIA})
         s.execute(text("""
-            INSERT INTO insurance_policies
-                (policy_id, org_id, policy_name, policy_type, latitude, longitude,
-                 h3_cell, country, region, sum_insured_eur, deductible_pct,
-                 building_value_eur, contents_value_eur, business_interruption_value_eur,
+            INSERT INTO portfolio_entities
+                (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
+                 h3_cell, country, region, primary_value_eur,
                  construction_type, year_built, number_of_stories)
             VALUES
-                (:policy_id, :org_id, :policy_name, :policy_type, :latitude, :longitude,
-                 :h3_cell, :country, :region, :sum_insured_eur, :deductible_pct,
-                 :building_value_eur, :contents_value_eur, :business_interruption_value_eur,
+                (:policy_id, :org_id, 'insurance', :policy_name, :policy_type, :latitude, :longitude,
+                 :h3_cell, :country, :region, :sum_insured_eur,
                  :construction_type, :year_built, :number_of_stories)
+        """), policies)
+        s.execute(text("""
+            INSERT INTO ext_insurance
+                (entity_id, deductible_pct, building_value_eur, contents_value_eur, business_interruption_value_eur)
+            VALUES
+                (:policy_id, :deductible_pct, :building_value_eur, :contents_value_eur, :business_interruption_value_eur)
         """), policies)
 
         total = sum(p["sum_insured_eur"] for p in policies)
         print(f"seeded {len(policies)} policies, total sum insured €{total/1e6:.1f}m, org {IBERIA}")
         scored = s.execute(text("""
-            SELECT count(DISTINCT ip.policy_id) FROM insurance_policies ip
-            JOIN canonical_scores cs ON cs.h3_cell = ip.h3_cell AND cs.valid_to IS NULL
-            WHERE ip.org_id = :o
+            SELECT count(DISTINCT e.entity_id) FROM portfolio_entities e
+            JOIN canonical_scores cs ON cs.h3_cell = e.h3_cell AND cs.valid_to IS NULL
+            WHERE e.org_id = :o AND e.vertical = 'insurance'
         """), {"o": IBERIA}).scalar()
         print(f"{scored} of {len(policies)} policies fall in scored cells (rest = no_canonical_score)")
 

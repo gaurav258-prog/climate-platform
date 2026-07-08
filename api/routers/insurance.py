@@ -3,12 +3,17 @@ Insurance underwriting — public read-only endpoints for the Loss-curve pricing
 workspace.
 
 Projects the golden source (canonical_scores) onto an insurer's property book
-by H3 cell (v_insurance_policy_physical_risk), then runs each policy through
-ml/scoring/insurance_pricing.py's score -> scenario loss -> expected annual
-loss -> premium chain. Mirrors bank.py/supply.py exactly: tenant-scoped via
-JWT org_id, DEMO_ORG fallback, provenance kept. Policies whose cell is
-unscored return status='no_canonical_score', premium withheld -- same
-governance rule as every other hazard-projected book here.
+via the shared portfolio engine (services/portfolio_engine.py) and the unified
+v_portfolio_entity_physical_risk view -- the same engine banking, real estate
+and asset management use, so a fix or a new calc-settings trigger only needs
+writing once (see the b9c0d1e2f3a4 migration's docstring for the duplication
+this replaced). Each policy then runs through ml/scoring/insurance_pricing.py's
+score -> scenario loss -> expected annual loss -> premium chain via an
+extra_calc hook -- insurance's pricing/trigger block is its own genuinely
+different calculation, layered on top of the shared fetch/join/headline logic,
+same pattern as real estate's NOI impact. Policies whose cell is unscored
+return status='no_canonical_score', premium withheld -- same governance rule
+as every other hazard-projected book here.
 """
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ from core.types import HAZARD_VALUES
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
+from services.portfolio_engine import fetch_entities_with_risk
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -58,71 +64,70 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed"):
-    """All of an org's policies (metadata) + their per-hazard projected risk."""
-    policies = session.execute(text("""
-        SELECT policy_id::text AS policy_id, policy_name, policy_type, country, region,
-               CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(sum_insured_eur AS FLOAT) AS sum_insured_eur,
-               CAST(deductible_pct AS FLOAT) AS deductible_pct,
-               CAST(building_value_eur AS FLOAT) AS building_value_eur,
-               CAST(contents_value_eur AS FLOAT) AS contents_value_eur,
-               CAST(business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur,
-               construction_type, year_built, number_of_stories
-        FROM insurance_policies WHERE org_id = :o ORDER BY sum_insured_eur DESC
-    """), {"o": org_id}).mappings().all()
+EXT_INSURANCE_COLUMNS = [
+    "CAST(x.deductible_pct AS FLOAT) AS deductible_pct",
+    "CAST(x.building_value_eur AS FLOAT) AS building_value_eur",
+    "CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur",
+    "CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur",
+]
 
-    risks = session.execute(text("""
-        SELECT policy_id::text AS policy_id, hazard_type,
-               physical_risk_score AS score, risk_bucket, model_version, scored_at
-        FROM v_insurance_policy_physical_risk
-        WHERE org_id = :o AND scenario = :s AND time_horizon = :h
-    """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
 
-    by_policy = defaultdict(list)
-    for r in risks:
-        by_policy[r["policy_id"]].append({
-            "hazard": r["hazard_type"], "score": round(r["score"], 1),
-            "bucket": r["risk_bucket"], "model_version": r["model_version"],
-            "scored_at": r["scored_at"],
-        })
-
-    trigger_rows = session.execute(text("""
-        SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
-               CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
-        FROM insurance_policy_triggers WHERE policy_id IN (
-            SELECT policy_id FROM insurance_policies WHERE org_id = :o
-        )
-    """), {"o": org_id}).mappings().all()
-    trigger_by_policy = {t["policy_id"]: dict(t) for t in trigger_rows}
-
-    out = []
-    for p in policies:
-        hz = sorted(by_policy.get(p["policy_id"], []), key=lambda x: -x["score"])
-        # heat_acute is today's live ERA5 reading, not a stable figure -- fine for a
-        # parametric trigger (real-time by design, looked up separately below), but
-        # excluded from the standing headline/pricing score so a policy's premium
-        # doesn't swing with the weather on the day it happened to get scored.
-        priceable = [h for h in hz if h["hazard"] != "heat_acute"]
-        headline = priceable[0] if priceable else None
-        pricing = price_policy(headline["score"], p["sum_insured_eur"], p.get("deductible_pct") or 0.0,
-                               hazard=headline["hazard"], return_period_model=return_period_model) if headline else None
-        cfg = trigger_by_policy.get(p["policy_id"])
+def _insurance_extra(trigger_by_policy, return_period_model):
+    """extra_calc hook: layers insurance's own pricing/trigger calc on top of the
+    shared fetch/join/headline logic (real estate's NOI impact is the same
+    pattern). hz is the FULL unfiltered hazard list (heat_acute included) --
+    exactly what the parametric trigger needs, since a trigger can legitimately
+    be configured against heat_acute even though it's excluded from the
+    standing headline/pricing score."""
+    def calc(row, headline, hz):
+        pricing = price_policy(headline["score"], row["primary_value_eur"], row.get("deductible_pct") or 0.0,
+                                hazard=headline["hazard"], return_period_model=return_period_model) if headline else None
+        cfg = trigger_by_policy.get(row["entity_id"])
         trigger = None
         if cfg:
             hz_score = next((h["score"] for h in hz if h["hazard"] == cfg["hazard_type"]), None)
             trigger = trigger_block(cfg["hazard_type"], hz_score, cfg["attachment_score"], cfg["exhaustion_score"],
-                                     p["sum_insured_eur"], cfg["updated_by"], cfg["updated_at"])
-        out.append({
-            **{k: p[k] for k in p.keys()},
-            "hazards": hz,
-            "headline_score": headline["score"] if headline else None,
-            "headline_bucket": headline["bucket"] if headline else None,
-            "headline_hazard": headline["hazard"] if headline else None,
-            "pricing": pricing,
-            "trigger": trigger,
-        })
-    return out
+                                     row["primary_value_eur"], cfg["updated_by"], cfg["updated_at"])
+        return {"pricing": pricing, "trigger": trigger}
+    return calc
+
+
+def _map_policy_row(row):
+    """Shared-engine row -> the exact shape /portfolio, /summary, /triggers
+    have always returned (frontend relies on these exact field names)."""
+    return {
+        "policy_id": row["entity_id"], "policy_name": row["entity_name"], "policy_type": row["entity_type"],
+        "country": row["country"], "region": row["region"], "lat": row["lat"], "lon": row["lon"],
+        "h3_cell": row["h3_cell"], "sum_insured_eur": row["primary_value_eur"],
+        "deductible_pct": row["deductible_pct"], "building_value_eur": row["building_value_eur"],
+        "contents_value_eur": row["contents_value_eur"],
+        "business_interruption_value_eur": row["business_interruption_value_eur"],
+        "construction_type": row["construction_type"], "year_built": row["year_built"],
+        "number_of_stories": row["number_of_stories"],
+        "hazards": row["hazards"], "headline_score": row["headline_score"],
+        "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
+        "pricing": row["pricing"], "trigger": row["trigger"],
+    }
+
+
+def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed"):
+    """All of an org's policies (metadata) + their per-hazard projected risk.
+    Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)
+    -- the fetch/join/headline logic itself lives there, shared with banking,
+    real estate and asset management."""
+    trigger_rows = session.execute(text("""
+        SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
+               CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
+        FROM insurance_policy_triggers WHERE policy_id IN (
+            SELECT entity_id FROM portfolio_entities WHERE org_id = :o AND vertical = 'insurance'
+        )
+    """), {"o": org_id}).mappings().all()
+    trigger_by_policy = {t["policy_id"]: dict(t) for t in trigger_rows}
+
+    rows = fetch_entities_with_risk(session, org_id, "insurance", scenario, horizon,
+                                     ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
+                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model))
+    return [_map_policy_row(r) for r in rows]
 
 
 def _rollup(policies):
@@ -212,7 +217,9 @@ def set_trigger_config(policy_id: str, body: TriggerConfigRequest, session: DbSe
         raise HTTPException(status_code=400, detail=f"unknown hazard '{body.hazard_type}'. Canonical values: {HAZARD_VALUES}")
     if body.exhaustion_score <= body.attachment_score:
         raise HTTPException(status_code=400, detail="exhaustion_score must be greater than attachment_score")
-    policy = session.execute(text("SELECT org_id::text AS org_id FROM insurance_policies WHERE policy_id = :p"), {"p": policy_id}).mappings().first()
+    policy = session.execute(text(
+        "SELECT org_id::text AS org_id FROM portfolio_entities WHERE entity_id = :p AND vertical = 'insurance'"
+    ), {"p": policy_id}).mappings().first()
     if not policy:
         raise HTTPException(status_code=404, detail="policy not found")
     if policy["org_id"] != ctx["org"]["org_id"]:
@@ -329,14 +336,18 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
-        INSERT INTO insurance_policies (policy_id, org_id, policy_name, policy_type, latitude, longitude,
-                                         h3_cell, region, country, sum_insured_eur, building_value_eur,
-                                         contents_value_eur, business_interruption_value_eur,
-                                         construction_type, year_built, number_of_stories, deductible_pct)
-        VALUES (:policy_id, :org_id, :policy_name, :policy_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :sum_insured_eur, :building_value_eur,
-                :contents_value_eur, :business_interruption_value_eur,
-                :construction_type, :year_built, :number_of_stories, :deductible_pct)
+        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
+                                         h3_cell, region, country, primary_value_eur,
+                                         construction_type, year_built, number_of_stories)
+        VALUES (:policy_id, :org_id, 'insurance', :policy_name, :policy_type, :latitude, :longitude,
+                :h3_cell, :region, :country, :sum_insured_eur,
+                :construction_type, :year_built, :number_of_stories)
+    """), records)
+    session.execute(text("""
+        INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
+                                    business_interruption_value_eur)
+        VALUES (:policy_id, :deductible_pct, :building_value_eur, :contents_value_eur,
+                :business_interruption_value_eur)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
                 target_type="insurance_policies", target_id=None,
