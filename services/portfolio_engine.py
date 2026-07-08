@@ -18,8 +18,12 @@ Each vertical supplies, via fetch_entities_with_risk():
     asset management, which needs no extension table at all.
   - extra_calc: optional hook (row, headline, hazards) -> dict for a
     vertical-specific calculation layered on the shared valuation block
-    (real estate's NOI impact, insurance's premium pricing), merged into the
-    row under `extra_key`.
+    (real estate's NOI impact + taxonomy status, insurance's premium
+    pricing). The returned dict is MERGED into the row as top-level keys
+    (not nested) -- e.g. real estate's hook returns {"noi_impact":...,
+    "taxonomy_status":...} and both land as row["noi_impact"]/
+    row["taxonomy_status"], matching the exact field names each vertical's
+    API response has always had.
 
 Rollup math stays per-vertical (banking's LTV, insurance's premium totals,
 real estate's NOI, asset-management's climate-VaR% are genuinely different
@@ -46,7 +50,7 @@ def fetch_entities_with_risk(
     session, org_id: str, vertical: str, scenario: str, horizon: str,
     severity_model: str = "universal",
     ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
-    extra_calc: Optional[Callable] = None, extra_key: str = "extra",
+    extra_calc: Optional[Callable] = None,
     exclude_headline_hazards: tuple = ("heat_acute",),
     valuation_kwargs: Optional[Callable] = None,
 ) -> list:
@@ -114,7 +118,7 @@ def fetch_entities_with_risk(
                                           hazard=hazard, severity_model=severity_model, **extra_val_kwargs),
         }
         if extra_calc:
-            row[extra_key] = extra_calc(row, headline, hz)
+            row.update(extra_calc(row, headline, hz))
         out.append(row)
     return out
 
@@ -122,7 +126,7 @@ def fetch_entities_with_risk(
 def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
                           severity_model: str = "universal",
                           ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
-                          extra_calc: Optional[Callable] = None, extra_key: str = "extra",
+                          extra_calc: Optional[Callable] = None,
                           exclude_headline_hazards: tuple = ("heat_acute",),
                           valuation_kwargs: Optional[Callable] = None,
                           scope_headline_to_query: bool = True):
@@ -175,7 +179,7 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
                                       hazard=hazard, severity_model=severity_model, **extra_val_kwargs),
     }
     if extra_calc:
-        row[extra_key] = extra_calc(row, headline, scoped)
+        row.update(extra_calc(row, headline, scoped))
     return row
 
 

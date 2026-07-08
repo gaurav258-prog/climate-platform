@@ -2,10 +2,10 @@
 Real estate — public read-only endpoints for the Portfolio & NOI impact
 workspace, the platform's 4th vertical.
 
-Projects the golden source (canonical_scores) onto a REIT's property book by
-H3 cell (v_realestate_property_physical_risk), the same shape as
-bank_assets/v_bank_asset_physical_risk, sc_sourcing_plots/v_sc_plot_physical_risk
-and insurance_policies/v_insurance_policy_physical_risk. Reuses, rather than
+Projects the golden source (canonical_scores) onto a REIT's property book via
+the shared portfolio engine (services/portfolio_engine.py) and the unified
+v_portfolio_entity_physical_risk view -- the same engine banking and asset
+management use (see the b9c0d1e2f3a4 migration). Reuses, rather than
 reinvents, three things already built: ml/scoring/valuation_discount.py's
 haircut engine (climate-adjusted property value), ml/scoring/insurance_pricing.py
 via realestate_impact.py's noi_impact() (operating-income drag), and
@@ -17,7 +17,6 @@ from __future__ import annotations
 import io
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -32,10 +31,38 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.realestate_impact import noi_impact
-from ml.scoring.valuation_discount import valuation_block
 from services.calc_settings import get_calc_settings
+from services.portfolio_engine import (
+    apply_valuation_override as engine_apply_override,
+    clear_valuation_override as engine_clear_override,
+    fetch_entities_with_risk, get_entity_org,
+)
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
+
+EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur"]
+
+
+def _realestate_extra(row, headline, hz):
+    impact = noi_impact(row["headline_score"], row["primary_value_eur"], row["annual_noi_eur"]) if headline else None
+    tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None)
+    return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"]}
+
+
+def _map_property_row(row):
+    """Shared-engine row -> the exact shape /portfolio, /summary, /disclosure
+    have always returned."""
+    return {
+        "property_id": row["entity_id"], "property_name": row["entity_name"], "property_type": row["entity_type"],
+        "country": row["country"], "region": row["region"], "lat": row["lat"], "lon": row["lon"],
+        "h3_cell": row["h3_cell"], "property_value_eur": row["primary_value_eur"],
+        "annual_noi_eur": row["annual_noi_eur"], "construction_type": row["construction_type"],
+        "year_built": row["year_built"], "number_of_stories": row["number_of_stories"],
+        "hazards": row["hazards"], "headline_score": row["headline_score"],
+        "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
+        "valuation": row["valuation"], "noi_impact": row["noi_impact"],
+        "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+    }
 
 router = APIRouter(prefix="/v1/realestate", tags=["Real Estate"])
 
@@ -62,61 +89,12 @@ OrgId = Annotated[str, Depends(resolve_org)]
 
 
 def _properties_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
-    """All of an org's properties (metadata) + their per-hazard projected risk."""
-    properties = session.execute(text("""
-        SELECT property_id::text AS property_id, property_name, property_type, country, region,
-               CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(property_value_eur AS FLOAT) AS property_value_eur,
-               CAST(annual_noi_eur AS FLOAT) AS annual_noi_eur,
-               construction_type, year_built, number_of_stories
-        FROM realestate_properties WHERE org_id = :o ORDER BY property_value_eur DESC
-    """), {"o": org_id}).mappings().all()
-
-    risks = session.execute(text("""
-        SELECT property_id::text AS property_id, hazard_type,
-               physical_risk_score AS score, risk_bucket, model_version, scored_at
-        FROM v_realestate_property_physical_risk
-        WHERE org_id = :o AND scenario = :s AND time_horizon = :h
-    """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
-
-    by_property = defaultdict(list)
-    for r in risks:
-        by_property[r["property_id"]].append({
-            "hazard": r["hazard_type"], "score": round(r["score"], 1),
-            "bucket": r["risk_bucket"], "model_version": r["model_version"],
-            "scored_at": r["scored_at"],
-        })
-
-    valuations = session.execute(text("""
-        SELECT property_id::text AS property_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM realestate_property_valuations WHERE property_id IN (
-            SELECT property_id FROM realestate_properties WHERE org_id = :o
-        )
-    """), {"o": org_id}).mappings().all()
-    val_by_property = {v["property_id"]: dict(v) for v in valuations}
-
-    out = []
-    for p in properties:
-        hz = sorted(by_property.get(p["property_id"], []), key=lambda x: -x["score"])
-        headline = hz[0] if hz else None
-        impact = noi_impact(headline["score"], p["property_value_eur"], p["annual_noi_eur"]) if headline else None
-        tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=headline["bucket"] if headline else None,
-                                 resilience_rating=None)
-        out.append({
-            **{k: p[k] for k in p.keys()},
-            "hazards": hz,
-            "headline_score": headline["score"] if headline else None,
-            "headline_bucket": headline["bucket"] if headline else None,
-            "headline_hazard": headline["hazard"] if headline else None,
-            "valuation": valuation_block(headline["bucket"] if headline else None, p["property_value_eur"],
-                                          val_by_property.get(p["property_id"]),
-                                          hazard=headline["hazard"] if headline else None, severity_model=severity_model),
-            "noi_impact": impact,
-            "taxonomy_status": tax["status"],
-            "taxonomy_activity_ref": tax["activity_ref"],
-        })
-    return out
+    """All of an org's properties (metadata) + their per-hazard projected risk.
+    Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)."""
+    rows = fetch_entities_with_risk(session, org_id, "realestate", scenario, horizon, severity_model,
+                                     ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
+                                     extra_calc=_realestate_extra)
+    return [_map_property_row(r) for r in rows]
 
 
 def _rollup(properties):
@@ -220,14 +198,6 @@ REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["r
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
 
 
-def _property_valuation_row(session, property_id):
-    return session.execute(text("""
-        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM realestate_property_valuations WHERE property_id = :p
-    """), {"p": property_id}).mappings().first()
-
-
 class PropertyValuationOverrideRequest(BaseModel):
     discount_pct: float = Field(..., ge=0, le=100)
     reason: Optional[str] = None
@@ -239,29 +209,18 @@ def override_property_valuation(property_id: str, body: PropertyValuationOverrid
                                  session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    prop = session.execute(text("SELECT org_id::text AS org_id FROM realestate_properties WHERE property_id = :p"),
-                            {"p": property_id}).mappings().first()
-    if not prop:
+    org_id = get_entity_org(session, property_id)
+    if not org_id:
         raise HTTPException(status_code=404, detail="property not found")
-    if prop["org_id"] != ctx["org"]["org_id"]:
+    if org_id != ctx["org"]["org_id"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Property does not belong to your organization"})
 
-    prior = _property_valuation_row(session, property_id)
-    from_pct = prior["override_discount_pct"] if prior else None
-    now = datetime.now(timezone.utc)
-    session.execute(text("""
-        INSERT INTO realestate_property_valuations (property_id, override_discount_pct, overridden_by, overridden_at, reason)
-        VALUES (:p, :pct, :u, :now, :reason)
-        ON CONFLICT (property_id) DO UPDATE
-            SET override_discount_pct = EXCLUDED.override_discount_pct,
-                overridden_by = EXCLUDED.overridden_by,
-                overridden_at = EXCLUDED.overridden_at,
-                reason = EXCLUDED.reason
-    """), {"p": property_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    result = engine_apply_override(session, property_id, body.discount_pct, ctx["user"]["id"], body.reason)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="property.valuation.override", target_type="realestate_property", target_id=property_id,
-                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
-    return {"property_id": property_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+                detail={"from_pct": result["from_pct"], "to_pct": body.discount_pct, "reason": body.reason})
+    return {"property_id": property_id, "override_discount_pct": body.discount_pct,
+            "overridden_at": result["overridden_at"].isoformat()}
 
 
 @router.delete("/property/{property_id}/valuation-override",
@@ -269,10 +228,9 @@ def override_property_valuation(property_id: str, body: PropertyValuationOverrid
 def clear_property_valuation_override(property_id: str, session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    prior = _property_valuation_row(session, property_id)
+    prior = engine_clear_override(session, property_id)
     if not prior:
         return {"property_id": property_id, "cleared": False}
-    session.execute(text("DELETE FROM realestate_property_valuations WHERE property_id = :p"), {"p": property_id})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="property.valuation.override_cleared", target_type="realestate_property", target_id=property_id,
                 detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
@@ -318,12 +276,12 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
-            "property_id": str(uuid.uuid4()), "org_id": org_id,
-            "property_name": str(row["property_name"]), "property_type": str(row["property_type"]),
+            "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "entity_name": str(row["property_name"]), "entity_type": str(row["property_type"]),
             "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "property_value_eur": value_eur, "annual_noi_eur": noi_eur,
+            "primary_value_eur": value_eur, "annual_noi_eur": noi_eur,
             "construction_type": construction,
             "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
             "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
@@ -332,14 +290,16 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
-        INSERT INTO realestate_properties (property_id, org_id, property_name, property_type,
-                                            latitude, longitude, h3_cell, region, country,
-                                            property_value_eur, annual_noi_eur,
-                                            construction_type, year_built, number_of_stories)
-        VALUES (:property_id, :org_id, :property_name, :property_type,
+        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type,
+                                         latitude, longitude, h3_cell, region, country,
+                                         primary_value_eur, construction_type, year_built, number_of_stories)
+        VALUES (:entity_id, :org_id, 'realestate', :entity_name, :entity_type,
                 :latitude, :longitude, :h3_cell, :region, :country,
-                :property_value_eur, :annual_noi_eur,
-                :construction_type, :year_built, :number_of_stories)
+                :primary_value_eur, :construction_type, :year_built, :number_of_stories)
+    """), records)
+    session.execute(text("""
+        INSERT INTO ext_realestate (entity_id, annual_noi_eur)
+        VALUES (:entity_id, :annual_noi_eur)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="properties.upload",
                 target_type="realestate_properties", target_id=None,

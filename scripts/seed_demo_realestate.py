@@ -1,6 +1,8 @@
 """
-Seed a realistic demo property book into realestate_properties for Stellar
-Logistics REIT -- the Portfolio & NOI impact workspace needs properties to
+Seed a realistic demo property book into portfolio_entities/ext_realestate
+(the unified schema -- see the b9c0d1e2f3a4 migration; this used to write
+directly to realestate_properties, now retired) for Stellar Logistics REIT --
+the Portfolio & NOI impact workspace needs properties to
 project canonical_scores onto, the same role seed_demo_loanbook.py plays for
 the bank, seed_demo_insurance.py for the insurer, and seed_demo_supply.py for
 agriculture. A pan-European logistics/light-industrial portfolio (matching
@@ -94,16 +96,19 @@ def main():
                 jlat, jlon = lat, lon
             properties.append(make_property(jlat, jlon, h3.latlng_to_cell(jlat, jlon, 8), name))
 
-        s.execute(text("DELETE FROM realestate_properties WHERE org_id = :o"), {"o": STELLAR})
+        s.execute(text("DELETE FROM portfolio_entities WHERE org_id = :o AND vertical = 'realestate'"), {"o": STELLAR})
         s.execute(text("""
-            INSERT INTO realestate_properties
-                (property_id, org_id, property_name, property_type, latitude, longitude,
-                 h3_cell, country, region, property_value_eur, annual_noi_eur,
-                 construction_type, year_built, number_of_stories)
+            INSERT INTO portfolio_entities
+                (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
+                 h3_cell, country, region, primary_value_eur, construction_type, year_built, number_of_stories)
             VALUES
-                (:property_id, :org_id, :property_name, :property_type, :latitude, :longitude,
-                 :h3_cell, :country, :region, :property_value_eur, :annual_noi_eur,
+                (:property_id, :org_id, 'realestate', :property_name, :property_type, :latitude, :longitude,
+                 :h3_cell, :country, :region, :property_value_eur,
                  :construction_type, :year_built, :number_of_stories)
+        """), properties)
+        s.execute(text("""
+            INSERT INTO ext_realestate (entity_id, annual_noi_eur)
+            VALUES (:property_id, :annual_noi_eur)
         """), properties)
 
         total = sum(p["property_value_eur"] for p in properties)
@@ -111,9 +116,9 @@ def main():
         print(f"seeded {len(properties)} properties, total value €{total/1e6:.1f}m, "
               f"total NOI €{total_noi/1e6:.1f}m, org {STELLAR}")
         scored = s.execute(text("""
-            SELECT count(DISTINCT rp.property_id) FROM realestate_properties rp
-            JOIN canonical_scores cs ON cs.h3_cell = rp.h3_cell AND cs.valid_to IS NULL
-            WHERE rp.org_id = :o
+            SELECT count(DISTINCT e.entity_id) FROM portfolio_entities e
+            JOIN canonical_scores cs ON cs.h3_cell = e.h3_cell AND cs.valid_to IS NULL
+            WHERE e.org_id = :o AND e.vertical = 'realestate'
         """), {"o": STELLAR}).scalar()
         print(f"{scored} of {len(properties)} properties fall in scored cells (rest = no_canonical_score)")
 
