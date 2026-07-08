@@ -104,7 +104,7 @@ def _policies_with_risk(session, org_id, scenario, horizon):
         # doesn't swing with the weather on the day it happened to get scored.
         priceable = [h for h in hz if h["hazard"] != "heat_acute"]
         headline = priceable[0] if priceable else None
-        pricing = price_policy(headline["score"], p["sum_insured_eur"]) if headline else None
+        pricing = price_policy(headline["score"], p["sum_insured_eur"], p.get("deductible_pct") or 0.0) if headline else None
         cfg = trigger_by_policy.get(p["policy_id"])
         trigger = None
         if cfg:

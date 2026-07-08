@@ -48,6 +48,14 @@ invented from scratch:
    EXPENSE_RATIO=0.25 / PROFIT_MARGIN=0.05 are disclosed, round assumptions
    consistent with typical P&C combined-ratio targets (~70-75% loss ratio),
    not a fitted or sourced figure for any real insurer.
+
+Deductible: `deductible_pct` was captured on every policy upload from day one
+(a fraction of sum insured, e.g. 0.02 = 2%) but never reached this pricing
+chain -- a real field, silently unused. Standard per-occurrence property
+treatment: the insured retains losses up to the deductible layer, so the
+insurer's scenario loss is netted down by that retained amount before EAL/
+premium are derived from it (floored at zero -- a small scenario loss fully
+inside the deductible costs nothing to insure).
 """
 from __future__ import annotations
 
@@ -69,20 +77,27 @@ def mean_damage_ratio(risk_score: float) -> float:
     return v**3 / (1.0 + v**3)
 
 
-def price_policy(risk_score: float, sum_insured_eur: float) -> dict:
-    """Returns {mdr, scenario_loss_eur, annual_occurrence_prob, expected_annual_loss_eur,
-    pure_premium_eur, gross_premium_eur, rate_on_line_pct, risk_bucket} — the full
-    "score -> scenario loss -> annualized loss -> premium" chain, everything
-    traceable back to the single risk_score input."""
+def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: float = 0.0) -> dict:
+    """Returns {mdr, scenario_loss_eur, retained_loss_eur, net_scenario_loss_eur,
+    annual_occurrence_prob, expected_annual_loss_eur, pure_premium_eur,
+    gross_premium_eur, rate_on_line_pct, risk_bucket} — the full "score ->
+    scenario loss -> deductible-netted loss -> annualized loss -> premium"
+    chain, everything traceable back to the single risk_score input.
+    deductible_pct: fraction of sum_insured retained by the insured (e.g. 0.02
+    = 2%), same units as the upload template's deductible_pct column."""
     bucket = score_to_bucket(risk_score).value
     mdr = mean_damage_ratio(risk_score)
     scenario_loss = sum_insured_eur * mdr
+    retained_loss = sum_insured_eur * max(0.0, deductible_pct or 0.0)
+    net_scenario_loss = max(0.0, scenario_loss - retained_loss)
     annual_prob = 1.0 / RETURN_PERIOD_YEARS.get(bucket, RETURN_PERIOD_YEARS["L"])
-    eal = scenario_loss * annual_prob
+    eal = net_scenario_loss * annual_prob
     gross_premium = eal / (1.0 - EXPENSE_RATIO - PROFIT_MARGIN)
     return {
         "mdr": round(mdr, 4),
         "scenario_loss_eur": round(scenario_loss, 2),
+        "retained_loss_eur": round(retained_loss, 2),
+        "net_scenario_loss_eur": round(net_scenario_loss, 2),
         "annual_occurrence_prob": annual_prob,
         "expected_annual_loss_eur": round(eal, 2),
         "pure_premium_eur": round(eal, 2),
