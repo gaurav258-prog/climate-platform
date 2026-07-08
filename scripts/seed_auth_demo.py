@@ -56,6 +56,17 @@ ROLE_PERMS = {
     "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use"],
 }
 
+# Permissions granted to a role by a LATER migration, not by this script's own
+# ROLE_PERMS above (e.g. e2f3a4b5c6d7_bank_disclosure_submissions.py grants
+# 'submissions.release' to 'approver'). Step 3 below resets each role's
+# permissions to exactly ROLE_PERMS every run -- without this, that reset
+# silently wipes out any such migration-granted extra, and re-running this
+# script (e.g. to fix an unrelated org) would quietly break the maker/checker
+# submission-release flow. Re-applied after the reset, every run.
+EXTRA_ROLE_PERMS = {
+    "approver": ["submissions.release"],
+}
+
 # email, full_name, password, org_id, role
 USERS = [
     ("admin@meridian.demo",    "Mara Admin (Meridian)",    "Demo!admin1",   MERIDIAN, "admin"),
@@ -102,7 +113,7 @@ def main():
                 ), {"o": org_id, "n": role_name}).scalar()
                 # deterministic matrix: clear then set
                 s.execute(text("DELETE FROM role_permissions WHERE role_id = :r"), {"r": role_id})
-                for code in perms:
+                for code in perms + EXTRA_ROLE_PERMS.get(role_name, []):
                     s.execute(text("""
                         INSERT INTO role_permissions (role_id, permission_id)
                         SELECT :r, permission_id FROM permissions WHERE code = :c
