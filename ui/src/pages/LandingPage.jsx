@@ -28,10 +28,10 @@ const STEPS = [
 ]
 
 const SOURCES = [
-  { kind: 'Satellites', name: 'Copernicus Sentinel + NASA FIRMS', desc: 'Watching floods, fires and heat from orbit. Refreshed daily.' },
-  { kind: 'Weather & rivers', name: 'Copernicus ERA5 & GloFAS', desc: 'Tracking rainfall, drought and river discharge worldwide.' },
-  { kind: 'Seismic networks', name: 'EMSC & USGS', desc: 'Listening for earthquakes worldwide, minute by minute.' },
-  { kind: 'Volcano monitors', name: 'Smithsonian Global Volcanism Program', desc: 'Tracking every active volcano on Earth.' },
+  { kind: 'Satellites', name: 'European & U.S. Government Earth-Observation Satellites', desc: 'Real-time orbital monitoring of floods, wildfires and extreme heat — refreshed daily.' },
+  { kind: 'Weather & rivers', name: 'European & U.S. Government Meteorological Agencies', desc: 'Rainfall, drought and river-discharge tracking, worldwide.' },
+  { kind: 'Seismic networks', name: 'European & U.S. Government Seismological Networks', desc: 'Earthquake detection worldwide, minute by minute.' },
+  { kind: 'Volcano monitors', name: 'European & U.S. Government Volcanological Institutions', desc: 'Tracking every active volcano on Earth.' },
 ]
 
 // Titles here are kept identical to each sector's "Key deliverables" on
@@ -108,7 +108,7 @@ function Btn({ children, onClick, href, primary }) {
 }
 
 function Eyebrow({ children }) {
-  return <span className="tl-mono mb-5 inline-block text-[11px] font-medium uppercase tracking-[0.22em] text-[#38BDF8]">{children}</span>
+  return <span className="tl-mono mb-5 inline-block text-[13.5px] font-semibold uppercase tracking-[0.16em] text-[#38BDF8]">{children}</span>
 }
 
 export default function LandingPage({ onEnter, onExplore, onLookup }) {
@@ -120,7 +120,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
       {/* nav — fixed (not absolute) so it doesn't sit pinned-but-transparent over
           content while the page scrolls; solid blurred backdrop keeps it legible */}
       <nav className="fixed inset-x-0 top-0 z-30 flex items-center justify-between bg-[#0A0F1C]/70 px-8 py-5 backdrop-blur-md">
-        <span className="tl-mono text-[11px] uppercase tracking-[0.14em] text-[#94A3B8]">Est. 2026 · Berlin</span>
+        <span className="tl-mono text-[12px] uppercase tracking-[0.14em] text-[#94A3B8]">Est. 2026 · Frankfurt</span>
         <div className="flex items-center gap-5 text-[13px] text-[#94A3B8]">
           <a href="#how" className="hidden hover:text-[#7DD3FC] sm:inline">How it works</a>
           <a href="#for" className="hidden hover:text-[#7DD3FC] sm:inline">Who it's for</a>
@@ -203,7 +203,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
               <div key={s.k} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4 text-left">
                 <div className="flex items-baseline gap-2">
                   <span className="tl-serif text-[26px] italic font-light leading-none text-[#7DD3FC]">{String(i + 1).padStart(2, '0')}</span>
-                  <span className="tl-mono text-[11px] uppercase tracking-[0.18em] text-[#F4EFE6]">{s.k}</span>
+                  <span className="tl-mono text-[13px] font-semibold uppercase tracking-[0.14em] text-[#F4EFE6]">{s.k}</span>
                 </div>
                 <div className="mt-2 text-[12.5px] leading-relaxed text-[#94A3B8]">{s.d}</div>
               </div>
@@ -225,8 +225,9 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {SOURCES.map(s => (
               <div key={s.kind} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4">
-                <div className="tl-mono mb-1.5 text-[10px] uppercase tracking-[0.16em] text-[#38BDF8]">{s.kind}</div>
-                <div className="text-[13.5px] font-medium text-[#F4EFE6]">{s.name}</div>
+                <div className="tl-mono mb-1.5 text-[12px] font-medium uppercase tracking-[0.14em] text-[#38BDF8]">{s.kind}</div>
+                <div className="text-[15px] font-medium text-[#F4EFE6]">{s.name}</div>
+                <div className="mt-1 text-[13px] leading-relaxed text-[#94A3B8]">{s.desc}</div>
               </div>
             ))}
           </div>
@@ -250,7 +251,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
                 className="flex items-center gap-3.5 rounded-xl border border-white/[0.09] bg-white/[0.02] p-4.5 text-left transition hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]"><a.icon size={17} /></span>
                 <div>
-                  <div className="tl-mono text-[10px] uppercase tracking-[0.18em] text-[#38BDF8]">{a.kind}</div>
+                  <div className="tl-mono text-[12px] font-medium uppercase tracking-[0.14em] text-[#38BDF8]">{a.kind}</div>
                   <div className="mt-0.5 text-[14px] font-medium leading-snug text-[#F4EFE6]">{a.h}</div>
                 </div>
               </button>
@@ -268,11 +269,11 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-[#94A3B8]/20 bg-[#94A3B8]/[0.06] p-5">
-              <div className="tl-mono mb-2.5 text-[10px] uppercase tracking-[0.18em] text-[#64748B]">Other tools</div>
+              <div className="tl-mono mb-2.5 text-[12px] font-medium uppercase tracking-[0.14em] text-[#64748B]">Other tools</div>
               <div className="tl-serif text-[17px] italic font-light leading-snug text-[#94A3B8]">One hazard, one industry at a time.</div>
             </div>
             <div className="rounded-xl border border-[#38BDF8]/35 bg-gradient-to-br from-[#38BDF8]/10 to-[#34D399]/5 p-5">
-              <div className="tl-mono mb-2.5 text-[10px] uppercase tracking-[0.18em] text-[#7DD3FC]">Tellumen</div>
+              <div className="tl-mono mb-2.5 text-[12px] font-medium uppercase tracking-[0.14em] text-[#7DD3FC]">Tellumen</div>
               <div className="tl-serif text-[17px] italic font-light leading-snug text-[#F4EFE6]">Every hazard, every industry, one engine.</div>
             </div>
           </div>
@@ -292,7 +293,7 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
             {PROOFS.map(p => (
               <div key={p.badge} className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-5">
-                <span className={`tl-mono mb-3 inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] ${p.hit ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
+                <span className={`tl-mono mb-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] ${p.hit ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
                   {p.badge}
                 </span>
                 <div className="tl-serif mb-2.5 text-[18px] italic font-light leading-snug text-[#F4EFE6]">{p.title}</div>

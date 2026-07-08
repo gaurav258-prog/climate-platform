@@ -348,7 +348,7 @@ function Btn({ children, onClick, primary }) {
 }
 
 function Eyebrow({ children }) {
-  return <span className="tl-mono mb-4 inline-block text-[11px] font-medium uppercase tracking-[0.22em] text-[#38BDF8]">{children}</span>
+  return <span className="tl-mono mb-4 inline-block text-[13.5px] font-semibold uppercase tracking-[0.16em] text-[#38BDF8]">{children}</span>
 }
 
 function Nav({ onHome, onEnter, onBack }) {
@@ -403,7 +403,7 @@ function SolutionsIndex({ onOpen, onHome, onEnter }) {
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]">
                     <SIcon size={19} strokeWidth={1.7} />
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                  <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide ${
                     s.live ? 'bg-[#34D399]/10 text-[#34D399]' : 'bg-white/[0.06] text-[#94A3B8]'}`}>
                     {s.live ? 'Live' : 'Roadmap'}
                   </span>
@@ -454,7 +454,7 @@ function SolutionsDetail({ sector, onBack, onHome, onEnter }) {
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#38BDF8]/10 text-[#7DD3FC]">
           <Icon size={23} strokeWidth={1.7} />
         </span>
-        <p className="tl-mono mt-4 text-[11px] uppercase tracking-[0.18em] text-[#38BDF8]">{sector.label} · {sector.tagline}</p>
+        <p className="tl-mono mt-4 text-[13px] font-medium uppercase tracking-[0.14em] text-[#38BDF8]">{sector.label} · {sector.tagline}</p>
         <h1 className="tl-serif mt-3 text-[clamp(30px,4.4vw,48px)] font-light italic leading-[1.1] text-[#F4EFE6]">
           {sector.headline}
         </h1>
@@ -481,16 +481,16 @@ function SolutionsDetail({ sector, onBack, onHome, onEnter }) {
             <div className="mx-auto mt-8 flex max-w-md items-center justify-center gap-8 rounded-2xl border border-white/[0.09] bg-white/[0.02] px-8 py-6">
               <div className="text-center">
                 <div className="tl-mono text-[24px] font-medium text-[#7DD3FC]">{sector.caseStudy.stat1[1]}</div>
-                <div className="mt-1 text-[10.5px] uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat1[0]}</div>
+                <div className="mt-1 text-[12px] font-medium uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat1[0]}</div>
               </div>
               <div className="h-10 w-px bg-white/[0.09]" />
               <div className="text-center">
                 <div className="tl-mono text-[24px] font-medium text-[#7DD3FC]">{sector.caseStudy.stat2[1]}</div>
-                <div className="mt-1 text-[10.5px] uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat2[0]}</div>
+                <div className="mt-1 text-[12px] font-medium uppercase tracking-wide text-[#94A3B8]">{sector.caseStudy.stat2[0]}</div>
               </div>
             </div>
             <div className="mx-auto mt-8 max-w-2xl rounded-xl border-l-[3px] border-[#7DD3FC] bg-[#38BDF8]/[0.06] px-6 py-5 text-left">
-              <p className="tl-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#7DD3FC]">On Tellumen, this doesn’t happen blind</p>
+              <p className="tl-mono text-[12.5px] font-semibold uppercase tracking-[0.12em] text-[#7DD3FC]">On Tellumen, this doesn’t happen blind</p>
               <p className="mt-2.5 text-[14.5px] leading-relaxed text-[#E8EEF7]">
                 {sector.caseStudy.whatItMeans}
               </p>
