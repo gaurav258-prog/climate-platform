@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, KeyRound, ScrollText, CheckSquare, Plus, Loader2, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Users, KeyRound, ScrollText, CheckSquare, SlidersHorizontal, Plus, Loader2, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   fetchAdminUsers, createAdminUser, patchAdminUser,
   fetchRoles, fetchPermissions, setRolePermissions,
   fetchAudit, fetchApprovals, decideApproval, fetchSubmission,
+  fetchCalcSettings, updateCalcSettings,
 } from '../../api/client'
+import { industryForOrg } from '../../data/catalog'
 import { DisclosureSummary } from '../bank/Reports'
 
 const TABS = [
-  { id: 'users',     label: 'Users',                icon: Users,      perm: 'admin.users.manage' },
-  { id: 'roles',     label: 'Roles & permissions',  icon: KeyRound,   perm: 'admin.roles.manage' },
-  { id: 'audit',     label: 'Audit trail',          icon: ScrollText, perm: 'admin.audit.view' },
-  { id: 'approvals', label: 'Approvals',            icon: CheckSquare, perm: 'approvals.view', altPerm: 'approvals.decide' },
+  { id: 'users',         label: 'Users',                icon: Users,      perm: 'admin.users.manage' },
+  { id: 'roles',         label: 'Roles & permissions',  icon: KeyRound,   perm: 'admin.roles.manage' },
+  { id: 'calc-settings', label: 'Calculation methods',  icon: SlidersHorizontal, perm: 'admin.roles.manage' },
+  { id: 'audit',         label: 'Audit trail',          icon: ScrollText, perm: 'admin.audit.view' },
+  { id: 'approvals',     label: 'Approvals',            icon: CheckSquare, perm: 'approvals.view', altPerm: 'approvals.decide' },
 ]
 
 export default function AdminPage({ auth }) {
@@ -36,10 +39,11 @@ export default function AdminPage({ auth }) {
       </aside>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-8 py-8">
-          {tab === 'users'     && <UsersTab />}
-          {tab === 'roles'     && <RolesTab />}
-          {tab === 'audit'     && <AuditTab />}
-          {tab === 'approvals' && <ApprovalsTab auth={auth} />}
+          {tab === 'users'         && <UsersTab />}
+          {tab === 'roles'         && <RolesTab />}
+          {tab === 'calc-settings' && <CalcSettingsTab auth={auth} />}
+          {tab === 'audit'         && <AuditTab />}
+          {tab === 'approvals'     && <ApprovalsTab auth={auth} />}
         </div>
       </div>
     </div>
@@ -209,6 +213,90 @@ function RolesTab() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Calc settings (per-org calculation-method triggers) ────────────────
+const SEVERITY_OPTIONS = [
+  { value: 'universal', label: 'Universal', detail: 'One discount schedule (0/5/15/30% by Low/Moderate/High/Very High) applied to every hazard alike.' },
+  { value: 'peril_specific', label: 'Peril-specific', detail: 'A separate, harsher schedule for structural perils (seismic/volcanic up to 45%) vs. milder ones (drought/heat 10–15%).' },
+]
+const VAR_METHOD_OPTIONS = [
+  { value: 'haircut', label: 'Risk-bucket haircut', detail: 'Deterministic: the same discount schedule banking and real estate use, applied to position value.' },
+  { value: 'monte_carlo', label: 'Monte Carlo VaR', detail: 'Simulates a distribution around the disclosed haircut and reports an uncertainty band, not a single number.' },
+]
+const RETURN_PERIOD_OPTIONS = [
+  { value: 'fixed', label: 'Fixed tiers', detail: 'One return-period ladder (200/50/20/10yr by L/M/H/VH) for every hazard.' },
+  { value: 'peril_specific', label: 'Peril-specific tiers', detail: 'Longer return periods for rare structural perils (seismic/volcanic up to 1000yr), shorter for frequent weather perils.' },
+]
+
+function SettingCard({ title, sub, options, value, onChange, disabled }) {
+  return (
+    <div className="rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+      <h3 className="text-[14px] font-semibold text-[#1d1d1f]">{title}</h3>
+      <p className="mt-0.5 text-[12px] text-gray-500">{sub}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {options.map(o => (
+          <button key={o.value} type="button" disabled={disabled} onClick={() => onChange(o.value)}
+            className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              value === o.value ? 'border-[#0071e3] bg-[#0071e3]/[0.06]' : 'border-gray-200 hover:border-gray-300'}`}>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                value === o.value ? 'border-[#0071e3] bg-[#0071e3]' : 'border-gray-300'}`}>
+                {value === o.value && <Check size={11} className="text-white" strokeWidth={3} />}
+              </span>
+              <span className="text-[13px] font-medium text-[#1d1d1f]">{o.label}</span>
+            </div>
+            <p className="mt-1.5 pl-6 text-[12px] leading-snug text-gray-500">{o.detail}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CalcSettingsTab({ auth }) {
+  const [settings, setSettings] = useState(null)
+  const [saving, setSaving] = useState(null)
+  const [err, setErr] = useState(null)
+  const industry = industryForOrg(auth?.org)
+
+  const load = useCallback(() => { fetchCalcSettings().then(setSettings).catch(() => setSettings(null)) }, [])
+  useEffect(() => { load() }, [load])
+
+  async function change(field, value) {
+    setSaving(field); setErr(null)
+    const prev = settings
+    setSettings(s => ({ ...s, [field]: value }))   // optimistic
+    try { setSettings(await updateCalcSettings({ [field]: value })) }
+    catch (e) { setSettings(prev); setErr(e.message || 'Could not save.') }
+    finally { setSaving(null) }
+  }
+
+  if (settings === null) return <div><Title>Calculation methods</Title><p className="text-gray-400">Loading…</p></div>
+  return (
+    <div>
+      <Title sub="Every org gets today's default behaviour until you opt into an alternative. Changes apply to every workspace, disclosure and report immediately, and are audited.">
+        Calculation methods
+      </Title>
+      {err && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{err}</p>}
+      <div className="space-y-4">
+        <SettingCard title="Climate-severity discount model"
+          sub="Used everywhere a hazard score is converted into a value discount: banking's collateral haircut, real estate's climate-adjusted value, asset management's climate VaR."
+          options={SEVERITY_OPTIONS} value={settings.severity_model} disabled={saving === 'severity_model'}
+          onChange={v => change('severity_model', v)} />
+        {industry === 'assetmgmt' && (
+          <SettingCard title="Portfolio climate-VaR method" sub="Asset management only — how portfolio-level climate Value-at-Risk is computed."
+            options={VAR_METHOD_OPTIONS} value={settings.assetmgmt_var_method} disabled={saving === 'assetmgmt_var_method'}
+            onChange={v => change('assetmgmt_var_method', v)} />
+        )}
+        {industry === 'insurance' && (
+          <SettingCard title="Return-period model" sub="Insurance only — how a risk bucket maps to an annual occurrence probability for loss-curve pricing."
+            options={RETURN_PERIOD_OPTIONS} value={settings.insurance_return_period_model} disabled={saving === 'insurance_return_period_model'}
+            onChange={v => change('insurance_return_period_model', v)} />
+        )}
       </div>
     </div>
   )

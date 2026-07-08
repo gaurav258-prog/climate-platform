@@ -354,6 +354,10 @@ export const fetchAudit = ({ actor, action, limit = 100 } = {}) => {
   return get(`/v1/admin/audit?${q}`)
 }
 
+// ── Calc settings (per-org calculation-method triggers) ──────────────────
+export const fetchCalcSettings = () => get('/v1/calc-settings')
+export const updateCalcSettings = (body) => patch('/v1/calc-settings', body)
+
 // ── Approvals (4-eyes) ────────────────────────────────────────────────────
 
 export const fetchApprovals   = (status) => get(`/v1/approvals${status ? `?status=${status}` : ''}`)
