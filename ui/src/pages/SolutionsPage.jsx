@@ -84,13 +84,13 @@ const SECTORS = [
       ],
       engine: [
         { t: 'Hazard Scoring', s: 'Per peril, per location, live' },
-        { t: 'Loss-Curve Pricing', s: 'Loss curve → expected annual loss → premium' },
+        { t: 'Loss-Curve Pricing', s: 'Loss curve → expected annual loss → premium', tag: 'CONFIGURABLE' },
       ],
       outputs: [
         { t: 'Technical Premium', s: 'Defensible, parametric-trigger ready', tag: 'LIVE DASHBOARD' },
         { t: 'Audit & Disclosure Export', s: 'Pricing basis & model version', tag: 'DEFENSIBLE EXPORT' },
       ],
-      footer: 'The same hazard score prices the policy and arms the parametric trigger — underwriting and claims read one number, always in sync.',
+      footer: 'The same hazard score prices the policy and arms the parametric trigger. The return-period model is admin-configurable per org (fixed or peril-specific tiers), and every policy’s trigger band is set — and re-set — by a named underwriter, fully audited.',
     },
     caseStudy: {
       eyebrow: 'Real world · Valencia, Spain · 2024',
