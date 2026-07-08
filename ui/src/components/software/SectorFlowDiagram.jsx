@@ -105,8 +105,8 @@ export default function SectorFlowDiagram({ flow }) {
       {hasThird && <FlowBox x={xOpt} y={90} accent={INPUT} title={flow.inputs[1].t} sub={flow.inputs[1].s} tag={flow.inputs[1].tag} tagColor={INPUT} />}
 
       {/* boxes: lane 2 */}
-      <FlowBox x={xData} y={406} accent={ENGINE} title={flow.engine[0].t} sub={flow.engine[0].s} tagColor={ENGINE} />
-      <FlowBox x={xOpt} y={406} accent={ENGINE} title={flow.engine[1].t} sub={flow.engine[1].s} tagColor={ENGINE} />
+      <FlowBox x={xData} y={406} accent={ENGINE} title={flow.engine[0].t} sub={flow.engine[0].s} tag={flow.engine[0].tag} tagColor={ENGINE} />
+      <FlowBox x={xOpt} y={406} accent={ENGINE} title={flow.engine[1].t} sub={flow.engine[1].s} tag={flow.engine[1].tag} tagColor={ENGINE} />
 
       {/* boxes: lane 3 */}
       <FlowBox x={xData} y={726} accent={OUTPUT} title={flow.outputs[0].t} sub={flow.outputs[0].s} tag={flow.outputs[0].tag} tagColor={OUTPUT} />

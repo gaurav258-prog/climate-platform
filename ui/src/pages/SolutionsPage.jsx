@@ -40,13 +40,13 @@ const SECTORS = [
       ],
       engine: [
         { t: 'Hazard Scoring', s: 'Flood, wildfire, heat & quake, per location' },
-        { t: 'Valuation & Taxonomy Calc', s: 'Risk-bucket haircut → VaR, stranded-asset exposure' },
+        { t: 'Valuation & Taxonomy Calc', s: 'Risk-bucket haircut → VaR, stranded-asset exposure', tag: 'CONFIGURABLE' },
       ],
       outputs: [
         { t: 'Portfolio VaR', s: 'By scenario & time horizon, live', tag: 'LIVE DASHBOARD' },
         { t: 'Audit & Disclosure Export', s: 'TCFD / EU Taxonomy, audit-ready', tag: 'TCFD-READY' },
       ],
-      footer: 'Value-at-risk and stranded-asset exposure trace to a model version and data vintage — the defensible basis for TCFD and EU Taxonomy disclosure.',
+      footer: 'Value-at-risk traces to a model version and data vintage; the severity model is admin-configurable per org (universal or peril-specific), and any analyst can correct a specific asset’s valuation with an audited, mandatory reason — the defensible basis for TCFD and EU Taxonomy disclosure.',
     },
     caseStudy: {
       eyebrow: 'Real world · Valencia, Spain · 2024',
