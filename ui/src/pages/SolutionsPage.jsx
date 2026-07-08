@@ -128,13 +128,13 @@ const SECTORS = [
       ],
       engine: [
         { t: 'Hazard Scoring', s: 'Drought & heat, per plot, per season' },
-        { t: 'Yield-Loss Model', s: 'Crop-sensitivity → yield-loss fraction' },
+        { t: 'Yield-Loss Model', s: 'Crop-sensitivity → yield-loss fraction', tag: 'OVERRIDABLE' },
       ],
       outputs: [
         { t: 'COGS-at-Risk (€)', s: 'Per commodity, scenario & horizon', tag: 'LIVE DASHBOARD' },
         { t: 'Audit & Disclosure Export', s: 'Deforestation-free & climate-viable', tag: 'EUDR / CSRD' },
       ],
-      footer: 'The plots you buy from, not just the assets you own — event-backtested against real cocoa and coffee price shocks.',
+      footer: 'The plots you buy from, not just the assets you own — event-backtested against real cocoa and coffee price shocks. A procurement analyst with on-the-ground supplier knowledge can correct any commodity’s modelled COGS-at-risk, with a mandatory, audited reason.',
     },
     caseStudy: {
       eyebrow: 'Real world · West Africa · 2023–24',
