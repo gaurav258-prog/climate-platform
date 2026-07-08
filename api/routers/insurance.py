@@ -31,6 +31,7 @@ from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
+from services.calc_settings import get_calc_settings
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -57,7 +58,7 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _policies_with_risk(session, org_id, scenario, horizon):
+def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed"):
     """All of an org's policies (metadata) + their per-hazard projected risk."""
     policies = session.execute(text("""
         SELECT policy_id::text AS policy_id, policy_name, policy_type, country, region,
@@ -104,7 +105,8 @@ def _policies_with_risk(session, org_id, scenario, horizon):
         # doesn't swing with the weather on the day it happened to get scored.
         priceable = [h for h in hz if h["hazard"] != "heat_acute"]
         headline = priceable[0] if priceable else None
-        pricing = price_policy(headline["score"], p["sum_insured_eur"], p.get("deductible_pct") or 0.0) if headline else None
+        pricing = price_policy(headline["score"], p["sum_insured_eur"], p.get("deductible_pct") or 0.0,
+                               hazard=headline["hazard"], return_period_model=return_period_model) if headline else None
         cfg = trigger_by_policy.get(p["policy_id"])
         trigger = None
         if cfg:
@@ -153,7 +155,8 @@ def _rollup(policies):
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    policies = _policies_with_risk(session, org_id, scenario, horizon)
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(policies), "policies": policies}
 
@@ -164,7 +167,8 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    policies = _policies_with_risk(session, org_id, scenario, horizon)
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies)}
 
 
@@ -178,7 +182,8 @@ def triggers(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    policies = _policies_with_risk(session, org_id, scenario, horizon)
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
     configured = [p for p in policies if p["trigger"]]
     triggered_now = [p for p in configured if p["trigger"]["is_triggered"]]
     return {
@@ -344,7 +349,8 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
 @router.get("/portfolio.xlsx", summary="Loss-curve pricing book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    policies = _policies_with_risk(session, org_id, scenario, horizon)
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
     headers = ["policy_name", "region", "country", "sum_insured_eur", "construction_type", "year_built",
                "headline_hazard", "headline_score", "risk_bucket", "mdr", "scenario_loss_eur",
                "expected_annual_loss_eur", "gross_premium_eur", "rate_on_line_pct"]

@@ -41,6 +41,17 @@ invented from scratch:
    platform doesn't have one yet for most hazards); a flat per-bucket tier
    is a stated placeholder, not a claim of fitted frequency data.
 
+   OPT-IN alternative (org_calc_settings.insurance_return_period_model =
+   'peril_specific'): PERIL_RETURN_PERIOD_YEARS varies the tier by which
+   hazard actually drove the bucket -- a seismic/volcanic VH event is
+   genuinely rarer-but-more-catastrophic than a flood/wildfire/storm VH event
+   at the same location (consistent with real building-code return periods,
+   e.g. ASCE-7 seismic design at ~475yr vs FEMA's 100yr flood standard), and
+   chronic perils (drought/heat/pollution) recur more often than acute
+   catastrophe perils. Same disclosure standard as the fixed table: illustrative
+   relative tiers, NOT fitted per-location frequency data. Every org gets the
+   fixed table unless it explicitly opts in -- see services/calc_settings.py.
+
 3. Expected Annual Loss -> premium via the Casualty Actuarial Society's
    loss-cost-multiplier ratemaking method: Gross Premium = Pure Premium /
    (1 - expense_ratio - profit_margin), where Pure Premium = Expected Annual
@@ -69,6 +80,18 @@ PROFIT_MARGIN = 0.05
 # scenario recurring (1/return-period-years). See module docstring, step 2.
 RETURN_PERIOD_YEARS = {"L": 200, "M": 50, "H": 20, "VH": 10}
 
+PERIL_RETURN_PERIOD_YEARS = {
+    "seismic":       {"L": 1000, "M": 475, "H": 250, "VH": 100},
+    "volcanic":      {"L": 1000, "M": 475, "H": 250, "VH": 100},
+    "flood":         {"L": 250,  "M": 100, "H": 50,  "VH": 25},
+    "wildfire":      {"L": 200,  "M": 75,  "H": 30,  "VH": 12},
+    "storm":         {"L": 200,  "M": 60,  "H": 25,  "VH": 12},
+    "drought":       {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
+    "heat_acute":    {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
+    "heat_chronic":  {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
+    "pollution":     {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
+}
+
 
 def mean_damage_ratio(risk_score: float) -> float:
     """Emanuel(2011)/CLIMADA-style sigmoid: 0 at score=0, 0.5 at HALF_DAMAGE_SCORE,
@@ -77,20 +100,29 @@ def mean_damage_ratio(risk_score: float) -> float:
     return v**3 / (1.0 + v**3)
 
 
-def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: float = 0.0) -> dict:
+def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: float = 0.0,
+                  hazard: str | None = None, return_period_model: str = "fixed") -> dict:
     """Returns {mdr, scenario_loss_eur, retained_loss_eur, net_scenario_loss_eur,
     annual_occurrence_prob, expected_annual_loss_eur, pure_premium_eur,
     gross_premium_eur, rate_on_line_pct, risk_bucket} — the full "score ->
     scenario loss -> deductible-netted loss -> annualized loss -> premium"
     chain, everything traceable back to the single risk_score input.
     deductible_pct: fraction of sum_insured retained by the insured (e.g. 0.02
-    = 2%), same units as the upload template's deductible_pct column."""
+    = 2%), same units as the upload template's deductible_pct column.
+    hazard/return_period_model: pass the driving hazard + the org's chosen
+    insurance_return_period_model (services/calc_settings.py) to price a
+    seismic VH policy's frequency differently from a flood VH policy; omit
+    either to get today's fixed L/M/H/VH tier, unchanged."""
     bucket = score_to_bucket(risk_score).value
     mdr = mean_damage_ratio(risk_score)
     scenario_loss = sum_insured_eur * mdr
     retained_loss = sum_insured_eur * max(0.0, deductible_pct or 0.0)
     net_scenario_loss = max(0.0, scenario_loss - retained_loss)
-    annual_prob = 1.0 / RETURN_PERIOD_YEARS.get(bucket, RETURN_PERIOD_YEARS["L"])
+    if return_period_model == "peril_specific" and hazard in PERIL_RETURN_PERIOD_YEARS:
+        return_period = PERIL_RETURN_PERIOD_YEARS[hazard].get(bucket, RETURN_PERIOD_YEARS["L"])
+    else:
+        return_period = RETURN_PERIOD_YEARS.get(bucket, RETURN_PERIOD_YEARS["L"])
+    annual_prob = 1.0 / return_period
     eal = net_scenario_loss * annual_prob
     gross_premium = eal / (1.0 - EXPENSE_RATIO - PROFIT_MARGIN)
     return {
@@ -98,6 +130,8 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
         "scenario_loss_eur": round(scenario_loss, 2),
         "retained_loss_eur": round(retained_loss, 2),
         "net_scenario_loss_eur": round(net_scenario_loss, 2),
+        "return_period_years": return_period,
+        "return_period_model": return_period_model,
         "annual_occurrence_prob": annual_prob,
         "expected_annual_loss_eur": round(eal, 2),
         "pure_premium_eur": round(eal, 2),
