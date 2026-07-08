@@ -32,15 +32,32 @@ class OverallRisk(BaseModel):
     hazards_insufficient:   int
 
 
+class HeatStatus(BaseModel):
+    """heat_acute (today's live ERA5 reading) vs heat_chronic (30-year climatology) for
+    this cell — surfaced separately so a single hot day reads as a status callout, not
+    a silent change to the place's baseline profile. `elevated=True` when today's
+    reading exceeds the climatological figure by >=15 points (0-100 scale) -- a
+    disclosed threshold, not a statistically derived one."""
+    status:         str                     # 'normal' | 'elevated' | 'no_baseline_yet' | 'unavailable'
+    acute_score:    Optional[float] = None
+    baseline_score: Optional[float] = None
+    delta:          Optional[float] = None
+    elevated:       bool = False
+
+
 class LookupResponse(BaseModel):
     latitude:     float
     longitude:    float
     display_name: Optional[str] = None
     h3_cell:      str
     hazards:      list[HazardLookupResult]
-    overall:      OverallRisk
+    overall:      OverallRisk   # worst case across every hazard incl. heat_acute -- use this for due-diligence/export
+    baseline:     OverallRisk   # same MAX rule, but heat_acute excluded -- "what this place is normally like"
+    heat_status:  HeatStatus
 
 
 class PollResponse(BaseModel):
-    hazard:  HazardLookupResult
-    overall: OverallRisk
+    hazard:      HazardLookupResult
+    overall:     OverallRisk
+    baseline:    OverallRisk
+    heat_status: HeatStatus

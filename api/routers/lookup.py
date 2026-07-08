@@ -40,11 +40,19 @@ cost:
     from published papers with no generic fallback formula decided yet, a genuinely
     harder problem than storm's fully-physics-based generalization.
 
-The response also carries `overall` (OverallRisk) — the actual "ONE easy number" the
-platform's own pitch promises, computed as the MAX across every hazard scored for this
-cell right now (see OverallRisk's docstring for why max, not average). `status=
-'provisional'` when hazards are still computing in the background — re-poll or re-call
-this endpoint to refine as more of them resolve.
+The response carries THREE risk figures, not one — a genuine hot day in a mild-climate
+city (e.g. heat_acute spiking Zurich) used to silently set the whole place's headline
+number, with no signal to the viewer that it was a passing spike:
+  - `baseline` (OverallRisk) — MAX across every hazard EXCEPT heat_acute. "What this
+    place is normally like." This is the number the page leads with.
+  - `overall` (OverallRisk) — MAX across every hazard INCLUDING heat_acute. The
+    worst-case figure right now; use this for due-diligence/export contexts, same as
+    every paying vertical's portfolio scoring already does internally.
+  - `heat_status` (HeatStatus) — heat_acute vs heat_chronic for this cell, surfaced as
+    an explicit "elevated today" callout rather than folded silently into either
+    number above.
+`status='provisional'` on `baseline`/`overall` when hazards are still computing in the
+background — re-poll or re-call this endpoint to refine as more of them resolve.
 
 Every lookup is logged to public_lookups — a lead-gen signal (which addresses do
 strangers check) as much as a cache-key/job-tracker, kept separate from paying
@@ -60,7 +68,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 
 from api.deps import DbSession
-from api.schemas.lookup import HazardLookupResult, LookupResponse, OverallRisk, PollResponse
+from api.schemas.lookup import HazardLookupResult, HeatStatus, LookupResponse, OverallRisk, PollResponse
 from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
@@ -69,11 +77,21 @@ from services.scoring.on_demand import SYNC_ON_DEMAND_SCORERS, GRIDDED_ON_DEMAND
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
 
-def _compute_overall(session, cell: str) -> OverallRisk:
+HEAT_ELEVATED_DELTA = 15.0  # disclosed threshold (0-100 scale), not statistically derived
+
+
+def _compute_overall(session, cell: str, exclude_hazards: frozenset[str] = frozenset()) -> OverallRisk:
     """MAX across every hazard scored for this cell right now (see OverallRisk's
     docstring for why max, not average). Re-queries canonical_scores directly rather
     than trusting the caller's in-memory `results` list, so it stays correct when
     called later from poll_lookup() after a background job has since resolved.
+
+    `exclude_hazards` drops specific hazard_types from the MAX pool that decides the
+    driver/score -- used to compute the `baseline` figure (heat_acute excluded, so
+    today's live temperature reading can't set the place's standing profile; see
+    lookup_score()). hazards_scored/pending/insufficient counts are NOT affected by
+    the exclusion -- they describe real data coverage for this cell, independent of
+    which hazard is allowed to drive a particular headline number.
 
     hazards_pending/insufficient are each a DIRECT count of distinct hazard_types,
     not derived by subtraction — lookup_score() doesn't check for an already-in-
@@ -94,8 +112,9 @@ def _compute_overall(session, cell: str) -> OverallRisk:
     """), {"c": cell}).all()}
     pending_types -= scored_types  # a hazard that resolved since its job was marked computing
 
-    if scored:
-        driver = max(scored, key=lambda r: r["risk_score"])
+    eligible = [r for r in scored if r["hazard_type"] not in exclude_hazards]
+    if eligible:
+        driver = max(eligible, key=lambda r: r["risk_score"])
         overall_score, overall_bucket = round(driver["risk_score"], 2), score_to_bucket(driver["risk_score"]).value
         driver_hazard = driver["hazard_type"]
     else:
@@ -107,6 +126,33 @@ def _compute_overall(session, cell: str) -> OverallRisk:
         status="provisional" if pending_types else "complete",
         hazards_scored=len(scored_types), hazards_pending=len(pending_types),
         hazards_insufficient=n_insufficient,
+    )
+
+
+def _compute_heat_status(session, cell: str) -> HeatStatus:
+    """heat_acute (today's live reading) vs heat_chronic (30-year climatology) for this
+    cell -- the one hazard the platform scores both an acute and a chronic version of.
+    Surfaced as a status callout on the baseline card rather than folded silently into
+    it (see lookup_score())."""
+    rows = {r["hazard_type"]: r["risk_score"] for r in session.execute(text("""
+        SELECT hazard_type, CAST(risk_score AS FLOAT) risk_score
+        FROM canonical_scores
+        WHERE h3_cell=:c AND hazard_type IN ('heat_acute', 'heat_chronic')
+          AND scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
+    """), {"c": cell}).mappings().all()}
+    acute, chronic = rows.get("heat_acute"), rows.get("heat_chronic")
+
+    if acute is None:
+        return HeatStatus(status="unavailable")
+    if chronic is None:
+        return HeatStatus(status="no_baseline_yet", acute_score=round(acute, 1))
+
+    delta = round(acute - chronic, 1)
+    elevated = delta >= HEAT_ELEVATED_DELTA
+    return HeatStatus(
+        status="elevated" if elevated else "normal",
+        acute_score=round(acute, 1), baseline_score=round(chronic, 1),
+        delta=delta, elevated=elevated,
     )
 
 
@@ -182,8 +228,10 @@ def lookup_score(
     """), {"id": str(uuid.uuid4()), "addr": address, "lat": lat, "lon": lon, "cell": cell})
 
     overall = _compute_overall(session, cell)
+    baseline = _compute_overall(session, cell, exclude_hazards=frozenset({"heat_acute"}))
+    heat_status = _compute_heat_status(session, cell)
     return LookupResponse(latitude=lat, longitude=lon, display_name=display_name, h3_cell=cell,
-                           hazards=results, overall=overall)
+                           hazards=results, overall=overall, baseline=baseline, heat_status=heat_status)
 
 
 @router.get(
@@ -191,6 +239,14 @@ def lookup_score(
     response_model=PollResponse,
     summary="Poll a pending gridded-hazard lookup for its result",
 )
+def _poll_context(session, cell: str) -> dict:
+    return {
+        "overall": _compute_overall(session, cell),
+        "baseline": _compute_overall(session, cell, exclude_hazards=frozenset({"heat_acute"})),
+        "heat_status": _compute_heat_status(session, cell),
+    }
+
+
 def poll_lookup(lookup_id: str, session: DbSession):
     job = session.execute(text("""
         SELECT status, h3_cell_r8 FROM public_lookups WHERE lookup_id=:id
@@ -202,12 +258,12 @@ def poll_lookup(lookup_id: str, session: DbSession):
 
     if job["status"] == "computing":
         hazard = HazardLookupResult(hazard_type="unknown", status="pending", lookup_id=lookup_id)
-        return PollResponse(hazard=hazard, overall=_compute_overall(session, cell))
+        return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
     if job["status"] == "failed":
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
                                      reason="the background fetch/scoring job failed", lookup_id=lookup_id)
-        return PollResponse(hazard=hazard, overall=_compute_overall(session, cell))
+        return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
     # status == 'done' — find whichever hazard just got written for this cell
     score = session.execute(text("""
@@ -219,10 +275,10 @@ def poll_lookup(lookup_id: str, session: DbSession):
     if not score:
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
                                      reason="job finished but no score was written", lookup_id=lookup_id)
-        return PollResponse(hazard=hazard, overall=_compute_overall(session, cell))
+        return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
     hazard = HazardLookupResult(
         hazard_type=score["hazard_type"], status="done",
         risk_score=score["risk_score"], risk_bucket=score["risk_bucket"], lookup_id=lookup_id,
     )
-    return PollResponse(hazard=hazard, overall=_compute_overall(session, cell))
+    return PollResponse(hazard=hazard, **_poll_context(session, cell))

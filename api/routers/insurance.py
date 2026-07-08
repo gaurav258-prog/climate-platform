@@ -98,7 +98,12 @@ def _policies_with_risk(session, org_id, scenario, horizon):
     out = []
     for p in policies:
         hz = sorted(by_policy.get(p["policy_id"], []), key=lambda x: -x["score"])
-        headline = hz[0] if hz else None
+        # heat_acute is today's live ERA5 reading, not a stable figure -- fine for a
+        # parametric trigger (real-time by design, looked up separately below), but
+        # excluded from the standing headline/pricing score so a policy's premium
+        # doesn't swing with the weather on the day it happened to get scored.
+        priceable = [h for h in hz if h["hazard"] != "heat_acute"]
+        headline = priceable[0] if priceable else None
         pricing = price_policy(headline["score"], p["sum_insured_eur"]) if headline else None
         cfg = trigger_by_policy.get(p["policy_id"])
         trigger = None
