@@ -51,6 +51,44 @@ COMMODITY_PARAMS = {
     #   That's the drought-attributable move; the Jul-2021 FROST added the rest (to ~+60%) and
     #   is NOT modelled (pending the CDS daily-min fix) — so coffee's € is a conservative floor.
     "Coffee": {"sensitivity": 0.45, "global_share": 0.35, "stock_to_use": 40.0},
+
+    # The remaining six commodities were previously left at global_share=1.0
+    # (i.e. "this one sourcing region IS 100% of world supply") -- a much
+    # cruder placeholder than a rough real approximation. These are NOT
+    # event-backtested (still calibration='indicative', see BACKTESTED below)
+    # -- sensitivity is left at CROP_SENSITIVITY's existing value, only
+    # global_share and stock_to_use are added, from widely-cited public
+    # production-share and USDA/FAO stocks-to-use figures:
+    #   Olive oil: Spain ~45% of world olive oil production (IOC); oil stores
+    #     well within a season, moderate carryover -> stock_to_use ~25%.
+    #   Durum wheat: Spain/Andalusia is a minor global durum origin (Canada,
+    #     Italy, Turkey dominate) -> global_share ~2%; wheat's global
+    #     stock_to_use runs ~30-35% (USDA WASDE).
+    #   Citrus: Valencia is a major EU citrus region but small next to
+    #     Brazil/China/US -> global_share ~3%; citrus is highly perishable,
+    #     low carryover -> stock_to_use ~12%.
+    #   Wine grapes: Extremadura is a small fraction of world wine grape
+    #     production (far more geographically diversified than cocoa/coffee)
+    #     -> global_share ~1%; wine's multi-year aging inventory gives a
+    #     higher stock_to_use ~45%.
+    #   Almonds: this book's almond plots are placed in Alentejo, Portugal --
+    #     a minor almond origin next to California's ~80% world share ->
+    #     global_share ~1%; annual crop, modest carryover -> stock_to_use ~15%.
+    "Olive oil":   {"global_share": 0.45, "stock_to_use": 25.0},
+    "Durum wheat": {"global_share": 0.02, "stock_to_use": 32.0},
+    "Citrus":      {"global_share": 0.03, "stock_to_use": 12.0},
+    "Wine grapes": {"global_share": 0.01, "stock_to_use": 45.0},
+    "Almonds":     {"global_share": 0.01, "stock_to_use": 15.0},
+
+    # Cane sugar is NOT calibrated here: this book's cane-sugar plots are
+    # placed in Valencia, Spain -- but Spain does not grow cane sugar at
+    # commercial scale (its real sugar crop is sugar beet; cane sugar is
+    # dominated by Brazil/India/Thailand). Assigning a "Spain's share of
+    # world cane sugar" figure would be fabricating a number for a
+    # geography that doesn't reflect real production -- left on
+    # global_share=1.0 defaults instead, flagged here rather than papered
+    # over with a confident-sounding but false calibration. The seed data's
+    # placement itself looks like a demo-data mismatch worth revisiting.
 }
 _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": None}
 
