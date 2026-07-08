@@ -31,6 +31,7 @@ from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.realestate_impact import noi_impact
 from ml.scoring.valuation_discount import valuation_block
+from services.calc_settings import get_calc_settings
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -58,7 +59,7 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _properties_with_risk(session, org_id, scenario, horizon):
+def _properties_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
     """All of an org's properties (metadata) + their per-hazard projected risk."""
     properties = session.execute(text("""
         SELECT property_id::text AS property_id, property_name, property_type, country, region,
@@ -97,7 +98,8 @@ def _properties_with_risk(session, org_id, scenario, horizon):
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": headline["bucket"] if headline else None,
             "headline_hazard": headline["hazard"] if headline else None,
-            "valuation": valuation_block(headline["bucket"] if headline else None, p["property_value_eur"], None),
+            "valuation": valuation_block(headline["bucket"] if headline else None, p["property_value_eur"], None,
+                                          hazard=headline["hazard"] if headline else None, severity_model=severity_model),
             "noi_impact": impact,
             "taxonomy_status": tax["status"],
             "taxonomy_activity_ref": tax["activity_ref"],
@@ -134,7 +136,8 @@ def _rollup(properties):
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    properties = _properties_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(properties), "properties": properties}
 
@@ -145,7 +148,8 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    properties = _properties_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties)}
 
 
@@ -157,7 +161,8 @@ def disclosure(session: DbSession, org_id: OrgId,
     weights aren't something we've verified against a primary source, so this
     surfaces the real underlying data (exposure by hazard, taxonomy status)
     that a GRESB or CSRD submission would actually need, honestly labeled."""
-    properties = _properties_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     hazards: dict = {}
     for p in properties:
         for hz in p["hazards"]:
@@ -276,7 +281,8 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
 @router.get("/portfolio.xlsx", summary="Portfolio & NOI impact book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    properties = _properties_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     headers = ["property_name", "property_type", "region", "country", "property_value_eur", "annual_noi_eur",
                "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",
                "expected_insurance_premium_eur", "noi_impact_pct", "taxonomy_status"]

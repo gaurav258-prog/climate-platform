@@ -38,6 +38,7 @@ try:
     from api.routers import insurance as insurance_router
     from api.routers import realestate as realestate_router
     from api.routers import assetmgmt as assetmgmt_router
+    from api.routers import calc_settings as calc_settings_router
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
@@ -147,6 +148,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(insurance_router.router)
     app.include_router(realestate_router.router)
     app.include_router(assetmgmt_router.router)
+    app.include_router(calc_settings_router.router)
     app.include_router(lookup.router)
 
 if AUTH_USER_AVAILABLE:

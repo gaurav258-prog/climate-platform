@@ -30,6 +30,7 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.valuation_discount import valuation_block
+from services.calc_settings import get_calc_settings
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -56,7 +57,7 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _holdings_with_risk(session, org_id, scenario, horizon):
+def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
     """All of an org's holdings (metadata) + their per-hazard projected risk."""
     holdings = session.execute(text("""
         SELECT holding_id::text AS holding_id, holding_name, sector, nace_code, country, region,
@@ -92,7 +93,9 @@ def _holdings_with_risk(session, org_id, scenario, horizon):
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": bucket,
             "headline_hazard": headline["hazard"] if headline else None,
-            "climate_var": valuation_block(bucket, h["position_value_eur"], None),
+            "climate_var": valuation_block(bucket, h["position_value_eur"], None,
+                                            hazard=headline["hazard"] if headline else None,
+                                            severity_model=severity_model),
             "flagged": bucket in ("H", "VH"),
             "taxonomy_status": tax["status"],
             "taxonomy_activity_ref": tax["activity_ref"],
@@ -126,7 +129,8 @@ def _rollup(holdings):
 @router.get("/portfolio", summary="Holdings book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(holdings), "holdings": holdings}
 
@@ -137,7 +141,8 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(holdings)}
 
 
@@ -150,7 +155,8 @@ def disclosure(session: DbSession, org_id: OrgId,
     an SFDR Principal Adverse Impact indicator: SFDR's mandatory PAI set has no
     direct physical-climate-risk metric (only fossil-fuel exposure/energy
     inefficiency for real estate holdings specifically, PAI 17/18)."""
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
     hazards: dict = {}
     for h in holdings:
         for hz in h["hazards"]:
@@ -256,7 +262,8 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
 @router.get("/portfolio.xlsx", summary="Portfolio climate VaR book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
     headers = ["holding_name", "sector", "region", "country", "position_value_eur",
                "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",
                "flagged", "taxonomy_status"]

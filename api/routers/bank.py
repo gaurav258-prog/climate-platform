@@ -26,6 +26,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import valuation_block
+from services.calc_settings import get_calc_settings
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -58,8 +59,10 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _assets_with_risk(session, org_id, scenario, horizon):
-    """All of an org's assets (metadata) + their per-hazard projected risk."""
+def _assets_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
+    """All of an org's assets (metadata) + their per-hazard projected risk.
+    severity_model: org_calc_settings' choice ('universal' default, or
+    'peril_specific' -- see ml/scoring/valuation_discount.py)."""
     assets = session.execute(text("""
         SELECT asset_id::text AS asset_id, asset_name, asset_type, sector, country, region,
                CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
@@ -111,7 +114,8 @@ def _assets_with_risk(session, org_id, scenario, horizon):
             "headline_hazard": headline["hazard"] if headline else None,
             "valuation": valuation_block(
                 headline["bucket"] if headline else None, a["value_eur"], val_by_asset.get(a["asset_id"]),
-                outstanding_balance_eur=a["outstanding_loan_balance_eur"]),
+                outstanding_balance_eur=a["outstanding_loan_balance_eur"],
+                hazard=headline["hazard"] if headline else None, severity_model=severity_model),
         })
     return out
 
@@ -145,7 +149,8 @@ def _rollup(assets):
 @router.get("/portfolio", summary="Loan book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(assets), "assets": assets}
 
@@ -156,7 +161,8 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(assets)}
 
 
@@ -198,7 +204,8 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon):
     (GET /disclosure) and frozen callers (submission snapshots) both go through
     this, so a submission's numbers can never drift from what the live view shows
     at the moment it's taken."""
-    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {
         "rollup": _rollup(assets),
         "assets": assets,
@@ -249,6 +256,7 @@ def asset_detail(asset_id: str, session: DbSession):
     """), {"a": asset_id}).mappings().all()
     headline = sorted(risks, key=lambda r: -r["score"])[0] if risks else None
     val_row = _valuation_row(session, asset_id)
+    severity_model = get_calc_settings(session, a["org_id"])["severity_model"]
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
         FROM access_audit_log WHERE target_type = 'bank_asset' AND target_id = :a
@@ -257,7 +265,9 @@ def asset_detail(asset_id: str, session: DbSession):
     return {
         "asset": dict(a), "risks": [dict(r) for r in risks],
         "valuation": valuation_block(headline["risk_bucket"] if headline else None, a["value_eur"], val_row,
-                                      outstanding_balance_eur=a["outstanding_loan_balance_eur"]),
+                                      outstanding_balance_eur=a["outstanding_loan_balance_eur"],
+                                      hazard=headline["hazard_type"] if headline else None,
+                                      severity_model=severity_model),
         "valuation_audit": [dict(x) for x in audit],
     }
 
@@ -402,7 +412,8 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")
 def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
-    assets = _assets_with_risk(session, org_id, scenario, horizon)
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     headers = ["asset_name", "sector", "country", "value_eur", "headline_score", "risk_bucket",
                "taxonomy_status", "h3_cell", "recommended_discount_pct", "effective_discount_pct",
                "discounted_value_eur", "overridden", "outstanding_loan_balance_eur",
