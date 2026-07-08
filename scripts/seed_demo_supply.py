@@ -1,11 +1,21 @@
 """
 Seed a demo food-manufacturer procurement book into the sc_* tables.
 
-"Terra Foods (demo)" — a European CPG. SKUs → bill of materials → commodities →
+"Terra Foods (demo)" — a European CPG, org type 'manufacturer' (maps to the
+'agriculture' catalog industry). SKUs → bill of materials → commodities →
 suppliers → sourcing plots. Plots are placed in cells that ARE already scored
 (Iberia wildfire, Valencia flood) so COGS-at-risk is REAL, plus a cocoa plot in
 West Africa that is intentionally UNSCORED — it demonstrates the governance rule
 (exposure mapped, € pending drought/heat validation). Idempotent: clears the org.
+
+Runs under its OWN dedicated org_id (55555555-...) -- this used to reuse
+Stellar Logistics REIT's org_id (33333333-...) by mistake, which meant running
+this script silently renamed/retyped the real-estate demo org and fought with
+seed_auth_demo.py over the same row every time either script ran. Fixed by
+giving Terra Foods its own org; see scripts/fix_terra_foods_org_split.py for
+the one-time cleanup that detached the old data from Stellar.
+
+Demo logins: admin@terra.demo / Demo!admin1, analyst@terra.demo / Demo!analyst1
 
 Run:  .venv/bin/python scripts/seed_demo_supply.py
 """
@@ -17,7 +27,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from api.security import hash_password
 
-ORG = "33333333-3333-4333-8333-333333333333"
+ORG = "55555555-5555-4555-8555-555555555555"
 
 # name, hs, eudr_covered, demand_elasticity (neg), primary_hazards, share note
 COMMODITIES = [
@@ -176,27 +186,40 @@ def main():
             VALUES (:id,:o,:sup,:c,:pn,:lat,:lon,:h3,:cc,:rg,:sp,:vs,:eudr, CASE WHEN :geo THEN now() ELSE NULL END)
         """), plots)
 
-        # demo user for the tenant (login → agriculture workspace)
-        s.execute(text("DELETE FROM users WHERE org_id=:o AND email='analyst@terra.demo'"), {"o": ORG})
-        uid = str(uuid.uuid4())
-        s.execute(text("""
-            INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status)
-            VALUES (:u,:o,'analyst@terra.demo','analyst','Tomas Analyst (Terra)',:pw,'active')
-        """), {"u": uid, "o": ORG, "pw": hash_password("Demo!analyst1")})
-        # grant analyst role if it exists for this org (seeded by seed_auth_demo per-org); else skip
-        role = s.execute(text("SELECT role_id FROM roles WHERE org_id=:o AND name='analyst'"), {"o": ORG}).scalar()
-        if not role:
-            # clone a global/other analyst role's permissions into a new org role
-            role = str(uuid.uuid4())
-            s.execute(text("INSERT INTO roles (role_id, org_id, name, description) VALUES (:r,:o,'analyst','Analyst')"),
-                      {"r": role, "o": ORG})
+        # demo users for the tenant (login → agriculture workspace) -- an admin + an
+        # analyst, matching the admin/analyst pattern every other demo org already has.
+        ROLE_PERMS = {
+            "admin": [
+                "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
+                "admin.users.manage", "admin.roles.manage", "admin.audit.view",
+                "approvals.create", "approvals.view", "approvals.decide", "portal.use",
+            ],
+            "analyst": ["modules.view", "reports.view", "pricing.view", "approvals.create", "portal.use"],
+        }
+        for email, full_name, pw, role_name in [
+            ("admin@terra.demo",   "Teo Admin (Terra)",     "Demo!admin1",   "admin"),
+            ("analyst@terra.demo", "Tomas Analyst (Terra)", "Demo!analyst1", "analyst"),
+        ]:
+            s.execute(text("DELETE FROM users WHERE org_id=:o AND email=:e"), {"o": ORG, "e": email})
+            uid = str(uuid.uuid4())
             s.execute(text("""
-                INSERT INTO role_permissions (role_id, permission_id)
-                SELECT :r, permission_id FROM permissions
-                WHERE code IN ('modules.view','reports.view','pricing.view','portal.use','approvals.create')
-            """), {"r": role})
-        s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"),
-                  {"u": uid, "r": str(role)})
+                INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status)
+                VALUES (:u,:o,:e,:r,:fn,:pw,'active')
+            """), {"u": uid, "o": ORG, "e": email, "r": role_name, "fn": full_name, "pw": hash_password(pw)})
+
+            # grant the role if it exists for this org already; else clone it fresh
+            role = s.execute(text("SELECT role_id FROM roles WHERE org_id=:o AND name=:n"),
+                              {"o": ORG, "n": role_name}).scalar()
+            if not role:
+                role = str(uuid.uuid4())
+                s.execute(text("INSERT INTO roles (role_id, org_id, name, description) VALUES (:r,:o,:n,:d)"),
+                          {"r": role, "o": ORG, "n": role_name, "d": f"{role_name} role"})
+                s.execute(text("""
+                    INSERT INTO role_permissions (role_id, permission_id)
+                    SELECT :r, permission_id FROM permissions WHERE code = ANY(:codes)
+                """), {"r": role, "codes": ROLE_PERMS[role_name]})
+            s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"),
+                      {"u": uid, "r": str(role)})
 
         # report
         np = s.execute(text("SELECT count(*) FROM sc_sourcing_plots WHERE org_id=:o"), {"o": ORG}).scalar()
@@ -206,7 +229,7 @@ def main():
         spend = sum(commodity_spend.values())
         print(f"seeded Terra Foods: {len(PRODUCTS)} SKUs, {len(cid)} commodities, {np} plots, ingredient spend €{spend/1e6:.0f}m")
         print(f"{scored} of {np} plots fall in scored cells (cocoa plots = no_canonical_score, € pending)")
-        print("demo login: analyst@terra.demo / Demo!analyst1")
+        print("demo login: admin@terra.demo / Demo!admin1  (or analyst@terra.demo / Demo!analyst1)")
 
 
 if __name__ == "__main__":
