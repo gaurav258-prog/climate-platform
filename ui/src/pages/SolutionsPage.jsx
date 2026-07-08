@@ -217,13 +217,13 @@ const SECTORS = [
       ],
       engine: [
         { t: 'Hazard Scoring', s: 'Value-weighted, across the book' },
-        { t: 'Risk & Taxonomy Calc', s: 'Same discount schedule as banking' },
+        { t: 'Risk & Taxonomy Calc', s: 'Same discount schedule as banking', tag: 'CONFIGURABLE' },
       ],
       outputs: [
         { t: 'Portfolio Climate VaR', s: '€ / % value-weighted, screening flags', tag: 'LIVE DASHBOARD' },
         { t: 'Audit & Disclosure Export', s: 'Eligibility, model version, scored date', tag: 'TCFD-READY' },
       ],
-      footer: 'Zero new scoring code — the exact same risk-bucket schedule as Banking and Real Estate, pointed at a new book.',
+      footer: 'Zero new scoring code — the exact same risk-bucket schedule as Banking and Real Estate, pointed at a new book. Admin-configurable per org: the severity model, and a haircut or Monte-Carlo VaR method; any analyst can correct a specific holding’s valuation, audited.',
     },
     caseStudy: {
       eyebrow: 'Real world · California · 2019',
