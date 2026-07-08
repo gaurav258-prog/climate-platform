@@ -172,13 +172,13 @@ const SECTORS = [
       ],
       engine: [
         { t: 'Hazard Scoring', s: 'Per property, per scenario' },
-        { t: 'Valuation & NOI-Impact Calc', s: 'Same haircut + insurance’s pricing chain' },
+        { t: 'Valuation & NOI-Impact Calc', s: 'Same haircut + insurance’s pricing chain', tag: 'CONFIGURABLE' },
       ],
       outputs: [
         { t: 'Climate-Adjusted Value', s: 'Plus NOI-impact %, per property', tag: 'LIVE DASHBOARD' },
         { t: 'Audit & Disclosure Export', s: 'Taxonomy status, honestly scoped', tag: 'TAXONOMY EXPORT' },
       ],
-      footer: 'An owned property is a loan-book asset with no loan attached — it reuses banking’s valuation engine directly, not a new model.',
+      footer: 'An owned property is a loan-book asset with no loan attached — it reuses banking’s valuation engine directly, including the same admin-configurable severity model and the same audited path for an analyst to correct a specific property’s valuation.',
     },
     caseStudy: {
       eyebrow: 'Real world · United States & Germany',
