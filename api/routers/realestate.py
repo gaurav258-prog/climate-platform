@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -24,6 +25,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
@@ -85,6 +87,15 @@ def _properties_with_risk(session, org_id, scenario, horizon, severity_model="un
             "scored_at": r["scored_at"],
         })
 
+    valuations = session.execute(text("""
+        SELECT property_id::text AS property_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM realestate_property_valuations WHERE property_id IN (
+            SELECT property_id FROM realestate_properties WHERE org_id = :o
+        )
+    """), {"o": org_id}).mappings().all()
+    val_by_property = {v["property_id"]: dict(v) for v in valuations}
+
     out = []
     for p in properties:
         hz = sorted(by_property.get(p["property_id"], []), key=lambda x: -x["score"])
@@ -98,7 +109,8 @@ def _properties_with_risk(session, org_id, scenario, horizon, severity_model="un
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": headline["bucket"] if headline else None,
             "headline_hazard": headline["hazard"] if headline else None,
-            "valuation": valuation_block(headline["bucket"] if headline else None, p["property_value_eur"], None,
+            "valuation": valuation_block(headline["bucket"] if headline else None, p["property_value_eur"],
+                                          val_by_property.get(p["property_id"]),
                                           hazard=headline["hazard"] if headline else None, severity_model=severity_model),
             "noi_impact": impact,
             "taxonomy_status": tax["status"],
@@ -206,6 +218,65 @@ PROPERTY_TEMPLATE_FIELDS = [
 ]
 REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["required"]]
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
+
+
+def _property_valuation_row(session, property_id):
+    return session.execute(text("""
+        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM realestate_property_valuations WHERE property_id = :p
+    """), {"p": property_id}).mappings().first()
+
+
+class PropertyValuationOverrideRequest(BaseModel):
+    discount_pct: float = Field(..., ge=0, le=100)
+    reason: Optional[str] = None
+
+
+@router.post("/property/{property_id}/valuation-override",
+             summary="Override the recommended valuation discount (audited)")
+def override_property_valuation(property_id: str, body: PropertyValuationOverrideRequest,
+                                 session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    prop = session.execute(text("SELECT org_id::text AS org_id FROM realestate_properties WHERE property_id = :p"),
+                            {"p": property_id}).mappings().first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="property not found")
+    if prop["org_id"] != ctx["org"]["org_id"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Property does not belong to your organization"})
+
+    prior = _property_valuation_row(session, property_id)
+    from_pct = prior["override_discount_pct"] if prior else None
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        INSERT INTO realestate_property_valuations (property_id, override_discount_pct, overridden_by, overridden_at, reason)
+        VALUES (:p, :pct, :u, :now, :reason)
+        ON CONFLICT (property_id) DO UPDATE
+            SET override_discount_pct = EXCLUDED.override_discount_pct,
+                overridden_by = EXCLUDED.overridden_by,
+                overridden_at = EXCLUDED.overridden_at,
+                reason = EXCLUDED.reason
+    """), {"p": property_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="property.valuation.override", target_type="realestate_property", target_id=property_id,
+                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
+    return {"property_id": property_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+
+
+@router.delete("/property/{property_id}/valuation-override",
+               summary="Clear an override, revert to the recommended discount (audited)")
+def clear_property_valuation_override(property_id: str, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    prior = _property_valuation_row(session, property_id)
+    if not prior:
+        return {"property_id": property_id, "cleared": False}
+    session.execute(text("DELETE FROM realestate_property_valuations WHERE property_id = :p"), {"p": property_id})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="property.valuation.override_cleared", target_type="realestate_property", target_id=property_id,
+                detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
+    return {"property_id": property_id, "cleared": True}
 
 
 @router.get("/properties/template.xlsx", summary="Download the property schedule upload template (Excel)")

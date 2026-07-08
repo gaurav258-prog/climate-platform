@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -24,6 +25,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
@@ -81,6 +83,15 @@ def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="univ
             "scored_at": r["scored_at"],
         })
 
+    valuations = session.execute(text("""
+        SELECT holding_id::text AS holding_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM assetmgmt_holding_valuations WHERE holding_id IN (
+            SELECT holding_id FROM assetmgmt_holdings WHERE org_id = :o
+        )
+    """), {"o": org_id}).mappings().all()
+    val_by_holding = {v["holding_id"]: dict(v) for v in valuations}
+
     out = []
     for h in holdings:
         hz = sorted(by_holding.get(h["holding_id"], []), key=lambda x: -x["score"])
@@ -93,7 +104,7 @@ def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="univ
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": bucket,
             "headline_hazard": headline["hazard"] if headline else None,
-            "climate_var": valuation_block(bucket, h["position_value_eur"], None,
+            "climate_var": valuation_block(bucket, h["position_value_eur"], val_by_holding.get(h["holding_id"]),
                                             hazard=headline["hazard"] if headline else None,
                                             severity_model=severity_model),
             "flagged": bucket in ("H", "VH"),
@@ -197,6 +208,65 @@ HOLDING_TEMPLATE_FIELDS = [
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "SE"},
 ]
 REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["required"]]
+
+
+def _holding_valuation_row(session, holding_id):
+    return session.execute(text("""
+        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
+               overridden_by::text AS overridden_by, overridden_at, reason
+        FROM assetmgmt_holding_valuations WHERE holding_id = :h
+    """), {"h": holding_id}).mappings().first()
+
+
+class HoldingValuationOverrideRequest(BaseModel):
+    discount_pct: float = Field(..., ge=0, le=100)
+    reason: Optional[str] = None
+
+
+@router.post("/holding/{holding_id}/valuation-override",
+             summary="Override the recommended climate-VaR discount (audited)")
+def override_holding_valuation(holding_id: str, body: HoldingValuationOverrideRequest,
+                                session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    holding = session.execute(text("SELECT org_id::text AS org_id FROM assetmgmt_holdings WHERE holding_id = :h"),
+                               {"h": holding_id}).mappings().first()
+    if not holding:
+        raise HTTPException(status_code=404, detail="holding not found")
+    if holding["org_id"] != ctx["org"]["org_id"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Holding does not belong to your organization"})
+
+    prior = _holding_valuation_row(session, holding_id)
+    from_pct = prior["override_discount_pct"] if prior else None
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        INSERT INTO assetmgmt_holding_valuations (holding_id, override_discount_pct, overridden_by, overridden_at, reason)
+        VALUES (:h, :pct, :u, :now, :reason)
+        ON CONFLICT (holding_id) DO UPDATE
+            SET override_discount_pct = EXCLUDED.override_discount_pct,
+                overridden_by = EXCLUDED.overridden_by,
+                overridden_at = EXCLUDED.overridden_at,
+                reason = EXCLUDED.reason
+    """), {"h": holding_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="holding.valuation.override", target_type="assetmgmt_holding", target_id=holding_id,
+                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
+    return {"holding_id": holding_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+
+
+@router.delete("/holding/{holding_id}/valuation-override",
+               summary="Clear an override, revert to the recommended discount (audited)")
+def clear_holding_valuation_override(holding_id: str, session: DbSession, ctx: CurrentUser):
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    prior = _holding_valuation_row(session, holding_id)
+    if not prior:
+        return {"holding_id": holding_id, "cleared": False}
+    session.execute(text("DELETE FROM assetmgmt_holding_valuations WHERE holding_id = :h"), {"h": holding_id})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="holding.valuation.override_cleared", target_type="assetmgmt_holding", target_id=holding_id,
+                detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
+    return {"holding_id": holding_id, "cleared": True}
 
 
 @router.get("/holdings/template.xlsx", summary="Download the holdings book upload template (Excel)")
