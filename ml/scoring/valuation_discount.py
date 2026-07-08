@@ -24,6 +24,23 @@ wildfire skew higher; chronic/non-structural perils like drought/heat/
 pollution skew lower), NOT a fitted or regulator-mandated schedule. Every org
 gets the universal table unless it explicitly opts in -- see
 services/calc_settings.py.
+
+monte_carlo_var() is asset management's OPT-IN alternative
+(org_calc_settings.assetmgmt_var_method = 'monte_carlo') to the default,
+which -- as disclosed elsewhere in the UI -- is really the same deterministic
+haircut relabeled "climate VaR%", not a statistical value-at-risk. This
+platform has no historical portfolio-value time series to run a real
+historical-simulation VaR against, so it does the next most defensible thing:
+Monte Carlo sampling of each holding's loss% from a triangular distribution
+centered on its own deterministic recommended_discount_pct, with a disclosed
++-40% relative uncertainty band (not fitted to any loss history), aggregated
+across the portfolio to produce genuine P50/P95/P99 percentiles of a
+simulated loss distribution. Seeded deterministically from
+(org_id, scenario, horizon) so the same portfolio+settings always reproduces
+the same figure -- a real risk report cannot change every time someone
+refreshes the page. Still not a fitted or historical VaR; the uncertainty
+band is a disclosed modeling assumption, exactly like the deterministic
+haircut it's built on top of.
 """
 from __future__ import annotations
 
@@ -95,4 +112,43 @@ def valuation_block(bucket: str | None, value_eur: float | None, override_row: d
             "overridden_at": override_row.get("overridden_at") if override_row else None,
             "reason": override_row.get("reason") if override_row else None,
         } if override_row else None,
+    }
+
+
+def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: str,
+                     severity_model: str = "universal", n_sims: int = 10000,
+                     relative_uncertainty: float = 0.4) -> dict:
+    """holdings: [{position_value_eur, bucket, hazard}, ...]. See module docstring
+    for the method and its disclosed limitations. Returns median/P95/P99 of a
+    simulated portfolio loss distribution (in EUR), not a single point estimate."""
+    import numpy as np
+
+    n = len(holdings)
+    if n == 0:
+        return {"median_loss_eur": 0.0, "var95_eur": 0.0, "var99_eur": 0.0,
+                "n_sims": n_sims, "relative_uncertainty_band": relative_uncertainty}
+
+    seed = abs(hash((org_id, scenario, horizon))) % (2**32)
+    rng = np.random.default_rng(seed)
+
+    losses = np.zeros(n_sims)
+    for h in holdings:
+        value = h.get("position_value_eur") or 0.0
+        if value == 0:
+            continue
+        mean = recommended_discount_pct(h.get("bucket"), h.get("hazard"), severity_model) / 100.0
+        spread = max(mean * relative_uncertainty, 0.02)
+        low, high = max(0.0, mean - spread), min(1.0, mean + spread)
+        if high <= low:
+            losses += mean * value
+            continue
+        losses += rng.triangular(low, mean, high, size=n_sims) * value
+
+    p50, p95, p99 = np.percentile(losses, [50, 95, 99])
+    return {
+        "median_loss_eur": round(float(p50), 2),
+        "var95_eur": round(float(p95), 2),
+        "var99_eur": round(float(p99), 2),
+        "n_sims": n_sims,
+        "relative_uncertainty_band": relative_uncertainty,
     }

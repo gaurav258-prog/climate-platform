@@ -31,7 +31,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
-from ml.scoring.valuation_discount import valuation_block
+from ml.scoring.valuation_discount import monte_carlo_var, valuation_block
 from services.calc_settings import get_calc_settings
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
@@ -114,7 +114,7 @@ def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="univ
     return out
 
 
-def _rollup(holdings):
+def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=None, severity_model="universal"):
     total = sum(h["position_value_eur"] or 0 for h in holdings)
     total_var = sum((h["position_value_eur"] or 0) - h["climate_var"]["discounted_value_eur"] for h in holdings)
     n_flagged = sum(1 for h in holdings if h["flagged"])
@@ -123,7 +123,7 @@ def _rollup(holdings):
         b = h["headline_bucket"] or "none"
         by_bucket[b]["count"] += 1
         by_bucket[b]["value_eur"] += h["position_value_eur"] or 0
-    return {
+    rollup = {
         "n_holdings": len(holdings),
         "n_scored": sum(1 for h in holdings if h["headline_bucket"]),
         "n_flagged": n_flagged,
@@ -134,16 +134,23 @@ def _rollup(holdings):
         "top_holdings": sorted(
             [h for h in holdings if h["headline_score"] is not None],
             key=lambda h: -h["headline_score"])[:8],
+        "var_method": var_method,
     }
+    if var_method == "monte_carlo":
+        scored = [{"position_value_eur": h["position_value_eur"], "bucket": h["headline_bucket"],
+                   "hazard": h["headline_hazard"]} for h in holdings if h["headline_bucket"]]
+        rollup["monte_carlo_var"] = monte_carlo_var(scored, org_id, scenario, horizon, severity_model)
+    return rollup
 
 
 @router.get("/portfolio", summary="Holdings book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
+    settings = get_calc_settings(session, org_id)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
+    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(holdings), "holdings": holdings}
+            "rollup": rollup, "holdings": holdings}
 
 
 @router.get("/summary", summary="Portfolio climate VaR rollup")
@@ -152,9 +159,10 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(holdings)}
+    settings = get_calc_settings(session, org_id)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
+    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"])
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": rollup}
 
 
 @router.get("/disclosure", summary="Physical-risk exposure + EU Taxonomy status — the portfolio-level "
