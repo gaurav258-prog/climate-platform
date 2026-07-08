@@ -575,8 +575,8 @@ function SolutionsDetail({ sector, onBack, onHome, onEnter }) {
   )
 }
 
-export default function SolutionsPage({ onHome, onEnter }) {
-  const [activeId, setActiveId] = useState(null)
+export default function SolutionsPage({ onHome, onEnter, initialSector }) {
+  const [activeId, setActiveId] = useState(initialSector || null)
   const sector = activeId ? (SECTORS.find(s => s.id === activeId) || null) : null
 
   if (sector) {

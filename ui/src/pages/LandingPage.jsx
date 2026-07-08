@@ -34,33 +34,36 @@ const SOURCES = [
   { kind: 'Volcano monitors', name: 'Smithsonian Global Volcanism Program', desc: 'Tracking every active volcano on Earth.' },
 ]
 
+// Titles here are kept identical to each sector's "Key deliverables" on
+// /solutions (same deliverable, same name) — only the descriptions are
+// allowed to differ in phrasing between the teaser and the full page.
 const AUDIENCES = [
   {
-    icon: Landmark, kind: 'For banks', h: 'See exactly which loans climate is coming for.',
+    id: 'banking', icon: Landmark, kind: 'For banks', h: 'See exactly which loans climate is coming for.',
     feats: [
       ['Command center', 'One live view of the whole loan book — every asset’s physical risk, at a glance.'],
       ['Portfolio screening', 'Every property ranked by projected risk, not guessed — sortable by risk and value.'],
-      ['Regulatory disclosure', 'TCFD and EU Taxonomy reports built straight from the live data — audit-ready.'],
+      ['Regulatory reporting', 'TCFD and EU Taxonomy reports built straight from the live data — audit-ready.'],
     ],
   },
   {
-    icon: UmbrellaIcon, kind: 'For insurers', h: 'Price the risk you’re actually taking on.',
+    id: 'insurance', icon: UmbrellaIcon, kind: 'For insurers', h: 'Price the risk you’re actually taking on.',
     feats: [
-      ['Loss-curve pricing', 'Turns the live hazard score into a realistic, defensible premium.'],
-      ['Parametric triggers', 'Automatic payouts the moment real data crosses a threshold — no lengthy claims process.'],
-      ['One shared view', 'Underwriters and claims teams look at the exact same live number, always in sync.'],
+      ['Risk pricing', 'Turns the live hazard score into a realistic, defensible premium.'],
+      ['Accumulation', 'See concentration before it becomes a catastrophe.'],
+      ['Parametric design', 'Automatic payouts the moment real data crosses a threshold — no lengthy claims process.'],
     ],
   },
   {
-    icon: Sprout, kind: 'For farms & food companies', h: 'Know what climate is doing to your cost of goods.',
+    id: 'agriculture', icon: Sprout, kind: 'For farms & food companies', h: 'Know what climate is doing to your cost of goods.',
     feats: [
-      ['Sourcing book', 'Every farm plot you buy from, scored for heat, drought, flood and volcanic risk.'],
+      ['Sourcing book + map', 'Every farm plot you buy from, scored for heat, drought, flood and volcanic risk.'],
       ['COGS-at-risk', 'Turns climate hazard into a real euro impact on ingredients — like cocoa and coffee.'],
-      ['EUDR-ready', 'Prove your supply chain is deforestation-free and climate-resilient, in one record.'],
+      ['EUDR + CSRD disclosure', 'Prove your supply chain is deforestation-free and climate-resilient, in one record.'],
     ],
   },
   {
-    icon: Building2, kind: 'For real estate', h: 'Know what climate costs your NOI — before it does.',
+    id: 'real-estate', icon: Building2, kind: 'For real estate', h: 'Know what climate costs your NOI — before it does.',
     feats: [
       ['Portfolio & NOI impact', 'Climate-adjusted value and NOI impact for every property you own.'],
       ['Climate-adjusted valuation', 'The same risk-based haircut schedule banks use, applied to your portfolio.'],
@@ -68,7 +71,7 @@ const AUDIENCES = [
     ],
   },
   {
-    icon: TrendingUp, kind: 'For asset managers', h: 'See portfolio climate risk the way your banks already do.',
+    id: 'asset-management', icon: TrendingUp, kind: 'For asset managers', h: 'See portfolio climate risk the way your banks already do.',
     feats: [
       ['Portfolio climate VaR', 'Value-weighted climate exposure across the whole book, from one number.'],
       ['Screening', 'Holdings sitting in high and very-high risk zones, flagged automatically.'],
@@ -235,14 +238,15 @@ export default function LandingPage({ onEnter, onExplore, onLookup }) {
         <div className="mx-auto max-w-5xl px-8">
           <Eyebrow>Who it's for</Eyebrow>
           <h2 className="tl-serif max-w-3xl text-[clamp(26px,3.6vw,40px)] font-light italic leading-[1.1] text-[#F4EFE6]">
-            Five industries. Same live score. Different decisions.
+            Five sectors live today. Same live score. Different decisions.
           </h2>
           <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[#94A3B8]">
-            Everyone else picks one hazard, one industry. We read every hazard, into every industry, from the same score.
+            Everyone else picks one hazard, one industry. We read every hazard, into every industry, from the
+            same score — five sectors live now, three more on the roadmap.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {AUDIENCES.map(a => (
-              <button key={a.kind} onClick={onExplore}
+              <button key={a.kind} onClick={() => onExplore(a.id)}
                 className="flex items-center gap-3.5 rounded-xl border border-white/[0.09] bg-white/[0.02] p-4.5 text-left transition hover:border-[#38BDF8]/35 hover:bg-[#38BDF8]/[0.03]">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#38BDF8]/10 text-[#7DD3FC]"><a.icon size={17} /></span>
                 <div>

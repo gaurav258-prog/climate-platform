@@ -51,6 +51,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(hasToken())
   const [area, setArea] = useState('modules')      // 'modules' | 'docs' | 'portal' | 'admin'
   const [route, setRoute] = useState({})
+  const [solutionsSector, setSolutionsSector] = useState(null)
 
   // Rehydrate the session on load so a refresh keeps you logged in.
   useEffect(() => {
@@ -96,13 +97,20 @@ export default function App() {
     }
   }, [auth, enterApp])
 
+  // `sectorId` lets a specific "For banks"-style card jump straight into that
+  // sector's detail page on Solutions, instead of always landing on the index.
+  const onExplore = useCallback((sectorId) => {
+    setSolutionsSector(typeof sectorId === 'string' ? sectorId : null)
+    setView('solutions')
+  }, [])
+
   // ── Marketing / auth views (all hooks above run first) ──
   if (view === 'landing')
-    return <LandingPage onEnter={enterApp} onExplore={() => setView('solutions')} onLookup={() => setView('lookup')} />
+    return <LandingPage onEnter={enterApp} onExplore={onExplore} onLookup={() => setView('lookup')} />
   if (view === 'lookup')
     return <LookupScorePage onHome={() => setView('landing')} />
   if (view === 'solutions')
-    return <SolutionsPage onHome={() => setView('landing')} onEnter={enterApp} />
+    return <SolutionsPage onHome={() => setView('landing')} onEnter={enterApp} initialSector={solutionsSector} />
   if (view === 'login')
     return <LoginPage onSuccess={onLoginSuccess} onHome={() => setView('landing')} />
 
