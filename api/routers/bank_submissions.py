@@ -135,6 +135,94 @@ def list_submissions(session: DbSession, ctx: dict = Depends(require_permission(
     return [_serialize(r) for r in rows]
 
 
+def _flagged_asset_ids(snapshot: dict) -> set:
+    return {a["asset_id"] for a in snapshot["assets"] if a["headline_bucket"] in ("H", "VH")}
+
+
+def _period_delta(prev_snap: dict, curr_snap: dict) -> dict:
+    """Real quarter-over-quarter comparison of two frozen snapshots -- not a
+    recomputation, just a diff of two numbers that already exist. Asset-level
+    membership changes (newly_flagged/de_flagged) are computed by asset_id set
+    difference, so a genuinely new VH asset is distinguished from one whose
+    bucket merely fluctuated within H/VH."""
+    pr, cr = prev_snap["rollup"], curr_snap["rollup"]
+    prev_flagged, curr_flagged = _flagged_asset_ids(prev_snap), _flagged_asset_ids(curr_snap)
+    newly_flagged = curr_flagged - prev_flagged
+    de_flagged = prev_flagged - curr_flagged
+    asset_by_id = {a["asset_id"]: a for a in curr_snap["assets"]}
+    prev_asset_by_id = {a["asset_id"]: a for a in prev_snap["assets"]}
+
+    prev_coverage = pr["n_scored"] / pr["n_assets"] if pr["n_assets"] else 0.0
+    curr_coverage = cr["n_scored"] / cr["n_assets"] if cr["n_assets"] else 0.0
+
+    prev_tax = {k: v["value_eur"] for k, v in prev_snap["taxonomy"].items()}
+    curr_tax = {k: v["value_eur"] for k, v in curr_snap["taxonomy"].items()}
+    tax_shift = {k: round(curr_tax.get(k, 0) - prev_tax.get(k, 0)) for k in set(prev_tax) | set(curr_tax)}
+
+    return {
+        "value_at_risk_delta_eur": round(cr["value_at_risk_eur"] - pr["value_at_risk_eur"]),
+        "pct_value_at_risk_delta": round(cr["pct_value_at_risk"] - pr["pct_value_at_risk"], 2),
+        "n_high_delta": cr["n_high"] - pr["n_high"],
+        "scored_coverage_pct_delta": round(100 * (curr_coverage - prev_coverage), 1),
+        "newly_flagged_assets": [
+            {"asset_id": aid, "asset_name": asset_by_id[aid]["asset_name"],
+             "headline_bucket": asset_by_id[aid]["headline_bucket"],
+             "headline_hazard": asset_by_id[aid]["headline_hazard"]}
+            for aid in newly_flagged if aid in asset_by_id
+        ],
+        "de_flagged_assets": [
+            {"asset_id": aid, "asset_name": prev_asset_by_id[aid]["asset_name"]}
+            for aid in de_flagged if aid in prev_asset_by_id
+        ],
+        "taxonomy_value_shift_eur": tax_shift,
+    }
+
+
+@router.get("/trend", summary="Quarter-over-quarter trend across released submissions")
+def submissions_trend(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    """Real deltas between consecutive RELEASED submissions, ordered by
+    reporting period -- not a fitted trend line or forecast, just an honest
+    diff of numbers this org already froze and released. Needs at least 2
+    released submissions to produce a delta; fewer returns an empty trend
+    with a clear reason rather than a fabricated single-point 'trend'."""
+    rows = session.execute(text("""
+        SELECT submission_id, period_label, period_start, period_end, snapshot
+        FROM bank_disclosure_submissions
+        WHERE org_id = :o AND status = 'released'
+        ORDER BY period_start ASC
+    """), {"o": ctx["org"]["org_id"]}).mappings().all()
+
+    if len(rows) < 2:
+        return {"periods": [{"period_label": r["period_label"], "period_start": r["period_start"].isoformat()}
+                             for r in rows],
+                "deltas": [], "status": "insufficient_history",
+                "message": "Need at least 2 released submissions to compute a trend."}
+
+    deltas = []
+    for prev, curr in zip(rows, rows[1:]):
+        delta = _period_delta(prev["snapshot"], curr["snapshot"])
+        deltas.append({
+            "from_period": prev["period_label"], "to_period": curr["period_label"],
+            "to_period_start": curr["period_start"].isoformat(),
+            **delta,
+        })
+
+    first, last = rows[0]["snapshot"]["rollup"], rows[-1]["snapshot"]["rollup"]
+    cumulative = {
+        "from_period": rows[0]["period_label"], "to_period": rows[-1]["period_label"],
+        "value_at_risk_delta_eur": round(last["value_at_risk_eur"] - first["value_at_risk_eur"]),
+        "pct_value_at_risk_delta": round(last["pct_value_at_risk"] - first["pct_value_at_risk"], 2),
+        "n_high_delta": last["n_high"] - first["n_high"],
+    }
+    return {
+        "periods": [{"period_label": r["period_label"], "period_start": r["period_start"].isoformat()}
+                    for r in rows],
+        "deltas": deltas,
+        "cumulative": cumulative,
+        "status": "ok",
+    }
+
+
 @router.get("/{submission_id}", summary="A single submission, including its frozen snapshot")
 def get_submission(submission_id: str, session: DbSession,
                     ctx: dict = Depends(require_permission("reports.view"))):

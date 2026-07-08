@@ -2,9 +2,12 @@
 Banking flagship — public read-only endpoints for the loan-book workspace.
 
 Projects the golden source (canonical_scores) onto a bank's assets by H3 cell,
-the same projection as services/intelligence/asset_risk_projection and the
-v_bank_asset_physical_risk view. Every figure carries its model_version + vintage
-so the disclosure is defensible. No auth (aggregate read), mirroring platform.py.
+via the shared portfolio engine (services/portfolio_engine.py) and the unified
+v_portfolio_entity_physical_risk view -- the same engine real estate and asset
+management use, so a fix or a new calc-settings trigger only needs writing once
+(see the b9c0d1e2f3a4 migration's docstring for the duplication this replaced).
+Every figure carries its model_version + vintage so the disclosure is
+defensible. No auth (aggregate read), mirroring platform.py.
 """
 from __future__ import annotations
 
@@ -25,10 +28,51 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
-from ml.scoring.valuation_discount import valuation_block
 from services.calc_settings import get_calc_settings
+from services.portfolio_engine import (
+    apply_valuation_override as engine_apply_override,
+    clear_valuation_override as engine_clear_override,
+    fetch_entities_with_risk, get_entity_org, get_entity_with_risk,
+)
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
+
+EXT_BANKING_COLUMNS = [
+    "CAST(x.annual_revenue_eur AS FLOAT) AS annual_revenue_eur",
+    "x.taxonomy_status", "x.taxonomy_activity", "x.dnsh_assessment",
+    "x.expected_lifespan_years", "x.gics_code",
+    "CAST(x.ghg_emissions_scope1_tco2e AS FLOAT) AS ghg_emissions_scope1_tco2e",
+    "CAST(x.ghg_emissions_scope2_tco2e AS FLOAT) AS ghg_emissions_scope2_tco2e",
+    "CAST(x.ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_emissions_scope3_tco2e",
+    "CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur",
+    "x.loan_origination_date",
+]
+
+
+def _ltv_kwargs(row):
+    return {"outstanding_balance_eur": row.get("outstanding_loan_balance_eur")}
+
+
+def _map_asset_list_row(row):
+    """Shared-engine row -> the exact shape /portfolio, /summary, /disclosure
+    have always returned (frontend + frozen submission snapshots rely on
+    these exact field names, so this rename is the ENTIRE cost of sharing
+    the fetch/join/headline/valuation layer with the other 3 verticals)."""
+    return {
+        "asset_id": row["entity_id"], "asset_name": row["entity_name"], "asset_type": row["entity_type"],
+        "sector": row["sector"], "country": row["country"], "region": row["region"],
+        "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "value_eur": row["primary_value_eur"],
+        "revenue_eur": row["annual_revenue_eur"], "taxonomy_status": row["taxonomy_status"],
+        "construction_year": row["year_built"], "nace_code": row["nace_code"],
+        "ghg1": row["ghg_emissions_scope1_tco2e"], "ghg2": row["ghg_emissions_scope2_tco2e"],
+        "ghg3": row["ghg_emissions_scope3_tco2e"],
+        "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
+        "loan_origination_date": row["loan_origination_date"],
+        "hazards": row["hazards"], "headline_score": row["headline_score"],
+        "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
+        "valuation": row["valuation"],
+    }
 
 router = APIRouter(prefix="/v1/bank", tags=["Banking"])
 
@@ -62,62 +106,14 @@ OrgId = Annotated[str, Depends(resolve_org)]
 def _assets_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
     """All of an org's assets (metadata) + their per-hazard projected risk.
     severity_model: org_calc_settings' choice ('universal' default, or
-    'peril_specific' -- see ml/scoring/valuation_discount.py)."""
-    assets = session.execute(text("""
-        SELECT asset_id::text AS asset_id, asset_name, asset_type, sector, country, region,
-               CAST(latitude AS FLOAT) AS lat, CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(asset_value_eur AS FLOAT) AS value_eur,
-               CAST(annual_revenue_eur AS FLOAT) AS revenue_eur, taxonomy_status,
-               construction_year, nace_code,
-               CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg1,
-               CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg2,
-               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg3,
-               CAST(outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
-               loan_origination_date
-        FROM bank_assets WHERE org_id = :o ORDER BY asset_value_eur DESC
-    """), {"o": org_id}).mappings().all()
-
-    risks = session.execute(text("""
-        SELECT asset_id::text AS asset_id, hazard_type,
-               CAST(physical_risk_score AS FLOAT) AS score, risk_bucket,
-               model_version, scored_at
-        FROM v_bank_asset_physical_risk
-        WHERE org_id = :o AND scenario = :s AND time_horizon = :h
-    """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
-
-    by_asset = defaultdict(list)
-    for r in risks:
-        by_asset[r["asset_id"]].append({
-            "hazard": r["hazard_type"], "score": round(r["score"], 1),
-            "bucket": r["risk_bucket"], "model_version": r["model_version"],
-            "scored_at": r["scored_at"],
-        })
-
-    valuations = session.execute(text("""
-        SELECT asset_id::text AS asset_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM bank_asset_valuations WHERE asset_id IN (
-            SELECT asset_id FROM bank_assets WHERE org_id = :o
-        )
-    """), {"o": org_id}).mappings().all()
-    val_by_asset = {v["asset_id"]: dict(v) for v in valuations}
-
-    out = []
-    for a in assets:
-        hz = sorted(by_asset.get(a["asset_id"], []), key=lambda x: -x["score"])
-        headline = hz[0] if hz else None
-        out.append({
-            **{k: a[k] for k in a.keys()},
-            "hazards": hz,
-            "headline_score": headline["score"] if headline else None,
-            "headline_bucket": headline["bucket"] if headline else None,
-            "headline_hazard": headline["hazard"] if headline else None,
-            "valuation": valuation_block(
-                headline["bucket"] if headline else None, a["value_eur"], val_by_asset.get(a["asset_id"]),
-                outstanding_balance_eur=a["outstanding_loan_balance_eur"],
-                hazard=headline["hazard"] if headline else None, severity_model=severity_model),
-        })
-    return out
+    'peril_specific' -- see ml/scoring/valuation_discount.py). Thin wrapper
+    over the shared portfolio engine (services/portfolio_engine.py) -- the
+    fetch/join/headline/valuation logic itself lives there, shared with
+    real estate and asset management."""
+    rows = fetch_entities_with_risk(session, org_id, "banking", scenario, horizon, severity_model,
+                                     ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS,
+                                     valuation_kwargs=_ltv_kwargs)
+    return [_map_asset_list_row(r) for r in rows]
 
 
 def _rollup(assets):
@@ -220,54 +216,40 @@ def disclosure(session: DbSession, org_id: OrgId,
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon, **snapshot}
 
 
-def _valuation_row(session, asset_id):
-    return session.execute(text("""
-        SELECT CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
-               overridden_by::text AS overridden_by, overridden_at, reason
-        FROM bank_asset_valuations WHERE asset_id = :a
-    """), {"a": asset_id}).mappings().first()
-
-
 @router.get("/asset/{asset_id}", summary="One asset — full projection + provenance")
 def asset_detail(asset_id: str, session: DbSession):
-    a = session.execute(text("""
-        SELECT asset_id::text AS asset_id, org_id::text AS org_id, asset_name, asset_type,
-               sector, country, region, CAST(latitude AS FLOAT) AS lat,
-               CAST(longitude AS FLOAT) AS lon, h3_cell,
-               CAST(asset_value_eur AS FLOAT) AS value_eur,
-               CAST(annual_revenue_eur AS FLOAT) AS revenue_eur, taxonomy_status,
-               taxonomy_activity, dnsh_assessment, construction_year, expected_lifespan_years,
-               nace_code, gics_code,
-               CAST(ghg_emissions_scope1_tco2e AS FLOAT) AS ghg_scope1,
-               CAST(ghg_emissions_scope2_tco2e AS FLOAT) AS ghg_scope2,
-               CAST(ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_scope3,
-               CAST(outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
-               loan_origination_date
-        FROM bank_assets WHERE asset_id = :a
-    """), {"a": asset_id}).mappings().first()
-    if not a:
+    org_id = get_entity_org(session, asset_id)
+    if not org_id:
         return {"error": "asset not found"}
-    risks = session.execute(text("""
-        SELECT hazard_type, scenario, time_horizon,
-               CAST(physical_risk_score AS FLOAT) AS score, risk_bucket,
-               model_version, scored_at, risk_source
-        FROM v_bank_asset_physical_risk WHERE asset_id = :a
-        ORDER BY hazard_type, scenario, time_horizon
-    """), {"a": asset_id}).mappings().all()
-    headline = sorted(risks, key=lambda r: -r["score"])[0] if risks else None
-    val_row = _valuation_row(session, asset_id)
-    severity_model = get_calc_settings(session, a["org_id"])["severity_model"]
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    # Pre-existing quirk, preserved exactly: this endpoint has no scenario/horizon
+    # params, so its headline is picked across EVERY scenario/horizon this asset
+    # has ever been scored under (scope_headline_to_query=False) -- can disagree
+    # with the portfolio list's scenario-scoped headline for the same asset.
+    row = get_entity_with_risk(session, asset_id, "baseline", "current", severity_model,
+                                ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS,
+                                valuation_kwargs=_ltv_kwargs, scope_headline_to_query=False)
+    asset = {
+        "asset_id": row["entity_id"], "org_id": row["org_id"], "asset_name": row["entity_name"],
+        "asset_type": row["entity_type"], "sector": row["sector"], "country": row["country"],
+        "region": row["region"], "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "value_eur": row["primary_value_eur"], "revenue_eur": row["annual_revenue_eur"],
+        "taxonomy_status": row["taxonomy_status"], "taxonomy_activity": row["taxonomy_activity"],
+        "dnsh_assessment": row["dnsh_assessment"], "construction_year": row["year_built"],
+        "expected_lifespan_years": row["expected_lifespan_years"], "nace_code": row["nace_code"],
+        "gics_code": row["gics_code"],
+        "ghg_scope1": row["ghg_emissions_scope1_tco2e"], "ghg_scope2": row["ghg_emissions_scope2_tco2e"],
+        "ghg_scope3": row["ghg_emissions_scope3_tco2e"],
+        "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
+        "loan_origination_date": row["loan_origination_date"],
+    }
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
         FROM access_audit_log WHERE target_type = 'bank_asset' AND target_id = :a
         ORDER BY created_at DESC LIMIT 5
     """), {"a": asset_id}).mappings().all()
     return {
-        "asset": dict(a), "risks": [dict(r) for r in risks],
-        "valuation": valuation_block(headline["risk_bucket"] if headline else None, a["value_eur"], val_row,
-                                      outstanding_balance_eur=a["outstanding_loan_balance_eur"],
-                                      hazard=headline["hazard_type"] if headline else None,
-                                      severity_model=severity_model),
+        "asset": asset, "risks": row["risks"], "valuation": row["valuation"],
         "valuation_audit": [dict(x) for x in audit],
     }
 
@@ -281,38 +263,27 @@ class ValuationOverrideRequest(BaseModel):
 def override_valuation(asset_id: str, body: ValuationOverrideRequest, session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    asset = session.execute(text("SELECT org_id::text AS org_id FROM bank_assets WHERE asset_id = :a"), {"a": asset_id}).mappings().first()
-    if not asset:
+    org_id = get_entity_org(session, asset_id)
+    if not org_id:
         raise HTTPException(status_code=404, detail="asset not found")
-    if asset["org_id"] != ctx["org"]["org_id"]:
+    if org_id != ctx["org"]["org_id"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Asset does not belong to your organization"})
 
-    prior = _valuation_row(session, asset_id)
-    from_pct = prior["override_discount_pct"] if prior else None
-    now = datetime.now(timezone.utc)
-    session.execute(text("""
-        INSERT INTO bank_asset_valuations (asset_id, override_discount_pct, overridden_by, overridden_at, reason)
-        VALUES (:a, :pct, :u, :now, :reason)
-        ON CONFLICT (asset_id) DO UPDATE
-            SET override_discount_pct = EXCLUDED.override_discount_pct,
-                overridden_by = EXCLUDED.overridden_by,
-                overridden_at = EXCLUDED.overridden_at,
-                reason = EXCLUDED.reason
-    """), {"a": asset_id, "pct": body.discount_pct, "u": ctx["user"]["id"], "now": now, "reason": body.reason})
+    result = engine_apply_override(session, asset_id, body.discount_pct, ctx["user"]["id"], body.reason)
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="asset.valuation.override", target_type="bank_asset", target_id=asset_id,
-                detail={"from_pct": from_pct, "to_pct": body.discount_pct, "reason": body.reason})
-    return {"asset_id": asset_id, "override_discount_pct": body.discount_pct, "overridden_at": now.isoformat()}
+                detail={"from_pct": result["from_pct"], "to_pct": body.discount_pct, "reason": body.reason})
+    return {"asset_id": asset_id, "override_discount_pct": body.discount_pct,
+            "overridden_at": result["overridden_at"].isoformat()}
 
 
 @router.delete("/asset/{asset_id}/valuation-override", summary="Clear an override, revert to the recommended discount (audited)")
-def clear_valuation_override(asset_id: str, session: DbSession, ctx: CurrentUser):
+def clear_asset_valuation_override(asset_id: str, session: DbSession, ctx: CurrentUser):
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
-    prior = _valuation_row(session, asset_id)
+    prior = engine_clear_override(session, asset_id)
     if not prior:
         return {"asset_id": asset_id, "cleared": False}
-    session.execute(text("DELETE FROM bank_asset_valuations WHERE asset_id = :a"), {"a": asset_id})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action="asset.valuation.override_cleared", target_type="bank_asset", target_id=asset_id,
                 detail={"from_pct": prior["override_discount_pct"], "to_pct": None})
@@ -377,12 +348,12 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
         outstanding = row.get("outstanding_loan_balance_eur")
         origination = row.get("loan_origination_date")
         records.append({
-            "asset_id": str(uuid.uuid4()), "org_id": org_id,
-            "asset_name": str(row["asset_name"]), "asset_type": str(row["asset_type"]),
+            "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "entity_name": str(row["asset_name"]), "entity_type": str(row["asset_type"]),
             "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "asset_value_eur": value_eur, "sector": str(row["sector"]),
+            "primary_value_eur": value_eur, "sector": str(row["sector"]),
             "outstanding_loan_balance_eur": float(outstanding) if pd.notna(outstanding) else None,
             "loan_origination_date": str(origination)[:10] if pd.notna(origination) else None,
             # No nace_code in today's upload template, so real EU Taxonomy classification
@@ -394,12 +365,14 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
-        INSERT INTO bank_assets (asset_id, org_id, asset_name, asset_type, latitude, longitude,
-                                  h3_cell, region, country, asset_value_eur, sector,
-                                  outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)
-        VALUES (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :asset_value_eur, :sector,
-                :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status)
+        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
+                                         h3_cell, region, country, primary_value_eur, sector)
+        VALUES (:entity_id, :org_id, 'banking', :entity_name, :entity_type, :latitude, :longitude,
+                :h3_cell, :region, :country, :primary_value_eur, :sector)
+    """), records)
+    session.execute(text("""
+        INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)
+        VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
                 target_type="bank_assets", target_id=None,

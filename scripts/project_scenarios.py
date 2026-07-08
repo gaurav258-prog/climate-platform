@@ -35,7 +35,7 @@ def main():
             FROM   canonical_scores
             WHERE  scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
             AND   (hazard_type='flood'
-                   OR (hazard_type='wildfire' AND h3_cell IN (SELECT h3_cell FROM bank_assets)))
+                   OR (hazard_type='wildfire' AND h3_cell IN (SELECT h3_cell FROM portfolio_entities)))
         """)).mappings().all()
 
         # retire previous projections (everything that isn't the real baseline/current)

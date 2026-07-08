@@ -1,5 +1,7 @@
 """
-Seed a realistic demo bank loan book into bank_assets.
+Seed a realistic demo bank loan book into portfolio_entities/ext_banking (the
+unified schema -- see the b9c0d1e2f3a4 migration; this used to write directly
+to bank_assets, now retired).
 
 The banking flagship needs assets to project canonical_scores onto. This inserts
 ~120 assets for one demo org, deliberately placing a chunk of them in cells that
@@ -167,28 +169,36 @@ def main():
             VALUES (:o, 'Meridian Bank (demo)', 'bank', 'ES', :aum, 4200, now(), now())
             ON CONFLICT (org_id) DO NOTHING
         """), {"o": DEMO_ORG, "aum": 48_000_000_000})
-        s.execute(text("DELETE FROM bank_assets WHERE org_id = :o"), {"o": DEMO_ORG})
+        # portfolio_entities/ext_banking (see b9c0d1e2f3a4 migration) -- the
+        # unified schema banking now shares with real estate/asset management,
+        # replacing bank_assets/bank_asset_valuations directly.
+        s.execute(text("DELETE FROM portfolio_entities WHERE org_id = :o AND vertical = 'banking'"), {"o": DEMO_ORG})
         s.execute(text("""
-            INSERT INTO bank_assets
-                (asset_id, org_id, asset_name, asset_type, latitude, longitude, h3_cell,
-                 region, country, asset_value_eur, annual_revenue_eur, construction_year,
-                 expected_lifespan_years, sector, nace_code, gics_code, taxonomy_status,
+            INSERT INTO portfolio_entities
+                (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
+                 region, country, primary_value_eur, sector, nace_code, construction_type, year_built,
+                 number_of_stories)
+            VALUES
+                (:asset_id, :org_id, 'banking', :asset_name, :asset_type, :latitude, :longitude, :h3_cell,
+                 :region, :country, :asset_value_eur, :sector, :nace_code, NULL, :construction_year, NULL)
+        """), assets)
+        s.execute(text("""
+            INSERT INTO ext_banking
+                (entity_id, annual_revenue_eur, expected_lifespan_years, gics_code, taxonomy_status,
                  taxonomy_activity, dnsh_assessment, energy_consumption_mwh,
                  ghg_emissions_scope1_tco2e, ghg_emissions_scope2_tco2e, ghg_emissions_scope3_tco2e,
                  outstanding_loan_balance_eur, loan_origination_date)
             VALUES
-                (:asset_id, :org_id, :asset_name, :asset_type, :latitude, :longitude, :h3_cell,
-                 :region, :country, :asset_value_eur, :annual_revenue_eur, :construction_year,
-                 :expected_lifespan_years, :sector, :nace_code, :gics_code, :taxonomy_status,
+                (:asset_id, :annual_revenue_eur, :expected_lifespan_years, :gics_code, :taxonomy_status,
                  :taxonomy_activity, CAST(:dnsh AS jsonb), :energy_mwh, :s1, :s2, :s3,
                  :outstanding_loan_balance_eur, :loan_origination_date)
         """), assets)
         total = sum(a["asset_value_eur"] for a in assets)
         print(f"seeded {len(assets)} assets, total book €{total/1e9:.2f}bn, org {DEMO_ORG}")
         scored = s.execute(text("""
-            SELECT count(DISTINCT ba.asset_id) FROM bank_assets ba
-            JOIN canonical_scores cs ON cs.h3_cell = ba.h3_cell AND cs.valid_to IS NULL
-            WHERE ba.org_id = :o
+            SELECT count(DISTINCT e.entity_id) FROM portfolio_entities e
+            JOIN canonical_scores cs ON cs.h3_cell = e.h3_cell AND cs.valid_to IS NULL
+            WHERE e.org_id = :o AND e.vertical = 'banking'
         """), {"o": DEMO_ORG}).scalar()
         print(f"{scored} of {len(assets)} assets fall in scored cells (rest = no_canonical_score)")
 

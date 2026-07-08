@@ -1,7 +1,9 @@
 """
-Recompute bank_assets.taxonomy_status/taxonomy_activity/dnsh_assessment for
-every asset using the real classifier (ml/regulatory/eu_taxonomy_classifier.py),
-replacing the random demo assignment from before this existed.
+Recompute ext_banking.taxonomy_status/taxonomy_activity/dnsh_assessment (see
+the b9c0d1e2f3a4 migration -- this used to target bank_assets, now retired)
+for every asset using the real classifier
+(ml/regulatory/eu_taxonomy_classifier.py), replacing the random demo
+assignment from before this existed.
 
 Run after the loan book has been scored (seed_demo_loanbook.py already places
 assets in scored cells) so the DNSH-climate-adaptation diagnostic can use each
@@ -23,15 +25,18 @@ BASELINE_SCENARIO, CURRENT_HORIZON = "baseline", "current"
 def main():
     with get_session() as s:
         assets = s.execute(text("""
-            SELECT asset_id, nace_code, resilience_rating
-            FROM bank_assets
+            SELECT e.entity_id AS asset_id, e.nace_code, x.resilience_rating
+            FROM portfolio_entities e
+            JOIN ext_banking x ON x.entity_id = e.entity_id
+            WHERE e.vertical = 'banking'
         """)).mappings().all()
 
         headline_by_asset = {}
         risks = s.execute(text("""
-            SELECT asset_id, CAST(physical_risk_score AS FLOAT) AS score, risk_bucket
-            FROM v_bank_asset_physical_risk
-            WHERE scenario = :s AND time_horizon = :h
+            SELECT entity_id AS asset_id, physical_risk_score AS score, risk_bucket
+            FROM v_portfolio_entity_physical_risk
+            WHERE vertical = 'banking' AND scenario = :s AND time_horizon = :h
+              AND hazard_type != 'heat_acute'
         """), {"s": BASELINE_SCENARIO, "h": CURRENT_HORIZON}).mappings().all()
         for r in risks:
             cur = headline_by_asset.get(r["asset_id"])
@@ -56,11 +61,12 @@ def main():
             })
 
         s.execute(text("""
-            UPDATE bank_assets
+            UPDATE ext_banking
             SET taxonomy_status = :status,
-                taxonomy_activity = COALESCE(:activity, sector),
+                taxonomy_activity = COALESCE(:activity,
+                    (SELECT sector FROM portfolio_entities WHERE entity_id = :asset_id)),
                 dnsh_assessment = CAST(:reasoning AS jsonb)
-            WHERE asset_id = :asset_id
+            WHERE entity_id = :asset_id
         """), updates)
 
         print(f"recomputed taxonomy status for {len(updates)} assets: {counts}")
