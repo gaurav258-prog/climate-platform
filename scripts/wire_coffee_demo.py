@@ -4,8 +4,15 @@ Wire Brazil ARABICA coffee into the Terra Foods demo on its validated DROUGHT si
 1. add a Coffee commodity + a coffee SKU + BOM + supplier + Brazil sourcing plots;
 2. score Brazil coffee DROUGHT (SPEI) into canonical_scores (append-only, scenario×horizon);
 3. snap the coffee plots onto scored cells so coffee shows a real, drought-driven COGS-at-risk.
-Frost (the other 2021 driver) is NOT modelled — flagged pending the CDS daily-min fix.
+Frost (the other 2021 driver) is scored separately by scripts/wire_frost_demo.py, once the
+CDS daily-min fix (raw-hourly + local aggregation, see ml/features/frost.py) lands data.
 Idempotent. Run: .venv/bin/python scripts/wire_coffee_demo.py
+
+ORG was 33333333-... (Stellar Logistics REIT's id) until 2026-07 -- a stale leftover from
+before scripts/fix_terra_foods_org_split.py gave Terra Foods its own dedicated org_id
+(55555555-...). That cleanup deleted every sc_* row living under Stellar's org (including
+whatever this script had created there), but this script's ORG constant was never updated
+to follow -- so Coffee silently vanished from the live Terra Foods demo. Fixed here.
 """
 import uuid
 from datetime import datetime, timezone
@@ -19,7 +26,7 @@ from core.types import score_to_bucket
 from ml.features.drought import load_monthly, compute_indices
 from ml.scoring.drought_climatology import drought_score, SCENARIO_WARMING_C, HORIZON_FRACTION
 
-ORG = "33333333-3333-4333-8333-333333333333"
+ORG = "55555555-5555-4555-8555-555555555555"
 NC = "data/era5_baseline/brazil_coffee_1991_2024_monthly.nc"
 MODEL_VERSION = "drought-spei-v0"
 CURRENT_YEAR = 2024
