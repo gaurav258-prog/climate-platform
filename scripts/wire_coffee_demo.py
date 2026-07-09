@@ -116,17 +116,18 @@ def main():
             VALUES (:id,:o,:sup,:c,:pn,:lat,:lon,:h3,:cc,:rg,:sp,:vs,'compliant',:now)
         """), plots)
 
-    try:
-        with get_session() as s:
-            s.execute(text("UPDATE model_registry SET is_active=false WHERE hazard_type='drought'"))
-            s.execute(text("""
-                INSERT INTO model_registry (model_id, hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active, created_at)
-                VALUES (:id,'drought',:mv,'SPEI percentile Φ(−SPEI) vs 1991-2020',:dv,
-                    'Drought = validated coffee signal (2021 driest in 34, SPEI −0.86, aligns with −12.7% prod). Warming shifts SPEI drier in scenarios. Frost (the other 2021 driver) not modelled — pending CDS daily-min fix.',
-                    true,:now)
-            """), {"id": str(uuid.uuid4()), "mv": MODEL_VERSION, "dv": vintage, "now": now})
-    except Exception as e:
-        print("  (model_registry skipped:", str(e)[:60], ")")
+    with get_session() as s:
+        s.execute(text("UPDATE model_registry SET is_active=false WHERE hazard_type='drought'"))
+        s.execute(text("""
+            INSERT INTO model_registry (model_id, hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active, created_at)
+            VALUES (:id,'drought',:mv,'SPEI percentile Φ(−SPEI) vs 1991-2020',:dv,
+                'Drought = validated coffee signal (2021 driest in 34, SPEI −0.86 → score 80.5). Warming shifts SPEI drier in scenarios. The Jul-2021 FROST (the other 2021 driver, season-min −3.46C -- see scripts/wire_frost_demo.py) is now also scored and compounds with drought on Coffee''s plots (COMPOUND_HAZARDS in supply_cogs.py) -- combined the chain reproduces +48.5% price move vs the real +44-60% observed, drought alone only reaches +33.6%.',
+                true,:now)
+            ON CONFLICT (model_version) DO UPDATE SET
+                training_data_vintage = EXCLUDED.training_data_vintage,
+                validation_note = EXCLUDED.validation_note,
+                is_active = true, created_at = EXCLUDED.created_at
+        """), {"id": str(uuid.uuid4()), "mv": MODEL_VERSION, "dv": vintage, "now": now})
 
     print(f"wired Coffee: scored {len(rows)} drought rows over {len(scored_cells)} Brazil cells, {len(PLOTS)} plots")
     with get_session() as s:
@@ -134,7 +135,7 @@ def main():
             SELECT p.plot_name, ROUND(v.physical_risk_score::numeric,1) score
             FROM sc_sourcing_plots p JOIN v_sc_plot_physical_risk v ON v.plot_id=p.plot_id
             WHERE p.commodity_id=(SELECT commodity_id FROM sc_commodities WHERE name='Coffee')
-              AND v.scenario='baseline' AND v.time_horizon='current'
+              AND v.hazard_type='drought' AND v.scenario='baseline' AND v.time_horizon='current'
         """)).mappings().all():
             print(f"  {r['plot_name']}: drought {r['score']}")
 

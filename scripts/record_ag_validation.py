@@ -19,13 +19,19 @@ ROWS = [
         "source": "ICCO Nov-2025 + ICE + backtest_cocoa_drought.py",
     },
     {
-        "event": "Coffee 2021", "commodity": "Coffee", "hazard": "drought",
-        "obs_prod": -12.7, "model_price": 27.0, "obs_price": 55.0,
-        "note": ("Driven by DROUGHT (2021 = driest year in 34, SPEI −0.86), NOT heat. Chain "
-                 "reproduces the −12.7% supply shock → +27% (the drought-attributable share). "
-                 "The Jul-2021 FROST added the rest (to ~+55%) and is NOT modelled — invisible "
-                 "in monthly means; pending the CDS daily-min fix. Coffee € is a conservative floor."),
-        "source": "ICO/USDA + backtest_coffee_climate.py",
+        "event": "Coffee 2021", "commodity": "Coffee", "hazard": "drought+frost",
+        "obs_prod": -20.0, "model_price": 48.5, "obs_price": 44.0,
+        "note": ("DROUGHT (2021 = driest year in 34, SPEI −0.86 → score 80.5) AND the 20-Jul "
+                 "FROST (season-min −3.46°C, catastrophic on coffee's frost thresholds → score "
+                 "100) compound on the SAME plots — drought weakened the trees, frost then "
+                 "damaged what was left standing. Modelled as independent multiplicative "
+                 "yield-shock (not worst-of, which alone only reaches +33.6% and silently drops "
+                 "whichever hazard scores lower): combined yield-shock 64.9% → price +48.5%, "
+                 "inside the real +44% avg / +60% peak band, with NO parameter changed beyond "
+                 "how the two hazards combine. Frost was previously unscored (CDS's own daily-"
+                 "minimum statistic is ECMWF-flagged unusable); fixed by computing the daily/"
+                 "seasonal minimum locally from raw hourly ERA5 instead of that flagged product."),
+        "source": "ICO/USDA + backtest_coffee_climate.py + scripts/wire_frost_demo.py",
     },
     {
         "event": "Fuego 2018 (Guatemala coffee, volcanic)", "commodity": "Coffee", "hazard": "volcanic",

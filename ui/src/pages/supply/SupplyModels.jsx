@@ -93,14 +93,17 @@ export default function SupplyModels({ auth }) {
                   {h.validation_note && <div className="mt-1 pl-6 text-[11px] italic text-gray-400">{h.validation_note}</div>}
                 </div>
               ))}
-              {/* frost — built but blocked */}
-              <div className="py-2.5">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
-                  <AlertTriangle size={14} className="text-amber-500" /> Frost
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">pending data</span>
+              {/* frost shows here once scored (model_registry has an active row) -- this
+                  block only renders if it's genuinely still pending for this deployment. */}
+              {!mod.hazard_models.some(h => h.hazard_type === 'frost') && (
+                <div className="py-2.5">
+                  <div className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
+                    <AlertTriangle size={14} className="text-amber-500" /> Frost
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">pending data</span>
+                  </div>
+                  <div className="mt-0.5 pl-6 text-[11px] text-gray-400">{mod.frost_note}</div>
                 </div>
-                <div className="mt-0.5 pl-6 text-[11px] text-gray-400">{mod.frost_note}</div>
-              </div>
+              )}
             </div>
           )}
         </section>

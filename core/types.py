@@ -55,6 +55,7 @@ class HazardType(str, Enum):
     SEISMIC = "seismic"
     VOLCANIC = "volcanic"
     POLLUTION = "pollution"
+    FROST = "frost"
 
 
 class RiskScenario(str, Enum):

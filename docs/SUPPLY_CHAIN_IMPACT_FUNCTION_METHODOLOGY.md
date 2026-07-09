@@ -154,6 +154,38 @@ Result: cocoa COGS-at-risk ≈ €52.7m P50 / €94.9m P90 on €30m spend — t
 market exposure (hedging is a mitigation); other commodities remain uncalibrated v0.1 until they
 pass their own event backtest.
 
+### 6.3 Calibrated coffee chain (v0.2) — two compounding hazards on the same plot
+Coffee's 2021 event had two real drivers on the SAME Brazil plots in the SAME season: drought
+(May, SPEI −0.86) weakened the trees, then the 20-Jul frost (season-min −3.46°C, the coldest
+night 2021-2024) delivered the damage on top of it. Frost was undeliverable until now — CDS's
+own daily-minimum-temperature statistic is ECMWF-flagged unusable ("should not be used"); fixed
+by computing the daily/seasonal minimum locally from raw hourly ERA5 instead
+(`ml/features/frost.py`, `scripts/fetch_era5_frost_hourly.py` — one CDS request per year, since
+a multi-decade request exceeds CDS's per-request cost limit).
+
+With only drought modelled, the chain reproduced +27–34% (worst-of two hazards, whichever
+scored higher) — well short of the real **+44% avg / +60% peak**. The engine's default is
+**worst-of**: a plot's binding constraint is its single most severe hazard, correct when hazards
+substitute for each other (flood vs wildfire rarely co-occur on the same plot/season). Coffee's
+backtest showed that's the wrong model *here* — drought and frost don't substitute, they stack.
+
+**First attempt got this wrong**, worth recording: compounding the raw 0–100 hazard *scores*
+(`1 − ∏(1 − score/100)`) saturates the instant any one hazard hits its own maximum — frost's
+absolute-threshold model reaches 100 readily, which silently erases drought's real contribution
+regardless of severity. The fix compounds each hazard's OWN sensitivity-scaled *yield-shock
+fraction* instead (`_plot_yield_shock` in `services/intelligence/supply_cogs.py`):
+- drought score 80.5 → yield-shock 0.45×0.805 = **36.2%**
+- frost score 100 → yield-shock 0.45×1.00 = **45.0%**
+- combined (independent multiplicative damage): 1 − (1−0.362)(1−0.450) = **64.9%**
+- × 35% Brazil share → 22.7% global supply shock; × A(40% stocks)=0.60 / η=0.28 →
+  **price ≈ +48.5%** — inside the real +44–60% band, with elasticity, amplification and
+  stock-to-use all UNCHANGED from the drought-only calibration.
+
+Opt-in per commodity (`COMPOUND_HAZARDS` in `services/intelligence/supply_cogs.py`), evidenced
+by this backtest — every other commodity keeps the default worst-of behaviour until its own
+event backtest shows otherwise. The API surfaces which mode produced a commodity's figure via
+`hazard_combination: "worst_of" | "compounded"`, so the choice is disclosed, not implicit.
+
 ## 7. Auditability & versioning
 Every COGS-at-risk euro carries: the **impact-function id + version**, the **input data vintage**,
 the **hazard model_version** behind the score, and the **scenario/horizon**. Reproducible end to

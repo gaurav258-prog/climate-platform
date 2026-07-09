@@ -96,6 +96,49 @@ _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": Non
 # Everything else is flagged 'indicative' so unvalidated € is never blended with validated €.
 BACKTESTED = {"Cocoa", "Coffee"}
 
+# Commodities where real events show multiple same-season hazards on the SAME plot compound
+# rather than substitute for each other -- Coffee's July 2021 event (drought weakened the
+# trees, then frost delivered the damage on top of it: modeled worst-of alone reproduces only
+# ~34% price move vs the real +44-60%; independent-multiplicative-damage combining reproduces
+# ~49%, inside the real band, with NO other parameter changed -- see
+# docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md §6.3). Opt-in per commodity, evidenced by a
+# real backtest -- everything else keeps the default worst-of-single-hazard behavior, since
+# most hazard pairs (e.g. flood vs wildfire) don't co-occur on the same plot/season at all.
+COMPOUND_HAZARDS = {"Coffee"}
+
+
+def _plot_severity(hazards: dict, compound: bool) -> float:
+    """0-100 severity for one plot from its (possibly multiple) hazard scores --
+    DISPLAY only (avg_hazard/top_hazard). Worst-of (default): the plot's single
+    most severe hazard. Compounded (opt-in): independent multiplicative damage
+    across the raw scores, 1 - product(1 - h/100). NOTE this is informational --
+    the actual yield-shock calc uses _plot_yield_shock below, not this, because
+    compounding RAW 0-100 scores saturates at 100 the instant any one hazard
+    hits its own max (frost's threshold model hits 100 readily), discarding
+    every other hazard's contribution regardless of severity."""
+    if not compound or len(hazards) <= 1:
+        return max(hazards.values())
+    remaining = 1.0
+    for score in hazards.values():
+        remaining *= (1.0 - score / 100.0)
+    return round((1.0 - remaining) * 100.0, 2)
+
+
+def _plot_yield_shock(hazards: dict, sens: float, compound: bool) -> float:
+    """0-1 local yield-shock fraction for one plot -- the actual §1.2 hazard-to-
+    yield calc. Worst-of (default): sens x the single most severe hazard's
+    score/100. Compounded (opt-in, COMPOUND_HAZARDS): independent multiplicative
+    damage across each hazard's OWN sens-scaled yield-shock contribution --
+    combining AFTER sensitivity, not on the raw 0-100 severity scores, so one
+    hazard saturating at its own max (e.g. frost=100) doesn't erase a second,
+    genuinely damaging hazard's contribution (e.g. drought=80)."""
+    if not compound or len(hazards) <= 1:
+        return sens * (max(hazards.values()) / 100.0)
+    remaining = 1.0
+    for score in hazards.values():
+        remaining *= (1.0 - sens * (score / 100.0))
+    return 1.0 - remaining
+
 
 @dataclass
 class CommodityRisk:
@@ -106,6 +149,7 @@ class CommodityRisk:
     n_plots_scored: int
     status: str                      # 'scored' | 'pending'
     calibration: str = "indicative"  # 'backtested' (event-validated) | 'indicative' (v0)
+    hazard_combination: str = "worst_of"  # 'worst_of' (default) | 'compounded' (COMPOUND_HAZARDS)
     avg_hazard: Optional[float] = None
     top_hazard: Optional[str] = None
     yield_shock_pct: Optional[float] = None
@@ -146,23 +190,26 @@ def amplification(stock_to_use):
     return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
 
 
-def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share) -> CommodityRisk:
-    """plots: list of dicts {hazard→score} aggregated per plot (scored plots only carry hazards)."""
+def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share, compound=False) -> CommodityRisk:
+    """plots: list of dicts {hazard→score} aggregated per plot (scored plots only carry hazards).
+    compound: see COMPOUND_HAZARDS -- worst-of by default, independent-multiplicative-damage
+    for commodities with real backtest evidence hazards stack rather than substitute."""
     scored = [p for p in plots if p.get("hazards")]
     n_plots, n_scored = len(plots), len(scored)
     if n_scored == 0:
         # exposure mapped, € pending (governance §8)
         return CommodityRisk(name, eudr, spend, n_plots, 0, status="pending")
 
-    # spend-weighted worst-hazard score across the commodity's scored plots
+    # spend-weighted plot severity (display) and yield-shock (the actual calc) across plots
     wsum = sum(p["spend"] for p in scored) or 1.0
-    avg_hazard = sum(max(p["hazards"].values()) * p["spend"] for p in scored) / wsum
+    avg_hazard = sum(_plot_severity(p["hazards"], compound) * p["spend"] for p in scored) / wsum
     top_hazard = max(
         ((hz, sc) for p in scored for hz, sc in p["hazards"].items()),
         key=lambda t: t[1],
     )[0]
 
-    yield_shock = sens * (avg_hazard / 100.0)                       # §1.2 hazard → local yield shock
+    yield_shock = sum(_plot_yield_shock(p["hazards"], sens, compound) * p["spend"]
+                       for p in scored) / wsum                      # §1.2 hazard → local yield shock
     global_shock = yield_shock * global_share                      # §1.3 local → world supply shock
     price_move = min(PRICE_MOVE_CAP, amp * global_shock / elasticity)  # §1.3 world shock → price (amplified)
     market = price_move * spend                                    # §1.4 market channel (all spend)
@@ -171,6 +218,7 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
     return CommodityRisk(
         commodity=name, eudr_covered=eudr, annual_spend_eur=spend,
         n_plots=n_plots, n_plots_scored=n_scored, status="scored",
+        hazard_combination="compounded" if compound else "worst_of",
         avg_hazard=round(avg_hazard, 1), top_hazard=top_hazard,
         yield_shock_pct=round(yield_shock * 100, 1), global_share=global_share,
         price_move_pct=round(price_move * 100, 1),
@@ -199,7 +247,8 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
         amp = amplification(stock)
         sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
-                             elasticity, amp, sens, p["global_share"])
+                             elasticity, amp, sens, p["global_share"],
+                             compound=c["name"] in COMPOUND_HAZARDS)
         cr.calibration = "backtested" if c["name"] in BACKTESTED else "indicative"
         ov = overrides.get(c["name"])
         if ov and cr.status == "scored":

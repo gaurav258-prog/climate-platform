@@ -276,11 +276,14 @@ def models(session: DbSession, org_id: OrgId):
         "params": COMMODITY_PARAMS.get(c["name"]) or {"sensitivity": CROP_SENSITIVITY.get(c["name"]), "global_share": 1.0, "stock_to_use": None},
         "override": (risk_by_commodity[c["name"]].override if c["name"] in risk_by_commodity else None),
     } for c in coms]
+    frost_active = any(r["hazard_type"] == "frost" for r in hz)
     return {
         "impact_version": IMPACT_VERSION,
         "hazard_models": [dict(r) for r in hz],
         "commodities": commodities,
-        "frost_note": "Frost hazard is built but not yet scored — CDS daily-min product is ECMWF-flagged unusable; pending fix.",
+        "frost_note": None if frost_active else
+            "Frost hazard is built but not yet scored — CDS's own daily-minimum-temperature "
+            "statistic is ECMWF-flagged unusable; pending fix.",
     }
 
 
