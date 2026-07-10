@@ -4,6 +4,7 @@ import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import EmptyState from '../../components/EmptyState'
+import HelpLink from '../../components/HelpLink'
 import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies, downloadFile } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
@@ -27,7 +28,7 @@ function exportCsv(policies) {
   URL.revokeObjectURL(url)
 }
 
-export default function LossCurvePricing() {
+export default function LossCurvePricing({ onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
@@ -88,7 +89,7 @@ export default function LossCurvePricing() {
               <strong>v0 pricing — disclosed assumptions.</strong> Damage ratio uses an Emanuel(2011)/CLIMADA-style
               vulnerability curve; annual occurrence probability is a flat return-period tier per risk bucket
               (200/50/20/10 years for L/M/H/VH), not hazard-specific frequency data. Expense ratio 25%, profit
-              margin 5% (CAS loss-cost-multiplier method).
+              margin 5% (CAS loss-cost-multiplier method). See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
             </div>
 
             <div className="grid grid-cols-4 gap-4">

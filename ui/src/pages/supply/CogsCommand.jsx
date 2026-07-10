@@ -4,12 +4,13 @@ import ContextBar from '../../components/ContextBar'
 import SupplyPlotDrawer, { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
 import UploadPanel from '../../components/UploadPanel'
 import EmptyState from '../../components/EmptyState'
+import HelpLink from '../../components/HelpLink'
 import { fetchSupplySummary, fetchSupplyPortfolio, uploadSupplyPlots } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const PLOT_TEMPLATE_COLUMNS = ['plot_name', 'latitude', 'longitude', 'commodity', 'annual_spend_eur', 'plot_area_ha', 'region', 'country']
 
-export default function CogsCommand() {
+export default function CogsCommand({ onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [sum, setSum] = useState(null)
@@ -57,6 +58,7 @@ export default function CogsCommand() {
           <span>
             <b>v0 impact functions — uncalibrated.</b> Euro figures are illustrative pending event backtests
             (cocoa 2023/24, coffee 2021). Commodities without matured hazard scoring show <b>exposure mapped, € pending</b>.
+            See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
           </span>
         </div>
 
