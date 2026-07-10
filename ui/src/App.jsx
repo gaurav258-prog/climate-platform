@@ -3,6 +3,7 @@ import { ChevronRight, Clock } from 'lucide-react'
 import { CATALOG, catalogForAuth, industryForOrg } from './data/catalog'
 import { fetchMe, logout as apiLogout, hasToken } from './api/client'
 import LineageBar from './components/software/LineageBar'
+import CommandPalette from './components/CommandPalette'
 import CatalogNav from './components/software/CatalogNav'
 import CatalogGrid from './components/software/CatalogGrid'
 import CommandCenter from './pages/bank/CommandCenter'
@@ -53,6 +54,7 @@ export default function App() {
   const [route, setRoute] = useState({})
   const [solutionsSector, setSolutionsSector] = useState(null)
   const [docsSection, setDocsSection] = useState('start')
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   // Rehydrate the session on load so a refresh keeps you logged in.
   useEffect(() => {
@@ -62,6 +64,19 @@ export default function App() {
   }, [])
 
   const catalog = useMemo(() => catalogForAuth(auth), [auth])
+
+  // Cmd/Ctrl+K opens the command palette from anywhere in the app; "?" is the
+  // familiar SaaS shorthand for the same, but only when not typing into a field.
+  useEffect(() => {
+    if (view !== 'app' || !auth) return
+    const handler = (e) => {
+      const typing = ['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(o => !o) }
+      else if (e.key === '?' && !typing) { e.preventDefault(); setPaletteOpen(true) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [view, auth])
 
   const onLoginSuccess = useCallback((a) => {
     setAuth(a); setArea('modules'); setRoute(firstRoute(catalogForAuth(a))); setView('app')
@@ -128,10 +143,17 @@ export default function App() {
   const offering = route.offeringId && catalog?.offerings.find(o => o.id === route.offeringId)
   const service = offering && route.serviceId && offering.services.find(s => s.id === route.serviceId)
   const Workflow = service?.workflow && WORKFLOWS[service.workflow]
+  const perms = new Set(auth?.permissions || [])
+  const canSeePortal = perms.has('portal.use')
+  const canSeeAdmin = ['admin.users.manage', 'admin.roles.manage', 'admin.audit.view', 'approvals.view', 'approvals.decide'].some(p => perms.has(p))
 
   return (
     <div className="flex h-screen flex-col bg-[#f5f5f7]">
-      <LineageBar auth={auth} area={area} onArea={setArea} onLogout={onLogout} />
+      <LineageBar auth={auth} area={area} onArea={setArea} onLogout={onLogout} onSearch={() => setPaletteOpen(true)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} catalog={catalog}
+        onNavigate={(offeringId, serviceId) => { setArea('modules'); setRoute({ offeringId, serviceId }) }}
+        onDocs={section => { setDocsSection(section); setArea('docs') }}
+        onArea={setArea} canSeePortal={canSeePortal} canSeeAdmin={canSeeAdmin} />
 
       {area === 'modules' && (
         <div className="flex flex-1 overflow-hidden">

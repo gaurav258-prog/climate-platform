@@ -1,4 +1,4 @@
-import { LayoutGrid, BookOpen, LifeBuoy, ShieldCheck, LogOut } from 'lucide-react'
+import { LayoutGrid, BookOpen, LifeBuoy, ShieldCheck, LogOut, Search } from 'lucide-react'
 import BrandMark from '../BrandMark'
 
 // Top bar: brand + top-level area nav + the logged-in identity. Replaces the old
@@ -17,7 +17,7 @@ const AREAS = [
 const ADMIN_PERMS = ['admin.users.manage', 'admin.roles.manage', 'admin.audit.view',
                      'approvals.view', 'approvals.decide']
 
-export default function LineageBar({ auth, area, onArea, onLogout }) {
+export default function LineageBar({ auth, area, onArea, onLogout, onSearch }) {
   const perms = new Set(auth?.permissions || [])
   const canSee = (a) =>
     a.adminAny ? ADMIN_PERMS.some(p => perms.has(p))
@@ -50,6 +50,10 @@ export default function LineageBar({ auth, area, onArea, onLogout }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <button onClick={onSearch}
+          className="hidden items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 text-[12px] text-gray-400 transition hover:border-gray-300 hover:text-gray-600 sm:flex">
+          <Search size={13} /> Search <kbd className="rounded border border-gray-200 px-1 text-[10px]">⌘K</kbd>
+        </button>
         <div className="hidden text-right sm:block">
           <div className="text-[12px] font-medium text-[#1d1d1f] leading-tight">{org}</div>
           <div className="text-[11px] text-gray-400 leading-tight">
