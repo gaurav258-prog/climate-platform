@@ -36,7 +36,7 @@ from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
     clear_valuation_override as engine_clear_override,
-    fetch_entities_with_risk, get_entity_org,
+    fetch_entities_with_risk, get_entity_org, get_entity_with_risk,
 )
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
@@ -199,6 +199,32 @@ HOLDING_TEMPLATE_FIELDS = [
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "SE"},
 ]
 REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["required"]]
+
+
+@router.get("/holding/{holding_id}", summary="One holding — full projection + provenance")
+def holding_detail(holding_id: str, session: DbSession):
+    org_id = get_entity_org(session, holding_id)
+    if not org_id:
+        return {"error": "holding not found"}
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    row = get_entity_with_risk(session, holding_id, "baseline", "current", severity_model,
+                                extra_calc=_assetmgmt_extra)
+    holding = {
+        "holding_id": row["entity_id"], "org_id": row["org_id"], "holding_name": row["entity_name"],
+        "sector": row["sector"], "nace_code": row["nace_code"], "country": row["country"],
+        "region": row["region"], "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "position_value_eur": row["primary_value_eur"], "flagged": row["flagged"],
+        "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+    }
+    audit = session.execute(text("""
+        SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
+        FROM access_audit_log WHERE target_type = 'assetmgmt_holding' AND target_id = :h
+        ORDER BY created_at DESC LIMIT 5
+    """), {"h": holding_id}).mappings().all()
+    return {
+        "holding": holding, "risks": row["risks"], "climate_var": row["valuation"],
+        "valuation_audit": [dict(x) for x in audit],
+    }
 
 
 class HoldingValuationOverrideRequest(BaseModel):

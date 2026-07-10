@@ -254,6 +254,21 @@ export async function uploadRealEstateProperties(file) {
   return postFile('/v1/realestate/properties/upload', file)
 }
 
+/** One property: full projection + valuation decision: { property, risks:[...], valuation, noi_impact, valuation_audit:[...] }. */
+export async function fetchRealEstateProperty(propertyId) {
+  return get(`/v1/realestate/property/${propertyId}`)
+}
+
+/** Override the recommended valuation discount for a property (requires pricing.approve). */
+export async function overrideRealEstateValuation(propertyId, discountPct, reason) {
+  return post(`/v1/realestate/property/${propertyId}/valuation-override`, { discount_pct: discountPct, reason })
+}
+
+/** Clear an override, reverting to the recommended discount (requires pricing.approve). */
+export async function clearRealEstateValuationOverride(propertyId) {
+  return send('DELETE', `/v1/realestate/property/${propertyId}/valuation-override`)
+}
+
 // ── Asset management (Portfolio climate VaR & screening) ──────────────────
 
 /** Holdings book → portfolio climate VaR rollup: { org, rollup:{ n_holdings, n_flagged,
@@ -275,6 +290,21 @@ export async function fetchAssetMgmtDisclosure({ scenario = 'baseline', horizon 
 /** Bulk-upload a CSV of holdings into your own org's portfolio. */
 export async function uploadAssetMgmtHoldings(file) {
   return postFile('/v1/assetmgmt/holdings/upload', file)
+}
+
+/** One holding: full projection + valuation decision: { holding, risks:[...], climate_var, valuation_audit:[...] }. */
+export async function fetchAssetMgmtHolding(holdingId) {
+  return get(`/v1/assetmgmt/holding/${holdingId}`)
+}
+
+/** Override the recommended climate-VaR discount for a holding (requires pricing.approve). */
+export async function overrideAssetMgmtValuation(holdingId, discountPct, reason) {
+  return post(`/v1/assetmgmt/holding/${holdingId}/valuation-override`, { discount_pct: discountPct, reason })
+}
+
+/** Clear an override, reverting to the recommended discount (requires pricing.approve). */
+export async function clearAssetMgmtValuationOverride(holdingId) {
+  return send('DELETE', `/v1/assetmgmt/holding/${holdingId}/valuation-override`)
 }
 
 // ── Agriculture / supply-chain (COGS-at-risk) ─────────────────────────────

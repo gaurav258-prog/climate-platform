@@ -35,7 +35,7 @@ from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
     clear_valuation_override as engine_clear_override,
-    fetch_entities_with_risk, get_entity_org,
+    fetch_entities_with_risk, get_entity_org, get_entity_with_risk,
 )
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
@@ -196,6 +196,35 @@ PROPERTY_TEMPLATE_FIELDS = [
 ]
 REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["required"]]
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
+
+
+@router.get("/property/{property_id}", summary="One property — full projection + provenance")
+def property_detail(property_id: str, session: DbSession):
+    org_id = get_entity_org(session, property_id)
+    if not org_id:
+        return {"error": "property not found"}
+    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    row = get_entity_with_risk(session, property_id, "baseline", "current", severity_model,
+                                ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
+                                extra_calc=_realestate_extra)
+    property_ = {
+        "property_id": row["entity_id"], "org_id": row["org_id"], "property_name": row["entity_name"],
+        "property_type": row["entity_type"], "country": row["country"], "region": row["region"],
+        "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "property_value_eur": row["primary_value_eur"], "annual_noi_eur": row["annual_noi_eur"],
+        "construction_type": row["construction_type"], "year_built": row["year_built"],
+        "number_of_stories": row["number_of_stories"],
+        "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+    }
+    audit = session.execute(text("""
+        SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
+        FROM access_audit_log WHERE target_type = 'realestate_property' AND target_id = :p
+        ORDER BY created_at DESC LIMIT 5
+    """), {"p": property_id}).mappings().all()
+    return {
+        "property": property_, "risks": row["risks"], "valuation": row["valuation"],
+        "noi_impact": row["noi_impact"], "valuation_audit": [dict(x) for x in audit],
+    }
 
 
 class PropertyValuationOverrideRequest(BaseModel):

@@ -3,6 +3,7 @@ import { Building2, TrendingDown, Layers, ShieldAlert, Download, FileSpreadsheet
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
+import RealEstateDrawer from '../../components/RealEstateDrawer'
 import {
   fetchRealEstateSummary, fetchRealEstatePortfolio, fetchRealEstateDisclosure,
   uploadRealEstateProperties, downloadFile,
@@ -33,12 +34,13 @@ function exportCsv(properties) {
   URL.revokeObjectURL(url)
 }
 
-export default function PortfolioImpact() {
+export default function PortfolioImpact({ auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
   const [properties, setProperties] = useState([])
   const [disclosure, setDisclosure] = useState(null)
+  const [sel, setSel] = useState(null)
 
   const reload = useCallback(() => {
     fetchRealEstateSummary({ scenario, horizon }).then(setData).catch(() => setData(null))
@@ -127,7 +129,8 @@ export default function PortfolioImpact() {
               <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Most exposed properties</h2>
               <div className="mt-3 divide-y divide-gray-100">
                 {r.top_properties.map(p => (
-                  <div key={p.property_id} className="flex w-full items-center justify-between py-2.5">
+                  <button key={p.property_id} onClick={() => setSel(p.property_id)}
+                    className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-medium text-[#1d1d1f]">{p.property_name}</div>
                       <div className="text-[11px] text-gray-400">
@@ -136,7 +139,7 @@ export default function PortfolioImpact() {
                       </div>
                     </div>
                     <RiskAtom score={p.headline_score} bucket={p.headline_bucket} size="md" showLabel />
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -193,6 +196,8 @@ export default function PortfolioImpact() {
           </>
         )}
       </div>
+
+      <RealEstateDrawer propertyId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} />
     </div>
   )
 }

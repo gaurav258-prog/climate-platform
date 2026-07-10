@@ -3,6 +3,7 @@ import { TrendingUp, ShieldAlert, Layers, Flag, Download, FileSpreadsheet, Leaf 
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
+import AssetMgmtDrawer from '../../components/AssetMgmtDrawer'
 import {
   fetchAssetMgmtSummary, fetchAssetMgmtPortfolio, fetchAssetMgmtDisclosure,
   uploadAssetMgmtHoldings, downloadFile,
@@ -30,12 +31,13 @@ function exportCsv(holdings) {
   URL.revokeObjectURL(url)
 }
 
-export default function PortfolioVaR() {
+export default function PortfolioVaR({ auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
   const [holdings, setHoldings] = useState([])
   const [disclosure, setDisclosure] = useState(null)
+  const [sel, setSel] = useState(null)
 
   const reload = useCallback(() => {
     fetchAssetMgmtSummary({ scenario, horizon }).then(setData).catch(() => setData(null))
@@ -125,7 +127,8 @@ export default function PortfolioVaR() {
               <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Most exposed holdings</h2>
               <div className="mt-3 divide-y divide-gray-100">
                 {r.top_holdings.map(h => (
-                  <div key={h.holding_id} className="flex w-full items-center justify-between py-2.5">
+                  <button key={h.holding_id} onClick={() => setSel(h.holding_id)}
+                    className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 truncate text-[13px] font-medium text-[#1d1d1f]">
                         {h.holding_name}
@@ -136,7 +139,7 @@ export default function PortfolioVaR() {
                       </div>
                     </div>
                     <RiskAtom score={h.headline_score} bucket={h.headline_bucket} size="md" showLabel />
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -195,6 +198,8 @@ export default function PortfolioVaR() {
           </>
         )}
       </div>
+
+      <AssetMgmtDrawer holdingId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} />
     </div>
   )
 }
