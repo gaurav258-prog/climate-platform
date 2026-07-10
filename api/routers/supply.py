@@ -196,7 +196,7 @@ def disclosure(session: DbSession, org_id: OrgId,
     for p in plots:
         hs = p["hazard_score"]
         eudr.append({
-            "commodity": p["commodity"], "plot": p["plot_name"], "region": p["region"],
+            "plot_id": p["plot_id"], "commodity": p["commodity"], "plot": p["plot_name"], "region": p["region"],
             "country": p["country"], "eudr_covered": p["eudr_covered"],
             "eudr_status": p["eudr_status"], "hazard_score": round(hs, 1) if hs is not None else None,
             "climate_viable": (hs is not None and hs < 60),

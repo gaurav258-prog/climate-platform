@@ -5,6 +5,7 @@ import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import EmptyState from '../../components/EmptyState'
 import HelpLink from '../../components/HelpLink'
+import PolicyDrawer from '../../components/PolicyDrawer'
 import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies, downloadFile } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
@@ -33,6 +34,7 @@ export default function LossCurvePricing({ onGoto }) {
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
   const [policies, setPolicies] = useState([])
+  const [sel, setSel] = useState(null)
 
   const reload = useCallback(() => {
     fetchInsuranceSummary({ scenario, horizon }).then(setData).catch(() => setData(null))
@@ -127,7 +129,8 @@ export default function LossCurvePricing({ onGoto }) {
               <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Most exposed policies</h2>
               <div className="mt-3 divide-y divide-gray-100">
                 {r.top_policies.map(p => (
-                  <div key={p.policy_id} className="flex w-full items-center justify-between py-2.5">
+                  <button key={p.policy_id} onClick={() => setSel(p.policy_id)}
+                    className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-medium text-[#1d1d1f]">{p.policy_name}</div>
                       <div className="text-[11px] text-gray-400">
@@ -136,13 +139,15 @@ export default function LossCurvePricing({ onGoto }) {
                       </div>
                     </div>
                     <RiskAtom score={p.headline_score} bucket={p.headline_bucket} size="md" showLabel />
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
           </>
         )}
       </div>
+
+      <PolicyDrawer policyId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
     </div>
   )
 }

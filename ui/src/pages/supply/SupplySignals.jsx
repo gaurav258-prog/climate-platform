@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Radio, AlertTriangle } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
+import SupplyPlotDrawer from '../../components/SupplyPlotDrawer'
+import CommodityDrawer from '../../components/CommodityDrawer'
 import { fetchSupplySignals } from '../../api/client'
 
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(1) + 'm'
@@ -13,6 +15,8 @@ export default function SupplySignals() {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
+  const [selCommodity, setSelCommodity] = useState(null)
+  const [selPlot, setSelPlot] = useState(null)
 
   useEffect(() => {
     setData(null)
@@ -44,7 +48,8 @@ export default function SupplySignals() {
         ) : (
           <div className="space-y-3">
             {alerts.map(a => (
-              <div key={a.commodity} className="flex items-center gap-4 rounded-2xl border border-gray-200/70 bg-white p-4 shadow-sm">
+              <button key={a.commodity} onClick={() => setSelCommodity(a.commodity)}
+                className="flex w-full items-center gap-4 rounded-2xl border border-gray-200/70 bg-white p-4 text-left shadow-sm hover:border-gray-300">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[13px] font-bold text-white"
                   style={{ background: LEVEL[a.level] }}>{a.level}</span>
                 <div className="min-w-0 flex-1">
@@ -63,7 +68,7 @@ export default function SupplySignals() {
                   <div className="text-[15px] font-semibold text-[#c2410c]">{mn(a.cogs_at_risk_p50)}</div>
                   <div className="text-[10px] text-gray-400">COGS-at-risk</div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -75,6 +80,10 @@ export default function SupplySignals() {
           </div>
         )}
       </div>
+
+      {selCommodity && <CommodityDrawer commodity={selCommodity} scenario={scenario} horizon={horizon}
+        onClose={() => setSelCommodity(null)} onSelectPlot={id => { setSelCommodity(null); setSelPlot(id) }} />}
+      {selPlot && <SupplyPlotDrawer plotId={selPlot} onClose={() => setSelPlot(null)} scenario={scenario} horizon={horizon} />}
     </div>
   )
 }

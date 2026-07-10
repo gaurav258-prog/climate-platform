@@ -164,10 +164,18 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
 
     scoped = ([r for r in risks if r["scenario"] == scenario and r["time_horizon"] == horizon]
               if scope_headline_to_query else risks)
-    priceable = [r for r in scoped if r["hazard_type"] not in exclude_headline_hazards]
-    headline = sorted(priceable, key=lambda r: -r["score"])[0] if priceable else None
-    bucket = headline["risk_bucket"] if headline else None
-    hazard = headline["hazard_type"] if headline else None
+    # Normalize to the SAME {hazard, score, bucket, ...} shape fetch_entities_with_risk's
+    # by_entity list uses (as opposed to scoped's raw hazard_type/risk_bucket SQL-row keys) --
+    # extra_calc hooks are documented as one contract shared by both entry points, and
+    # insurance's hook reads headline["hazard"]/hz-item["hazard"] directly (see
+    # api/routers/insurance.py's _insurance_extra), which silently KeyErrored against the
+    # raw shape before this normalization existed.
+    hz_norm = [{"hazard": r["hazard_type"], "score": round(r["score"], 1), "bucket": r["risk_bucket"],
+                "model_version": r["model_version"], "scored_at": r["scored_at"]} for r in scoped]
+    priceable = [h for h in hz_norm if h["hazard"] not in exclude_headline_hazards]
+    headline = sorted(priceable, key=lambda h: -h["score"])[0] if priceable else None
+    bucket = headline["bucket"] if headline else None
+    hazard = headline["hazard"] if headline else None
 
     val_row = get_valuation_row(session, entity_id)
     extra_val_kwargs = valuation_kwargs(e) if valuation_kwargs else {}
@@ -181,7 +189,7 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
                                       hazard=hazard, severity_model=severity_model, **extra_val_kwargs),
     }
     if extra_calc:
-        row.update(extra_calc(row, headline, scoped))
+        row.update(extra_calc(row, headline, hz_norm))
     return row
 
 

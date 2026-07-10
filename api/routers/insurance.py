@@ -37,7 +37,7 @@ from core.types import HAZARD_VALUES
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
-from services.portfolio_engine import fetch_entities_with_risk
+from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -201,6 +201,47 @@ def triggers(session: DbSession, org_id: OrgId,
         "triggered_now": sorted(triggered_now, key=lambda p: -p["trigger"]["payout_pct"]),
         "configured": sorted(configured, key=lambda p: -p["trigger"]["payout_pct"]),
     }
+
+
+@router.get("/policy/{policy_id}", summary="One policy — full projection + pricing + trigger, provenance")
+def policy_detail(policy_id: str, session: DbSession):
+    """The per-policy drill-through every other vertical already has (bank's
+    /asset/{id}, real estate's /property/{id}, asset mgmt's /holding/{id}) --
+    insurance was the one sector missing it, so "Most exposed policies" and
+    both ParametricTriggers.jsx lists had nowhere to click through to."""
+    org_id = get_entity_org(session, policy_id)
+    if not org_id:
+        return {"error": "policy not found"}
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    trigger_row = session.execute(text("""
+        SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
+               CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
+        FROM insurance_policy_triggers WHERE policy_id = :p
+    """), {"p": policy_id}).mappings().first()
+    trigger_by_policy = {trigger_row["policy_id"]: dict(trigger_row)} if trigger_row else {}
+    # Pre-existing quirk, same as banking's asset_detail: no scenario/horizon params,
+    # so headline is picked across EVERY scenario/horizon this policy has ever been
+    # scored under -- can disagree with the portfolio list's scenario-scoped headline.
+    row = get_entity_with_risk(session, policy_id, "baseline", "current",
+                                ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
+                                extra_calc=_insurance_extra(trigger_by_policy, return_period_model),
+                                scope_headline_to_query=False)
+    policy = {
+        "policy_id": row["entity_id"], "org_id": row["org_id"], "policy_name": row["entity_name"],
+        "policy_type": row["entity_type"], "country": row["country"], "region": row["region"],
+        "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
+        "sum_insured_eur": row["primary_value_eur"], "deductible_pct": row["deductible_pct"],
+        "building_value_eur": row["building_value_eur"], "contents_value_eur": row["contents_value_eur"],
+        "business_interruption_value_eur": row["business_interruption_value_eur"],
+        "construction_type": row["construction_type"], "year_built": row["year_built"],
+        "number_of_stories": row["number_of_stories"], "pricing": row["pricing"], "trigger": row["trigger"],
+    }
+    audit = session.execute(text("""
+        SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
+        FROM access_audit_log WHERE target_type = 'insurance_policy' AND target_id = :p
+        ORDER BY created_at DESC LIMIT 5
+    """), {"p": policy_id}).mappings().all()
+    return {"policy": policy, "risks": row["risks"], "audit": [dict(x) for x in audit]}
 
 
 class TriggerConfigRequest(BaseModel):

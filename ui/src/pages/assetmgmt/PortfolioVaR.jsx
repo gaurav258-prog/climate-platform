@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, ShieldAlert, Layers, Flag, Download, FileSpreadsheet, Leaf } from 'lucide-react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
+import { TrendingUp, ShieldAlert, Layers, Flag, Download, FileSpreadsheet, Leaf, ChevronDown } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
@@ -40,6 +40,7 @@ export default function PortfolioVaR({ auth, onGoto }) {
   const [holdings, setHoldings] = useState([])
   const [disclosure, setDisclosure] = useState(null)
   const [sel, setSel] = useState(null)
+  const [openHazard, setOpenHazard] = useState(null)
 
   const reload = useCallback(() => {
     fetchAssetMgmtSummary({ scenario, horizon }).then(setData).catch(() => setData(null))
@@ -163,13 +164,44 @@ export default function PortfolioVaR({ auth, onGoto }) {
                       <th className="py-1.5 text-center font-medium">Holdings</th>
                     </tr></thead>
                     <tbody>
-                      {Object.entries(disclosure.by_hazard).map(([h, v]) => (
-                        <tr key={h} className="border-b border-gray-50 last:border-0">
-                          <td className="py-2 text-[#1d1d1f]">{HAZ_LABEL[h] || h}</td>
-                          <td className="py-2 text-right font-medium tabular-nums">{mn(v.exposed_value_eur)}</td>
-                          <td className="py-2 text-center text-gray-500">{v.n_exposed}</td>
-                        </tr>
-                      ))}
+                      {Object.entries(disclosure.by_hazard).map(([h, v]) => {
+                        const open = openHazard === h
+                        const top = open
+                          ? holdings.filter(hd => hd.hazards?.some(hz => hz.hazard === h && (hz.bucket === 'H' || hz.bucket === 'VH')))
+                              .sort((x, y) => (y.hazards.find(hz => hz.hazard === h)?.score || 0) - (x.hazards.find(hz => hz.hazard === h)?.score || 0))
+                              .slice(0, 8)
+                          : []
+                        return (
+                          <Fragment key={h}>
+                            <tr className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50"
+                              onClick={() => setOpenHazard(open ? null : h)}>
+                              <td className="py-2 text-[#1d1d1f]">
+                                <span className="flex items-center gap-1.5">{HAZ_LABEL[h] || h}
+                                  <ChevronDown size={11} className={`text-gray-300 transition ${open ? 'rotate-180' : ''}`} /></span>
+                              </td>
+                              <td className="py-2 text-right font-medium tabular-nums">{mn(v.exposed_value_eur)}</td>
+                              <td className="py-2 text-center text-gray-500">{v.n_exposed}</td>
+                            </tr>
+                            {open && (
+                              <tr><td colSpan={3} className="bg-[#f5f5f7] px-2 py-1.5">
+                                {top.length ? (
+                                  <div className="divide-y divide-gray-200/70">
+                                    {top.map(hd => (
+                                      <button key={hd.holding_id} onClick={e => { e.stopPropagation(); setSel(hd.holding_id) }}
+                                        className="flex w-full items-center justify-between py-1.5 text-left hover:opacity-70">
+                                        <span className="text-[11px] text-[#1d1d1f]">{hd.holding_name}</span>
+                                        <span className="text-[11px] font-medium text-gray-500">
+                                          {hd.hazards.find(hz => hz.hazard === h)?.score?.toFixed(1)}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : <p className="py-1.5 text-[11px] text-gray-400">No High+ holdings for this hazard.</p>}
+                              </td></tr>
+                            )}
+                          </Fragment>
+                        )
+                      })}
                     </tbody>
                   </table>
                   <p className="mt-3 text-[10px] text-gray-400">

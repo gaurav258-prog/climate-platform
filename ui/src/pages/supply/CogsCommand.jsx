@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Package, TrendingDown, Percent, ShieldCheck, AlertTriangle, Leaf } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import SupplyPlotDrawer, { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
+import CommodityDrawer from '../../components/CommodityDrawer'
 import UploadPanel from '../../components/UploadPanel'
 import EmptyState from '../../components/EmptyState'
 import HelpLink from '../../components/HelpLink'
@@ -16,6 +17,7 @@ export default function CogsCommand({ onGoto }) {
   const [sum, setSum] = useState(null)
   const [port, setPort] = useState(null)
   const [selPlot, setSelPlot] = useState(null)
+  const [selCommodity, setSelCommodity] = useState(null)
 
   const reload = useCallback(() => {
     setSum(null); setPort(null)
@@ -94,7 +96,8 @@ export default function CogsCommand({ onGoto }) {
               </div>
               <div className="mt-4 divide-y divide-gray-100">
                 {scored.map(c => (
-                  <div key={c.commodity} className="flex items-center justify-between py-2.5">
+                  <button key={c.commodity} onClick={() => setSelCommodity(c.commodity)}
+                    className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
                         {c.commodity}
@@ -112,10 +115,11 @@ export default function CogsCommand({ onGoto }) {
                       <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.cogs_at_risk_p50)}</div>
                       <div className="text-[10px] text-gray-400">P90 {mn(c.cogs_at_risk_p90)}</div>
                     </div>
-                  </div>
+                  </button>
                 ))}
                 {pending.map(c => (
-                  <div key={c.commodity} className="flex items-center justify-between py-2.5 opacity-70">
+                  <button key={c.commodity} onClick={() => setSelCommodity(c.commodity)}
+                    className="flex w-full items-center justify-between py-2.5 text-left opacity-70 hover:bg-gray-50">
                     <div>
                       <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
                         {c.commodity}
@@ -126,7 +130,7 @@ export default function CogsCommand({ onGoto }) {
                     <div className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500">
                       € pending · drought/heat
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -153,6 +157,8 @@ export default function CogsCommand({ onGoto }) {
       </div>
 
       {selPlot && <SupplyPlotDrawer plotId={selPlot} onClose={() => setSelPlot(null)} scenario={scenario} horizon={horizon} />}
+      {selCommodity && <CommodityDrawer commodity={selCommodity} scenario={scenario} horizon={horizon}
+        onClose={() => setSelCommodity(null)} onSelectPlot={id => { setSelCommodity(null); setSelPlot(id) }} />}
     </div>
   )
 }

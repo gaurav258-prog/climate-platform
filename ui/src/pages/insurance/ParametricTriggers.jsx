@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Bolt, Zap, Wallet, ShieldCheck, Loader2 } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
+import PolicyDrawer from '../../components/PolicyDrawer'
 import { fetchInsuranceTriggers, fetchInsurancePortfolio, setTriggerConfig } from '../../api/client'
 
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(2) + 'm'
@@ -11,6 +12,7 @@ export default function ParametricTriggers({ auth }) {
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
   const [policies, setPolicies] = useState([])
+  const [sel, setSel] = useState(null)
 
   const reload = useCallback(() => {
     fetchInsuranceTriggers({ scenario, horizon }).then(setData).catch(() => setData(null))
@@ -50,7 +52,7 @@ export default function ParametricTriggers({ auth }) {
               <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Triggered now <span className="font-normal text-gray-400">— band crossed, payout due</span></h2>
               {data.triggered_now.length ? (
                 <div className="mt-3 divide-y divide-gray-100">
-                  {data.triggered_now.map(p => <TriggerRow key={p.policy_id} p={p} />)}
+                  {data.triggered_now.map(p => <TriggerRow key={p.policy_id} p={p} onClick={() => setSel(p.policy_id)} />)}
                 </div>
               ) : (
                 <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-[13px] text-emerald-700">
@@ -63,7 +65,7 @@ export default function ParametricTriggers({ auth }) {
               <h2 className="text-[13px] font-semibold text-[#1d1d1f]">All configured triggers</h2>
               {data.configured.length ? (
                 <div className="mt-3 divide-y divide-gray-100">
-                  {data.configured.map(p => <TriggerRow key={p.policy_id} p={p} />)}
+                  {data.configured.map(p => <TriggerRow key={p.policy_id} p={p} onClick={() => setSel(p.policy_id)} />)}
                 </div>
               ) : <p className="mt-3 text-[12px] text-gray-400">No policy has a trigger band configured yet.</p>}
             </section>
@@ -77,14 +79,16 @@ export default function ParametricTriggers({ auth }) {
           </>
         )}
       </div>
+
+      <PolicyDrawer policyId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
     </div>
   )
 }
 
-function TriggerRow({ p }) {
+function TriggerRow({ p, onClick }) {
   const t = p.trigger
   return (
-    <div className="flex items-center justify-between py-2.5">
+    <button onClick={onClick} className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
       <div className="min-w-0">
         <div className="truncate text-[13px] font-medium text-[#1d1d1f]">{p.policy_name}</div>
         <div className="text-[11px] text-gray-400">
@@ -98,7 +102,7 @@ function TriggerRow({ p }) {
         </div>
         {t.updated_at && <div className="text-[10px] text-gray-400">set {String(t.updated_at).slice(0, 10)}</div>}
       </div>
-    </div>
+    </button>
   )
 }
 

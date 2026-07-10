@@ -230,6 +230,11 @@ export async function setTriggerConfig(policyId, hazardType, attachmentScore, ex
     { hazard_type: hazardType, attachment_score: attachmentScore, exhaustion_score: exhaustionScore })
 }
 
+/** One policy — full projection + pricing + trigger + provenance: { policy, risks, audit }. */
+export async function fetchInsurancePolicy(policyId) {
+  return get(`/v1/insurance/policy/${policyId}`)
+}
+
 // ── Real estate (Portfolio & NOI impact) ──────────────────────────────────
 
 /** Property book → portfolio + NOI-impact rollup: { org, rollup:{ n_properties,

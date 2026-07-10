@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { FileText, Download, FileSpreadsheet, Check, X, AlertTriangle } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
-import { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
+import SupplyPlotDrawer, { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
+import CommodityDrawer from '../../components/CommodityDrawer'
 import { fetchSupplyDisclosure, downloadFile } from '../../api/client'
 
 const mn = n => '€' + ((n || 0) / 1e6).toFixed(1) + 'm'
@@ -12,6 +13,8 @@ export default function SupplyDisclosure() {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [d, setD] = useState(null)
+  const [selPlot, setSelPlot] = useState(null)
+  const [selCommodity, setSelCommodity] = useState(null)
 
   useEffect(() => {
     setD(null)
@@ -70,7 +73,8 @@ export default function SupplyDisclosure() {
               </div>
               <div className="mt-4 divide-y divide-gray-100">
                 {d.eudr.plots.filter(p => p.eudr_covered).map((p, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 text-[12px]">
+                  <button key={i} onClick={() => setSelPlot(p.plot_id)}
+                    className="flex w-full items-center justify-between py-2 text-left text-[12px] hover:bg-gray-50">
                     <span className="text-[#1d1d1f]">{p.commodity} · <span className="text-gray-400">{p.region}, {p.country}</span></span>
                     <span className="flex items-center gap-4">
                       <span className="inline-flex items-center gap-1 text-gray-500">
@@ -81,7 +85,7 @@ export default function SupplyDisclosure() {
                         {p.scored ? (p.climate_viable ? 'climate-viable' : `climate-at-risk (${p.hazard_score})`) : 'not scored'}
                       </span>
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -92,7 +96,8 @@ export default function SupplyDisclosure() {
                 <span className="font-normal text-gray-400"> · {scenario} · {horizon}</span></h2>
               <div className="mt-3 divide-y divide-gray-100">
                 {d.csrd.map(c => (
-                  <div key={c.commodity} className="flex items-center justify-between py-2 text-[12px]">
+                  <button key={c.commodity} onClick={() => setSelCommodity(c.commodity)}
+                    className="flex w-full items-center justify-between py-2 text-left text-[12px] hover:bg-gray-50">
                     <span className="flex items-center gap-2 text-[#1d1d1f]">
                       {c.commodity}
                       {c.hazard && <span style={{ color: HAZ_COLOR[c.hazard] }}>{c.hazard}</span>}
@@ -105,7 +110,7 @@ export default function SupplyDisclosure() {
                         ? <><b className="text-[#c2410c]">{mn(c.cogs_at_risk_p50)}</b> <span className="text-gray-400">P90 {mn(c.cogs_at_risk_p90)}</span></>
                         : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">€ pending</span>}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
               <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-400">
@@ -117,6 +122,10 @@ export default function SupplyDisclosure() {
           </>
         )}
       </div>
+
+      {selPlot && <SupplyPlotDrawer plotId={selPlot} onClose={() => setSelPlot(null)} scenario={scenario} horizon={horizon} />}
+      {selCommodity && <CommodityDrawer commodity={selCommodity} scenario={scenario} horizon={horizon}
+        onClose={() => setSelCommodity(null)} onSelectPlot={id => { setSelCommodity(null); setSelPlot(id) }} />}
     </div>
   )
 }

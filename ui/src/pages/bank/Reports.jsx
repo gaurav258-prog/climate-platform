@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
-import { FileText, Download, FileSpreadsheet, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2, History, X } from 'lucide-react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
+import { FileText, Download, FileSpreadsheet, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2, History, X, ChevronDown } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
+import AssetDrawer from '../../components/AssetDrawer'
 import { fetchDisclosure, fetchPortfolio, downloadFile, createSubmission, fetchSubmissions, fetchSubmission } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
@@ -55,9 +56,11 @@ function recentQuarters(n = 4) {
 /** The disclosure body — reused for the LIVE view and for a frozen historical
  * submission's snapshot, so a past period renders through the exact same code
  * a bank sees today. */
-export function DisclosureSummary({ d }) {
+export function DisclosureSummary({ d, assets, onSelectAsset }) {
   const r = d.rollup
   const taxTotal = Object.values(d.taxonomy).reduce((s, t) => s + t.value_eur, 0)
+  const [openHazard, setOpenHazard] = useState(null)
+  const drillable = Boolean(assets)   // live view only -- a frozen snapshot has no per-asset list
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
@@ -72,14 +75,47 @@ export function DisclosureSummary({ d }) {
           <tbody>
             {Object.entries(d.by_hazard).map(([h, v]) => {
               const Icon = HAZ_ICON[h] || Waves
+              const open = openHazard === h
+              const topAssets = open && drillable
+                ? assets.filter(a => a.hazards?.some(hz => hz.hazard === h && (hz.bucket === 'H' || hz.bucket === 'VH')))
+                    .sort((x, y) => (y.hazards.find(hz => hz.hazard === h)?.score || 0) - (x.hazards.find(hz => hz.hazard === h)?.score || 0))
+                    .slice(0, 8)
+                : []
               return (
-                <tr key={h} className="border-b border-gray-50 last:border-0">
-                  <td className="py-2.5"><span className="flex items-center gap-2 capitalize text-[#1d1d1f]"><Icon size={15} className="text-gray-400" /> {h}</span></td>
-                  <td className="py-2.5 text-right font-medium tabular-nums">{mn(v.exposed_value_eur)}</td>
-                  <td className="py-2.5 text-center text-gray-600">{v.n_exposed}</td>
-                  <td className="py-2.5 text-center"><RiskAtom score={v.max_score} bucket={v.max_score >= 75 ? 'VH' : v.max_score >= 50 ? 'H' : v.max_score >= 25 ? 'M' : 'L'} size="sm" /></td>
-                  <td className="py-2.5 font-mono text-[10px] text-gray-400">{v.model_version} · {String(v.scored_at).slice(0, 10)}</td>
-                </tr>
+                <Fragment key={h}>
+                  <tr className={`border-b border-gray-50 last:border-0 ${drillable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                    onClick={() => drillable && setOpenHazard(open ? null : h)}>
+                    <td className="py-2.5">
+                      <span className="flex items-center gap-2 capitalize text-[#1d1d1f]">
+                        <Icon size={15} className="text-gray-400" /> {h}
+                        {drillable && <ChevronDown size={12} className={`text-gray-300 transition ${open ? 'rotate-180' : ''}`} />}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right font-medium tabular-nums">{mn(v.exposed_value_eur)}</td>
+                    <td className="py-2.5 text-center text-gray-600">{v.n_exposed}</td>
+                    <td className="py-2.5 text-center"><RiskAtom score={v.max_score} bucket={v.max_score >= 75 ? 'VH' : v.max_score >= 50 ? 'H' : v.max_score >= 25 ? 'M' : 'L'} size="sm" /></td>
+                    <td className="py-2.5 font-mono text-[10px] text-gray-400">{v.model_version} · {String(v.scored_at).slice(0, 10)}</td>
+                  </tr>
+                  {open && drillable && (
+                    <tr>
+                      <td colSpan={5} className="bg-[#f5f5f7] px-3 py-2">
+                        {topAssets.length ? (
+                          <div className="divide-y divide-gray-200/70">
+                            {topAssets.map(a => (
+                              <button key={a.asset_id} onClick={e => { e.stopPropagation(); onSelectAsset(a.asset_id) }}
+                                className="flex w-full items-center justify-between py-1.5 text-left hover:opacity-70">
+                                <span className="text-[12px] text-[#1d1d1f]">{a.asset_name} <span className="text-gray-400">· {a.sector}</span></span>
+                                <span className="text-[11px] font-medium text-gray-500">
+                                  {a.hazards.find(hz => hz.hazard === h)?.score?.toFixed(1)}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : <p className="py-1.5 text-[12px] text-gray-400">No High+ assets for this hazard.</p>}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
@@ -135,6 +171,7 @@ export default function Reports({ auth }) {
   const [periodIdx, setPeriodIdx] = useState(0)
   const [submissions, setSubmissions] = useState([])
   const [viewing, setViewing] = useState(null)   // { loading } | { submission } | null
+  const [selAsset, setSelAsset] = useState(null)
 
   useEffect(() => {
     setD(null)
@@ -233,7 +270,7 @@ export default function Reports({ auth }) {
           <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{publish.msg}</p>
         )}
 
-        {!d ? <p className="text-gray-400">loading…</p> : <DisclosureSummary d={d} />}
+        {!d ? <p className="text-gray-400">loading…</p> : <DisclosureSummary d={d} assets={assets} onSelectAsset={setSelAsset} />}
 
         <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-[14px] font-semibold text-[#1d1d1f]">
@@ -280,6 +317,8 @@ export default function Reports({ auth }) {
           </div>
         </div>
       )}
+
+      <AssetDrawer assetId={selAsset} onClose={() => setSelAsset(null)} scenario={scenario} horizon={horizon} auth={auth} />
     </div>
   )
 }
