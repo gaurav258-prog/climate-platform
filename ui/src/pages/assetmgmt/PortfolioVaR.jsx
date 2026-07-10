@@ -5,6 +5,7 @@ import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import AssetMgmtDrawer from '../../components/AssetMgmtDrawer'
 import EmptyState from '../../components/EmptyState'
+import HelpLink from '../../components/HelpLink'
 import {
   fetchAssetMgmtSummary, fetchAssetMgmtPortfolio, fetchAssetMgmtDisclosure,
   uploadAssetMgmtHoldings, downloadFile,
@@ -32,7 +33,7 @@ function exportCsv(holdings) {
   URL.revokeObjectURL(url)
 }
 
-export default function PortfolioVaR({ auth }) {
+export default function PortfolioVaR({ auth, onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
@@ -98,8 +99,8 @@ export default function PortfolioVaR({ auth }) {
               <strong>Climate VaR — disclosed methodology.</strong> "Climate VaR%" reuses the exact
               same risk-bucket discount schedule (0/5/15/30% by Low/Moderate/High/Very High) used
               for banking's collateral haircut and real estate's climate-adjusted value — not a
-              statistically modeled Value-at-Risk with a defined confidence interval. See Trust &amp;
-              assurance › Methodology for the full disclosure.
+              statistically modeled Value-at-Risk with a defined confidence interval. See{' '}
+              <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -198,7 +199,7 @@ export default function PortfolioVaR({ auth }) {
                   </div>
                   <p className="mt-3 text-[10px] text-gray-400">
                     Classified by NACE code, where supplied — never "aligned" without verifying
-                    substantial contribution and minimum safeguards. See Methodology.
+                    substantial contribution and minimum safeguards. See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>.
                   </p>
                 </section>
               </div>
@@ -207,7 +208,7 @@ export default function PortfolioVaR({ auth }) {
         )}
       </div>
 
-      <AssetMgmtDrawer holdingId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} />
+      <AssetMgmtDrawer holdingId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} onGoto={onGoto} />
     </div>
   )
 }

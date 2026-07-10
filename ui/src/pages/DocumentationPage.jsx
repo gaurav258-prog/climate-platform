@@ -16,8 +16,8 @@ const SKILL = (auc) =>
   : auc >= 0.6  ? { t: 'moderate', c: 'text-amber-700 bg-amber-50' }
   : { t: 'limited', c: 'text-red-700 bg-red-50' }
 
-export default function DocumentationPage({ auth }) {
-  const [section, setSection] = useState('start')
+export default function DocumentationPage({ auth, initialSection }) {
+  const [section, setSection] = useState(initialSection || 'start')
   return (
     <div className="flex h-full overflow-hidden bg-[#f5f5f7]">
       <aside className="w-60 shrink-0 border-r border-gray-200 bg-white p-3">

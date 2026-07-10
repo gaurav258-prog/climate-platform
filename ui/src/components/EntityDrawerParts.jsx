@@ -1,6 +1,7 @@
 import { X, ChevronDown, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import RiskAtom from './RiskAtom'
+import HelpLink from './HelpLink'
 
 // Shared drill-through drawer pieces — used by AssetDrawer (banking), and the
 // real estate / asset management drawers. Every vertical drills into an
@@ -95,7 +96,7 @@ const TAXONOMY_LABEL = { eligible: 'Eligible', not_eligible: 'Not eligible', not
  * Annex I section; "not eligible"/"not assessed" say why, and never silently claim "aligned"
  * without the technical-screening + safeguards data that would require (see
  * ml/regulatory/eu_taxonomy_classifier.py's docstring). */
-export function TaxonomySection({ status, activityRef, dnshFlag }) {
+export function TaxonomySection({ status, activityRef, dnshFlag, onGoto }) {
   const s = status || 'not_assessed'
   return (
     <section>
@@ -110,7 +111,7 @@ export function TaxonomySection({ status, activityRef, dnshFlag }) {
         {s !== 'not_assessed' && (
           <p className="mt-2 text-[11px] leading-snug text-gray-400">
             Never "aligned" without verifying substantial contribution and minimum safeguards —
-            data this platform doesn't yet collect (see Trust &amp; assurance › Methodology).
+            data this platform doesn't yet collect (see <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>).
           </p>
         )}
         {dnshFlag && (

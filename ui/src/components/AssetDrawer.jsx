@@ -9,7 +9,7 @@ const fmt = n => n == null ? '—' : Math.round(n).toLocaleString()
 // The drill-through. Opened from the table OR the map — same component, so an
 // asset reads identically wherever you click it. Every hazard score carries the
 // model version + scored date that produced it (defensible disclosure).
-export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', horizon = 'current', auth }) {
+export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', horizon = 'current', auth, onGoto }) {
   const [data, setData] = useState(null)
   const [models, setModels] = useState([])
 
@@ -62,7 +62,7 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
             ['Annual revenue', euro(a.revenue_eur)],
             ['Value at this risk', headline && (headline.risk_bucket === 'H' || headline.risk_bucket === 'VH') ? euroM(a.value_eur) : '—'],
           ]} />
-          <TaxonomySection status={a.taxonomy_status} activityRef={a.dnsh_assessment?.activity_ref}
+          <TaxonomySection onGoto={onGoto} status={a.taxonomy_status} activityRef={a.dnsh_assessment?.activity_ref}
             dnshFlag={a.dnsh_assessment?.dnsh_climate_adaptation_flag} />
           <Facts title="Disclosure (TCFD / EU Taxonomy)" rows={[
             ['NACE · GICS', `${a.nace_code || '—'} · ${a.gics_code || '—'}`],

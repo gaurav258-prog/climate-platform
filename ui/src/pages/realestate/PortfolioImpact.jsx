@@ -5,6 +5,7 @@ import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import RealEstateDrawer from '../../components/RealEstateDrawer'
 import EmptyState from '../../components/EmptyState'
+import HelpLink from '../../components/HelpLink'
 import {
   fetchRealEstateSummary, fetchRealEstatePortfolio, fetchRealEstateDisclosure,
   uploadRealEstateProperties, downloadFile,
@@ -35,7 +36,7 @@ function exportCsv(properties) {
   URL.revokeObjectURL(url)
 }
 
-export default function PortfolioImpact({ auth }) {
+export default function PortfolioImpact({ auth, onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
@@ -100,7 +101,7 @@ export default function PortfolioImpact({ auth }) {
               <strong>NOI impact — disclosed methodology.</strong> Reuses the same Emanuel(2011)/CLIMADA-style
               damage curve and CAS ratemaking chain built for insurance underwriting: "what would this property
               cost to insure at this hazard exposure," expressed as a share of NOI — not a fitted operating-cost
-              model. See Trust &amp; assurance › Methodology for the full disclosure.
+              model. See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -196,7 +197,7 @@ export default function PortfolioImpact({ auth }) {
                   </div>
                   <p className="mt-3 text-[10px] text-gray-400">
                     Annex I §7.7 (acquisition and ownership of buildings) — never "aligned" without verifying
-                    substantial contribution and minimum safeguards. See Methodology.
+                    substantial contribution and minimum safeguards. See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>.
                   </p>
                 </section>
               </div>
@@ -205,7 +206,7 @@ export default function PortfolioImpact({ auth }) {
         )}
       </div>
 
-      <RealEstateDrawer propertyId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} />
+      <RealEstateDrawer propertyId={sel} onClose={() => setSel(null)} auth={auth} scenario={scenario} horizon={horizon} onGoto={onGoto} />
     </div>
   )
 }

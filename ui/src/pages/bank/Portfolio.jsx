@@ -11,7 +11,7 @@ const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 const HAZ_COLS = ['flood', 'wildfire', 'volcanic', 'storm']
 const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'appraised_value_eur', 'sector', 'outstanding_loan_balance_eur', 'loan_origination_date', 'region', 'country']
 
-export default function Portfolio({ auth }) {
+export default function Portfolio({ auth, onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [data, setData] = useState(null)
@@ -106,7 +106,7 @@ export default function Portfolio({ auth }) {
         )}
       </div>
 
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} onGoto={onGoto} />
     </div>
   )
 }

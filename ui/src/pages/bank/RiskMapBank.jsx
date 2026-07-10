@@ -8,7 +8,7 @@ import { fetchGeoScores, fetchPortfolio } from '../../api/client'
 const BANDS = [['VH', 'Very High'], ['H', 'High'], ['M', 'Medium'], ['L', 'Low']]
 const HAZARDS = [['flood', 'Flood'], ['wildfire', 'Wildfire'], ['volcanic', 'Volcanic'], ['storm', 'Storm'], ['pollution', 'Pollution']]
 
-export default function RiskMapBank() {
+export default function RiskMapBank({ onGoto }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
   const [hazard, setHazard] = useState('flood')
@@ -78,7 +78,7 @@ export default function RiskMapBank() {
               assets={assets} onAssetClick={onAsset} />
           : <div className="flex h-full items-center justify-center text-gray-400">loading map…</div>}
       </div>
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} onGoto={onGoto} />
     </div>
   )
 }

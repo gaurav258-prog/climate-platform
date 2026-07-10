@@ -98,7 +98,7 @@ export default function CommandCenter({ onGoto, auth }) {
         )}
       </div>
 
-      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} />
+      <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} onGoto={onGoto} />
     </div>
   )
 }

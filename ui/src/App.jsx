@@ -52,6 +52,7 @@ export default function App() {
   const [area, setArea] = useState('modules')      // 'modules' | 'docs' | 'portal' | 'admin'
   const [route, setRoute] = useState({})
   const [solutionsSector, setSolutionsSector] = useState(null)
+  const [docsSection, setDocsSection] = useState('start')
 
   // Rehydrate the session on load so a refresh keeps you logged in.
   useEffect(() => {
@@ -81,7 +82,11 @@ export default function App() {
   }, [auth])
 
   const onGoto = useCallback(v => {
-    if (v === 'bank-portfolio') { setArea('modules'); setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' }) }
+    if (v === 'bank-portfolio') { setArea('modules'); setRoute({ offeringId: 'physical-risk', serviceId: 'portfolio' }); return }
+    // 'docs:<section>' -- contextual help links from any workflow page jump straight
+    // to the relevant Documentation section, instead of dumping the user on 'Getting
+    // started' regardless of what they clicked "?" on.
+    if (typeof v === 'string' && v.startsWith('docs:')) { setDocsSection(v.slice(5)); setArea('docs') }
   }, [])
 
   // Industry-modules marketing grid (PlatformOverviewPage) → real navigation.
@@ -165,7 +170,7 @@ export default function App() {
         </div>
       )}
 
-      {area === 'docs'   && <div className="flex-1 overflow-hidden"><DocumentationPage auth={auth} /></div>}
+      {area === 'docs'   && <div className="flex-1 overflow-hidden"><DocumentationPage auth={auth} initialSection={docsSection} /></div>}
       {area === 'portal' && <div className="flex-1 overflow-hidden"><ServicePortalPage /></div>}
       {area === 'admin'  && <div className="flex-1 overflow-hidden"><AdminPage auth={auth} /></div>}
     </div>

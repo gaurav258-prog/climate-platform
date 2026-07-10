@@ -9,7 +9,7 @@ import { DrawerShell, RiskSection, TaxonomySection, Facts, ProvenanceFooter } fr
 // entirely: the holding valuation-override endpoints existed on the backend
 // with no UI path to reach them (PortfolioVaR.jsx's table had no
 // click-to-detail at all). This closes that gap.
-export default function AssetMgmtDrawer({ holdingId, onClose, auth, scenario = 'baseline', horizon = 'current' }) {
+export default function AssetMgmtDrawer({ holdingId, onClose, auth, scenario = 'baseline', horizon = 'current', onGoto }) {
   const [data, setData] = useState(null)
   const [models, setModels] = useState([])
 
@@ -48,7 +48,7 @@ export default function AssetMgmtDrawer({ holdingId, onClose, auth, scenario = '
             ['Sector · NACE', `${h.sector || '—'} · ${h.nace_code || '—'}`],
             ['Screening flag', h.flagged ? 'High / Very-High' : 'Below threshold'],
           ]} />
-          <TaxonomySection status={h.taxonomy_status} activityRef={h.taxonomy_activity_ref} />
+          <TaxonomySection onGoto={onGoto} status={h.taxonomy_status} activityRef={h.taxonomy_activity_ref} />
           <ProvenanceFooter h3Cell={h.h3_cell} />
         </>
       )}

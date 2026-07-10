@@ -9,7 +9,7 @@ import { DrawerShell, RiskSection, TaxonomySection, Facts, ProvenanceFooter } fr
 // property valuation-override endpoints existed on the backend with no UI
 // path to reach them (PortfolioImpact.jsx's table had no click-to-detail at
 // all). This closes that gap.
-export default function RealEstateDrawer({ propertyId, onClose, auth, scenario = 'baseline', horizon = 'current' }) {
+export default function RealEstateDrawer({ propertyId, onClose, auth, scenario = 'baseline', horizon = 'current', onGoto }) {
   const [data, setData] = useState(null)
   const [models, setModels] = useState([])
 
@@ -63,7 +63,7 @@ export default function RealEstateDrawer({ propertyId, onClose, auth, scenario =
             ['Annual NOI', euro(p.annual_noi_eur)],
             ['Construction', `${p.construction_type || '—'} · built ${p.year_built || '—'}`],
           ]} />
-          <TaxonomySection status={p.taxonomy_status} activityRef={p.taxonomy_activity_ref} />
+          <TaxonomySection onGoto={onGoto} status={p.taxonomy_status} activityRef={p.taxonomy_activity_ref} />
           <ProvenanceFooter h3Cell={p.h3_cell} />
         </>
       )}
