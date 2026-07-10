@@ -1,19 +1,22 @@
 import { useState, useRef } from 'react'
 import { Upload, FileDown, FileSpreadsheet, Loader2, CheckCircle2 } from 'lucide-react'
 import { downloadFile } from '../api/client'
+import { useToast } from './ToastProvider'
 
 // Self-service data entry, reused across all three verticals (bank/supply/insurance) —
 // same shape as RiskAtom/ContextBar/AssetDrawer's Facts: one component, three call sites.
 // Excel is the real, market-standard template (required/optional fields marked, a
 // field guide sheet); CSV stays available as the plain-text fallback for systems
-// that need it.
-export default function UploadPanel({ uploadFn, templateColumns, templateFilename, templateXlsxUrl, templateXlsxFilename, label, onUploaded }) {
-  const [open, setOpen] = useState(false)
+// that need it. startOpen=true renders pre-expanded (used inline in an EmptyState,
+// where the point IS the upload form, not a button that reveals one).
+export default function UploadPanel({ uploadFn, templateColumns, templateFilename, templateXlsxUrl, templateXlsxFilename, label, onUploaded, startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
+  const toast = useToast()
 
   function downloadCsvTemplate() {
     const csv = templateColumns.join(',') + '\n'
@@ -32,8 +35,10 @@ export default function UploadPanel({ uploadFn, templateColumns, templateFilenam
       setFile(null)
       if (inputRef.current) inputRef.current.value = ''
       onUploaded?.()
+      toast.success(`${r.n_uploaded} row(s) uploaded — ${r.n_sync_scored} hazard(s) scored instantly.`)
     } catch (e) {
       setError(e.message || 'Upload failed.')
+      toast.error(e.message || 'Upload failed.')
     } finally {
       setBusy(false)
     }

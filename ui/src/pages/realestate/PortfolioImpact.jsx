@@ -4,6 +4,7 @@ import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import RealEstateDrawer from '../../components/RealEstateDrawer'
+import EmptyState from '../../components/EmptyState'
 import {
   fetchRealEstateSummary, fetchRealEstatePortfolio, fetchRealEstateDisclosure,
   uploadRealEstateProperties, downloadFile,
@@ -86,7 +87,14 @@ export default function PortfolioImpact({ auth }) {
           </div>
         </header>
 
-        {!r ? <p className="text-gray-400">loading…</p> : (
+        {!r ? <p className="text-gray-400">loading…</p> : r.n_properties === 0 ? (
+          <EmptyState icon={Building2} title="No properties in your portfolio yet"
+            description="Import your property schedule (CSV or Excel) and every property gets scored against the golden source automatically, with climate-adjusted valuation and NOI impact."
+            action={<UploadPanel uploadFn={uploadRealEstateProperties} templateColumns={TEMPLATE_COLUMNS}
+              templateFilename="realestate_properties_template.csv"
+              templateXlsxUrl="/v1/realestate/properties/template.xlsx" templateXlsxFilename="tellumen_property_schedule_template.xlsx"
+              label="Import properties" onUploaded={reload} startOpen />} />
+        ) : (
           <>
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
               <strong>NOI impact — disclosed methodology.</strong> Reuses the same Emanuel(2011)/CLIMADA-style

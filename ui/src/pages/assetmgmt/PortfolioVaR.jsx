@@ -4,6 +4,7 @@ import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
 import AssetMgmtDrawer from '../../components/AssetMgmtDrawer'
+import EmptyState from '../../components/EmptyState'
 import {
   fetchAssetMgmtSummary, fetchAssetMgmtPortfolio, fetchAssetMgmtDisclosure,
   uploadAssetMgmtHoldings, downloadFile,
@@ -84,7 +85,14 @@ export default function PortfolioVaR({ auth }) {
           </div>
         </header>
 
-        {!r ? <p className="text-gray-400">loading…</p> : (
+        {!r ? <p className="text-gray-400">loading…</p> : r.n_holdings === 0 ? (
+          <EmptyState icon={TrendingUp} title="No holdings in your portfolio yet"
+            description="Import your holdings book (CSV or Excel) and every position gets scored against the golden source automatically, with value-weighted portfolio climate VaR."
+            action={<UploadPanel uploadFn={uploadAssetMgmtHoldings} templateColumns={TEMPLATE_COLUMNS}
+              templateFilename="assetmgmt_holdings_template.csv"
+              templateXlsxUrl="/v1/assetmgmt/holdings/template.xlsx" templateXlsxFilename="tellumen_holdings_template.xlsx"
+              label="Import holdings" onUploaded={reload} startOpen />} />
+        ) : (
           <>
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
               <strong>Climate VaR — disclosed methodology.</strong> "Climate VaR%" reuses the exact

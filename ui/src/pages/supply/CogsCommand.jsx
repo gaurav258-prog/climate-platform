@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Package, TrendingDown, Percent, ShieldCheck, AlertTriangle, Leaf } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import SupplyPlotDrawer, { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
-import { fetchSupplySummary, fetchSupplyPortfolio } from '../../api/client'
+import UploadPanel from '../../components/UploadPanel'
+import EmptyState from '../../components/EmptyState'
+import { fetchSupplySummary, fetchSupplyPortfolio, uploadSupplyPlots } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
+const PLOT_TEMPLATE_COLUMNS = ['plot_name', 'latitude', 'longitude', 'commodity', 'annual_spend_eur', 'plot_area_ha', 'region', 'country']
 
 export default function CogsCommand() {
   const [scenario, setScenario] = useState('baseline')
@@ -13,11 +16,12 @@ export default function CogsCommand() {
   const [port, setPort] = useState(null)
   const [selPlot, setSelPlot] = useState(null)
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setSum(null); setPort(null)
     fetchSupplySummary({ scenario, horizon }).then(setSum).catch(() => setSum(null))
     fetchSupplyPortfolio({ scenario, horizon }).then(setPort).catch(() => setPort(null))
   }, [scenario, horizon])
+  useEffect(() => { reload() }, [reload])
 
   const r = sum?.rollup
   const scored = (sum?.commodities || []).filter(c => c.status === 'scored')
@@ -30,15 +34,21 @@ export default function CogsCommand() {
         vintage="2024-10-29" label={`Agriculture · ${sum?.org?.name || 'Terra Foods (demo)'}`} />
 
       <div className="flex-1 overflow-y-auto px-8 py-8">
-        <header className="mb-5">
-          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
-            <Package size={13} /> COGS-at-Risk
+        <header className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
+              <Package size={13} /> COGS-at-Risk
+            </div>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">Your procurement book, projected</h1>
+            <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
+              Climate hazard on every sourcing plot, rolled up the bill of materials into cost-of-goods —
+              one auditable number per commodity, traceable to the golden source.
+            </p>
           </div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">Your procurement book, projected</h1>
-          <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
-            Climate hazard on every sourcing plot, rolled up the bill of materials into cost-of-goods —
-            one auditable number per commodity, traceable to the golden source.
-          </p>
+          <UploadPanel uploadFn={uploadSupplyPlots} templateColumns={PLOT_TEMPLATE_COLUMNS}
+            templateFilename="supply_plots_template.csv"
+            templateXlsxUrl="/v1/supply/plots/template.xlsx" templateXlsxFilename="tellumen_sourcing_plot_template.xlsx"
+            label="Import plots" onUploaded={reload} />
         </header>
 
         {/* honest v0 banner */}
@@ -50,7 +60,14 @@ export default function CogsCommand() {
           </span>
         </div>
 
-        {!r ? <p className="text-gray-400">loading…</p> : (
+        {!r ? <p className="text-gray-400">loading…</p> : r.n_commodities === 0 ? (
+          <EmptyState icon={Package} title="No sourcing plots in your book yet"
+            description="Import your sourcing plots (CSV or Excel) and every plot gets scored against the golden source automatically, rolled up into COGS-at-risk per commodity."
+            action={<UploadPanel uploadFn={uploadSupplyPlots} templateColumns={PLOT_TEMPLATE_COLUMNS}
+              templateFilename="supply_plots_template.csv"
+              templateXlsxUrl="/v1/supply/plots/template.xlsx" templateXlsxFilename="tellumen_sourcing_plot_template.xlsx"
+              label="Import plots" onUploaded={reload} startOpen />} />
+        ) : (
           <>
             <div className="grid grid-cols-4 gap-4">
               <Stat icon={Package} label="Ingredient spend" value={mn(r.ingredient_spend_eur)}

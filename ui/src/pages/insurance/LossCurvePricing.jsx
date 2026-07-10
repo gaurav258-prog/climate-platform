@@ -3,6 +3,7 @@ import { Umbrella, TrendingUp, ShieldAlert, Layers, Download, FileSpreadsheet } 
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import UploadPanel from '../../components/UploadPanel'
+import EmptyState from '../../components/EmptyState'
 import { fetchInsuranceSummary, fetchInsurancePortfolio, uploadInsurancePolicies, downloadFile } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
@@ -74,7 +75,14 @@ export default function LossCurvePricing() {
           </div>
         </header>
 
-        {!r ? <p className="text-gray-400">loading…</p> : (
+        {!r ? <p className="text-gray-400">loading…</p> : r.n_policies === 0 ? (
+          <EmptyState icon={Umbrella} title="No policies in your book yet"
+            description="Import your Statement of Values (CSV or Excel) and every policy gets scored against the golden source automatically, with loss-curve pricing and premium."
+            action={<UploadPanel uploadFn={uploadInsurancePolicies} templateColumns={TEMPLATE_COLUMNS}
+              templateFilename="insurance_policies_template.csv"
+              templateXlsxUrl="/v1/insurance/policies/template.xlsx" templateXlsxFilename="tellumen_sov_template.xlsx"
+              label="Import policies" onUploaded={reload} startOpen />} />
+        ) : (
           <>
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
               <strong>v0 pricing — disclosed assumptions.</strong> Damage ratio uses an Emanuel(2011)/CLIMADA-style

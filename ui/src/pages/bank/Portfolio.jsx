@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, Landmark } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom from '../../components/RiskAtom'
 import AssetDrawer from '../../components/AssetDrawer'
 import UploadPanel from '../../components/UploadPanel'
+import EmptyState from '../../components/EmptyState'
 import { fetchPortfolio, uploadBankAssets } from '../../api/client'
 
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
@@ -58,6 +59,14 @@ export default function Portfolio({ auth }) {
             label="Import assets" onUploaded={reload} />
         </header>
 
+        {data && assets.length === 0 ? (
+          <EmptyState icon={Landmark} title="No assets in your loan book yet"
+            description="Import your loan tape (CSV or Excel) and every property gets scored against the golden source automatically — flood, wildfire, seismic and more."
+            action={<UploadPanel uploadFn={uploadBankAssets} templateColumns={TEMPLATE_COLUMNS}
+              templateFilename="bank_assets_template.csv"
+              templateXlsxUrl="/v1/bank/assets/template.xlsx" templateXlsxFilename="tellumen_loan_tape_template.xlsx"
+              label="Import assets" onUploaded={reload} startOpen />} />
+        ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-sm">
           <table className="w-full text-[13px]">
             <thead>
@@ -94,6 +103,7 @@ export default function Portfolio({ auth }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       <AssetDrawer assetId={sel} onClose={() => setSel(null)} scenario={scenario} horizon={horizon} auth={auth} />
