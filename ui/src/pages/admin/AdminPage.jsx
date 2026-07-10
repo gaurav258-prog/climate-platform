@@ -8,6 +8,7 @@ import {
 } from '../../api/client'
 import { industryForOrg } from '../../data/catalog'
 import { DisclosureSummary } from '../bank/Reports'
+import { useToast } from '../../components/ToastProvider'
 
 const TABS = [
   { id: 'users',         label: 'Users',                icon: Users,      perm: 'admin.users.manage' },
@@ -63,6 +64,7 @@ function UsersTab() {
   const [form, setForm] = useState({ email: '', full_name: '', password: '', role_ids: [] })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const toast = useToast()
 
   const load = useCallback(() => {
     fetchAdminUsers().then(setUsers).catch(() => setUsers([]))
@@ -75,12 +77,16 @@ function UsersTab() {
     try {
       await createAdminUser(form)
       setForm({ email: '', full_name: '', password: '', role_ids: [] }); setAdding(false); load()
+      toast.success(`${form.full_name || form.email} added.`)
     } catch (e) { setErr(e.message || 'Could not create user.') }
     finally { setBusy(false) }
   }
   async function toggleStatus(u) {
-    await patchAdminUser(u.id, { status: u.status === 'active' ? 'disabled' : 'active' })
-    load()
+    const next = u.status === 'active' ? 'disabled' : 'active'
+    try {
+      await patchAdminUser(u.id, { status: next }); load()
+      toast.success(`${u.full_name} ${next === 'active' ? 'enabled' : 'disabled'}.`)
+    } catch (e) { toast.error(e.message || 'Could not update user.') }
   }
   const toggleRole = (id) => setForm(f => ({
     ...f, role_ids: f.role_ids.includes(id) ? f.role_ids.filter(x => x !== id) : [...f.role_ids, id],
@@ -162,6 +168,7 @@ function RolesTab() {
   const [roles, setRoles] = useState(null)
   const [perms, setPerms] = useState([])
   const [saving, setSaving] = useState(null)
+  const toast = useToast()
 
   const load = useCallback(() => {
     fetchRoles().then(setRoles).catch(() => setRoles([]))
@@ -169,6 +176,9 @@ function RolesTab() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // No success toast per cell -- the checkbox flipping IS the confirmation for a
+  // dense matrix like this (a toast per click would be noise). A failed save DOES
+  // get one, since the silent optimistic-revert would otherwise be confusing.
   async function toggle(role, code) {
     const has = role.permissions.includes(code)
     const next = has ? role.permissions.filter(c => c !== code) : [...role.permissions, code]
@@ -176,7 +186,7 @@ function RolesTab() {
     // optimistic
     setRoles(rs => rs.map(r => r.id === role.id ? { ...r, permissions: next } : r))
     try { await setRolePermissions(role.id, next) }
-    catch { load() }           // revert from server on failure
+    catch (e) { load(); toast.error(e.message || 'Could not save — reverted.') }
     finally { setSaving(null) }
   }
 
@@ -257,21 +267,30 @@ function SettingCard({ title, sub, options, value, onChange, disabled }) {
   )
 }
 
+const SETTING_LABEL = {
+  severity_model: 'Climate-severity discount model',
+  assetmgmt_var_method: 'Portfolio climate-VaR method',
+  insurance_return_period_model: 'Return-period model',
+}
+
 function CalcSettingsTab({ auth }) {
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState(null)
-  const [err, setErr] = useState(null)
   const industry = industryForOrg(auth?.org)
+  const toast = useToast()
 
   const load = useCallback(() => { fetchCalcSettings().then(setSettings).catch(() => setSettings(null)) }, [])
   useEffect(() => { load() }, [load])
 
   async function change(field, value) {
-    setSaving(field); setErr(null)
+    setSaving(field)
     const prev = settings
     setSettings(s => ({ ...s, [field]: value }))   // optimistic
-    try { setSettings(await updateCalcSettings({ [field]: value })) }
-    catch (e) { setSettings(prev); setErr(e.message || 'Could not save.') }
+    try {
+      setSettings(await updateCalcSettings({ [field]: value }))
+      toast.success(`${SETTING_LABEL[field] || field} updated — applies immediately across every workspace.`)
+    }
+    catch (e) { setSettings(prev); toast.error(e.message || 'Could not save.') }
     finally { setSaving(null) }
   }
 
@@ -281,7 +300,6 @@ function CalcSettingsTab({ auth }) {
       <Title sub="Every org gets today's default behaviour until you opt into an alternative. Changes apply to every workspace, disclosure and report immediately, and are audited.">
         Calculation methods
       </Title>
-      {err && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-600">{err}</p>}
       <div className="space-y-4">
         <SettingCard title="Climate-severity discount model"
           sub="Used everywhere a hazard score is converted into a value discount: banking's collateral haircut, real estate's climate-adjusted value, asset management's climate VaR."
@@ -342,14 +360,18 @@ function ApprovalsTab({ auth }) {
   const [expanded, setExpanded] = useState(null)   // request id whose snapshot is shown
   const [snapshot, setSnapshot] = useState(null)    // { loading } | { data } for the expanded row
   const canDecide = new Set(auth?.permissions || []).has('approvals.decide')
+  const toast = useToast()
 
   const load = useCallback(() => { fetchApprovals().then(setRows).catch(() => setRows([])) }, [])
   useEffect(() => { load() }, [load])
 
   async function decide(id, decision) {
     setBusy(id)
-    try { await decideApproval(id, decision, decision === 'approved' ? 'Reviewed and approved' : 'Rejected') }
-    catch (e) { alert(e.message) }
+    try {
+      await decideApproval(id, decision, decision === 'approved' ? 'Reviewed and approved' : 'Rejected')
+      toast.success(decision === 'approved' ? 'Request approved.' : 'Request rejected.')
+    }
+    catch (e) { toast.error(e.message || 'Could not record decision.') }
     finally { setBusy(null); load() }
   }
 

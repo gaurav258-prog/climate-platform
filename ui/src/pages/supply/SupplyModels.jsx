@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ShieldCheck, CheckCircle2, AlertTriangle, FlaskConical, Pencil, X } from 'lucide-react'
 import { fetchSupplyValidation, fetchSupplyModels, overrideCommodityCogs, clearCommodityCogsOverride } from '../../api/client'
+import { useToast } from '../../components/ToastProvider'
 
 const HAZ_LABEL = { heat_acute: 'Heat', drought: 'Drought', frost: 'Frost' }
 const eur = n => n == null ? '—' : '€' + (n / 1e6).toFixed(2) + 'm'
@@ -12,6 +13,7 @@ export default function SupplyModels({ auth }) {
   const [form, setForm] = useState({ value: '', reason: '' })
   const [busy, setBusy] = useState(false)
   const canOverride = new Set(auth?.permissions || []).has('pricing.approve')
+  const toast = useToast()
 
   const load = useCallback(() => {
     fetchSupplyValidation().then(setVal).catch(() => setVal(null))
@@ -28,12 +30,16 @@ export default function SupplyModels({ auth }) {
     try {
       await overrideCommodityCogs(c.commodity_id, Number(form.value), form.reason || null)
       setEditing(null); load()
-    } catch (e) { alert(e.message || 'Could not save override.') }
+      toast.success(`${c.commodity} override saved — audited.`)
+    } catch (e) { toast.error(e.message || 'Could not save override.') }
     finally { setBusy(false) }
   }
   async function clearOverride(c) {
     setBusy(true)
-    try { await clearCommodityCogsOverride(c.commodity_id); load() }
+    try {
+      await clearCommodityCogsOverride(c.commodity_id); load()
+      toast.success(`${c.commodity} override cleared — reverted to the model figure.`)
+    } catch (e) { toast.error(e.message || 'Could not clear override.') }
     finally { setBusy(false) }
   }
 
