@@ -4,6 +4,7 @@ import { CATALOG, catalogForAuth, industryForOrg } from './data/catalog'
 import { fetchMe, logout as apiLogout, hasToken } from './api/client'
 import LineageBar from './components/software/LineageBar'
 import CommandPalette from './components/CommandPalette'
+import WelcomeNudge from './components/WelcomeNudge'
 import CatalogNav from './components/software/CatalogNav'
 import CatalogGrid from './components/software/CatalogGrid'
 import CommandCenter from './pages/bank/CommandCenter'
@@ -154,6 +155,7 @@ export default function App() {
         onNavigate={(offeringId, serviceId) => { setArea('modules'); setRoute({ offeringId, serviceId }) }}
         onDocs={section => { setDocsSection(section); setArea('docs') }}
         onArea={setArea} canSeePortal={canSeePortal} canSeeAdmin={canSeeAdmin} />
+      <WelcomeNudge email={auth?.user?.email} orgLabel={auth?.org?.name || 'your'} onOpenSearch={() => setPaletteOpen(true)} />
 
       {area === 'modules' && (
         <div className="flex flex-1 overflow-hidden">
