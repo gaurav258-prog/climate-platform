@@ -10,6 +10,11 @@ assets in scored cells) so the DNSH-climate-adaptation diagnostic can use each
 asset's real headline_bucket, not a guess. Idempotent -- safe to re-run any
 time canonical_scores changes.
 
+Also picks up portfolio_entities.minimum_safeguards_status (see the
+e6f7a8b9c0d1 migration) when an asset has one on file, so
+reasoning.minimum_safeguards_verified reflects real supplied evidence
+instead of always reading "not currently supplied".
+
 Run:  .venv/bin/python scripts/recompute_taxonomy_status.py
 """
 import json
@@ -25,7 +30,7 @@ BASELINE_SCENARIO, CURRENT_HORIZON = "baseline", "current"
 def main():
     with get_session() as s:
         assets = s.execute(text("""
-            SELECT e.entity_id AS asset_id, e.nace_code, x.resilience_rating
+            SELECT e.entity_id AS asset_id, e.nace_code, e.minimum_safeguards_status, x.resilience_rating
             FROM portfolio_entities e
             JOIN ext_banking x ON x.entity_id = e.entity_id
             WHERE e.vertical = 'banking'
@@ -51,6 +56,7 @@ def main():
                 a["nace_code"],
                 headline_bucket=headline["risk_bucket"] if headline else None,
                 resilience_rating=a["resilience_rating"],
+                minimum_safeguards_status=a["minimum_safeguards_status"],
             )
             counts[tax["status"]] = counts.get(tax["status"], 0) + 1
             updates.append({

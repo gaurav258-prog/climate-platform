@@ -9,7 +9,7 @@ import { fetchPortfolio, uploadBankAssets } from '../../api/client'
 
 const euroM = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 const HAZ_COLS = ['flood', 'wildfire', 'volcanic', 'storm']
-const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'appraised_value_eur', 'sector', 'outstanding_loan_balance_eur', 'loan_origination_date', 'region', 'country']
+const TEMPLATE_COLUMNS = ['asset_name', 'asset_type', 'latitude', 'longitude', 'appraised_value_eur', 'sector', 'outstanding_loan_balance_eur', 'loan_origination_date', 'region', 'country', 'borrower_entity_id', 'minimum_safeguards_status']
 
 export default function Portfolio({ auth, onGoto }) {
   const [scenario, setScenario] = useState('baseline')

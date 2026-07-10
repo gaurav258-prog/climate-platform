@@ -44,9 +44,10 @@ from services.templates.workbook import build_export_workbook, build_template_wo
 
 def _assetmgmt_extra(row, headline, hz):
     bucket = row["headline_bucket"]
-    tax = classify_taxonomy(row["nace_code"], headline_bucket=bucket, resilience_rating=None)
+    tax = classify_taxonomy(row["nace_code"], headline_bucket=bucket, resilience_rating=None,
+                             minimum_safeguards_status=row.get("minimum_safeguards_status"))
     return {"flagged": bucket in ("H", "VH"), "taxonomy_status": tax["status"],
-            "taxonomy_activity_ref": tax["activity_ref"]}
+            "taxonomy_activity_ref": tax["activity_ref"], "taxonomy_reasoning": tax["reasoning"]}
 
 
 def _map_holding_row(row):
@@ -62,6 +63,8 @@ def _map_holding_row(row):
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "climate_var": row["valuation"], "flagged": row["flagged"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+        "taxonomy_reasoning": row["taxonomy_reasoning"],
+        "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
 
 router = APIRouter(prefix="/v1/assetmgmt", tags=["Asset Management"])
@@ -197,8 +200,13 @@ HOLDING_TEMPLATE_FIELDS = [
     {"name": "nace_code", "required": False, "description": "NACE code, if known — enables real EU Taxonomy classification.", "example": "68.20"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Stockholm"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "SE"},
+    {"name": "borrower_entity_id", "required": False, "description": "Holding's LEI or other stable entity ID — "
+     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per row.", "example": "5493001KJTIIGC8Y1R12"},
+    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
+     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
 ]
 REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["required"]]
+SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
 
 @router.get("/holding/{holding_id}", summary="One holding — full projection + provenance")
@@ -215,6 +223,8 @@ def holding_detail(holding_id: str, session: DbSession):
         "region": row["region"], "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
         "position_value_eur": row["primary_value_eur"], "flagged": row["flagged"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+        "taxonomy_reasoning": row["taxonomy_reasoning"],
+        "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
@@ -298,6 +308,9 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
             value_eur = float(row["position_value_eur"])
         except (TypeError, ValueError):
             continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
+        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
+        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
+            safeguards = None
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
@@ -308,15 +321,19 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
             "primary_value_eur": value_eur,
+            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
+            "minimum_safeguards_status": safeguards,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
 
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code,
-                                         latitude, longitude, h3_cell, region, country, primary_value_eur)
+                                         latitude, longitude, h3_cell, region, country, primary_value_eur,
+                                         borrower_entity_id, minimum_safeguards_status)
         VALUES (:entity_id, :org_id, 'assetmgmt', :entity_name, :sector, :nace_code,
-                :latitude, :longitude, :h3_cell, :region, :country, :primary_value_eur)
+                :latitude, :longitude, :h3_cell, :region, :country, :primary_value_eur,
+                :borrower_entity_id, :minimum_safeguards_status)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="holdings.upload",
                 target_type="assetmgmt_holdings", target_id=None,

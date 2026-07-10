@@ -242,6 +242,7 @@ def asset_detail(asset_id: str, session: DbSession):
         "ghg_scope3": row["ghg_emissions_scope3_tco2e"],
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
+        "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
@@ -305,8 +306,14 @@ ASSET_TEMPLATE_FIELDS = [
     {"name": "loan_origination_date", "required": False, "description": "YYYY-MM-DD.", "example": "2022-03-01"},
     {"name": "region", "required": False, "description": "Free-text region/city.", "example": "Frankfurt"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "DE"},
+    {"name": "borrower_entity_id", "required": False, "description": "Borrower's LEI or other stable entity ID — "
+     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per loan.", "example": "5493001KJTIIGC8Y1R12"},
+    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
+     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check (also requires a "
+     "nace_code on the loan, which today's upload doesn't yet collect — see the taxonomy_status note below).", "example": "compliant"},
 ]
 REQUIRED_ASSET_COLUMNS = [f["name"] for f in ASSET_TEMPLATE_FIELDS if f["required"]]
+SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
 
 @router.get("/assets/template.xlsx", summary="Download the loan-tape upload template (Excel)")
@@ -347,6 +354,9 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
         cell_coords[cell] = (lat, lon)
         outstanding = row.get("outstanding_loan_balance_eur")
         origination = row.get("loan_origination_date")
+        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
+        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
+            safeguards = None
         records.append({
             "entity_id": str(uuid.uuid4()), "org_id": org_id,
             "entity_name": str(row["asset_name"]), "entity_type": str(row["asset_type"]),
@@ -356,9 +366,12 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
             "primary_value_eur": value_eur, "sector": str(row["sector"]),
             "outstanding_loan_balance_eur": float(outstanding) if pd.notna(outstanding) else None,
             "loan_origination_date": str(origination)[:10] if pd.notna(origination) else None,
+            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
+            "minimum_safeguards_status": safeguards,
             # No nace_code in today's upload template, so real EU Taxonomy classification
             # (ml/regulatory/eu_taxonomy_classifier.py) can't run yet -- honest "not assessed",
-            # never a guessed status. Adding a nace_code column is a natural follow-on.
+            # never a guessed status, even with minimum_safeguards_status on file. Adding a
+            # nace_code column is a natural follow-on.
             "taxonomy_status": "not_assessed",
         })
     if not records:
@@ -366,9 +379,11 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
 
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
-                                         h3_cell, region, country, primary_value_eur, sector)
+                                         h3_cell, region, country, primary_value_eur, sector,
+                                         borrower_entity_id, minimum_safeguards_status)
         VALUES (:entity_id, :org_id, 'banking', :entity_name, :entity_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :primary_value_eur, :sector)
+                :h3_cell, :region, :country, :primary_value_eur, :sector,
+                :borrower_entity_id, :minimum_safeguards_status)
     """), records)
     session.execute(text("""
         INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)

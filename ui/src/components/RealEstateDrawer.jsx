@@ -63,7 +63,8 @@ export default function RealEstateDrawer({ propertyId, onClose, auth, scenario =
             ['Annual NOI', euro(p.annual_noi_eur)],
             ['Construction', `${p.construction_type || '—'} · built ${p.year_built || '—'}`],
           ]} />
-          <TaxonomySection onGoto={onGoto} status={p.taxonomy_status} activityRef={p.taxonomy_activity_ref} />
+          <TaxonomySection onGoto={onGoto} status={p.taxonomy_status} activityRef={p.taxonomy_activity_ref}
+            reasoning={p.taxonomy_reasoning} />
           <ProvenanceFooter h3Cell={p.h3_cell} />
         </>
       )}

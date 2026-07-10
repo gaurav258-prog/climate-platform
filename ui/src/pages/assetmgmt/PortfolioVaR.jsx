@@ -16,7 +16,7 @@ const ORDER = ['VH', 'H', 'M', 'L', 'none']
 const HAZ_LABEL = { flood: 'Flood', wildfire: 'Wildfire', volcanic: 'Volcanic', storm: 'Storm', heat_acute: 'Heat', drought: 'Drought' }
 const TAX_LABEL = { eligible: 'Eligible', not_eligible: 'Not eligible', not_assessed: 'Not assessed' }
 const TAX_COLOR = { eligible: '#ff9500', not_eligible: '#86868b', not_assessed: '#d1d5db' }
-const TEMPLATE_COLUMNS = ['holding_name', 'latitude', 'longitude', 'position_value_eur', 'sector', 'nace_code', 'region', 'country']
+const TEMPLATE_COLUMNS = ['holding_name', 'latitude', 'longitude', 'position_value_eur', 'sector', 'nace_code', 'region', 'country', 'borrower_entity_id', 'minimum_safeguards_status']
 
 function exportCsv(holdings) {
   const head = ['holding_name', 'sector', 'region', 'country', 'position_value_eur',

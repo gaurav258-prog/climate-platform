@@ -1,4 +1,4 @@
-import { X, ChevronDown, MapPin } from 'lucide-react'
+import { X, ChevronDown, MapPin, Check, X as XMark } from 'lucide-react'
 import { useState } from 'react'
 import RiskAtom from './RiskAtom'
 import HelpLink from './HelpLink'
@@ -92,11 +92,24 @@ const TAXONOMY_BADGE = {
 }
 const TAXONOMY_LABEL = { eligible: 'Eligible', not_eligible: 'Not eligible', not_assessed: 'Not assessed' }
 
+function EvidenceRow({ verified, note }) {
+  return (
+    <div className="flex items-start gap-1.5">
+      {verified
+        ? <Check size={12} className="mt-0.5 shrink-0 text-emerald-600" />
+        : <XMark size={12} className="mt-0.5 shrink-0 text-gray-300" />}
+      <span className={`text-[11px] leading-snug ${verified ? 'text-gray-600' : 'text-gray-400'}`}>{note}</span>
+    </div>
+  )
+}
+
 /** EU Taxonomy status shown WITH its reasoning -- never a bare enum. "Eligible" cites the exact
  * Annex I section; "not eligible"/"not assessed" say why, and never silently claim "aligned"
  * without the technical-screening + safeguards data that would require (see
- * ml/regulatory/eu_taxonomy_classifier.py's docstring). */
-export function TaxonomySection({ status, activityRef, dnshFlag, onGoto }) {
+ * ml/regulatory/eu_taxonomy_classifier.py's docstring). `reasoning` (if supplied) shows exactly
+ * which of the two remaining conditions has real supplied evidence vs. is still unverified —
+ * a tenant who uploads EPC/minimum-safeguards data sees that progress, not a static disclaimer. */
+export function TaxonomySection({ status, activityRef, dnshFlag, reasoning, onGoto }) {
   const s = status || 'not_assessed'
   return (
     <section>
@@ -108,10 +121,16 @@ export function TaxonomySection({ status, activityRef, dnshFlag, onGoto }) {
           </span>
         </div>
         {activityRef && <p className="mt-2 text-[11px] leading-snug text-gray-500">{activityRef}</p>}
+        {s !== 'not_assessed' && reasoning && (
+          <div className="mt-2.5 space-y-1.5 border-t border-gray-100 pt-2.5">
+            <EvidenceRow verified={reasoning.substantial_contribution_verified} note={reasoning.substantial_contribution_note} />
+            <EvidenceRow verified={reasoning.minimum_safeguards_verified} note={reasoning.minimum_safeguards_note} />
+          </div>
+        )}
         {s !== 'not_assessed' && (
           <p className="mt-2 text-[11px] leading-snug text-gray-400">
-            Never "aligned" without verifying substantial contribution and minimum safeguards —
-            data this platform doesn't yet collect (see <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>).
+            Never "aligned" — that also needs do-no-significant-harm verified across all five other
+            environmental objectives, which this platform doesn't assess (see <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>).
           </p>
         )}
         {dnshFlag && (

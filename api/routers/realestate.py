@@ -40,13 +40,15 @@ from services.portfolio_engine import (
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
-EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur"]
+EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "x.epc_rating"]
 
 
 def _realestate_extra(row, headline, hz):
     impact = noi_impact(row["headline_score"], row["primary_value_eur"], row["annual_noi_eur"]) if headline else None
-    tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None)
-    return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"]}
+    tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None,
+                             epc_rating=row.get("epc_rating"), minimum_safeguards_status=row.get("minimum_safeguards_status"))
+    return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"],
+            "taxonomy_reasoning": tax["reasoning"]}
 
 
 def _map_property_row(row):
@@ -62,6 +64,8 @@ def _map_property_row(row):
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"], "noi_impact": row["noi_impact"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+        "taxonomy_reasoning": row["taxonomy_reasoning"], "epc_rating": row["epc_rating"],
+        "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
 
 router = APIRouter(prefix="/v1/realestate", tags=["Real Estate"])
@@ -193,9 +197,17 @@ PROPERTY_TEMPLATE_FIELDS = [
     {"name": "number_of_stories", "required": False, "description": "Number of stories.", "example": "1"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "South Holland"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "NL"},
+    {"name": "epc_rating", "required": False, "description": "Building Energy Performance Certificate grade (A-G) — "
+     "enables a real EU Taxonomy substantial-contribution check instead of an unverified gap.", "example": "B"},
+    {"name": "borrower_entity_id", "required": False, "description": "Owning entity's LEI or other stable ID — "
+     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per property.", "example": "5493001KJTIIGC8Y1R12"},
+    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
+     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
 ]
 REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["required"]]
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
+EPC_RATINGS = {"A", "B", "C", "D", "E", "F", "G"}
+SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
 
 @router.get("/property/{property_id}", summary="One property — full projection + provenance")
@@ -215,6 +227,8 @@ def property_detail(property_id: str, session: DbSession):
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
+        "taxonomy_reasoning": row["taxonomy_reasoning"], "epc_rating": row["epc_rating"],
+        "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
     audit = session.execute(text("""
         SELECT actor_user_id::text AS actor_user_id, action, detail, created_at
@@ -302,6 +316,12 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         construction = str(row["construction_type"]).strip().lower() if "construction_type" in df.columns and pd.notna(row.get("construction_type")) else None
         if construction and construction not in CONSTRUCTION_TYPES:
             construction = None
+        epc = str(row["epc_rating"]).strip().upper() if "epc_rating" in df.columns and pd.notna(row.get("epc_rating")) else None
+        if epc and epc not in EPC_RATINGS:
+            epc = None
+        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
+        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
+            safeguards = None
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
@@ -314,6 +334,9 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
             "construction_type": construction,
             "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
             "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
+            "epc_rating": epc,
+            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
+            "minimum_safeguards_status": safeguards,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
@@ -321,14 +344,16 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type,
                                          latitude, longitude, h3_cell, region, country,
-                                         primary_value_eur, construction_type, year_built, number_of_stories)
+                                         primary_value_eur, construction_type, year_built, number_of_stories,
+                                         borrower_entity_id, minimum_safeguards_status)
         VALUES (:entity_id, :org_id, 'realestate', :entity_name, :entity_type,
                 :latitude, :longitude, :h3_cell, :region, :country,
-                :primary_value_eur, :construction_type, :year_built, :number_of_stories)
+                :primary_value_eur, :construction_type, :year_built, :number_of_stories,
+                :borrower_entity_id, :minimum_safeguards_status)
     """), records)
     session.execute(text("""
-        INSERT INTO ext_realestate (entity_id, annual_noi_eur)
-        VALUES (:entity_id, :annual_noi_eur)
+        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating)
+        VALUES (:entity_id, :annual_noi_eur, :epc_rating)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="properties.upload",
                 target_type="realestate_properties", target_id=None,

@@ -48,7 +48,8 @@ export default function AssetMgmtDrawer({ holdingId, onClose, auth, scenario = '
             ['Sector · NACE', `${h.sector || '—'} · ${h.nace_code || '—'}`],
             ['Screening flag', h.flagged ? 'High / Very-High' : 'Below threshold'],
           ]} />
-          <TaxonomySection onGoto={onGoto} status={h.taxonomy_status} activityRef={h.taxonomy_activity_ref} />
+          <TaxonomySection onGoto={onGoto} status={h.taxonomy_status} activityRef={h.taxonomy_activity_ref}
+            reasoning={h.taxonomy_reasoning} />
           <ProvenanceFooter h3Cell={h.h3_cell} />
         </>
       )}

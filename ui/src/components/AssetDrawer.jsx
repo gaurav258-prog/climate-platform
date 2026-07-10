@@ -63,7 +63,7 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
             ['Value at this risk', headline && (headline.risk_bucket === 'H' || headline.risk_bucket === 'VH') ? euroM(a.value_eur) : '—'],
           ]} />
           <TaxonomySection onGoto={onGoto} status={a.taxonomy_status} activityRef={a.dnsh_assessment?.activity_ref}
-            dnshFlag={a.dnsh_assessment?.dnsh_climate_adaptation_flag} />
+            dnshFlag={a.dnsh_assessment?.dnsh_climate_adaptation_flag} reasoning={a.dnsh_assessment} />
           <Facts title="Disclosure (TCFD / EU Taxonomy)" rows={[
             ['NACE · GICS', `${a.nace_code || '—'} · ${a.gics_code || '—'}`],
             ['Construction year', a.construction_year || '—'],

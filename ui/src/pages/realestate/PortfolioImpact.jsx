@@ -17,7 +17,8 @@ const HAZ_LABEL = { flood: 'Flood', wildfire: 'Wildfire', volcanic: 'Volcanic', 
 const TAX_LABEL = { eligible: 'Eligible', not_eligible: 'Not eligible', not_assessed: 'Not assessed' }
 const TAX_COLOR = { eligible: '#ff9500', not_eligible: '#86868b', not_assessed: '#d1d5db' }
 const TEMPLATE_COLUMNS = ['property_name', 'latitude', 'longitude', 'property_value_eur', 'annual_noi_eur',
-  'property_type', 'construction_type', 'year_built', 'number_of_stories', 'region', 'country']
+  'property_type', 'construction_type', 'year_built', 'number_of_stories', 'region', 'country',
+  'epc_rating', 'borrower_entity_id', 'minimum_safeguards_status']
 
 function exportCsv(properties) {
   const head = ['property_name', 'property_type', 'region', 'country', 'property_value_eur', 'annual_noi_eur',

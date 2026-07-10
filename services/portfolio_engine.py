@@ -67,7 +67,8 @@ def fetch_entities_with_risk(
         SELECT e.entity_id::text AS entity_id, e.entity_name, e.entity_type, e.sector, e.nace_code,
                CAST(e.latitude AS FLOAT) AS lat, CAST(e.longitude AS FLOAT) AS lon, e.h3_cell,
                e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
-               e.construction_type, e.year_built, e.number_of_stories
+               e.construction_type, e.year_built, e.number_of_stories,
+               e.borrower_entity_id, e.minimum_safeguards_status
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
@@ -144,7 +145,8 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
         SELECT e.entity_id::text AS entity_id, e.org_id::text AS org_id, e.entity_name, e.entity_type,
                e.sector, e.nace_code, CAST(e.latitude AS FLOAT) AS lat, CAST(e.longitude AS FLOAT) AS lon,
                e.h3_cell, e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
-               e.construction_type, e.year_built, e.number_of_stories
+               e.construction_type, e.year_built, e.number_of_stories,
+               e.borrower_entity_id, e.minimum_safeguards_status
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
