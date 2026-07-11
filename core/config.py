@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 
+    # API-key bootstrap: the no-auth "mint the first key" path is gated behind
+    # this operator secret. EMPTY (the default) means anonymous bootstrap is
+    # DISABLED entirely — the production-safe default. To onboard a customer,
+    # set it and present it as the X-Bootstrap-Secret header. This closes the
+    # hole where anyone could POST /v1/auth/keys with a customer UUID and mint a
+    # live key with no authentication.
+    KEY_BOOTSTRAP_SECRET: str = ""
+
 
 _DEV_SECRET = "dev-insecure-change-me"
 

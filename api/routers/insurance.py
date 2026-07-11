@@ -58,7 +58,10 @@ def resolve_org(
         payload = decode_access_token(token)
         if payload and payload.get("org_id"):
             return payload["org_id"]
-    return org_id or DEMO_ORG
+    # SECURITY: a caller without a valid user JWT can ONLY ever see the public
+    # demo org — never an arbitrary org_id. Dropping the query-param fallback
+    # closes the cross-tenant read (an anonymous ?org_id=<other-tenant> IDOR).
+    return DEMO_ORG
 
 
 OrgId = Annotated[str, Depends(resolve_org)]
