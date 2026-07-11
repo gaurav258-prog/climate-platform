@@ -209,6 +209,36 @@ def resolve_isin(
     return res
 
 
+def link_isin_to_record(
+    session: Session,
+    isin: str,
+    rec: gleif.GleifRecord,
+    *,
+    org_id: Optional[str] = None,
+    asset_class: str = "equity",
+    log: bool = True,
+) -> Resolution:
+    """Persist an ISIN → issuer + security link from an ALREADY-fetched GLEIF
+    record (e.g. one found by name when GLEIF's ISIN mapping had a gap).
+
+    This fills a hole in GLEIF's ISIN→LEI coverage with our own: the security row
+    now maps the ISIN to the issuer, so a later customer upload of that ISIN is a
+    normal cache hit — no name matching on the customer path.
+    """
+    isin = (isin or "").strip().upper()
+    issuer_id = _upsert_issuer(session, rec)
+    security_id = _upsert_security(session, isin, issuer_id, rec.name, asset_class, None, rec.data_vintage)
+    res = Resolution(
+        isin=isin, status="resolved", issuer_id=issuer_id, security_id=security_id,
+        lei=rec.lei, issuer_name=rec.name, country=rec.country, sector_known=False,
+        source="gleif", data_vintage=rec.data_vintage,
+        detail="ISIN linked via GLEIF name lookup (ISIN→LEI mapping gap)",
+    )
+    if log:
+        _log(session, res, org_id)
+    return res
+
+
 def resolve_batch(
     session: Session,
     isins: list[str],

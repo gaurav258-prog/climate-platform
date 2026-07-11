@@ -156,6 +156,24 @@ def resolve_isin(isin: str) -> Optional[GleifRecord]:
     return rec
 
 
+def resolve_name(name: str) -> Optional[GleifRecord]:
+    """Resolve a company by legal name via GLEIF — a fallback for when GLEIF's
+    ISIN→LEI mapping file has a gap but the entity clearly exists.
+
+    ONLY safe with a curated, known name (as in our universe loader), never with
+    free-form customer input: name matching is inherently ambiguous, so this must
+    not sit on the ISIN-only customer path. Returns the top legal-name match.
+    """
+    name = (name or "").strip()
+    if len(name) < 3:
+        return None
+    payload = _request("lei-records", params={"filter[entity.legalName]": name, "page[size]": 1})
+    data = payload.get("data") or []
+    if not data:
+        return None
+    return _parse_record(data[0])
+
+
 def fetch_lei(lei: str) -> Optional[GleifRecord]:
     """Fetch a GLEIF record directly by LEI (enrichment / re-verification)."""
     lei = (lei or "").strip().upper()

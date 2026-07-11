@@ -33,7 +33,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.reference import gleif
 from services.reference.footprint import seed_hq_footprint
-from services.reference.resolver import resolve_isin
+from services.reference.resolver import resolve_isin, link_isin_to_record
 
 logging.basicConfig(level=logging.WARNING, format="%(message)s")
 log = logging.getLogger("universe")
@@ -78,17 +78,37 @@ def load_universe(csv_path: Path, limit: int | None = None) -> dict:
 
             res = resolve_isin(s, isin)
             if res.status == "unmatched":
-                counts["unmatched"] += 1
-                log.info("[%d/%d] %-42s NO GLEIF match (%s) — surfaced, not guessed", i, total, name[:42], isin)
-                continue
+                # GLEIF's ISIN→LEI file may simply not cover this instrument even
+                # though the entity exists. Since we curated the NAME, fall back to
+                # a name lookup and, if found, record the ISIN→issuer link in our
+                # own store (so future customer ISIN uploads cache-hit).
+                try:
+                    named = gleif.resolve_name(name) if name else None
+                except Exception:
+                    named = None
+                if named:
+                    res = link_isin_to_record(s, isin, named)
+                    log.info("[%d/%d] %-42s ✓ %s — via name (ISIN gap in GLEIF)", i, total, name[:42], named.lei)
+                else:
+                    counts["unmatched"] += 1
+                    log.info("[%d/%d] %-42s NO GLEIF match (%s) — surfaced, not guessed", i, total, name[:42], isin)
+                    continue
             if res.status == "error":
                 counts["error"] += 1
                 log.info("[%d/%d] %-42s source error — retry later", i, total, name[:42])
                 continue
 
-            # resolved or cached → ensure it has a located footprint
-            rec = gleif.fetch_lei(res.lei) if res.lei else None
-            seeded = seed_hq_footprint(s, res.issuer_id, rec) if rec else None
+            # resolved or cached → ensure it has a located footprint.
+            # A transient GLEIF/geocoder failure here must NOT abort the whole
+            # batch: mark this one for retry and move on (idempotent re-run picks
+            # it up). The issuer is already resolved, so no data is lost.
+            try:
+                rec = gleif.fetch_lei(res.lei) if res.lei else None
+                seeded = seed_hq_footprint(s, res.issuer_id, rec) if rec else None
+            except Exception as exc:  # network blip / geocoder outage — retryable
+                counts["error"] += 1
+                log.info("[%d/%d] %-42s located later (transient: %s)", i, total, name[:42], str(exc)[:60])
+                continue
             if seeded:
                 counts["located"] += 1
                 counts["loaded"] += 1
