@@ -31,7 +31,8 @@ export default function RealEstateDrawer({ propertyId, onClose, auth, scenario =
   const canOverride = new Set(auth?.permissions || []).has('pricing.approve')
 
   return (
-    <DrawerShell title={p?.property_name} subtitle={p && `${p.property_type} · ${p.country} · ${p.region}`} loading={!p} onClose={onClose}>
+    <DrawerShell title={p?.property_name} subtitle={p && `${p.property_type} · ${p.country} · ${p.region}`} loading={!p && !data?.error} onClose={onClose}>
+      {data?.error && <p className="text-[13px] text-gray-400">This property could not be found — it may have been removed from the book.</p>}
       {p && (
         <>
           <RiskSection risks={risks} models={models} emptyNote="This property's cell has not been scored — surfaced honestly, never a silent zero." />

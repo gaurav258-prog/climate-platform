@@ -28,7 +28,8 @@ export default function PolicyDrawer({ policyId, onClose, scenario = 'baseline',
   const risks = (data?.risks || []).filter(r => r.scenario === scenario && r.time_horizon === horizon)
 
   return (
-    <DrawerShell title={p?.policy_name} subtitle={p && `${p.policy_type} · ${p.country} · ${p.region}`} loading={!p} onClose={onClose}>
+    <DrawerShell title={p?.policy_name} subtitle={p && `${p.policy_type} · ${p.country} · ${p.region}`} loading={!p && !data?.error} onClose={onClose}>
+      {data?.error && <p className="text-[13px] text-gray-400">This policy could not be found — it may have been removed from the book.</p>}
       {p && (
         <>
           <RiskSection risks={risks} models={models} emptyNote="This policy's cell has not been scored — surfaced honestly, never a silent zero." />

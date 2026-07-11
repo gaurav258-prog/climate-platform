@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, KeyRound, ScrollText, CheckSquare, SlidersHorizontal, Plus, Loader2, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Users, KeyRound, ScrollText, CheckSquare, SlidersHorizontal, Plus, Loader2, Check, X, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import {
   fetchAdminUsers, createAdminUser, patchAdminUser,
   fetchRoles, fetchPermissions, setRolePermissions,
@@ -9,6 +9,21 @@ import {
 import { industryForOrg } from '../../data/catalog'
 import { DisclosureSummary } from '../bank/Reports'
 import { useToast } from '../../components/ToastProvider'
+import { DrawerShell, Facts } from '../../components/EntityDrawerParts'
+import AssetDrawer from '../../components/AssetDrawer'
+import RealEstateDrawer from '../../components/RealEstateDrawer'
+import AssetMgmtDrawer from '../../components/AssetMgmtDrawer'
+import PolicyDrawer from '../../components/PolicyDrawer'
+
+// audit target_type -> the drawer that can show it. Only entity types with a
+// real per-id drawer are clickable; anything else (role, approval, bulk
+// uploads with target_id=None) stays a plain row rather than a dead click.
+const AUDIT_TARGET_DRAWER = {
+  bank_asset: { Comp: AssetDrawer, prop: 'assetId' },
+  realestate_property: { Comp: RealEstateDrawer, prop: 'propertyId' },
+  assetmgmt_holding: { Comp: AssetMgmtDrawer, prop: 'holdingId' },
+  insurance_policy: { Comp: PolicyDrawer, prop: 'policyId' },
+}
 
 const TABS = [
   { id: 'users',         label: 'Users',                icon: Users,      perm: 'admin.users.manage' },
@@ -43,7 +58,7 @@ export default function AdminPage({ auth }) {
           {tab === 'users'         && <UsersTab />}
           {tab === 'roles'         && <RolesTab />}
           {tab === 'calc-settings' && <CalcSettingsTab auth={auth} />}
-          {tab === 'audit'         && <AuditTab />}
+          {tab === 'audit'         && <AuditTab auth={auth} />}
           {tab === 'approvals'     && <ApprovalsTab auth={auth} />}
         </div>
       </div>
@@ -56,6 +71,81 @@ function Title({ children, sub }) {
     {sub && <p className="mt-1 text-[14px] text-gray-500">{sub}</p>}</div>
 }
 
+/** View/edit one user -- name, status, roles, password reset. Reuses the list
+ * row's own data (no GET /users/{id} needed; the list already carries every
+ * field this needs) rather than adding a redundant detail endpoint. */
+function UserDrawer({ user, roles, onClose, onSaved }) {
+  const [form, setForm] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const toast = useToast()
+
+  useEffect(() => {
+    if (user) setForm({ full_name: user.full_name, status: user.status, role_ids: roles.filter(r => user.roles.includes(r.name)).map(r => r.id), password: '' })
+  }, [user, roles])
+
+  if (!user || !form) return null
+  const toggleRole = (id) => setForm(f => ({
+    ...f, role_ids: f.role_ids.includes(id) ? f.role_ids.filter(x => x !== id) : [...f.role_ids, id],
+  }))
+
+  async function save() {
+    setBusy(true); setErr(null)
+    try {
+      const patch = { full_name: form.full_name, status: form.status, role_ids: form.role_ids }
+      if (form.password) patch.password = form.password
+      await patchAdminUser(user.id, patch)
+      toast.success(`${form.full_name} updated.`)
+      onSaved(); onClose()
+    } catch (e) { setErr(e.message || 'Could not save.') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <DrawerShell title={user.full_name} subtitle={user.email} loading={false} onClose={onClose}>
+      <Facts title="Account" rows={[
+        ['Last login', user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'never'],
+        ['Created', user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'],
+      ]} />
+
+      <section>
+        <h3 className="mb-2 text-[11px] uppercase tracking-wide text-gray-400">Edit</h3>
+        <div className="space-y-3 rounded-2xl border border-gray-200 p-3">
+          <input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })}
+            placeholder="Full name"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-[#0071e3]" />
+          <div className="flex gap-2">
+            {['active', 'disabled'].map(s => (
+              <button key={s} onClick={() => setForm({ ...form, status: s })}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-[12px] font-medium capitalize transition ${
+                  form.status === s ? 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3]' : 'border-gray-200 text-gray-600'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {roles.map(r => (
+              <button key={r.id} onClick={() => toggleRole(r.id)}
+                className={`rounded-full border px-3 py-1 text-[12px] capitalize transition ${
+                  form.role_ids.includes(r.id) ? 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3]' : 'border-gray-200 text-gray-600'}`}>
+                {r.name}
+              </button>
+            ))}
+          </div>
+          <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+            placeholder="New password (leave blank to keep current)"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-[#0071e3]" />
+          {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">{err}</p>}
+          <button onClick={save} disabled={busy}
+            className="w-full rounded-full bg-[#0071e3] px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50">
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </section>
+    </DrawerShell>
+  )
+}
+
 // ── Users ──────────────────────────────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState(null)
@@ -64,6 +154,7 @@ function UsersTab() {
   const [form, setForm] = useState({ email: '', full_name: '', password: '', role_ids: [] })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
+  const [sel, setSel] = useState(null)
   const toast = useToast()
 
   const load = useCallback(() => {
@@ -141,7 +232,8 @@ function UsersTab() {
           </tr></thead>
           <tbody>
             {(users || []).map(u => (
-              <tr key={u.id} className="border-b border-gray-50 last:border-0">
+              <tr key={u.id} onClick={() => setSel(u)}
+                className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
                 <td className="px-4 py-3"><div className="font-medium text-[#1d1d1f]">{u.full_name}</div><div className="text-[12px] text-gray-400">{u.email}</div></td>
                 <td className="px-4 py-3 capitalize text-gray-600">{u.roles.join(', ') || '—'}</td>
                 <td className="px-4 py-3 text-gray-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'never'}</td>
@@ -149,7 +241,7 @@ function UsersTab() {
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${u.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{u.status}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => toggleStatus(u)} className="text-[12px] font-medium text-[#0071e3] hover:underline">
+                  <button onClick={e => { e.stopPropagation(); toggleStatus(u) }} className="text-[12px] font-medium text-[#0071e3] hover:underline">
                     {u.status === 'active' ? 'Disable' : 'Enable'}
                   </button>
                 </td>
@@ -159,6 +251,8 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      <UserDrawer user={sel} roles={roles} onClose={() => setSel(null)} onSaved={load} />
     </div>
   )
 }
@@ -321,9 +415,12 @@ function CalcSettingsTab({ auth }) {
 }
 
 // ── Audit ──────────────────────────────────────────────────────────────
-function AuditTab() {
+function AuditTab({ auth }) {
   const [rows, setRows] = useState(null)
+  const [sel, setSel] = useState(null)   // { target_type, target_id } | null
   useEffect(() => { fetchAudit({ limit: 100 }).then(setRows).catch(() => setRows([])) }, [])
+
+  const drawer = sel && AUDIT_TARGET_DRAWER[sel.target_type]
   return (
     <div>
       <Title sub="Every login and mutation, newest first — actor, action and target.">Audit trail</Title>
@@ -334,19 +431,32 @@ function AuditTab() {
             <th className="px-4 py-2.5 font-medium">Action</th><th className="px-4 py-2.5 font-medium">Target</th>
           </tr></thead>
           <tbody>
-            {(rows || []).map(r => (
-              <tr key={r.id} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-2.5 text-gray-500">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</td>
-                <td className="px-4 py-2.5 text-gray-700">{r.actor_email || '—'}</td>
-                <td className="px-4 py-2.5"><code className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-[#1d1d1f]">{r.action}</code></td>
-                <td className="px-4 py-2.5 text-gray-500">{r.target_type ? `${r.target_type}` : '—'}</td>
-              </tr>
-            ))}
+            {(rows || []).map(r => {
+              const clickable = r.target_id && AUDIT_TARGET_DRAWER[r.target_type]
+              return (
+                <tr key={r.id} onClick={clickable ? () => setSel(r) : undefined}
+                  className={`border-b border-gray-50 last:border-0 ${clickable ? 'cursor-pointer hover:bg-gray-50' : ''}`}>
+                  <td className="px-4 py-2.5 text-gray-500">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</td>
+                  <td className="px-4 py-2.5 text-gray-700">{r.actor_email || '—'}</td>
+                  <td className="px-4 py-2.5"><code className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-[#1d1d1f]">{r.action}</code></td>
+                  <td className="px-4 py-2.5 text-gray-500">
+                    <span className="flex items-center gap-1">
+                      {r.target_type || '—'}
+                      {clickable && <ArrowRight size={11} className="text-gray-300" />}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
             {rows === null && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>}
             {rows && rows.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">No audit entries yet.</td></tr>}
           </tbody>
         </table>
       </div>
+
+      {drawer && (
+        <drawer.Comp {...{ [drawer.prop]: sel.target_id }} onClose={() => setSel(null)} auth={auth} />
+      )}
     </div>
   )
 }

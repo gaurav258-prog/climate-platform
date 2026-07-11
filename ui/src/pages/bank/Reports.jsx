@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
-import { FileText, Download, FileSpreadsheet, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2, History, X, ChevronDown } from 'lucide-react'
+import { FileText, Download, FileSpreadsheet, Waves, Flame, Mountain, Wind, CloudFog, ShieldCheck, Loader2, CheckCircle2, History, X, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import RiskAtom, { BUCKET } from '../../components/RiskAtom'
 import AssetDrawer from '../../components/AssetDrawer'
-import { fetchDisclosure, fetchPortfolio, downloadFile, createSubmission, fetchSubmissions, fetchSubmission } from '../../api/client'
+import { fetchDisclosure, fetchPortfolio, downloadFile, createSubmission, fetchSubmissions, fetchSubmission, fetchSubmissionsTrend } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
 const bn = n => '€' + (n / 1e9).toFixed(2) + 'bn'
@@ -161,6 +161,93 @@ export function DisclosureSummary({ d, assets, onSelectAsset }) {
   )
 }
 
+/** Real quarter-over-quarter deltas across released submissions -- the
+ * GET /v1/bank/submissions/trend endpoint existed with no frontend consumer
+ * anywhere; this is that consumer. Every newly/de-flagged asset is itself
+ * clickable into AssetDrawer, same drill-to-lowest-level pattern as the
+ * hazard table above. */
+function TrendPanel({ trend, onSelectAsset }) {
+  if (trend.status !== 'ok') {
+    return (
+      <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-[14px] font-semibold text-[#1d1d1f]">
+          <TrendingUp size={15} className="text-gray-400" /> Quarter-over-quarter trend
+        </h2>
+        <p className="mt-2 text-[13px] text-gray-400">{trend.message || 'Not enough released history yet.'}</p>
+      </section>
+    )
+  }
+  const c = trend.cumulative
+  const latest = trend.deltas[trend.deltas.length - 1]
+  return (
+    <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+      <h2 className="flex items-center gap-2 text-[14px] font-semibold text-[#1d1d1f]">
+        <TrendingUp size={15} className="text-gray-400" /> Quarter-over-quarter trend
+      </h2>
+      <p className="mt-1 text-[13px] text-gray-500">
+        {c.from_period} → {c.to_period}, across every released submission — a real diff of frozen numbers, not a fitted forecast.
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <DeltaStat label="Value at risk" value={c.value_at_risk_delta_eur} fmt={mn} />
+        <DeltaStat label="% of book at High+" value={c.pct_value_at_risk_delta} fmt={v => `${v}pp`} />
+        <DeltaStat label="High-risk assets" value={c.n_high_delta} fmt={v => v} inverse />
+      </div>
+
+      {latest && (latest.newly_flagged_assets.length > 0 || latest.de_flagged_assets.length > 0) && (
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">
+            {latest.from_period} → {latest.to_period}
+          </p>
+          {latest.newly_flagged_assets.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[12px] font-medium text-[#c2410c]">Newly High+ this period</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {latest.newly_flagged_assets.map(a => (
+                  <button key={a.asset_id} onClick={() => onSelectAsset(a.asset_id)}
+                    className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-medium text-[#c2410c] hover:bg-orange-100">
+                    {a.asset_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {latest.de_flagged_assets.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[12px] font-medium text-emerald-700">No longer High+</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {latest.de_flagged_assets.map(a => (
+                  <button key={a.asset_id} onClick={() => onSelectAsset(a.asset_id)}
+                    className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100">
+                    {a.asset_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function DeltaStat({ label, value, fmt, inverse }) {
+  const worse = inverse ? value > 0 : value > 0
+  const better = inverse ? value < 0 : value < 0
+  return (
+    <div className="rounded-xl bg-[#f5f5f7] px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="mt-1 flex items-center gap-1">
+        {value !== 0 && (worse
+          ? <TrendingUp size={13} className="text-[#c2410c]" />
+          : <TrendingDown size={13} className="text-emerald-600" />)}
+        <span className={`text-[15px] font-semibold ${worse ? 'text-[#c2410c]' : better ? 'text-emerald-700' : 'text-gray-500'}`}>
+          {value > 0 ? '+' : ''}{fmt(value)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export default function Reports({ auth }) {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState('current')
@@ -172,6 +259,7 @@ export default function Reports({ auth }) {
   const [submissions, setSubmissions] = useState([])
   const [viewing, setViewing] = useState(null)   // { loading } | { submission } | null
   const [selAsset, setSelAsset] = useState(null)
+  const [trend, setTrend] = useState(null)
 
   useEffect(() => {
     setD(null)
@@ -181,6 +269,7 @@ export default function Reports({ auth }) {
 
   const loadSubmissions = useCallback(() => {
     fetchSubmissions().then(setSubmissions).catch(() => setSubmissions([]))
+    fetchSubmissionsTrend().then(setTrend).catch(() => setTrend(null))
   }, [])
   useEffect(() => { loadSubmissions() }, [loadSubmissions])
 
@@ -271,6 +360,8 @@ export default function Reports({ auth }) {
         )}
 
         {!d ? <p className="text-gray-400">loading…</p> : <DisclosureSummary d={d} assets={assets} onSelectAsset={setSelAsset} />}
+
+        {trend && <TrendPanel trend={trend} onSelectAsset={setSelAsset} />}
 
         <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-[14px] font-semibold text-[#1d1d1f]">

@@ -194,6 +194,12 @@ export async function fetchSubmission(id) {
   return get(`/v1/bank/submissions/${id}`)
 }
 
+/** Quarter-over-quarter deltas across released submissions: { periods, deltas, cumulative?, status }.
+ * status is 'insufficient_history' until at least 2 releases exist. */
+export async function fetchSubmissionsTrend() {
+  return get('/v1/bank/submissions/trend')
+}
+
 /** Bulk-upload a CSV of assets into your own org's loan book. Requires login (writes are
  * always tenant-scoped to the uploader). Returns { n_uploaded, n_cells, n_sync_scored, n_gridded_dispatched }. */
 export async function uploadBankAssets(file) {

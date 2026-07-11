@@ -30,7 +30,8 @@ export default function AssetMgmtDrawer({ holdingId, onClose, auth, scenario = '
   const canOverride = new Set(auth?.permissions || []).has('pricing.approve')
 
   return (
-    <DrawerShell title={h?.holding_name} subtitle={h && `${h.sector} · ${h.country} · ${h.region}`} loading={!h} onClose={onClose}>
+    <DrawerShell title={h?.holding_name} subtitle={h && `${h.sector} · ${h.country} · ${h.region}`} loading={!h && !data?.error} onClose={onClose}>
+      {data?.error && <p className="text-[13px] text-gray-400">This holding could not be found — it may have been removed from the book.</p>}
       {h && (
         <>
           <RiskSection risks={risks} models={models} emptyNote="This holding's cell has not been scored — surfaced honestly, never a silent zero." />

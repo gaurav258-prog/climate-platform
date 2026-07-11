@@ -29,7 +29,8 @@ export default function AssetDrawer({ assetId, onClose, scenario = 'baseline', h
   const canOverride = new Set(auth?.permissions || []).has('pricing.approve')
 
   return (
-    <DrawerShell title={a?.asset_name} subtitle={a && `${a.sector} · ${a.country} · ${a.region}`} loading={!a} onClose={onClose}>
+    <DrawerShell title={a?.asset_name} subtitle={a && `${a.sector} · ${a.country} · ${a.region}`} loading={!a && !data?.error} onClose={onClose}>
+      {data?.error && <p className="text-[13px] text-gray-400">This asset could not be found — it may have been removed from the book.</p>}
       {a && (
         <>
           <RiskSection risks={risks} models={models} emptyNote="This asset's cell has not been scored — surfaced honestly, never a silent zero." />
