@@ -10,10 +10,12 @@ caller only ever sees the demo asset-manager org (never an arbitrary org_id).
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import DbSession
@@ -22,6 +24,9 @@ from services.asset_manager_engine import (
     fund_positions_with_risk,
 )
 from services.fund_disclosure import fund_climate_summary
+from services.reference import gleif
+from services.reference.footprint import seed_hq_footprint
+from services.reference.resolver import resolve_isin
 
 router = APIRouter(prefix="/v1", tags=["Asset Management — Funds"])
 
@@ -92,6 +97,103 @@ def fund_positions(fund_id: str, session: DbSession, org_id: OrgId,
     positions = fund_positions_with_risk(session, fund_id, scenario, horizon)
     positions.sort(key=lambda p: -(p["physical"]["headline_score"] or 0))
     return {"fund_id": fund_id, "scenario": scenario, "horizon": horizon, "positions": positions}
+
+
+class Holding(BaseModel):
+    isin: str
+    market_value_eur: float = Field(..., gt=0)          # the position's value; NOT NULL in the book
+    weight_pct: Optional[float] = None                  # if omitted, derived from value share
+    asset_class: str = "equity"                         # equity / corporate_bond / sovereign_bond / ...
+    currency: Optional[str] = None
+
+
+class HoldingsUpload(BaseModel):
+    as_of_date: Optional[date] = None
+    holdings: list[Holding]
+
+
+@router.post("/funds/{fund_id}/holdings", summary="Onboard holdings by ISIN — resolve, locate, and value-weight into the fund")
+def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: OrgId):
+    """The 'upload ISINs alone' action.
+
+    For each holding we (1) resolve the ISIN to an issuer+security from open data
+    (GLEIF), (2) seed the issuer's HQ footprint + score it if the issuer is new,
+    and (3) record the value-weighted position. The response is an honest
+    COVERAGE report: what matched, what didn't, and which enrichment gaps remain
+    (sector/NACE, footprint, emissions) — never a fabricated fill.
+
+    Scale note: footprint geocoding + scoring runs inline here, which is right for
+    an early-access upload of tens of holdings but not thousands — that path
+    should queue (same Celery pattern the gridded hazards already use).
+    """
+    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if not owner:
+        return {"error": "fund not found"}
+    if owner != org_id:
+        return {"error": "forbidden"}
+    if not body.holdings:
+        return {"error": "no holdings supplied"}
+
+    as_of = body.as_of_date or date.today()
+    total_value = sum(h.market_value_eur for h in body.holdings) or 1.0
+
+    # De-dupe by ISIN (a book repeats issuers); keep the first value/weight seen.
+    by_isin: dict[str, Holding] = {}
+    for h in body.holdings:
+        key = (h.isin or "").strip().upper()
+        by_isin.setdefault(key, h)
+
+    resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
+    for isin, h in by_isin.items():
+        res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class, currency=h.currency)
+        resolutions.append(res.to_dict())
+        if res.status not in ("resolved", "cached") or not res.security_id:
+            continue  # unmatched / errored ISINs are reported, never positioned
+
+        # Seed the issuer's footprint if it has none yet, so physical risk is
+        # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an
+        # issuer resolved in a prior session but never located would otherwise
+        # never get a footprint on re-upload.
+        has_fac = session.execute(
+            text("SELECT 1 FROM issuer_facilities WHERE issuer_id = :i LIMIT 1"),
+            {"i": res.issuer_id}).first()
+        if has_fac:
+            footprints["already"] += 1
+        elif res.lei:
+            rec = gleif.fetch_lei(res.lei)
+            seeded = seed_hq_footprint(session, res.issuer_id, rec) if rec else None
+            footprints["seeded" if seeded else "failed"] += 1
+        else:
+            footprints["failed"] += 1  # matched security but no LEI to locate from — surfaced
+
+        weight = h.weight_pct if h.weight_pct is not None else round(100.0 * h.market_value_eur / total_value, 6)
+        session.execute(text("""
+            INSERT INTO fund_positions (fund_id, security_id, market_value_eur, weight_pct, as_of_date)
+            VALUES (:f, :s, :mv, :w, :d)
+            ON CONFLICT (fund_id, security_id, as_of_date)
+            DO UPDATE SET market_value_eur = EXCLUDED.market_value_eur, weight_pct = EXCLUDED.weight_pct
+        """), {"f": fund_id, "s": res.security_id, "mv": h.market_value_eur, "w": weight, "d": as_of})
+        positions_created += 1
+
+    matched = sum(1 for r in resolutions if r["status"] in ("resolved", "cached"))
+    sector_gaps = [r["isin"] for r in resolutions if r["status"] in ("resolved", "cached") and not r["sector_known"]]
+    return {
+        "fund_id": fund_id, "as_of_date": as_of.isoformat(),
+        "holdings_submitted": len(body.holdings), "distinct_isins": len(by_isin),
+        "positions_created": positions_created,
+        "coverage": {
+            "matched": matched,
+            "match_rate_pct": round(100.0 * matched / len(by_isin), 1) if by_isin else 0.0,
+            "unmatched": [r["isin"] for r in resolutions if r["status"] == "unmatched"],
+            "errored": [r["isin"] for r in resolutions if r["status"] == "error"],
+            "footprints": footprints,
+            "sector_gap_isins": sector_gaps,   # matched but NACE unknown → needed for EU Taxonomy
+        },
+        "resolutions": resolutions,
+        "note": "Physical risk is now computable for located issuers. Sector/NACE, "
+                "multi-facility footprints and issuer emissions are the remaining "
+                "enrichment inputs (surfaced, not fabricated).",
+    }
 
 
 @router.get("/issuers/{issuer_id}", summary="One issuer — full facility footprint + physical + transition detail")

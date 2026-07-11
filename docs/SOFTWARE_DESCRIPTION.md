@@ -84,10 +84,25 @@ Core tables (PostgreSQL + TimescaleDB + PostGIS):
   `climate_hazard_exposure`, `damage_assessment`
 - **Regulatory:** `regulatory_frameworks`, `regulation_versions`, `regulatory_package`,
   `sc_model_validation`
+- **Asset-manager securities book:** `issuers`, `issuer_facilities`, `securities`, `funds`,
+  `fund_positions`, `issuer_emissions`, `issuer_transition_scores` — the issuer/footprint/fund
+  graph (distinct from the located-asset `portfolio_entities` model), keyed to the same golden
+  source via `issuer_facilities.h3_cell → canonical_scores`.
+- **Reference-data provenance:** every `issuers`/`securities`/`issuer_facilities`/`issuer_emissions`
+  row carries `source` + `data_vintage` (+ `confidence` on facilities); `reference_resolution_log`
+  records one row per ISIN resolution attempt (resolved/cached/unmatched/error) — the audit trail
+  an SFDR filing cites.
 - **Multi-tenancy:** `organizations`, `users`, `roles`, `permissions`, `api_keys`
 
 `canonical_scores` is append-only; scores are never mutated in place, only superseded
 (`valid_to`), which is what makes the backtest/audit trail reproducible.
+
+**Reference-data resolution (open-data, no vendor license).** `services/reference/` turns a bare
+ISIN — all an asset-manager client supplies — into an auditable issuer→security→footprint graph:
+GLEIF (ISIN→LEI→issuer identity, free/keyless) resolves the issuer; the GLEIF headquarters address
+is geocoded (Nominatim/OSM) and snapped to H3 res-8 to seed a footprint facility, scored via the
+same any-address path (`services.scoring.on_demand`). Sector/NACE (absent from GLEIF) and
+multi-facility footprints/emissions are surfaced as coverage gaps, never fabricated.
 
 ## 6. Security, multi-tenancy & access control
 
@@ -113,7 +128,9 @@ JWT + bcrypt. Roles are org-scoped (admin, analyst, reporter, viewer); permissio
 REST API (`api/`) is the sole external interface: scoring/data endpoints, admin/user management,
 regulatory export. No other externally-facing services currently exist. Data adapters
 (`services/ingestion/adapters/`) are the platform's only outbound integrations: NASA FIRMS,
-Copernicus Sentinel-1/3, ERA5, GloFAS, EMSC.
+Copernicus Sentinel-1/3, ERA5, GloFAS, EMSC. The reference-data layer (`services/reference/`) adds
+two further outbound open-data integrations: GLEIF (LEI/ISIN resolution) and Nominatim/OSM
+(headquarters geocoding).
 
 ## 9. Non-functional characteristics
 
@@ -142,3 +159,4 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 | Date | Version | Change |
 |---|---|---|
 | 2026-07-04 | 1.0 | Initial Software Description Document created. |
+| 2026-07-11 | 1.1 | Added asset-manager securities book + reference-data resolution layer (open-data ISIN→issuer→footprint via GLEIF + Nominatim, with provenance and an ISIN-resolution audit log). |

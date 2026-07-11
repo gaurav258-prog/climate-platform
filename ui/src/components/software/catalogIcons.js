@@ -1,7 +1,7 @@
 import {
   Landmark, Shield, LayoutDashboard, Briefcase, Map, Radio, FileText,
   Award, Layers, Database, Umbrella, FileSearch, LineChart, Zap, Sprout, Package,
-  Building2, ScrollText, TrendingUp,
+  Building2, ScrollText, TrendingUp, Upload,
 } from 'lucide-react'
 
 export const ICON = {
@@ -10,5 +10,5 @@ export const ICON = {
   certificate: Award, 'stack-2': Layers, database: Database, umbrella: Umbrella,
   'file-search': FileSearch, 'chart-line': LineChart, bolt: Zap,
   sprout: Sprout, package: Package, building: Building2, scroll: ScrollText,
-  'trending-up': TrendingUp,
+  'trending-up': TrendingUp, upload: Upload,
 }

@@ -142,6 +142,9 @@ export const CATALOG = {
         id: 'securities', label: 'Securities portfolio', icon: 'briefcase',
         blurb: 'Funds → issuers → footprints: physical + transition + SFDR PAI.',
         services: [
+          { id: 'onboard', label: 'Onboard holdings', icon: 'upload', workflow: 'FundOnboarding',
+            blurb: 'Upload ISIN + weight — we resolve issuers, locate footprints and report coverage, from open data.',
+            processes: ['Upload', 'Resolve', 'Locate', 'Score', 'Coverage'] },
           { id: 'funds', label: 'Fund climate & SFDR', icon: 'layout-dashboard', workflow: 'FundsOverview',
             blurb: 'Physical footprint risk + transition risk + SFDR PAI, per fund.',
             processes: ['Ingest', 'Footprint', 'Transition', 'Aggregate', 'Disclose'] },

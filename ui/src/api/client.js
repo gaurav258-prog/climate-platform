@@ -330,6 +330,12 @@ export async function fetchIssuer(issuerId, { scenario = 'baseline', horizon = '
   return get(`/v1/issuers/${issuerId}?scenario=${scenario}&horizon=${horizon}`)
 }
 
+/** Onboard holdings by ISIN into a fund. body: { as_of_date?, holdings:[{isin, market_value_eur, weight_pct?, asset_class?, currency?}] }.
+ *  Returns an honest coverage report: matched/unmatched, footprint seeding, sector gaps. */
+export async function onboardHoldings(fundId, body) {
+  return post(`/v1/funds/${fundId}/holdings`, body)
+}
+
 /** Override the recommended climate-VaR discount for a holding (requires pricing.approve). */
 export async function overrideAssetMgmtValuation(holdingId, discountPct, reason) {
   return post(`/v1/assetmgmt/holding/${holdingId}/valuation-override`, { discount_pct: discountPct, reason })
