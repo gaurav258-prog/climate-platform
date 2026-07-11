@@ -25,6 +25,7 @@ import LossCurvePricing from './pages/insurance/LossCurvePricing'
 import ParametricTriggers from './pages/insurance/ParametricTriggers'
 import RealEstatePortfolioImpact from './pages/realestate/PortfolioImpact'
 import AssetMgmtPortfolioVaR from './pages/assetmgmt/PortfolioVaR'
+import FundsOverview from './pages/assetmgmt/FundsOverview'
 import LandingPage from './pages/LandingPage'
 import LookupScorePage from './pages/LookupScorePage'
 import SolutionsPage from './pages/SolutionsPage'
@@ -33,7 +34,7 @@ import DocumentationPage from './pages/DocumentationPage'
 import ServicePortalPage from './pages/ServicePortalPage'
 import AdminPage from './pages/admin/AdminPage'
 
-const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, MethodologyPage, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers, RealEstatePortfolioImpact, AssetMgmtPortfolioVaR }
+const WORKFLOWS = { CommandCenter, Portfolio, RiskMapBank, Signals, Reports, MethodologyPage, ModelsPage, PlatformOverviewPage, CogsCommand, SourcingBook, RiskMapSupply, SupplySignals, SupplyDisclosure, SupplyModels, LossCurvePricing, ParametricTriggers, RealEstatePortfolioImpact, AssetMgmtPortfolioVaR, FundsOverview }
 
 // industries.js (marketing copy) and catalog.js (real nav tree) use different id
 // conventions for the same two sectors — reconcile before looking up CATALOG.

@@ -308,6 +308,28 @@ export async function fetchAssetMgmtHolding(holdingId) {
   return get(`/v1/assetmgmt/holding/${holdingId}`)
 }
 
+// ── Securities portfolio (funds → issuers → footprints; physical + transition + SFDR PAI) ──
+
+/** Org's funds with headline physical/transition/WACI: { funds:[{fund_id, name, physical_score, transition_score, waci, ...}] }. */
+export async function fetchFunds({ scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/funds?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** One fund's climate report: { fund, physical, transition, pai } value-weighted. */
+export async function fetchFund(fundId, { scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/funds/${fundId}?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** A fund's positions, each with issuer physical + transition risk. */
+export async function fetchFundPositions(fundId, { scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/funds/${fundId}/positions?scenario=${scenario}&horizon=${horizon}`)
+}
+
+/** One issuer — full facility footprint + per-facility raw scores + transition + emissions. */
+export async function fetchIssuer(issuerId, { scenario = 'baseline', horizon = 'current' } = {}) {
+  return get(`/v1/issuers/${issuerId}?scenario=${scenario}&horizon=${horizon}`)
+}
+
 /** Override the recommended climate-VaR discount for a holding (requires pricing.approve). */
 export async function overrideAssetMgmtValuation(holdingId, discountPct, reason) {
   return post(`/v1/assetmgmt/holding/${holdingId}/valuation-override`, { discount_pct: discountPct, reason })

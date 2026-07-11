@@ -40,7 +40,7 @@ ENTITLEMENTS = {
     MERIDIAN: ["physical-risk", "reporting", "trust"],
     IBERIA:   ["underwriting", "parametric", "trust"],
     STELLAR:  ["portfolio-risk", "trust"],
-    NORDKAP:  ["portfolio-var", "trust"],
+    NORDKAP:  ["portfolio-var", "trust", "securities"],
 }
 
 # role name -> permission codes

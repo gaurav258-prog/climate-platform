@@ -139,7 +139,16 @@ export const CATALOG = {
     blurb: 'Portfolio climate VaR and screening on the same golden source.',
     offerings: [
       {
-        id: 'portfolio-var', label: 'Portfolio VaR', icon: 'shield-half',
+        id: 'securities', label: 'Securities portfolio', icon: 'briefcase',
+        blurb: 'Funds → issuers → footprints: physical + transition + SFDR PAI.',
+        services: [
+          { id: 'funds', label: 'Fund climate & SFDR', icon: 'layout-dashboard', workflow: 'FundsOverview',
+            blurb: 'Physical footprint risk + transition risk + SFDR PAI, per fund.',
+            processes: ['Ingest', 'Footprint', 'Transition', 'Aggregate', 'Disclose'] },
+        ],
+      },
+      {
+        id: 'portfolio-var', label: 'Portfolio VaR (legacy)', icon: 'shield-half',
         blurb: 'Climate value-at-risk and screening, per holding.',
         services: [
           { id: 'var', label: 'Portfolio climate VaR', icon: 'layout-dashboard', workflow: 'AssetMgmtPortfolioVaR',
