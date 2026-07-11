@@ -148,6 +148,9 @@ export const CATALOG = {
           { id: 'funds', label: 'Fund climate & SFDR', icon: 'layout-dashboard', workflow: 'FundsOverview',
             blurb: 'Physical footprint risk + transition risk + SFDR PAI, per fund.',
             processes: ['Ingest', 'Footprint', 'Transition', 'Aggregate', 'Disclose'] },
+          { id: 'sfdr', label: 'SFDR filing', icon: 'file-report', workflow: 'SfdrStatement',
+            blurb: 'The mandatory PAI statement (RTS Annex I) — filing-ready, downloadable, with honest gaps.',
+            processes: ['Assemble', 'Cover', 'Disclose', 'Export'] },
         ],
       },
       {

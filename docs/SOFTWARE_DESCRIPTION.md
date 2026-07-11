@@ -160,3 +160,4 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 |---|---|---|
 | 2026-07-04 | 1.0 | Initial Software Description Document created. |
 | 2026-07-11 | 1.1 | Added asset-manager securities book + reference-data resolution layer (open-data ISIN→issuer→footprint via GLEIF + Nominatim, with provenance and an ISIN-resolution audit log). |
+| 2026-07-11 | 1.2 | Added SFDR PAI statement (the filing): ml/regulatory/sfdr_pai.py assembles the mandated RTS Annex I Table 1 (14 investee indicators — computed where honest, gap-flagged with the exact input otherwise) + EU Taxonomy lines; JSON + downloadable .xlsx endpoints; asset-mgmt SFDR filing UI. Common EU-listed universe pre-loaded via scripts/load_reference_universe.py. |

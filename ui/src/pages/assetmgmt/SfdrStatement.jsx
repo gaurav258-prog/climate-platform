@@ -1,0 +1,147 @@
+import { useState, useEffect } from 'react'
+import { FileCheck2, Download, CheckCircle2, CircleDashed, AlertTriangle, Scale } from 'lucide-react'
+import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement } from '../../api/client'
+
+const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
+
+const METHOD = {
+  computed: { label: 'Computed', cls: 'bg-green-50 text-green-700', Icon: CheckCircle2 },
+  partial: { label: 'Partial', cls: 'bg-amber-50 text-amber-700', Icon: CircleDashed },
+  not_available: { label: 'Input required', cls: 'bg-gray-100 text-gray-500', Icon: CircleDashed },
+}
+
+const fmtVal = v => {
+  if (v == null) return '—'
+  if (typeof v === 'object') return Object.entries(v).map(([k, x]) => `${k.replace(/_/g, ' ')}: ${typeof x === 'number' ? x.toLocaleString() : x}`).join(' · ')
+  if (typeof v === 'number') return v.toLocaleString()
+  return String(v)
+}
+
+export default function SfdrStatement({ onGoto }) {
+  const [funds, setFunds] = useState(null)
+  const [fund, setFund] = useState(null)
+  const [st, setSt] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => { fetchFunds().then(d => { setFunds(d.funds || []); if (d.funds?.length) setFund(d.funds[0].fund_id) }).catch(() => setFunds([])) }, [])
+  useEffect(() => { if (!fund) return; setSt(null); fetchSfdrStatement(fund).then(setSt).catch(() => setSt({ error: true })) }, [fund])
+
+  const cov = st?.coverage_summary
+  const fundName = funds?.find(f => f.fund_id === fund)?.name
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto bg-[#f5f5f7] px-8 py-8">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
+            <FileCheck2 size={13} /> Regulatory filing
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">SFDR PAI statement</h1>
+          <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
+            The mandatory Principal Adverse Impact statement, in the shape the regulation defines
+            (<span className="text-gray-600">SFDR RTS, Annex I, Table 1</span>). Every required line is shown — the ones
+            we can compute are filled with their coverage and source; the rest are flagged with the exact input still
+            needed. Nothing is invented, nothing is silently dropped.
+          </p>
+        </div>
+        {st && !st.error && (
+          <button onClick={async () => { setBusy(true); try { await downloadSfdrStatement(fund, fundName) } finally { setBusy(false) } }}
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-[#0071e3] px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#0077ed] disabled:bg-gray-300">
+            <Download size={15} /> {busy ? 'Preparing…' : 'Download filing (.xlsx)'}
+          </button>
+        )}
+      </header>
+
+      {funds && funds.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {funds.map(f => (
+            <button key={f.fund_id} onClick={() => setFund(f.fund_id)}
+              className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition ${fund === f.fund_id ? 'border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!st ? <p className="text-gray-400">loading…</p> : st.error ? <p className="text-gray-400">No statement available for this fund.</p> : (
+        <>
+          <div className="grid grid-cols-4 gap-4">
+            <Stat label="Fund" value={st.entity.fund_name} sub={`${mn(st.entity.total_value_eur)} · ${st.entity.positions} positions`} small />
+            <Stat label="Computed" value={`${cov.computed}/${cov.mandatory_indicators}`} sub="mandatory indicators" accent="#1C7A4B" />
+            <Stat label="Awaiting input" value={cov.not_available + cov.partial} sub="surfaced, not faked" accent="#9A5B08" />
+            <Stat label="Emissions coverage" value={cov.emissions_coverage_pct == null ? '—' : `${cov.emissions_coverage_pct}%`} sub="of portfolio value" accent="#0071e3" />
+          </div>
+
+          <p className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">{cov.filing_readiness}</p>
+
+          {/* the mandated indicator table */}
+          <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+            <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Principal Adverse Impact indicators
+              <span className="font-normal text-gray-400"> — {st.regulatory_basis}</span></h2>
+            <table className="mt-3 w-full text-[13px]">
+              <thead><tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wide text-gray-400">
+                <th className="py-2 font-medium">#</th><th className="py-2 font-medium">Adverse impact indicator</th>
+                <th className="py-2 text-right font-medium">Value</th><th className="py-2 text-right font-medium">Coverage</th>
+                <th className="py-2 font-medium">Status / input required</th>
+              </tr></thead>
+              <tbody>
+                {st.indicators.map(ind => {
+                  const m = METHOD[ind.method] || METHOD.not_available
+                  return (
+                    <tr key={ind.number} className="border-b border-gray-50 last:border-0 align-top">
+                      <td className="py-2.5 text-gray-400">{ind.number}</td>
+                      <td className="py-2.5"><div className="font-medium text-[#1d1d1f]">{ind.metric}</div>
+                        <div className="text-[11px] text-gray-400">{ind.area} · {ind.unit}</div></td>
+                      <td className="py-2.5 text-right tabular-nums text-[#1d1d1f]">{fmtVal(ind.value)}</td>
+                      <td className="py-2.5 text-right text-[11px] text-gray-400">{ind.coverage_pct == null ? '—' : `${ind.coverage_pct}%`}</td>
+                      <td className="py-2.5">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.cls}`}><m.Icon size={11} /> {m.label}</span>
+                        {ind.input_required && <div className="mt-1 text-[11px] text-gray-400">needs: {ind.input_required}</div>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </section>
+
+          {/* taxonomy */}
+          <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+            <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1d1d1f]"><Scale size={14} /> EU Taxonomy</h2>
+            <div className="mt-3 grid grid-cols-3 gap-4">
+              <Mini label="Assessable (has NACE)" value={`${st.taxonomy.assessable_pct}%`} />
+              <Mini label="Taxonomy-eligible" value={fmtVal(st.taxonomy.taxonomy_eligible_pct)} />
+              <Mini label="Taxonomy-aligned" value="Not asserted" />
+            </div>
+            <p className="mt-3 flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-[11px] leading-snug text-blue-800">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {st.taxonomy.alignment_note} Input required: {st.taxonomy.input_required}.
+            </p>
+          </section>
+
+          <p className="mt-4 text-[11px] text-gray-400">
+            {st.provenance.scope_note} Generated {new Date(st.provenance.generated_at).toLocaleString()} · source: {st.provenance.source}.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value, sub, accent, small }) {
+  return (
+    <div className="rounded-2xl border border-gray-200/70 bg-white p-4 shadow-sm">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className={`mt-1.5 font-semibold tracking-tight ${small ? 'text-lg' : 'text-2xl'}`} style={{ color: accent || '#1d1d1f' }}>{value}</div>
+      <div className="text-[11px] text-gray-400">{sub}</div>
+    </div>
+  )
+}
+
+function Mini({ label, value }) {
+  return (
+    <div className="rounded-xl bg-[#f5f5f7] px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="mt-1 text-[15px] font-semibold text-[#1d1d1f]">{value}</div>
+    </div>
+  )
+}

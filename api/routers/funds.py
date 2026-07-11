@@ -14,6 +14,7 @@ from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -24,6 +25,7 @@ from services.asset_manager_engine import (
     fund_positions_with_risk,
 )
 from services.fund_disclosure import fund_climate_summary
+from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx
 from services.reference import gleif
 from services.reference.footprint import seed_hq_footprint
 from services.reference.resolver import resolve_isin
@@ -194,6 +196,38 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
                 "multi-facility footprints and issuer emissions are the remaining "
                 "enrichment inputs (surfaced, not fabricated).",
     }
+
+
+def _fund_owned_or_error(session, fund_id: str, org_id: str):
+    owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if not owner:
+        return "not found"
+    if owner != org_id:
+        return "forbidden"
+    return None
+
+
+@router.get("/funds/{fund_id}/sfdr-statement", summary="SFDR PAI statement — the filing, as structured JSON")
+def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    return sfdr_pai_statement(session, fund_id)
+
+
+@router.get("/funds/{fund_id}/sfdr-statement.xlsx", summary="Download the SFDR PAI statement as a filing-shaped .xlsx")
+def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    statement = sfdr_pai_statement(session, fund_id)
+    if statement.get("error"):
+        return statement
+    buf = sfdr_pai_statement_xlsx(statement)
+    fname = f"SFDR_PAI_Statement_{statement['entity']['fund_name'].replace(' ', '_')}.xlsx"
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @router.get("/issuers/{issuer_id}", summary="One issuer — full facility footprint + physical + transition detail")
