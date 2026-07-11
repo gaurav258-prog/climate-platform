@@ -6,7 +6,6 @@ import {
 } from 'lucide-react'
 import { INDUSTRIES, PROCESSING_CHAIN } from '../data/industries'
 import { fetchScoresSummary } from '../api/client'
-import LiveEarthHero from '../components/LiveEarthHero'
 
 const ICONS = {
   landmark: Landmark, umbrella: Umbrella, sprout: Sprout, layers: Layers,
@@ -40,18 +39,20 @@ export default function PlatformOverviewPage({ onSelectIndustry }) {
 
   return (
     <div className="w-full h-screen overflow-y-auto bg-gray-50">
-      {/* Hero — live Earth from the ISS */}
-      <LiveEarthHero>
-        <p className="text-[11px] uppercase tracking-[0.25em] text-white/70 mb-3">Data foundation</p>
-        <h1 className="text-5xl md:text-6xl font-light leading-tight text-white drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
-          One golden source in.<br /><span className="text-sky-300">A defensible number out.</span>
-        </h1>
-        <p className="mt-5 max-w-2xl text-lg text-white/85 drop-shadow-[0_1px_10px_rgba(0,0,0,0.6)]">
-          Two things go in — live satellite/climate data, and your own portfolio — and one auditable score per
-          location comes out, translated into whatever your sector actually prices against. This page is that
-          whole chain, made visible.
-        </p>
-      </LiveEarthHero>
+      {/* Header — plain, no video: this section is only about the data foundation */}
+      <header className="border-b border-gray-200 bg-white">
+        <div className="max-w-6xl mx-auto px-8 py-12">
+          <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-3">Data foundation</p>
+          <h1 className="text-4xl md:text-5xl font-light leading-tight text-gray-900">
+            One golden source in.<br /><span className="text-indigo-600">A defensible number out.</span>
+          </h1>
+          <p className="mt-5 max-w-2xl text-lg text-gray-600 leading-relaxed">
+            Two things go in — live satellite/climate data, and your own portfolio — and one auditable score per
+            location comes out, translated into whatever your sector actually prices against. This page is that
+            whole chain, made visible.
+          </p>
+        </div>
+      </header>
 
       {/* 1 · INPUTS — the two sides of what we ingest */}
       <section className="max-w-6xl mx-auto px-8 py-12">
