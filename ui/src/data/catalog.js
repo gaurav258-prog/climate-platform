@@ -100,6 +100,14 @@ export const CATALOG = {
             blurb: 'Live events vs policy thresholds.', processes: ['Monitor', 'Match', 'Trigger'] },
         ],
       },
+      {
+        id: 'trust', label: 'Trust & assurance', icon: 'certificate',
+        blurb: 'Why every number is defensible.',
+        services: [
+          { id: 'foundation', label: 'Data foundation', icon: 'database', workflow: 'PlatformOverviewPage',
+            blurb: 'Live data → AI engine → golden source.', processes: ['Sense', 'Clean', 'Score'] },
+        ],
+      },
     ],
   },
 
@@ -113,6 +121,14 @@ export const CATALOG = {
         services: [
           { id: 'impact', label: 'Portfolio & NOI impact', icon: 'layout-dashboard', workflow: 'RealEstatePortfolioImpact',
             blurb: 'Climate-adjusted value + NOI impact, per property.', processes: ['Ingest', 'Project', 'Impact', 'Disclose'] },
+        ],
+      },
+      {
+        id: 'trust', label: 'Trust & assurance', icon: 'certificate',
+        blurb: 'Why every number is defensible.',
+        services: [
+          { id: 'foundation', label: 'Data foundation', icon: 'database', workflow: 'PlatformOverviewPage',
+            blurb: 'Live data → AI engine → golden source.', processes: ['Sense', 'Clean', 'Score'] },
         ],
       },
     ],
@@ -130,6 +146,14 @@ export const CATALOG = {
             blurb: 'Value-weighted climate risk across the holdings book.', processes: ['Ingest', 'Project', 'VaR', 'Screen'] },
         ],
       },
+      {
+        id: 'trust', label: 'Trust & assurance', icon: 'certificate',
+        blurb: 'Why every number is defensible.',
+        services: [
+          { id: 'foundation', label: 'Data foundation', icon: 'database', workflow: 'PlatformOverviewPage',
+            blurb: 'Live data → AI engine → golden source.', processes: ['Sense', 'Clean', 'Score'] },
+        ],
+      },
     ],
   },
 }
@@ -138,11 +162,11 @@ export const PERSONAS = [
   { id: 'meridian', name: 'Meridian Bank', icon: 'building-bank', industry: 'banking',
     entitlements: { offerings: ['physical-risk', 'reporting', 'trust'] } },
   { id: 'iberia', name: 'Iberia Mutual', icon: 'umbrella', industry: 'insurance',
-    entitlements: { offerings: ['underwriting', 'parametric'] } },
+    entitlements: { offerings: ['underwriting', 'parametric', 'trust'] } },
   { id: 'stellar', name: 'Stellar Logistics REIT', icon: 'building', industry: 'realestate',
-    entitlements: { offerings: ['portfolio-risk'] } },
+    entitlements: { offerings: ['portfolio-risk', 'trust'] } },
   { id: 'nordkap', name: 'Nordkap Asset Management', icon: 'trending-up', industry: 'assetmgmt',
-    entitlements: { offerings: ['portfolio-var'] } },
+    entitlements: { offerings: ['portfolio-var', 'trust'] } },
 ]
 
 // Entitlement-filtered view of a persona's industry (demo/marketing paths).
