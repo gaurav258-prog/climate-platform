@@ -132,3 +132,45 @@ def test_esg_pai_5_to_14_computed():
             s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": fid})
             s.execute(text("DELETE FROM securities WHERE isin='DE00ESGTST1'"))
             s.execute(text("DELETE FROM issuers WHERE issuer_id=:i"), {"i": iid})
+
+
+@pytest.mark.integration
+def test_evic_attribution_capped_and_positive():
+    """Regression (audit #1): a tiny/mis-keyed or non-positive EVIC must not
+    inflate or invert financed emissions. Attribution factor is capped at 1.0."""
+    from services.fund_disclosure import fund_pai
+    with get_session() as s:
+        fid = str(s.execute(text("INSERT INTO funds (org_id,name,fund_type) VALUES (:o,'TEST EVIC CAP','fund') RETURNING fund_id"), {"o": DEMO_ORG}).scalar())
+        iid = str(s.execute(text("INSERT INTO issuers (name,issuer_type,country,source) VALUES ('EVIC Cap Co','corporate','DE','manual') RETURNING issuer_id")).scalar())
+        sid = str(s.execute(text("INSERT INTO securities (isin,name,issuer_id,asset_class,source) VALUES ('DE00EVICCAP','x',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
+        # mv 5m, evic 2m → uncapped af = 2.5; capped → 1.0 → financed = full scopes
+        s.execute(text("INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,evic_eur,source) VALUES (:i,2023,100000,50000,1000000000,2000000,'client')"), {"i": iid})
+        s.execute(text("INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) VALUES (:f,:s,5000000,100,'2026-07-12')"), {"f": fid, "s": sid})
+    try:
+        with get_session() as s:
+            fe = fund_pai(s, fid)["pai"]["pai_1_financed_emissions_tco2e"]
+        assert fe["total"] == 150000  # = scope1+2 with af capped at 1.0 (not 375000 at af=2.5)
+    finally:
+        with get_session() as s:
+            s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": fid})
+            s.execute(text("DELETE FROM securities WHERE isin='DE00EVICCAP'"))
+            s.execute(text("DELETE FROM issuers WHERE name='EVIC Cap Co'"))
+
+
+@pytest.mark.integration
+def test_yoy_skips_incomparable_methods():
+    """Regression (audit #2): a prior-year value of a different method (e.g. PAI 1
+    un-attributed vs financed) must NOT produce a bogus change — no fabricated move."""
+    from ml.regulatory.sfdr_pai import _attach_prior_year
+    from unittest.mock import MagicMock
+    session = MagicMock()
+    session.execute.return_value.mappings.return_value.first.return_value = {
+        "reference_year": 2022,
+        "statement": {"indicators": [{"number": 1, "value": {"total": 40000000}, "method": "partial"}]},
+    }
+    inds = [{"number": 1, "value": {"total": 180000}, "method": "computed"}]
+    meta = _attach_prior_year(session, "fid", 2023, inds)
+    assert meta["available"] is True
+    assert "change" not in inds[0]           # methods differ → no change computed
+    assert inds[0]["prior_value"] == {"total": 40000000}
+    assert "not comparable" in inds[0]["change_note"]

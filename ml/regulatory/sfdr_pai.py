@@ -32,6 +32,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from services.asset_manager_engine import fund_descendant_ids
 from services.fund_disclosure import fund_pai, fund_esg_pai
 
 # ── The mandatory PAI indicators (SFDR RTS Annex I, Table 1 — investee companies) ──
@@ -114,8 +115,9 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers   i ON i.issuer_id = s.issuer_id
-        WHERE  p.fund_id = :f
-    """), {"f": fund_id}).mappings().all()
+        WHERE  p.fund_id = ANY(:fids)
+          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
+    """), {"fids": fund_descendant_ids(session, fund_id)}).mappings().all()
     total = sum(float(r["mv"]) for r in rows) or 0.0
     with_nace = sum(float(r["mv"]) for r in rows if r["nace_code"])
     return {
@@ -137,9 +139,9 @@ def _composition_and_sovereign(session, fund_id: str) -> dict:
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
-        WHERE  p.fund_id = :f
-          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = :f)
-    """), {"f": fund_id}).mappings().all()
+        WHERE  p.fund_id = ANY(:fids)
+          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
+    """), {"fids": fund_descendant_ids(session, fund_id)}).mappings().all()
     by_class: dict[str, float] = {}
     sov_mv = 0.0
     sov_weighted_intensity = 0.0
@@ -218,8 +220,15 @@ def _attach_prior_year(session, fund_id: str, ref_year, indicators: list[dict]) 
         prior = prior_by_num.get(ind["number"])
         if not prior:
             continue
-        pv, cv = _indicator_numeric(prior.get("value")), _indicator_numeric(ind.get("value"))
         ind["prior_value"] = prior.get("value")
+        # Only compute a change when the two periods are LIKE-FOR-LIKE. PAI 1's
+        # value shape changes with method (un-attributed investee total vs
+        # PCAF-attributed financed total) — comparing across those would fabricate
+        # a huge bogus move, so a method mismatch shows the prior value but no change.
+        if prior.get("method") != ind.get("method"):
+            ind["change_note"] = f"not comparable — method changed ({prior.get('method')} → {ind.get('method')})"
+            continue
+        pv, cv = _indicator_numeric(prior.get("value")), _indicator_numeric(ind.get("value"))
         if pv is not None and cv is not None:
             ind["change"] = round(cv - pv, 3)
             ind["change_pct"] = round(100 * (cv - pv) / pv, 1) if pv else None
@@ -310,8 +319,11 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     # PAI 4 — fossil-fuel-sector exposure (computed from NACE)
     filled[4] = _row(4, "Climate & environment",
                      "Exposure to companies active in the fossil fuel sector", "% of value",
-                     value=p["pai_4_fossil_fuel_exposure_pct"], coverage=100.0,
-                     source="issuer NACE division (golden source)", method="computed")
+                     value=p["pai_4_fossil_fuel_exposure_pct"], coverage=p.get("pai_4_coverage_pct", 100.0),
+                     source="issuer NACE division (golden source)",
+                     method="computed" if p.get("pai_4_coverage_pct", 100.0) >= 99.9 else "partial",
+                     input_required=None if p.get("pai_4_coverage_pct", 100.0) >= 99.9
+                     else f"issuer NACE on the remaining {round(100 - p.get('pai_4_coverage_pct', 100.0), 1)}% by value")
 
     # Inputs each remaining mandatory indicator needs (when its data is absent).
     remaining_inputs = {
@@ -356,15 +368,21 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
 
     comp = _composition_and_sovereign(session, fund_id)
 
-    # Reference period = the dominant emissions vintage across the book (PAI is
-    # reported for a calendar year). Prior period disclosed as first-period N/A.
+    # Reference period = the vintage covering the most DISTINCT issuers across the
+    # fund (and its sub-funds), scoped to this org's own disclosures + the global
+    # fallback. Counting distinct issuers (not raw rows) and filtering by org means
+    # another tenant's private data and per-issuer duplicate rows can't tip the year.
+    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    fund_ids = fund_descendant_ids(session, fund_id)
     ref_year = session.execute(text("""
         SELECT e.reporting_year FROM fund_positions p
         JOIN securities s ON s.security_id = p.security_id
         JOIN issuer_emissions e ON e.issuer_id = s.issuer_id
-        WHERE p.fund_id = :f AND e.scope1_tco2e IS NOT NULL
-        GROUP BY e.reporting_year ORDER BY count(*) DESC, e.reporting_year DESC LIMIT 1
-    """), {"f": fund_id}).scalar()
+        WHERE p.fund_id = ANY(:fids) AND e.scope1_tco2e IS NOT NULL
+          AND (e.org_id = :org OR e.org_id IS NULL)
+        GROUP BY e.reporting_year
+        ORDER BY count(DISTINCT s.issuer_id) DESC, e.reporting_year DESC LIMIT 1
+    """), {"fids": fund_ids, "org": org_id}).scalar()
 
     # Year-on-year: attach each indicator's prior filed value + change (SFDR yr 2+).
     comparison = _attach_prior_year(session, fund_id, ref_year, indicators)

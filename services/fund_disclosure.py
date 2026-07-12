@@ -90,11 +90,11 @@ def fund_esg_pai(session, fund_id: str) -> dict:
         return (round(100 * sum(mv for mv, v in known if v) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
 
     def attributed_per_meur(field):
-        cov = [(r["mv"], r["evic"], r[field]) for r in rows if r[field] is not None and r["evic"]]
+        cov = [(r["mv"], r["evic"], r[field]) for r in rows if r[field] is not None and r["evic"] and r["evic"] > 0]
         inv = sum(mv for mv, _, _ in cov)
         if not inv:
             return None, 0.0
-        attributed = sum((mv / evic) * v for mv, evic, v in cov)
+        attributed = sum(min(mv / evic, 1.0) * v for mv, evic, v in cov)  # attribution capped at 100%
         return round(attributed / (inv / 1e6), 3), round(100 * inv / total_mv, 1)
 
     return {
@@ -150,7 +150,9 @@ def fund_pai(session, fund_id: str) -> dict:
     if total_mv == 0:
         return {"total_value_eur": 0, "positions": 0}
 
-    with_emissions = [r for r in rows if r["s1"] is not None and r["revenue_eur"]]
+    # Positive revenue required — a negative/zero revenue would invert or blow up
+    # the carbon-intensity ratio, so those holdings are excluded (and disclosed via coverage).
+    with_emissions = [r for r in rows if r["s1"] is not None and r["revenue_eur"] and r["revenue_eur"] > 0]
     covered_mv = sum(r["mv"] for r in with_emissions)
     # SFDR requires disclosing the estimated-vs-reported split.
     estimated_mv = sum(r["mv"] for r in with_emissions if r.get("emissions_source") == "estimated")
@@ -176,11 +178,14 @@ def fund_pai(session, fund_id: str) -> dict:
     investee_s2 = sum((r["s2"] or 0) for r in with_emissions)
     investee_s3 = sum((r["s3"] or 0) for r in with_emissions)
 
-    with_evic = [r for r in with_emissions if r.get("evic_eur")]
+    # EVIC must be strictly positive; the attribution factor (investment ÷ EVIC)
+    # is capped at 1.0 — you cannot finance more than 100% of an issuer, and a
+    # tiny/mis-keyed EVIC would otherwise inflate financed emissions arbitrarily.
+    with_evic = [r for r in with_emissions if r.get("evic_eur") and r["evic_eur"] > 0]
     financed_mv = sum(r["mv"] for r in with_evic)
     fin_s1 = fin_s2 = fin_s3 = 0.0
     for r in with_evic:
-        af = r["mv"] / r["evic_eur"]            # attribution factor
+        af = min(r["mv"] / r["evic_eur"], 1.0)   # attribution factor, capped at 100%
         fin_s1 += af * r["s1"]
         fin_s2 += af * (r["s2"] or 0)
         fin_s3 += af * (r["s3"] or 0)
@@ -189,7 +194,11 @@ def fund_pai(session, fund_id: str) -> dict:
     # PAI 2 — carbon footprint = financed emissions ÷ €M invested (over EVIC-covered value).
     carbon_footprint = round(financed_total / (financed_mv / 1e6), 1) if has_financed else None
 
-    # PAI 4 — fossil-fuel-sector exposure %
+    # PAI 4 — fossil-fuel-sector exposure %. Coverage = share of value whose NACE
+    # is known; a NULL-NACE holding is NOT silently treated as non-fossil in the
+    # coverage claim (the % is over the whole book, coverage is disclosed separately).
+    nace_known_mv = sum(r["mv"] for r in rows if r["nace_code"])
+    pai4_coverage = round(100 * nace_known_mv / total_mv, 1) if total_mv else 0.0
     fossil_mv = sum(r["mv"] for r in rows
                     if r["nace_code"] and r["nace_code"].strip()[:2] in FOSSIL_FUEL_NACE_DIVISIONS)
 
@@ -203,6 +212,7 @@ def fund_pai(session, fund_id: str) -> dict:
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,
             "pai_4_fossil_fuel_exposure_pct": round(100 * fossil_mv / total_mv, 2),
+            "pai_4_coverage_pct": pai4_coverage,   # share of value whose NACE is known
             # PAI 1 — financed emissions, attributed via EVIC where available.
             "pai_1_financed_emissions_tco2e": {
                 "scope_1": round(fin_s1), "scope_2": round(fin_s2), "scope_3": round(fin_s3),

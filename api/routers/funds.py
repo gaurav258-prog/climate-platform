@@ -111,11 +111,11 @@ class Holding(BaseModel):
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
     sector: Optional[str] = None
-    revenue_eur: Optional[float] = None                 # denominator for carbon intensity / WACI
-    scope1_tco2e: Optional[float] = None
-    scope2_tco2e: Optional[float] = None
-    scope3_tco2e: Optional[float] = None
-    evic_eur: Optional[float] = None                    # enterprise value incl. cash → PCAF attribution (PAI 1/2)
+    revenue_eur: Optional[float] = Field(None, gt=0)    # denominator for carbon intensity / WACI — must be positive
+    scope1_tco2e: Optional[float] = Field(None, ge=0)
+    scope2_tco2e: Optional[float] = Field(None, ge=0)
+    scope3_tco2e: Optional[float] = Field(None, ge=0)
+    evic_eur: Optional[float] = Field(None, gt=0)       # enterprise value incl. cash → PCAF attribution (PAI 1/2)
     reporting_year: Optional[int] = None
     # ── Non-carbon ESG facts (SFDR PAI 5-14), from the manager's ESG feed ──
     non_renewable_energy_pct: Optional[float] = None    # PAI 5
@@ -266,11 +266,16 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     as_of = body.as_of_date or date.today()
     total_value = sum(h.market_value_eur for h in body.holdings) or 1.0
 
-    # De-dupe by ISIN (a book repeats issuers); keep the first value/weight seen.
+    # Aggregate repeated ISINs (a book can list the same security as several lots):
+    # SUM their market value rather than dropping later lots, so the position value
+    # and weights match the total. Enrichment fields keep the first non-null seen.
     by_isin: dict[str, Holding] = {}
     for h in body.holdings:
         key = (h.isin or "").strip().upper()
-        by_isin.setdefault(key, h)
+        if key in by_isin:
+            by_isin[key].market_value_eur += h.market_value_eur
+        else:
+            by_isin[key] = h.model_copy()
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
     enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0}
@@ -502,11 +507,14 @@ def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
 
     phys = issuer_physical_scores(session, scenario, horizon, [issuer_id]).get(issuer_id, {})
     trans = issuer_transition_scores(session, scenario, horizon, [issuer_id]).get(issuer_id)
+    # Org-scoped: show THIS org's own disclosure or the global fallback — never
+    # another tenant's private (source='client') emissions for the same issuer.
     emissions = session.execute(text("""
         SELECT reporting_year, CAST(scope1_tco2e AS FLOAT) AS scope1, CAST(scope2_tco2e AS FLOAT) AS scope2,
                CAST(scope3_tco2e AS FLOAT) AS scope3, CAST(revenue_eur AS FLOAT) AS revenue_eur, source
-        FROM issuer_emissions WHERE issuer_id = :i ORDER BY reporting_year DESC LIMIT 1
-    """), {"i": issuer_id}).mappings().first()
+        FROM issuer_emissions WHERE issuer_id = :i AND (org_id = :o OR org_id IS NULL)
+        ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+    """), {"i": issuer_id, "o": org_id}).mappings().first()
 
     return {
         "issuer": dict(issuer),
