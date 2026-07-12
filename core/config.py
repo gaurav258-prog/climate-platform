@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     # live key with no authentication.
     KEY_BOOTSTRAP_SECRET: str = ""
 
+    # Geocoder — defaults to OpenStreetMap's public Nominatim, which enforces a
+    # max of 1 request/second. That is the hard bottleneck when pre-loading a
+    # large issuer universe. Point NOMINATIM_URL at a self-hosted Nominatim (or a
+    # paid geocoder's compatible endpoint) and drop NOMINATIM_MIN_INTERVAL_S to
+    # 0 to scale — a config change, not a code change. Only raise loader
+    # concurrency above 1 when pointed at such an instance (never against the
+    # public server — it violates their usage policy).
+    NOMINATIM_URL: str = "https://nominatim.openstreetmap.org/search"
+    NOMINATIM_MIN_INTERVAL_S: float = 1.0
+
 
 _DEV_SECRET = "dev-insecure-change-me"
 

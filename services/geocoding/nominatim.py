@@ -12,30 +12,39 @@ Nominatim instance or a paid provider (Google/Mapbox) if this needs real traffic
 """
 from __future__ import annotations
 
+import threading
 import time
 
 import httpx
 
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+from core.config import settings
+
 USER_AGENT = "TellumenClimatePlatform/1.0 (https://tellumen.example; contact: support@tellumen.example)"
 
 _last_request_time = 0.0
-_MIN_INTERVAL_S = 1.0  # Nominatim usage policy: max 1 request/second
+_rate_lock = threading.Lock()  # thread-safe so concurrent loaders share one rate budget
 
 
 def _respect_rate_limit():
+    """Honour the configured min interval between requests. Thread-safe, so
+    parallel workers still respect a single geocoder's rate budget. When
+    NOMINATIM_MIN_INTERVAL_S is 0 (a self-hosted instance) this is a no-op."""
+    interval = settings.NOMINATIM_MIN_INTERVAL_S
+    if interval <= 0:
+        return
     global _last_request_time
-    elapsed = time.monotonic() - _last_request_time
-    if elapsed < _MIN_INTERVAL_S:
-        time.sleep(_MIN_INTERVAL_S - elapsed)
-    _last_request_time = time.monotonic()
+    with _rate_lock:
+        elapsed = time.monotonic() - _last_request_time
+        if elapsed < interval:
+            time.sleep(interval - elapsed)
+        _last_request_time = time.monotonic()
 
 
 def geocode(address: str) -> dict | None:
     """Address string -> {"lat": float, "lon": float, "display_name": str}, or None if not found."""
     _respect_rate_limit()
     r = httpx.get(
-        NOMINATIM_URL,
+        settings.NOMINATIM_URL,
         params={"q": address, "format": "jsonv2", "limit": 1},
         headers={"User-Agent": USER_AGENT},
         timeout=15,
