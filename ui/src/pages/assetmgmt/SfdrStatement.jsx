@@ -96,6 +96,16 @@ export default function SfdrStatement({ onGoto }) {
 
           <p className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">{cov.filing_readiness}</p>
 
+          {/* filing header: reference period + declaration + what the download contains */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">
+            <span><b className="text-[#1d1d1f]">Reference period:</b> {st.summary?.reference_period}</span>
+            <span><b className="text-[#1d1d1f]">PAI considered:</b> Yes</span>
+            {st.summary?.manager_lei_required
+              ? <span className="text-amber-700">Manager LEI required to file</span>
+              : <span><b className="text-[#1d1d1f]">Manager LEI:</b> {st.entity.manager_lei}</span>}
+            <span className="text-gray-400">Download = Summary + PAI statement (RTS Table 1) + Provenance appendix</span>
+          </div>
+
           {/* the mandated indicator table */}
           <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
             <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Principal Adverse Impact indicators

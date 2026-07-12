@@ -270,12 +270,39 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     missing = sum(1 for i in indicators if i["method"] == "not_available")
 
     comp = _composition_and_sovereign(session, fund_id)
+
+    # Reference period = the dominant emissions vintage across the book (PAI is
+    # reported for a calendar year). Prior period disclosed as first-period N/A.
+    ref_year = session.execute(text("""
+        SELECT e.reporting_year FROM fund_positions p
+        JOIN securities s ON s.security_id = p.security_id
+        JOIN issuer_emissions e ON e.issuer_id = s.issuer_id
+        WHERE p.fund_id = :f AND e.scope1_tco2e IS NOT NULL
+        GROUP BY e.reporting_year ORDER BY count(*) DESC, e.reporting_year DESC LIMIT 1
+    """), {"f": fund_id}).scalar()
+
+    manager_lei = fund.get("org_lei")  # organizations has no LEI column yet → required input
     return {
         "entity": {
             "fund_id": fund["fund_id"], "fund_name": fund["name"],
-            "manager": fund["org_name"], "base_currency": fund["base_currency"],
+            "manager": fund["org_name"], "manager_lei": manager_lei,
+            "base_currency": fund["base_currency"],
             "sfdr_classification": fund["sfdr_classification"],
             "total_value_eur": pai["total_value_eur"], "positions": pai["positions"],
+        },
+        # RTS Annex I header/declaration + reference period.
+        "summary": {
+            "reference_period": f"FY{ref_year}" if ref_year else "reference period not set (supply issuer emissions with a reporting year)",
+            "reference_year": ref_year,
+            "prior_period": "Not available — first reference period",
+            "pai_considered": True,
+            "manager_lei_required": manager_lei is None,
+            "declaration": (
+                f"This is the principal adverse impacts statement on sustainability factors of "
+                f"{fund['org_name']} ({manager_lei or 'LEI required'}) for the fund "
+                f"'{fund['name']}', reference period {('FY' + str(ref_year)) if ref_year else '—'}. "
+                "Principal adverse impacts of investment decisions on sustainability factors are considered."
+            ),
         },
         "statement": "Principal Adverse Impact (PAI) statement",
         "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
@@ -302,8 +329,27 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         "provenance": {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "source": _GOLDEN_SOURCE,
-            "scope_note": "Investee-company indicators only (equity / corporate bonds). "
-                          "Sovereign and real-estate PAI tables are out of scope for this statement.",
+            "scope_note": "Investee-company + sovereign + real-estate indicators, per the "
+                          "holdings actually present. Scope 3 emissions are not estimated.",
+            "data_sources": [
+                {"item": "Issuer identity & ISIN→LEI", "source": "GLEIF (open LEI system)", "vintage": "resolved at onboarding"},
+                {"item": "Facility location", "source": "GLEIF HQ address → OpenStreetMap/Nominatim geocode", "vintage": "at onboarding"},
+                {"item": "Physical hazard scores", "source": "Tellumen golden source (canonical_scores, append-only)", "vintage": "model-stamped"},
+                {"item": "Issuer emissions / revenue / EVIC", "source": "client disclosure where supplied; else estimated", "vintage": f"FY{ref_year}" if ref_year else "n/a"},
+                {"item": "Estimated emissions", "source": "NACE sector-average intensity × revenue (illustrative, → EXIOBASE)", "vintage": "model"},
+                {"item": "Sovereign country GHG intensity", "source": "public territorial emissions ÷ GDP (illustrative)", "vintage": "model"},
+            ],
+            "model_versions": {
+                "emissions_estimation": "emissions-est-v1-sector-intensity",
+                "attribution": "PCAF: investment ÷ EVIC",
+            },
+            "disclosures": {
+                "emissions_coverage_pct": emis_cov,
+                "emissions_estimated_pct": emis_est,
+                "financed_emissions_coverage_pct": pai.get("financed_emissions_coverage_pct", 0.0),
+            },
+            "manager_actions_note": "Actions taken and targets (RTS Table 1, final columns) are a "
+                                    "manager narrative and must be completed by the manager; not machine-derived.",
         },
     }
 
@@ -326,95 +372,166 @@ def _fmt_value(v) -> str:
     return str(v)
 
 
+def _explanation(ind: dict, ref_year) -> str:
+    """RTS 'Explanation' column: what the figure is, its coverage, and — honestly —
+    where it's estimated or still needs input."""
+    if ind["method"] == "computed":
+        base = f"Computed ({ind['coverage_pct']}% coverage). Source: {ind['source']}."
+    elif ind["method"] == "partial":
+        base = f"Partial ({ind['coverage_pct']}% coverage). Source: {ind['source']}."
+        if ind["input_required"]:
+            base += f" To complete: {ind['input_required']}."
+    elif ind["method"] == "estimated":
+        base = f"Estimated. {ind['source']}."
+    elif ind["method"] == "not_applicable":
+        base = f"Not applicable — {ind['input_required']}." if ind["input_required"] else "Not applicable."
+    else:
+        base = f"Not available. Input required: {ind['input_required']}." if ind["input_required"] else "Not available."
+    return base
+
+
 def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
-    """Render the assembled statement as a formatted, filer-usable .xlsx document."""
+    """Render a filing-grade, multi-sheet workbook: Summary (RTS declaration),
+    PAI statement (RTS Table 1 columns), and a Provenance & methodology appendix."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
 
     title_font = Font(bold=True, size=14, color="1D1D1F")
+    h2_font = Font(bold=True, size=12, color="1B54C4")
     head_font = Font(bold=True, color="FFFFFF")
     head_fill = PatternFill("solid", fgColor="1B54C4")
     label_font = Font(bold=True, color="48515F")
     wrap = Alignment(wrap_text=True, vertical="top")
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "SFDR PAI Statement"
     e = statement["entity"]
+    summ = statement["summary"]
+    prov = statement["provenance"]
+    ref_year = summ.get("reference_year")
+    wb = Workbook()
 
-    ws["A1"] = "Principal Adverse Impact (PAI) Statement"
+    # ── Sheet 1: Summary / declaration ──
+    ws = wb.active
+    ws.title = "Summary"
+    ws["A1"] = "Principal Adverse Impacts Statement — Summary"
     ws["A1"].font = title_font
-    meta = [
-        ("Fund", e["fund_name"]), ("Manager", e["manager"]),
-        ("SFDR classification", e.get("sfdr_classification") or "—"),
+    ws["A3"] = summ["declaration"]
+    ws["A3"].alignment = wrap
+    ws.merge_cells("A3:F5")
+    rows = [
+        ("Financial market participant (manager)", e["manager"]),
+        ("Manager LEI", e.get("manager_lei") or "REQUIRED — supply the manager's LEI"),
+        ("Fund", e["fund_name"]),
+        ("SFDR product classification", e.get("sfdr_classification") or "—"),
+        ("Reference period", summ["reference_period"]),
+        ("Prior reference period", summ["prior_period"]),
+        ("Principal adverse impacts considered", "Yes"),
         ("Portfolio value (EUR)", f"{e['total_value_eur']:,}"),
         ("Positions", e["positions"]),
         ("Regulatory basis", statement["regulatory_basis"]),
-        ("Generated (UTC)", statement["provenance"]["generated_at"]),
+        ("Mandatory indicators computed", f"{statement['coverage_summary']['computed']} of {statement['coverage_summary']['mandatory_indicators']}"),
+        ("Emissions coverage", f"{statement['coverage_summary']['emissions_coverage_pct']}% (of which {statement['coverage_summary']['emissions_estimated_pct']}% estimated)"),
+        ("Generated (UTC)", prov["generated_at"]),
     ]
-    r = 3
-    for k, v in meta:
+    r = 7
+    for k, v in rows:
         ws.cell(r, 1, k).font = label_font
-        ws.cell(r, 2, v)
+        ws.cell(r, 2, v).alignment = wrap
         r += 1
+    for i, w in enumerate([38, 62], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
 
-    r += 1
-    headers = ["#", "Area", "Adverse impact indicator", "Value", "Unit", "Coverage", "Data source / status"]
+    # ── Sheet 2: PAI statement (RTS Table 1 columns) ──
+    ws2 = wb.create_sheet("PAI statement")
+    ref_lbl = summ["reference_period"]
+    headers = ["#", "Adverse sustainability indicator", "Metric",
+               f"Impact ({ref_lbl})", "Impact (prior period)", "Explanation",
+               "Actions taken / planned & targets"]
     for c, h in enumerate(headers, 1):
-        cell = ws.cell(r, c, h)
+        cell = ws2.cell(1, c, h)
         cell.font = head_font
         cell.fill = head_fill
+        cell.alignment = wrap
+    r = 2
+
+    def _write_row(ind):
+        nonlocal r
+        ws2.cell(r, 1, ind["number"])
+        ws2.cell(r, 2, ind["area"]).alignment = wrap
+        ws2.cell(r, 3, f'{ind["metric"]} ({ind["unit"]})').alignment = wrap
+        ws2.cell(r, 4, _fmt_value(ind["value"])).alignment = wrap
+        ws2.cell(r, 5, statement["summary"]["prior_period"]).alignment = wrap
+        ws2.cell(r, 6, _explanation(ind, ref_year)).alignment = wrap
+        ws2.cell(r, 7, "[Manager to complete]").alignment = wrap
+        r += 1
+
+    def _section(label, items):
+        nonlocal r
+        if not items:
+            return
+        c = ws2.cell(r, 1, label)
+        c.font = label_font
+        r += 1
+        for ind in items:
+            _write_row(ind)
+
+    _section("Investee companies (indicators 1–14)", statement["indicators"])
+    _section("Sovereign & supranational (indicators 15–16)", statement.get("sovereign_indicators", []))
+    _section("Real estate (indicators 17–18)", statement.get("real_estate_indicators", []))
+    for i, w in enumerate([5, 26, 40, 24, 22, 60, 30], 1):
+        ws2.column_dimensions[get_column_letter(i)].width = w
+
+    # ── Sheet 3: Provenance & methodology appendix ──
+    ws3 = wb.create_sheet("Provenance & methodology")
+    ws3["A1"] = "Provenance & methodology"
+    ws3["A1"].font = title_font
+    ws3["A3"] = "Data sources"
+    ws3["A3"].font = h2_font
+    for c, h in enumerate(["Item", "Source", "Vintage"], 1):
+        cell = ws3.cell(4, c, h); cell.font = head_font; cell.fill = head_fill
+    r = 5
+    for ds in prov["data_sources"]:
+        ws3.cell(r, 1, ds["item"]).alignment = wrap
+        ws3.cell(r, 2, ds["source"]).alignment = wrap
+        ws3.cell(r, 3, ds["vintage"]).alignment = wrap
+        r += 1
     r += 1
-
-    def _write_indicator(row_i, ind):
-        status = ind["source"] if ind["method"] in ("computed", "partial") else _method_label(ind["method"])
-        if ind["input_required"]:
-            status = f"{status} — needs: {ind['input_required']}" if ind["method"] == "partial" \
-                else f"{_method_label(ind['method'])}: {ind['input_required']}"
-        ws.cell(row_i, 1, ind["number"])
-        ws.cell(row_i, 2, ind["area"])
-        ws.cell(row_i, 3, ind["metric"]).alignment = wrap
-        ws.cell(row_i, 4, _fmt_value(ind["value"]))
-        ws.cell(row_i, 5, ind["unit"])
-        ws.cell(row_i, 6, "—" if ind["coverage_pct"] is None else f"{ind['coverage_pct']}%")
-        ws.cell(row_i, 7, status).alignment = wrap
-
-    for ind in statement["indicators"]:
-        _write_indicator(r, ind)
-        r += 1
-
-    # Sovereign (15-16) and real-estate (17-18) tables, per RTS.
-    for label, rows_ in [("Sovereign & supranational (15–16)", statement.get("sovereign_indicators", [])),
-                         ("Real estate (17–18)", statement.get("real_estate_indicators", []))]:
-        if not rows_:
-            continue
-        r += 1
-        ws.cell(r, 1, label).font = label_font
-        r += 1
-        for ind in rows_:
-            _write_indicator(r, ind)
-            r += 1
-
+    ws3.cell(r, 1, "Model versions").font = h2_font; r += 1
+    for k, v in prov["model_versions"].items():
+        ws3.cell(r, 1, k).font = label_font; ws3.cell(r, 2, v); r += 1
     r += 1
-    ws.cell(r, 1, "EU Taxonomy").font = label_font
+    ws3.cell(r, 1, "Disclosures").font = h2_font; r += 1
+    d = prov["disclosures"]
+    for k, v in [("Emissions coverage", f"{d['emissions_coverage_pct']}%"),
+                 ("of which estimated", f"{d['emissions_estimated_pct']}%"),
+                 ("Financed-emissions (EVIC) coverage", f"{d['financed_emissions_coverage_pct']}%")]:
+        ws3.cell(r, 1, k).font = label_font; ws3.cell(r, 2, v); r += 1
     r += 1
     tax = statement["taxonomy"]
+    ws3.cell(r, 1, "EU Taxonomy").font = h2_font; r += 1
     for k, v in [("Assessable share (has NACE)", f"{tax['assessable_pct']}%"),
-                 ("Taxonomy-eligible", _fmt_value(tax["taxonomy_eligible_pct"])),
-                 ("Taxonomy-aligned", "Not asserted"),
-                 ("Note", tax["alignment_note"])]:
-        ws.cell(r, 1, k).font = label_font
-        ws.cell(r, 3, v).alignment = wrap
+                 ("Taxonomy-aligned", "Not asserted — " + tax["alignment_note"])]:
+        ws3.cell(r, 1, k).font = label_font; ws3.cell(r, 2, v).alignment = wrap; r += 1
+    r += 2
+    ws3.cell(r, 1, "Methodology notes").font = h2_font; r += 1
+    for note in [prov["scope_note"], prov["manager_actions_note"],
+                 "Estimated figures use NACE sector-average intensity × revenue (illustrative "
+                 "coefficients pending an EXIOBASE-sourced table); scope 3 is not estimated.",
+                 "Financed emissions use the PCAF attribution factor (investment ÷ EVIC).",
+                 "Unmatched securities and missing inputs are surfaced, never fabricated."]:
+        ws3.cell(r, 1, note).alignment = wrap
+        ws3.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
         r += 1
+    for i, w in enumerate([40, 46, 40], 1):
+        ws3.column_dimensions[get_column_letter(i)].width = w
 
-    r += 1
-    ws.cell(r, 1, "Coverage").font = label_font
-    ws.cell(r, 3, statement["coverage_summary"]["filing_readiness"]).alignment = wrap
-
-    widths = [5, 20, 46, 26, 16, 10, 52]
-    from openpyxl.utils import get_column_letter
-    for i, w in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
+    # Print setup so a PDF/print export is clean (customers often circulate a PDF).
+    from openpyxl.worksheet.properties import PageSetupProperties
+    for sheet, landscape in ((ws, False), (ws2, True), (ws3, False)):
+        sheet.page_setup.orientation = "landscape" if landscape else "portrait"
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+        sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 
     buf = io.BytesIO()
     wb.save(buf)
