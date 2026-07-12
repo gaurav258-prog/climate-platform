@@ -357,6 +357,74 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     }
 
 
+class Constituent(BaseModel):
+    isin: str
+    weight_pct: float = Field(..., gt=0, le=100)   # share of the held fund/ETF
+
+
+class LookThroughUpload(BaseModel):
+    held_isin: str                                 # the ETF/fund held in the parent
+    as_of_date: Optional[date] = None
+    constituents: list[Constituent]
+
+
+@router.post("/funds/{fund_id}/lookthrough", summary="Expand a held fund/ETF to its constituents (SFDR look-through)")
+def expand_lookthrough(fund_id: str, body: LookThroughUpload, session: DbSession, org_id: OrgId):
+    """SFDR requires looking THROUGH a held fund/ETF to its underlying issuers.
+
+    We model the held vehicle as a SUB-FUND: its constituents are onboarded there
+    (each valued at held_value × constituent weight), the parent's now-redundant
+    ETF line is removed, and the existing fund-hierarchy roll-up (fund_descendant_ids)
+    naturally folds the look-through issuers into every PAI figure. No double count.
+    """
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    held = (body.held_isin or "").strip().upper()
+    as_of = body.as_of_date or date.today()
+    # the parent's position value in the held vehicle
+    held_mv = session.execute(text("""
+        SELECT CAST(p.market_value_eur AS FLOAT) FROM fund_positions p
+        JOIN securities s ON s.security_id = p.security_id
+        WHERE p.fund_id = :f AND s.isin = :i
+        ORDER BY p.as_of_date DESC LIMIT 1
+    """), {"f": fund_id, "i": held}).scalar()
+    if not held_mv:
+        return {"error": f"{held} is not a position in this fund — nothing to look through"}
+    if abs(sum(c.weight_pct for c in body.constituents) - 100) > 1.0:
+        return {"error": "constituent weights must sum to ~100%",
+                "supplied_total_pct": round(sum(c.weight_pct for c in body.constituents), 2)}
+
+    # sub-fund representing the held vehicle's look-through
+    subfund_name = f"{held} · look-through"
+    parent = session.execute(text("SELECT name, sfdr_classification, base_currency FROM funds WHERE fund_id = :f"),
+                             {"f": fund_id}).mappings().first()
+    subfund_id = session.execute(text("""
+        INSERT INTO funds (org_id, name, fund_type, parent_fund_id, sfdr_classification, base_currency)
+        VALUES (:o, :n, 'sub_portfolio', :p, :cls, :ccy)
+        RETURNING fund_id
+    """), {"o": org_id, "n": subfund_name, "p": fund_id,
+           "cls": parent["sfdr_classification"], "ccy": parent["base_currency"] or "EUR"}).scalar()
+    subfund_id = str(subfund_id)
+
+    holdings = [Holding(isin=c.isin, market_value_eur=round(held_mv * c.weight_pct / 100, 2)) for c in body.constituents]
+    result = onboard_holdings(subfund_id, HoldingsUpload(as_of_date=as_of, holdings=holdings), session, org_id)
+
+    # drop the parent's held-vehicle line so its issuers aren't double-counted.
+    session.execute(text("""
+        DELETE FROM fund_positions WHERE fund_id = :f AND security_id IN
+        (SELECT security_id FROM securities WHERE isin = :i)
+    """), {"f": fund_id, "i": held})
+
+    return {
+        "held_isin": held, "held_value_eur": round(held_mv), "sub_fund_id": subfund_id,
+        "constituents_supplied": len(body.constituents),
+        "constituents_resolved": result["coverage"]["matched"],
+        "note": "Held vehicle expanded to its constituents as a sub-fund; the parent's "
+                "line was removed so PAI figures now reflect the underlying issuers, not the wrapper.",
+    }
+
+
 @router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the current SFDR statement as the official filing for its reference year")
 def file_sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
     """Snapshot the current statement immutably for its reference year, so next

@@ -253,17 +253,24 @@ def _attach_prior_year(session, fund_id: str, ref_year, indicators: list[dict]) 
     return {"available": True, "prior_reference_year": row["reference_year"]}
 
 
-def _look_through(comp: dict) -> dict:
-    """Report whether the fund holds funds/ETFs that require constituent look-through."""
+def _look_through(session, fund_id: str, comp: dict) -> dict:
+    """Report look-through status. A held fund/ETF that has been expanded lives as
+    a sub-fund (folded into the roll-up); an unexpanded one still shows as an
+    etf/fund asset class and is flagged as needing its constituents."""
+    expanded = session.execute(text(
+        "SELECT count(*) FROM funds WHERE parent_fund_id = :f AND name LIKE '%· look-through'"
+    ), {"f": fund_id}).scalar()
     held = {k: v for k, v in comp["by_asset_class"].items() if k in ("etf", "fund")}
-    if not held:
-        return {"applicable": False, "note": "No held funds/ETFs — direct securities only, no look-through required."}
-    return {
-        "applicable": True,
-        "held_fund_value_eur": sum(held.values()),
-        "status": "not_expanded",
-        "input_required": "constituent holdings of the held funds/ETFs (look-through not yet expanded)",
-    }
+    if held:
+        return {
+            "applicable": True, "held_fund_value_eur": sum(held.values()),
+            "status": "not_expanded", "expanded_vehicles": expanded,
+            "input_required": "constituent holdings of the held funds/ETFs (POST /funds/{id}/lookthrough)",
+        }
+    if expanded:
+        return {"applicable": True, "status": "expanded", "expanded_vehicles": expanded,
+                "note": "Held vehicles expanded to constituents; PAI reflects the underlying issuers."}
+    return {"applicable": False, "note": "No held funds/ETFs — direct securities only, no look-through required."}
 
 
 def sfdr_pai_statement(session, fund_id: str) -> dict:
@@ -482,7 +489,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         },
         # Look-through — if the book holds funds/ETFs, their constituents must be
         # looked through. Detected from asset_class; honest status, not faked.
-        "look_through": _look_through(comp),
+        "look_through": _look_through(session, fund_id, comp),
         # Mandatory qualitative sections (manager-authored); missing ones flagged.
         "narratives": {
             "policies": narratives.get("policies"),
