@@ -389,6 +389,56 @@ def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
     return {"fund_id": fund_id, "filings": [dict(r) for r in rows]}
 
 
+class LookThroughBody(BaseModel):
+    isin: str                       # the held fund/ETF to expand
+    constituents: list[Holding]     # its underlying holdings
+
+
+@router.post("/funds/{fund_id}/look-through", summary="Expand a held fund/ETF to its constituents (look-through)")
+def expand_look_through(fund_id: str, body: LookThroughBody, session: DbSession, org_id: OrgId):
+    """Replace a held fund/ETF position with a sub-fund holding its constituents,
+    so the underlying issuers flow into the PAI (no double-count — the wrapper
+    position is removed, constituent values are scaled to preserve total exposure)."""
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    isin = (body.isin or "").strip().upper()
+    pos = session.execute(text("""
+        SELECT p.position_id::text AS pid, CAST(p.market_value_eur AS FLOAT) AS mv, p.as_of_date,
+               sec.name AS sec_name
+        FROM fund_positions p JOIN securities sec ON sec.security_id = p.security_id
+        WHERE p.fund_id = :f AND sec.isin = :i
+          AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = :f)
+    """), {"f": fund_id, "i": isin}).mappings().first()
+    if not pos:
+        return {"error": f"{isin} is not a current holding of this fund"}
+    if not body.constituents:
+        return {"error": "no constituents supplied"}
+
+    wrapper_value = pos["mv"]
+    # Scale constituents so their values sum to the wrapper's value (preserve exposure).
+    supplied_total = sum(c.market_value_eur for c in body.constituents) or 1.0
+    scale = wrapper_value / supplied_total
+    scaled = [c.model_copy(update={"market_value_eur": round(c.market_value_eur * scale, 2)}) for c in body.constituents]
+
+    # A sub-fund under this fund holds the constituents; the engine rolls it up.
+    child_id = str(session.execute(text("""
+        INSERT INTO funds (org_id, name, fund_type, parent_fund_id, base_currency)
+        VALUES (:o, :n, 'sub_portfolio', :parent, 'EUR') RETURNING fund_id
+    """), {"o": org_id, "n": f"{pos['sec_name']} — look-through", "parent": fund_id}).scalar())
+
+    r = onboard_holdings(child_id, HoldingsUpload(as_of_date=pos["as_of_date"], holdings=scaled), session, org_id)
+    # Remove the wrapper position from the parent — its exposure now lives in the sub-fund.
+    session.execute(text("DELETE FROM fund_positions WHERE position_id = :p"), {"p": pos["pid"]})
+
+    return {
+        "expanded_isin": isin, "wrapper_value_eur": round(wrapper_value),
+        "sub_fund_id": child_id, "constituents_onboarded": r.get("positions_created", 0),
+        "coverage": r.get("coverage"),
+        "note": "Wrapper replaced by a look-through sub-fund; its constituents now flow into the fund's PAI.",
+    }
+
+
 def _fund_owned_or_error(session, fund_id: str, org_id: str):
     owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     if not owner:
