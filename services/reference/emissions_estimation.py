@@ -24,9 +24,20 @@ Honesty & scope:
 """
 from __future__ import annotations
 
+import csv
+import logging
+from pathlib import Path
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
 MODEL_VERSION = "emissions-est-v1-sector-intensity"
+
+# Coefficients live in a provenanced data file (data/reference/nace_emission_intensity.csv)
+# so they are auditable data, not magic numbers — regenerate with
+# scripts/build_nace_intensities.py (documents the EXIOBASE pipeline). The embedded
+# dict below is the offline fallback if the file is absent.
+_INTENSITY_CSV = Path(__file__).resolve().parent.parent.parent / "data" / "reference" / "nace_emission_intensity.csv"
 
 # NACE division (first 2 digits) → sector-average scope 1+2 intensity,
 # tCO2e per €M revenue. Illustrative averages pending an EXIOBASE-sourced table.
@@ -58,6 +69,24 @@ NACE_INTENSITY_TCO2E_PER_MEUR: dict[str, float] = {
 DEFAULT_INTENSITY = 150.0  # unknown division → a mid economy-wide average, flagged
 
 
+def _load_intensities() -> dict[str, float]:
+    """Load NACE intensities from the provenanced CSV; fall back to the embedded
+    table if the file is missing (offline / tests)."""
+    try:
+        with open(_INTENSITY_CSV, newline="", encoding="utf-8") as fh:
+            table = {r["nace_division"].strip(): float(r["intensity_tco2e_per_meur"])
+                     for r in csv.DictReader(fh) if r.get("nace_division")}
+        if table:
+            return table
+    except (OSError, KeyError, ValueError) as exc:
+        logger.info("NACE intensity CSV unavailable (%s); using embedded fallback", exc)
+    return dict(NACE_INTENSITY_TCO2E_PER_MEUR)
+
+
+# Effective table used by estimate_emissions (data file, else embedded fallback).
+_INTENSITIES = _load_intensities()
+
+
 def estimate_emissions(nace_code: Optional[str], revenue_eur: Optional[float]) -> Optional[dict]:
     """Estimate scope 1+2 tCO2e from sector intensity × revenue.
 
@@ -68,8 +97,8 @@ def estimate_emissions(nace_code: Optional[str], revenue_eur: Optional[float]) -
     if not nace_code or revenue_eur is None or revenue_eur <= 0:
         return None
     division = str(nace_code).strip()[:2]
-    intensity = NACE_INTENSITY_TCO2E_PER_MEUR.get(division, DEFAULT_INTENSITY)
-    known = division in NACE_INTENSITY_TCO2E_PER_MEUR
+    intensity = _INTENSITIES.get(division, DEFAULT_INTENSITY)
+    known = division in _INTENSITIES
     revenue_meur = revenue_eur / 1e6
     return {
         "scope1_2_tco2e": round(intensity * revenue_meur),

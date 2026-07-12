@@ -57,15 +57,35 @@ MANDATORY_PAI_INDICATORS = [
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
 
 # ── Sovereign PAI (RTS Annex I, Table 1, indicators 15-16) ──
-# GHG intensity of investee COUNTRIES: tCO2e per €M GDP (territorial). Illustrative
-# public averages pending a cited dataset (EDGAR emissions ÷ World Bank GDP).
-COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR: dict[str, float] = {
-    "SE": 50, "CH": 45, "NO": 70, "FR": 90, "GB": 110, "IT": 120, "DK": 100,
-    "ES": 130, "AT": 120, "PT": 130, "FI": 110, "NL": 140, "IE": 90, "BE": 130,
-    "DE": 150, "GR": 150, "US": 200, "JP": 160, "PL": 350, "CZ": 300, "IN": 600,
-    "CN": 500, "ZA": 700, "RU": 550, "AU": 300, "BR": 250, "CA": 250,
+# GHG intensity of investee COUNTRIES: tCO2e per €M GDP. Loaded from the
+# provenanced data file data/reference/country_ghg_intensity.csv (computed from
+# OWID / Global Carbon Project CO2 ÷ GDP by scripts/build_country_intensities.py);
+# the embedded dict is the offline fallback.
+_EMBEDDED_COUNTRY_INTENSITY: dict[str, float] = {
+    "SE": 50, "CH": 59, "NO": 70, "FR": 90, "GB": 110, "IT": 120, "DK": 95,
+    "ES": 130, "AT": 154, "PT": 130, "FI": 110, "NL": 140, "IE": 90, "BE": 182,
+    "DE": 172, "GR": 150, "US": 200, "JP": 160, "PL": 350, "CZ": 277, "IN": 600,
+    "CN": 421, "ZA": 700, "RU": 550, "AU": 286, "BR": 152, "CA": 313,
 }
 DEFAULT_COUNTRY_INTENSITY = 200.0
+
+
+def _load_country_intensity() -> dict[str, float]:
+    import csv as _csv
+    from pathlib import Path as _Path
+    path = _Path(__file__).resolve().parent.parent.parent / "data" / "reference" / "country_ghg_intensity.csv"
+    try:
+        with open(path, newline="", encoding="utf-8") as fh:
+            table = {r["country_iso2"].strip().upper(): float(r["intensity_tco2e_per_meur"])
+                     for r in _csv.DictReader(fh) if r.get("country_iso2")}
+        if table:
+            return table
+    except (OSError, KeyError, ValueError):
+        pass
+    return dict(_EMBEDDED_COUNTRY_INTENSITY)
+
+
+COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR = _load_country_intensity()
 
 SOVEREIGN_ASSET_CLASSES = ("sovereign_bond",)
 REAL_ESTATE_ASSET_CLASSES = ("real_estate",)  # not in the securities model today
@@ -336,8 +356,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                 {"item": "Facility location", "source": "GLEIF HQ address → OpenStreetMap/Nominatim geocode", "vintage": "at onboarding"},
                 {"item": "Physical hazard scores", "source": "Tellumen golden source (canonical_scores, append-only)", "vintage": "model-stamped"},
                 {"item": "Issuer emissions / revenue / EVIC", "source": "client disclosure where supplied; else estimated", "vintage": f"FY{ref_year}" if ref_year else "n/a"},
-                {"item": "Estimated emissions", "source": "NACE sector-average intensity × revenue (illustrative, → EXIOBASE)", "vintage": "model"},
-                {"item": "Sovereign country GHG intensity", "source": "public territorial emissions ÷ GDP (illustrative)", "vintage": "model"},
+                {"item": "Estimated emissions", "source": "NACE sector-average intensity × revenue (data/reference/nace_emission_intensity.csv; EXIOBASE calibration pending)", "vintage": "interim"},
+                {"item": "Sovereign country GHG intensity", "source": "OWID / Global Carbon Project CO2 ÷ GDP (data/reference/country_ghg_intensity.csv)", "vintage": "2022"},
             ],
             "model_versions": {
                 "emissions_estimation": "emissions-est-v1-sector-intensity",
