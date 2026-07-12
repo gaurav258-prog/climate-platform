@@ -6,8 +6,29 @@ const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 
 const METHOD = {
   computed: { label: 'Computed', cls: 'bg-green-50 text-green-700', Icon: CheckCircle2 },
+  estimated: { label: 'Estimated', cls: 'bg-blue-50 text-blue-700', Icon: CircleDashed },
   partial: { label: 'Partial', cls: 'bg-amber-50 text-amber-700', Icon: CircleDashed },
   not_available: { label: 'Input required', cls: 'bg-gray-100 text-gray-500', Icon: CircleDashed },
+  not_applicable: { label: 'Not applicable', cls: 'bg-gray-50 text-gray-400', Icon: CircleDashed },
+}
+
+function IndicatorRows({ items }) {
+  return items.map(ind => {
+    const m = METHOD[ind.method] || METHOD.not_available
+    return (
+      <tr key={ind.number} className="border-b border-gray-50 last:border-0 align-top">
+        <td className="py-2.5 text-gray-400">{ind.number}</td>
+        <td className="py-2.5"><div className="font-medium text-[#1d1d1f]">{ind.metric}</div>
+          <div className="text-[11px] text-gray-400">{ind.area} · {ind.unit}</div></td>
+        <td className="py-2.5 text-right tabular-nums text-[#1d1d1f]">{fmtVal(ind.value)}</td>
+        <td className="py-2.5 text-right text-[11px] text-gray-400">{ind.coverage_pct == null ? '—' : `${ind.coverage_pct}%`}</td>
+        <td className="py-2.5">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.cls}`}><m.Icon size={11} /> {m.label}</span>
+          {ind.input_required && <div className="mt-1 text-[11px] text-gray-400">{ind.method === 'not_applicable' ? '' : 'needs: '}{ind.input_required}</div>}
+        </td>
+      </tr>
+    )
+  })
 }
 
 const fmtVal = v => {
@@ -86,22 +107,16 @@ export default function SfdrStatement({ onGoto }) {
                 <th className="py-2 font-medium">Status / input required</th>
               </tr></thead>
               <tbody>
-                {st.indicators.map(ind => {
-                  const m = METHOD[ind.method] || METHOD.not_available
-                  return (
-                    <tr key={ind.number} className="border-b border-gray-50 last:border-0 align-top">
-                      <td className="py-2.5 text-gray-400">{ind.number}</td>
-                      <td className="py-2.5"><div className="font-medium text-[#1d1d1f]">{ind.metric}</div>
-                        <div className="text-[11px] text-gray-400">{ind.area} · {ind.unit}</div></td>
-                      <td className="py-2.5 text-right tabular-nums text-[#1d1d1f]">{fmtVal(ind.value)}</td>
-                      <td className="py-2.5 text-right text-[11px] text-gray-400">{ind.coverage_pct == null ? '—' : `${ind.coverage_pct}%`}</td>
-                      <td className="py-2.5">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.cls}`}><m.Icon size={11} /> {m.label}</span>
-                        {ind.input_required && <div className="mt-1 text-[11px] text-gray-400">needs: {ind.input_required}</div>}
-                      </td>
-                    </tr>
-                  )
-                })}
+                <tr><td colSpan={5} className="pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Investee companies (1–14)</td></tr>
+                <IndicatorRows items={st.indicators} />
+                {st.sovereign_indicators?.length > 0 && <>
+                  <tr><td colSpan={5} className="pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Sovereign & supranational (15–16){st.sovereign_countries?.length ? ` · ${st.sovereign_countries.join(', ')}` : ''}</td></tr>
+                  <IndicatorRows items={st.sovereign_indicators} />
+                </>}
+                {st.real_estate_indicators?.length > 0 && <>
+                  <tr><td colSpan={5} className="pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Real estate (17–18)</td></tr>
+                  <IndicatorRows items={st.real_estate_indicators} />
+                </>}
               </tbody>
             </table>
           </section>

@@ -56,6 +56,20 @@ MANDATORY_PAI_INDICATORS = [
 
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
 
+# ── Sovereign PAI (RTS Annex I, Table 1, indicators 15-16) ──
+# GHG intensity of investee COUNTRIES: tCO2e per €M GDP (territorial). Illustrative
+# public averages pending a cited dataset (EDGAR emissions ÷ World Bank GDP).
+COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR: dict[str, float] = {
+    "SE": 50, "CH": 45, "NO": 70, "FR": 90, "GB": 110, "IT": 120, "DK": 100,
+    "ES": 130, "AT": 120, "PT": 130, "FI": 110, "NL": 140, "IE": 90, "BE": 130,
+    "DE": 150, "GR": 150, "US": 200, "JP": 160, "PL": 350, "CZ": 300, "IN": 600,
+    "CN": 500, "ZA": 700, "RU": 550, "AU": 300, "BR": 250, "CA": 250,
+}
+DEFAULT_COUNTRY_INTENSITY = 200.0
+
+SOVEREIGN_ASSET_CLASSES = ("sovereign_bond",)
+REAL_ESTATE_ASSET_CLASSES = ("real_estate",)  # not in the securities model today
+
 
 def _row(num, area, metric, unit, *, value=None, coverage=None, source=None,
          method="not_available", input_required=None):
@@ -93,6 +107,67 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
                           "Reported as eligible-at-most, never aligned.",
         "input_required": "issuer NACE code (absent from GLEIF; supply per issuer or via a fundamentals upload)",
     }
+
+
+def _composition_and_sovereign(session, fund_id: str) -> dict:
+    """Fund value by asset class + a value-weighted sovereign GHG intensity over
+    any sovereign-bond holdings (their issuer's country → country intensity)."""
+    rows = session.execute(text("""
+        SELECT s.asset_class, i.country, CAST(p.market_value_eur AS FLOAT) AS mv
+        FROM   fund_positions p
+        JOIN   securities s ON s.security_id = p.security_id
+        JOIN   issuers    i ON i.issuer_id = s.issuer_id
+        WHERE  p.fund_id = :f
+          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = :f)
+    """), {"f": fund_id}).mappings().all()
+    by_class: dict[str, float] = {}
+    sov_mv = 0.0
+    sov_weighted_intensity = 0.0
+    sov_countries: set = set()
+    for r in rows:
+        by_class[r["asset_class"]] = by_class.get(r["asset_class"], 0.0) + r["mv"]
+        if r["asset_class"] in SOVEREIGN_ASSET_CLASSES:
+            sov_mv += r["mv"]
+            ctry = (r["country"] or "").upper()
+            intensity = COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR.get(ctry, DEFAULT_COUNTRY_INTENSITY)
+            sov_weighted_intensity += r["mv"] * intensity
+            if ctry:
+                sov_countries.add(ctry)
+    return {
+        "by_asset_class": {k: round(v) for k, v in by_class.items()},
+        "sovereign_value_eur": round(sov_mv),
+        "sovereign_ghg_intensity": round(sov_weighted_intensity / sov_mv, 1) if sov_mv else None,
+        "sovereign_countries": sorted(sov_countries),
+        "has_real_estate": any(c in REAL_ESTATE_ASSET_CLASSES for c in by_class),
+    }
+
+
+def _sovereign_indicators(comp: dict) -> list[dict]:
+    """RTS Annex I Table 1 indicators 15-16 (sovereign & supranational)."""
+    si = comp["sovereign_ghg_intensity"]
+    return [
+        _row(15, "Sovereign", "GHG intensity of investee countries", "tCO₂e/€M GDP",
+             value=si, coverage=100.0 if si is not None else None,
+             source="country territorial emissions ÷ GDP (public averages)" if si is not None else None,
+             method="computed" if si is not None else "not_available",
+             input_required=None if si is not None else "sovereign-bond holdings with issuer country"),
+        _row(16, "Sovereign", "Investee countries subject to social violations", "count",
+             method="not_available",
+             input_required="country social-violation list (UN/OECD sanctions & breaches)"),
+    ]
+
+
+def _real_estate_indicators(comp: dict) -> list[dict]:
+    """RTS Annex I Table 1 indicators 17-18 (real-estate assets)."""
+    applic = "applies to direct real-estate assets; this fund holds securities, not property" \
+        if not comp["has_real_estate"] else None
+    method = "not_applicable" if not comp["has_real_estate"] else "not_available"
+    return [
+        _row(17, "Real estate", "Exposure to fossil fuels through real-estate assets", "% of RE value",
+             method=method, input_required=applic or "real-estate asset fossil-fuel involvement"),
+        _row(18, "Real estate", "Exposure to energy-inefficient real-estate assets", "% of RE value",
+             method=method, input_required=applic or "real-estate asset EPC ratings"),
+    ]
 
 
 def sfdr_pai_statement(session, fund_id: str) -> dict:
@@ -178,6 +253,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     partial = sum(1 for i in indicators if i["method"] == "partial")
     missing = sum(1 for i in indicators if i["method"] == "not_available")
 
+    comp = _composition_and_sovereign(session, fund_id)
     return {
         "entity": {
             "fund_id": fund["fund_id"], "fund_name": fund["name"],
@@ -188,6 +264,12 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         "statement": "Principal Adverse Impact (PAI) statement",
         "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
         "indicators": indicators,
+        "holdings_composition": comp["by_asset_class"],
+        # Sovereign indicators (15-16) shown only when the fund holds sovereigns.
+        "sovereign_indicators": _sovereign_indicators(comp) if comp["sovereign_value_eur"] else [],
+        "sovereign_countries": comp["sovereign_countries"],
+        # Real-estate indicators (17-18) — always listed with their applicability.
+        "real_estate_indicators": _real_estate_indicators(comp),
         "taxonomy": _taxonomy_rollup(session, fund_id),
         "coverage_summary": {
             "mandatory_indicators": len(indicators),
@@ -213,7 +295,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
 # ── Downloadable filing document (.xlsx in the mandated table shape) ──
 def _method_label(m: str) -> str:
     return {"computed": "Computed", "partial": "Partial (input needed)",
-            "estimated": "Estimated", "not_available": "Not available — input required"}.get(m, m)
+            "estimated": "Estimated", "not_available": "Not available — input required",
+            "not_applicable": "Not applicable"}.get(m, m)
 
 
 def _fmt_value(v) -> str:
@@ -266,19 +349,35 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
         cell.font = head_font
         cell.fill = head_fill
     r += 1
-    for ind in statement["indicators"]:
+
+    def _write_indicator(row_i, ind):
         status = ind["source"] if ind["method"] in ("computed", "partial") else _method_label(ind["method"])
         if ind["input_required"]:
             status = f"{status} — needs: {ind['input_required']}" if ind["method"] == "partial" \
-                else f"Input required: {ind['input_required']}"
-        ws.cell(r, 1, ind["number"])
-        ws.cell(r, 2, ind["area"])
-        ws.cell(r, 3, ind["metric"]).alignment = wrap
-        ws.cell(r, 4, _fmt_value(ind["value"]))
-        ws.cell(r, 5, ind["unit"])
-        ws.cell(r, 6, "—" if ind["coverage_pct"] is None else f"{ind['coverage_pct']}%")
-        ws.cell(r, 7, status).alignment = wrap
+                else f"{_method_label(ind['method'])}: {ind['input_required']}"
+        ws.cell(row_i, 1, ind["number"])
+        ws.cell(row_i, 2, ind["area"])
+        ws.cell(row_i, 3, ind["metric"]).alignment = wrap
+        ws.cell(row_i, 4, _fmt_value(ind["value"]))
+        ws.cell(row_i, 5, ind["unit"])
+        ws.cell(row_i, 6, "—" if ind["coverage_pct"] is None else f"{ind['coverage_pct']}%")
+        ws.cell(row_i, 7, status).alignment = wrap
+
+    for ind in statement["indicators"]:
+        _write_indicator(r, ind)
         r += 1
+
+    # Sovereign (15-16) and real-estate (17-18) tables, per RTS.
+    for label, rows_ in [("Sovereign & supranational (15–16)", statement.get("sovereign_indicators", [])),
+                         ("Real estate (17–18)", statement.get("real_estate_indicators", []))]:
+        if not rows_:
+            continue
+        r += 1
+        ws.cell(r, 1, label).font = label_font
+        r += 1
+        for ind in rows_:
+            _write_indicator(r, ind)
+            r += 1
 
     r += 1
     ws.cell(r, 1, "EU Taxonomy").font = label_font
