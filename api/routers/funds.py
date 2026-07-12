@@ -107,11 +107,53 @@ class Holding(BaseModel):
     weight_pct: Optional[float] = None                  # if omitted, derived from value share
     asset_class: str = "equity"                         # equity / corporate_bond / sovereign_bond / ...
     currency: Optional[str] = None
+    # ── Optional issuer data the client already holds (fills SFDR gaps) ──
+    nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
+    sector: Optional[str] = None
+    revenue_eur: Optional[float] = None                 # denominator for carbon intensity / WACI
+    scope1_tco2e: Optional[float] = None
+    scope2_tco2e: Optional[float] = None
+    scope3_tco2e: Optional[float] = None
+    reporting_year: Optional[int] = None
 
 
 class HoldingsUpload(BaseModel):
     as_of_date: Optional[date] = None
     holdings: list[Holding]
+
+
+def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding") -> dict:
+    """Persist the issuer data a client supplied on a holding. Returns which
+    fields were written. NACE/sector is a shared fact (enrich only when unknown,
+    never clobber); emissions/revenue are the client's PRIVATE disclosure,
+    org-scoped and marked source='client' — never a fabricated value."""
+    wrote = {"sector": False, "emissions": False}
+
+    if h.nace_code or h.sector:
+        session.execute(text("""
+            UPDATE issuers
+               SET nace_code = COALESCE(nace_code, :nace),
+                   sector    = COALESCE(sector, :sector),
+                   updated_at = now()
+             WHERE issuer_id = :i
+        """), {"i": issuer_id, "nace": h.nace_code, "sector": h.sector})
+        wrote["sector"] = True
+
+    if h.revenue_eur is not None or h.scope1_tco2e is not None:
+        session.execute(text("""
+            INSERT INTO issuer_emissions
+                (issuer_id, org_id, reporting_year, scope1_tco2e, scope2_tco2e, scope3_tco2e,
+                 revenue_eur, source, data_vintage)
+            VALUES (:i, :org, :yr, :s1, :s2, :s3, :rev, 'client', now())
+            ON CONFLICT (issuer_id, reporting_year, source, org_id) WHERE org_id IS NOT NULL
+            DO UPDATE SET scope1_tco2e = EXCLUDED.scope1_tco2e, scope2_tco2e = EXCLUDED.scope2_tco2e,
+                          scope3_tco2e = EXCLUDED.scope3_tco2e, revenue_eur = EXCLUDED.revenue_eur,
+                          data_vintage = EXCLUDED.data_vintage
+        """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
+               "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e, "rev": h.revenue_eur})
+        wrote["emissions"] = True
+
+    return wrote
 
 
 @router.post("/funds/{fund_id}/holdings", summary="Onboard holdings by ISIN — resolve, locate, and value-weight into the fund")
@@ -146,11 +188,19 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         by_isin.setdefault(key, h)
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
+    enriched = {"sector": 0, "emissions": 0}
     for isin, h in by_isin.items():
         res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class, currency=h.currency)
         resolutions.append(res.to_dict())
         if res.status not in ("resolved", "cached") or not res.security_id:
             continue  # unmatched / errored ISINs are reported, never positioned
+
+        # Store any issuer data the client supplied on this holding.
+        wrote = _apply_issuer_enrichment(session, res.issuer_id, org_id, h)
+        if wrote["sector"]:
+            enriched["sector"] += 1
+        if wrote["emissions"]:
+            enriched["emissions"] += 1
 
         # Seed the issuer's footprint if it has none yet, so physical risk is
         # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an
@@ -190,11 +240,13 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             "errored": [r["isin"] for r in resolutions if r["status"] == "error"],
             "footprints": footprints,
             "sector_gap_isins": sector_gaps,   # matched but NACE unknown → needed for EU Taxonomy
+            "client_enriched": enriched,        # issuer data the client supplied on this upload
         },
         "resolutions": resolutions,
         "note": "Physical risk is now computable for located issuers. Sector/NACE, "
                 "multi-facility footprints and issuer emissions are the remaining "
-                "enrichment inputs (surfaced, not fabricated).",
+                "enrichment inputs — supply them per holding (optional columns) to "
+                "fill the SFDR statement; surfaced, never fabricated.",
     }
 
 

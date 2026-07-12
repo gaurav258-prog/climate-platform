@@ -38,6 +38,9 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
     fund_ids = fund_descendant_ids(session, fund_id)
     if not fund_ids:
         return []
+    # The fund's own org: its private issuer disclosures take precedence over any
+    # global/estimated fallback (org_id IS NULL) for that same issuer.
+    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     date_filter = "AND p.as_of_date = :d" if as_of_date else """
         AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)"""
     return session.execute(text(f"""
@@ -45,17 +48,20 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
                CAST(p.market_value_eur AS FLOAT) AS mv,
                i.issuer_id::text AS issuer_id, i.name AS issuer_name, i.nace_code,
                CAST(e.scope1_tco2e AS FLOAT) AS s1, CAST(e.scope2_tco2e AS FLOAT) AS s2,
-               CAST(e.scope3_tco2e AS FLOAT) AS s3, CAST(e.revenue_eur AS FLOAT) AS revenue_eur
+               CAST(e.scope3_tco2e AS FLOAT) AS s3, CAST(e.revenue_eur AS FLOAT) AS revenue_eur,
+               e.source AS emissions_source
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
         LEFT   JOIN LATERAL (
-            SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur
-            FROM issuer_emissions WHERE issuer_id = i.issuer_id
-            ORDER BY reporting_year DESC LIMIT 1
+            SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur, source
+            FROM issuer_emissions
+            WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
+            -- prefer this org's own disclosure, then most recent year
+            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids) {date_filter}
-    """), {"fids": fund_ids, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
+    """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
 
 
 def fund_pai(session, fund_id: str) -> dict:

@@ -1,28 +1,38 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, CheckCircle2, AlertTriangle, MapPin, Building2, Loader2, ArrowRight, Info } from 'lucide-react'
+import { Upload, CheckCircle2, AlertTriangle, MapPin, Building2, Loader2, ArrowRight, Info, FileCheck2 } from 'lucide-react'
 import { fetchFunds, onboardHoldings } from '../../api/client'
 
 const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 
 // A small, real, mixed sample so the coverage story is honest end-to-end:
 // large caps that resolve, plus one deliberately-unmatched line.
-const SAMPLE = `US0378331005, 5000000
-FR0000131104, 3000000
-DE0007164600, 4000000
-NL0011821202, 2500000
+// Columns after the value are OPTIONAL — supply the issuer data you already
+// hold (NACE, revenue, scope 1/2/3) to fill more of the SFDR statement.
+const SAMPLE = `US0378331005, 5000000, 26.20, 383000000000, 55000, 0, 16200000
+DE0007164600, 4000000, 62.01, 31200000000, 30000, 45000, 4300000
+FR0000131104, 3000000, 64.19, 50000000000, 60000, 120000, 7000000
 CH0038863350, 3500000
 ZZ0000000000, 1000000`
 
-/** Parse "ISIN, market_value_eur" lines into holdings, flagging bad rows. */
+const _num = s => { const n = Number((s || '').replace(/[€,_\s]/g, '')); return Number.isFinite(n) && s ? n : null }
+
+/** Parse "ISIN, value[, NACE, revenue, scope1, scope2, scope3]" lines. Only the
+ *  first two are required; the rest are optional issuer enrichment. */
 function parseHoldings(text) {
   const rows = [], errors = []
   text.split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
-    const parts = line.split(/[,\t]/).map(s => s.trim())
-    const isin = (parts[0] || '').toUpperCase()
-    const value = Number((parts[1] || '').replace(/[€,_\s]/g, ''))
-    if (isin.length !== 12) { errors.push(`Line ${i + 1}: "${parts[0]}" is not a 12-char ISIN`); return }
+    const p = line.split(/[,\t]/).map(s => s.trim())
+    const isin = (p[0] || '').toUpperCase()
+    const value = _num(p[1])
+    if (isin.length !== 12) { errors.push(`Line ${i + 1}: "${p[0]}" is not a 12-char ISIN`); return }
     if (!value || value <= 0) { errors.push(`Line ${i + 1}: ${isin} has no positive value`); return }
-    rows.push({ isin, market_value_eur: value, asset_class: 'equity' })
+    const h = { isin, market_value_eur: value, asset_class: 'equity' }
+    if (p[2]) h.nace_code = p[2]
+    if (_num(p[3]) != null) h.revenue_eur = _num(p[3])
+    if (_num(p[4]) != null) h.scope1_tco2e = _num(p[4])
+    if (_num(p[5]) != null) h.scope2_tco2e = _num(p[5])
+    if (_num(p[6]) != null) h.scope3_tco2e = _num(p[6])
+    rows.push(h)
   })
   return { rows, errors }
 }
@@ -90,7 +100,7 @@ export default function FundOnboarding({ onGoto }) {
             </div>
 
             <div className="mt-4 flex items-center justify-between">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €</span></label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €<span className="text-gray-300"> [, NACE, revenue, scope1, scope2, scope3]</span></span></label>
               <button onClick={() => setRaw(SAMPLE)} className="text-[11px] font-medium text-[#0071e3] hover:underline">Load sample book</button>
             </div>
             <textarea value={raw} onChange={e => setRaw(e.target.value)} rows={9} spellCheck={false}
@@ -126,13 +136,15 @@ export default function FundOnboarding({ onGoto }) {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <Stat icon={CheckCircle2} label="Match rate" value={`${cov.match_rate_pct}%`}
                   sub={`${cov.matched}/${report.distinct_isins} ISINs resolved`} accent="#1C7A4B" />
-                <Stat icon={Building2} label="Positions created" value={report.positions_created}
+                <Stat icon={Building2} label="Positions" value={report.positions_created}
                   sub="value-weighted into the fund" />
-                <Stat icon={MapPin} label="Footprints located" value={cov.footprints.seeded + cov.footprints.already}
+                <Stat icon={MapPin} label="Footprints" value={cov.footprints.seeded + cov.footprints.already}
                   sub={cov.footprints.failed ? `${cov.footprints.failed} could not geocode` : 'HQ located & scored'} accent="#c2410c" />
+                <Stat icon={FileCheck2} label="Issuer data" value={(cov.client_enriched?.sector || 0) + (cov.client_enriched?.emissions || 0)}
+                  sub={`${cov.client_enriched?.sector || 0} sector · ${cov.client_enriched?.emissions || 0} emissions`} accent="#0071e3" />
               </div>
 
               {/* matched issuers */}
