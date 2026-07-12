@@ -117,6 +117,17 @@ class Holding(BaseModel):
     scope3_tco2e: Optional[float] = None
     evic_eur: Optional[float] = None                    # enterprise value incl. cash → PCAF attribution (PAI 1/2)
     reporting_year: Optional[int] = None
+    # ── Non-carbon ESG facts (SFDR PAI 5-14), from the manager's ESG feed ──
+    non_renewable_energy_pct: Optional[float] = None    # PAI 5
+    energy_intensity_gwh_per_meur: Optional[float] = None  # PAI 6
+    biodiversity_sensitive_ops: Optional[bool] = None   # PAI 7
+    emissions_to_water_tonnes: Optional[float] = None    # PAI 8
+    hazardous_waste_tonnes: Optional[float] = None       # PAI 9
+    ungc_oecd_violation: Optional[bool] = None           # PAI 10
+    ungc_oecd_no_monitoring: Optional[bool] = None       # PAI 11
+    gender_pay_gap_pct: Optional[float] = None           # PAI 12
+    board_female_pct: Optional[float] = None             # PAI 13
+    controversial_weapons: Optional[bool] = None         # PAI 14
 
 
 class HoldingsUpload(BaseModel):
@@ -129,7 +140,7 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     fields were written. NACE/sector is a shared fact (enrich only when unknown,
     never clobber); emissions/revenue are the client's PRIVATE disclosure,
     org-scoped and marked source='client' — never a fabricated value."""
-    wrote = {"sector": False, "emissions": False, "estimated": False}
+    wrote = {"sector": False, "emissions": False, "estimated": False, "esg": False}
 
     if h.nace_code or h.sector:
         session.execute(text("""
@@ -180,6 +191,31 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
             """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
                    "s12": est["scope1_2_tco2e"], "rev": h.revenue_eur, "method": est["method"]})
             wrote["estimated"] = True
+
+    # Non-carbon ESG facts (PAI 5-14) — org-scoped private disclosure.
+    esg_fields = {
+        "non_renewable_energy_pct": h.non_renewable_energy_pct,
+        "energy_intensity_gwh_per_meur": h.energy_intensity_gwh_per_meur,
+        "biodiversity_sensitive_ops": h.biodiversity_sensitive_ops,
+        "emissions_to_water_tonnes": h.emissions_to_water_tonnes,
+        "hazardous_waste_tonnes": h.hazardous_waste_tonnes,
+        "ungc_oecd_violation": h.ungc_oecd_violation,
+        "ungc_oecd_no_monitoring": h.ungc_oecd_no_monitoring,
+        "gender_pay_gap_pct": h.gender_pay_gap_pct,
+        "board_female_pct": h.board_female_pct,
+        "controversial_weapons": h.controversial_weapons,
+    }
+    if any(v is not None for v in esg_fields.values()):
+        cols = ", ".join(esg_fields)
+        placeholders = ", ".join(f":{k}" for k in esg_fields)
+        updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in esg_fields)
+        session.execute(text(f"""
+            INSERT INTO issuer_esg_metrics (issuer_id, org_id, reporting_year, {cols}, source, data_vintage)
+            VALUES (:i, :org, :yr, {placeholders}, 'client', now())
+            ON CONFLICT (issuer_id, reporting_year, org_id) WHERE org_id IS NOT NULL
+            DO UPDATE SET {updates}, data_vintage = now()
+        """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year, **esg_fields})
+        wrote["esg"] = True
 
     return wrote
 
@@ -237,7 +273,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         by_isin.setdefault(key, h)
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
-    enriched = {"sector": 0, "emissions": 0, "estimated": 0}
+    enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0}
     for isin, h in by_isin.items():
         res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class, currency=h.currency)
         resolutions.append(res.to_dict())
@@ -252,6 +288,8 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             enriched["emissions"] += 1
         if wrote["estimated"]:
             enriched["estimated"] += 1
+        if wrote["esg"]:
+            enriched["esg"] += 1
 
         # Seed the issuer's footprint if it has none yet, so physical risk is
         # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an

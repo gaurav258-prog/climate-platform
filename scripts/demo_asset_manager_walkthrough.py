@@ -48,6 +48,16 @@ BOOK = [
 ]
 
 
+# The fully-disclosed names also come with the manager's ESG feed (PAI 5-14).
+ESG = {
+    "DE0007164600": dict(non_renewable_energy_pct=18, energy_intensity_gwh_per_meur=0.02, biodiversity_sensitive_ops=False, emissions_to_water_tonnes=900, hazardous_waste_tonnes=400, ungc_oecd_violation=False, ungc_oecd_no_monitoring=False, gender_pay_gap_pct=11, board_female_pct=42, controversial_weapons=False),
+    "NL0010273215": dict(non_renewable_energy_pct=25, energy_intensity_gwh_per_meur=0.05, biodiversity_sensitive_ops=False, emissions_to_water_tonnes=1500, hazardous_waste_tonnes=2200, ungc_oecd_violation=False, ungc_oecd_no_monitoring=False, gender_pay_gap_pct=14, board_female_pct=38, controversial_weapons=False),
+    "CH0038863350": dict(non_renewable_energy_pct=45, energy_intensity_gwh_per_meur=0.15, biodiversity_sensitive_ops=True, emissions_to_water_tonnes=50000, hazardous_waste_tonnes=12000, ungc_oecd_violation=False, ungc_oecd_no_monitoring=False, gender_pay_gap_pct=18, board_female_pct=33, controversial_weapons=False),
+    "DK0062498333": dict(non_renewable_energy_pct=12, energy_intensity_gwh_per_meur=0.03, biodiversity_sensitive_ops=False, emissions_to_water_tonnes=600, hazardous_waste_tonnes=800, ungc_oecd_violation=False, ungc_oecd_no_monitoring=False, gender_pay_gap_pct=9, board_female_pct=45, controversial_weapons=False),
+    "FR0000121014": dict(non_renewable_energy_pct=30, energy_intensity_gwh_per_meur=0.04, biodiversity_sensitive_ops=False, emissions_to_water_tonnes=2000, hazardous_waste_tonnes=1500, ungc_oecd_violation=False, ungc_oecd_no_monitoring=False, gender_pay_gap_pct=16, board_female_pct=40, controversial_weapons=False),
+}
+
+
 def _holding(row):
     isin, mv, nace, rev, s1, s2, s3, evic = row
     h = {"isin": isin, "market_value_eur": mv, "asset_class": "equity"}
@@ -58,6 +68,7 @@ def _holding(row):
     if s3 is not None: h["scope3_tco2e"] = s3
     if evic is not None: h["evic_eur"] = evic
     h["reporting_year"] = 2023
+    h.update(ESG.get(isin, {}))
     return h
 
 
@@ -104,7 +115,10 @@ def run() -> str:
     tax = st["taxonomy"]
     print(f"  EU Taxonomy        {tax['assessable_pct']}% assessable · alignment: not asserted (honest)")
     gaps = [ind(n)["number"] for n in range(5, 15) if ind(n)["method"] == "not_available"]
-    print(f"  still needs input  PAI {gaps} (energy/water/waste/social — the manager's next data pull)")
+    if gaps:
+        print(f"  still needs input  PAI {gaps} (energy/water/waste/social — the manager's next data pull)")
+    else:
+        print("  still needs input  none — all 14 indicators populated (partial ones show their coverage %)")
 
     print("\nSTEP 3 — the deliverable")
     print(f"  Download: GET /v1/funds/{fund_id}/sfdr-statement.xlsx  (filing-shaped)")

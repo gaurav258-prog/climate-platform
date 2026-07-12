@@ -34,6 +34,83 @@ from services.asset_manager_engine import (
 FOSSIL_FUEL_NACE_DIVISIONS = {"05", "06", "19"}
 
 
+def fund_esg_pai(session, fund_id: str) -> dict:
+    """SFDR PAI 5-14 (the non-carbon indicators) for a fund, from issuer_esg_metrics.
+
+    Method, per RTS shape and our honesty rules:
+      * ratios (5 energy share, 6 energy intensity, 12 pay gap, 13 board diversity)
+        → value-weighted average over the value that actually has the datum.
+      * flags (7 biodiversity, 10 violations, 11 no-monitoring, 14 weapons)
+        → share of value exposed, over the value where the flag is known.
+      * absolutes (8 water, 9 waste) → PCAF-attributed per €M invested (needs EVIC).
+    Each indicator reports its own coverage; missing data is a gap, not a zero.
+    """
+    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    fund_ids = fund_descendant_ids(session, fund_id)
+    if not fund_ids:
+        return {}
+    rows = session.execute(text("""
+        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, CAST(em.evic_eur AS FLOAT) AS evic,
+               CAST(e.non_renewable_energy_pct AS FLOAT) AS non_renew,
+               CAST(e.energy_intensity_gwh_per_meur AS FLOAT) AS energy_int,
+               e.biodiversity_sensitive_ops AS biodiv,
+               CAST(e.emissions_to_water_tonnes AS FLOAT) AS water,
+               CAST(e.hazardous_waste_tonnes AS FLOAT) AS waste,
+               e.ungc_oecd_violation AS violation, e.ungc_oecd_no_monitoring AS no_monitor,
+               CAST(e.gender_pay_gap_pct AS FLOAT) AS pay_gap,
+               CAST(e.board_female_pct AS FLOAT) AS board_f, e.controversial_weapons AS weapons
+        FROM   fund_positions p
+        JOIN   securities s ON s.security_id = p.security_id
+        LEFT   JOIN LATERAL (
+            SELECT * FROM issuer_esg_metrics
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
+            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+        ) e ON TRUE
+        LEFT   JOIN LATERAL (
+            SELECT evic_eur FROM issuer_emissions
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL
+            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+        ) em ON TRUE
+        WHERE  p.fund_id = ANY(:fids)
+          AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
+    """), {"fids": fund_ids, "org": org_id}).mappings().all()
+
+    total_mv = sum(r["mv"] for r in rows) or 0.0
+    if total_mv == 0:
+        return {}
+
+    def wavg(field):
+        cov = [(r["mv"], r[field]) for r in rows if r[field] is not None]
+        w = sum(mv for mv, _ in cov)
+        return (round(sum(mv * v for mv, v in cov) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
+
+    def share(field):
+        known = [(r["mv"], r[field]) for r in rows if r[field] is not None]
+        w = sum(mv for mv, _ in known)
+        return (round(100 * sum(mv for mv, v in known if v) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
+
+    def attributed_per_meur(field):
+        cov = [(r["mv"], r["evic"], r[field]) for r in rows if r[field] is not None and r["evic"]]
+        inv = sum(mv for mv, _, _ in cov)
+        if not inv:
+            return None, 0.0
+        attributed = sum((mv / evic) * v for mv, evic, v in cov)
+        return round(attributed / (inv / 1e6), 3), round(100 * inv / total_mv, 1)
+
+    return {
+        "pai_5": dict(zip(("value", "coverage_pct"), wavg("non_renew"))),
+        "pai_6": dict(zip(("value", "coverage_pct"), wavg("energy_int"))),
+        "pai_7": dict(zip(("value", "coverage_pct"), share("biodiv"))),
+        "pai_8": dict(zip(("value", "coverage_pct"), attributed_per_meur("water"))),
+        "pai_9": dict(zip(("value", "coverage_pct"), attributed_per_meur("waste"))),
+        "pai_10": dict(zip(("value", "coverage_pct"), share("violation"))),
+        "pai_11": dict(zip(("value", "coverage_pct"), share("no_monitor"))),
+        "pai_12": dict(zip(("value", "coverage_pct"), wavg("pay_gap"))),
+        "pai_13": dict(zip(("value", "coverage_pct"), wavg("board_f"))),
+        "pai_14": dict(zip(("value", "coverage_pct"), share("weapons"))),
+    }
+
+
 def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
     fund_ids = fund_descendant_ids(session, fund_id)
     if not fund_ids:

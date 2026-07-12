@@ -90,3 +90,45 @@ def test_financed_emissions_partial_without_evic():
             s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": fid})
             s.execute(text("DELETE FROM securities WHERE isin='DE00NOEVIC01'"))
             s.execute(text("DELETE FROM issuers WHERE name='NoEVIC Issuer' AND issuer_type='corporate'"))
+
+
+@pytest.mark.integration
+def test_esg_pai_5_to_14_computed():
+    """PAI 5-14 compute from issuer_esg_metrics: value-weighted ratios, exposure
+    shares for flags, and EVIC-attributed absolutes for water/waste."""
+    from services.fund_disclosure import fund_esg_pai
+    with get_session() as s:
+        fid = str(s.execute(text(
+            "INSERT INTO funds (org_id,name,fund_type) VALUES (:o,'TEST ESG PAI Fund','fund') RETURNING fund_id"),
+            {"o": DEMO_ORG}).scalar())
+        iid = str(s.execute(text(
+            "INSERT INTO issuers (name,issuer_type,country,source) "
+            "VALUES ('ESG Test Issuer','corporate','DE','manual') RETURNING issuer_id")).scalar())
+        sid = str(s.execute(text(
+            "INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
+            "VALUES ('DE00ESGTST1','ESG Sec',:i,'equity','manual') RETURNING security_id"), {"i": iid}).scalar())
+        s.execute(text(
+            "INSERT INTO issuer_emissions (issuer_id,reporting_year,evic_eur,source) "
+            "VALUES (:i,2023,50000000000,'disclosed')"), {"i": iid})
+        s.execute(text(
+            "INSERT INTO issuer_esg_metrics (issuer_id,reporting_year,non_renewable_energy_pct,"
+            "biodiversity_sensitive_ops,emissions_to_water_tonnes,gender_pay_gap_pct,board_female_pct,"
+            "controversial_weapons,source) VALUES (:i,2023,40,true,1000,15,35,false,'client')"), {"i": iid})
+        s.execute(text(
+            "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
+            "VALUES (:f,:s,5000000,100,'2026-07-12')"), {"f": fid, "s": sid})
+    try:
+        with get_session() as s:
+            esg = fund_esg_pai(s, fid)
+        assert esg["pai_5"]["value"] == 40.0 and esg["pai_5"]["coverage_pct"] == 100.0   # energy share
+        assert esg["pai_7"]["value"] == 100.0                                            # 100% of value flagged
+        assert esg["pai_12"]["value"] == 15.0                                            # pay gap
+        assert esg["pai_13"]["value"] == 35.0                                            # board diversity
+        assert esg["pai_14"]["value"] == 0.0                                             # no weapons exposure
+        # water attributed: (5e6/5e10)×1000 = 0.1 t; per €m invested = 0.1/(5e6/1e6)=0.02
+        assert esg["pai_8"]["value"] == 0.02
+    finally:
+        with get_session() as s:
+            s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": fid})
+            s.execute(text("DELETE FROM securities WHERE isin='DE00ESGTST1'"))
+            s.execute(text("DELETE FROM issuers WHERE issuer_id=:i"), {"i": iid})

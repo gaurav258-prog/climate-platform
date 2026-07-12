@@ -32,7 +32,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
-from services.fund_disclosure import fund_pai
+from services.fund_disclosure import fund_pai, fund_esg_pai
 
 # ── The mandatory PAI indicators (SFDR RTS Annex I, Table 1 — investee companies) ──
 # Each: number, area, metric (as worded by the RTS), unit. Value/coverage/source
@@ -263,7 +263,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                      value=p["pai_4_fossil_fuel_exposure_pct"], coverage=100.0,
                      source="issuer NACE division (golden source)", method="computed")
 
-    # Inputs each remaining mandatory indicator needs (all currently not available).
+    # Inputs each remaining mandatory indicator needs (when its data is absent).
     remaining_inputs = {
         5: "issuer energy mix (renewable vs non-renewable share)",
         6: "issuer energy consumption (GWh) by high-impact NACE",
@@ -276,6 +276,21 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         13: "issuer board gender diversity",
         14: "controversial-weapons involvement flags per issuer",
     }
+
+    # PAI 5-14 — the non-carbon indicators, computed from issuer_esg_metrics where
+    # the manager has supplied that ESG data (value-weighted / share / attributed).
+    esg = fund_esg_pai(session, fund_id)
+    _ESG_SRC = "issuer ESG disclosures (manager feed), value-weighted"
+    for num in range(5, 15):
+        cell = esg.get(f"pai_{num}") if esg else None
+        if cell and cell.get("value") is not None:
+            filled[num] = _row(num, next(a for n, a, _, __ in MANDATORY_PAI_INDICATORS if n == num),
+                               next(m for n, _, m, __ in MANDATORY_PAI_INDICATORS if n == num),
+                               next(u for n, _, __, u in MANDATORY_PAI_INDICATORS if n == num),
+                               value=cell["value"], coverage=cell["coverage_pct"], source=_ESG_SRC,
+                               method="computed" if cell["coverage_pct"] >= 99.9 else "partial",
+                               input_required=None if cell["coverage_pct"] >= 99.9
+                               else f"{remaining_inputs[num]} on the remaining {round(100 - cell['coverage_pct'], 1)}% by value")
 
     indicators = []
     for num, area, metric, unit in MANDATORY_PAI_INDICATORS:

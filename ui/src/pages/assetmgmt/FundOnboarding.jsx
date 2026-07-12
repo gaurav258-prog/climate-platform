@@ -147,8 +147,8 @@ export default function FundOnboarding({ onGoto }) {
                   sub="value-weighted into the fund" />
                 <Stat icon={MapPin} label="Footprints" value={cov.footprints.seeded + cov.footprints.already}
                   sub={cov.footprints.failed ? `${cov.footprints.failed} could not geocode` : 'HQ located & scored'} accent="#c2410c" />
-                <Stat icon={FileCheck2} label="Issuer data" value={(cov.client_enriched?.sector || 0) + (cov.client_enriched?.emissions || 0)}
-                  sub={`${cov.client_enriched?.sector || 0} sector · ${cov.client_enriched?.emissions || 0} emissions`} accent="#0071e3" />
+                <Stat icon={FileCheck2} label="Issuer data" value={(cov.client_enriched?.sector || 0) + (cov.client_enriched?.emissions || 0) + (cov.client_enriched?.esg || 0)}
+                  sub={`${cov.client_enriched?.emissions || 0} emissions · ${cov.client_enriched?.estimated || 0} est · ${cov.client_enriched?.esg || 0} ESG`} accent="#0071e3" />
               </div>
 
               {/* matched issuers */}
