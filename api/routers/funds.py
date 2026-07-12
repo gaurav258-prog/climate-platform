@@ -27,6 +27,7 @@ from services.asset_manager_engine import (
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx
 from services.reference import gleif
+from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
 from services.reference.resolver import resolve_isin
 
@@ -127,7 +128,7 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     fields were written. NACE/sector is a shared fact (enrich only when unknown,
     never clobber); emissions/revenue are the client's PRIVATE disclosure,
     org-scoped and marked source='client' — never a fabricated value."""
-    wrote = {"sector": False, "emissions": False}
+    wrote = {"sector": False, "emissions": False, "estimated": False}
 
     if h.nace_code or h.sector:
         session.execute(text("""
@@ -152,6 +153,26 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
                "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e, "rev": h.revenue_eur})
         wrote["emissions"] = True
+
+    # Estimation gap-fill: revenue + sector but no disclosed scope → estimate
+    # scope 1+2 (sector intensity × revenue), stored source='estimated', method
+    # disclosed. Never overrides a real scope the client gave.
+    if h.scope1_tco2e is None and h.revenue_eur:
+        nace = h.nace_code or session.execute(
+            text("SELECT nace_code FROM issuers WHERE issuer_id = :i"), {"i": issuer_id}).scalar()
+        est = estimate_emissions(nace, h.revenue_eur)
+        if est:
+            session.execute(text("""
+                INSERT INTO issuer_emissions
+                    (issuer_id, org_id, reporting_year, scope1_tco2e, revenue_eur,
+                     source, estimation_method, data_vintage)
+                VALUES (:i, :org, :yr, :s12, :rev, 'estimated', :method, now())
+                ON CONFLICT (issuer_id, reporting_year, source, org_id) WHERE org_id IS NOT NULL
+                DO UPDATE SET scope1_tco2e = EXCLUDED.scope1_tco2e, revenue_eur = EXCLUDED.revenue_eur,
+                              estimation_method = EXCLUDED.estimation_method, data_vintage = EXCLUDED.data_vintage
+            """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
+                   "s12": est["scope1_2_tco2e"], "rev": h.revenue_eur, "method": est["method"]})
+            wrote["estimated"] = True
 
     return wrote
 
@@ -188,7 +209,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         by_isin.setdefault(key, h)
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
-    enriched = {"sector": 0, "emissions": 0}
+    enriched = {"sector": 0, "emissions": 0, "estimated": 0}
     for isin, h in by_isin.items():
         res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class, currency=h.currency)
         resolutions.append(res.to_dict())
@@ -201,6 +222,8 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             enriched["sector"] += 1
         if wrote["emissions"]:
             enriched["emissions"] += 1
+        if wrote["estimated"]:
+            enriched["estimated"] += 1
 
         # Seed the issuer's footprint if it has none yet, so physical risk is
         # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an

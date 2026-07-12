@@ -57,8 +57,10 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
             SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur, source
             FROM issuer_emissions
             WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
-            -- prefer this org's own disclosure, then most recent year
-            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+            -- prefer a row that actually carries scope figures (real or estimated)
+            -- over a revenue-only row, then this org's own over the global fallback,
+            -- then most recent year.
+            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), reporting_year DESC LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids) {date_filter}
     """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
@@ -73,6 +75,8 @@ def fund_pai(session, fund_id: str) -> dict:
 
     with_emissions = [r for r in rows if r["s1"] is not None and r["revenue_eur"]]
     covered_mv = sum(r["mv"] for r in with_emissions)
+    # SFDR requires disclosing the estimated-vs-reported split.
+    estimated_mv = sum(r["mv"] for r in with_emissions if r.get("emissions_source") == "estimated")
 
     # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Weighted over
     # the COVERED value (renormalized), and coverage disclosed separately.
@@ -97,6 +101,7 @@ def fund_pai(session, fund_id: str) -> dict:
         "total_value_eur": round(total_mv),
         "positions": len(rows),
         "emissions_coverage_pct": round(100 * covered_mv / total_mv, 1),
+        "emissions_estimated_pct": round(100 * estimated_mv / covered_mv, 1) if covered_mv else 0.0,
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,
             "pai_4_fossil_fuel_exposure_pct": round(100 * fossil_mv / total_mv, 2),

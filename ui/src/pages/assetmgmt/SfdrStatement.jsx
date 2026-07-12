@@ -69,7 +69,8 @@ export default function SfdrStatement({ onGoto }) {
             <Stat label="Fund" value={st.entity.fund_name} sub={`${mn(st.entity.total_value_eur)} · ${st.entity.positions} positions`} small />
             <Stat label="Computed" value={`${cov.computed}/${cov.mandatory_indicators}`} sub="mandatory indicators" accent="#1C7A4B" />
             <Stat label="Awaiting input" value={cov.not_available + cov.partial} sub="surfaced, not faked" accent="#9A5B08" />
-            <Stat label="Emissions coverage" value={cov.emissions_coverage_pct == null ? '—' : `${cov.emissions_coverage_pct}%`} sub="of portfolio value" accent="#0071e3" />
+            <Stat label="Emissions coverage" value={cov.emissions_coverage_pct == null ? '—' : `${cov.emissions_coverage_pct}%`}
+              sub={cov.emissions_estimated_pct ? `${cov.emissions_estimated_pct}% of it estimated` : 'all reported, none estimated'} accent="#0071e3" />
           </div>
 
           <p className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">{cov.filing_readiness}</p>

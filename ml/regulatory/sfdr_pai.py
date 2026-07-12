@@ -117,6 +117,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
 
     p = pai["pai"]
     emis_cov = pai.get("emissions_coverage_pct")
+    emis_est = pai.get("emissions_estimated_pct", 0.0)  # SFDR: estimated-vs-reported split
     inv = p["pai_1_investee_emissions_tco2e"]
 
     # Fill the mandatory table: computed where we honestly can, gap-flagged otherwise.
@@ -136,11 +137,12 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                      "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
                      method="not_available",
                      input_required="issuer EVIC (to compute the PCAF attribution factor)")
-    # PAI 3 — WACI (computed)
+    # PAI 3 — WACI (computed; may blend reported + estimated inputs, disclosed below)
+    waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
     filled[3] = _row(3, "Climate & environment",
                      "GHG intensity of investee companies (WACI)", "tCO₂e/€M revenue",
                      value=p["pai_3_waci_tco2e_per_meur"], coverage=emis_cov,
-                     source=_GOLDEN_SOURCE,
+                     source=waci_src,
                      method="computed" if p["pai_3_waci_tco2e_per_meur"] is not None else "not_available",
                      input_required=None if p["pai_3_waci_tco2e_per_meur"] is not None
                      else "issuer Scope 1/2 emissions + revenue")
@@ -191,6 +193,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
             "mandatory_indicators": len(indicators),
             "computed": computed, "partial": partial, "not_available": missing,
             "emissions_coverage_pct": emis_cov,
+            "emissions_estimated_pct": emis_est,   # of covered value, the reported/estimated split (SFDR RTS)
             "filing_readiness": (
                 f"{computed} of {len(indicators)} mandatory indicators computed, "
                 f"{partial} partial, {missing} awaiting issuer input. This statement is "
