@@ -151,6 +151,9 @@ export const CATALOG = {
           { id: 'sfdr', label: 'SFDR filing', icon: 'file-report', workflow: 'SfdrStatement',
             blurb: 'The mandatory PAI statement (RTS Annex I) — filing-ready, downloadable, with honest gaps.',
             processes: ['Assemble', 'Cover', 'Disclose', 'Export'] },
+          { id: 'periodic', label: 'Periodic report', icon: 'file-report', workflow: 'PeriodicReport',
+            blurb: 'The Article 8/9 periodic disclosure (RTS Annex IV/V) — computed where possible, honest gaps.',
+            processes: ['Assemble', 'Allocate', 'Align', 'Disclose'] },
         ],
       },
       {

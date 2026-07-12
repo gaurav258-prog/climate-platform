@@ -26,6 +26,7 @@ from services.asset_manager_engine import (
 )
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx
+from ml.regulatory.sfdr_periodic import periodic_report
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
@@ -375,6 +376,14 @@ def file_sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
            "by": st["entity"].get("manager_legal_name") or st["entity"]["manager"]})
     return {"ok": True, "reference_year": ref_year,
             "filed": f"FY{ref_year} statement frozen for {st['entity']['fund_name']}"}
+
+
+@router.get("/funds/{fund_id}/periodic-report", summary="SFDR Article 8/9 periodic disclosure (RTS Annex IV/V)")
+def sfdr_periodic_report(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    return periodic_report(session, fund_id)
 
 
 @router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")

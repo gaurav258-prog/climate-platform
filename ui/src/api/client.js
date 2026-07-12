@@ -346,6 +346,11 @@ export async function fetchSfdrStatement(fundId) {
   return get(`/v1/funds/${fundId}/sfdr-statement`)
 }
 
+/** The fund's SFDR Article 8/9 periodic disclosure (Annex IV/V). */
+export async function fetchPeriodicReport(fundId) {
+  return get(`/v1/funds/${fundId}/periodic-report`)
+}
+
 /** Freeze the current SFDR statement as the official filing for its reference year. */
 export async function fileSfdrStatement(fundId) {
   return send('POST', `/v1/funds/${fundId}/sfdr-statement/file`)
