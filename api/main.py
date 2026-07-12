@@ -176,29 +176,6 @@ if alerts_dashboard:
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────
 
-@app.get("/health", tags=["Health"])
-async def health_check() -> dict:
-    """Health check endpoint - verifies API and database connectivity"""
-    try:
-        db: Session = next(get_db())
-        db.execute("SELECT 1")
-        db.close()
-        return {
-            "status": "healthy",
-            "version": "0.1.0-alpha",
-            "database": "connected",
-            "phase": "Phase 0: Foundation"
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {
-            "status": "degraded",
-            "version": "0.1.0-alpha",
-            "database": "unavailable",
-            "phase": "Phase 0: Foundation"
-        }
-
-
 @app.get("/", tags=["Platform Info"])
 async def root() -> dict:
     """Root endpoint with platform information"""
@@ -292,7 +269,18 @@ async def general_exception_handler(request, exc):
 
 @app.get("/health", tags=["Health"])
 def health() -> dict:
-    return {"status": "ok", "version": app.version}
+    """Liveness + a real DB probe. 'ok' when the database answers, 'degraded'
+    only when it genuinely doesn't (the probe uses text(), not a raw string)."""
+    from sqlalchemy import text as _text
+    from core.db.session import get_session
+    try:
+        with get_session() as s:
+            s.execute(_text("SELECT 1"))
+        db_state = "connected"
+    except Exception as exc:  # genuine DB outage
+        logger.error("health DB probe failed: %s", exc)
+        return {"status": "degraded", "version": app.version, "database": "unavailable"}
+    return {"status": "ok", "version": app.version, "database": db_state}
 
 
 @app.get("/v1/meta/hazards", tags=["Meta"])
