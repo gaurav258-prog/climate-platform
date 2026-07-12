@@ -14,11 +14,25 @@ COUNTRY_CSV = ROOT / "data" / "reference" / "country_ghg_intensity.csv"
 def test_nace_intensities_load_from_csv():
     assert NACE_CSV.exists()
     with open(NACE_CSV, newline="", encoding="utf-8") as fh:
-        divisions = {r["nace_division"] for r in csv.DictReader(fh)}
-    # the loaded table used by the estimator matches the data file
-    assert emissions_estimation._INTENSITIES  # non-empty
-    assert "35" in emissions_estimation._INTENSITIES  # electricity present
-    assert divisions.issubset(set(emissions_estimation._INTENSITIES))
+        rows = list(csv.DictReader(fh))
+    divisions = {r["nace_division"] for r in rows}
+    table = emissions_estimation._INTENSITIES
+    # EXIOBASE values (from the CSV) win in the effective merged table...
+    for r in rows:
+        assert table[r["nace_division"]] == float(r["intensity_tco2e_per_meur"])
+    # ...and the merge keeps full division coverage beyond what EXIOBASE separates
+    # (e.g. pharma 21, which EXIOBASE folds into chemicals).
+    assert divisions.issubset(set(table))
+    assert "21" in table  # pharma, from the interim fallback
+
+
+def test_exiobase_calibration_sane():
+    """Carbon-intensive sectors rank far above light ones — a guard against a
+    broken EXIOBASE parse silently shipping garbage coefficients."""
+    t = emissions_estimation._INTENSITIES
+    assert t["35"] > t["24"] > t["62"]         # electricity > basic metals > software
+    assert t["35"] > 500 and t["62"] < 60       # order-of-magnitude sanity
+    assert all(v > 0 for v in t.values())
 
 
 def test_country_intensities_load_from_csv_and_are_real():

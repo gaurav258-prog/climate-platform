@@ -3,13 +3,13 @@ scope emissions aren't disclosed. These lock in that the estimate is exactly
 sector-intensity × revenue, that it degrades safely without inputs, and that
 scope 3 is never estimated."""
 from services.reference.emissions_estimation import (
-    DEFAULT_INTENSITY, NACE_INTENSITY_TCO2E_PER_MEUR, estimate_emissions,
+    DEFAULT_INTENSITY, _INTENSITIES, estimate_emissions,
 )
 
 
 def test_estimate_is_intensity_times_revenue():
-    # NACE 35 (electricity) intensity × €1,000m revenue.
-    intensity = NACE_INTENSITY_TCO2E_PER_MEUR["35"]
+    # NACE 35 (electricity) effective intensity (EXIOBASE-calibrated) × €1,000m revenue.
+    intensity = _INTENSITIES["35"]
     out = estimate_emissions("35.11", 1_000_000_000)
     assert out["scope1_2_tco2e"] == round(intensity * 1000)
     assert out["intensity_tco2e_per_meur"] == intensity

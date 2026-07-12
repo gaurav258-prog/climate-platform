@@ -1,86 +1,54 @@
 nace_division,intensity_tco2e_per_meur,scope,source
-01,600,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-02,300,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-03,250,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-05,2000,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-06,800,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-07,500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-08,500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-09,450,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-10,300,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-11,250,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-12,200,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-13,220,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-14,180,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-15,180,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-16,400,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-17,500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-18,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-19,1500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-20,700,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-21,120,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-22,400,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-23,900,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-24,1800,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-25,200,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-26,80,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-27,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-28,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-29,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-30,200,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-31,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-32,120,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-33,120,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-35,2500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-36,300,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-37,350,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-38,500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-39,400,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-41,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-42,250,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-43,120,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-45,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-46,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-47,80,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-49,500,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-50,700,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-51,1000,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-52,300,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-53,250,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-55,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-56,120,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-58,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-59,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-60,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-61,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-62,30,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-63,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-64,20,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-65,20,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-66,20,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-68,150,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-69,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-70,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-71,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-72,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-73,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-74,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-75,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-77,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-78,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-79,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-80,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-81,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-82,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-84,80,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-85,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-86,80,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-87,80,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-88,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-90,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-91,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-92,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-93,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-94,40,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-95,60,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
-96,90,scope1_2,EXIOBASE 3 methodology (calibration pending full MRIO run) — interim sector average
+01,1084.5,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+02,212.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+03,258.7,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+05,1590.7,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+06,2899.6,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+07,10327.8,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+08,1131.8,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+10,103.5,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+11,64.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+12,184.6,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+13,52.2,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+14,41.2,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+15,8.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+16,74.5,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+17,290.8,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+18,38.0,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+19,343.8,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+20,153.0,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+22,15.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+23,715.1,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+24,210.8,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+25,14.5,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+26,36.6,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+27,14.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+28,9.0,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+29,15.7,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+30,34.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+31,41.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+35,1247.2,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+36,41.1,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+37,1746.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+38,1021.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+41,14.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+47,50.7,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+49,59.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+50,1836.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+51,735.2,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+52,33.0,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+55,12.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+61,20.2,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+62,14.1,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+64,16.5,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+65,19.1,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+68,9.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+70,10.1,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+72,14.3,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+77,20.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+84,15.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+85,8.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+86,12.4,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+93,11.0,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+94,17.7,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"
+96,21.9,scope1_2,"EXIOBASE 3 IOT_2022_ixi (impacts/S GWP100, EU-region output-weighted)"

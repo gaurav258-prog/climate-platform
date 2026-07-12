@@ -356,7 +356,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                 {"item": "Facility location", "source": "GLEIF HQ address → OpenStreetMap/Nominatim geocode", "vintage": "at onboarding"},
                 {"item": "Physical hazard scores", "source": "Tellumen golden source (canonical_scores, append-only)", "vintage": "model-stamped"},
                 {"item": "Issuer emissions / revenue / EVIC", "source": "client disclosure where supplied; else estimated", "vintage": f"FY{ref_year}" if ref_year else "n/a"},
-                {"item": "Estimated emissions", "source": "NACE sector-average intensity × revenue (data/reference/nace_emission_intensity.csv; EXIOBASE calibration pending)", "vintage": "interim"},
+                {"item": "Estimated emissions", "source": "NACE sector intensity × revenue — EXIOBASE 3 IOT_2022_ixi (EU output-weighted GHG), interim fallback where EXIOBASE folds sectors", "vintage": "2022"},
                 {"item": "Sovereign country GHG intensity", "source": "OWID / Global Carbon Project CO2 ÷ GDP (data/reference/country_ghg_intensity.csv)", "vintage": "2022"},
             ],
             "model_versions": {

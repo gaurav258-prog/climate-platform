@@ -17,10 +17,12 @@ Honesty & scope:
     gap, surfaced, not a fabricated zero).
   * Scope 3 is NOT estimated here — value-chain estimation from sector intensity
     is far weaker and would overstate confidence. Scope 3 stays a disclosed gap.
-  * The intensity coefficients below are order-of-magnitude sector averages
-    (scope 1+2, tCO2e per €M revenue). They are illustrative and MUST be replaced
-    with a cited open dataset (EXIOBASE environmentally-extended I-O tables are
-    the intended source) before a filing relies on them — flagged, not hidden.
+  * Intensities are loaded from data/reference/nace_emission_intensity.csv:
+    EXIOBASE 3 (IOT_2022_ixi, EU output-weighted GHG intensity) for the 53
+    divisions EXIOBASE distinguishes, and the embedded interim table below for
+    the ~32 it folds together (e.g. pharma → chemicals). Regenerate the EXIOBASE
+    values with scripts/build_nace_intensities.py. The embedded table is the
+    offline fallback and covers divisions EXIOBASE doesn't separate.
 """
 from __future__ import annotations
 
@@ -31,7 +33,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-MODEL_VERSION = "emissions-est-v1-sector-intensity"
+MODEL_VERSION = "emissions-est-v2-exiobase"
 
 # Coefficients live in a provenanced data file (data/reference/nace_emission_intensity.csv)
 # so they are auditable data, not magic numbers — regenerate with
@@ -70,17 +72,19 @@ DEFAULT_INTENSITY = 150.0  # unknown division → a mid economy-wide average, fl
 
 
 def _load_intensities() -> dict[str, float]:
-    """Load NACE intensities from the provenanced CSV; fall back to the embedded
-    table if the file is missing (offline / tests)."""
+    """Merge the embedded interim table with the provenanced CSV: EXIOBASE-derived
+    values win where present, the embedded table covers divisions EXIOBASE doesn't
+    separate (e.g. pharma, folded into chemicals). Embedded-only if the CSV is
+    absent (offline / tests)."""
+    table = dict(NACE_INTENSITY_TCO2E_PER_MEUR)  # interim base, full division coverage
     try:
         with open(_INTENSITY_CSV, newline="", encoding="utf-8") as fh:
-            table = {r["nace_division"].strip(): float(r["intensity_tco2e_per_meur"])
-                     for r in csv.DictReader(fh) if r.get("nace_division")}
-        if table:
-            return table
+            for r in csv.DictReader(fh):
+                if r.get("nace_division"):
+                    table[r["nace_division"].strip()] = float(r["intensity_tco2e_per_meur"])
     except (OSError, KeyError, ValueError) as exc:
-        logger.info("NACE intensity CSV unavailable (%s); using embedded fallback", exc)
-    return dict(NACE_INTENSITY_TCO2E_PER_MEUR)
+        logger.info("NACE intensity CSV unavailable (%s); using embedded table only", exc)
+    return table
 
 
 # Effective table used by estimate_emissions (data file, else embedded fallback).
