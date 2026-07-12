@@ -9,6 +9,7 @@ const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 function FilingReadiness({ readiness, onSaved }) {
   const [lei, setLei] = useState('')
   const [email, setEmail] = useState('')
+  const [nar, setNar] = useState({ policies: '', actions: '', engagement: '', standards: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   if (!readiness) return null
@@ -16,24 +17,35 @@ function FilingReadiness({ readiness, onSaved }) {
   if (readiness.ready_to_file) {
     return (
       <div className="mt-3 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-[13px] font-medium text-green-800">
-        <ShieldCheck size={16} /> Ready to file — reporting entity identified and the statement is complete.
+        <ShieldCheck size={16} /> Ready to file — reporting entity, narrative sections and statement all complete.
       </div>
     )
   }
 
+  const needNarr = readiness.missing.some(m => m.startsWith('narrative:'))
   const save = async () => {
     setBusy(true); setErr(null)
     try {
-      const r = await saveFilingProfile({ lei: lei.trim().toUpperCase(), filing_contact_email: email || undefined })
+      const payload = { lei: lei.trim().toUpperCase() }
+      if (email) payload.filing_contact_email = email
+      if (needNarr) payload.narratives = nar
+      const r = await saveFilingProfile(payload)
       if (r.error) { setErr(r.detail || 'Could not validate LEI'); return }
       onSaved?.()
     } catch (e) { setErr(e.message || 'Save failed') } finally { setBusy(false) }
   }
+  const naField = (key, label) => (
+    <div className="min-w-[240px] flex-1">
+      <label className="text-[10px] uppercase tracking-wide text-amber-700">{label}</label>
+      <textarea value={nar[key]} onChange={e => setNar({ ...nar, [key]: e.target.value })} rows={2}
+        className="mt-0.5 block w-full resize-y rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-amber-500" />
+    </div>
+  )
 
   return (
     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
       <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
-        <AlertTriangle size={14} /> Not yet submittable — supply the reporting entity to file: {readiness.missing.join(' · ')}
+        <AlertTriangle size={14} /> Not yet submittable — supply the following to file: {readiness.missing.join(' · ')}
       </div>
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div>
@@ -46,11 +58,18 @@ function FilingReadiness({ readiness, onSaved }) {
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="compliance@firm.com"
             className="mt-0.5 block w-[200px] rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-amber-500" />
         </div>
-        <button onClick={save} disabled={busy || lei.trim().length !== 20}
-          className="rounded-lg bg-amber-700 px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-amber-800 disabled:bg-amber-300">
-          {busy ? 'Validating…' : 'Validate & save'}
-        </button>
       </div>
+      {needNarr && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {naField('policies', 'Policies to identify & prioritise PAIs')}
+          {naField('actions', 'Actions taken & planned')}
+          {naField('engagement', 'Engagement policies')}
+        </div>
+      )}
+      <button onClick={save} disabled={busy || lei.trim().length !== 20}
+        className="mt-2 rounded-lg bg-amber-700 px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-amber-800 disabled:bg-amber-300">
+        {busy ? 'Validating…' : 'Validate & save'}
+      </button>
       {err && <p className="mt-1.5 text-[11px] text-red-600">{err}</p>}
       <p className="mt-1.5 text-[11px] text-amber-700">The LEI is checked against the GLEIF register; the legal name is pulled from it automatically.</p>
     </div>
@@ -163,6 +182,12 @@ export default function SfdrStatement({ onGoto }) {
           </div>
 
           <p className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">{cov.filing_readiness}</p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">
+            {cov.pcaf_data_quality_score != null && <span><b className="text-[#1d1d1f]">PCAF data quality:</b> {cov.pcaf_data_quality_score}<span className="text-gray-400">/5 (1 best)</span></span>}
+            <span><b className="text-[#1d1d1f]">Additional PAI:</b> <span className="text-amber-700">declaration required</span> (1 climate + 1 social)</span>
+            <span><b className="text-[#1d1d1f]">Look-through:</b> {st.look_through?.applicable ? <span className="text-amber-700">held funds not yet expanded</span> : 'n/a — direct securities'}</span>
+          </div>
 
           {/* filing header: reference period + declaration + what the download contains */}
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">

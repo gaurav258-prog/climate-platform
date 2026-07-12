@@ -226,6 +226,19 @@ def _attach_prior_year(session, fund_id: str, ref_year, indicators: list[dict]) 
     return {"available": True, "prior_reference_year": row["reference_year"]}
 
 
+def _look_through(comp: dict) -> dict:
+    """Report whether the fund holds funds/ETFs that require constituent look-through."""
+    held = {k: v for k, v in comp["by_asset_class"].items() if k in ("etf", "fund")}
+    if not held:
+        return {"applicable": False, "note": "No held funds/ETFs — direct securities only, no look-through required."}
+    return {
+        "applicable": True,
+        "held_fund_value_eur": sum(held.values()),
+        "status": "not_expanded",
+        "input_required": "constituent holdings of the held funds/ETFs (look-through not yet expanded)",
+    }
+
+
 def sfdr_pai_statement(session, fund_id: str) -> dict:
     """Assemble the fund's full SFDR PAI statement (Annex I Table 1) + Taxonomy.
 
@@ -236,7 +249,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     fund = session.execute(text("""
         SELECT f.fund_id::text AS fund_id, f.name, f.sfdr_classification, f.base_currency, f.lei AS fund_lei,
                o.name AS org_name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
-               o.filing_contact_email, o.country AS manager_domicile
+               o.filing_contact_email, o.country AS manager_domicile, o.sfdr_narratives
         FROM funds f JOIN organizations o ON o.org_id = f.org_id
         WHERE f.fund_id = :f
     """), {"f": fund_id}).mappings().first()
@@ -368,6 +381,15 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         filing_missing.append("filing contact email")
     if not ref_year:
         filing_missing.append("reference period (supply issuer emissions with a reporting year)")
+    # SFDR Annex I mandatory narrative sections.
+    narratives = fund.get("sfdr_narratives") or {}
+    _REQUIRED_NARRATIVES = {
+        "policies": "policies to identify and prioritise principal adverse impacts",
+        "actions": "actions taken and planned",
+        "engagement": "engagement policies",
+    }
+    missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items() if not (narratives.get(key) or "").strip()]
+    filing_missing += [f"narrative: {n}" for n in missing_narratives]
     ready_to_file = not filing_missing
 
     return {
@@ -412,11 +434,33 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         # Real-estate indicators (17-18) — always listed with their applicability.
         "real_estate_indicators": _real_estate_indicators(comp),
         "taxonomy": _taxonomy_rollup(session, fund_id),
+        # Additional (voluntary) PAI — SFDR requires the manager to adopt ≥1 more
+        # climate and ≥1 more social indicator from RTS Tables 2 & 3. Disclosed as
+        # a required declaration, not silently omitted.
+        "additional_indicators": {
+            "requirement": "Adopt ≥1 additional climate/environmental (RTS Table 2) and "
+                           "≥1 additional social (RTS Table 3) indicator.",
+            "selected": [],
+            "status": "declaration_required",
+            "input_required": "the manager's chosen additional indicators + their data",
+        },
+        # Look-through — if the book holds funds/ETFs, their constituents must be
+        # looked through. Detected from asset_class; honest status, not faked.
+        "look_through": _look_through(comp),
+        # Mandatory qualitative sections (manager-authored); missing ones flagged.
+        "narratives": {
+            "policies": narratives.get("policies"),
+            "actions": narratives.get("actions"),
+            "engagement": narratives.get("engagement"),
+            "standards": narratives.get("standards"),
+            "missing": missing_narratives,
+        },
         "coverage_summary": {
             "mandatory_indicators": len(indicators),
             "computed": computed, "partial": partial, "not_available": missing,
             "emissions_coverage_pct": emis_cov,
             "emissions_estimated_pct": emis_est,   # of covered value, the reported/estimated split (SFDR RTS)
+            "pcaf_data_quality_score": pai.get("pcaf_data_quality_score"),  # PCAF 1(best)–5(worst)
             "filing_readiness": (
                 f"{computed} of {len(indicators)} mandatory indicators computed, "
                 f"{partial} partial, {missing} awaiting issuer input. This statement is "
@@ -529,6 +573,10 @@ def sfdr_pai_statement_xlsx(statement: dict) -> io.BytesIO:
         ("Regulatory basis", statement["regulatory_basis"]),
         ("Mandatory indicators computed", f"{statement['coverage_summary']['computed']} of {statement['coverage_summary']['mandatory_indicators']}"),
         ("Emissions coverage", f"{statement['coverage_summary']['emissions_coverage_pct']}% (of which {statement['coverage_summary']['emissions_estimated_pct']}% estimated)"),
+        ("PCAF data-quality score", f"{statement['coverage_summary'].get('pcaf_data_quality_score', '—')} (1 best … 5 worst)"),
+        ("Additional (voluntary) PAI", statement.get("additional_indicators", {}).get("status", "—")),
+        ("Look-through", statement.get("look_through", {}).get("note") or statement.get("look_through", {}).get("status", "—")),
+        ("Narrative sections outstanding", ", ".join(statement.get("narratives", {}).get("missing") or []) or "none — complete"),
         ("Generated (UTC)", prov["generated_at"]),
     ]
     r = 7

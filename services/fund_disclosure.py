@@ -155,6 +155,13 @@ def fund_pai(session, fund_id: str) -> dict:
     # SFDR requires disclosing the estimated-vs-reported split.
     estimated_mv = sum(r["mv"] for r in with_emissions if r.get("emissions_source") == "estimated")
 
+    # PCAF data-quality score (1 best … 5 worst), value-weighted over covered value.
+    # reported (disclosed/client/cdp) → 2 (reported, unverified); vendor → 3;
+    # estimated (economic-activity, sector-intensity × revenue) → 4.
+    _PCAF_DQ = {"disclosed": 2, "client": 2, "cdp": 2, "vendor": 3, "estimated": 4}
+    dq_num = sum(r["mv"] * _PCAF_DQ.get(r.get("emissions_source"), 4) for r in with_emissions)
+    pcaf_dq = round(dq_num / covered_mv, 1) if covered_mv else None
+
     # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Weighted over
     # the COVERED value (renormalized), and coverage disclosed separately.
     waci = None
@@ -191,6 +198,7 @@ def fund_pai(session, fund_id: str) -> dict:
         "positions": len(rows),
         "emissions_coverage_pct": round(100 * covered_mv / total_mv, 1),
         "emissions_estimated_pct": round(100 * estimated_mv / covered_mv, 1) if covered_mv else 0.0,
+        "pcaf_data_quality_score": pcaf_dq,   # PCAF 1(best)–5(worst), value-weighted over covered
         "financed_emissions_coverage_pct": round(100 * financed_mv / total_mv, 1) if total_mv else 0.0,
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,

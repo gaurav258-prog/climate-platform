@@ -415,6 +415,7 @@ class FilingProfile(BaseModel):
     lei: str
     legal_name: Optional[str] = None
     filing_contact_email: Optional[str] = None
+    narratives: Optional[dict] = None   # {policies, actions, engagement, standards}
 
 
 @router.get("/manager/filing-profile", summary="The manager's SFDR filing-entity identity")
@@ -432,14 +433,17 @@ def set_filing_profile(body: FilingProfile, session: DbSession, org_id: OrgId):
     if not rec:
         return {"error": "invalid_lei", "detail": "LEI not found in GLEIF — supply a valid 20-character LEI"}
     # Default the legal name to GLEIF's authoritative name if the caller didn't give one.
+    import json as _json
     session.execute(text("""
         UPDATE organizations SET lei = :lei,
                legal_name = COALESCE(:legal_name, :gleif_name),
                filing_contact_email = COALESCE(:email, filing_contact_email),
+               sfdr_narratives = COALESCE(CAST(:narr AS jsonb), sfdr_narratives),
                updated_at = now()
         WHERE org_id = :o
     """), {"lei": lei, "legal_name": body.legal_name, "gleif_name": rec.name,
-           "email": body.filing_contact_email, "o": org_id})
+           "email": body.filing_contact_email,
+           "narr": _json.dumps(body.narratives) if body.narratives is not None else None, "o": org_id})
     return {"ok": True, "lei": lei, "validated_name": rec.name,
             "lei_status": rec.entity_status, "domicile": rec.country}
 
