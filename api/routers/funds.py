@@ -184,6 +184,27 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     return wrote
 
 
+_HOLDINGS_TEMPLATE = (
+    "# Tellumen holdings template — one holding per row.\n"
+    "# Required: isin, market_value_eur. Optional (fill what you already hold — it fills the SFDR statement):\n"
+    "#   nace_code (EU industry code), revenue_eur, scope1_tco2e, scope2_tco2e, scope3_tco2e,\n"
+    "#   evic_eur (enterprise value incl. cash — unlocks financed emissions, PAI 1/2), asset_class, reporting_year.\n"
+    "# Leave any optional cell blank; blanks are surfaced as gaps, never guessed. Delete these comment rows before use.\n"
+    "isin,market_value_eur,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year\n"
+    "US0378331005,5000000,26.20,383000000000,55000,0,16200000,2900000000000,equity,2023\n"
+    "DE0007164600,4000000,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023\n"
+    "FR0000131104,3000000,64.19,50000000000,60000,120000,7000000,95000000000,corporate_bond,2023\n"
+    "CH0038863350,3500000,,,,,,,equity,\n"
+)
+
+
+@router.get("/holdings/template.csv", summary="Download a holdings template a manager fills with their book")
+def holdings_template():
+    return StreamingResponse(
+        iter([_HOLDINGS_TEMPLATE]), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="tellumen_holdings_template.csv"'})
+
+
 @router.post("/funds/{fund_id}/holdings", summary="Onboard holdings by ISIN — resolve, locate, and value-weight into the fund")
 def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org_id: OrgId):
     """The 'upload ISINs alone' action.

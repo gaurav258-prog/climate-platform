@@ -336,6 +336,11 @@ export async function onboardHoldings(fundId, body) {
   return post(`/v1/funds/${fundId}/holdings`, body)
 }
 
+/** Download a holdings template (CSV) a manager fills with their own book. */
+export async function downloadHoldingsTemplate() {
+  return downloadFile('/v1/holdings/template.csv', 'tellumen_holdings_template.csv')
+}
+
 /** The fund's SFDR PAI statement (the filing) as structured JSON: entity, 14 mandatory indicators, taxonomy, coverage. */
 export async function fetchSfdrStatement(fundId) {
   return get(`/v1/funds/${fundId}/sfdr-statement`)

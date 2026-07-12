@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Upload, CheckCircle2, AlertTriangle, MapPin, Building2, Loader2, ArrowRight, Info, FileCheck2 } from 'lucide-react'
-import { fetchFunds, onboardHoldings } from '../../api/client'
+import { fetchFunds, onboardHoldings, downloadHoldingsTemplate } from '../../api/client'
 
 const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 
@@ -102,7 +102,10 @@ export default function FundOnboarding({ onGoto }) {
 
             <div className="mt-4 flex items-center justify-between">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €<span className="text-gray-300"> [, NACE, revenue, scope1, scope2, scope3, EVIC]</span></span></label>
-              <button onClick={() => setRaw(SAMPLE)} className="text-[11px] font-medium text-[#0071e3] hover:underline">Load sample book</button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => downloadHoldingsTemplate()} className="text-[11px] font-medium text-[#0071e3] hover:underline">Download template</button>
+                <button onClick={() => setRaw(SAMPLE)} className="text-[11px] font-medium text-[#0071e3] hover:underline">Load sample book</button>
+              </div>
             </div>
             <textarea value={raw} onChange={e => setRaw(e.target.value)} rows={9} spellCheck={false}
               placeholder={'US0378331005, 5000000\nFR0000131104, 3000000'}
