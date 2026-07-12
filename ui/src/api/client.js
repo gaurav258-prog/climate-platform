@@ -346,6 +346,11 @@ export async function fetchSfdrStatement(fundId) {
   return get(`/v1/funds/${fundId}/sfdr-statement`)
 }
 
+/** Set the manager's SFDR filing identity (LEI validated server-side vs GLEIF). */
+export async function saveFilingProfile(body) {
+  return send('PUT', '/v1/manager/filing-profile', body)
+}
+
 /** Download the SFDR PAI statement as a filing-shaped .xlsx. */
 export async function downloadSfdrStatement(fundId, fundName) {
   const safe = (fundName || 'fund').replace(/\s+/g, '_')

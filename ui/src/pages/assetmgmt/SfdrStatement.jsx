@@ -1,8 +1,61 @@
 import { useState, useEffect } from 'react'
-import { FileCheck2, Download, CheckCircle2, CircleDashed, AlertTriangle, Scale } from 'lucide-react'
-import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement } from '../../api/client'
+import { FileCheck2, Download, CheckCircle2, CircleDashed, AlertTriangle, Scale, ShieldCheck } from 'lucide-react'
+import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement, saveFilingProfile } from '../../api/client'
 
 const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
+
+/** The gate between a computed statement and a submittable one: the reporting
+ *  entity's LEI + contact. The LEI is validated server-side against GLEIF. */
+function FilingReadiness({ readiness, onSaved }) {
+  const [lei, setLei] = useState('')
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  if (!readiness) return null
+
+  if (readiness.ready_to_file) {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-[13px] font-medium text-green-800">
+        <ShieldCheck size={16} /> Ready to file — reporting entity identified and the statement is complete.
+      </div>
+    )
+  }
+
+  const save = async () => {
+    setBusy(true); setErr(null)
+    try {
+      const r = await saveFilingProfile({ lei: lei.trim().toUpperCase(), filing_contact_email: email || undefined })
+      if (r.error) { setErr(r.detail || 'Could not validate LEI'); return }
+      onSaved?.()
+    } catch (e) { setErr(e.message || 'Save failed') } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
+        <AlertTriangle size={14} /> Not yet submittable — supply the reporting entity to file: {readiness.missing.join(' · ')}
+      </div>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-amber-700">Manager LEI (20 chars)</label>
+          <input value={lei} onChange={e => setLei(e.target.value)} placeholder="9695003YCOLOMW6OMD54" maxLength={20}
+            className="mt-0.5 block w-[220px] rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 font-mono text-[12px] outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-amber-700">Filing contact email</label>
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="compliance@firm.com"
+            className="mt-0.5 block w-[200px] rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-amber-500" />
+        </div>
+        <button onClick={save} disabled={busy || lei.trim().length !== 20}
+          className="rounded-lg bg-amber-700 px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-amber-800 disabled:bg-amber-300">
+          {busy ? 'Validating…' : 'Validate & save'}
+        </button>
+      </div>
+      {err && <p className="mt-1.5 text-[11px] text-red-600">{err}</p>}
+      <p className="mt-1.5 text-[11px] text-amber-700">The LEI is checked against the GLEIF register; the legal name is pulled from it automatically.</p>
+    </div>
+  )
+}
 
 const METHOD = {
   computed: { label: 'Computed', cls: 'bg-green-50 text-green-700', Icon: CheckCircle2 },
@@ -100,11 +153,12 @@ export default function SfdrStatement({ onGoto }) {
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[12px] text-gray-600">
             <span><b className="text-[#1d1d1f]">Reference period:</b> {st.summary?.reference_period}</span>
             <span><b className="text-[#1d1d1f]">PAI considered:</b> Yes</span>
-            {st.summary?.manager_lei_required
-              ? <span className="text-amber-700">Manager LEI required to file</span>
-              : <span><b className="text-[#1d1d1f]">Manager LEI:</b> {st.entity.manager_lei}</span>}
+            {st.entity.manager_lei && <span><b className="text-[#1d1d1f]">Manager LEI:</b> {st.entity.manager_lei} · {st.entity.manager_legal_name}</span>}
             <span className="text-gray-400">Download = Summary + PAI statement (RTS Table 1) + Provenance appendix</span>
           </div>
+
+          {/* filing readiness — the gate between "computed" and "submittable" */}
+          <FilingReadiness readiness={st.filing_readiness} onSaved={() => fetchSfdrStatement(fund).then(setSt)} />
 
           {/* the mandated indicator table */}
           <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">

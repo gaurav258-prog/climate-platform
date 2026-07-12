@@ -371,6 +371,53 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
+class FilingProfile(BaseModel):
+    lei: str
+    legal_name: Optional[str] = None
+    filing_contact_email: Optional[str] = None
+
+
+@router.get("/manager/filing-profile", summary="The manager's SFDR filing-entity identity")
+def get_filing_profile(session: DbSession, org_id: OrgId):
+    row = session.execute(text(
+        "SELECT name, legal_name, lei, filing_contact_email, country FROM organizations WHERE org_id = :o"),
+        {"o": org_id}).mappings().first()
+    return dict(row) if row else {"error": "org not found"}
+
+
+@router.put("/manager/filing-profile", summary="Set the manager LEI + legal name + contact (LEI validated vs GLEIF)")
+def set_filing_profile(body: FilingProfile, session: DbSession, org_id: OrgId):
+    lei = (body.lei or "").strip().upper()
+    rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
+    if not rec:
+        return {"error": "invalid_lei", "detail": "LEI not found in GLEIF — supply a valid 20-character LEI"}
+    # Default the legal name to GLEIF's authoritative name if the caller didn't give one.
+    session.execute(text("""
+        UPDATE organizations SET lei = :lei,
+               legal_name = COALESCE(:legal_name, :gleif_name),
+               filing_contact_email = COALESCE(:email, filing_contact_email),
+               updated_at = now()
+        WHERE org_id = :o
+    """), {"lei": lei, "legal_name": body.legal_name, "gleif_name": rec.name,
+           "email": body.filing_contact_email, "o": org_id})
+    return {"ok": True, "lei": lei, "validated_name": rec.name,
+            "lei_status": rec.entity_status, "domicile": rec.country}
+
+
+@router.put("/funds/{fund_id}/lei", summary="Set a fund's own LEI (optional; validated vs GLEIF)")
+def set_fund_lei(fund_id: str, body: FilingProfile, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    lei = (body.lei or "").strip().upper()
+    rec = gleif.fetch_lei(lei) if len(lei) == 20 else None
+    if not rec:
+        return {"error": "invalid_lei", "detail": "LEI not found in GLEIF"}
+    session.execute(text("UPDATE funds SET lei = :lei, updated_at = now() WHERE fund_id = :f"),
+                    {"lei": lei, "f": fund_id})
+    return {"ok": True, "lei": lei, "validated_name": rec.name}
+
+
 @router.get("/issuers/{issuer_id}", summary="One issuer — full facility footprint + physical + transition detail")
 def issuer_detail(issuer_id: str, session: DbSession, org_id: OrgId,
                   scenario: str = Query("baseline"), horizon: str = Query("current")):

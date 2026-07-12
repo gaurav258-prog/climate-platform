@@ -198,8 +198,9 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     provenance. Raises nothing for missing data — it is disclosed, not hidden.
     """
     fund = session.execute(text("""
-        SELECT f.fund_id::text AS fund_id, f.name, f.sfdr_classification, f.base_currency,
-               o.name AS org_name
+        SELECT f.fund_id::text AS fund_id, f.name, f.sfdr_classification, f.base_currency, f.lei AS fund_lei,
+               o.name AS org_name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
+               o.filing_contact_email, o.country AS manager_domicile
         FROM funds f JOIN organizations o ON o.org_id = f.org_id
         WHERE f.fund_id = :f
     """), {"f": fund_id}).mappings().first()
@@ -316,11 +317,27 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         GROUP BY e.reporting_year ORDER BY count(*) DESC, e.reporting_year DESC LIMIT 1
     """), {"f": fund_id}).scalar()
 
-    manager_lei = fund.get("org_lei")  # organizations has no LEI column yet → required input
+    manager_lei = fund.get("manager_lei")
+    # Filing-readiness: the reporting-entity identity SFDR's Annex I header needs.
+    # NB: keep this list name distinct from the `missing` indicator COUNT above.
+    filing_missing = []
+    if not manager_lei:
+        filing_missing.append("manager LEI")
+    if not fund.get("manager_legal_name"):
+        filing_missing.append("manager legal name")
+    if not fund.get("filing_contact_email"):
+        filing_missing.append("filing contact email")
+    if not ref_year:
+        filing_missing.append("reference period (supply issuer emissions with a reporting year)")
+    ready_to_file = not filing_missing
+
     return {
         "entity": {
-            "fund_id": fund["fund_id"], "fund_name": fund["name"],
+            "fund_id": fund["fund_id"], "fund_name": fund["name"], "fund_lei": fund.get("fund_lei"),
             "manager": fund["org_name"], "manager_lei": manager_lei,
+            "manager_legal_name": fund.get("manager_legal_name"),
+            "manager_domicile": fund.get("manager_domicile"),
+            "filing_contact_email": fund.get("filing_contact_email"),
             "base_currency": fund["base_currency"],
             "sfdr_classification": fund["sfdr_classification"],
             "total_value_eur": pai["total_value_eur"], "positions": pai["positions"],
@@ -334,10 +351,16 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
             "manager_lei_required": manager_lei is None,
             "declaration": (
                 f"This is the principal adverse impacts statement on sustainability factors of "
-                f"{fund['org_name']} ({manager_lei or 'LEI required'}) for the fund "
+                f"{fund.get('manager_legal_name') or fund['org_name']} ({manager_lei or 'LEI required'}) for the fund "
                 f"'{fund['name']}', reference period {('FY' + str(ref_year)) if ref_year else '—'}. "
                 "Principal adverse impacts of investment decisions on sustainability factors are considered."
             ),
+        },
+        "filing_readiness": {
+            "ready_to_file": ready_to_file,
+            "missing": filing_missing,
+            "note": "Ready to file." if ready_to_file
+                    else "Not yet submittable — supply the reporting-entity identity above.",
         },
         "statement": "Principal Adverse Impact (PAI) statement",
         "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
