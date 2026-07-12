@@ -339,6 +339,46 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     }
 
 
+@router.post("/funds/{fund_id}/sfdr-statement/file", summary="Freeze the current SFDR statement as the official filing for its reference year")
+def file_sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
+    """Snapshot the current statement immutably for its reference year, so next
+    year's statement can show the year-on-year comparison against what was filed."""
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    st = sfdr_pai_statement(session, fund_id)
+    if st.get("error"):
+        return st
+    ref_year = st["summary"].get("reference_year")
+    if not ref_year:
+        return {"error": "no reference year — supply issuer emissions with a reporting year before filing"}
+    import json
+    session.execute(text("""
+        INSERT INTO fund_sfdr_filings (fund_id, org_id, reference_year, period_start, period_end,
+               statement, narrative_summary, filed_by, status)
+        VALUES (:f, :o, :y, make_date(:y,1,1), make_date(:y,12,31), CAST(:snap AS jsonb), :narr, :by, 'filed')
+        ON CONFLICT (fund_id, reference_year)
+        DO UPDATE SET statement = EXCLUDED.statement, narrative_summary = EXCLUDED.narrative_summary,
+                      filed_by = EXCLUDED.filed_by, filed_at = now()
+    """), {"f": fund_id, "o": org_id, "y": ref_year,
+           "snap": json.dumps(st), "narr": st["coverage_summary"]["filing_readiness"],
+           "by": st["entity"].get("manager_legal_name") or st["entity"]["manager"]})
+    return {"ok": True, "reference_year": ref_year,
+            "filed": f"FY{ref_year} statement frozen for {st['entity']['fund_name']}"}
+
+
+@router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")
+def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    rows = session.execute(text("""
+        SELECT reference_year, filed_at, filed_by, status FROM fund_sfdr_filings
+        WHERE fund_id = :f ORDER BY reference_year DESC
+    """), {"f": fund_id}).mappings().all()
+    return {"fund_id": fund_id, "filings": [dict(r) for r in rows]}
+
+
 def _fund_owned_or_error(session, fund_id: str, org_id: str):
     owner = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     if not owner:

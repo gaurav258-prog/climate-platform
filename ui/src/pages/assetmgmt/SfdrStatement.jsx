@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileCheck2, Download, CheckCircle2, CircleDashed, AlertTriangle, Scale, ShieldCheck } from 'lucide-react'
-import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement, saveFilingProfile } from '../../api/client'
+import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement, saveFilingProfile, fileSfdrStatement } from '../../api/client'
 
 const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 
@@ -73,7 +73,12 @@ function IndicatorRows({ items }) {
         <td className="py-2.5 text-gray-400">{ind.number}</td>
         <td className="py-2.5"><div className="font-medium text-[#1d1d1f]">{ind.metric}</div>
           <div className="text-[11px] text-gray-400">{ind.area} · {ind.unit}</div></td>
-        <td className="py-2.5 text-right tabular-nums text-[#1d1d1f]">{fmtVal(ind.value)}</td>
+        <td className="py-2.5 text-right tabular-nums text-[#1d1d1f]">{fmtVal(ind.value)}
+          {ind.change_pct != null && (
+            <div className={`text-[10px] font-medium ${ind.change_pct <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {ind.change_pct <= 0 ? '▼' : '▲'} {Math.abs(ind.change_pct)}% vs prior
+            </div>)}
+        </td>
         <td className="py-2.5 text-right text-[11px] text-gray-400">{ind.coverage_pct == null ? '—' : `${ind.coverage_pct}%`}</td>
         <td className="py-2.5">
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.cls}`}><m.Icon size={11} /> {m.label}</span>
@@ -95,6 +100,7 @@ export default function SfdrStatement({ onGoto }) {
   const [funds, setFunds] = useState(null)
   const [fund, setFund] = useState(null)
   const [st, setSt] = useState(null)
+  const [fileMsg, setFileMsg] = useState(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => { fetchFunds().then(d => { setFunds(d.funds || []); if (d.funds?.length) setFund(d.funds[0].fund_id) }).catch(() => setFunds([])) }, [])
@@ -119,12 +125,21 @@ export default function SfdrStatement({ onGoto }) {
           </p>
         </div>
         {st && !st.error && (
-          <button onClick={async () => { setBusy(true); try { await downloadSfdrStatement(fund, fundName) } finally { setBusy(false) } }}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-[#0071e3] px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#0077ed] disabled:bg-gray-300">
-            <Download size={15} /> {busy ? 'Preparing…' : 'Download filing (.xlsx)'}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={async () => { setBusy(true); setFileMsg(null); try { const r = await fileSfdrStatement(fund); setFileMsg(r.filed || 'Filed'); fetchSfdrStatement(fund).then(setSt) } catch (e) { setFileMsg(e.message) } finally { setBusy(false) } }}
+              disabled={busy || !st.filing_readiness?.ready_to_file}
+              title={st.filing_readiness?.ready_to_file ? 'Freeze this as the official filing for its reference year' : 'Complete the reporting-entity identity first'}
+              className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-[13px] font-medium text-[#1d1d1f] shadow-sm transition hover:border-gray-400 disabled:opacity-40">
+              <FileCheck2 size={15} /> File statement
+            </button>
+            <button onClick={async () => { setBusy(true); try { await downloadSfdrStatement(fund, fundName) } finally { setBusy(false) } }}
+              className="flex items-center gap-2 rounded-xl bg-[#0071e3] px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#0077ed] disabled:bg-gray-300">
+              <Download size={15} /> {busy ? '…' : 'Download filing (.xlsx)'}
+            </button>
+          </div>
         )}
       </header>
+      {fileMsg && <p className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-[12px] text-green-800">{fileMsg}</p>}
 
       {funds && funds.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-2">
@@ -163,7 +178,8 @@ export default function SfdrStatement({ onGoto }) {
           {/* the mandated indicator table */}
           <section className="mt-5 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
             <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Principal Adverse Impact indicators
-              <span className="font-normal text-gray-400"> — {st.regulatory_basis}</span></h2>
+              <span className="font-normal text-gray-400"> — {st.regulatory_basis}</span>
+              {st.comparison?.available && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">vs FY{st.comparison.prior_reference_year}</span>}</h2>
             <table className="mt-3 w-full text-[13px]">
               <thead><tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wide text-gray-400">
                 <th className="py-2 font-medium">#</th><th className="py-2 font-medium">Adverse impact indicator</th>

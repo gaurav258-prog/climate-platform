@@ -73,8 +73,15 @@ def _holding(row):
 
 
 def run() -> str:
+    isins = [x[0] for x in BOOK]
     with get_session() as s:
         s.execute(text("DELETE FROM funds WHERE org_id = :o AND name = :n"), {"o": ORG, "n": FUND_NAME})
+        # Clear this org's prior disclosures for the book's issuers so the two-period
+        # (FY2022 → FY2023) reference-year detection is clean, not polluted by earlier runs.
+        for tbl in ("issuer_emissions", "issuer_esg_metrics"):
+            s.execute(text(f"DELETE FROM {tbl} WHERE org_id = :o AND issuer_id IN "
+                           "(SELECT issuer_id FROM securities WHERE isin = ANY(:isins))"),
+                      {"o": ORG, "isins": isins})
         fund_id = str(s.execute(text(
             "INSERT INTO funds (org_id, name, fund_type, sfdr_classification, base_currency) "
             "VALUES (:o, :n, 'fund', 'article_8', 'EUR') RETURNING fund_id"),
@@ -84,8 +91,21 @@ def run() -> str:
     print(f"\n═══ {FUND_NAME} ═══")
     print(f"Manager uploads {len(BOOK)} holdings (mixed data availability)…\n")
 
+    def _year(h, year, scale):
+        h = dict(h); h["reporting_year"] = year
+        for k in ("scope1_tco2e", "scope2_tco2e", "scope3_tco2e"):
+            if h.get(k) is not None:
+                h[k] = round(h[k] * scale)
+        return h
+
+    # Prior reference period (FY2022) — file it so this year has a comparison.
+    c.post(f"/v1/funds/{fund_id}/holdings",
+           json={"as_of_date": "2026-07-12", "holdings": [_year(_holding(x), 2022, 1.12) for x in BOOK]})
+    c.post(f"/v1/funds/{fund_id}/sfdr-statement/file")
+
+    # Current reference period (FY2023).
     r = c.post(f"/v1/funds/{fund_id}/holdings",
-               json={"as_of_date": "2026-07-12", "holdings": [_holding(x) for x in BOOK]}).json()
+               json={"as_of_date": "2026-07-12", "holdings": [_year(_holding(x), 2023, 1.0) for x in BOOK]}).json()
     cov = r["coverage"]
     print("STEP 1 — onboarding (resolve → locate → value-weight)")
     print(f"  match rate        {cov['match_rate_pct']}%  ({cov['matched']}/{r['distinct_isins']} resolved)")
@@ -112,6 +132,10 @@ def run() -> str:
     print(f"  PAI 3 WACI         {ind(3)['value']} tCO2e/€m  ({cs['emissions_coverage_pct']}% covered, "
           f"{cs['emissions_estimated_pct']}% of that estimated) [{ind(3)['method']}]")
     print(f"  PAI 4 fossil expo. {ind(4)['value']}% of value [{ind(4)['method']}]")
+    if st.get("comparison", {}).get("available"):
+        w = ind(3)
+        print(f"  YoY vs FY{st['comparison']['prior_reference_year']}: WACI {w.get('prior_value')} → {w['value']} "
+              f"({w.get('change_pct')}%) — prior-year comparison from the frozen filing")
     tax = st["taxonomy"]
     print(f"  EU Taxonomy        {tax['assessable_pct']}% assessable · alignment: not asserted (honest)")
     gaps = [ind(n)["number"] for n in range(5, 15) if ind(n)["method"] == "not_available"]

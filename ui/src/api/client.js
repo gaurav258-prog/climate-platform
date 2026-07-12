@@ -346,6 +346,11 @@ export async function fetchSfdrStatement(fundId) {
   return get(`/v1/funds/${fundId}/sfdr-statement`)
 }
 
+/** Freeze the current SFDR statement as the official filing for its reference year. */
+export async function fileSfdrStatement(fundId) {
+  return send('POST', `/v1/funds/${fundId}/sfdr-statement/file`)
+}
+
 /** Set the manager's SFDR filing identity (LEI validated server-side vs GLEIF). */
 export async function saveFilingProfile(body) {
   return send('PUT', '/v1/manager/filing-profile', body)

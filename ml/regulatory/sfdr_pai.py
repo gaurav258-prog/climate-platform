@@ -190,6 +190,42 @@ def _real_estate_indicators(comp: dict) -> list[dict]:
     ]
 
 
+def _indicator_numeric(value):
+    """Reduce an indicator value to a comparable scalar (dict → its 'total')."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, dict) and isinstance(value.get("total"), (int, float)):
+        return float(value["total"])
+    return None
+
+
+def _attach_prior_year(session, fund_id: str, ref_year, indicators: list[dict]) -> dict:
+    """Look up the most recent FILED snapshot for a prior year and attach each
+    indicator's prior value + change. Returns comparison metadata. If none exists
+    (first reference period), indicators are left as-is."""
+    if not ref_year:
+        return {"available": False, "reason": "no reference year on the current statement"}
+    row = session.execute(text("""
+        SELECT reference_year, statement FROM fund_sfdr_filings
+        WHERE fund_id = :f AND reference_year < :y AND status = 'filed'
+        ORDER BY reference_year DESC LIMIT 1
+    """), {"f": fund_id, "y": ref_year}).mappings().first()
+    if not row:
+        return {"available": False, "reason": "first reference period — no prior filing to compare"}
+
+    prior_by_num = {i["number"]: i for i in (row["statement"].get("indicators") or [])}
+    for ind in indicators:
+        prior = prior_by_num.get(ind["number"])
+        if not prior:
+            continue
+        pv, cv = _indicator_numeric(prior.get("value")), _indicator_numeric(ind.get("value"))
+        ind["prior_value"] = prior.get("value")
+        if pv is not None and cv is not None:
+            ind["change"] = round(cv - pv, 3)
+            ind["change_pct"] = round(100 * (cv - pv) / pv, 1) if pv else None
+    return {"available": True, "prior_reference_year": row["reference_year"]}
+
+
 def sfdr_pai_statement(session, fund_id: str) -> dict:
     """Assemble the fund's full SFDR PAI statement (Annex I Table 1) + Taxonomy.
 
@@ -317,6 +353,9 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         GROUP BY e.reporting_year ORDER BY count(*) DESC, e.reporting_year DESC LIMIT 1
     """), {"f": fund_id}).scalar()
 
+    # Year-on-year: attach each indicator's prior filed value + change (SFDR yr 2+).
+    comparison = _attach_prior_year(session, fund_id, ref_year, indicators)
+
     manager_lei = fund.get("manager_lei")
     # Filing-readiness: the reporting-entity identity SFDR's Annex I header needs.
     # NB: keep this list name distinct from the `missing` indicator COUNT above.
@@ -364,6 +403,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         },
         "statement": "Principal Adverse Impact (PAI) statement",
         "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
+        "comparison": comparison,   # prior-period availability + year (indicators carry prior_value/change)
         "indicators": indicators,
         "holdings_composition": comp["by_asset_class"],
         # Sovereign indicators (15-16) shown only when the fund holds sovereigns.
