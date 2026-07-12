@@ -49,12 +49,12 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
                i.issuer_id::text AS issuer_id, i.name AS issuer_name, i.nace_code,
                CAST(e.scope1_tco2e AS FLOAT) AS s1, CAST(e.scope2_tco2e AS FLOAT) AS s2,
                CAST(e.scope3_tco2e AS FLOAT) AS s3, CAST(e.revenue_eur AS FLOAT) AS revenue_eur,
-               e.source AS emissions_source
+               CAST(e.evic_eur AS FLOAT) AS evic_eur, e.source AS emissions_source
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
         LEFT   JOIN LATERAL (
-            SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur, source
+            SELECT scope1_tco2e, scope2_tco2e, scope3_tco2e, revenue_eur, evic_eur, source
             FROM issuer_emissions
             WHERE issuer_id = i.issuer_id AND (org_id = :org OR org_id IS NULL)
             -- prefer a row that actually carries scope figures (real or estimated)
@@ -85,13 +85,25 @@ def fund_pai(session, fund_id: str) -> dict:
         waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0)) / (r["revenue_eur"] / 1e6))
                    for r in with_emissions) / covered_mv
 
-    # PAI 1 — financed emissions (PCAF): needs an attribution factor
-    # investment ÷ EVIC. EVIC is not yet collected, so we report the portfolio's
-    # aggregate investee emissions with the attribution factor DISCLOSED as
-    # required-but-missing, rather than inventing an EVIC.
+    # PAI 1 — financed emissions (PCAF): attribution factor = investment ÷ EVIC.
+    # We now attribute for every holding that has EVIC, and disclose the coverage;
+    # the un-attributed investee totals remain for holdings without EVIC.
     investee_s1 = sum(r["s1"] for r in with_emissions)
     investee_s2 = sum((r["s2"] or 0) for r in with_emissions)
     investee_s3 = sum((r["s3"] or 0) for r in with_emissions)
+
+    with_evic = [r for r in with_emissions if r.get("evic_eur")]
+    financed_mv = sum(r["mv"] for r in with_evic)
+    fin_s1 = fin_s2 = fin_s3 = 0.0
+    for r in with_evic:
+        af = r["mv"] / r["evic_eur"]            # attribution factor
+        fin_s1 += af * r["s1"]
+        fin_s2 += af * (r["s2"] or 0)
+        fin_s3 += af * (r["s3"] or 0)
+    financed_total = fin_s1 + fin_s2 + fin_s3
+    has_financed = financed_mv > 0
+    # PAI 2 — carbon footprint = financed emissions ÷ €M invested (over EVIC-covered value).
+    carbon_footprint = round(financed_total / (financed_mv / 1e6), 1) if has_financed else None
 
     # PAI 4 — fossil-fuel-sector exposure %
     fossil_mv = sum(r["mv"] for r in rows
@@ -102,15 +114,22 @@ def fund_pai(session, fund_id: str) -> dict:
         "positions": len(rows),
         "emissions_coverage_pct": round(100 * covered_mv / total_mv, 1),
         "emissions_estimated_pct": round(100 * estimated_mv / covered_mv, 1) if covered_mv else 0.0,
+        "financed_emissions_coverage_pct": round(100 * financed_mv / total_mv, 1) if total_mv else 0.0,
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,
             "pai_4_fossil_fuel_exposure_pct": round(100 * fossil_mv / total_mv, 2),
+            # PAI 1 — financed emissions, attributed via EVIC where available.
+            "pai_1_financed_emissions_tco2e": {
+                "scope_1": round(fin_s1), "scope_2": round(fin_s2), "scope_3": round(fin_s3),
+                "total": round(financed_total),
+            } if has_financed else None,
+            # PAI 2 — carbon footprint (financed emissions per €M invested).
+            "pai_2_carbon_footprint_tco2e_per_meur": carbon_footprint,
             "pai_1_investee_emissions_tco2e": {
                 "scope_1": round(investee_s1), "scope_2": round(investee_s2), "scope_3": round(investee_s3),
-                "attribution_factor": None,   # investment ÷ EVIC — EVIC not yet collected
-                "note": "Financed (attributed) emissions require issuer EVIC per PCAF. "
-                        "EVIC is not yet collected; supply it to complete PAI 1/2. "
-                        "Figures shown are un-attributed investee totals over covered holdings.",
+                "note": None if has_financed and financed_mv >= covered_mv else
+                        "Un-attributed investee totals; supply issuer EVIC on the remaining "
+                        "holdings to attribute their financed emissions (PCAF).",
             },
         },
         "pai_gaps": [

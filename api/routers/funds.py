@@ -115,6 +115,7 @@ class Holding(BaseModel):
     scope1_tco2e: Optional[float] = None
     scope2_tco2e: Optional[float] = None
     scope3_tco2e: Optional[float] = None
+    evic_eur: Optional[float] = None                    # enterprise value incl. cash → PCAF attribution (PAI 1/2)
     reporting_year: Optional[int] = None
 
 
@@ -140,18 +141,24 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         """), {"i": issuer_id, "nace": h.nace_code, "sector": h.sector})
         wrote["sector"] = True
 
-    if h.revenue_eur is not None or h.scope1_tco2e is not None:
+    if h.revenue_eur is not None or h.scope1_tco2e is not None or h.evic_eur is not None:
         session.execute(text("""
             INSERT INTO issuer_emissions
                 (issuer_id, org_id, reporting_year, scope1_tco2e, scope2_tco2e, scope3_tco2e,
-                 revenue_eur, source, data_vintage)
-            VALUES (:i, :org, :yr, :s1, :s2, :s3, :rev, 'client', now())
+                 revenue_eur, evic_eur, source, data_vintage)
+            VALUES (:i, :org, :yr, :s1, :s2, :s3, :rev, :evic, 'client', now())
             ON CONFLICT (issuer_id, reporting_year, source, org_id) WHERE org_id IS NOT NULL
-            DO UPDATE SET scope1_tco2e = EXCLUDED.scope1_tco2e, scope2_tco2e = EXCLUDED.scope2_tco2e,
-                          scope3_tco2e = EXCLUDED.scope3_tco2e, revenue_eur = EXCLUDED.revenue_eur,
+            -- COALESCE so a partial follow-up (e.g. EVIC only) fills gaps without
+            -- erasing figures supplied earlier.
+            DO UPDATE SET scope1_tco2e = COALESCE(EXCLUDED.scope1_tco2e, issuer_emissions.scope1_tco2e),
+                          scope2_tco2e = COALESCE(EXCLUDED.scope2_tco2e, issuer_emissions.scope2_tco2e),
+                          scope3_tco2e = COALESCE(EXCLUDED.scope3_tco2e, issuer_emissions.scope3_tco2e),
+                          revenue_eur  = COALESCE(EXCLUDED.revenue_eur, issuer_emissions.revenue_eur),
+                          evic_eur     = COALESCE(EXCLUDED.evic_eur, issuer_emissions.evic_eur),
                           data_vintage = EXCLUDED.data_vintage
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
-               "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e, "rev": h.revenue_eur})
+               "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e,
+               "rev": h.revenue_eur, "evic": h.evic_eur})
         wrote["emissions"] = True
 
     # Estimation gap-fill: revenue + sector but no disclosed scope → estimate

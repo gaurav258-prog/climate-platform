@@ -193,25 +193,41 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     p = pai["pai"]
     emis_cov = pai.get("emissions_coverage_pct")
     emis_est = pai.get("emissions_estimated_pct", 0.0)  # SFDR: estimated-vs-reported split
+    fin_cov = pai.get("financed_emissions_coverage_pct", 0.0)
     inv = p["pai_1_investee_emissions_tco2e"]
+    fin = p.get("pai_1_financed_emissions_tco2e")        # attributed via EVIC, or None
 
     # Fill the mandatory table: computed where we honestly can, gap-flagged otherwise.
     filled: dict[int, dict] = {}
 
-    # PAI 1 — investee GHG emissions (un-attributed; financed-emissions attribution needs EVIC)
-    filled[1] = _row(1, "Climate & environment",
-                     "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
-                     value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
-                            "scope_3": inv["scope_3"],
-                            "total": inv["scope_1"] + inv["scope_2"] + inv["scope_3"]},
-                     coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
-                     input_required="issuer EVIC (enterprise value incl. cash) to attribute "
-                                    "financed emissions per PCAF")
-    # PAI 2 — carbon footprint (financed emissions / €M invested) — needs EVIC
+    # PAI 1 — financed GHG emissions (PCAF-attributed via EVIC where available)
+    if fin:
+        filled[1] = _row(1, "Climate & environment",
+                         "GHG emissions — financed (Scope 1, 2, 3, total)", "tCO₂e",
+                         value={"scope_1": fin["scope_1"], "scope_2": fin["scope_2"],
+                                "scope_3": fin["scope_3"], "total": fin["total"]},
+                         coverage=fin_cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
+                         method="computed" if fin_cov >= 99.9 else "partial",
+                         input_required=None if fin_cov >= 99.9
+                         else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
+    else:
+        filled[1] = _row(1, "Climate & environment",
+                         "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
+                         value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
+                                "scope_3": inv["scope_3"],
+                                "total": inv["scope_1"] + inv["scope_2"] + inv["scope_3"]},
+                         coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
+                         input_required="issuer EVIC (enterprise value incl. cash) to attribute "
+                                        "financed emissions per PCAF")
+    # PAI 2 — carbon footprint (financed emissions / €M invested)
+    cf = p.get("pai_2_carbon_footprint_tco2e_per_meur")
     filled[2] = _row(2, "Climate & environment",
                      "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
-                     method="not_available",
-                     input_required="issuer EVIC (to compute the PCAF attribution factor)")
+                     value=cf, coverage=fin_cov if cf is not None else None,
+                     source=_GOLDEN_SOURCE + " · PCAF" if cf is not None else None,
+                     method=("computed" if fin_cov >= 99.9 else "partial") if cf is not None else "not_available",
+                     input_required=None if cf is None or fin_cov >= 99.9
+                     else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
     # PAI 3 — WACI (computed; may blend reported + estimated inputs, disclosed below)
     waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
     filled[3] = _row(3, "Climate & environment",

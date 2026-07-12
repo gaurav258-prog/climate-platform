@@ -8,9 +8,9 @@ const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 // large caps that resolve, plus one deliberately-unmatched line.
 // Columns after the value are OPTIONAL — supply the issuer data you already
 // hold (NACE, revenue, scope 1/2/3) to fill more of the SFDR statement.
-const SAMPLE = `US0378331005, 5000000, 26.20, 383000000000, 55000, 0, 16200000
-DE0007164600, 4000000, 62.01, 31200000000, 30000, 45000, 4300000
-FR0000131104, 3000000, 64.19, 50000000000, 60000, 120000, 7000000
+const SAMPLE = `US0378331005, 5000000, 26.20, 383000000000, 55000, 0, 16200000, 2900000000000
+DE0007164600, 4000000, 62.01, 31200000000, 30000, 45000, 4300000, 210000000000
+FR0000131104, 3000000, 64.19, 50000000000, 60000, 120000, 7000000, 95000000000
 CH0038863350, 3500000
 ZZ0000000000, 1000000`
 
@@ -32,6 +32,7 @@ function parseHoldings(text) {
     if (_num(p[4]) != null) h.scope1_tco2e = _num(p[4])
     if (_num(p[5]) != null) h.scope2_tco2e = _num(p[5])
     if (_num(p[6]) != null) h.scope3_tco2e = _num(p[6])
+    if (_num(p[7]) != null) h.evic_eur = _num(p[7])
     rows.push(h)
   })
   return { rows, errors }
@@ -100,7 +101,7 @@ export default function FundOnboarding({ onGoto }) {
             </div>
 
             <div className="mt-4 flex items-center justify-between">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €<span className="text-gray-300"> [, NACE, revenue, scope1, scope2, scope3]</span></span></label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €<span className="text-gray-300"> [, NACE, revenue, scope1, scope2, scope3, EVIC]</span></span></label>
               <button onClick={() => setRaw(SAMPLE)} className="text-[11px] font-medium text-[#0071e3] hover:underline">Load sample book</button>
             </div>
             <textarea value={raw} onChange={e => setRaw(e.target.value)} rows={9} spellCheck={false}
