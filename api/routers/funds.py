@@ -30,7 +30,7 @@ from ml.regulatory.sfdr_periodic import periodic_report
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
-from services.reference.resolver import resolve_isin
+from services.reference.resolver import resolve_isin, _ASSET_CLASSES
 
 router = APIRouter(prefix="/v1", tags=["Asset Management — Funds"])
 
@@ -107,7 +107,7 @@ class Holding(BaseModel):
     isin: str
     market_value_eur: float = Field(..., gt=0)          # the position's value; NOT NULL in the book
     weight_pct: Optional[float] = None                  # if omitted, derived from value share
-    asset_class: str = "equity"                         # equity / corporate_bond / sovereign_bond / ...
+    asset_class: Optional[str] = None                   # equity / corporate_bond / sovereign_bond / … (None → default equity on first resolve)
     currency: Optional[str] = None
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
@@ -286,10 +286,17 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
     enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0}
     for isin, h in by_isin.items():
-        res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class, currency=h.currency)
+        res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class or "equity", currency=h.currency)
         resolutions.append(res.to_dict())
         if res.status not in ("resolved", "cached") or not res.security_id:
             continue  # unmatched / errored ISINs are reported, never positioned
+
+        # An explicit asset-class hint (e.g. corporate_bond, sovereign_bond) must
+        # relabel an already-cached security — the resolver's cache fast-path skips
+        # the upsert, so a bond first seen as the default 'equity' would stay wrong.
+        if h.asset_class and h.asset_class in _ASSET_CLASSES:
+            session.execute(text("UPDATE securities SET asset_class = :ac WHERE security_id = :s"),
+                            {"ac": h.asset_class, "s": res.security_id})
 
         # Store any issuer data the client supplied on this holding.
         wrote = _apply_issuer_enrichment(session, res.issuer_id, org_id, h)
