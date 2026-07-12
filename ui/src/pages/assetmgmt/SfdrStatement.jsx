@@ -231,8 +231,9 @@ export default function SfdrStatement({ onGoto }) {
             <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1d1d1f]"><Scale size={14} /> EU Taxonomy</h2>
             <div className="mt-3 grid grid-cols-3 gap-4">
               <Mini label="Assessable (has NACE)" value={`${st.taxonomy.assessable_pct}%`} />
-              <Mini label="Taxonomy-eligible" value={fmtVal(st.taxonomy.taxonomy_eligible_pct)} />
-              <Mini label="Taxonomy-aligned" value="Not asserted" />
+              <Mini label="Taxonomy-eligible" value={st.taxonomy.taxonomy_eligible_pct == null ? '—' : `${st.taxonomy.taxonomy_eligible_pct}%`} />
+              <Mini label="Taxonomy-aligned" value={st.taxonomy.taxonomy_aligned_pct == null ? 'Not asserted' : `${st.taxonomy.taxonomy_aligned_pct}%`}
+                sub={st.taxonomy.taxonomy_aligned_pct == null ? undefined : `${st.taxonomy.alignment_coverage_pct}% reported`} />
             </div>
             <p className="mt-3 flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-[11px] leading-snug text-blue-800">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {st.taxonomy.alignment_note} Input required: {st.taxonomy.input_required}.

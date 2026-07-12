@@ -110,24 +110,42 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
     verified) — matching the classifier's discipline. We report the share of value
     we can even assess, so the gap is explicit.
     """
+    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     rows = session.execute(text("""
-        SELECT p.market_value_eur AS mv, i.nace_code
+        SELECT CAST(p.market_value_eur AS FLOAT) AS mv, i.nace_code,
+               CAST(e.taxonomy_eligible_pct AS FLOAT) AS elig, CAST(e.taxonomy_aligned_pct AS FLOAT) AS aligned
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers   i ON i.issuer_id = s.issuer_id
+        LEFT   JOIN LATERAL (
+            SELECT taxonomy_eligible_pct, taxonomy_aligned_pct FROM issuer_esg_metrics
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
+            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+        ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_descendant_ids(session, fund_id)}).mappings().all()
-    total = sum(float(r["mv"]) for r in rows) or 0.0
-    with_nace = sum(float(r["mv"]) for r in rows if r["nace_code"])
+    """), {"fids": fund_descendant_ids(session, fund_id), "org": org_id}).mappings().all()
+    total = sum(r["mv"] for r in rows) or 0.0
+    with_nace = sum(r["mv"] for r in rows if r["nace_code"])
+    # Value-weighted alignment/eligibility over holdings that supplied the issuer's
+    # own Article-8 figure — coverage disclosed; alignment ONLY from reported data.
+    elig_cov = [(r["mv"], r["elig"]) for r in rows if r["elig"] is not None]
+    align_cov = [(r["mv"], r["aligned"]) for r in rows if r["aligned"] is not None]
+    elig_w = sum(mv for mv, _ in elig_cov)
+    align_w = sum(mv for mv, _ in align_cov)
     return {
         "assessable_pct": round(100 * with_nace / total, 1) if total else 0.0,
-        "taxonomy_eligible_pct": None if with_nace == 0 else "requires per-issuer NACE mapping",
-        "taxonomy_aligned_pct": None,
-        "alignment_note": "Alignment not asserted: DNSH across the six environmental "
-                          "objectives and minimum-safeguards verification are not performed. "
-                          "Reported as eligible-at-most, never aligned.",
-        "input_required": "issuer NACE code (absent from GLEIF; supply per issuer or via a fundamentals upload)",
+        "taxonomy_eligible_pct": round(sum(mv * v for mv, v in elig_cov) / total, 1) if elig_w else None,
+        "taxonomy_aligned_pct": round(sum(mv * v for mv, v in align_cov) / total, 1) if align_w else None,
+        "alignment_coverage_pct": round(100 * align_w / total, 1) if total else 0.0,
+        "alignment_note": (
+            f"Aligned % is value-weighted over the {round(100 * align_w / total, 1)}% of the book whose issuers "
+            "reported an Article-8 Taxonomy-aligned figure. Where none is reported, no alignment is asserted "
+            "(eligible-at-most) — we never infer DNSH or minimum-safeguards ourselves."
+            if align_w else
+            "Alignment not asserted: no issuer has supplied its reported Taxonomy-aligned %. "
+            "Supply per-issuer Article-8 eligible/aligned figures to populate this."),
+        "input_required": None if align_w else "per-issuer reported Taxonomy eligible/aligned % (Article 8 disclosures)",
     }
 
 

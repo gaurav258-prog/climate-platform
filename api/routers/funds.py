@@ -128,6 +128,9 @@ class Holding(BaseModel):
     gender_pay_gap_pct: Optional[float] = None           # PAI 12
     board_female_pct: Optional[float] = None             # PAI 13
     controversial_weapons: Optional[bool] = None         # PAI 14
+    # EU Taxonomy — the issuer's own Article-8 reported figures (% of revenue)
+    taxonomy_eligible_pct: Optional[float] = Field(None, ge=0, le=100)
+    taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
 
 
 class HoldingsUpload(BaseModel):
@@ -204,6 +207,8 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         "gender_pay_gap_pct": h.gender_pay_gap_pct,
         "board_female_pct": h.board_female_pct,
         "controversial_weapons": h.controversial_weapons,
+        "taxonomy_eligible_pct": h.taxonomy_eligible_pct,
+        "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
     }
     if any(v is not None for v in esg_fields.values()):
         cols = ", ".join(esg_fields)
