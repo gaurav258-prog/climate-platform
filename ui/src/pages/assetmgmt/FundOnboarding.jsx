@@ -16,23 +16,62 @@ ZZ0000000000, 1000000`
 
 const _num = s => { const n = Number((s || '').replace(/[€,_\s]/g, '')); return Number.isFinite(n) && s ? n : null }
 
-/** Parse "ISIN, value[, NACE, revenue, scope1, scope2, scope3]" lines. Only the
- *  first two are required; the rest are optional issuer enrichment. */
+// Every intake field, by kind, so a header-mapped column is coerced correctly.
+const NUM_FIELDS = new Set(['market_value_eur', 'market_value', 'revenue_eur',
+  'scope1_tco2e', 'scope2_tco2e', 'scope3_tco2e', 'evic_eur', 'reporting_year',
+  'non_renewable_energy_pct', 'energy_intensity_gwh_per_meur', 'emissions_to_water_tonnes',
+  'hazardous_waste_tonnes', 'gender_pay_gap_pct', 'board_female_pct',
+  'taxonomy_eligible_pct', 'taxonomy_aligned_pct'])
+const BOOL_FIELDS = new Set(['biodiversity_sensitive_ops', 'ungc_oecd_violation',
+  'ungc_oecd_no_monitoring', 'controversial_weapons', 'taxonomy_dnsh_ok', 'taxonomy_min_safeguards_ok'])
+const STR_FIELDS = new Set(['currency', 'nace_code', 'sector', 'asset_class'])
+const KNOWN_FIELDS = new Set([...NUM_FIELDS, ...BOOL_FIELDS, ...STR_FIELDS, 'isin'])
+const _bool = (s) => ['1', 'true', 'yes', 'y', 't'].includes(String(s).trim().toLowerCase())
+
+/** Parse holdings from pasted text. Two modes:
+ *  - HEADER mode: if the first non-comment line names columns (contains "isin"),
+ *    map every known column by name — so ESG PAI 5-14, currency, EVIC, Taxonomy +
+ *    DNSH, reporting_year etc. can all be supplied. Matches the CSV template.
+ *  - LEGACY positional: "ISIN, value[, NACE, revenue, s1, s2, s3, evic]".
+ *  A line needs an ISIN and either market_value_eur or market_value (+ currency). */
 function parseHoldings(text) {
   const rows = [], errors = []
-  text.split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
+  const lines = text.split('\n').map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
+  if (!lines.length) return { rows, errors }
+
+  const firstCols = lines[0].split(/[,\t]/).map(s => s.trim().toLowerCase())
+  const isHeader = firstCols.includes('isin')
+  const header = isHeader ? firstCols : null
+  const body = isHeader ? lines.slice(1) : lines
+
+  body.forEach((line, i) => {
     const p = line.split(/[,\t]/).map(s => s.trim())
-    const isin = (p[0] || '').toUpperCase()
-    const value = _num(p[1])
-    if (isin.length !== 12) { errors.push(`Line ${i + 1}: "${p[0]}" is not a 12-char ISIN`); return }
-    if (!value || value <= 0) { errors.push(`Line ${i + 1}: ${isin} has no positive value`); return }
-    const h = { isin, market_value_eur: value, asset_class: 'equity' }
-    if (p[2]) h.nace_code = p[2]
-    if (_num(p[3]) != null) h.revenue_eur = _num(p[3])
-    if (_num(p[4]) != null) h.scope1_tco2e = _num(p[4])
-    if (_num(p[5]) != null) h.scope2_tco2e = _num(p[5])
-    if (_num(p[6]) != null) h.scope3_tco2e = _num(p[6])
-    if (_num(p[7]) != null) h.evic_eur = _num(p[7])
+    const h = { asset_class: 'equity' }
+    if (header) {
+      header.forEach((col, idx) => {
+        const raw = p[idx]
+        if (raw == null || raw === '' || !KNOWN_FIELDS.has(col)) return
+        if (col === 'isin') h.isin = raw.toUpperCase()
+        else if (NUM_FIELDS.has(col)) { const n = _num(raw); if (n != null) h[col] = n }
+        else if (BOOL_FIELDS.has(col)) h[col] = _bool(raw)
+        else h[col] = raw
+      })
+    } else {
+      h.isin = (p[0] || '').toUpperCase()
+      if (_num(p[1]) != null) h.market_value_eur = _num(p[1])
+      if (p[2]) h.nace_code = p[2]
+      if (_num(p[3]) != null) h.revenue_eur = _num(p[3])
+      if (_num(p[4]) != null) h.scope1_tco2e = _num(p[4])
+      if (_num(p[5]) != null) h.scope2_tco2e = _num(p[5])
+      if (_num(p[6]) != null) h.scope3_tco2e = _num(p[6])
+      if (_num(p[7]) != null) h.evic_eur = _num(p[7])
+    }
+    const ln = (header ? i + 2 : i + 1)
+    if (!h.isin || h.isin.length !== 12) { errors.push(`Line ${ln}: "${p[0]}" is not a 12-char ISIN`); return }
+    if (!(h.market_value_eur > 0) && !(h.market_value > 0)) {
+      errors.push(`Line ${ln}: ${h.isin} needs market_value_eur, or market_value + currency`); return
+    }
     rows.push(h)
   })
   return { rows, errors }
@@ -101,14 +140,14 @@ export default function FundOnboarding({ onGoto }) {
             </div>
 
             <div className="mt-4 flex items-center justify-between">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line: <span className="font-normal normal-case text-gray-400">ISIN, value €<span className="text-gray-300"> [, NACE, revenue, scope1, scope2, scope3, EVIC]</span></span></label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Holdings — one per line. <span className="font-normal normal-case text-gray-400">Quick: <span className="font-mono">ISIN, value €</span>. Full: paste the template's header row to supply currency, EVIC, ESG PAI 5–14, Taxonomy + DNSH.</span></label>
               <div className="flex items-center gap-3">
                 <button onClick={() => downloadHoldingsTemplate()} className="text-[11px] font-medium text-[#0071e3] hover:underline">Download template</button>
                 <button onClick={() => setRaw(SAMPLE)} className="text-[11px] font-medium text-[#0071e3] hover:underline">Load sample book</button>
               </div>
             </div>
             <textarea value={raw} onChange={e => setRaw(e.target.value)} rows={9} spellCheck={false}
-              placeholder={'US0378331005, 5000000\nFR0000131104, 3000000'}
+              placeholder={'US0378331005, 5000000\nFR0000131104, 3000000\n\n— or with a header row (any subset of template columns) —\nisin,market_value,currency,revenue_eur,scope1_tco2e,evic_eur\nUS5949181045,6000000,USD,211900000000,290000,2700000000000'}
               className="mt-2 w-full resize-y rounded-xl border border-gray-200 bg-[#fafafa] p-3 font-mono text-[12px] text-[#1d1d1f] outline-none focus:border-[#0071e3]" />
 
             {errors.length > 0 && (

@@ -367,6 +367,46 @@ export async function downloadSfdrStatement(fundId, fundName) {
   return downloadFile(`/v1/funds/${fundId}/sfdr-statement.xlsx`, `SFDR_PAI_Statement_${safe}.xlsx`)
 }
 
+/** Download the SFDR PAI statement as a machine-readable XBRL instance. */
+export async function downloadSfdrXbrl(fundId, fundName) {
+  const safe = (fundName || 'fund').replace(/\s+/g, '_')
+  return downloadFile(`/v1/funds/${fundId}/sfdr-statement.xbrl`, `SFDR_PAI_${safe}.xbrl`)
+}
+
+/** Entity-level SFDR PAI statement — aggregated across ALL the manager's funds. */
+export async function fetchEntityStatement() {
+  return get('/v1/entity/sfdr-statement')
+}
+
+/** Download the entity-level statement as XBRL. */
+export async function downloadEntityXbrl(managerName) {
+  const safe = (managerName || 'manager').replace(/\s+/g, '_')
+  return downloadFile('/v1/entity/sfdr-statement.xbrl', `SFDR_PAI_Entity_${safe}.xbrl`)
+}
+
+/** Voluntary (additional) PAI: catalog of selectable RTS Table 2/3 indicators. */
+export async function fetchVoluntaryCatalog() {
+  return get('/v1/voluntary-pai/catalog')
+}
+
+/** Set which additional PAI indicators a fund adopts (≥1 env + ≥1 social). */
+export async function setVoluntaryPai(fundId, indicatorKeys) {
+  return send('PUT', `/v1/funds/${fundId}/voluntary-pai`, { indicator_keys: indicatorKeys })
+}
+
+/** Generate SFDR statements across ALL the manager's funds (resumable batch). */
+export async function runSfdrBatch(referenceYear, limit) {
+  return post('/v1/entity/sfdr-batch', { reference_year: referenceYear, run: true, limit })
+}
+export async function fetchSfdrBatch(batchId) {
+  return get(`/v1/entity/sfdr-batch/${batchId}`)
+}
+
+/** Ingest a vendor ESG/PAI extract (MSCI/ISS) and reconcile against our reference layer. */
+export async function ingestVendorExtract(body) {
+  return post('/v1/vendor/ingest', body)
+}
+
 /** Override the recommended climate-VaR discount for a holding (requires pricing.approve). */
 export async function overrideAssetMgmtValuation(holdingId, discountPct, reason) {
   return post(`/v1/assetmgmt/holding/${holdingId}/valuation-override`, { discount_pct: discountPct, reason })

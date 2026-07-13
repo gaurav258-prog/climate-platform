@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileCheck2, Download, CheckCircle2, CircleDashed, AlertTriangle, Scale, ShieldCheck } from 'lucide-react'
-import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement, saveFilingProfile, fileSfdrStatement } from '../../api/client'
+import { fetchFunds, fetchSfdrStatement, downloadSfdrStatement, downloadSfdrXbrl, saveFilingProfile, fileSfdrStatement } from '../../api/client'
 
 const mn = n => n == null ? '—' : '€' + (n / 1e6).toFixed(1) + 'm'
 
@@ -154,6 +154,11 @@ export default function SfdrStatement({ onGoto }) {
             <button onClick={async () => { setBusy(true); try { await downloadSfdrStatement(fund, fundName) } finally { setBusy(false) } }}
               className="flex items-center gap-2 rounded-xl bg-[#0071e3] px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#0077ed] disabled:bg-gray-300">
               <Download size={15} /> {busy ? '…' : 'Download filing (.xlsx)'}
+            </button>
+            <button onClick={async () => { setBusy(true); try { await downloadSfdrXbrl(fund, fundName) } finally { setBusy(false) } }}
+              title="Machine-readable XBRL instance (ESEF/iXBRL-shaped)"
+              className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-[13px] font-medium text-[#1d1d1f] shadow-sm transition hover:border-gray-400 disabled:opacity-40">
+              <Download size={15} /> XBRL
             </button>
           </div>
         )}
