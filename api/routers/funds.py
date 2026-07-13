@@ -142,6 +142,10 @@ class Holding(BaseModel):
     # EU Taxonomy — the issuer's own Article-8 reported figures (% of revenue)
     taxonomy_eligible_pct: Optional[float] = Field(None, ge=0, le=100)
     taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
+    # DNSH / minimum-safeguards attestation. NULL = not separately assessed (take
+    # reported aligned as-is); False = known to fail → that issuer's aligned excluded.
+    taxonomy_dnsh_ok: Optional[bool] = None
+    taxonomy_min_safeguards_ok: Optional[bool] = None
 
 
 class HoldingsUpload(BaseModel):
@@ -220,6 +224,8 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         "controversial_weapons": h.controversial_weapons,
         "taxonomy_eligible_pct": h.taxonomy_eligible_pct,
         "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
+        "dnsh_ok": h.taxonomy_dnsh_ok,
+        "min_safeguards_ok": h.taxonomy_min_safeguards_ok,
     }
     if any(v is not None for v in esg_fields.values()):
         cols = ", ".join(esg_fields)
