@@ -16,7 +16,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from api.deps import DbSession
@@ -30,6 +30,7 @@ from ml.regulatory.sfdr_periodic import periodic_report
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
+from services.reference.fx import to_eur, FxError
 from services.reference.resolver import resolve_isin, _ASSET_CLASSES
 
 router = APIRouter(prefix="/v1", tags=["Asset Management — Funds"])
@@ -105,10 +106,19 @@ def fund_positions(fund_id: str, session: DbSession, org_id: OrgId,
 
 class Holding(BaseModel):
     isin: str
-    market_value_eur: float = Field(..., gt=0)          # the position's value; NOT NULL in the book
+    # Supply EITHER market_value_eur (already in EUR) OR market_value + currency
+    # (native, converted to EUR at the book's as-of date). Exactly one is required.
+    market_value_eur: Optional[float] = Field(None, gt=0)  # value in EUR
+    market_value: Optional[float] = Field(None, gt=0)      # value in the position's native currency
     weight_pct: Optional[float] = None                  # if omitted, derived from value share
     asset_class: Optional[str] = None                   # equity / corporate_bond / sovereign_bond / … (None → default equity on first resolve)
-    currency: Optional[str] = None
+    currency: Optional[str] = None                      # ISO 4217 of market_value (default EUR)
+
+    @model_validator(mode="after")
+    def _one_value(self) -> "Holding":
+        if self.market_value_eur is None and self.market_value is None:
+            raise ValueError("each holding needs market_value_eur, or market_value + currency")
+        return self
     # ── Optional issuer data the client already holds (fills SFDR gaps) ──
     nace_code: Optional[str] = None                     # issuer industry → EU Taxonomy + fossil-fuel PAI
     sector: Optional[str] = None
@@ -228,15 +238,18 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
 
 _HOLDINGS_TEMPLATE = (
     "# Tellumen holdings template — one holding per row.\n"
-    "# Required: isin, market_value_eur. Optional (fill what you already hold — it fills the SFDR statement):\n"
+    "# Value the line EITHER in EUR (market_value_eur) OR in its native currency\n"
+    "#   (market_value + currency, e.g. 5000000 + USD — we convert to EUR at the ECB\n"
+    "#   rate for the book's as-of date). Give one or the other, not both.\n"
+    "# Optional (fill what you already hold — it fills the SFDR statement):\n"
     "#   nace_code (EU industry code), revenue_eur, scope1_tco2e, scope2_tco2e, scope3_tco2e,\n"
     "#   evic_eur (enterprise value incl. cash — unlocks financed emissions, PAI 1/2), asset_class, reporting_year.\n"
     "# Leave any optional cell blank; blanks are surfaced as gaps, never guessed. Delete these comment rows before use.\n"
-    "isin,market_value_eur,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year\n"
-    "US0378331005,5000000,26.20,383000000000,55000,0,16200000,2900000000000,equity,2023\n"
-    "DE0007164600,4000000,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023\n"
-    "FR0000131104,3000000,64.19,50000000000,60000,120000,7000000,95000000000,corporate_bond,2023\n"
-    "CH0038863350,3500000,,,,,,,equity,\n"
+    "isin,market_value_eur,market_value,currency,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year\n"
+    "US0378331005,5000000,,,26.20,383000000000,55000,0,16200000,2900000000000,equity,2023\n"
+    "DE0007164600,4000000,,,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023\n"
+    "US5949181045,,6000000,USD,62.01,211900000000,290000,110000,13800000,2700000000000,equity,2023\n"
+    "CH0038863350,3500000,,,,,,,,,equity,\n"
 )
 
 
@@ -270,18 +283,47 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         return {"error": "no holdings supplied"}
 
     as_of = body.as_of_date or date.today()
-    total_value = sum(h.market_value_eur for h in body.holdings) or 1.0
 
+    # ── FX: normalize every line to EUR at the book's as-of date ───────────
+    # A holding may arrive already in EUR (market_value_eur) or in a native
+    # currency (market_value + currency). We convert the native ones and keep
+    # the original amount + currency for audit. An unknown currency is a hard,
+    # surfaced error — EUR is never silently assumed for a non-EUR line.
     # Aggregate repeated ISINs (a book can list the same security as several lots):
-    # SUM their market value rather than dropping later lots, so the position value
-    # and weights match the total. Enrichment fields keep the first non-null seen.
+    # SUM their EUR value rather than dropping later lots. Enrichment fields keep
+    # the first non-null seen; native base only survives if all lots share a ccy.
     by_isin: dict[str, Holding] = {}
+    native: dict[str, dict] = {}     # isin -> {base, ccy, mixed}
+    fx_applied: dict[str, dict] = {}  # ccy -> {rate, rate_date, source}
+    fx_errors: list[str] = []
     for h in body.holdings:
         key = (h.isin or "").strip().upper()
-        if key in by_isin:
-            by_isin[key].market_value_eur += h.market_value_eur
+        ccy = (h.currency or "EUR").strip().upper()
+        if h.market_value_eur is not None:
+            eur = h.market_value_eur
+            base = h.market_value if h.market_value is not None else (eur if ccy == "EUR" else None)
         else:
-            by_isin[key] = h.model_copy()
+            try:
+                conv = to_eur(session, h.market_value, ccy, as_of)
+            except FxError as e:
+                fx_errors.append(str(e))
+                continue
+            eur = conv["eur"]
+            base = h.market_value
+            if ccy != "EUR":
+                fx_applied[ccy] = {"rate": conv["rate"], "rate_date": conv["rate_date"], "source": conv["source"]}
+        if key in by_isin:
+            by_isin[key].market_value_eur += eur
+            n = native[key]
+            if n["ccy"] == ccy and n["base"] is not None and base is not None:
+                n["base"] += base
+            else:
+                n["mixed"] = True
+        else:
+            by_isin[key] = h.model_copy(update={"market_value_eur": eur})
+            native[key] = {"base": base, "ccy": ccy, "mixed": False}
+
+    total_value = sum(h.market_value_eur for h in by_isin.values()) or 1.0
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
     enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0}
@@ -326,12 +368,18 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             footprints["failed"] += 1  # matched security but no LEI to locate from — surfaced
 
         weight = h.weight_pct if h.weight_pct is not None else round(100.0 * h.market_value_eur / total_value, 6)
+        n = native[isin]
+        pos_ccy = "EUR" if n["mixed"] else n["ccy"]
+        pos_base = None if n["mixed"] else n["base"]
         session.execute(text("""
-            INSERT INTO fund_positions (fund_id, security_id, market_value_eur, weight_pct, as_of_date)
-            VALUES (:f, :s, :mv, :w, :d)
+            INSERT INTO fund_positions (fund_id, security_id, market_value_eur, market_value_base, currency, weight_pct, as_of_date)
+            VALUES (:f, :s, :mv, :mvb, :ccy, :w, :d)
             ON CONFLICT (fund_id, security_id, as_of_date)
-            DO UPDATE SET market_value_eur = EXCLUDED.market_value_eur, weight_pct = EXCLUDED.weight_pct
-        """), {"f": fund_id, "s": res.security_id, "mv": h.market_value_eur, "w": weight, "d": as_of})
+            DO UPDATE SET market_value_eur = EXCLUDED.market_value_eur,
+                          market_value_base = EXCLUDED.market_value_base,
+                          currency = EXCLUDED.currency, weight_pct = EXCLUDED.weight_pct
+        """), {"f": fund_id, "s": res.security_id, "mv": h.market_value_eur,
+               "mvb": pos_base, "ccy": pos_ccy, "w": weight, "d": as_of})
         positions_created += 1
 
     matched = sum(1 for r in resolutions if r["status"] in ("resolved", "cached"))
@@ -348,6 +396,10 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             "footprints": footprints,
             "sector_gap_isins": sector_gaps,   # matched but NACE unknown → needed for EU Taxonomy
             "client_enriched": enriched,        # issuer data the client supplied on this upload
+        },
+        "fx": {
+            "converted_currencies": fx_applied,  # ccy -> {rate (EUR per unit), rate_date, source}
+            "errors": fx_errors,                 # lines dropped for an unknown currency (surfaced, never guessed)
         },
         "resolutions": resolutions,
         "note": "Physical risk is now computable for located issuers. Sector/NACE, "
