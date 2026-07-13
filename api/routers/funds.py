@@ -26,6 +26,7 @@ from services.asset_manager_engine import (
 )
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx, entity_pai_statement
+from services.sfdr_batch import create_batch, run_batch, batch_status
 from ml.regulatory.sfdr_periodic import periodic_report
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG, catalog as voluntary_catalog, validate_keys
 from services.reference import gleif
@@ -557,6 +558,41 @@ def entity_sfdr_statement(session: DbSession, org_id: OrgId):
     """One PAI statement value-weighted across every fund the manager runs — what a
     large manager files at entity level, alongside per-fund statements."""
     return entity_pai_statement(session, org_id)
+
+
+class BatchCreate(BaseModel):
+    reference_year: int = Field(..., ge=2000, le=2100)
+    run: bool = True                 # generate immediately (else create pending only)
+    limit: Optional[int] = None      # cap funds processed this call (chunked runs)
+
+
+@router.post("/entity/sfdr-batch", summary="Generate SFDR statements across ALL the manager's funds (resumable batch)")
+def create_sfdr_batch(body: BatchCreate, session: DbSession, org_id: OrgId):
+    batch_id = create_batch(session, org_id, body.reference_year)
+    if body.run:
+        return run_batch(session, batch_id, limit=body.limit)
+    return batch_status(session, batch_id)
+
+
+@router.post("/entity/sfdr-batch/{batch_id}/run", summary="Resume a batch — process the funds still pending/errored")
+def resume_sfdr_batch(batch_id: str, session: DbSession, org_id: OrgId,
+                      limit: Optional[int] = Query(None)):
+    owner = session.execute(text("SELECT org_id::text FROM sfdr_batch_runs WHERE batch_id=:b"), {"b": batch_id}).scalar()
+    if not owner:
+        return {"error": "batch not found"}
+    if owner != org_id:
+        return {"error": "forbidden"}
+    return run_batch(session, batch_id, limit=limit)
+
+
+@router.get("/entity/sfdr-batch/{batch_id}", summary="Batch progress + per-fund status")
+def get_sfdr_batch(batch_id: str, session: DbSession, org_id: OrgId):
+    owner = session.execute(text("SELECT org_id::text FROM sfdr_batch_runs WHERE batch_id=:b"), {"b": batch_id}).scalar()
+    if not owner:
+        return {"error": "batch not found"}
+    if owner != org_id:
+        return {"error": "forbidden"}
+    return batch_status(session, batch_id)
 
 
 @router.get("/voluntary-pai/catalog", summary="Selectable additional (voluntary) PAI indicators — RTS Tables 2 & 3")
