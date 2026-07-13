@@ -27,6 +27,7 @@ from services.asset_manager_engine import (
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx
 from ml.regulatory.sfdr_periodic import periodic_report
+from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG, catalog as voluntary_catalog, validate_keys
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
@@ -146,6 +147,8 @@ class Holding(BaseModel):
     # reported aligned as-is); False = known to fail → that issuer's aligned excluded.
     taxonomy_dnsh_ok: Optional[bool] = None
     taxonomy_min_safeguards_ok: Optional[bool] = None
+    # Voluntary (additional) PAI values, keyed by catalog indicator_key → number or bool.
+    voluntary_pai: Optional[dict] = None
 
 
 class HoldingsUpload(BaseModel):
@@ -158,7 +161,7 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     fields were written. NACE/sector is a shared fact (enrich only when unknown,
     never clobber); emissions/revenue are the client's PRIVATE disclosure,
     org-scoped and marked source='client' — never a fabricated value."""
-    wrote = {"sector": False, "emissions": False, "estimated": False, "esg": False}
+    wrote = {"sector": False, "emissions": False, "estimated": False, "esg": False, "voluntary": False}
 
     if h.nace_code or h.sector:
         session.execute(text("""
@@ -238,6 +241,22 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
             DO UPDATE SET {updates}, data_vintage = now()
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year, **esg_fields})
         wrote["esg"] = True
+
+    # Voluntary (additional) PAI values — org-scoped, only for catalog keys.
+    if h.voluntary_pai:
+        yr = h.reporting_year or date.today().year
+        for key, val in h.voluntary_pai.items():
+            if key not in _VOLUNTARY_CATALOG:
+                continue  # unknown indicator key — surfaced upstream, never stored
+            num = val if isinstance(val, (int, float)) and not isinstance(val, bool) else None
+            flag = val if isinstance(val, bool) else None
+            session.execute(text("""
+                INSERT INTO issuer_voluntary_pai (issuer_id, org_id, indicator_key, reporting_year, value_num, value_bool, source)
+                VALUES (:i, :org, :k, :yr, :num, :flag, 'client')
+                ON CONFLICT (issuer_id, org_id, indicator_key, reporting_year)
+                DO UPDATE SET value_num = EXCLUDED.value_num, value_bool = EXCLUDED.value_bool, data_vintage = now()
+            """), {"i": issuer_id, "org": org_id, "k": key, "yr": yr, "num": num, "flag": flag})
+        wrote["voluntary"] = True
 
     return wrote
 
@@ -332,7 +351,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     total_value = sum(h.market_value_eur for h in by_isin.values()) or 1.0
 
     resolutions, positions_created, footprints = [], 0, {"seeded": 0, "failed": 0, "already": 0}
-    enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0}
+    enriched = {"sector": 0, "emissions": 0, "estimated": 0, "esg": 0, "voluntary": 0}
     for isin, h in by_isin.items():
         res = resolve_isin(session, isin, org_id=org_id, asset_class=h.asset_class or "equity", currency=h.currency)
         resolutions.append(res.to_dict())
@@ -356,6 +375,8 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             enriched["estimated"] += 1
         if wrote["esg"]:
             enriched["esg"] += 1
+        if wrote["voluntary"]:
+            enriched["voluntary"] += 1
 
         # Seed the issuer's footprint if it has none yet, so physical risk is
         # computable. Keyed on "has no facility" (NOT on resolved-vs-cached): an
@@ -529,6 +550,36 @@ def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
         WHERE fund_id = :f ORDER BY reference_year DESC
     """), {"f": fund_id}).mappings().all()
     return {"fund_id": fund_id, "filings": [dict(r) for r in rows]}
+
+
+@router.get("/voluntary-pai/catalog", summary="Selectable additional (voluntary) PAI indicators — RTS Tables 2 & 3")
+def voluntary_pai_catalog():
+    return {"indicators": voluntary_catalog()}
+
+
+class VoluntaryPaiSelection(BaseModel):
+    indicator_keys: list[str]       # the additional indicators the fund adopts
+
+
+@router.put("/funds/{fund_id}/voluntary-pai", summary="Set the additional PAI indicators a fund adopts (≥1 env + ≥1 social)")
+def set_voluntary_pai(fund_id: str, body: VoluntaryPaiSelection, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    bad = validate_keys(body.indicator_keys)
+    if bad:
+        return {"error": f"unknown indicator keys: {bad}", "catalog": list(_VOLUNTARY_CATALOG)}
+    session.execute(text("DELETE FROM fund_voluntary_pai WHERE fund_id = :f"), {"f": fund_id})
+    for key in dict.fromkeys(body.indicator_keys):   # de-dup, preserve order
+        session.execute(text("""
+            INSERT INTO fund_voluntary_pai (fund_id, org_id, indicator_key) VALUES (:f, :o, :k)
+        """), {"f": fund_id, "o": org_id, "k": key})
+    kinds = {_VOLUNTARY_CATALOG[k]["kind"] for k in body.indicator_keys}
+    return {
+        "fund_id": fund_id, "selected": body.indicator_keys,
+        "adoption_compliant": "environmental" in kinds and "social" in kinds,
+        "note": "Adopted. Supply per-issuer values (voluntary_pai on the holding upload) to populate the roll-up.",
+    }
 
 
 class LookThroughBody(BaseModel):

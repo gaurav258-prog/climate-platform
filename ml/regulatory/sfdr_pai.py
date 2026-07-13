@@ -34,6 +34,7 @@ from sqlalchemy import text
 
 from services.asset_manager_engine import fund_descendant_ids
 from services.fund_disclosure import fund_pai, fund_esg_pai
+from ml.regulatory.voluntary_pai import compute_voluntary_pai
 
 # ── The mandatory PAI indicators (SFDR RTS Annex I, Table 1 — investee companies) ──
 # Each: number, area, metric (as worded by the RTS), unit. Value/coverage/source
@@ -490,15 +491,9 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
         "real_estate_indicators": _real_estate_indicators(comp),
         "taxonomy": _taxonomy_rollup(session, fund_id),
         # Additional (voluntary) PAI — SFDR requires the manager to adopt ≥1 more
-        # climate and ≥1 more social indicator from RTS Tables 2 & 3. Disclosed as
-        # a required declaration, not silently omitted.
-        "additional_indicators": {
-            "requirement": "Adopt ≥1 additional climate/environmental (RTS Table 2) and "
-                           "≥1 additional social (RTS Table 3) indicator.",
-            "selected": [],
-            "status": "declaration_required",
-            "input_required": "the manager's chosen additional indicators + their data",
-        },
+        # climate and ≥1 more social indicator from RTS Tables 2 & 3. The manager
+        # selects which; we compute the roll-up over supplied issuer values.
+        "additional_indicators": compute_voluntary_pai(session, fund_id, comp),
         # Look-through — if the book holds funds/ETFs, their constituents must be
         # looked through. Detected from asset_class; honest status, not faked.
         "look_through": _look_through(session, fund_id, comp),
