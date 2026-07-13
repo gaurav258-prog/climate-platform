@@ -67,12 +67,12 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         LEFT   JOIN LATERAL (
             SELECT * FROM issuer_esg_metrics
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
-            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+            ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
         LEFT   JOIN LATERAL (
             SELECT evic_eur FROM issuer_emissions
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL
-            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+            ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) em ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
@@ -145,7 +145,7 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str],
             -- prefer a row that actually carries scope figures (real or estimated)
             -- over a revenue-only row, then this org's own over the global fallback,
             -- then most recent year.
-            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), reporting_year DESC LIMIT 1
+            ORDER BY (scope1_tco2e IS NULL), (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids) {date_filter}
     """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()

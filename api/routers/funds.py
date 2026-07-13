@@ -27,6 +27,7 @@ from services.asset_manager_engine import (
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx, entity_pai_statement
 from services.sfdr_batch import create_batch, run_batch, batch_status
+from services.reference.vendor_ingest import ingest_vendor_extract, PROFILES as _VENDOR_PROFILES
 from ml.regulatory.sfdr_periodic import periodic_report
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG, catalog as voluntary_catalog, validate_keys
 from services.reference import gleif
@@ -598,6 +599,28 @@ def get_sfdr_batch(batch_id: str, session: DbSession, org_id: OrgId):
 @router.get("/voluntary-pai/catalog", summary="Selectable additional (voluntary) PAI indicators — RTS Tables 2 & 3")
 def voluntary_pai_catalog():
     return {"indicators": voluntary_catalog()}
+
+
+class VendorIngest(BaseModel):
+    profile: str = "msci"                       # msci / iss / custom (with mapping)
+    mapping: Optional[dict] = None              # our_field -> vendor column (overrides profile)
+    reporting_year: Optional[int] = None
+    rows: list[dict]                            # the vendor extract, one dict per issuer row
+
+
+@router.get("/vendor/profiles", summary="Built-in vendor feed mapping profiles (MSCI/ISS/…)")
+def vendor_profiles():
+    return {"profiles": {k: v for k, v in _VENDOR_PROFILES.items()}}
+
+
+@router.post("/vendor/ingest", summary="Ingest a vendor ESG/PAI extract and reconcile against our reference layer")
+def vendor_ingest(body: VendorIngest, session: DbSession, org_id: OrgId):
+    """Map a vendor's columns to our fields, match rows to issuers by ISIN/LEI, and
+    store as source='vendor' (own > vendor > global precedence). Honest reconciliation."""
+    if not body.rows:
+        return {"error": "no rows supplied"}
+    return ingest_vendor_extract(session, org_id, body.rows, profile=body.profile,
+                                 mapping=body.mapping, reporting_year=body.reporting_year)
 
 
 class VoluntaryPaiSelection(BaseModel):

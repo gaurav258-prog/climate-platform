@@ -125,7 +125,7 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
         LEFT   JOIN LATERAL (
             SELECT taxonomy_eligible_pct, taxonomy_aligned_pct, dnsh_ok, min_safeguards_ok FROM issuer_esg_metrics
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
-            ORDER BY (org_id IS NULL), reporting_year DESC LIMIT 1
+            ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
