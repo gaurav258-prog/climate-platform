@@ -34,8 +34,9 @@ from services.asset_manager_engine import (
 FOSSIL_FUEL_NACE_DIVISIONS = {"05", "06", "19"}
 
 
-def fund_esg_pai(session, fund_id: str) -> dict:
+def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     """SFDR PAI 5-14 (the non-carbon indicators) for a fund, from issuer_esg_metrics.
+    Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up).
 
     Method, per RTS shape and our honesty rules:
       * ratios (5 energy share, 6 energy intensity, 12 pay gap, 13 board diversity)
@@ -45,8 +46,10 @@ def fund_esg_pai(session, fund_id: str) -> dict:
       * absolutes (8 water, 9 waste) → PCAF-attributed per €M invested (needs EVIC).
     Each indicator reports its own coverage; missing data is a gap, not a zero.
     """
-    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    fund_ids = fund_descendant_ids(session, fund_id)
+    if org_id is None:
+        org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if fund_ids is None:
+        fund_ids = fund_descendant_ids(session, fund_id)
     if not fund_ids:
         return {}
     rows = session.execute(text("""
@@ -111,13 +114,18 @@ def fund_esg_pai(session, fund_id: str) -> dict:
     }
 
 
-def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
-    fund_ids = fund_descendant_ids(session, fund_id)
+def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str],
+                              *, fund_ids=None, org_id=None):
+    # scope override (fund_ids + org_id) lets an entity-level roll-up reuse this
+    # exact SQL over ALL of a manager's funds instead of a single fund's subtree.
+    if fund_ids is None:
+        fund_ids = fund_descendant_ids(session, fund_id)
     if not fund_ids:
         return []
     # The fund's own org: its private issuer disclosures take precedence over any
     # global/estimated fallback (org_id IS NULL) for that same issuer.
-    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if org_id is None:
+        org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
     date_filter = "AND p.as_of_date = :d" if as_of_date else """
         AND p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)"""
     return session.execute(text(f"""
@@ -143,9 +151,10 @@ def _positions_with_emissions(session, fund_id: str, as_of_date: Optional[str]):
     """), {"fids": fund_ids, "org": org_id, **({"d": as_of_date} if as_of_date else {})}).mappings().all()
 
 
-def fund_pai(session, fund_id: str) -> dict:
-    """SFDR PAI table + coverage for a fund, value-weighted. Honest gaps, not zeros."""
-    rows = _positions_with_emissions(session, fund_id, None)
+def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
+    """SFDR PAI table + coverage for a fund, value-weighted. Honest gaps, not zeros.
+    Pass fund_ids+org_id to scope over an entire manager (entity-level roll-up)."""
+    rows = _positions_with_emissions(session, fund_id, None, fund_ids=fund_ids, org_id=org_id)
     total_mv = sum(r["mv"] for r in rows) or 0.0
     if total_mv == 0:
         return {"total_value_eur": 0, "positions": 0}

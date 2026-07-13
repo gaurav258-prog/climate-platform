@@ -65,14 +65,16 @@ def validate_keys(keys: list[str]) -> list[str]:
     return [k for k in keys if k not in CATALOG]
 
 
-def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None) -> dict:
+def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
+                          *, fund_ids=None, org_id=None) -> dict:
     """Fund roll-up of the adopted additional indicators.
 
     comp is the composition block (for total invested value); if omitted we sum
     the latest positions. Adoption compliance follows RTS: ≥1 environmental AND
-    ≥1 social indicator must be adopted."""
-    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
-    fids = fund_descendant_ids(session, fund_id)
+    ≥1 social indicator must be adopted. Pass fund_ids+org_id for entity-level."""
+    if org_id is None:
+        org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    fids = fund_ids if fund_ids is not None else fund_descendant_ids(session, fund_id)
 
     selected = session.execute(text("""
         SELECT DISTINCT indicator_key FROM fund_voluntary_pai

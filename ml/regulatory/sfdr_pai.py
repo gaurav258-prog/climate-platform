@@ -103,7 +103,7 @@ def _row(num, area, metric, unit, *, value=None, coverage=None, source=None,
     }
 
 
-def _taxonomy_rollup(session, fund_id: str) -> dict:
+def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     """EU Taxonomy lines for the fund, honestly scoped.
 
     Eligibility can only be judged where we hold the issuer's NACE code; alignment
@@ -111,7 +111,10 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
     verified) — matching the classifier's discipline. We report the share of value
     we can even assess, so the gap is explicit.
     """
-    org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if org_id is None:
+        org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
+    if fund_ids is None:
+        fund_ids = fund_descendant_ids(session, fund_id)
     rows = session.execute(text("""
         SELECT CAST(p.market_value_eur AS FLOAT) AS mv, i.nace_code,
                CAST(e.taxonomy_eligible_pct AS FLOAT) AS elig, CAST(e.taxonomy_aligned_pct AS FLOAT) AS aligned,
@@ -126,7 +129,7 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
         ) e ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_descendant_ids(session, fund_id), "org": org_id}).mappings().all()
+    """), {"fids": fund_ids, "org": org_id}).mappings().all()
     total = sum(r["mv"] for r in rows) or 0.0
     with_nace = sum(r["mv"] for r in rows if r["nace_code"])
     # Value-weighted alignment/eligibility over holdings that supplied the issuer's
@@ -162,9 +165,11 @@ def _taxonomy_rollup(session, fund_id: str) -> dict:
     }
 
 
-def _composition_and_sovereign(session, fund_id: str) -> dict:
+def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     """Fund value by asset class + a value-weighted sovereign GHG intensity over
     any sovereign-bond holdings (their issuer's country → country intensity)."""
+    if fund_ids is None:
+        fund_ids = fund_descendant_ids(session, fund_id)
     rows = session.execute(text("""
         SELECT s.asset_class, i.country, CAST(p.market_value_eur AS FLOAT) AS mv
         FROM   fund_positions p
@@ -172,7 +177,7 @@ def _composition_and_sovereign(session, fund_id: str) -> dict:
         JOIN   issuers    i ON i.issuer_id = s.issuer_id
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
-    """), {"fids": fund_descendant_ids(session, fund_id)}).mappings().all()
+    """), {"fids": fund_ids}).mappings().all()
     by_class: dict[str, float] = {}
     sov_mv = 0.0
     sov_weighted_intensity = 0.0
@@ -286,6 +291,97 @@ def _look_through(session, fund_id: str, comp: dict) -> dict:
     return {"applicable": False, "note": "No held funds/ETFs — direct securities only, no look-through required."}
 
 
+def _mandatory_indicator_rows(pai: dict, esg: dict):
+    """Build the 14 mandatory PAI indicator rows (filled or gap-flagged) from a
+    computed pai + esg block. Shared by the fund and entity-level assemblers.
+    Returns (indicators, computed_count, partial_count, missing_count)."""
+    p = pai["pai"]
+    emis_cov = pai.get("emissions_coverage_pct")
+    emis_est = pai.get("emissions_estimated_pct", 0.0)
+    fin_cov = pai.get("financed_emissions_coverage_pct", 0.0)
+    inv = p["pai_1_investee_emissions_tco2e"]
+    fin = p.get("pai_1_financed_emissions_tco2e")
+
+    filled: dict[int, dict] = {}
+    if fin:
+        filled[1] = _row(1, "Climate & environment",
+                         "GHG emissions — financed (Scope 1, 2, 3, total)", "tCO₂e",
+                         value={"scope_1": fin["scope_1"], "scope_2": fin["scope_2"],
+                                "scope_3": fin["scope_3"], "total": fin["total"]},
+                         coverage=fin_cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
+                         method="computed" if fin_cov >= 99.9 else "partial",
+                         input_required=None if fin_cov >= 99.9
+                         else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
+    else:
+        filled[1] = _row(1, "Climate & environment",
+                         "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
+                         value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
+                                "scope_3": inv["scope_3"],
+                                "total": inv["scope_1"] + inv["scope_2"] + inv["scope_3"]},
+                         coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
+                         input_required="issuer EVIC (enterprise value incl. cash) to attribute "
+                                        "financed emissions per PCAF")
+    cf = p.get("pai_2_carbon_footprint_tco2e_per_meur")
+    filled[2] = _row(2, "Climate & environment",
+                     "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
+                     value=cf, coverage=fin_cov if cf is not None else None,
+                     source=_GOLDEN_SOURCE + " · PCAF" if cf is not None else None,
+                     method=("computed" if fin_cov >= 99.9 else "partial") if cf is not None else "not_available",
+                     input_required=None if cf is None or fin_cov >= 99.9
+                     else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
+    waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
+    filled[3] = _row(3, "Climate & environment",
+                     "GHG intensity of investee companies (WACI)", "tCO₂e/€M revenue",
+                     value=p["pai_3_waci_tco2e_per_meur"], coverage=emis_cov,
+                     source=waci_src,
+                     method="computed" if p["pai_3_waci_tco2e_per_meur"] is not None else "not_available",
+                     input_required=None if p["pai_3_waci_tco2e_per_meur"] is not None
+                     else "issuer Scope 1/2 emissions + revenue")
+    filled[4] = _row(4, "Climate & environment",
+                     "Exposure to companies active in the fossil fuel sector", "% of value",
+                     value=p["pai_4_fossil_fuel_exposure_pct"], coverage=p.get("pai_4_coverage_pct", 100.0),
+                     source="issuer NACE division (golden source)",
+                     method="computed" if p.get("pai_4_coverage_pct", 100.0) >= 99.9 else "partial",
+                     input_required=None if p.get("pai_4_coverage_pct", 100.0) >= 99.9
+                     else f"issuer NACE on the remaining {round(100 - p.get('pai_4_coverage_pct', 100.0), 1)}% by value")
+
+    remaining_inputs = {
+        5: "issuer energy mix (renewable vs non-renewable share)",
+        6: "issuer energy consumption (GWh) by high-impact NACE",
+        7: "issuer operations in/near biodiversity-sensitive areas",
+        8: "issuer emissions to water (tonnes)",
+        9: "issuer hazardous/radioactive waste (tonnes)",
+        10: "UNGC/OECD violation flags per issuer",
+        11: "issuer compliance-monitoring process disclosure",
+        12: "issuer unadjusted gender pay gap",
+        13: "issuer board gender diversity",
+        14: "controversial-weapons involvement flags per issuer",
+    }
+    _ESG_SRC = "issuer ESG disclosures (manager feed), value-weighted"
+    for num in range(5, 15):
+        cell = esg.get(f"pai_{num}") if esg else None
+        if cell and cell.get("value") is not None:
+            filled[num] = _row(num, next(a for n, a, _, __ in MANDATORY_PAI_INDICATORS if n == num),
+                               next(m for n, _, m, __ in MANDATORY_PAI_INDICATORS if n == num),
+                               next(u for n, _, __, u in MANDATORY_PAI_INDICATORS if n == num),
+                               value=cell["value"], coverage=cell["coverage_pct"], source=_ESG_SRC,
+                               method="computed" if cell["coverage_pct"] >= 99.9 else "partial",
+                               input_required=None if cell["coverage_pct"] >= 99.9
+                               else f"{remaining_inputs[num]} on the remaining {round(100 - cell['coverage_pct'], 1)}% by value")
+
+    indicators = []
+    for num, area, metric, unit in MANDATORY_PAI_INDICATORS:
+        if num in filled:
+            indicators.append(filled[num])
+        else:
+            indicators.append(_row(num, area, metric, unit, input_required=remaining_inputs.get(num)))
+
+    computed = sum(1 for i in indicators if i["method"] == "computed")
+    partial = sum(1 for i in indicators if i["method"] == "partial")
+    missing = sum(1 for i in indicators if i["method"] == "not_available")
+    return indicators, computed, partial, missing
+
+
 def sfdr_pai_statement(session, fund_id: str) -> dict:
     """Assemble the fund's full SFDR PAI statement (Annex I Table 1) + Taxonomy.
 
@@ -307,102 +403,13 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     if pai.get("positions", 0) == 0:
         return {"error": "fund has no positions to report on", "fund": dict(fund)}
 
-    p = pai["pai"]
     emis_cov = pai.get("emissions_coverage_pct")
     emis_est = pai.get("emissions_estimated_pct", 0.0)  # SFDR: estimated-vs-reported split
-    fin_cov = pai.get("financed_emissions_coverage_pct", 0.0)
-    inv = p["pai_1_investee_emissions_tco2e"]
-    fin = p.get("pai_1_financed_emissions_tco2e")        # attributed via EVIC, or None
-
-    # Fill the mandatory table: computed where we honestly can, gap-flagged otherwise.
-    filled: dict[int, dict] = {}
-
-    # PAI 1 — financed GHG emissions (PCAF-attributed via EVIC where available)
-    if fin:
-        filled[1] = _row(1, "Climate & environment",
-                         "GHG emissions — financed (Scope 1, 2, 3, total)", "tCO₂e",
-                         value={"scope_1": fin["scope_1"], "scope_2": fin["scope_2"],
-                                "scope_3": fin["scope_3"], "total": fin["total"]},
-                         coverage=fin_cov, source=_GOLDEN_SOURCE + " · PCAF attribution (investment ÷ EVIC)",
-                         method="computed" if fin_cov >= 99.9 else "partial",
-                         input_required=None if fin_cov >= 99.9
-                         else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
-    else:
-        filled[1] = _row(1, "Climate & environment",
-                         "GHG emissions (Scope 1, 2 and 3, and total)", "tCO₂e",
-                         value={"scope_1": inv["scope_1"], "scope_2": inv["scope_2"],
-                                "scope_3": inv["scope_3"],
-                                "total": inv["scope_1"] + inv["scope_2"] + inv["scope_3"]},
-                         coverage=emis_cov, source=_GOLDEN_SOURCE, method="partial",
-                         input_required="issuer EVIC (enterprise value incl. cash) to attribute "
-                                        "financed emissions per PCAF")
-    # PAI 2 — carbon footprint (financed emissions / €M invested)
-    cf = p.get("pai_2_carbon_footprint_tco2e_per_meur")
-    filled[2] = _row(2, "Climate & environment",
-                     "Carbon footprint (financed emissions per €M invested)", "tCO₂e/€M",
-                     value=cf, coverage=fin_cov if cf is not None else None,
-                     source=_GOLDEN_SOURCE + " · PCAF" if cf is not None else None,
-                     method=("computed" if fin_cov >= 99.9 else "partial") if cf is not None else "not_available",
-                     input_required=None if cf is None or fin_cov >= 99.9
-                     else f"issuer EVIC on the remaining {round(100 - fin_cov, 1)}% by value")
-    # PAI 3 — WACI (computed; may blend reported + estimated inputs, disclosed below)
-    waci_src = _GOLDEN_SOURCE + (f" · {emis_est}% of covered value estimated" if emis_est else "")
-    filled[3] = _row(3, "Climate & environment",
-                     "GHG intensity of investee companies (WACI)", "tCO₂e/€M revenue",
-                     value=p["pai_3_waci_tco2e_per_meur"], coverage=emis_cov,
-                     source=waci_src,
-                     method="computed" if p["pai_3_waci_tco2e_per_meur"] is not None else "not_available",
-                     input_required=None if p["pai_3_waci_tco2e_per_meur"] is not None
-                     else "issuer Scope 1/2 emissions + revenue")
-    # PAI 4 — fossil-fuel-sector exposure (computed from NACE)
-    filled[4] = _row(4, "Climate & environment",
-                     "Exposure to companies active in the fossil fuel sector", "% of value",
-                     value=p["pai_4_fossil_fuel_exposure_pct"], coverage=p.get("pai_4_coverage_pct", 100.0),
-                     source="issuer NACE division (golden source)",
-                     method="computed" if p.get("pai_4_coverage_pct", 100.0) >= 99.9 else "partial",
-                     input_required=None if p.get("pai_4_coverage_pct", 100.0) >= 99.9
-                     else f"issuer NACE on the remaining {round(100 - p.get('pai_4_coverage_pct', 100.0), 1)}% by value")
-
-    # Inputs each remaining mandatory indicator needs (when its data is absent).
-    remaining_inputs = {
-        5: "issuer energy mix (renewable vs non-renewable share)",
-        6: "issuer energy consumption (GWh) by high-impact NACE",
-        7: "issuer operations in/near biodiversity-sensitive areas",
-        8: "issuer emissions to water (tonnes)",
-        9: "issuer hazardous/radioactive waste (tonnes)",
-        10: "UNGC/OECD violation flags per issuer",
-        11: "issuer compliance-monitoring process disclosure",
-        12: "issuer unadjusted gender pay gap",
-        13: "issuer board gender diversity",
-        14: "controversial-weapons involvement flags per issuer",
-    }
 
     # PAI 5-14 — the non-carbon indicators, computed from issuer_esg_metrics where
     # the manager has supplied that ESG data (value-weighted / share / attributed).
     esg = fund_esg_pai(session, fund_id)
-    _ESG_SRC = "issuer ESG disclosures (manager feed), value-weighted"
-    for num in range(5, 15):
-        cell = esg.get(f"pai_{num}") if esg else None
-        if cell and cell.get("value") is not None:
-            filled[num] = _row(num, next(a for n, a, _, __ in MANDATORY_PAI_INDICATORS if n == num),
-                               next(m for n, _, m, __ in MANDATORY_PAI_INDICATORS if n == num),
-                               next(u for n, _, __, u in MANDATORY_PAI_INDICATORS if n == num),
-                               value=cell["value"], coverage=cell["coverage_pct"], source=_ESG_SRC,
-                               method="computed" if cell["coverage_pct"] >= 99.9 else "partial",
-                               input_required=None if cell["coverage_pct"] >= 99.9
-                               else f"{remaining_inputs[num]} on the remaining {round(100 - cell['coverage_pct'], 1)}% by value")
-
-    indicators = []
-    for num, area, metric, unit in MANDATORY_PAI_INDICATORS:
-        if num in filled:
-            indicators.append(filled[num])
-        else:
-            indicators.append(_row(num, area, metric, unit,
-                                   input_required=remaining_inputs.get(num)))
-
-    computed = sum(1 for i in indicators if i["method"] == "computed")
-    partial = sum(1 for i in indicators if i["method"] == "partial")
-    missing = sum(1 for i in indicators if i["method"] == "not_available")
+    indicators, computed, partial, missing = _mandatory_indicator_rows(pai, esg)
 
     comp = _composition_and_sovereign(session, fund_id)
 
@@ -542,6 +549,133 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
             },
             "manager_actions_note": "Actions taken and targets (RTS Table 1, final columns) are a "
                                     "manager narrative and must be completed by the manager; not machine-derived.",
+        },
+    }
+
+
+def entity_pai_statement(session, org_id: str) -> dict:
+    """Entity-level SFDR PAI statement — ONE statement value-weighted across ALL of
+    a manager's funds (every position the org holds, counted once). This is what a
+    large manager files at ENTITY level, alongside the per-fund statements. Uses the
+    same computation as a fund, scoped to the whole book; prior-year comparison and
+    look-through remain per-fund concerns and are omitted here."""
+    org = session.execute(text("""
+        SELECT o.org_id::text AS org_id, o.name, o.lei AS manager_lei, o.legal_name AS manager_legal_name,
+               o.filing_contact_email, o.country AS manager_domicile, o.sfdr_narratives
+        FROM organizations o WHERE o.org_id = :o
+    """), {"o": org_id}).mappings().first()
+    if not org:
+        return {"error": "organization not found"}
+
+    fund_ids = session.execute(text("SELECT fund_id::text FROM funds WHERE org_id = :o"),
+                               {"o": org_id}).scalars().all()
+    if not fund_ids:
+        return {"error": "manager has no funds"}
+    scope = {"fund_ids": fund_ids, "org_id": org_id}
+
+    pai = fund_pai(session, None, **scope)
+    if pai.get("positions", 0) == 0:
+        return {"error": "manager has no positions to report on",
+                "entity": {"manager": org["name"], "org_id": org["org_id"]}}
+    esg = fund_esg_pai(session, None, **scope)
+    indicators, computed, partial, missing = _mandatory_indicator_rows(pai, esg)
+    comp = _composition_and_sovereign(session, None, **scope)
+    emis_cov = pai.get("emissions_coverage_pct")
+    emis_est = pai.get("emissions_estimated_pct", 0.0)
+
+    # Per-fund coverage table (top-level funds), so a thinly-covered fund inside the
+    # entity total is visible rather than averaged away.
+    per_fund = []
+    top = session.execute(text("""
+        SELECT fund_id::text AS fund_id, name, sfdr_classification FROM funds
+        WHERE org_id = :o AND parent_fund_id IS NULL ORDER BY name
+    """), {"o": org_id}).mappings().all()
+    for f in top:
+        fp = fund_pai(session, f["fund_id"])
+        per_fund.append({
+            "fund_id": f["fund_id"], "fund_name": f["name"],
+            "sfdr_classification": f["sfdr_classification"],
+            "total_value_eur": fp.get("total_value_eur", 0),
+            "positions": fp.get("positions", 0),
+            "emissions_coverage_pct": fp.get("emissions_coverage_pct"),
+        })
+
+    manager_lei = org.get("manager_lei")
+    filing_missing = []
+    if not manager_lei:
+        filing_missing.append("manager LEI")
+    if not org.get("manager_legal_name"):
+        filing_missing.append("manager legal name")
+    if not org.get("filing_contact_email"):
+        filing_missing.append("filing contact email")
+    narratives = org.get("sfdr_narratives") or {}
+    _REQUIRED_NARRATIVES = {
+        "policies": "policies to identify and prioritise principal adverse impacts",
+        "actions": "actions taken and planned",
+        "engagement": "engagement policies",
+    }
+    missing_narratives = [label for key, label in _REQUIRED_NARRATIVES.items()
+                          if not (narratives.get(key) or "").strip()]
+    filing_missing += [f"narrative: {n}" for n in missing_narratives]
+    ready_to_file = not filing_missing
+
+    return {
+        "level": "entity",
+        "entity": {
+            "org_id": org["org_id"], "manager": org["name"], "manager_lei": manager_lei,
+            "manager_legal_name": org.get("manager_legal_name"),
+            "manager_domicile": org.get("manager_domicile"),
+            "filing_contact_email": org.get("filing_contact_email"),
+            "funds_count": len(top), "all_funds_scoped": len(fund_ids),
+            "total_value_eur": pai["total_value_eur"], "positions": pai["positions"],
+        },
+        "summary": {
+            "pai_considered": True,
+            "manager_lei_required": manager_lei is None,
+            "declaration": (
+                f"This is the entity-level principal adverse impacts statement of "
+                f"{org.get('manager_legal_name') or org['name']} ({manager_lei or 'LEI required'}), "
+                f"aggregated across {len(top)} fund(s). Principal adverse impacts of investment "
+                "decisions on sustainability factors are considered."
+            ),
+        },
+        "filing_readiness": {
+            "ready_to_file": ready_to_file,
+            "missing": filing_missing,
+            "note": "Ready to file." if ready_to_file
+                    else "Not yet submittable — supply the reporting-entity identity above.",
+        },
+        "statement": "Entity-level Principal Adverse Impact (PAI) statement",
+        "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
+        "indicators": indicators,
+        "holdings_composition": comp["by_asset_class"],
+        "sovereign_indicators": _sovereign_indicators(comp) if comp["sovereign_value_eur"] else [],
+        "sovereign_countries": comp["sovereign_countries"],
+        "real_estate_indicators": _real_estate_indicators(comp),
+        "taxonomy": _taxonomy_rollup(session, None, **scope),
+        "additional_indicators": compute_voluntary_pai(session, None, comp, **scope),
+        "per_fund": per_fund,
+        "narratives": {
+            "policies": narratives.get("policies"), "actions": narratives.get("actions"),
+            "engagement": narratives.get("engagement"), "standards": narratives.get("standards"),
+            "missing": missing_narratives,
+        },
+        "coverage_summary": {
+            "mandatory_indicators": len(indicators),
+            "computed": computed, "partial": partial, "not_available": missing,
+            "emissions_coverage_pct": emis_cov, "emissions_estimated_pct": emis_est,
+            "pcaf_data_quality_score": pai.get("pcaf_data_quality_score"),
+            "filing_readiness": (
+                f"{computed} of {len(indicators)} mandatory indicators computed, {partial} partial, "
+                f"{missing} awaiting issuer input — aggregated across {len(top)} fund(s), value-weighted."
+            ),
+        },
+        "provenance": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": _GOLDEN_SOURCE,
+            "scope_note": "Entity-level: every position across all of the manager's funds, "
+                          "counted once, value-weighted. Prior-year comparison and look-through "
+                          "are reported per-fund, not here.",
         },
     }
 

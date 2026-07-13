@@ -25,7 +25,7 @@ from services.asset_manager_engine import (
     fund_positions_with_risk,
 )
 from services.fund_disclosure import fund_climate_summary
-from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx
+from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx, entity_pai_statement
 from ml.regulatory.sfdr_periodic import periodic_report
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG, catalog as voluntary_catalog, validate_keys
 from services.reference import gleif
@@ -550,6 +550,13 @@ def list_sfdr_filings(fund_id: str, session: DbSession, org_id: OrgId):
         WHERE fund_id = :f ORDER BY reference_year DESC
     """), {"f": fund_id}).mappings().all()
     return {"fund_id": fund_id, "filings": [dict(r) for r in rows]}
+
+
+@router.get("/entity/sfdr-statement", summary="Entity-level SFDR PAI statement — aggregated across ALL the manager's funds")
+def entity_sfdr_statement(session: DbSession, org_id: OrgId):
+    """One PAI statement value-weighted across every fund the manager runs — what a
+    large manager files at entity level, alongside per-fund statements."""
+    return entity_pai_statement(session, org_id)
 
 
 @router.get("/voluntary-pai/catalog", summary="Selectable additional (voluntary) PAI indicators — RTS Tables 2 & 3")
