@@ -306,7 +306,10 @@ class TestPackages:
                               headers=auth,
                               json={"checker_user_id": "alice-01"})
         assert approve.status_code == 422
-        assert approve.json()["detail"]["error"] == "maker_checker_violation"
+        # App-wide error envelope is {"error": <detail>} (custom HTTPException handler
+        # in api/main.py), so a dict detail surfaces under ["error"], not FastAPI's
+        # default ["detail"].
+        assert approve.json()["error"]["error"] == "maker_checker_violation"
 
     def test_approve_package(self, auth):
         create = client.post("/v1/packages", headers=auth, json={

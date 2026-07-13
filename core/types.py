@@ -167,6 +167,9 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "pollution": HazardType.POLLUTION, "air_pollution": HazardType.POLLUTION,
     "air_quality": HazardType.POLLUTION, "aqi": HazardType.POLLUTION,
     "smog": HazardType.POLLUTION,
+
+    "frost": HazardType.FROST, "cold": HazardType.FROST, "freeze": HazardType.FROST,
+    "extreme_cold": HazardType.FROST, "cold_wave": HazardType.FROST, "frost_days": HazardType.FROST,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {
