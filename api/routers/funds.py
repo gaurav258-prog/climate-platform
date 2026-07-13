@@ -26,6 +26,7 @@ from services.asset_manager_engine import (
 )
 from services.fund_disclosure import fund_climate_summary
 from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx, entity_pai_statement
+from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
 from services.sfdr_batch import create_batch, run_batch, batch_status
 from services.reference.vendor_ingest import ingest_vendor_extract, PROFILES as _VENDOR_PROFILES
 from ml.regulatory.sfdr_periodic import periodic_report
@@ -727,6 +728,33 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
     fname = f"SFDR_PAI_Statement_{statement['entity']['fund_name'].replace(' ', '_')}.xlsx"
     return StreamingResponse(
         buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/funds/{fund_id}/sfdr-statement.xbrl", summary="Download the SFDR PAI statement as a machine-readable XBRL instance")
+def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    statement = sfdr_pai_statement(session, fund_id)
+    if statement.get("error"):
+        return statement
+    xml = sfdr_pai_xbrl(statement)
+    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}.xbrl"
+    return StreamingResponse(
+        iter([xml]), media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@router.get("/entity/sfdr-statement.xbrl", summary="Entity-level SFDR PAI statement as a machine-readable XBRL instance")
+def entity_statement_xbrl(session: DbSession, org_id: OrgId):
+    statement = entity_pai_statement(session, org_id)
+    if statement.get("error"):
+        return statement
+    xml = sfdr_pai_xbrl(statement)
+    fname = f"SFDR_PAI_Entity_{statement['entity']['manager'].replace(' ', '_')}.xbrl"
+    return StreamingResponse(
+        iter([xml]), media_type="application/xml",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
