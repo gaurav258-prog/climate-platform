@@ -20,3 +20,4 @@ data/era5_climatology_baseline/
 # local tooling state, not project source
 .claude-flow/
 data/faostat/
+data/usda_psd/
