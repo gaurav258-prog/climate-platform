@@ -254,20 +254,31 @@ def _retire_previous_scores(
     hazard_type: str,
     scenario: str,
     retired_at: datetime,
+    score_lane: str = "standing",
 ) -> int:
-    """Set valid_to on all current scores for these cells (append-only pattern)."""
+    """Set valid_to on the current scores for these cells IN THIS LANE (append-only pattern).
+
+    score_lane is part of the key on purpose. We run two semantically different scores through
+    the same hazard_type: a STANDING climatology (drives portfolio numbers, calibrations and
+    backtests) and a NOWCAST live reading (drives the public lookup / parametric triggers).
+    They must never retire each other — a 30-second live-weather reading once retired cocoa's
+    calibrated seasonal heat climatology (74.2 -> 0.0, "not hot today"), silently invalidating
+    the crop's backtest. See migration score_lane_20260715.
+    """
     result = session.execute(text("""
         UPDATE canonical_scores
         SET    valid_to = :retired_at
         WHERE  h3_cell     = ANY(:cells)
         AND    hazard_type = :hazard
         AND    scenario    = :scenario
+        AND    score_lane  = :lane
         AND    valid_to    IS NULL
     """), {
         "retired_at": retired_at,
         "cells":      h3_cells,
         "hazard":     hazard_type,
         "scenario":   scenario,
+        "lane":       score_lane,
     })
     return result.rowcount
 
@@ -302,6 +313,7 @@ def run(
     time_horizon: str = "current",
     model_version: str = "latest",
     dry_run: bool = False,
+    score_lane: str = "standing",
 ) -> ScoringRunResult:
     """
     Main entry point. Scores all H3 cells that have feature data for target_date.
@@ -309,6 +321,11 @@ def run(
     Parameters
     ----------
     hazard_type   : "flood" | "wildfire" | "heat_acute"
+    score_lane    : "standing" (default) — a climatological/structural score that drives
+                    portfolio numbers, calibrations and backtests; or "nowcast" — today's
+                    live reading, for the public lookup / parametric triggers. Lanes retire
+                    only within themselves, so a nowcast can never overwrite the calibrated
+                    climatology a crop's backtest rests on (see score_lane_20260715).
     target_date   : date to score (defaults to yesterday)
     scenario      : NGFS scenario label (default: "baseline")
     time_horizon  : "current" | "2030" | "2050" | "2100"
@@ -423,6 +440,7 @@ def run(
 
         records.append({
             "score_id":               str(uuid.uuid4()),
+            "score_lane":             score_lane,
             "h3_cell":                h3_cell,
             "h3_resolution":          settings.H3_RESOLUTION,
             "hazard_type":            hazard_type,
@@ -460,11 +478,12 @@ def run(
 
     # ── 7. Write to DB (append-only) ─────────────────────────────
     with get_session() as session:
-        # Retire previous current scores
+        # Retire previous current scores — IN THIS LANE ONLY, so a nowcast can never
+        # retire a standing climatology (or vice versa). See score_lane_20260715.
         retired = _retire_previous_scores(
-            session, h3_cells, hazard_type, scenario, scored_at
+            session, h3_cells, hazard_type, scenario, scored_at, score_lane=score_lane
         )
-        logger.info(f"[Engine] Retired {retired} previous scores")
+        logger.info(f"[Engine] Retired {retired} previous scores (lane={score_lane})")
 
         # Insert new scores
         session.execute(text("""
@@ -474,14 +493,14 @@ def run(
                 data_vintage, shap_factors, scored_at, valid_from, valid_to,
                 score_ci_lower, score_ci_upper,
                 score_velocity_6h, score_velocity_24h, score_velocity_48h,
-                ensemble_scores, compound_flag, regulatory_fingerprint
+                ensemble_scores, compound_flag, regulatory_fingerprint, score_lane
             ) VALUES (
                 :score_id, :h3_cell, :h3_resolution, :hazard_type, :scenario,
                 :time_horizon, :risk_score, :risk_bucket, :model_version,
                 :data_vintage, CAST(:shap_factors AS jsonb), :scored_at, :valid_from, :valid_to,
                 :score_ci_lower, :score_ci_upper,
                 :score_velocity_6h, :score_velocity_24h, :score_velocity_48h,
-                CAST(:ensemble_scores AS jsonb), :compound_flag, :regulatory_fingerprint
+                CAST(:ensemble_scores AS jsonb), :compound_flag, :regulatory_fingerprint, :score_lane
             )
         """), records)
 

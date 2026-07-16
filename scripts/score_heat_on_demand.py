@@ -97,19 +97,26 @@ def run_heat_lookup(lookup_id: str, lat: float, lon: float) -> None:
 
         with get_session() as s:
             cells = [r["h3_cell"] for r in records]
+            # NOWCAST lane only. This is "is it hot TODAY" for the public single-address
+            # lookup — it must never retire the standing seasonal climatology that portfolio
+            # numbers and the crop backtests rest on. It used to: this exact statement wrote
+            # 0.0 ("not hot today") over cocoa's calibrated 74.2 seasonal heat score.
+            # See migration score_lane_20260715.
             s.execute(text("""
                 UPDATE canonical_scores SET valid_to=:now
                 WHERE hazard_type='heat_acute' AND scenario='baseline' AND time_horizon='current'
+                  AND score_lane='nowcast'
                   AND valid_to IS NULL AND h3_cell = ANY(:cells)
             """), {"now": now, "cells": cells})
             s.execute(text("""
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
                      risk_score, risk_bucket, model_version, data_vintage, shap_factors,
-                     scored_at, valid_from, valid_to)
+                     scored_at, valid_from, valid_to, score_lane)
                 VALUES
                     (gen_random_uuid(), :h3_cell, 8, 'heat_acute', 'baseline', 'current',
-                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
+                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL,
+                     'nowcast')
             """), [{**r, "mv": MODEL_VERSION, "now": now} for r in records])
             s.execute(text("""
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id

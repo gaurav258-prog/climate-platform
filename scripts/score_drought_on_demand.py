@@ -125,19 +125,25 @@ def run_drought_lookup(lookup_id: str, lat: float, lon: float) -> None:
 
         with get_session() as s:
             cells = [r["h3_cell"] for r in records]
+            # NOWCAST lane only — this is a point-in-time SPI1 reading for the public lookup.
+            # It must never retire drought-spei-v0, the standing climatology that coffee's
+            # 2021-drought calibration and backtest rest on (the same collision that wiped
+            # cocoa's seasonal heat score). See migration score_lane_20260715.
             s.execute(text("""
                 UPDATE canonical_scores SET valid_to=:now
                 WHERE hazard_type='drought' AND scenario='baseline' AND time_horizon='current'
+                  AND score_lane='nowcast'
                   AND valid_to IS NULL AND h3_cell = ANY(:cells)
             """), {"now": now, "cells": cells})
             s.execute(text("""
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
                      risk_score, risk_bucket, model_version, data_vintage, shap_factors,
-                     scored_at, valid_from, valid_to)
+                     scored_at, valid_from, valid_to, score_lane)
                 VALUES
                     (gen_random_uuid(), :h3_cell, 8, 'drought', 'baseline', 'current',
-                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
+                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL,
+                     'nowcast')
             """), [{**r, "mv": DROUGHT_MODEL_VERSION, "now": now} for r in records])
             s.execute(text("""
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
