@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-IMPACT_VERSION = "sc-impact-v0.2"
+IMPACT_VERSION = "sc-impact-v0.3"
 
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
 # pending calibration against yield–weather panels (methodology §1.2).
@@ -148,17 +148,22 @@ class CommodityRisk:
     n_plots: int
     n_plots_scored: int
     status: str                      # 'scored' | 'pending'
-    calibration: str = "indicative"  # 'backtested' (event-validated) | 'indicative' (v0)
+    # 'backtested' (every contributing origin event-validated) | 'mixed' (some origins
+    # backtested, some not) | 'indicative' (none event-validated)
+    calibration: str = "indicative"
     hazard_combination: str = "worst_of"  # 'worst_of' (default) | 'compounded' (COMPOUND_HAZARDS)
     avg_hazard: Optional[float] = None
     top_hazard: Optional[str] = None
     yield_shock_pct: Optional[float] = None
-    global_share: Optional[float] = None
+    global_share: Optional[float] = None       # summed world share of the origins actually sourced
+    global_shock_pct: Optional[float] = None   # Σ(origin yield shock × world share) — drives price
     price_move_pct: Optional[float] = None
     cogs_at_risk_p50: Optional[float] = None
     cogs_at_risk_p90: Optional[float] = None
     market_eur: Optional[float] = None
     sourcing_eur: Optional[float] = None
+    # Per-origin breakdown: which origin actually drives the world price signal.
+    origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
 
 
@@ -190,27 +195,82 @@ def amplification(stock_to_use):
     return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
 
 
-def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share, compound=False) -> CommodityRisk:
-    """plots: list of dicts {hazard→score} aggregated per plot (scored plots only carry hazards).
+def _calibration_tier(name: str, origins: list) -> str:
+    """A commodity's honesty label, derived from the ORIGINS this buyer actually sources —
+    not from the commodity name. Coffee is 'backtested' for a Brazil-only book, but 'mixed'
+    the moment Guatemala (never fitted to a Guatemalan event) is added, so validated and
+    unvalidated € are never silently blended. Falls back to the legacy commodity-level
+    BACKTESTED set when there is no per-origin calibration."""
+    if not origins:
+        return "backtested" if name in BACKTESTED else "indicative"
+    tiers = {o.get("calibration") for o in origins}
+    if tiers == {"backtested"}:
+        return "backtested"
+    if "backtested" in tiers:
+        return "mixed"
+    return "indicative"
+
+
+def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share,
+                    compound=False, origin_cal=None) -> CommodityRisk:
+    """plots: list of dicts {spend, origin, hazards:{hz→score}} (scored plots carry hazards).
     compound: see COMPOUND_HAZARDS -- worst-of by default, independent-multiplicative-damage
-    for commodities with real backtest evidence hazards stack rather than substitute."""
+    for commodities with real backtest evidence hazards stack rather than substitute.
+
+    origin_cal: {origin → {sensitivity, world_share, calibration_tier, hazard_driver}} from
+    sc_commodity_calibration. When present the WORLD supply shock is summed per origin:
+        global_shock = Σ_origins( origin_yield_shock × origin_world_share )
+    which is the physically correct chain -- each origin contributes in proportion to its share
+    of world PRODUCTION, not to how much this buyer happens to source there. When absent we keep
+    the legacy single-bucket behaviour (one yield shock × one global_share) unchanged."""
     scored = [p for p in plots if p.get("hazards")]
     n_plots, n_scored = len(plots), len(scored)
     if n_scored == 0:
         # exposure mapped, € pending (governance §8)
         return CommodityRisk(name, eudr, spend, n_plots, 0, status="pending")
 
-    # spend-weighted plot severity (display) and yield-shock (the actual calc) across plots
+    # spend-weighted plot severity (display) and yield-shock (sourcing channel) across plots
     wsum = sum(p["spend"] for p in scored) or 1.0
     avg_hazard = sum(_plot_severity(p["hazards"], compound) * p["spend"] for p in scored) / wsum
     top_hazard = max(
         ((hz, sc) for p in scored for hz, sc in p["hazards"].items()),
         key=lambda t: t[1],
     )[0]
-
+    # The buyer's OWN exposure — always spend-weighted over their plots (sourcing channel).
     yield_shock = sum(_plot_yield_shock(p["hazards"], sens, compound) * p["spend"]
-                       for p in scored) / wsum                      # §1.2 hazard → local yield shock
-    global_shock = yield_shock * global_share                      # §1.3 local → world supply shock
+                      for p in scored) / wsum                       # §1.2 hazard → local yield shock
+
+    origins: list[dict] = []
+    if origin_cal:
+        # §1.3 per-ORIGIN: world shock = Σ (origin yield shock × origin world share)
+        global_shock = 0.0
+        by_origin: dict = {}
+        for p in scored:
+            by_origin.setdefault(p.get("origin"), []).append(p)
+        for origin, oplots in sorted(by_origin.items(), key=lambda kv: str(kv[0])):
+            cal = origin_cal.get(origin)
+            o_sens = (cal or {}).get("sensitivity") or sens
+            o_share = (cal or {}).get("world_share")
+            o_spend = sum(p["spend"] for p in oplots) or 1.0
+            o_shock = sum(_plot_yield_shock(p["hazards"], o_sens, compound) * p["spend"]
+                          for p in oplots) / o_spend
+            contribution = (o_shock * o_share) if o_share is not None else None
+            if contribution is not None:
+                global_shock += contribution
+            origins.append({
+                "origin": origin, "spend_eur": round(o_spend, 2),
+                "yield_shock_pct": round(o_shock * 100, 1),
+                "world_share": o_share,
+                "global_shock_contribution_pct": round(contribution * 100, 2) if contribution is not None else None,
+                "calibration": (cal or {}).get("calibration_tier", "uncalibrated"),
+                "hazard_driver": (cal or {}).get("hazard_driver"),
+                # An origin with no calibration row cannot contribute to the world price signal —
+                # surfaced, never silently given another origin's share.
+                "input_required": None if cal else "world production share + hazard driver for this origin",
+            })
+    else:
+        global_shock = yield_shock * global_share                   # legacy single-bucket
+
     price_move = min(PRICE_MOVE_CAP, amp * global_shock / elasticity)  # §1.3 world shock → price (amplified)
     market = price_move * spend                                    # §1.4 market channel (all spend)
     sourcing = SOURCING_PREMIUM * yield_shock * spend              # §1.4 sourcing channel (own plots)
@@ -220,36 +280,49 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
         n_plots=n_plots, n_plots_scored=n_scored, status="scored",
         hazard_combination="compounded" if compound else "worst_of",
         avg_hazard=round(avg_hazard, 1), top_hazard=top_hazard,
-        yield_shock_pct=round(yield_shock * 100, 1), global_share=global_share,
+        yield_shock_pct=round(yield_shock * 100, 1),
+        global_share=(round(sum(o["world_share"] for o in origins if o["world_share"] is not None), 5)
+                      if origins else global_share),
+        global_shock_pct=round(global_shock * 100, 2),
         price_move_pct=round(price_move * 100, 1),
         cogs_at_risk_p50=round(p50, 2), cogs_at_risk_p90=round(p50 * P90_FACTOR, 2),
         market_eur=round(market, 2), sourcing_eur=round(sourcing, 2),
+        origins=origins,
     )
 
 
-def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[dict] = None) -> PortfolioCogsAtRisk:
+def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[dict] = None,
+            calibrations: Optional[dict] = None) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
-      {name, eudr_covered, elasticity, spend, plots:[{spend, hazards:{hz:score}}]}.
-    Per-commodity calibration (sensitivity / global_share / stock_to_use) comes from
-    COMMODITY_PARAMS; uncalibrated commodities keep the v0.1 behaviour.
+      {name, eudr_covered, elasticity, spend, plots:[{spend, origin, hazards:{hz:score}}]}.
+
+    calibrations: optional {commodity_name: {origin: {sensitivity, world_share,
+    calibration_tier, hazard_driver}}} from sc_commodity_calibration. When a commodity has
+    calibration rows, its world supply shock is summed PER ORIGIN (each origin contributing in
+    proportion to its share of world production). Without them the commodity keeps the legacy
+    single-bucket behaviour off COMMODITY_PARAMS, so pure-function callers are unaffected.
+
     overrides: optional {commodity_name: {override_cogs_at_risk_p50_eur, overridden_by,
     overridden_at, reason}} -- a procurement analyst's audited correction to a SCORED
     commodity's model figure (see sc_commodity_overrides migration). p90 is re-derived
     from the override at the same P90_FACTOR the model itself uses, for a consistent range.
     """
     overrides = overrides or {}
+    calibrations = calibrations or {}
     risks: list[CommodityRisk] = []
     for c in commodities:
         p = {**_DEFAULT_PARAMS, **COMMODITY_PARAMS.get(c["name"], {})}
+        origin_cal = calibrations.get(c["name"])
         elasticity = abs(c["elasticity"]) if c.get("elasticity") else 0.25
         stock = p["stock_to_use"] if p["stock_to_use"] is not None else c.get("stock_to_use")
         amp = amplification(stock)
         sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
                              elasticity, amp, sens, p["global_share"],
-                             compound=c["name"] in COMPOUND_HAZARDS)
-        cr.calibration = "backtested" if c["name"] in BACKTESTED else "indicative"
+                             compound=c["name"] in COMPOUND_HAZARDS,
+                             origin_cal=origin_cal)
+        cr.calibration = _calibration_tier(c["name"], cr.origins)
         ov = overrides.get(c["name"])
         if ov and cr.status == "scored":
             model_p50 = cr.cogs_at_risk_p50
@@ -283,6 +356,7 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
 
 _GRAPH_SQL = """
     SELECT co.name AS commodity, co.eudr_covered, co.demand_elasticity AS elasticity,
+           co.stock_to_use, p.country AS origin,
            p.plot_id::text AS plot_id, p.annual_spend_eur AS plot_spend,
            v.hazard_type, v.physical_risk_score
     FROM   sc_sourcing_plots p
@@ -291,6 +365,26 @@ _GRAPH_SQL = """
            ON v.plot_id = p.plot_id AND v.scenario = :scenario AND v.time_horizon = :horizon
     WHERE  p.org_id = :org_id
 """
+
+
+def get_calibrations(session) -> dict:
+    """Per-origin calibration keyed {commodity_name: {origin: params}} — compute()'s shape.
+    sc_commodity_calibration is a small shared reference table (not org-scoped): an origin's
+    share of world production and its validated hazard driver are facts about the world, not
+    about a tenant."""
+    from sqlalchemy import text
+    rows = session.execute(text("""
+        SELECT co.name AS commodity, c.origin,
+               CAST(c.sensitivity AS FLOAT) AS sensitivity,
+               CAST(c.world_share AS FLOAT) AS world_share,
+               c.hazard_driver, c.calibration_tier, c.event_ref, c.source_note
+        FROM sc_commodity_calibration c
+        JOIN sc_commodities co ON co.commodity_id = c.commodity_id
+    """)).mappings().all()
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["commodity"], {})[r["origin"]] = dict(r)
+    return out
 
 
 def get_commodity_overrides(session, org_id: str) -> dict:
@@ -345,9 +439,12 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
         c = by_commodity.setdefault(r["commodity"], {
             "name": r["commodity"], "eudr_covered": r["eudr_covered"],
             "elasticity": float(r["elasticity"]) if r["elasticity"] is not None else None,
+            "stock_to_use": float(r["stock_to_use"]) if r["stock_to_use"] is not None else None,
             "spend": 0.0, "_plots": {},
         })
-        pl = c["_plots"].setdefault(r["plot_id"], {"spend": float(r["plot_spend"] or 0), "hazards": {}})
+        pl = c["_plots"].setdefault(r["plot_id"], {
+            "spend": float(r["plot_spend"] or 0), "origin": r["origin"], "hazards": {},
+        })
         if r["hazard_type"] is not None and r["physical_risk_score"] is not None:
             pl["hazards"][r["hazard_type"]] = float(r["physical_risk_score"])
 
@@ -363,4 +460,4 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
         {"o": org_id},
     ).scalar() or 0.0
     overrides = get_commodity_overrides(session, org_id)
-    return compute(commodities, float(total_cogs), overrides)
+    return compute(commodities, float(total_cogs), overrides, calibrations=get_calibrations(session))
