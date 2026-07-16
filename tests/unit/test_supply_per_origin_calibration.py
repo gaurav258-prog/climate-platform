@@ -103,8 +103,8 @@ def test_publish_gate_withholds_euro_until_backtested():
     r = compute([_commodity("Olive oil", plots)], 10_000_000, calibrations=cal).commodities[0]
 
     assert r.status == "held"
-    assert r.cogs_at_risk_p50 is None and r.cogs_at_risk_p90 is None
-    assert r.market_eur is None and r.price_move_pct is None
+    assert r.cogs_at_risk_p50 is None and r.volume_at_risk_eur is None
+    assert r.price_scenario_eur is None and r.global_shock_pct is None
     assert "not event-backtested" in r.held_reason
     # exposure is still reported — we withhold the €, not the risk
     assert r.annual_spend_eur == 1_000_000

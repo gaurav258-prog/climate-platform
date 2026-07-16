@@ -1,11 +1,45 @@
 """
-Supply-chain "COGS-at-risk" — the impact-function layer (v0).
+Supply-chain "COGS-at-risk" — the impact-function layer.
 
-Turns a plot's projected climate hazard (from canonical_scores, via
-v_sc_plot_physical_risk) into a euro figure on cost-of-goods, rolled up the bill
-of materials. Implements the chain in docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md:
-    hazard intensity → yield shock → price response → cost inflation (€) → roll up BOM
-with the three channels kept separate (Market / Sourcing / Continuity) and a P50–P90 range.
+Turns a plot's projected climate hazard (from canonical_scores, via v_sc_plot_physical_risk)
+into a euro figure on cost-of-goods, rolled up the bill of materials:
+    hazard intensity → yield shock → VOLUME AT RISK (€ at the price they already pay)
+
+WHAT CHANGED 2026-07-16, AND WHY IT MATTERS MORE THAN ANYTHING ELSE IN THIS FILE.
+The chain used to end in a PRICE PREDICTION:
+    price_move = A(stocks) × world_shock / |elasticity|;  market_€ = price_move × spend
+and that market channel was 97.8% of every euro we published. We tested its premise against
+440 real crop-years (USDA PSD production+stocks, World Bank prices, one consistent marketing
+-year calendar):
+
+    supply shock → price move :  r² = 0.018   (2% of price variation explained)
+    stocks → amplification    :  r² = 0.041   (4%), empirical exponent 0.23 vs our 3.62
+
+A harvest failure DOES push price up — 64% of 53 real contractions — but by how much is not
+predictable from supply data. By the time production is measured, the market priced the news
+months earlier. We were selling a forecast we cannot make, and it was almost the whole number.
+
+So the headline is now the half we can prove:
+    volume_at_risk = yield_shock × spend
+The buyer's own plots lose that share of their yield, so that share of the volume they paid
+for does not arrive. Valued at the price they ALREADY pay. No forecast in it. The hazard→yield
+chain behind it IS validated against the real event (cocoa: modelled world shock 8.92% vs
+FAO's measured 8.88%).
+
+The price channel survives only as the BUYER'S OWN assumption (price_scenario_pct) — they
+trade this daily and we do not. We apply their number and label it as theirs; we never
+generate it.
+
+GOVERNANCE — THE PUBLISH GATE (methodology §8, hard rule):
+A euro figure leaves this engine ONLY if its hazard→yield chain has been reproduced against a
+real, documented crop failure, for EVERY origin the buyer sources. There is no "illustrative
+€": a number on a page gets used no matter what banner sits above it. So:
+- status='scored'  → backtested. € published.
+- status='held'    → scored, but the chain is not event-backtested for some origin.
+                     Exposure and hazard driver shown; € WITHHELD (not shown behind a caveat).
+- status='pending' → no hazard score yet. Exposure mapped, € withheld. Never a silent zero.
+Held/pending exposure is reported as SPEND (a fact), never rolled into the € headline.
+Every figure carries IMPACT_VERSION so it is reproducible.
 
 GOVERNANCE — THE PUBLISH GATE (methodology §8, hard rule):
 A euro figure leaves this engine ONLY if its hazard→yield→price chain has been reproduced
@@ -23,7 +57,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-IMPACT_VERSION = "sc-impact-v0.3"
+IMPACT_VERSION = "sc-impact-v0.5"
 
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
 # pending calibration against yield–weather panels (methodology §1.2).
@@ -33,9 +67,13 @@ CROP_SENSITIVITY = {
 }
 DEFAULT_SENSITIVITY = 0.40
 TRANSMISSION = 0.5      # fallback transmission when a commodity carries no stock-to-use (v0)
-SOURCING_PREMIUM = 0.12  # idiosyncratic cover/premium as a fraction of yield-shock (v0)
-PRICE_MOVE_CAP = 3.0     # cap the modelled price move at +300% (cocoa 2024 peaked ~ there)
-P90_FACTOR = 1.8         # width of the reported range (uncertainty propagation proxy, v0)
+# RETIRED 2026-07-16, all three were invented numbers dressed as parameters:
+#   SOURCING_PREMIUM = 0.12  -> the sourcing channel is simply yield_shock x spend; there is no
+#                               reason for a 0.12 haircut on the volume that fails to arrive.
+#   PRICE_MOVE_CAP   = 3.0   -> capped a prediction we no longer make.
+#   P90_FACTOR       = 1.8   -> a "P90" that was just p50 x 1.8. That is not a confidence
+#                               interval, it is a decoration. We have no quantified uncertainty
+#                               on the sensitivity, so we report none.
 
 # Per-commodity CALIBRATED parameters (v0.2). Others fall back to CROP_SENSITIVITY,
 # global_share=1.0 (local shock ≈ price shock) and flat transmission — i.e. UNCHANGED.
@@ -164,13 +202,18 @@ class CommodityRisk:
     top_hazard: Optional[str] = None
     yield_shock_pct: Optional[float] = None
     global_share: Optional[float] = None       # summed world share of the origins actually sourced
-    global_shock_pct: Optional[float] = None   # Σ(origin yield shock × world share) — drives price
-    price_move_pct: Optional[float] = None
+    global_shock_pct: Optional[float] = None   # Σ(origin yield shock × world share) — validated context
+    # THE HEADLINE: yield_shock × spend. The volume the buyer paid for that will not arrive,
+    # valued at the price they already pay. No forecast in it.
+    volume_at_risk_eur: Optional[float] = None
+    # The buyer's OWN price view, if they gave one. We never predict this — see _commodity_risk.
+    price_scenario_pct: Optional[float] = None
+    price_scenario_eur: Optional[float] = None
+    # volume_at_risk_eur + price_scenario_eur (if the buyer supplied a view). No P90: the old
+    # one was volume x 1.8, an invented "confidence band" with no distribution behind it. We do
+    # not have a quantified uncertainty on the sensitivity yet, so we do not draw one.
     cogs_at_risk_p50: Optional[float] = None
-    cogs_at_risk_p90: Optional[float] = None
-    market_eur: Optional[float] = None
-    sourcing_eur: Optional[float] = None
-    # Per-origin breakdown: which origin actually drives the world price signal.
+    # Per-origin breakdown: which origin actually drives the world supply shock.
     origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
 
@@ -179,8 +222,8 @@ class CommodityRisk:
 class PortfolioCogsAtRisk:
     ingredient_spend_eur: float
     total_cogs_eur: float
-    cogs_at_risk_p50: float
-    cogs_at_risk_p90: float
+    cogs_at_risk_p50: float          # volume at risk (+ the buyer's price scenario, if given)
+    volume_at_risk_eur: float        # the physical half, always — no forecast in it
     pct_cogs_at_risk: float
     n_commodities: int
     n_pending: int
@@ -247,7 +290,7 @@ def _calibration_tier(name: str, origins: list) -> str:
 
 
 def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share,
-                    compound=False, origin_cal=None) -> CommodityRisk:
+                    compound=False, origin_cal=None, price_scenario_pct=None) -> CommodityRisk:
     """plots: list of dicts {spend, origin, hazards:{hz→score}} (scored plots carry hazards).
     compound: see COMPOUND_HAZARDS -- worst-of by default, independent-multiplicative-damage
     for commodities with real backtest evidence hazards stack rather than substitute.
@@ -271,9 +314,25 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
         ((hz, sc) for p in scored for hz, sc in p["hazards"].items()),
         key=lambda t: t[1],
     )[0]
-    # The buyer's OWN exposure — always spend-weighted over their plots (sourcing channel).
-    yield_shock = sum(_plot_yield_shock(p["hazards"], sens, compound) * p["spend"]
-                      for p in scored) / wsum                       # §1.2 hazard → local yield shock
+    # The buyer's OWN exposure — spend-weighted over their plots. Each plot is read with ITS
+    # OWN ORIGIN'S calibrated sensitivity and driver hazard, not a commodity-wide constant.
+    # BUG THIS FIXES (found by test, 2026-07-16): this used the commodity-level `sens` from the
+    # code's COMMODITY_PARAMS (cocoa 0.294), silently shadowing the DB calibration that was
+    # re-fitted on real data (0.1995). The per-origin world-shock path already used the right
+    # value, so the two halves of the same object disagreed — and once volume-at-risk became
+    # THE headline, the headline was the one using the stale number.
+    def _plot_shock(p):
+        cal = (origin_cal or {}).get(p.get("origin")) if origin_cal else None
+        if cal:
+            driver = cal.get("hazard_driver")
+            o_sens = cal.get("sensitivity") or sens
+            if driver:
+                v = _driver_yield_shock(p["hazards"], o_sens, driver)
+                return v if v is not None else 0.0
+            return _plot_yield_shock(p["hazards"], o_sens, compound)
+        return _plot_yield_shock(p["hazards"], sens, compound)
+
+    yield_shock = sum(_plot_shock(p) * p["spend"] for p in scored) / wsum   # §1.2 hazard → yield shock
 
     origins: list[dict] = []
     if origin_cal:
@@ -327,10 +386,23 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
     else:
         global_shock = yield_shock * global_share                   # legacy single-bucket
 
-    price_move = min(PRICE_MOVE_CAP, amp * global_shock / elasticity)  # §1.3 world shock → price (amplified)
-    market = price_move * spend                                    # §1.4 market channel (all spend)
-    sourcing = SOURCING_PREMIUM * yield_shock * spend              # §1.4 sourcing channel (own plots)
-    p50 = market + sourcing
+    # ── THE HEADLINE: volume at risk. Physical, and the half we can actually prove. ──
+    # The buyer's own plots lose `yield_shock` of their yield, so that share of the volume
+    # they paid for does not arrive. Valued at the price they ALREADY pay — no forecast of
+    # any kind enters this number. It is the direct euro consequence of the crop failure our
+    # hazard chain predicts, and that chain is validated against the real event (cocoa's
+    # modelled world shock 8.92% vs FAO's measured 8.88%).
+    volume_at_risk = yield_shock * spend
+
+    # ── The price channel: the customer's assumption, never our prediction. ──
+    # We tested "supply shock -> price move" on 440 real crop-years: r^2 = 0.018. A harvest
+    # failure does push price up (64% of 53 real contractions) but HOW MUCH is unpredictable
+    # from supply data — by the time production is measured the market priced the news months
+    # ago. So we do not forecast it. If the buyer supplies their own price view (they trade
+    # this daily; we do not), we apply it to their whole spend and label it as theirs.
+    price_scenario = (price_scenario_pct / 100.0) * spend if price_scenario_pct else None
+    p50 = volume_at_risk + (price_scenario or 0.0)
+
     return CommodityRisk(
         commodity=name, eudr_covered=eudr, annual_spend_eur=spend,
         n_plots=n_plots, n_plots_scored=n_scored, status="scored",
@@ -339,16 +411,20 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
         yield_shock_pct=round(yield_shock * 100, 1),
         global_share=(round(sum(o["world_share"] for o in origins if o["world_share"] is not None), 5)
                       if origins else global_share),
+        # World shock stays: it is validated and it is real context ("the world crop is down
+        # 8.9%"). It just no longer drives a price prediction.
         global_shock_pct=round(global_shock * 100, 2),
-        price_move_pct=round(price_move * 100, 1),
-        cogs_at_risk_p50=round(p50, 2), cogs_at_risk_p90=round(p50 * P90_FACTOR, 2),
-        market_eur=round(market, 2), sourcing_eur=round(sourcing, 2),
+        volume_at_risk_eur=round(volume_at_risk, 2),
+        price_scenario_pct=price_scenario_pct,
+        price_scenario_eur=round(price_scenario, 2) if price_scenario is not None else None,
+        cogs_at_risk_p50=round(p50, 2),
         origins=origins,
     )
 
 
 def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[dict] = None,
-            calibrations: Optional[dict] = None, publish_gate: bool = True) -> PortfolioCogsAtRisk:
+            calibrations: Optional[dict] = None, publish_gate: bool = True,
+            price_scenario_pct: Optional[float] = None) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
       {name, eudr_covered, elasticity, spend, plots:[{spend, origin, hazards:{hz:score}}]}.
@@ -382,7 +458,8 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
                              elasticity, amp, sens, p["global_share"],
                              compound=c["name"] in COMPOUND_HAZARDS,
-                             origin_cal=origin_cal)
+                             origin_cal=origin_cal,
+                             price_scenario_pct=price_scenario_pct)
         cr.calibration = _calibration_tier(c["name"], cr.origins)
 
         # ── PUBLISH GATE (governance §8, hard rule) ──────────────────────────
@@ -404,15 +481,13 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
             cr.held_reason = reason.strip() or (
                 "€ withheld until the chain reproduces a real crop failure")
             # Withhold every modelled economic claim; keep the measured exposure.
-            cr.cogs_at_risk_p50 = cr.cogs_at_risk_p90 = None
-            cr.market_eur = cr.sourcing_eur = None
-            cr.price_move_pct = cr.global_shock_pct = None
+            cr.cogs_at_risk_p50 = cr.volume_at_risk_eur = None
+            cr.price_scenario_eur = cr.global_shock_pct = None
 
         ov = overrides.get(c["name"])
         if ov and cr.status == "scored":
             model_p50 = cr.cogs_at_risk_p50
             cr.cogs_at_risk_p50 = round(ov["override_cogs_at_risk_p50_eur"], 2)
-            cr.cogs_at_risk_p90 = round(cr.cogs_at_risk_p50 * P90_FACTOR, 2)
             cr.override = {
                 "model_p50_eur": model_p50, "override_p50_eur": cr.cogs_at_risk_p50,
                 "overridden_by": ov.get("overridden_by"), "overridden_at": ov.get("overridden_at"),
@@ -426,14 +501,14 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
     scored = [r for r in risks if r.status == "scored"]
     held = [r for r in risks if r.status == "held"]
     p50 = sum(r.cogs_at_risk_p50 for r in scored)
-    p90 = sum(r.cogs_at_risk_p90 for r in scored)
+    vol = sum(r.volume_at_risk_eur or 0 for r in scored)
     spend = sum(r.annual_spend_eur for r in risks)
     risks.sort(key=lambda r: (r.cogs_at_risk_p50 or -1), reverse=True)
     return PortfolioCogsAtRisk(
         ingredient_spend_eur=round(spend, 2),
         total_cogs_eur=round(total_cogs_eur, 2),
         cogs_at_risk_p50=round(p50, 2),
-        cogs_at_risk_p90=round(p90, 2),
+        volume_at_risk_eur=round(vol, 2),
         pct_cogs_at_risk=round(100 * p50 / total_cogs_eur, 2) if total_cogs_eur else 0.0,
         n_commodities=len(risks),
         n_pending=len([r for r in risks if r.status == "pending"]),
