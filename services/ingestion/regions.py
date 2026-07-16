@@ -74,6 +74,13 @@ REGIONS: dict[str, Region] = {
     # landfall track, San Juan infrastructure (banking) and Puerto Rico coffee (agriculture)
     # sit in the same small bbox, same dual-purpose logic as Fuego for volcanic.
     "puerto_rico": Region("puerto_rico", "Puerto Rico", 17.8, 18.6, -67.3, -65.2),
+    # Spain olive belt — Andalusia + Extremadura + Castilla-La Mancha. Spain is ~45% of world
+    # olive oil (IOC), and the 2022/23 drought+heat collapse (crop roughly halved, prices
+    # roughly doubled) is the backtest event for this origin. Also carries the demo book's
+    # Andalusian durum wheat and Extremaduran wine-grape plots.
+    "spain_olive": Region("spain_olive", "Spain olive belt (Andalusia/Extremadura)", 36.0, 40.5, -7.5, -1.0),
+    # Valencia / Murcia — the Spanish citrus belt (demo book's citrus plots).
+    "spain_citrus": Region("spain_citrus", "Spain citrus belt (Valencia/Murcia)", 37.5, 40.0, -1.5, 0.5),
 }
 
 DEFAULT_REGION = "eu"

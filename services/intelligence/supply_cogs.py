@@ -457,16 +457,21 @@ _GRAPH_SQL = """
 
 def get_calibrations(session) -> dict:
     """Per-origin calibration keyed {commodity_name: {origin: params}} — compute()'s shape.
-    sc_commodity_calibration is a small shared reference table (not org-scoped): an origin's
-    share of world production and its validated hazard driver are facts about the world, not
-    about a tenant."""
+
+    Reads v_sc_commodity_calibration, NOT the base table. calibration_tier is DERIVED there
+    from sc_model_validation: a crop×origin is 'backtested' if and only if a validation row
+    exists that PASSED, on the same hazard the coefficient drives. It is not a column anyone
+    can type — you cannot write your way to a published euro (see crop_registry_20260715).
+
+    Not org-scoped: an origin's share of world production and its validated hazard driver are
+    facts about the world, not about a tenant."""
     from sqlalchemy import text
     rows = session.execute(text("""
         SELECT co.name AS commodity, c.origin,
                CAST(c.sensitivity AS FLOAT) AS sensitivity,
                CAST(c.world_share AS FLOAT) AS world_share,
                c.hazard_driver, c.calibration_tier, c.event_ref, c.source_note
-        FROM sc_commodity_calibration c
+        FROM v_sc_commodity_calibration c
         JOIN sc_commodities co ON co.commodity_id = c.commodity_id
     """)).mappings().all()
     out: dict = {}
