@@ -81,6 +81,14 @@ REGIONS: dict[str, Region] = {
     "spain_olive": Region("spain_olive", "Spain olive belt (Andalusia/Extremadura)", 36.0, 40.5, -7.5, -1.0),
     # Valencia / Murcia — the Spanish citrus belt (demo book's citrus plots).
     "spain_citrus": Region("spain_citrus", "Spain citrus belt (Valencia/Murcia)", 37.5, 40.0, -1.5, 0.5),
+    # Castilla y León — Spain's real sugar-BEET belt (Valladolid/Palencia/Zamora). Spain grows
+    # no commercial sugar cane; the demo book previously placed "cane sugar" plots in Valencia,
+    # which is citrus country. Beet here is a dry continental crop: drought/heat, not flood.
+    "spain_beet": Region("spain_beet", "Spain sugar-beet belt (Castilla y León)", 41.0, 42.6, -6.0, -3.8),
+    # Extremadura — the demo book's wine-grape plots.
+    "spain_extremadura": Region("spain_extremadura", "Extremadura, Spain", 38.0, 40.5, -7.5, -4.6),
+    # Alentejo — the demo book's almond plots.
+    "portugal_alentejo": Region("portugal_alentejo", "Alentejo, Portugal", 37.8, 39.3, -8.9, -6.9),
 }
 
 DEFAULT_REGION = "eu"

@@ -278,9 +278,13 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
     origins: list[dict] = []
     if origin_cal:
         # §1.3 per-ORIGIN: world shock = Σ (origin yield shock × origin world share)
+        # Group ALL plots, not just the scored ones. An origin whose plots are entirely
+        # unscored must still SURFACE as a gap — if it silently vanished from the breakdown,
+        # the commodity would look fully validated on whatever origins happen to be scored
+        # while half the buyer's spend (and its share of the world crop) went unrepresented.
         global_shock = 0.0
         by_origin: dict = {}
-        for p in scored:
+        for p in plots:
             by_origin.setdefault(p.get("origin"), []).append(p)
         for origin, oplots in sorted(by_origin.items(), key=lambda kv: str(kv[0])):
             cal = origin_cal.get(origin)
@@ -292,7 +296,7 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
             need = None
             if driver:
                 # Calibrated origin: only the backtested hazard may drive the yield shock.
-                scored_on_driver = [p for p in oplots if p["hazards"].get(driver) is not None]
+                scored_on_driver = [p for p in oplots if p.get("hazards", {}).get(driver) is not None]
                 if scored_on_driver:
                     w = sum(p["spend"] for p in scored_on_driver) or 1.0
                     o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]

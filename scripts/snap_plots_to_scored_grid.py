@@ -53,13 +53,15 @@ def _km(a_lat, a_lon, b_lat, b_lon) -> float:
     return 2 * r * math.asin(math.sqrt(x))
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    """argv=[] runs with defaults — so a seed script can call snap(argv=[]) directly rather
+    than shelling out or (worse) re-implementing the snapping."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--commodity", help="only this commodity (default: all calibrated ones)")
     ap.add_argument("--max-km", type=float, default=25.0,
                     help="never snap further than this (default 25km ~ one ERA5-Land pixel)")
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     snapped = already = unreachable = no_driver = 0
     with get_session() as s:

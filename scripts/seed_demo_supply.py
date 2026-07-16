@@ -25,6 +25,7 @@ import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
+from services.ingestion.regions import get_region
 from api.security import hash_password
 
 ORG = "55555555-5555-4555-8555-555555555555"
@@ -36,7 +37,11 @@ COMMODITIES = [
     ("Almonds",     "0802", False, -0.35, "wildfire,drought",            "California + Spain"),
     ("Durum wheat", "1001", False, -0.25, "heat_acute,drought",          "Global; Med. durum belt"),
     ("Wine grapes", "0806", False, -0.40, "wildfire,heat_acute",         "Mediterranean"),
-    ("Cane sugar",  "1701", False, -0.20, "flood,heat_acute",            "Global"),
+    # Sugar beet, NOT cane: Spain grows no commercial sugar cane (cane is Brazil/India/
+    # Thailand). Spain's real sugar crop is beet, in Castilla y Leon — a dry continental
+    # crop whose risks are drought/heat, not flood. This book previously carried "Cane
+    # sugar" plots sitting in Valencia, which is citrus country: a fabricated geography.
+    ("Sugar beet",  "1212", False, -0.20, "drought,heat_acute",          "EU beet ~20% of world sugar; Spain a small share"),
     ("Cocoa",       "1801", True,  -0.20, "heat_acute,drought",          "Ghana+CIV ~60% of world cocoa"),
 ]
 
@@ -53,41 +58,79 @@ PRODUCTS = [
 # product name → [(commodity name, cost_share_pct, annual_spend_eur)]
 BOM = {
     "Mediterranean Olive-Oil Dressing 500ml": [("Olive oil", 55, 30_000_000), ("Citrus", 8, 4_400_000)],
-    "Valencia Orange Juice 1L":               [("Citrus", 62, 27_000_000), ("Cane sugar", 10, 4_400_000)],
-    "Almond & Honey Snack Bar":               [("Almonds", 48, 18_700_000), ("Cane sugar", 14, 5_500_000)],
-    "Artisan Dark Chocolate 100g":            [("Cocoa", 52, 30_000_000), ("Cane sugar", 18, 10_400_000)],
+    "Valencia Orange Juice 1L":               [("Citrus", 62, 27_000_000), ("Sugar beet", 10, 4_400_000)],
+    "Almond & Honey Snack Bar":               [("Almonds", 48, 18_700_000), ("Sugar beet", 14, 5_500_000)],
+    "Artisan Dark Chocolate 100g":            [("Cocoa", 52, 30_000_000), ("Sugar beet", 18, 10_400_000)],
     "Durum Pasta 500g":                       [("Durum wheat", 60, 22_800_000)],
-    "Sparkling Grape Refresher 750ml":        [("Wine grapes", 45, 12_150_000), ("Cane sugar", 12, 3_240_000)],
+    "Sparkling Grape Refresher 750ml":        [("Wine grapes", 45, 12_150_000), ("Sugar beet", 12, 3_240_000)],
 }
 
 # commodity → list of (region, country, [candidate boxes] or fixed coords, eudr_status)
 # EU commodities are placed in scored cells (queried below); cocoa is fixed & unscored.
+# commodity -> (region label, country, hazard to place against, region_key in
+# services/ingestion/regions.py). The region_key is load-bearing, not decoration: a plot is
+# only ever placed in a scored cell that actually falls INSIDE that region's bounds.
+#
+# This used to take "the highest-scoring cell for this hazard, anywhere" and then staple a
+# hardcoded label on it — so "Valencia Cane sugar plot 3" sat at (39.99, -0.0006), which is
+# not Valencia, and nothing tied a plot's stated geography to its coordinates. A plot whose
+# label disagrees with its location is a fabricated plot.
 EU_PLACEMENTS = {
-    "Olive oil":   ("Andalusia",   "ES", "wildfire"),
-    "Almonds":     ("Alentejo",    "PT", "wildfire"),
-    "Wine grapes": ("Extremadura", "ES", "wildfire"),
-    "Durum wheat": ("Andalusia",   "ES", "wildfire"),
-    "Citrus":      ("Valencia",    "ES", "flood"),
-    "Cane sugar":  ("Valencia",    "ES", "flood"),
+    "Olive oil":   ("Andalusia",       "ES", "wildfire", "spain_olive"),
+    "Almonds":     ("Alentejo",        "PT", "wildfire", "portugal_alentejo"),
+    "Wine grapes": ("Extremadura",     "ES", "wildfire", "spain_extremadura"),
+    "Durum wheat": ("Andalusia",       "ES", "wildfire", "spain_olive"),
+    "Citrus":      ("Valencia",        "ES", "flood",    "spain_citrus"),
 }
-COCOA_PLOTS = [
-    ("Ashanti (Ghana)", "GH", 6.75, -1.62),
-    ("Sud-Comoé (Côte d'Ivoire)", "CI", 6.10, -3.20),
-]
+
+# Crops placed at FIXED, REAL coordinates rather than "wherever this hazard is scored".
+# Used where the true growing area has no scored cell yet: we still put the plot where the
+# crop actually grows and let the publish gate withhold its € (exposure mapped, € pending)
+# — the one thing we never do is move the plot somewhere convenient to make a number appear.
+#   commodity -> [(place, country, lat, lon)]
+FIXED_PLOTS = {
+    # West-Africa cocoa belt.
+    "Cocoa": [
+        ("Ashanti (Ghana)", "GH", 6.75, -1.62),
+        ("Sud-Comoé (Côte d'Ivoire)", "CI", 6.10, -3.20),
+    ],
+    # Castilla y Leon — Spain's real sugar-BEET belt. Spain grows no commercial cane; these
+    # plots previously sat in Valencia (citrus country) labelled "Cane sugar". Drought is not
+    # yet scored here, so beet is honestly exposure-mapped with its euro withheld.
+    "Sugar beet": [
+        ("Valladolid", "ES", 41.65, -4.72),
+        ("Palencia",   "ES", 42.01, -4.53),
+        ("Zamora",     "ES", 41.50, -5.75),
+    ],
+}
 
 
-def scored_cells(session, hazard, n=400):
-    """Cells that are scored across ALL scenarios × horizons (present at both
-    baseline/current AND hot_house/2100), so a plot's risk responds to the scenario
-    selector. Otherwise a plot would drop to 'pending' under future scenarios."""
+def scored_cells(session, hazard, region_key, n=400):
+    """Cells scored across ALL scenarios × horizons (present at both baseline/current AND
+    hot_house/2100, so a plot's risk responds to the scenario selector) AND lying inside
+    `region_key`'s real bounds — a plot must sit where its label says it sits.
+
+    Standing lane only: a nowcast ("is it hot today") must never be what a demo plot is
+    placed on, same rule the crop engine follows (see migration score_lane_20260715)."""
     rows = session.execute(text("""
         SELECT h3_cell FROM canonical_scores
-        WHERE hazard_type=:h AND valid_to IS NULL AND scenario='baseline' AND time_horizon='current'
+        WHERE hazard_type=:h AND valid_to IS NULL AND score_lane='standing'
+          AND scenario='baseline' AND time_horizon='current'
           AND h3_cell IN (SELECT h3_cell FROM canonical_scores
-                          WHERE valid_to IS NULL AND scenario='hot_house_3_5c' AND time_horizon='2100')
-        ORDER BY risk_score DESC LIMIT :n
-    """), {"h": hazard, "n": n}).scalars().all()
-    return list(rows)
+                          WHERE valid_to IS NULL AND score_lane='standing'
+                            AND scenario='hot_house_3_5c' AND time_horizon='2100')
+        ORDER BY risk_score DESC
+    """), {"h": hazard}).scalars().all()
+
+    r = get_region(region_key)
+    inside = []
+    for cell in rows:
+        lat, lon = h3.cell_to_latlng(cell)
+        if r.min_lat <= lat <= r.max_lat and r.min_lon <= lon <= r.max_lon:
+            inside.append(cell)
+            if len(inside) >= n:
+                break
+    return inside
 
 
 def main():
@@ -136,7 +179,7 @@ def main():
                 INSERT INTO sc_suppliers (supplier_id, org_id, name, commodity_id, tier, country)
                 VALUES (:id,:o,:n,:c,1,:cc) RETURNING supplier_id
             """), {"id": str(uuid.uuid4()), "o": ORG, "n": f"{cname} Co-op", "c": cid[cname],
-                   "cc": "GH" if cname == "Cocoa" else "ES"}).scalar()
+                   "cc": {"Cocoa": "GH", "Almonds": "PT"}.get(cname, "ES")}).scalar()
             sup[cname] = str(row)
 
         commodity_spend = {}
@@ -150,18 +193,23 @@ def main():
                 """), {"p": pid[pname], "c": cid[cname], "s": share, "sp": spend})
                 commodity_spend[cname] = commodity_spend.get(cname, 0) + spend
 
-        # sourcing plots — EU commodities in real scored cells; cocoa unscored
-        wildfire = scored_cells(s, "wildfire", 400)
-        flood = scored_cells(s, "flood", 200)
+        # sourcing plots — each EU commodity in scored cells INSIDE ITS OWN REGION; cocoa unscored
         plots = []
-        pick = {"wildfire": iter(wildfire), "flood": iter(flood)}
-        for cname, (region, country, hazard) in EU_PLACEMENTS.items():
+        for cname, (region, country, hazard, region_key) in EU_PLACEMENTS.items():
             total = commodity_spend.get(cname, 0)
             n_plots = 3
-            for i in range(n_plots):
-                cell = next(pick[hazard])
+            pool = scored_cells(s, hazard, region_key, n_plots)
+            if len(pool) < n_plots:
+                # Never silently place the plot somewhere else to make the demo look full.
+                # No scored cell in the real region = the honest answer is fewer plots, and the
+                # gate then withholds that commodity's € (exposure mapped, € pending).
+                print(f"  ! {cname}: only {len(pool)} scored '{hazard}' cells inside "
+                      f"{region_key} — placing {len(pool)} plot(s), not {n_plots}")
+            for i, cell in enumerate(pool):
                 lat, lon = h3.cell_to_latlng(cell)
-                vshare = round(1.0 / n_plots, 4)
+                # split across the plots we ACTUALLY placed, so the commodity's spend still
+                # reconciles when a region yields fewer scored cells than we hoped for
+                vshare = round(1.0 / len(pool), 4)
                 plots.append({
                     "id": str(uuid.uuid4()), "o": ORG, "sup": sup[cname], "c": cid[cname],
                     "pn": f"{region} {cname} plot {i+1}", "lat": round(lat, 5), "lon": round(lon, 5),
@@ -169,16 +217,20 @@ def main():
                     "sp": round(total * vshare, 2), "vs": vshare,
                     "eudr": "compliant", "geo": True,
                 })
-        # cocoa — West Africa, UNSCORED (no canonical_scores cell) → € pending
-        total_cocoa = commodity_spend.get("Cocoa", 0)
-        for name, country, lat, lon in COCOA_PLOTS:
-            cell = h3.latlng_to_cell(lat, lon, 8)
-            plots.append({
-                "id": str(uuid.uuid4()), "o": ORG, "sup": sup["Cocoa"], "c": cid["Cocoa"],
-                "pn": f"{name} cocoa plot", "lat": lat, "lon": lon, "h3": cell, "cc": country,
-                "rg": name, "sp": round(total_cocoa / len(COCOA_PLOTS), 2), "vs": round(1.0/len(COCOA_PLOTS), 4),
-                "eudr": "compliant", "geo": True,
-            })
+        # crops at fixed REAL coordinates (cocoa belt, Castilla y Leon beet). Scored or not is
+        # the golden source's business — we place them where they actually grow.
+        for cname, placements in FIXED_PLOTS.items():
+            total = commodity_spend.get(cname, 0)
+            vs = round(1.0 / len(placements), 4)
+            for name, country, lat, lon in placements:
+                cell = h3.latlng_to_cell(lat, lon, 8)
+                plots.append({
+                    "id": str(uuid.uuid4()), "o": ORG, "sup": sup[cname], "c": cid[cname],
+                    "pn": f"{name} {cname.lower()} plot", "lat": lat, "lon": lon, "h3": cell,
+                    "cc": country, "rg": name,
+                    "sp": round(total * vs, 2), "vs": vs,
+                    "eudr": "compliant", "geo": True,
+                })
         s.execute(text("""
             INSERT INTO sc_sourcing_plots
                 (plot_id, org_id, supplier_id, commodity_id, plot_name, latitude, longitude, h3_cell,
@@ -221,6 +273,20 @@ def main():
             s.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:u,:r) ON CONFLICT DO NOTHING"),
                       {"u": uid, "r": str(role)})
 
+    # Snap plots onto the scored grid for each crop's CALIBRATED DRIVER hazard. This is part of
+    # seeding, not an afterthought: our climatologies are computed on a sampled grid, so a plot's
+    # own res-8 cell often isn't scored and its driver reads as absent — the gate then withholds
+    # the crop's €. This used to be a hardcoded plot list inside score_cocoa_heat.py, so every
+    # re-seed silently UN-snapped Ghana (half the cocoa spend, ~15% of world cocoa) and nothing
+    # noticed. Any script that (re)creates plots must snap them.
+    import os
+    import sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from snap_plots_to_scored_grid import main as snap
+    print("\nsnapping plots onto the scored grid (per crop's calibrated driver hazard):")
+    snap(argv=[])
+
+    with get_session() as s:
         # report
         np = s.execute(text("SELECT count(*) FROM sc_sourcing_plots WHERE org_id=:o"), {"o": ORG}).scalar()
         scored = s.execute(text("""

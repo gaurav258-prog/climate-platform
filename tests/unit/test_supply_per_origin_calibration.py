@@ -177,3 +177,25 @@ def test_driver_hazard_used_even_when_another_hazard_scores_higher():
     # 0.294 * 74.2/100 = 21.8% — from heat, not from the higher wildfire score
     assert r.origins[0]["yield_shock_pct"] == 21.8
     assert r.status == "scored"
+
+
+def test_entirely_unscored_origin_surfaces_instead_of_vanishing():
+    """REGRESSION (real, found 2026-07-16 when a re-seed un-snapped Ghana). An origin whose
+    plots are ALL unscored used to disappear from the breakdown, because grouping started from
+    the scored plots only. The commodity then looked fully 'backtested' on the origins that
+    happened to be scored — while half the buyer's spend, and that origin's share of the world
+    crop, went silently unrepresented. An unscored origin is a GAP and must be visible."""
+    plots = [
+        {"spend": 15_000_000, "origin": "CI", "hazards": {"heat_acute": 74.2}},
+        {"spend": 15_000_000, "origin": "GH", "hazards": {}},          # entirely unscored
+    ]
+    cal = {"Cocoa": _cal({"CI": (0.294, 0.45, "backtested"), "GH": (0.294, 0.15, "backtested")},
+                         driver="heat_acute")}
+    r = compute([_commodity("Cocoa", plots)], 100_000_000, calibrations=cal).commodities[0]
+
+    by = {o["origin"]: o for o in r.origins}
+    assert "GH" in by, "an unscored origin vanished from the breakdown"
+    assert by["GH"]["yield_shock_pct"] is None
+    assert by["GH"]["input_required"]
+    # half the world-crop weight is unrepresented, so no € may publish
+    assert r.status == "held" and r.cogs_at_risk_p50 is None
