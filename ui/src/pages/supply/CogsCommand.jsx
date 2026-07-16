@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Package, TrendingDown, Percent, ShieldCheck, AlertTriangle, Leaf } from 'lucide-react'
+import { Package, TrendingDown, Percent, ShieldCheck, Leaf } from 'lucide-react'
 import ContextBar from '../../components/ContextBar'
 import SupplyPlotDrawer, { HAZ_COLOR } from '../../components/SupplyPlotDrawer'
 import CommodityDrawer from '../../components/CommodityDrawer'
@@ -28,6 +28,9 @@ export default function CogsCommand({ onGoto }) {
 
   const r = sum?.rollup
   const scored = (sum?.commodities || []).filter(c => c.status === 'scored')
+  // 'held' = scored but not event-backtested → € withheld by the publish gate.
+  // 'pending' = not hazard-scored yet. Both show exposure, never a euro figure.
+  const held = (sum?.commodities || []).filter(c => c.status === 'held')
   const pending = (sum?.commodities || []).filter(c => c.status === 'pending')
   const totalRisk = scored.reduce((s, c) => s + (c.cogs_at_risk_p50 || 0), 0) || 1
 
@@ -54,12 +57,14 @@ export default function CogsCommand({ onGoto }) {
             label="Import plots" onUploaded={reload} />
         </header>
 
-        {/* honest v0 banner */}
-        <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+        {/* publish gate — every € on this page is event-backtested */}
+        <div className="mb-6 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-800">
+          <ShieldCheck size={15} className="mt-0.5 shrink-0" />
           <span>
-            <b>v0 impact functions — uncalibrated.</b> Euro figures are illustrative pending event backtests
-            (cocoa 2023/24, coffee 2021). Commodities without matured hazard scoring show <b>exposure mapped, € pending</b>.
+            <b>Every euro figure here is event-backtested.</b> A commodity publishes a € only once its
+            hazard→yield→price chain reproduces a real crop failure, for every origin you source
+            (cocoa 2023/24 heat, coffee 2021 drought). Anything not yet validated shows
+            <b> exposure mapped, € withheld</b> — never an illustrative number.
             See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
           </span>
         </div>
@@ -117,6 +122,23 @@ export default function CogsCommand({ onGoto }) {
                     </div>
                   </button>
                 ))}
+                {held.map(c => (
+                  <button key={c.commodity} onClick={() => setSelCommodity(c.commodity)}
+                    className="flex w-full items-center justify-between py-2.5 text-left hover:bg-gray-50">
+                    <div>
+                      <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
+                        {c.commodity}
+                        {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
+                      </div>
+                      <div className="text-[11px] text-gray-400">
+                        spend {mn(c.annual_spend_eur)} · hazard {c.avg_hazard}{c.top_hazard ? ` · ${c.top_hazard}` : ''} · awaiting backtest
+                      </div>
+                    </div>
+                    <div className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                      € withheld · not backtested
+                    </div>
+                  </button>
+                ))}
                 {pending.map(c => (
                   <button key={c.commodity} onClick={() => setSelCommodity(c.commodity)}
                     className="flex w-full items-center justify-between py-2.5 text-left opacity-70 hover:bg-gray-50">
@@ -128,7 +150,7 @@ export default function CogsCommand({ onGoto }) {
                       <div className="text-[11px] text-gray-400">spend {mn(c.annual_spend_eur)} · exposure mapped</div>
                     </div>
                     <div className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500">
-                      € pending · drought/heat
+                      € pending · not yet scored
                     </div>
                   </button>
                 ))}

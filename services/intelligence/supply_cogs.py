@@ -7,13 +7,16 @@ of materials. Implements the chain in docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOL
     hazard intensity → yield shock → price response → cost inflation (€) → roll up BOM
 with the three channels kept separate (Market / Sourcing / Continuity) and a P50–P90 range.
 
-HONESTY (v0, per the methodology's governance §8):
-- This is an UNCALIBRATED v0. It uses the 0–100 canonical score as a PROXY for hazard
-  intensity; production must consume physical stressors (heat-days, SPEI) per §1.1, and each
-  commodity's functions must pass the event backtest (§6) before its € is shown as validated.
-- Commodities whose plots are unscored (e.g. cocoa — drought/heat pending) are returned with
-  status='pending' and NO euro figure — exposure is mapped, € is withheld. Never a silent zero.
-Every figure carries IMPACT_VERSION so it is reproducible and clearly marked provisional.
+GOVERNANCE — THE PUBLISH GATE (methodology §8, hard rule):
+A euro figure leaves this engine ONLY if its hazard→yield→price chain has been reproduced
+against a real, documented crop failure, for EVERY origin the buyer sources. There is no
+"illustrative €": a number on a page gets used no matter what banner sits above it. So:
+- status='scored'  → backtested. € published.
+- status='held'    → scored, but the chain is not event-backtested for some origin.
+                     Exposure and hazard driver shown; € WITHHELD (not shown behind a caveat).
+- status='pending' → no hazard score yet. Exposure mapped, € withheld. Never a silent zero.
+Held/pending exposure is reported as SPEND (a fact), never rolled into the € headline.
+Every figure carries IMPACT_VERSION so it is reproducible.
 """
 from __future__ import annotations
 
@@ -147,10 +150,15 @@ class CommodityRisk:
     annual_spend_eur: float
     n_plots: int
     n_plots_scored: int
-    status: str                      # 'scored' | 'pending'
+    # 'scored'  — € published (every sourced origin is event-backtested)
+    # 'pending' — no hazard score yet: exposure mapped, € withheld
+    # 'held'    — scored, but the hazard→yield→price chain is NOT event-backtested for
+    #             every sourced origin, so the € is withheld by the publish gate
+    status: str
     # 'backtested' (every contributing origin event-validated) | 'mixed' (some origins
     # backtested, some not) | 'indicative' (none event-validated)
     calibration: str = "indicative"
+    held_reason: Optional[str] = None
     hazard_combination: str = "worst_of"  # 'worst_of' (default) | 'compounded' (COMPOUND_HAZARDS)
     avg_hazard: Optional[float] = None
     top_hazard: Optional[str] = None
@@ -176,6 +184,11 @@ class PortfolioCogsAtRisk:
     pct_cogs_at_risk: float
     n_commodities: int
     n_pending: int
+    # Held by the publish gate: scored, but not event-backtested → € withheld.
+    # Reported as SPEND (a fact), never as a modelled €.
+    n_held: int = 0
+    held_spend_eur: float = 0.0
+    covered_spend_eur: float = 0.0   # spend whose € IS published (backtested)
     commodities: list[CommodityRisk] = field(default_factory=list)
     impact_version: str = IMPACT_VERSION
 
@@ -195,6 +208,21 @@ def amplification(stock_to_use):
     return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
 
 
+def _driver_yield_shock(hazards: dict, sens: float, driver: str) -> Optional[float]:
+    """Yield shock from ONLY the hazard the coefficient was backtested against.
+
+    A calibrated sensitivity is not a general 'climate damage' number — it is the fitted
+    response of one crop to ONE hazard (cocoa's 0.294 came from the 2023/24 HEAT event).
+    Applying it to whatever hazard happens to score highest on a plot (wildfire, flood…)
+    produces a figure no backtest supports. So for a calibrated origin we read the driver
+    hazard only. Returns None when the driver hazard isn't scored on that plot — unknown,
+    never silently 0 or substituted with another hazard."""
+    score = hazards.get(driver)
+    if score is None:
+        return None
+    return sens * (score / 100.0)
+
+
 def _calibration_tier(name: str, origins: list) -> str:
     """A commodity's honesty label, derived from the ORIGINS this buyer actually sources —
     not from the commodity name. Coffee is 'backtested' for a Brazil-only book, but 'mixed'
@@ -203,7 +231,14 @@ def _calibration_tier(name: str, origins: list) -> str:
     BACKTESTED set when there is no per-origin calibration."""
     if not origins:
         return "backtested" if name in BACKTESTED else "indicative"
-    tiers = {o.get("calibration") for o in origins}
+    # An origin only counts as backtested if it is BOTH event-validated AND actually
+    # computable here — a validated coefficient with its driver hazard unscored yields
+    # no number, so it cannot back a published €.
+    tiers = {
+        "backtested" if (o.get("calibration") == "backtested" and o.get("yield_shock_pct") is not None)
+        else "indicative"
+        for o in origins
+    }
     if tiers == {"backtested"}:
         return "backtested"
     if "backtested" in tiers:
@@ -251,22 +286,39 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
             cal = origin_cal.get(origin)
             o_sens = (cal or {}).get("sensitivity") or sens
             o_share = (cal or {}).get("world_share")
+            driver = (cal or {}).get("hazard_driver")
             o_spend = sum(p["spend"] for p in oplots) or 1.0
-            o_shock = sum(_plot_yield_shock(p["hazards"], o_sens, compound) * p["spend"]
-                          for p in oplots) / o_spend
-            contribution = (o_shock * o_share) if o_share is not None else None
+
+            need = None
+            if driver:
+                # Calibrated origin: only the backtested hazard may drive the yield shock.
+                scored_on_driver = [p for p in oplots if p["hazards"].get(driver) is not None]
+                if scored_on_driver:
+                    w = sum(p["spend"] for p in scored_on_driver) or 1.0
+                    o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]
+                                  for p in scored_on_driver) / w
+                else:
+                    o_shock = None
+                    need = f"{driver} not scored on these plots — the calibrated driver hazard"
+            else:
+                # No calibration row: we do not know which hazard drives this crop here, so no
+                # validated yield shock exists. Exposure only.
+                o_shock = None
+                need = "world production share + backtested hazard driver for this origin"
+
+            contribution = (o_shock * o_share) if (o_shock is not None and o_share is not None) else None
             if contribution is not None:
                 global_shock += contribution
             origins.append({
                 "origin": origin, "spend_eur": round(o_spend, 2),
-                "yield_shock_pct": round(o_shock * 100, 1),
+                "yield_shock_pct": round(o_shock * 100, 1) if o_shock is not None else None,
                 "world_share": o_share,
                 "global_shock_contribution_pct": round(contribution * 100, 2) if contribution is not None else None,
                 "calibration": (cal or {}).get("calibration_tier", "uncalibrated"),
-                "hazard_driver": (cal or {}).get("hazard_driver"),
+                "hazard_driver": driver,
                 # An origin with no calibration row cannot contribute to the world price signal —
-                # surfaced, never silently given another origin's share.
-                "input_required": None if cal else "world production share + hazard driver for this origin",
+                # surfaced, never silently given another origin's share or another hazard's score.
+                "input_required": need,
             })
     else:
         global_shock = yield_shock * global_share                   # legacy single-bucket
@@ -292,7 +344,7 @@ def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_shar
 
 
 def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[dict] = None,
-            calibrations: Optional[dict] = None) -> PortfolioCogsAtRisk:
+            calibrations: Optional[dict] = None, publish_gate: bool = True) -> PortfolioCogsAtRisk:
     """
     Pure roll-up. `commodities` = list of
       {name, eudr_covered, elasticity, spend, plots:[{spend, origin, hazards:{hz:score}}]}.
@@ -307,6 +359,11 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
     overridden_at, reason}} -- a procurement analyst's audited correction to a SCORED
     commodity's model figure (see sc_commodity_overrides migration). p90 is re-derived
     from the override at the same P90_FACTOR the model itself uses, for a consistent range.
+
+    publish_gate: when True (the default, and the customer-facing contract) a commodity's €
+    is published ONLY if every origin it sources is event-backtested; otherwise it is 'held'
+    (exposure + hazard driver shown, € withheld). Set False only for internal calibration
+    work -- never for output a customer or a disclosure sees.
     """
     overrides = overrides or {}
     calibrations = calibrations or {}
@@ -323,6 +380,30 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
                              compound=c["name"] in COMPOUND_HAZARDS,
                              origin_cal=origin_cal)
         cr.calibration = _calibration_tier(c["name"], cr.origins)
+
+        # ── PUBLISH GATE (governance §8, hard rule) ──────────────────────────
+        # A euro figure leaves this engine ONLY if the hazard→yield→price chain has
+        # been reproduced against a real, documented event for EVERY origin the buyer
+        # sources. Anything else keeps its exposure and its hazard driver, but the €
+        # is withheld — never shown behind a disclaimer, because a number on a page
+        # gets used no matter what the banner says.
+        if publish_gate and cr.status == "scored" and cr.calibration != "backtested":
+            gaps = [f"{o['origin']}: {o['input_required']}" for o in cr.origins if o.get("input_required")]
+            unvalidated = [str(o["origin"]) for o in cr.origins
+                           if o.get("calibration") != "backtested" and not o.get("input_required")]
+            cr.status = "held"
+            reason = "€ withheld — "
+            if unvalidated:
+                reason += "hazard→yield not event-backtested for " + ", ".join(unvalidated) + ". "
+            if gaps:
+                reason += "missing input — " + "; ".join(gaps) + ". "
+            cr.held_reason = reason.strip() or (
+                "€ withheld until the chain reproduces a real crop failure")
+            # Withhold every modelled economic claim; keep the measured exposure.
+            cr.cogs_at_risk_p50 = cr.cogs_at_risk_p90 = None
+            cr.market_eur = cr.sourcing_eur = None
+            cr.price_move_pct = cr.global_shock_pct = None
+
         ov = overrides.get(c["name"])
         if ov and cr.status == "scored":
             model_p50 = cr.cogs_at_risk_p50
@@ -335,7 +416,11 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
             }
         risks.append(cr)
 
+    # Only PUBLISHED (backtested) commodities contribute €. Held/pending exposure is
+    # reported as SPEND, never rolled into the headline — an un-backtested € must not
+    # reach a total that someone then acts on.
     scored = [r for r in risks if r.status == "scored"]
+    held = [r for r in risks if r.status == "held"]
     p50 = sum(r.cogs_at_risk_p50 for r in scored)
     p90 = sum(r.cogs_at_risk_p90 for r in scored)
     spend = sum(r.annual_spend_eur for r in risks)
@@ -348,6 +433,9 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
         pct_cogs_at_risk=round(100 * p50 / total_cogs_eur, 2) if total_cogs_eur else 0.0,
         n_commodities=len(risks),
         n_pending=len([r for r in risks if r.status == "pending"]),
+        n_held=len(held),
+        held_spend_eur=round(sum(r.annual_spend_eur for r in held), 2),
+        covered_spend_eur=round(sum(r.annual_spend_eur for r in scored), 2),
         commodities=risks,
     )
 

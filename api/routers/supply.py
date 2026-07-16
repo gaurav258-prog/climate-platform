@@ -84,6 +84,10 @@ def summary(session: DbSession, org_id: OrgId,
             "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "cogs_at_risk_p90_eur": r.cogs_at_risk_p90,
             "pct_cogs_at_risk": r.pct_cogs_at_risk, "n_commodities": r.n_commodities,
             "n_pending": r.n_pending,
+            # Publish gate: commodities scored but not event-backtested. Their exposure is
+            # reported as SPEND; their € is withheld and never in the headline above.
+            "n_held": r.n_held, "held_spend_eur": r.held_spend_eur,
+            "covered_spend_eur": r.covered_spend_eur,
         },
         "commodities": [asdict(c) for c in r.commodities],
         "eudr": _eudr_summary(session, org_id),

@@ -14,9 +14,10 @@ def _commodity(name, plots, elasticity=-0.25, stock=None):
             "stock_to_use": stock, "spend": sum(p["spend"] for p in plots), "plots": plots}
 
 
-def _cal(origin_map):
-    """origin -> (sensitivity, world_share, tier)"""
-    return {o: {"sensitivity": s, "world_share": w, "calibration_tier": t, "hazard_driver": "heat_acute"}
+def _cal(origin_map, driver="heat_acute"):
+    """origin -> (sensitivity, world_share, tier). `driver` is the hazard the coefficient
+    was backtested against — the engine will only read THAT hazard."""
+    return {o: {"sensitivity": s, "world_share": w, "calibration_tier": t, "hazard_driver": driver}
             for o, (s, w, t) in origin_map.items()}
 
 
@@ -40,7 +41,10 @@ def test_world_shock_follows_production_share_not_spend():
         {"spend":   100_000, "origin": "BR", "hazards": {"heat_acute": 90.0}},   # 1% of spend, 35% of world
     ]
     cal = {"Coffee": _cal({"PR": (0.5, 0.0002, "indicative"), "BR": (0.5, 0.35, "backtested")})}
-    r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal).commodities[0]
+    # publish_gate=False: this asserts the internal world-shock math. With the gate on, a
+    # mixed-origin commodity is held and these figures are withheld (see the gate tests).
+    r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal,
+                publish_gate=False).commodities[0]
 
     # world shock = 0.5*0.10*0.0002 + 0.5*0.90*0.35 = 0.00001 + 0.1575 ≈ 15.75%
     assert round(r.global_shock_pct, 1) == 15.8
@@ -58,8 +62,10 @@ def test_uncalibrated_origin_does_not_borrow_another_origins_share():
         {"spend": 1_000_000, "origin": "BR", "hazards": {"drought": 80.0}},
         {"spend": 1_000_000, "origin": "GT", "hazards": {"drought": 80.0}},   # no calibration row
     ]
-    cal = {"Coffee": _cal({"BR": (0.45, 0.35, "backtested")})}
-    r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal).commodities[0]
+    cal = {"Coffee": _cal({"BR": (0.45, 0.35, "backtested")}, driver="drought")}
+    # publish_gate=False to inspect the world-shock math; with the gate on this book is held.
+    r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal,
+                publish_gate=False).commodities[0]
 
     by = {o["origin"]: o for o in r.origins}
     assert by["GT"]["world_share"] is None
@@ -76,7 +82,7 @@ def test_calibration_tier_is_mixed_when_origins_differ():
         {"spend": 1_000_000, "origin": "BR", "hazards": {"drought": 50.0}},
         {"spend": 1_000_000, "origin": "GT", "hazards": {"drought": 50.0}},
     ]
-    cal = {"Coffee": _cal({"BR": (0.45, 0.35, "backtested"), "GT": (0.45, 0.023, "indicative")})}
+    cal = {"Coffee": _cal({"BR": (0.45, 0.35, "backtested"), "GT": (0.45, 0.023, "indicative")}, driver="drought")}
     r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal).commodities[0]
     assert r.calibration == "mixed"
 
@@ -87,3 +93,87 @@ def test_calibration_tier_is_mixed_when_origins_differ():
     only_ind = [{"spend": 1_000_000, "origin": "GT", "hazards": {"drought": 50.0}}]
     r3 = compute([_commodity("Coffee", only_ind)], 100_000_000, calibrations=cal).commodities[0]
     assert r3.calibration == "indicative"
+
+
+def test_publish_gate_withholds_euro_until_backtested():
+    """THE HARD RULE: no € leaves the engine for a crop×origin that hasn't reproduced a
+    real event. Exposure and driver stay; the euro figure is withheld, not caveated."""
+    plots = [{"spend": 1_000_000, "origin": "ES", "hazards": {"drought": 70.0}}]
+    cal = {"Olive oil": _cal({"ES": (0.35, 0.45, "indicative")}, driver="drought")}
+    r = compute([_commodity("Olive oil", plots)], 10_000_000, calibrations=cal).commodities[0]
+
+    assert r.status == "held"
+    assert r.cogs_at_risk_p50 is None and r.cogs_at_risk_p90 is None
+    assert r.market_eur is None and r.price_move_pct is None
+    assert "not event-backtested" in r.held_reason
+    # exposure is still reported — we withhold the €, not the risk
+    assert r.annual_spend_eur == 1_000_000
+    assert r.avg_hazard == 70.0 and r.top_hazard == "drought"
+
+
+def test_gate_keeps_held_euro_out_of_the_headline():
+    """Held exposure is reported as SPEND, never summed into the € total."""
+    bt = _commodity("Cocoa", [{"spend": 1_000_000, "origin": "CI", "hazards": {"heat_acute": 60.0}}])
+    ind = _commodity("Citrus", [{"spend": 5_000_000, "origin": "ES", "hazards": {"heat_acute": 60.0}}])
+    cal = {"Cocoa": _cal({"CI": (0.294, 0.45, "backtested")}),
+           "Citrus": _cal({"ES": (0.45, 0.03, "indicative")})}
+    r = compute([bt, ind], 50_000_000, calibrations=cal)
+
+    assert r.n_held == 1 and r.held_spend_eur == 5_000_000
+    assert r.covered_spend_eur == 1_000_000
+    published = [c for c in r.commodities if c.status == "scored"]
+    assert r.cogs_at_risk_p50 == sum(c.cogs_at_risk_p50 for c in published)   # backtested only
+
+
+def test_mixed_origin_commodity_is_held_not_blended():
+    """One un-backtested origin holds the whole commodity — validated and unvalidated €
+    must never be blended into one published figure."""
+    plots = [
+        {"spend": 1_000_000, "origin": "BR", "hazards": {"drought": 50.0}},
+        {"spend": 1_000_000, "origin": "GT", "hazards": {"drought": 50.0}},
+    ]
+    cal = {"Coffee": _cal({"BR": (0.45, 0.35, "backtested"), "GT": (0.45, 0.023, "indicative")}, driver="drought")}
+    r = compute([_commodity("Coffee", plots)], 100_000_000, calibrations=cal).commodities[0]
+    assert r.calibration == "mixed" and r.status == "held"
+    assert r.cogs_at_risk_p50 is None
+    assert "GT" in r.held_reason
+
+
+def test_gate_can_be_disabled_for_internal_calibration_work_only():
+    plots = [{"spend": 1_000_000, "origin": "ES", "hazards": {"drought": 70.0}}]
+    cal = {"Olive oil": _cal({"ES": (0.35, 0.45, "indicative")}, driver="drought")}
+    r = compute([_commodity("Olive oil", plots)], 10_000_000, calibrations=cal,
+                publish_gate=False).commodities[0]
+    assert r.status == "scored" and r.cogs_at_risk_p50 > 0
+
+
+def test_calibrated_coefficient_only_reads_its_backtested_hazard():
+    """REGRESSION (real bug, found 2026-07-15). Cocoa's 0.294 was fitted to the 2023/24 HEAT
+    event. The engine used to take each plot's WORST hazard — so with heat unscored and
+    wildfire at 11.4 it produced yield-shock 3.4% = 0.294 × 11.4, a heat coefficient applied
+    to a wildfire score, and badged the result 'backtested'.
+
+    A calibrated coefficient must read ONLY the hazard it was validated against."""
+    plots = [{"spend": 1_000_000, "origin": "CI",
+              "hazards": {"wildfire": 11.4, "flood": 7.0}}]        # heat_acute NOT scored
+    cal = {"Cocoa": _cal({"CI": (0.294, 0.45, "backtested")}, driver="heat_acute")}
+    r = compute([_commodity("Cocoa", plots)], 10_000_000, calibrations=cal).commodities[0]
+
+    origin = r.origins[0]
+    assert origin["yield_shock_pct"] is None            # NOT 3.4 from wildfire
+    assert "heat_acute not scored" in origin["input_required"]
+    assert r.status == "held" and r.cogs_at_risk_p50 is None
+    # the exposure is still honestly reported
+    assert r.annual_spend_eur == 1_000_000 and r.top_hazard == "wildfire"
+
+
+def test_driver_hazard_used_even_when_another_hazard_scores_higher():
+    """The driver is read on its own merits — a higher-scoring unrelated hazard must not
+    displace it (nor inflate it)."""
+    plots = [{"spend": 1_000_000, "origin": "CI",
+              "hazards": {"heat_acute": 74.2, "wildfire": 90.0}}]
+    cal = {"Cocoa": _cal({"CI": (0.294, 0.45, "backtested")}, driver="heat_acute")}
+    r = compute([_commodity("Cocoa", plots)], 10_000_000, calibrations=cal).commodities[0]
+    # 0.294 * 74.2/100 = 21.8% — from heat, not from the higher wildfire score
+    assert r.origins[0]["yield_shock_pct"] == 21.8
+    assert r.status == "scored"
