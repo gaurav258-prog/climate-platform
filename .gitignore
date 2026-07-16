@@ -21,3 +21,4 @@ data/era5_climatology_baseline/
 .claude-flow/
 data/faostat/
 data/usda_psd/
+data/worldbank/
