@@ -81,7 +81,10 @@ def summary(session: DbSession, org_id: OrgId,
         "scenario": scenario, "horizon": horizon, "impact_version": IMPACT_VERSION,
         "rollup": {
             "ingredient_spend_eur": r.ingredient_spend_eur, "total_cogs_eur": r.total_cogs_eur,
-            "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "cogs_at_risk_p90_eur": r.cogs_at_risk_p90,
+            "cogs_at_risk_p50_eur": r.cogs_at_risk_p50,
+            # The physical half — yield_shock x spend, no price forecast in it. This is the
+            # headline; a P90 used to sit here that was just p50 x 1.8 (a decoration).
+            "volume_at_risk_eur": r.volume_at_risk_eur,
             "pct_cogs_at_risk": r.pct_cogs_at_risk, "n_commodities": r.n_commodities,
             "n_pending": r.n_pending,
             # Publish gate: commodities scored but not event-backtested. Their exposure is
@@ -220,12 +223,12 @@ def disclosure(session: DbSession, org_id: OrgId,
     csrd = [{
         "commodity": c.commodity, "hazard": c.top_hazard, "avg_hazard": c.avg_hazard,
         "spend_eur": c.annual_spend_eur, "cogs_at_risk_p50": c.cogs_at_risk_p50,
-        "cogs_at_risk_p90": c.cogs_at_risk_p90, "calibration": c.calibration, "status": c.status,
+        "volume_at_risk_eur": c.volume_at_risk_eur, "calibration": c.calibration, "status": c.status,
     } for c in r.commodities]
     return {
         "org_id": org_id, "scenario": scenario, "horizon": horizon, "impact_version": IMPACT_VERSION,
         "rollup": {"ingredient_spend_eur": r.ingredient_spend_eur, "total_cogs_eur": r.total_cogs_eur,
-                   "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "cogs_at_risk_p90_eur": r.cogs_at_risk_p90,
+                   "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "volume_at_risk_eur": r.volume_at_risk_eur,
                    "pct_cogs_at_risk": r.pct_cogs_at_risk},
         "csrd": csrd, "eudr": {"summary": eudr_summary, "plots": eudr},
     }
@@ -235,9 +238,9 @@ def disclosure(session: DbSession, org_id: OrgId,
 def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
-    headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "cogs_at_risk_p50", "cogs_at_risk_p90", "calibration", "status"]
+    headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "volume_at_risk_eur", "cogs_at_risk_p50", "calibration", "status"]
     rows = [[c.commodity, c.top_hazard or "", c.avg_hazard, c.annual_spend_eur, c.cogs_at_risk_p50,
-             c.cogs_at_risk_p90, c.calibration, c.status] for c in r.commodities]
+             c.cogs_at_risk_p50, c.calibration, c.status] for c in r.commodities]
     buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                               headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})

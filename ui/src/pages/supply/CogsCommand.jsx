@@ -45,10 +45,11 @@ export default function CogsCommand({ onGoto }) {
             <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
               <Package size={13} /> COGS-at-Risk
             </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">Your procurement book, projected</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1d1d1f]">The volume that won&apos;t arrive</h1>
             <p className="mt-2 max-w-2xl text-[15px] text-gray-500">
-              Climate hazard on every sourcing plot, rolled up the bill of materials into cost-of-goods —
-              one auditable number per commodity, traceable to the golden source.
+              Climate hazard on every sourcing plot, rolled up the bill of materials into the share of
+              your volume that fails — valued at the price you already pay. Traceable to the golden
+              source, with no price forecast anywhere in it.
             </p>
           </div>
           <UploadPanel uploadFn={uploadSupplyPlots} templateColumns={PLOT_TEMPLATE_COLUMNS}
@@ -61,11 +62,14 @@ export default function CogsCommand({ onGoto }) {
         <div className="mb-6 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-800">
           <ShieldCheck size={15} className="mt-0.5 shrink-0" />
           <span>
-            <b>Every euro figure here is event-backtested.</b> A commodity publishes a € only once its
-            hazard→yield→price chain reproduces a real crop failure, for every origin you source
-            (cocoa 2023/24 heat, coffee 2021 drought). Anything not yet validated shows
-            <b> exposure mapped, € withheld</b> — never an illustrative number.
-            See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink> for the full disclosure.
+            <b>This is physical volume, not a price forecast.</b> Your plots lose this share of their
+            yield, so this share of the volume you paid for doesn&apos;t arrive — priced at what you
+            already pay. A commodity publishes a € only once its hazard→yield chain reproduces a real
+            crop failure for every origin you source; anything unvalidated shows <b>exposure mapped,
+            € withheld</b>. We deliberately do <b>not</b> predict price moves: tested on 440 real
+            crop-years, supply shocks explain just 2% of them — the market prices the news long before
+            the harvest is counted. Bring your own price view and we&apos;ll apply it as yours.
+            See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>.
           </span>
         </div>
 
@@ -81,8 +85,8 @@ export default function CogsCommand({ onGoto }) {
             <div className="grid grid-cols-4 gap-4">
               <Stat icon={Package} label="Ingredient spend" value={mn(r.ingredient_spend_eur)}
                 sub={`${r.n_commodities} commodities`} />
-              <Stat icon={TrendingDown} label="COGS-at-risk (P50)" value={mn(r.cogs_at_risk_p50_eur)}
-                sub={`P90 ${mn(r.cogs_at_risk_p90_eur)}`} accent="#c2410c" />
+              <Stat icon={TrendingDown} label="Volume at risk" value={mn(r.volume_at_risk_eur)}
+                sub="physical — no price forecast" accent="#c2410c" />
               <Stat icon={Percent} label="Share of COGS" value={`${r.pct_cogs_at_risk}%`}
                 sub={`of €${(r.total_cogs_eur / 1e6).toFixed(0)}m COGS`} accent="#c81e1e" />
               <Stat icon={ShieldCheck} label="EUDR plots" value={sum.eudr?.by_status?.compliant || 0}
@@ -91,8 +95,8 @@ export default function CogsCommand({ onGoto }) {
 
             {/* COGS-at-risk by commodity */}
             <section className="mt-6 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
-              <h2 className="text-[13px] font-semibold text-[#1d1d1f]">COGS-at-risk by commodity
-                <span className="font-normal text-gray-400"> — P50, {scenario} · {horizon}</span></h2>
+              <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Volume at risk by commodity
+                <span className="font-normal text-gray-400"> — the volume you paid for that won&apos;t arrive · {scenario} · {horizon}</span></h2>
               <div className="mt-3 flex h-4 overflow-hidden rounded-full">
                 {scored.map(c => (
                   <div key={c.commodity} title={`${c.commodity}: ${mn(c.cogs_at_risk_p50)}`}
@@ -113,12 +117,12 @@ export default function CogsCommand({ onGoto }) {
                       </div>
                       <div className="text-[11px] text-gray-400">
                         spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard}
-                        · yield-shock {c.yield_shock_pct}% · price +{c.price_move_pct}%
+                        · {c.yield_shock_pct}% of yield at risk{c.global_shock_pct != null && <> · world crop −{c.global_shock_pct}%</>}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.cogs_at_risk_p50)}</div>
-                      <div className="text-[10px] text-gray-400">P90 {mn(c.cogs_at_risk_p90)}</div>
+                      <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.volume_at_risk_eur)}</div>
+                      <div className="text-[10px] text-gray-400">volume at risk</div>
                     </div>
                   </button>
                 ))}
