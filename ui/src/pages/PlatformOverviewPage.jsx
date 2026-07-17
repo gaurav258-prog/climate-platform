@@ -20,7 +20,7 @@ const STAGE_ICONS = [Satellite, Cpu, Cpu, GitBranch, ArrowRight]
 const OUTPUT_DETAIL = {
   banking: 'Recommended collateral discount %, climate-adjusted LTV, TCFD / EU Taxonomy disclosure pack, financed emissions.',
   insurance: 'Damage ratio, expected annual loss, technical premium, parametric trigger payout — one pricing chain.',
-  agriculture: 'COGS-at-risk (P50/P90) per commodity, EUDR deforestation-free status, CSRD physical-risk pack.',
+  agriculture: 'Volume-at-risk per commodity (physical, no price forecast), EUDR deforestation-free status, CSRD physical-risk pack.',
   'real-estate': 'Climate-adjusted valuation, NOI-impact %, expected insurance cost, EU Taxonomy eligibility.',
   'asset-management': 'Portfolio climate VaR (€ and % of AUM), High/Very-High screening flags, Taxonomy eligibility.',
 }

@@ -37,9 +37,17 @@ export default function CommodityDrawer({ commodity, scenario = 'baseline', hori
               <div className="text-[11px] uppercase tracking-wide text-gray-400">Event backtest</div>
               {events.map((e, i) => (
                 <div key={i} className="mt-2 text-[12px]">
-                  <div className="font-medium text-[#1d1d1f]">{e.event} · <span className="capitalize" style={{ color: HAZ_COLOR[e.hazard] }}>{e.hazard}</span></div>
+                  <div className="font-medium text-[#1d1d1f]">{e.event}
+                    {e.origin && <span className="text-gray-400"> · {e.origin}</span>} ·{' '}
+                    <span className="capitalize" style={{ color: HAZ_COLOR[e.hazard] }}>{e.hazard}</span>
+                  </div>
+                  {/* The volume claim — what the model said the world crop would do vs what it did.
+                      The price columns are a retired claim and are not shown here. */}
                   <div className="mt-0.5 text-gray-500">
-                    Model {e.model_price_move_pct}% vs. observed {e.observed_price_move_pct}% price move
+                    {e.model_prod_shock_pct != null && e.observed_prod_shock_pct != null
+                      ? <>World crop: model {e.model_prod_shock_pct}% vs. measured {e.observed_prod_shock_pct}%</>
+                      : <span className="text-gray-400">No world-crop figure for this event</span>}
+                    {e.passed === false && <span className="ml-1 text-gray-400">— failed, € withheld</span>}
                   </div>
                   {e.skill_note && <p className="mt-1 text-[11px] leading-snug text-gray-400">{e.skill_note}</p>}
                 </div>

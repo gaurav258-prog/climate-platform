@@ -23,8 +23,8 @@ export default function SupplyDisclosure() {
 
   const exportCsv = () => {
     if (!d) return
-    const rows = [['commodity', 'hazard', 'avg_hazard', 'spend_eur', 'cogs_at_risk_p50', 'cogs_at_risk_p90', 'calibration', 'status'],
-      ...d.csrd.map(c => [c.commodity, c.hazard || '', c.avg_hazard ?? '', c.spend_eur, c.cogs_at_risk_p50 ?? '', c.cogs_at_risk_p90 ?? '', c.calibration, c.status])]
+    const rows = [['commodity', 'hazard', 'avg_hazard', 'spend_eur', 'volume_at_risk_eur', 'cogs_at_risk_p50', 'calibration', 'status'],
+      ...d.csrd.map(c => [c.commodity, c.hazard || '', c.avg_hazard ?? '', c.spend_eur, c.volume_at_risk_eur ?? '', c.cogs_at_risk_p50 ?? '', c.calibration, c.status])]
     const csv = rows.map(r => r.join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
@@ -92,7 +92,7 @@ export default function SupplyDisclosure() {
 
             {/* CSRD physical risk */}
             <section className="mt-6 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
-              <h2 className="text-[13px] font-semibold text-[#1d1d1f]">CSRD physical-risk — COGS-at-risk by commodity
+              <h2 className="text-[13px] font-semibold text-[#1d1d1f]">CSRD physical-risk — volume at risk by commodity
                 <span className="font-normal text-gray-400"> · {scenario} · {horizon}</span></h2>
               <div className="mt-3 divide-y divide-gray-100">
                 {d.csrd.map(c => (
@@ -107,16 +107,18 @@ export default function SupplyDisclosure() {
                     </span>
                     <span className="text-right">
                       {c.status === 'scored'
-                        ? <><b className="text-[#c2410c]">{mn(c.cogs_at_risk_p50)}</b> <span className="text-gray-400">P90 {mn(c.cogs_at_risk_p90)}</span></>
+                        ? <><b className="text-[#c2410c]">{mn(c.volume_at_risk_eur)}</b> <span className="text-gray-400">volume</span></>
                         : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">€ pending</span>}
                     </span>
                   </button>
                 ))}
               </div>
               <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-400">
-                Every figure carries its impact-function version and hazard model vintage.
-                <b> Backtested</b> commodities reproduce a real event; <b>indicative</b> use v0 defaults.
-                Frost (a coffee driver) is pending the CDS daily-min data fix.
+                Every figure carries its impact-function version and hazard model vintage. The € is
+                <b> physical volume at risk</b> — your failed volume valued at the price you already pay,
+                with no price forecast in it. <b>Backtested</b> commodities reproduce a real event's world
+                crop; <b>indicative</b> use v0 defaults. Frost (a coffee driver) is pending the CDS
+                daily-min data fix.
               </p>
             </section>
           </>

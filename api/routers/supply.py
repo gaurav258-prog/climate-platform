@@ -239,8 +239,11 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
     headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "volume_at_risk_eur", "cogs_at_risk_p50", "calibration", "status"]
-    rows = [[c.commodity, c.top_hazard or "", c.avg_hazard, c.annual_spend_eur, c.cogs_at_risk_p50,
-             c.cogs_at_risk_p50, c.calibration, c.status] for c in r.commodities]
+    # volume_at_risk and p50 are equal only while no price view is supplied; reading p50 into
+    # both columns (as this did) mislabels the export the moment a buyer supplies one.
+    rows = [[c.commodity, c.top_hazard or "", c.avg_hazard, c.annual_spend_eur,
+             c.volume_at_risk_eur, c.cogs_at_risk_p50, c.calibration, c.status]
+            for c in r.commodities]
     buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                               headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})
@@ -248,13 +251,21 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
 
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
+    # `origin` is part of the key: one event validates a crop PER ORIGIN (cocoa 2023/24 is
+    # separately validated on CI and on GH). Omitting it rendered the same event twice with no
+    # way to tell the two rows apart, so the record read like a duplicate instead of coverage.
+    #
+    # The VOLUME columns lead, because the volume claim is the claim the product makes. The
+    # price columns are the audit trail of a claim we retired — across 440 crop-years a supply
+    # shock explains r^2=0.018 of the contemporaneous price move — and ship flagged as such.
     rows = session.execute(text("""
-        SELECT event, commodity, hazard,
+        SELECT event, commodity, origin, hazard, passed,
+               CAST(model_prod_shock_pct AS FLOAT) AS model_prod_shock_pct,
                CAST(observed_prod_shock_pct AS FLOAT) AS observed_prod_shock_pct,
                CAST(model_price_move_pct AS FLOAT) AS model_price_move_pct,
                CAST(observed_price_move_pct AS FLOAT) AS observed_price_move_pct,
-               skill_note, source, run_at
-        FROM sc_model_validation ORDER BY event
+               price_claim_retired, skill_note, source, run_at
+        FROM sc_model_validation ORDER BY event, origin
     """)).mappings().all()
     return {"impact_version": IMPACT_VERSION, "events": [dict(r) for r in rows]}
 

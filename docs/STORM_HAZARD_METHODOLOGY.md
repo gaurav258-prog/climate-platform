@@ -123,5 +123,7 @@ over.** Puerto Rico's plot stays `indicative`, not added to `BACKTESTED`.
 - `scripts/wire_puerto_rico_storm_demo.py` — Puerto Rico coffee plot under the existing Coffee
   commodity.
 - `scripts/backtest_storm.py` — the checks in §4.1/§4.2 above.
-- `scripts/record_ag_validation.py` — persists the Maria result into `sc_model_validation`
-  (surfaced on the Models & validation page).
+- `sc_model_validation` carries the Maria row (surfaced on the Models & validation page).
+  It is written by an Alembic migration, not a script: `scripts/record_ag_validation.py` was
+  removed 2026-07-17 because it still held the pre-re-validation press figures and would have
+  overwritten the corrected rows with them.

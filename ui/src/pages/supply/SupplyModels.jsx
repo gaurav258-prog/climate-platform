@@ -60,23 +60,43 @@ export default function SupplyModels({ auth }) {
         <section className="mt-6 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
             <FlaskConical size={15} className="text-[#0071e3]" /> Event backtests
-            <span className="font-normal text-gray-400">— reproduce real events, honestly</span>
+            <span className="font-normal text-gray-400">— did the model reproduce the world crop, per origin</span>
           </h2>
           {!val ? <p className="mt-3 text-gray-400">loading…</p> : (
             <div className="mt-3 space-y-3">
               {val.events.map(e => (
-                <div key={e.event} className="rounded-xl border border-gray-100 bg-[#fafafa] p-4">
+                <div key={`${e.event}-${e.origin}`} className="rounded-xl border border-gray-100 bg-[#fafafa] p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-[14px] font-semibold text-[#1d1d1f]">{e.event}
+                      {e.origin && <span className="ml-1.5 text-[12px] font-normal text-gray-400">{e.origin}</span>}
                       <span className="ml-2 rounded-full bg-[#0071e3]/10 px-2 py-0.5 text-[10px] font-medium text-[#0071e3] capitalize">{HAZ_LABEL[e.hazard] || e.hazard}</span>
+                      <span className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${e.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {e.passed ? 'passed' : 'failed — € withheld'}
+                      </span>
                     </div>
+                    {/* The VOLUME claim, which is the claim the product makes: our modelled
+                        world supply shock against the independently measured one. */}
                     <div className="text-right text-[11px] text-gray-500">
-                      supply <b className="text-[#1d1d1f]">{e.observed_prod_shock_pct}%</b> ·
-                      model <b className="text-[#c2410c]">+{e.model_price_move_pct}%</b>
-                      {e.observed_price_move_pct != null && <> vs obs <b className="text-[#1d1d1f]">+{e.observed_price_move_pct}%</b></>}
+                      {e.model_prod_shock_pct != null && e.observed_prod_shock_pct != null ? (
+                        <>world crop — model <b className="text-[#c2410c]">{e.model_prod_shock_pct}%</b>
+                          {' '}vs measured <b className="text-[#1d1d1f]">{e.observed_prod_shock_pct}%</b></>
+                      ) : (
+                        <span className="text-gray-400">no world-crop figure for this event</span>
+                      )}
                     </div>
                   </div>
                   <p className="mt-2 text-[12px] leading-relaxed text-gray-600">{e.skill_note}</p>
+                  {/* Kept visible, flagged as history. This is what we used to assert; hiding a
+                      retired claim would be a worse look than owning it. */}
+                  {e.price_claim_retired && e.model_price_move_pct != null && (
+                    <p className="mt-2 border-t border-gray-200/80 pt-2 text-[11px] text-gray-400">
+                      <b className="text-gray-500">Retired claim (kept for the record):</b> this event was
+                      originally scored on a price forecast — model +{e.model_price_move_pct}%
+                      {e.observed_price_move_pct != null && <> vs observed +{e.observed_price_move_pct}%</>}.
+                      We no longer forecast price: across 440 real crop-years a world supply shock explains
+                      just 2% of the price move. The € is physical volume at your own price.
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] text-gray-400">{e.source}</p>
                 </div>
               ))}
