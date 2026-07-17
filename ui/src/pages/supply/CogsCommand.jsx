@@ -119,6 +119,9 @@ export default function CogsCommand({ onGoto }) {
                         spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard}
                         · {c.yield_shock_pct}% of yield at risk{c.global_shock_pct != null && <> · world crop −{c.global_shock_pct}%</>}
                       </div>
+                      {c.measured_basis && (
+                        <div className="mt-0.5 text-[10px] italic text-gray-400">measures {c.measured_basis}</div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.volume_at_risk_eur)}</div>
@@ -137,6 +140,9 @@ export default function CogsCommand({ onGoto }) {
                       <div className="text-[11px] text-gray-400">
                         spend {mn(c.annual_spend_eur)} · hazard {c.avg_hazard}{c.top_hazard ? ` · ${c.top_hazard}` : ''} · awaiting backtest
                       </div>
+                      {c.measured_basis && (
+                        <div className="mt-0.5 text-[10px] italic text-gray-400">measures {c.measured_basis}</div>
+                      )}
                     </div>
                     <div className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
                       € withheld · not backtested

@@ -216,6 +216,10 @@ class CommodityRisk:
     # Per-origin breakdown: which origin actually drives the world supply shock.
     origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
+    # What the yield labels physically count (olives-the-fruit, not oil). Metadata, not calc —
+    # stamped from sc_commodities.measured_basis so the number is never read as something it
+    # does not measure. See measured_basis_20260717.
+    measured_basis: Optional[str] = None
 
 
 @dataclass
@@ -474,6 +478,7 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
                              origin_cal=origin_cal,
                              price_scenario_pct=price_scenario_pct)
         cr.calibration = _calibration_tier(c["name"], cr.origins)
+        cr.measured_basis = c.get("measured_basis")
 
         # ── PUBLISH GATE (governance §8, hard rule) ──────────────────────────
         # A euro figure leaves this engine ONLY if the hazard→yield→price chain has
@@ -536,7 +541,7 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
 
 _GRAPH_SQL = """
     SELECT co.name AS commodity, co.eudr_covered, co.demand_elasticity AS elasticity,
-           co.stock_to_use, p.country AS origin,
+           co.stock_to_use, co.measured_basis, p.country AS origin,
            p.plot_id::text AS plot_id, p.annual_spend_eur AS plot_spend,
            v.hazard_type, v.physical_risk_score
     FROM   sc_sourcing_plots p
@@ -625,6 +630,7 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
             "name": r["commodity"], "eudr_covered": r["eudr_covered"],
             "elasticity": float(r["elasticity"]) if r["elasticity"] is not None else None,
             "stock_to_use": float(r["stock_to_use"]) if r["stock_to_use"] is not None else None,
+            "measured_basis": r["measured_basis"],
             "spend": 0.0, "_plots": {},
         })
         pl = c["_plots"].setdefault(r["plot_id"], {

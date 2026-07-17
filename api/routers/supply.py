@@ -224,6 +224,7 @@ def disclosure(session: DbSession, org_id: OrgId,
         "commodity": c.commodity, "hazard": c.top_hazard, "avg_hazard": c.avg_hazard,
         "spend_eur": c.annual_spend_eur, "cogs_at_risk_p50": c.cogs_at_risk_p50,
         "volume_at_risk_eur": c.volume_at_risk_eur, "calibration": c.calibration, "status": c.status,
+        "measured_basis": c.measured_basis,
     } for c in r.commodities]
     return {
         "org_id": org_id, "scenario": scenario, "horizon": horizon, "impact_version": IMPACT_VERSION,
