@@ -33,17 +33,31 @@ import numpy as np
 import xarray as xr
 
 
-def load_hourly(pattern: str) -> xr.Dataset:
-    """Open the per-year hourly files (fetch_era5_frost_hourly.py writes one per year, since
-    a multi-decade CDS request exceeds the per-request cost limit)."""
-    files = sorted(glob.glob(pattern))
-    if not files:
-        raise FileNotFoundError(f"no hourly files match {pattern}")
-    ds = xr.open_mfdataset(files, combine="by_coords")
+def _open_one(path: str) -> xr.Dataset:
+    ds = xr.open_dataset(path)
+    # CDS switched the hourly time coordinate to `valid_time`; older local files still say
+    # `time`. Normalise here so everything downstream can assume one name.
     tname = "valid_time" if "valid_time" in ds.coords else "time"
     if tname != "time":
         ds = ds.rename({tname: "time"})
     return ds
+
+
+def load_hourly(pattern: str) -> xr.Dataset:
+    """Open the per-year hourly files (fetch_era5_frost_hourly.py writes one per year, since
+    a multi-decade CDS request exceeds the per-request cost limit).
+
+    Deliberately NOT xr.open_mfdataset: it hands the arrays to a chunk manager and hard-fails
+    with "unrecognized chunk manager dask" unless dask is installed, which it is not here. A
+    region-season of hourly 2m temperature is ~3 MB/year and a few hundred MB for a whole
+    panel, so it fits in memory and concatenating eagerly is both simpler and one dependency
+    lighter. (This is why this module had never actually run end-to-end.)"""
+    files = sorted(glob.glob(pattern))
+    if not files:
+        raise FileNotFoundError(f"no hourly files match {pattern}")
+    if len(files) == 1:
+        return _open_one(files[0])
+    return xr.concat([_open_one(f) for f in files], dim="time").sortby("time")
 
 
 def daily_tmax(ds: xr.Dataset, region_reduce=("latitude", "longitude")) -> xr.DataArray:
