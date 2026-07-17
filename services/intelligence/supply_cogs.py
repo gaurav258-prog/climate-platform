@@ -237,14 +237,21 @@ class PortfolioCogsAtRisk:
 
 
 def amplification(stock_to_use):
-    """
-    Stock-to-use price amplification A(s) — methodology §1.3, backtest-anchored (v0.1).
-    Backtest (scripts/backtest_supply_impact.py) showed a CONSTANT transmission is wrong in
-    low-stock regimes: cocoa 2023/24 (stocks ≈26%, 45-yr low) implied A≈2.7×, coffee 2021
-    (stocks ≈40%) implied A≈0.6×. A(s) = (34.7/s)^3.62 passes through those two points — a
-    DIRECTION, not a calibrated curve (two points); capped [0.3, 6.0] pending a full
-    stocks-to-use panel. Falls back to the flat TRANSMISSION when stock-to-use is unknown
-    (so the demo book, which carries no stock-to-use, is unchanged).
+    """RETIRED — NOT ON ANY PUBLISHED PATH. Do not re-wire this into compute().
+
+    Stock-to-use price amplification A(s) = (34.7/s)^3.62, fitted through two anchors, one of
+    which (coffee at 40% stocks) turned out to be fabricated — the real figure is 14.2% (USDA
+    PSD). Tested against a proper marketing-year panel it has no support: r^2 = 0.041, and the
+    empirical exponent is 0.23 against our hardcoded 3.62. The relationship is not merely
+    mis-fitted; it is not in the data, because price responds to what the market EXPECTS, not
+    to measured stocks.
+
+    It survives only so the research scripts that produced the historical price figures
+    (backtest_storm/backtest_volcanic, build/fit_amplification_panel) still run and can still
+    reproduce what we used to assert. compute() no longer calls it, and the published
+    volume-at-risk is arithmetically independent of it and of stock_to_use — see
+    tests/unit/test_price_chain_is_dead.py, which feeds the engine absurd stocks/elasticity
+    and asserts the euro does not move.
     """
     if not stock_to_use:
         return TRANSMISSION
@@ -289,9 +296,14 @@ def _calibration_tier(name: str, origins: list) -> str:
     return "indicative"
 
 
-def _commodity_risk(name, eudr, spend, plots, elasticity, amp, sens, global_share,
+def _commodity_risk(name, eudr, spend, plots, sens, global_share,
                     compound=False, origin_cal=None, price_scenario_pct=None) -> CommodityRisk:
     """plots: list of dicts {spend, origin, hazards:{hz→score}} (scored plots carry hazards).
+
+    `elasticity` and `amp` used to sit in this signature and were never read in the body — the
+    published figure is physical (yield_shock x spend) and cannot depend on them. Dead
+    parameters that still look alive are an invitation to re-wire the retired price chain, so
+    they are gone rather than merely unused.
     compound: see COMPOUND_HAZARDS -- worst-of by default, independent-multiplicative-damage
     for commodities with real backtest evidence hazards stack rather than substitute.
 
@@ -451,12 +463,13 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
     for c in commodities:
         p = {**_DEFAULT_PARAMS, **COMMODITY_PARAMS.get(c["name"], {})}
         origin_cal = calibrations.get(c["name"])
-        elasticity = abs(c["elasticity"]) if c.get("elasticity") else 0.25
-        stock = p["stock_to_use"] if p["stock_to_use"] is not None else c.get("stock_to_use")
-        amp = amplification(stock)
+        # No elasticity / stock_to_use / amplification read here any more: they fed the price
+        # move, which is retired. `elasticity` and `stock_to_use` stay on the input dict and in
+        # the DB because the research panel still uses them -- they simply reach nothing that
+        # publishes.
         sens = p["sensitivity"] if p["sensitivity"] is not None else CROP_SENSITIVITY.get(c["name"], DEFAULT_SENSITIVITY)
         cr = _commodity_risk(c["name"], c["eudr_covered"], c["spend"], c["plots"],
-                             elasticity, amp, sens, p["global_share"],
+                             sens, p["global_share"],
                              compound=c["name"] in COMPOUND_HAZARDS,
                              origin_cal=origin_cal,
                              price_scenario_pct=price_scenario_pct)

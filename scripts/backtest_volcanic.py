@@ -43,15 +43,14 @@ import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence.supply_cogs import _commodity_risk, amplification
+from services.intelligence.supply_cogs import _commodity_risk
 
 # Real, documented sites (see docstring for sourcing)
 SAN_MIGUEL_LOS_LOTES = (14.4180, -90.8590)   # destroyed by PDC, June 3 2018
 ANTIGUA_GUATEMALA = (14.5586, -90.7295)       # ashfall only, not destroyed
 
 # Coffee's EXISTING calibration (Brazil, 2021 drought) -- see supply_cogs.COMMODITY_PARAMS
-BRAZIL_SENS, BRAZIL_GLOBAL_SHARE, BRAZIL_STOCK = 0.45, 0.35, 40.0
-BRAZIL_ELASTICITY = 0.28
+BRAZIL_SENS, BRAZIL_GLOBAL_SHARE = 0.45, 0.35
 
 # Guatemala's REAL world coffee production share -- order-of-magnitude from
 # ICO/USDA (roughly 3.5-4M 60kg bags/yr vs ~170M bags world total), NOT fit to
@@ -109,22 +108,19 @@ def agriculture_check():
 
     # (a) what the LIVE shared-commodity model actually computes (Brazil's calibration
     #     applied to Guatemala's hazard, isolated to just this plot's spend)
-    amp_brazil = amplification(BRAZIL_STOCK)
-    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_ELASTICITY, amp_brazil,
-                            BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
+    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
     # (b) origin-specific: same hazard->yield sensitivity, Guatemala's OWN world share
-    origin_specific = _commodity_risk("Coffee", True, spend, plots, BRAZIL_ELASTICITY, amp_brazil,
-                                       BRAZIL_SENS, GUATEMALA_GLOBAL_SHARE)
+    origin_specific = _commodity_risk("Coffee", True, spend, plots,
+                                      BRAZIL_SENS, GUATEMALA_GLOBAL_SHARE)
 
     print(f"  Alotenango plot: volcanic hazard score {hazard_score}, spend €{spend/1e6:.1f}m")
     print(f"\n  (a) LIVE MODEL (borrows Brazil's global_share={BRAZIL_GLOBAL_SHARE} -- what the")
     print(f"      product shows today, since Coffee is one shared commodity):")
-    print(f"      yield-shock {live.yield_shock_pct}% -> price-move {live.price_move_pct}% "
-          f"-> €{live.cogs_at_risk_p50/1e6:.2f}m P50")
+    print(f"      yield-shock {live.yield_shock_pct}% -> world crop {live.global_shock_pct}%")
     print(f"\n  (b) ORIGIN-SPECIFIC (Guatemala's real world coffee share={GUATEMALA_GLOBAL_SHARE}, "
           f"the fairer comparison):")
-    print(f"      yield-shock {origin_specific.yield_shock_pct}% -> price-move "
-          f"{origin_specific.price_move_pct}% -> €{origin_specific.cogs_at_risk_p50/1e6:.2f}m P50")
+    print(f"      yield-shock {origin_specific.yield_shock_pct}% -> world crop "
+          f"{origin_specific.global_shock_pct}%")
 
     print(f"\n  REAL ANCHOR (Anacafé): ~{FUEGO_ANACAFE_PCT_NATIONAL_PRODUCTION}% of Guatemala's NATIONAL")
     print(f"  coffee production lost -- a country-wide average diluted across origins far from")

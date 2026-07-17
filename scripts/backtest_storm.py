@@ -33,15 +33,14 @@ import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence.supply_cogs import _commodity_risk, amplification
+from services.intelligence.supply_cogs import _commodity_risk
 
 # Real, documented sites (see docstring for sourcing)
 SAN_JUAN = (18.4655, -66.1057)     # capital, close to Maria's track, severe direct hit
 CABO_ROJO = (18.0866, -67.1457)    # SW tip, farther from the eyewall
 
 # Coffee's EXISTING calibration (Brazil, 2021 drought) -- see supply_cogs.COMMODITY_PARAMS
-BRAZIL_SENS, BRAZIL_GLOBAL_SHARE, BRAZIL_STOCK = 0.45, 0.35, 40.0
-BRAZIL_ELASTICITY = 0.28
+BRAZIL_SENS, BRAZIL_GLOBAL_SHARE = 0.45, 0.35
 
 # Puerto Rico's REAL world coffee production share -- order-of-magnitude only (far
 # smaller even than Guatemala's ~2.3%; PR's coffee output is a tiny fraction of world
@@ -94,20 +93,17 @@ def agriculture_check():
     spend = float(row["annual_spend_eur"])
     plots = [{"spend": spend, "hazards": {"storm": hazard_score}}]
 
-    amp_brazil = amplification(BRAZIL_STOCK)
-    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_ELASTICITY, amp_brazil,
-                            BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
-    origin_specific = _commodity_risk("Coffee", True, spend, plots, BRAZIL_ELASTICITY, amp_brazil,
-                                       BRAZIL_SENS, PUERTO_RICO_GLOBAL_SHARE)
+    live = _commodity_risk("Coffee", True, spend, plots, BRAZIL_SENS, BRAZIL_GLOBAL_SHARE)
+    origin_specific = _commodity_risk("Coffee", True, spend, plots,
+                                      BRAZIL_SENS, PUERTO_RICO_GLOBAL_SHARE)
 
     print(f"  Adjuntas plot: storm hazard score {hazard_score}, spend €{spend/1e6:.1f}m")
     print(f"\n  (a) LIVE MODEL (borrows Brazil's global_share={BRAZIL_GLOBAL_SHARE}):")
-    print(f"      yield-shock {live.yield_shock_pct}% -> price-move {live.price_move_pct}% "
-          f"-> €{live.cogs_at_risk_p50/1e6:.2f}m P50")
+    print(f"      yield-shock {live.yield_shock_pct}% -> world crop {live.global_shock_pct}%")
     print(f"\n  (b) ORIGIN-SPECIFIC (Puerto Rico's real world coffee share≈{PUERTO_RICO_GLOBAL_SHARE}, "
           f"order-of-magnitude only):")
-    print(f"      yield-shock {origin_specific.yield_shock_pct}% -> price-move "
-          f"{origin_specific.price_move_pct}% -> €{origin_specific.cogs_at_risk_p50/1e6:.2f}m P50")
+    print(f"      yield-shock {origin_specific.yield_shock_pct}% -> world crop "
+          f"{origin_specific.global_shock_pct}%")
 
     print(f"\n  REAL ANCHOR (Puerto Rico Dept. of Agriculture): ~${PR_DA_TOTAL_LOSS_USD/1e6:.0f}m total")
     print(f"  agricultural loss, ~{PR_DA_PCT_CROP_VALUE}% of the island's total crop value destroyed —")
