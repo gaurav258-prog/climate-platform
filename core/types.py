@@ -56,6 +56,11 @@ class HazardType(str, Enum):
     VOLCANIC = "volcanic"
     POLLUTION = "pollution"
     FROST = "frost"
+    # Root-zone water stress from the soil-moisture anomaly — a DIFFERENT channel from
+    # meteorological drought (SPEI): it sees antecedent/deep soil water a rainfall index misses,
+    # and is the validated driver for dryland cereals (Spanish durum wheat). Kept as its own
+    # hazard_type, not blended into drought, so a cell can carry both (olive→drought, wheat→soil_water).
+    SOIL_WATER = "soil_water"
 
 
 class RiskScenario(str, Enum):
@@ -150,8 +155,11 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     # wildfire
     "wildfire": HazardType.WILDFIRE, "fire": HazardType.WILDFIRE,
     "bushfire": HazardType.WILDFIRE, "forest_fire": HazardType.WILDFIRE,
-    # drought
+    # drought (meteorological — rainfall deficit, SPEI)
     "drought": HazardType.DROUGHT, "water_stress": HazardType.DROUGHT,
+    # soil water (root-zone moisture — a distinct, deeper signal; the dryland-cereal driver)
+    "soil_water": HazardType.SOIL_WATER, "soil_moisture": HazardType.SOIL_WATER,
+    "root_zone_water": HazardType.SOIL_WATER,
     # storm
     "storm": HazardType.STORM, "extreme_weather": HazardType.STORM,
     "cyclone": HazardType.STORM, "hurricane": HazardType.STORM,

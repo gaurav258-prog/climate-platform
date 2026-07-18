@@ -370,6 +370,16 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
         ((hz, sc) for p in scored for hz, sc in p["hazards"].items()),
         key=lambda t: t[1],
     )[0]
+    # A cell can now carry several hazards (e.g. BOTH drought and soil_water since the
+    # water-availability layer). For a CALIBRATED crop, the hazard we display must be the one
+    # that actually drives its € — its calibrated driver — not whichever raw score is highest.
+    # Olive is drought-driven even where its cells also carry a higher soil_water score.
+    _drivers = {(origin_cal or {}).get(p.get("origin"), {}).get("hazard_driver") for p in scored}
+    _drivers.discard(None)
+    if len(_drivers) == 1:
+        _d = next(iter(_drivers))
+        if any(_d in p.get("hazards", {}) for p in scored):
+            top_hazard = _d
     # The buyer's OWN exposure — spend-weighted over their plots. Each plot is read with ITS
     # OWN ORIGIN'S calibrated sensitivity and driver hazard, not a commodity-wide constant.
     # BUG THIS FIXES (found by test, 2026-07-16): this used the commodity-level `sens` from the

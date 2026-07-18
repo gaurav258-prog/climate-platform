@@ -287,7 +287,7 @@ def models(session: DbSession, org_id: OrgId):
     hz = session.execute(text("""
         SELECT hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active
         FROM model_registry
-        WHERE hazard_type IN ('heat_acute','drought','frost') AND is_active = true
+        WHERE hazard_type IN ('heat_acute','drought','frost','soil_water') AND is_active = true
         ORDER BY hazard_type
     """)).mappings().all()
     # per-commodity calibration status for this org's book

@@ -22,10 +22,13 @@ from sqlalchemy import text
 from core.db.session import get_session
 from ml.features.crop_fit import fit_climate_on_score
 from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
+from ml.features import soil_moisture as smf
 from ml.scoring.drought_climatology import drought_score
+from ml.scoring.soil_water_climatology import soil_water_score
 
 MIN_R2 = 0.40   # below this a driver explains too little to publish even as a range
 NC_TEMPLATE = "data/era5_baseline/{region}_1991_2024_monthly.nc"
+SM_TEMPLATE = "data/era5_baseline/{region}_1991_2024_soilmoisture.nc"
 FIT_VERSION = "ranged-fit-v0.1"
 
 
@@ -33,6 +36,14 @@ def _drought_scores(region: str, scale: int, months: list[int]) -> dict[int, flo
     ds = load_monthly(NC_TEMPLATE.format(region=region))
     seasonal = seasonal_by_year(compute_indices(ds, scale=scale), months)
     return {r["year"]: drought_score(r["spei"]) for r in seasonal if r.get("spei") is not None}
+
+
+def _soil_water_scores(region: str, months: list[int]) -> dict[int, float]:
+    """Per-year root-zone water-stress score from the soil-moisture anomaly — the better driver
+    for dryland cereals (SPEI misses the deep antecedent soil water grain-fill draws on)."""
+    smz = smf.anomaly(smf.load_root_zone(SM_TEMPLATE.format(region=region)))
+    return {r["year"]: soil_water_score(r["sm_z"]) for r in smf.seasonal_by_year(smz, months)
+            if r.get("sm_z") is not None}
 
 
 def main() -> int:
@@ -48,10 +59,13 @@ def main() -> int:
     args = ap.parse_args()
     months = [int(m) for m in args.season.split(",")]
 
-    if args.driver != "drought":
-        print(f"driver '{args.driver}' not wired yet — only drought has a per-year score path")
+    if args.driver == "drought":
+        scores = _drought_scores(args.region, args.spei_scale, months)
+    elif args.driver == "soil_water":
+        scores = _soil_water_scores(args.region, months)
+    else:
+        print(f"driver '{args.driver}' not wired — use 'drought' or 'soil_water'")
         return 2
-    scores = _drought_scores(args.region, args.spei_scale, months)
 
     with get_session() as s:
         rows = s.execute(text("""
@@ -136,10 +150,10 @@ def main() -> int:
             "r2": round(fit.r2, 4), "rmse": round(fit.rmse, 5),
             "mean": round(fit.score_mean, 5), "sxx": round(fit.score_sxx, 5),
             "bfrom": fit.years[0], "bto": fit.years[-1], "ver": FIT_VERSION,
-            "note": (f"OLS of cycle-decomposed climate anomaly on {args.driver} score "
-                     f"(SPEI-{args.spei_scale}, months {args.season}) over {fit.n_years} years; "
-                     f"r2={fit.r2:.3f}. SPEI-{args.spei_scale} is the agronomic water-year window "
-                     f"for a perennial, not a max-r2 pick. "
+            "note": (f"OLS of cycle-decomposed climate anomaly on the {args.driver} score "
+                     + (f"(SPEI-{args.spei_scale}, " if args.driver == "drought"
+                        else "(root-zone soil-moisture anomaly, ")
+                     + f"months {args.season}) over {fit.n_years} years; r2={fit.r2:.3f}. "
                      + ("Published as a RANGE." if publishes
                         else "BELOW the publish floor — stored, tested, € withheld.")),
         })
