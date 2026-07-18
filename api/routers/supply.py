@@ -242,11 +242,17 @@ def disclosure(session: DbSession, org_id: OrgId,
 def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
-    headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "volume_at_risk_eur", "cogs_at_risk_p50", "calibration", "status"]
+    headers = ["commodity", "hazard", "avg_hazard", "spend_eur", "volume_at_risk_eur",
+               "volume_at_risk_low_eur", "volume_at_risk_high_eur", "fit_r2",
+               "cogs_at_risk_p50", "calibration", "status"]
     # volume_at_risk and p50 are equal only while no price view is supplied; reading p50 into
-    # both columns (as this did) mislabels the export the moment a buyer supplies one.
+    # both columns (as this did) mislabels the export the moment a buyer supplies one. The
+    # low/high/r2 columns carry a ranged crop's band + fit strength into the downloaded pack —
+    # a held crop leaves €-columns blank (status='held' says why); a backtested crop leaves
+    # low/high/r2 blank (it is a point).
     rows = [[c.commodity, c.top_hazard or "", c.avg_hazard, c.annual_spend_eur,
-             c.volume_at_risk_eur, c.cogs_at_risk_p50, c.calibration, c.status]
+             c.volume_at_risk_eur, c.volume_at_risk_low_eur, c.volume_at_risk_high_eur, c.fit_r2,
+             c.cogs_at_risk_p50, c.calibration, c.status]
             for c in r.commodities]
     buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

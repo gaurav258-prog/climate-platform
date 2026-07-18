@@ -23,8 +23,8 @@ export default function SupplyDisclosure() {
 
   const exportCsv = () => {
     if (!d) return
-    const rows = [['commodity', 'hazard', 'avg_hazard', 'spend_eur', 'volume_at_risk_eur', 'cogs_at_risk_p50', 'calibration', 'status'],
-      ...d.csrd.map(c => [c.commodity, c.hazard || '', c.avg_hazard ?? '', c.spend_eur, c.volume_at_risk_eur ?? '', c.cogs_at_risk_p50 ?? '', c.calibration, c.status])]
+    const rows = [['commodity', 'hazard', 'avg_hazard', 'spend_eur', 'volume_at_risk_eur', 'volume_at_risk_low_eur', 'volume_at_risk_high_eur', 'fit_r2', 'cogs_at_risk_p50', 'calibration', 'status'],
+      ...d.csrd.map(c => [c.commodity, c.hazard || '', c.avg_hazard ?? '', c.spend_eur, c.volume_at_risk_eur ?? '', c.volume_at_risk_low_eur ?? '', c.volume_at_risk_high_eur ?? '', c.fit_r2 ?? '', c.cogs_at_risk_p50 ?? '', c.calibration, c.status])]
     const csv = rows.map(r => r.join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
@@ -112,7 +112,9 @@ export default function SupplyDisclosure() {
                         ? (c.calibration === 'ranged' && c.volume_at_risk_high_eur != null
                             ? <><b className="text-[#c2410c]">{mn(c.volume_at_risk_low_eur)}–{mn(c.volume_at_risk_high_eur)}</b> <span className="text-gray-400">range</span></>
                             : <><b className="text-[#c2410c]">{mn(c.volume_at_risk_eur)}</b> <span className="text-gray-400">volume</span></>)
-                        : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">€ pending</span>}
+                        : c.status === 'held'
+                          ? <span title="Exposure mapped; € withheld until the hazard→yield chain clears the publish bar" className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">€ withheld</span>
+                          : <span title="Plots not yet in a scored hazard region — exposure not mapped yet" className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">€ pending</span>}
                     </span>
                   </button>
                 ))}
