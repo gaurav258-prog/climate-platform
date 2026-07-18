@@ -431,10 +431,13 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
                     o_shock = None
                     need = f"{driver} not scored on these plots — the calibrated driver hazard"
             else:
-                # No calibration row: we do not know which hazard drives this crop here, so no
-                # validated yield shock exists. Exposure only.
+                # No validated hazard DRIVER for this origin, so no validated yield shock —
+                # exposure only. Name exactly what is missing: if we already know the origin's
+                # world share, don't wrongly claim it's absent.
                 o_shock = None
-                need = "world production share + backtested hazard driver for this origin"
+                need = ("a validated hazard driver for this origin"
+                        if o_share is not None
+                        else "world production share + a validated hazard driver for this origin")
 
             contribution = (o_shock * o_share) if (o_shock is not None and o_share is not None) else None
             if contribution is not None:
