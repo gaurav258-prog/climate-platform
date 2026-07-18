@@ -80,6 +80,26 @@ AREA_MAP = {
     84:  "GR",   # Greece
     68:  "FR",   # France
     79:  "DE",   # Germany
+    # Cyclical-crop origins added 2026-07-18 so the DECOMPOSED world-shock target covers enough
+    # of the world crop to be honest (olive/wine/almonds all alternate-bear; validating them
+    # against FAO's RAW world shock over-attributes to climate — see the validation protocol).
+    # Codes are FAO numeric Area Codes read straight from the bulk CSV; we match on the code,
+    # never the accented display name. China is 41 (China, mainland) NOT 351 (the aggregate that
+    # re-adds Taiwan/HK/Macao) — mixing 351 with member countries double-counts, the same
+    # aggregate-row trap the amplification panel documents for 'European Union'.
+    223: "TR",   # Türkiye
+    143: "MA",   # Morocco
+    212: "SY",   # Syrian Arab Republic
+    4:   "DZ",   # Algeria
+    222: "TN",   # Tunisia
+    59:  "EG",   # Egypt
+    9:   "AR",   # Argentina
+    41:  "CN",   # China, mainland (NOT 351 aggregate)
+    40:  "CL",   # Chile
+    102: "IR",   # Iran (Islamic Republic of)
+    10:  "AU",   # Australia
+    2:   "AF",   # Afghanistan
+    124: "LY",   # Libya
     5000: "WLD",  # World
 }
 
