@@ -149,7 +149,10 @@ export default function CogsCommand({ onGoto }) {
                         {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
                       </div>
                       <div className="text-[11px] text-gray-400">
-                        spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard} · exposure mapped, hazard→yield not yet validated
+                        spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard} ·{' '}
+                        {c.fit_r2 != null
+                          ? <>{c.top_hazard} tested — explains {Math.floor(c.fit_r2 * 100)}% of bad years, below our 40% publish bar</>
+                          : <>exposure mapped, hazard→yield not yet validated</>}
                       </div>
                       {c.measured_basis && (
                         <div className="mt-0.5 text-[10px] italic text-gray-400">measures {c.measured_basis}</div>

@@ -308,10 +308,25 @@ def models(session: DbSession, org_id: OrgId):
         "override": (risk_by_commodity[c["name"]].override if c["name"] in risk_by_commodity else None),
     } for c in coms]
     frost_active = any(r["hazard_type"] == "frost" for r in hz)
+    # The RANGED credibility record: every multi-year regression we ran, published or not. A fit
+    # at/above the floor publishes a band ('ranged'); a weaker one is shown as tested-but-held.
+    # This is the honest counterpart to the single-event backtests on /validation — it says
+    # exactly what we tried and how well it worked, including the crops we withhold.
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
+    fits = session.execute(text("""
+        SELECT co.name AS commodity, f.origin, f.hazard_driver,
+               CAST(f.r2 AS FLOAT) AS r2, f.n_years, f.spei_scale, f.season_months,
+               CAST(f.rmse AS FLOAT) AS rmse, f.baseline_from, f.baseline_to, f.source_note
+        FROM sc_commodity_fit f JOIN sc_commodities co ON co.commodity_id = f.commodity_id
+        ORDER BY f.r2 DESC
+    """)).mappings().all()
+    fit_rows = [{**dict(r), "publishes": r["r2"] >= RANGED_PUBLISH_FLOOR} for r in fits]
     return {
         "impact_version": IMPACT_VERSION,
         "hazard_models": [dict(r) for r in hz],
         "commodities": commodities,
+        "ranged_fits": fit_rows,
+        "ranged_publish_floor": RANGED_PUBLISH_FLOOR,
         "frost_note": None if frost_active else
             "Frost hazard is built but not yet scored — CDS's own daily-minimum-temperature "
             "statistic is ECMWF-flagged unusable; pending fix.",

@@ -136,9 +136,24 @@ def test_ranged_tier_requires_a_stored_fit_and_ranks_below_backtested():
 
 
 @pytest.mark.integration
-def test_a_stored_fit_r2_is_never_below_the_publish_floor():
-    """Nothing gets into sc_commodity_fit below the r² floor the fitter enforces (0.40).
-    A fit that explains almost nothing must not be able to publish even a range."""
+def test_a_below_floor_fit_is_stored_but_never_publishes():
+    """We deliberately STORE fits below the publish floor — so the product can say 'we tested
+    this driver, it explains X%, below our bar, € withheld' rather than hiding it. But a
+    below-floor fit must NEVER derive 'ranged' (which would publish a €). It stays 'indicative'."""
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     with get_session() as s:
-        worst = s.execute(text("SELECT COALESCE(min(r2), 1) FROM sc_commodity_fit")).scalar()
-    assert float(worst) >= 0.40, f"a stored fit has r²={worst} — below the publish floor"
+        rows = s.execute(text("""
+            SELECT co.name AS commodity, f.origin, f.hazard_driver, CAST(f.r2 AS FLOAT) AS r2,
+                   c.calibration_tier
+            FROM sc_commodity_fit f
+            JOIN sc_commodities co ON co.commodity_id = f.commodity_id
+            LEFT JOIN v_sc_commodity_calibration c
+              ON c.commodity_id = f.commodity_id AND c.origin::text = f.origin::text
+             AND c.hazard_driver::text = f.hazard_driver::text
+        """)).mappings().all()
+    for r in rows:
+        if r["r2"] < RANGED_PUBLISH_FLOOR:
+            assert r["calibration_tier"] != "ranged", (
+                f"{r['commodity']}/{r['origin']} has r²={r['r2']:.3f} below the "
+                f"{RANGED_PUBLISH_FLOOR} floor but derives 'ranged' — it would publish a €"
+            )

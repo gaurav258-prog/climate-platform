@@ -68,6 +68,24 @@ def test_backtested_point_crop_has_no_band():
     assert r.fit_r2 is None
 
 
+def test_below_floor_fit_is_held_but_surfaces_its_r2_and_reason():
+    """A crop we tested but whose driver fell below the publish floor must be HELD (no € band),
+    yet still surface fit_r2 and an honest 'tested, explains X%, below the bar' reason — the
+    engine keeps r² precisely so the reason can be specific."""
+    weak = dict(_FIT, r2=0.36)   # below the 0.40 floor
+    cal = {"Durum wheat": {"ES": {"sensitivity": None, "world_share": None,
+                                  "calibration_tier": "indicative",   # view returns this when r²<floor
+                                  "hazard_driver": "drought", "fit": weak}}}
+    c = {"name": "Durum wheat", "eudr_covered": False, "elasticity": -0.25, "spend": 10_000_000,
+         "plots": [{"spend": 10_000_000, "origin": "ES", "hazards": {"drought": 85.0}}]}
+    r = compute([c], 100_000_000, calibrations=cal).commodities[0]
+    assert r.status == "held"
+    assert r.volume_at_risk_eur is None                       # no € published
+    assert r.volume_at_risk_low_eur is None and r.volume_at_risk_high_eur is None  # no band
+    assert r.fit_r2 == 0.36                                    # but the r² survives
+    assert "tested" in r.held_reason and "36%" in r.held_reason and "below" in r.held_reason
+
+
 def test_ranged_euro_is_in_the_headline_total():
     """A ranged commodity's mid € counts toward the portfolio headline (it is published),
     unlike a held one."""

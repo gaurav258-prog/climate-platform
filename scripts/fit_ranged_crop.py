@@ -74,9 +74,12 @@ def main() -> int:
         lo, mid, hi = fit.predict(85.0)   # a severe-drought score, illustrative
         print(f"  at drought score 85: climate {mid:.1f}%  (68% band {lo:.1f}%..{hi:.1f}%)")
 
-        if fit.r2 < MIN_R2:
-            print(f"  r2 {fit.r2:.3f} < {MIN_R2} — NOT publishable even as a range; stays indicative")
-            return 0
+        publishes = fit.r2 >= MIN_R2
+        if publishes:
+            print(f"  r2 {fit.r2:.3f} >= {MIN_R2} — publishes as a RANGE")
+        else:
+            print(f"  r2 {fit.r2:.3f} < {MIN_R2} — STORED but HELD (below the publish floor); the "
+                  f"product will say it was tested and show this r², € withheld")
         if args.dry_run:
             print("  --dry-run: not persisted")
             return 0
@@ -87,16 +90,29 @@ def main() -> int:
             print(f"unknown commodity '{args.commodity}'")
             return 1
 
-        # The fit is what ESTABLISHES the driver, so stamp it onto the calibration row too — the
-        # tier view joins the fit to the calibration on hazard_driver, and the engine reads that
-        # hazard. Without this the fit exists but the crop stays 'indicative'. Reproducible: a
-        # re-run re-asserts it.
-        s.execute(text("""
-            UPDATE sc_commodity_calibration
-            SET hazard_driver = :d, region_key = COALESCE(region_key, :region),
-                season_months = COALESCE(season_months, :season)
-            WHERE commodity_id = :cid AND origin = :o
-        """), {"d": args.driver, "region": args.region, "season": months, "cid": cid, "o": args.origin})
+        # The fit ESTABLISHES the driver, so stamp it onto the calibration row — the tier view and
+        # the engine both read the hazard from there. A crop we tested may have no calibration row
+        # yet (only the world-share ones were seeded), so create one if missing; world_share is left
+        # NULL (it drives the world-shock roll-up, which is withheld for a held crop anyway).
+        # Whether it PUBLISHES is decided by r² in the view (>= floor), not here — a below-floor fit
+        # is stored + visible but stays 'indicative'/held.
+        existing = s.execute(text(
+            "SELECT 1 FROM sc_commodity_calibration WHERE commodity_id=:cid AND origin=:o"
+        ), {"cid": cid, "o": args.origin}).first()
+        if existing is None:
+            s.execute(text("""
+                INSERT INTO sc_commodity_calibration
+                    (commodity_id, origin, hazard_driver, region_key, season_months, impact_version)
+                VALUES (:cid, :o, :d, :region, :season, :ver)
+            """), {"cid": cid, "o": args.origin, "d": args.driver, "region": args.region,
+                   "season": months, "ver": FIT_VERSION})
+        else:
+            s.execute(text("""
+                UPDATE sc_commodity_calibration
+                SET hazard_driver = :d, region_key = COALESCE(region_key, :region),
+                    season_months = COALESCE(season_months, :season)
+                WHERE commodity_id = :cid AND origin = :o
+            """), {"d": args.driver, "region": args.region, "season": months, "cid": cid, "o": args.origin})
 
         s.execute(text("""
             INSERT INTO sc_commodity_fit
@@ -123,9 +139,11 @@ def main() -> int:
             "note": (f"OLS of cycle-decomposed climate anomaly on {args.driver} score "
                      f"(SPEI-{args.spei_scale}, months {args.season}) over {fit.n_years} years; "
                      f"r2={fit.r2:.3f}. SPEI-{args.spei_scale} is the agronomic water-year window "
-                     f"for a perennial, not a max-r2 pick. Published as a RANGE."),
+                     f"for a perennial, not a max-r2 pick. "
+                     + ("Published as a RANGE." if publishes
+                        else "BELOW the publish floor — stored, tested, € withheld.")),
         })
-        print(f"  persisted as 'ranged' calibration (r2={fit.r2:.3f})")
+        print(f"  persisted (r2={fit.r2:.3f}, {'ranged/published' if publishes else 'held'})")
     return 0
 
 

@@ -104,13 +104,49 @@ export default function SupplyModels({ auth }) {
           )}
         </section>
 
+        {/* ranged & tested calibrations — the multi-year regressions, published or not */}
+        {mod?.ranged_fits?.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-[13px] font-semibold text-[#1d1d1f]">
+              <FlaskConical size={15} className="text-amber-500" /> Multi-year calibrations
+              <span className="font-normal text-gray-400">— what we fitted, and how well; published only above r² {mod.ranged_publish_floor}</span>
+            </h2>
+            <div className="mt-3 divide-y divide-gray-100">
+              {mod.ranged_fits.map(f => (
+                <div key={`${f.commodity}-${f.origin}-${f.hazard_driver}`} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
+                      {f.commodity} <span className="text-[11px] font-normal text-gray-400">{f.origin} · {f.hazard_driver}</span>
+                      {f.publishes
+                        ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">ranged · published</span>
+                        : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">tested · € withheld</span>}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-gray-500">
+                      {f.hazard_driver} explains <b className={f.publishes ? 'text-amber-700' : 'text-gray-600'}>{Math.floor(f.r2 * 100)}%</b> of the crop's
+                      climate-attributable bad years over {f.n_years} years ({f.baseline_from}–{f.baseline_to}), SPEI-{f.spei_scale}.
+                      {!f.publishes && <> Below the {Math.round(mod.ranged_publish_floor * 100)}% bar — exposure mapped, € withheld.</>}
+                    </div>
+                  </div>
+                  {/* floor, never round: a 0.397 fit must not display as "0.40" and look like it meets the 0.40 bar */}
+                  <div className="text-right text-[11px] text-gray-400">r²&nbsp;{(Math.floor(f.r2 * 100) / 100).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 border-t border-gray-100 pt-3 text-[11px] text-gray-400">
+              A single-event backtest (above) reproduces one real crisis; a multi-year calibration regresses the crop's
+              cycle-decomposed anomaly on its driver across every usable year. We publish a € as a <b>range</b> only when a
+              driver clears our bar — and we show you the ones that don't, rather than hiding them.
+            </p>
+          </section>
+        )}
+
         {/* hazard models */}
         <section className="mt-6 rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-semibold text-[#1d1d1f]">Hazard models <span className="font-normal text-gray-400">— climatology, transparent</span></h2>
           {!mod ? <p className="mt-3 text-gray-400">loading…</p> : (
             <div className="mt-3 divide-y divide-gray-100">
               {mod.hazard_models.map(h => (
-                <div key={h.hazard_type} className="py-2.5">
+                <div key={h.model_version} className="py-2.5">
                   <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
                     <CheckCircle2 size={14} className="text-emerald-500" /> {HAZ_LABEL[h.hazard_type] || h.hazard_type}
                     <span className="text-[11px] font-normal text-gray-400">{h.model_version}</span>

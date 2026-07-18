@@ -95,8 +95,10 @@ def main():
 
     try:
         with get_session() as s:
-            s.execute(text("UPDATE model_registry SET is_active=false WHERE hazard_type='drought' AND model_version=:mv"),
-                      {"mv": MODEL_VERSION})
+            # Supersede prior drought catalog entries (mirrors score_cocoa_heat's heat handling)
+            # so the Models page shows ONE active drought model — this seasonal climatology — not
+            # a stale second row. Scores in canonical_scores keep their own model_version.
+            s.execute(text("UPDATE model_registry SET is_active=false WHERE hazard_type='drought'"))
             s.execute(text("""
                 INSERT INTO model_registry (model_id, hazard_type, model_version, algorithm,
                     training_data_vintage, validation_note, is_active, created_at)

@@ -60,6 +60,11 @@ from typing import Optional
 
 IMPACT_VERSION = "sc-impact-v0.5"
 
+# A ranged crop's fit must explain at least this share of its climate-attributable variance to
+# publish a € (as a band). Must match scripts/fit_ranged_crop.py MIN_R2 and the tier view's r²
+# gate (ranged_floor migration). A weaker fit is stored + shown as "tested, below bar", € withheld.
+RANGED_PUBLISH_FLOOR = 0.40
+
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
 # pending calibration against yield–weather panels (methodology §1.2).
 CROP_SENSITIVITY = {
@@ -565,10 +570,21 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
                 reason += "hazard→yield not event-backtested for " + ", ".join(unvalidated) + ". "
             if gaps:
                 reason += "missing input — " + "; ".join(gaps) + ". "
+            # If we actually FITTED this crop but it fell below the publish floor, say so — that
+            # is a stronger, more honest signal than "not validated". fit_r2 survives on the
+            # object (set in the ranged block); we keep it precisely so the reason can be specific.
+            if cr.fit_r2 is not None:
+                # truncate (not round) the crop's share so a 0.397 fit reads "39%", clearly
+                # UNDER the 40% bar, rather than rounding up to a misleading "40%".
+                reason = (f"€ withheld — {cr.top_hazard or 'driver'} tested: explains "
+                          f"{int(cr.fit_r2 * 100)}% of bad years, below our "
+                          f"{round(RANGED_PUBLISH_FLOOR * 100)}% bar to publish. Exposure mapped.")
             cr.held_reason = reason.strip() or (
                 "€ withheld until the chain reproduces a real crop failure")
-            # Withhold every modelled economic claim; keep the measured exposure.
+            # Withhold every modelled economic claim, INCLUDING the ranged band — a held crop
+            # publishes no €. Keep the measured exposure and fit_r2 (the reason we withheld).
             cr.cogs_at_risk_p50 = cr.volume_at_risk_eur = None
+            cr.volume_at_risk_low_eur = cr.volume_at_risk_high_eur = None
             cr.price_scenario_eur = cr.global_shock_pct = None
 
         ov = overrides.get(c["name"])
