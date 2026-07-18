@@ -103,11 +103,15 @@ export default function SupplyDisclosure() {
                       {c.hazard && <span style={{ color: HAZ_COLOR[c.hazard] }}>{c.hazard}</span>}
                       {c.status === 'scored' && (c.calibration === 'backtested'
                         ? <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-[#0071e3]">backtested</span>
-                        : <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">indicative</span>)}
+                        : c.calibration === 'ranged'
+                          ? <span title={`drought explains ~${Math.round((c.fit_r2||0)*100)}% of bad years; € is a range`} className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">ranged · r²&nbsp;{c.fit_r2}</span>
+                          : <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">indicative</span>)}
                     </span>
                     <span className="text-right">
                       {c.status === 'scored'
-                        ? <><b className="text-[#c2410c]">{mn(c.volume_at_risk_eur)}</b> <span className="text-gray-400">volume</span></>
+                        ? (c.calibration === 'ranged' && c.volume_at_risk_high_eur != null
+                            ? <><b className="text-[#c2410c]">{mn(c.volume_at_risk_low_eur)}–{mn(c.volume_at_risk_high_eur)}</b> <span className="text-gray-400">range</span></>
+                            : <><b className="text-[#c2410c]">{mn(c.volume_at_risk_eur)}</b> <span className="text-gray-400">volume</span></>)
                         : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">€ pending</span>}
                     </span>
                   </button>

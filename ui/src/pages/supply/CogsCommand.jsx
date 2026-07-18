@@ -113,19 +113,30 @@ export default function CogsCommand({ onGoto }) {
                         {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
                         {c.calibration === 'backtested'
                           ? <span title="Impact function reproduces a real event" className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-[#0071e3]">backtested</span>
-                          : <span title="v0 defaults — shown for exposure, not yet event-validated" className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">indicative</span>}
+                          : c.calibration === 'ranged'
+                            ? <span title={`A driver explains this crop partly (r²=${c.fit_r2}); the € is published as a range, not a point`} className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">ranged · r²&nbsp;{c.fit_r2}</span>
+                            : <span title="v0 defaults — shown for exposure, not yet event-validated" className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">indicative</span>}
                       </div>
                       <div className="text-[11px] text-gray-400">
                         spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard}
-                        · {c.yield_shock_pct}% of yield at risk{c.global_shock_pct != null && <> · world crop −{c.global_shock_pct}%</>}
+                        {c.calibration === 'ranged'
+                          ? <> · drought explains ~{Math.round((c.fit_r2 || 0) * 100)}% of bad years — the rest we don't claim</>
+                          : <> · {c.yield_shock_pct}% of yield at risk{c.global_shock_pct != null && <> · world crop −{c.global_shock_pct}%</>}</>}
                       </div>
                       {c.measured_basis && (
                         <div className="mt-0.5 text-[10px] italic text-gray-400">measures {c.measured_basis}</div>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.volume_at_risk_eur)}</div>
-                      <div className="text-[10px] text-gray-400">volume at risk</div>
+                      {c.calibration === 'ranged' && c.volume_at_risk_high_eur != null
+                        ? <>
+                            <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.volume_at_risk_low_eur)}–{mn(c.volume_at_risk_high_eur)}</div>
+                            <div className="text-[10px] text-gray-400">volume at risk · range</div>
+                          </>
+                        : <>
+                            <div className="text-[14px] font-semibold text-[#c2410c]">{mn(c.volume_at_risk_eur)}</div>
+                            <div className="text-[10px] text-gray-400">volume at risk</div>
+                          </>}
                     </div>
                   </button>
                 ))}

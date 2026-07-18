@@ -225,6 +225,9 @@ def disclosure(session: DbSession, org_id: OrgId,
         "spend_eur": c.annual_spend_eur, "cogs_at_risk_p50": c.cogs_at_risk_p50,
         "volume_at_risk_eur": c.volume_at_risk_eur, "calibration": c.calibration, "status": c.status,
         "measured_basis": c.measured_basis,
+        # ranged tier: the € is a band with a stated r² (None for a backtested point crop)
+        "volume_at_risk_low_eur": c.volume_at_risk_low_eur,
+        "volume_at_risk_high_eur": c.volume_at_risk_high_eur, "fit_r2": c.fit_r2,
     } for c in r.commodities]
     return {
         "org_id": org_id, "scenario": scenario, "horizon": horizon, "impact_version": IMPACT_VERSION,
