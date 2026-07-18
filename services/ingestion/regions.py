@@ -89,6 +89,13 @@ REGIONS: dict[str, Region] = {
     "spain_extremadura": Region("spain_extremadura", "Extremadura, Spain", 38.0, 40.5, -7.5, -4.6),
     # Alentejo — the demo book's almond plots.
     "portugal_alentejo": Region("portugal_alentejo", "Alentejo, Portugal", 37.8, 39.3, -8.9, -6.9),
+    # Morocco cereal belt (Gharb / Chaouia / Saïs — the NW rain-fed plains). The rain-fed
+    # reference: Moroccan wheat is entirely rain-fed and its harvest swings with the winter
+    # rains (national cereal output routinely halves in a drought), so climate should EXPLAIN
+    # far more of its yield than any irrigated European crop — the step-2 test.
+    "morocco_wheat": Region("morocco_wheat", "Morocco cereal belt (NW plains)", 31.0, 35.0, -9.0, -5.0),
+    # Australian wheat belt (WA + SA + NSW/Vic) — the other classic dryland cereal, El Niño-driven.
+    "australia_wheat": Region("australia_wheat", "Australia wheat belt", -37.0, -28.0, 115.0, 150.0),
 }
 
 DEFAULT_REGION = "eu"
