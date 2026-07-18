@@ -54,6 +54,7 @@ Every figure carries IMPACT_VERSION so it is reproducible.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -213,6 +214,13 @@ class CommodityRisk:
     # one was volume x 1.8, an invented "confidence band" with no distribution behind it. We do
     # not have a quantified uncertainty on the sensitivity yet, so we do not draw one.
     cogs_at_risk_p50: Optional[float] = None
+    # 'ranged' tier: a driver explains the crop PARTLY, so the euro publishes as a band, not a
+    # point. low = the optimistic end (least loss), high = the pessimistic end (most loss);
+    # volume_at_risk_eur is the regression mid. fit_r2 is stated so the buyer sees the strength.
+    # All None for a backtested point-estimate crop.
+    volume_at_risk_low_eur: Optional[float] = None
+    volume_at_risk_high_eur: Optional[float] = None
+    fit_r2: Optional[float] = None
     # Per-origin breakdown: which origin actually drives the world supply shock.
     origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
@@ -262,6 +270,28 @@ def amplification(stock_to_use):
     return max(0.3, min(6.0, (34.7 / stock_to_use) ** 3.62))
 
 
+def _fit_predict(fit: dict, score: float, z: float = 1.0) -> tuple:
+    """(low, mid, high) climate anomaly % at a hazard score, from a stored 'ranged' regression.
+    A real prediction interval: the band widens for a score far outside the training range.
+    Mirrors ml.features.crop_fit.CropFit.predict — kept here so the engine has no ML import."""
+    mid = fit["intercept"] + fit["slope"] * score
+    se = fit["rmse"] * math.sqrt(1.0 + 1.0 / fit["n_years"]
+                                 + ((score - fit["score_mean"]) ** 2) / fit["score_sxx"])
+    return mid - z * se, mid, mid + z * se
+
+
+def _ranged_plot_band(hazards: dict, fit: dict, driver: str) -> Optional[tuple]:
+    """A plot's (best, mid, worst) LOSS fractions from the ranged fit at its driver score.
+    Floored at 0 — a favourable year predicts a yield GAIN, which is not 'volume at risk'
+    (upside is a separate model we deliberately do not fold into a risk number). Returns None
+    when the driver hazard isn't scored on the plot."""
+    score = hazards.get(driver)
+    if score is None:
+        return None
+    lo, mid, hi = _fit_predict(fit, score)      # lo = most negative = worst loss
+    return (max(0.0, -hi / 100.0), max(0.0, -mid / 100.0), max(0.0, -lo / 100.0))
+
+
 def _driver_yield_shock(hazards: dict, sens: float, driver: str) -> Optional[float]:
     """Yield shock from ONLY the hazard the coefficient was backtested against.
 
@@ -285,17 +315,22 @@ def _calibration_tier(name: str, origins: list) -> str:
     BACKTESTED set when there is no per-origin calibration."""
     if not origins:
         return "backtested" if name in BACKTESTED else "indicative"
-    # An origin only counts as backtested if it is BOTH event-validated AND actually
-    # computable here — a validated coefficient with its driver hazard unscored yields
-    # no number, so it cannot back a published €.
-    tiers = {
-        "backtested" if (o.get("calibration") == "backtested" and o.get("yield_shock_pct") is not None)
-        else "indicative"
-        for o in origins
-    }
-    if tiers == {"backtested"}:
+    # An origin only counts at its tier if it is BOTH calibrated at that tier AND actually
+    # computable here — a coefficient whose driver hazard is unscored yields no number, so it
+    # cannot back a published €. 'ranged' publishes too (as a band), but it is WEAKER than
+    # backtested: a book mixing the two is labelled by the weakest publishable tier present.
+    eff = set()
+    for o in origins:
+        t = o.get("calibration")
+        if t in ("backtested", "ranged") and o.get("yield_shock_pct") is not None:
+            eff.add(t)
+        else:
+            eff.add("indicative")
+    if eff == {"backtested"}:
         return "backtested"
-    if "backtested" in tiers:
+    if eff <= {"backtested", "ranged"}:          # every origin publishable, at least one ranged
+        return "ranged"
+    if eff & {"backtested", "ranged"}:           # some publishable, some not → do not blend
         return "mixed"
     return "indicative"
 
@@ -341,6 +376,11 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
         cal = (origin_cal or {}).get(p.get("origin")) if origin_cal else None
         if cal:
             driver = cal.get("hazard_driver")
+            fit = cal.get("fit")
+            if fit and driver:
+                # ranged: the buyer's loss is the regression MID at the plot's driver score
+                band = _ranged_plot_band(p["hazards"], fit, driver)
+                return band[1] if band is not None else 0.0
             o_sens = cal.get("sensitivity") or sens
             if driver:
                 v = _driver_yield_shock(p["hazards"], o_sens, driver)
@@ -366,16 +406,22 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
             o_sens = (cal or {}).get("sensitivity") or sens
             o_share = (cal or {}).get("world_share")
             driver = (cal or {}).get("hazard_driver")
+            o_fit = (cal or {}).get("fit")
             o_spend = sum(p["spend"] for p in oplots) or 1.0
 
             need = None
             if driver:
-                # Calibrated origin: only the backtested hazard may drive the yield shock.
+                # Calibrated origin: only the backtested/fitted hazard may drive the yield shock.
                 scored_on_driver = [p for p in oplots if p.get("hazards", {}).get(driver) is not None]
                 if scored_on_driver:
                     w = sum(p["spend"] for p in scored_on_driver) or 1.0
-                    o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]
-                                  for p in scored_on_driver) / w
+                    if o_fit:
+                        # ranged: regression MID loss at each plot's driver score
+                        o_shock = sum(_ranged_plot_band(p["hazards"], o_fit, driver)[1] * p["spend"]
+                                      for p in scored_on_driver) / w
+                    else:
+                        o_shock = sum(_driver_yield_shock(p["hazards"], o_sens, driver) * p["spend"]
+                                      for p in scored_on_driver) / w
                 else:
                     o_shock = None
                     need = f"{driver} not scored on these plots — the calibrated driver hazard"
@@ -410,6 +456,24 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
     # modelled world shock 8.92% vs FAO's measured 8.88%).
     volume_at_risk = yield_shock * spend
 
+    # ── Ranged band: when the driver explains the crop PARTLY, publish a range, not a point. ──
+    # Spend-weight each scored plot's (best, worst) loss from the stored regression's prediction
+    # interval; the mid already equals yield_shock above. floored at 0 — a favourable year is a
+    # gain, not "volume at risk". fit_r2 is surfaced so the buyer sees the strength of the fit.
+    vol_low_eur = vol_high_eur = fit_r2 = None
+    ranged = [(p, (origin_cal or {}).get(p.get("origin"), {}).get("fit"),
+               (origin_cal or {}).get(p.get("origin"), {}).get("hazard_driver"))
+              for p in scored] if origin_cal else []
+    ranged = [(p, f, d) for (p, f, d) in ranged if f and d
+              and _ranged_plot_band(p["hazards"], f, d) is not None]
+    if ranged:
+        wr = sum(p["spend"] for p, _, _ in ranged) or 1.0
+        best = sum(_ranged_plot_band(p["hazards"], f, d)[0] * p["spend"] for p, f, d in ranged) / wr
+        worst = sum(_ranged_plot_band(p["hazards"], f, d)[2] * p["spend"] for p, f, d in ranged) / wr
+        vol_low_eur = round(best * spend, 2)
+        vol_high_eur = round(worst * spend, 2)
+        fit_r2 = round(max(f["r2"] for _, f, _ in ranged), 4)
+
     # ── The price channel: the customer's assumption, never our prediction. ──
     # We tested "supply shock -> price move" on 440 real crop-years: r^2 = 0.018. A harvest
     # failure does push price up (64% of 53 real contractions) but HOW MUCH is unpredictable
@@ -431,6 +495,9 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
         # 8.9%"). It just no longer drives a price prediction.
         global_shock_pct=round(global_shock * 100, 2),
         volume_at_risk_eur=round(volume_at_risk, 2),
+        volume_at_risk_low_eur=vol_low_eur,
+        volume_at_risk_high_eur=vol_high_eur,
+        fit_r2=fit_r2,
         price_scenario_pct=price_scenario_pct,
         price_scenario_eur=round(price_scenario, 2) if price_scenario is not None else None,
         cogs_at_risk_p50=round(p50, 2),
@@ -486,10 +553,12 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
         # sources. Anything else keeps its exposure and its hazard driver, but the €
         # is withheld — never shown behind a disclaimer, because a number on a page
         # gets used no matter what the banner says.
-        if publish_gate and cr.status == "scored" and cr.calibration != "backtested":
+        # 'ranged' publishes too (as a band, r² stated) — it is a fitted, evidenced tier, just
+        # weaker than a single-event backtest. Only 'mixed'/'indicative' stay held.
+        if publish_gate and cr.status == "scored" and cr.calibration not in ("backtested", "ranged"):
             gaps = [f"{o['origin']}: {o['input_required']}" for o in cr.origins if o.get("input_required")]
             unvalidated = [str(o["origin"]) for o in cr.origins
-                           if o.get("calibration") != "backtested" and not o.get("input_required")]
+                           if o.get("calibration") not in ("backtested", "ranged") and not o.get("input_required")]
             cr.status = "held"
             reason = "€ withheld — "
             if unvalidated:
@@ -574,6 +643,21 @@ def get_calibrations(session) -> dict:
     out: dict = {}
     for r in rows:
         out.setdefault(r["commodity"], {})[r["origin"]] = dict(r)
+
+    # Attach the regression behind a 'ranged' origin so the engine can emit a BAND rather than a
+    # point. Keyed the same {commodity: {origin: ...}}; only ranged origins carry a 'fit'.
+    fits = session.execute(text("""
+        SELECT co.name AS commodity, f.origin, f.hazard_driver,
+               CAST(f.slope AS FLOAT) AS slope, CAST(f.intercept AS FLOAT) AS intercept,
+               CAST(f.rmse AS FLOAT) AS rmse, CAST(f.r2 AS FLOAT) AS r2,
+               CAST(f.score_mean AS FLOAT) AS score_mean, CAST(f.score_sxx AS FLOAT) AS score_sxx,
+               f.n_years
+        FROM sc_commodity_fit f JOIN sc_commodities co ON co.commodity_id = f.commodity_id
+    """)).mappings().all()
+    for f in fits:
+        origin = out.get(f["commodity"], {}).get(f["origin"])
+        if origin is not None and origin.get("hazard_driver") == f["hazard_driver"]:
+            origin["fit"] = dict(f)
     return out
 
 
