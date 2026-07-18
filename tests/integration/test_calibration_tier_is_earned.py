@@ -106,3 +106,39 @@ def test_validation_on_a_different_hazard_does_not_count():
                 WHERE co.name = :c AND v.origin = :o AND v.passed AND v.hazard = :h
             """), {"c": r["commodity"], "o": r["origin"], "h": r["hazard_driver"]}).scalar()
             assert match > 0, f"{r['commodity']}/{r['origin']} backtested on the wrong hazard"
+
+
+@pytest.mark.integration
+def test_ranged_tier_requires_a_stored_fit_and_ranks_below_backtested():
+    """'ranged' is the middle tier: a multi-year regression exists (sc_commodity_fit) but no
+    single passing event. It must derive only when a fit is present, and a passing event must
+    still win (backtested > ranged > indicative)."""
+    with get_session() as s:
+        rows = s.execute(text("""
+            SELECT co.name AS commodity, c.origin, c.hazard_driver, c.calibration_tier
+            FROM v_sc_commodity_calibration c JOIN sc_commodities co ON co.commodity_id = c.commodity_id
+            WHERE c.calibration_tier = 'ranged'
+        """)).mappings().all()
+        for r in rows:
+            has_fit = s.execute(text("""
+                SELECT count(*) FROM sc_commodity_fit f
+                JOIN sc_commodities co ON co.commodity_id = f.commodity_id
+                WHERE co.name = :c AND f.origin = :o AND f.hazard_driver = :h
+            """), {"c": r["commodity"], "o": r["origin"], "h": r["hazard_driver"]}).scalar()
+            assert has_fit > 0, f"{r['commodity']}/{r['origin']} is 'ranged' with no stored fit"
+            # a ranged crop must NOT also have a passing event (that would make it backtested)
+            passed = s.execute(text("""
+                SELECT count(*) FROM sc_model_validation v
+                JOIN sc_commodities co ON co.commodity_id = v.commodity_id
+                WHERE co.name = :c AND v.origin = :o AND v.passed AND v.hazard = :h
+            """), {"c": r["commodity"], "o": r["origin"], "h": r["hazard_driver"]}).scalar()
+            assert passed == 0, f"{r['commodity']}/{r['origin']} is 'ranged' but has a passing event"
+
+
+@pytest.mark.integration
+def test_a_stored_fit_r2_is_never_below_the_publish_floor():
+    """Nothing gets into sc_commodity_fit below the r² floor the fitter enforces (0.40).
+    A fit that explains almost nothing must not be able to publish even a range."""
+    with get_session() as s:
+        worst = s.execute(text("SELECT COALESCE(min(r2), 1) FROM sc_commodity_fit")).scalar()
+    assert float(worst) >= 0.40, f"a stored fit has r²={worst} — below the publish floor"
