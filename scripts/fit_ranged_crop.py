@@ -132,14 +132,15 @@ def main() -> int:
             INSERT INTO sc_commodity_fit
                 (commodity_id, origin, hazard_driver, region_key, season_months, spei_scale,
                  n_years, slope, intercept, r2, rmse, score_mean, score_sxx,
-                 baseline_from, baseline_to, fit_version, source_note)
+                 r2_oos, band_cov68, baseline_from, baseline_to, fit_version, source_note)
             VALUES (:cid, :o, :d, :region, :season, :scale, :n, :slope, :intercept, :r2, :rmse,
-                    :mean, :sxx, :bfrom, :bto, :ver, :note)
+                    :mean, :sxx, :r2oos, :cov, :bfrom, :bto, :ver, :note)
             ON CONFLICT (commodity_id, origin, hazard_driver) DO UPDATE SET
                 region_key=EXCLUDED.region_key, season_months=EXCLUDED.season_months,
                 spei_scale=EXCLUDED.spei_scale, n_years=EXCLUDED.n_years, slope=EXCLUDED.slope,
                 intercept=EXCLUDED.intercept, r2=EXCLUDED.r2, rmse=EXCLUDED.rmse,
                 score_mean=EXCLUDED.score_mean, score_sxx=EXCLUDED.score_sxx,
+                r2_oos=EXCLUDED.r2_oos, band_cov68=EXCLUDED.band_cov68,
                 baseline_from=EXCLUDED.baseline_from, baseline_to=EXCLUDED.baseline_to,
                 fit_version=EXCLUDED.fit_version, source_note=EXCLUDED.source_note,
                 created_at=now()
@@ -149,6 +150,7 @@ def main() -> int:
             "slope": round(fit.slope, 5), "intercept": round(fit.intercept, 5),
             "r2": round(fit.r2, 4), "rmse": round(fit.rmse, 5),
             "mean": round(fit.score_mean, 5), "sxx": round(fit.score_sxx, 5),
+            "r2oos": fit.r2_oos, "cov": fit.band_cov68,
             "bfrom": fit.years[0], "bto": fit.years[-1], "ver": FIT_VERSION,
             "note": (f"OLS of cycle-decomposed climate anomaly on the {args.driver} score "
                      + (f"(SPEI-{args.spei_scale}, " if args.driver == "drought"

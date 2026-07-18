@@ -31,11 +31,13 @@ class CropFit:
     n_years: int
     slope: float                # climate_pct per point of hazard score (expect < 0 for a hazard)
     intercept: float
-    r2: float
+    r2: float                   # in-sample r² (the optimistic number)
     rmse: float                 # residual std of climate_pct (percentage points)
     score_mean: float           # mean training hazard score  — for the prediction interval
     score_sxx: float            # Σ(score - mean)²             — for the prediction interval
     years: list                 # the years used, for provenance
+    r2_oos: float = 0.0         # leave-one-out cross-validated r² — the HONEST predictive number
+    band_cov68: float = 0.0     # fraction of years inside the 1σ prediction interval (~0.68 if honest)
 
     def predict(self, score: float, z: float = 1.0) -> tuple[float, float, float]:
         """Predicted climate anomaly at `hazard_score`, as (low, mid, high) in %.
@@ -86,8 +88,36 @@ def fit_climate_on_score(production: dict[int, float],
     # RMSE with the regression's 2 degrees of freedom removed — honest for a small sample.
     rmse = math.sqrt(sum(e * e for e in resid) / (n - 2)) if n > 2 else 0.0
 
+    # Leave-one-out cross-validation: refit WITHOUT each year, predict it. This is the honest
+    # out-of-sample number the Confidence Grade keys on — it always looks worse than in-sample,
+    # and if it collapses the fit was overfit.
+    ss_t = syy
+    loo_sq = 0.0
+    for i in range(n):
+        xt = xs[:i] + xs[i + 1:]
+        yt = ys[:i] + ys[i + 1:]
+        m = n - 1
+        mxi = sum(xt) / m
+        myi = sum(yt) / m
+        sxxi = sum((x - mxi) ** 2 for x in xt)
+        if sxxi == 0:
+            loo_sq += (ys[i] - myi) ** 2
+            continue
+        bi = sum((x - mxi) * (y - myi) for x, y in zip(xt, yt)) / sxxi
+        ai = myi - bi * mxi
+        loo_sq += (ys[i] - (ai + bi * xs[i])) ** 2
+    r2_oos = 1.0 - loo_sq / ss_t if ss_t else 0.0
+
+    # Band calibration: fraction of the training years that fall inside the 1σ prediction interval
+    # — a well-calibrated 68% band catches ~68%. This is what makes the published RANGE honest.
+    def _se(x):
+        return rmse * math.sqrt(1.0 + 1.0 / n + ((x - mx) ** 2) / sxx)
+    inside = sum(1 for i in range(n) if abs(resid[i]) <= _se(xs[i]))
+    band_cov68 = inside / n
+
     return CropFit(
         driver=driver, n_years=n, slope=slope, intercept=intercept,
         r2=r * r, rmse=rmse, score_mean=mx, score_sxx=sxx,
         years=sorted(p[2] for p in pts),
+        r2_oos=round(r2_oos, 4), band_cov68=round(band_cov68, 4),
     )

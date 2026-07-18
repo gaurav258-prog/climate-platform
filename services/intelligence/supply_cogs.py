@@ -58,6 +58,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Optional
 
+from ml.confidence_grade import grade as _grade
+
 IMPACT_VERSION = "sc-impact-v0.5"
 
 # A ranged crop's fit must explain at least this share of its climate-attributable variance to
@@ -226,6 +228,11 @@ class CommodityRisk:
     volume_at_risk_low_eur: Optional[float] = None
     volume_at_risk_high_eur: Optional[float] = None
     fit_r2: Optional[float] = None
+    # Composite Confidence Grade (A–E) — a transparent summary of how much to trust this crop's €,
+    # built from out-of-sample r² + evidence depth + band calibration + proof type (ml.confidence_grade).
+    # Sits ON TOP of the visible stats, never replaces them. None for held/pending (no published €).
+    confidence_grade: Optional[str] = None
+    confidence_checks: Optional[list] = None
     # Per-origin breakdown: which origin actually drives the world supply shock.
     origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
@@ -565,6 +572,24 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
         cr.calibration = _calibration_tier(c["name"], cr.origins)
         cr.measured_basis = c.get("measured_basis")
 
+        # Confidence Grade — computed for a PUBLISHED crop from its stored, auditable validation
+        # stats (out-of-sample r² + band calibration for ranged; event-reproduction for backtested).
+        if origin_cal and cr.calibration in ("backtested", "ranged"):
+            _cal_any = next((v for v in origin_cal.values()
+                             if (cr.calibration == "ranged" and v.get("fit"))
+                             or (cr.calibration == "backtested" and v.get("backtest"))), None)
+            if _cal_any is not None:
+                if cr.calibration == "ranged":
+                    _f = _cal_any["fit"]
+                    _g = _grade(tier="ranged", r2_oos=_f.get("r2_oos"),
+                                n_years=_f.get("n_years"), band_cov68=_f.get("band_cov68"))
+                else:
+                    _b = _cal_any["backtest"]
+                    _g = _grade(tier="backtested", reproduction_err_pct=_b.get("repro_err_pct"),
+                                n_events=_b.get("n_events"))
+                cr.confidence_grade = _g.grade
+                cr.confidence_checks = _g.checks
+
         # ── PUBLISH GATE (governance §8, hard rule) ──────────────────────────
         # A euro figure leaves this engine ONLY if the hazard→yield→price chain has
         # been reproduced against a real, documented event for EVERY origin the buyer
@@ -686,13 +711,29 @@ def get_calibrations(session) -> dict:
                CAST(f.slope AS FLOAT) AS slope, CAST(f.intercept AS FLOAT) AS intercept,
                CAST(f.rmse AS FLOAT) AS rmse, CAST(f.r2 AS FLOAT) AS r2,
                CAST(f.score_mean AS FLOAT) AS score_mean, CAST(f.score_sxx AS FLOAT) AS score_sxx,
-               f.n_years
+               f.n_years, CAST(f.r2_oos AS FLOAT) AS r2_oos, CAST(f.band_cov68 AS FLOAT) AS band_cov68
         FROM sc_commodity_fit f JOIN sc_commodities co ON co.commodity_id = f.commodity_id
     """)).mappings().all()
     for f in fits:
         origin = out.get(f["commodity"], {}).get(f["origin"])
         if origin is not None and origin.get("hazard_driver") == f["hazard_driver"]:
             origin["fit"] = dict(f)
+
+    # Backtest reproduction stats per origin — the Confidence Grade inputs for a backtested crop:
+    # how close the model reproduced the real event, and how many events back it.
+    for b in session.execute(text("""
+        SELECT co.name AS commodity, v.origin,
+               count(*) AS n_events,
+               min(abs(CAST(v.model_prod_shock_pct AS FLOAT) - CAST(v.observed_prod_shock_pct AS FLOAT))
+                   / NULLIF(abs(CAST(v.observed_prod_shock_pct AS FLOAT)),0) * 100) AS repro_err_pct
+        FROM sc_model_validation v JOIN sc_commodities co ON co.commodity_id = v.commodity_id
+        WHERE v.passed AND v.model_prod_shock_pct IS NOT NULL AND v.observed_prod_shock_pct IS NOT NULL
+        GROUP BY co.name, v.origin
+    """)).mappings().all():
+        origin = out.get(b["commodity"], {}).get(b["origin"])
+        if origin is not None:
+            origin["backtest"] = {"n_events": b["n_events"],
+                                  "repro_err_pct": float(b["repro_err_pct"]) if b["repro_err_pct"] is not None else None}
     return out
 
 
