@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ShieldCheck, CheckCircle2, AlertTriangle, FlaskConical, Pencil, X } from 'lucide-react'
 import { fetchSupplyValidation, fetchSupplyModels, overrideCommodityCogs, clearCommodityCogsOverride } from '../../api/client'
 import { useToast } from '../../components/ToastProvider'
+import GradeBadge from '../../components/GradeBadge'
 
 const HAZ_LABEL = { heat_acute: 'Heat', drought: 'Drought', frost: 'Frost' }
 const eur = n => n == null ? '—' : '€' + (n / 1e6).toFixed(2) + 'm'
@@ -73,6 +74,7 @@ export default function SupplyModels({ auth }) {
                       <span className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${e.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                         {e.passed ? 'passed' : 'failed — € withheld'}
                       </span>
+                      {e.confidence_grade && <span className="ml-1.5"><GradeBadge grade={e.confidence_grade} checks={e.confidence_checks} /></span>}
                     </div>
                     {/* The VOLUME claim, which is the claim the product makes: our modelled
                         world supply shock against the independently measured one. */}
@@ -116,14 +118,16 @@ export default function SupplyModels({ auth }) {
                 <div key={`${f.commodity}-${f.origin}-${f.hazard_driver}`} className="flex items-center justify-between py-2.5">
                   <div>
                     <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
-                      {f.commodity} <span className="text-[11px] font-normal text-gray-400">{f.origin} · {f.hazard_driver}</span>
+                      {f.commodity} <span className="text-[11px] font-normal text-gray-400">{f.origin} · {(f.hazard_driver || '').replace(/_/g, ' ')}</span>
                       {f.publishes
                         ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">ranged · published</span>
                         : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">tested · € withheld</span>}
+                      <GradeBadge grade={f.confidence_grade} checks={f.confidence_checks} />
                     </div>
                     <div className="mt-0.5 text-[11px] text-gray-500">
-                      {f.hazard_driver} explains <b className={f.publishes ? 'text-amber-700' : 'text-gray-600'}>{Math.floor(f.r2 * 100)}%</b> of the crop's
-                      climate-attributable bad years over {f.n_years} years ({f.baseline_from}–{f.baseline_to}), SPEI-{f.spei_scale}.
+                      {(f.hazard_driver || '').replace(/_/g, ' ')} explains <b className={f.publishes ? 'text-amber-700' : 'text-gray-600'}>{Math.floor(f.r2 * 100)}%</b> of the crop's
+                      climate-attributable bad years over {f.n_years} years ({f.baseline_from}–{f.baseline_to})
+                      {f.r2_oos != null && <> · holds up at <b>{Math.floor(f.r2_oos * 100)}%</b> on years it didn&apos;t learn from</>}.
                       {!f.publishes && <> Below the {Math.round(mod.ranged_publish_floor * 100)}% bar — exposure mapped, € withheld.</>}
                     </div>
                   </div>

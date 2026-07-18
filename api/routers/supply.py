@@ -277,7 +277,23 @@ def validation(session: DbSession):
                price_claim_retired, skill_note, source, run_at
         FROM sc_model_validation ORDER BY event, origin
     """)).mappings().all()
-    return {"impact_version": IMPACT_VERSION, "events": [dict(r) for r in rows]}
+    # attach the crop's Confidence Grade to its passed events (a backtested crop's grade comes
+    # from event-reproduction accuracy + how many events back it), so the credibility record
+    # carries the same A–E letter the command screen shows.
+    from ml.confidence_grade import grade as _grade
+    by_commodity: dict = {}
+    for r in rows:
+        if r["passed"] and r["model_prod_shock_pct"] is not None and r["observed_prod_shock_pct"] is not None:
+            by_commodity.setdefault(r["commodity"], []).append(
+                abs(r["model_prod_shock_pct"] - r["observed_prod_shock_pct"]) / abs(r["observed_prod_shock_pct"]) * 100)
+    grades = {c: _grade(tier="backtested", reproduction_err_pct=min(errs), n_events=len(errs))
+              for c, errs in by_commodity.items()}
+    out = []
+    for r in rows:
+        g = grades.get(r["commodity"]) if r["passed"] else None
+        out.append({**dict(r), "confidence_grade": g.grade if g else None,
+                    "confidence_checks": g.checks if g else None})
+    return {"impact_version": IMPACT_VERSION, "events": out}
 
 
 @router.get("/models", summary="Agriculture hazard models + impact-fn + per-commodity calibration")
@@ -313,14 +329,26 @@ def models(session: DbSession, org_id: OrgId):
     # This is the honest counterpart to the single-event backtests on /validation — it says
     # exactly what we tried and how well it worked, including the crops we withhold.
     from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
+    from ml.confidence_grade import grade as _grade
     fits = session.execute(text("""
         SELECT co.name AS commodity, f.origin, f.hazard_driver,
-               CAST(f.r2 AS FLOAT) AS r2, f.n_years, f.spei_scale, f.season_months,
+               CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos,
+               CAST(f.band_cov68 AS FLOAT) AS band_cov68,
+               f.n_years, f.spei_scale, f.season_months,
                CAST(f.rmse AS FLOAT) AS rmse, f.baseline_from, f.baseline_to, f.source_note
         FROM sc_commodity_fit f JOIN sc_commodities co ON co.commodity_id = f.commodity_id
-        ORDER BY f.r2 DESC
+        ORDER BY f.r2_oos DESC NULLS LAST, f.r2 DESC
     """)).mappings().all()
-    fit_rows = [{**dict(r), "publishes": r["r2"] >= RANGED_PUBLISH_FLOOR} for r in fits]
+    fit_rows = []
+    for r in fits:
+        publishes = r["r2"] >= RANGED_PUBLISH_FLOOR
+        # a published fit carries its Confidence Grade on the credibility record; a below-floor
+        # (tested-held) fit is shown WITHOUT a grade — it does not publish a euro.
+        g = (_grade(tier="ranged", r2_oos=r["r2_oos"], n_years=r["n_years"], band_cov68=r["band_cov68"])
+             if publishes else None)
+        fit_rows.append({**dict(r), "publishes": publishes,
+                         "confidence_grade": g.grade if g else None,
+                         "confidence_checks": g.checks if g else None})
     return {
         "impact_version": IMPACT_VERSION,
         "hazard_models": [dict(r) for r in hz],

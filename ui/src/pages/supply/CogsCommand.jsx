@@ -6,28 +6,10 @@ import CommodityDrawer from '../../components/CommodityDrawer'
 import UploadPanel from '../../components/UploadPanel'
 import EmptyState from '../../components/EmptyState'
 import HelpLink from '../../components/HelpLink'
+import GradeBadge from '../../components/GradeBadge'
 import { fetchSupplySummary, fetchSupplyPortfolio, uploadSupplyPlots } from '../../api/client'
 
 const mn = n => '€' + (n / 1e6).toFixed(1) + 'm'
-
-// The Confidence Grade (A–E): a transparent summary of trust in the crop's €, built from four
-// checks. The badge SHOWS ITS WORK on hover — it never hides the underlying stats.
-const GRADE_STYLE = {
-  A: 'bg-emerald-100 text-emerald-800', B: 'bg-blue-100 text-[#0071e3]',
-  C: 'bg-amber-100 text-amber-800', D: 'bg-orange-100 text-orange-800', E: 'bg-gray-200 text-gray-600',
-}
-function GradeBadge({ grade, checks }) {
-  if (!grade) return null
-  const CHECK_NAME = { predictive: 'Holds up on new years', evidence_depth: 'Depth of evidence',
-    honest_range: 'Range is honest', directness: 'Proof type' }
-  const tip = (checks || []).map(c => `${CHECK_NAME[c.key] || c.key}: ${c.label} — ${c.detail}`).join('\n')
-  return (
-    <span title={`Confidence grade ${grade}\n${tip}`}
-      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${GRADE_STYLE[grade] || GRADE_STYLE.E}`}>
-      confidence&nbsp;{grade}
-    </span>
-  )
-}
 const PLOT_TEMPLATE_COLUMNS = ['plot_name', 'latitude', 'longitude', 'commodity', 'annual_spend_eur', 'plot_area_ha', 'region', 'country']
 
 export default function CogsCommand({ onGoto }) {
