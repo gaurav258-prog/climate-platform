@@ -69,6 +69,9 @@ export default function CogsCommand({ onGoto }) {
             € withheld</b>. We deliberately do <b>not</b> predict price moves: tested on 440 real
             crop-years, supply shocks explain just 2% of them — the market prices the news long before
             the harvest is counted. Bring your own price view and we&apos;ll apply it as yours.
+            {' '}<b>Scope: this is climate-physical risk only</b> — hazard on your plots, projected under
+            warming scenarios. It does <b>not</b> include war, water-allocation policy, fuel or labour
+            shocks, or trade disruption; those can dominate a real shortfall and are yours to overlay.
             See <HelpLink onGoto={onGoto} section="method">Methodology</HelpLink>.
           </span>
         </div>
