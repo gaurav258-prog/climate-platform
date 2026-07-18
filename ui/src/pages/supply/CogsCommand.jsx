@@ -149,14 +149,14 @@ export default function CogsCommand({ onGoto }) {
                         {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
                       </div>
                       <div className="text-[11px] text-gray-400">
-                        spend {mn(c.annual_spend_eur)} · hazard {c.avg_hazard}{c.top_hazard ? ` · ${c.top_hazard}` : ''} · awaiting backtest
+                        spend {mn(c.annual_spend_eur)} · <span style={{ color: HAZ_COLOR[c.top_hazard] }}>{c.top_hazard}</span> hazard {c.avg_hazard} · exposure mapped, hazard→yield not yet validated
                       </div>
                       {c.measured_basis && (
                         <div className="mt-0.5 text-[10px] italic text-gray-400">measures {c.measured_basis}</div>
                       )}
                     </div>
-                    <div className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
-                      € withheld · not backtested
+                    <div title="Every plot is scored; we withhold the € until the hazard→yield chain clears our publish bar" className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                      € withheld
                     </div>
                   </button>
                 ))}
@@ -168,10 +168,10 @@ export default function CogsCommand({ onGoto }) {
                         {c.commodity}
                         {c.eudr_covered && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">EUDR</span>}
                       </div>
-                      <div className="text-[11px] text-gray-400">spend {mn(c.annual_spend_eur)} · exposure mapped</div>
+                      <div className="text-[11px] text-gray-400">spend {mn(c.annual_spend_eur)} · plots not yet scored for hazards</div>
                     </div>
-                    <div className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500">
-                      € pending · not yet scored
+                    <div title="These plots are not yet in a scored hazard region — exposure is not mapped yet" className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500">
+                      € pending
                     </div>
                   </button>
                 ))}
