@@ -565,11 +565,17 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
             unvalidated = [str(o["origin"]) for o in cr.origins
                            if o.get("calibration") not in ("backtested", "ranged") and not o.get("input_required")]
             cr.status = "held"
-            reason = "€ withheld — "
-            if unvalidated:
-                reason += "hazard→yield not event-backtested for " + ", ".join(unvalidated) + ". "
-            if gaps:
-                reason += "missing input — " + "; ".join(gaps) + ". "
+            # A crop with no per-origin calibration rows (legacy path) has no origins to list —
+            # give it a clean, specific reason rather than a dangling "€ withheld —".
+            if not unvalidated and not gaps and cr.fit_r2 is None:
+                reason = ("€ withheld — exposure mapped; the hazard→yield chain is not yet "
+                          "validated for this crop, so no € is published.")
+            else:
+                reason = "€ withheld — "
+                if unvalidated:
+                    reason += "hazard→yield not event-backtested for " + ", ".join(unvalidated) + ". "
+                if gaps:
+                    reason += "missing input — " + "; ".join(gaps) + ". "
             # If we actually FITTED this crop but it fell below the publish floor, say so — that
             # is a stronger, more honest signal than "not validated". fit_r2 survives on the
             # object (set in the ranged block); we keep it precisely so the reason can be specific.
