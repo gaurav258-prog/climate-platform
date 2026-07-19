@@ -199,7 +199,8 @@ def fetch_and_score(lat: float, lon: float, area: list[float] = None,
             continue
         clim_mean_c = clim["temp_mean_k"] - KELVIN_OFFSET
         clim_std_c = clim["temp_std_k"]  # Kelvin->Celsius shift doesn't change std spread
-        score = heat_score(r.temp_c, clim_mean_c, clim_std_c, scenario=scenario, horizon=horizon)
+        score = heat_score(r.temp_c, clim_mean_c, clim_std_c, scenario=scenario, horizon=horizon,
+                           lat=cell_lat)
         results.append({
             "h3_cell": r.h3_cell,
             "temp_c": round(float(r.temp_c), 2),

@@ -78,7 +78,7 @@ def score_heat_chronic_point(lat: float, lon: float, scenario: str = "baseline",
                 "reason": "no global climatology baseline coverage near this point "
                           "(likely open ocean or a polar gap)"}
 
-    result = heat_chronic_score(monthly_clim, scenario=scenario, horizon=horizon)
+    result = heat_chronic_score(monthly_clim, scenario=scenario, horizon=horizon, lat=lat)
     risk = result["score"]
     now = datetime.now(timezone.utc)
     shap = {

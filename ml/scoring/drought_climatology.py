@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-from .heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
+from .heat_climatology import warming_delta
 
 DRYING_PER_C = 0.12   # SPEI units of extra drought per °C warming (modest, v0)
 
@@ -24,9 +24,10 @@ def _phi(z: float) -> float:
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
 
-def drought_score(spei: float, scenario: str = "baseline", horizon: str = "current") -> float:
-    """0–100 drought hazard from SPEI; warming drives it drier."""
+def drought_score(spei: float, scenario: str = "baseline", horizon: str = "current",
+                  lat: float | None = None) -> float:
+    """0–100 drought hazard from SPEI; warming drives it drier (AR6 land/latitude-amplified)."""
     if spei is None:
         return 0.0
-    drying = SCENARIO_WARMING_C.get(scenario, 0.0) * HORIZON_FRACTION.get(horizon, 0.0) * DRYING_PER_C
+    drying = warming_delta(scenario, horizon, lat) * DRYING_PER_C
     return round(max(0.0, min(100.0, 100.0 * _phi(-(spei - drying)))), 1)

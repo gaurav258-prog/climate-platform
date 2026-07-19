@@ -79,7 +79,9 @@ def main() -> int:
             scored_cells.add(cell)
             for scen in SCENARIO_WARMING_C:
                 for horz in HORIZON_FRACTION:
-                    sc = score_fn(sp, scen, horz)
+                    # pass the cell latitude so forward horizons carry AR6 land/latitude warming
+                    # amplification (current horizon is unaffected — warming is 0 there)
+                    sc = score_fn(sp, scen, horz, lat=float(la))
                     rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8,
                                  "hz": hazard_type, "scen": scen, "horz": horz,
                                  "score": sc, "bucket": score_to_bucket(sc).value,

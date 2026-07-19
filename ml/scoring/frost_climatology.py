@@ -14,7 +14,7 @@ minimum; frost-day counts + radiative-cooling correction are the documented refi
 """
 from __future__ import annotations
 
-from .heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
+from .heat_climatology import warming_delta
 
 COFFEE_FROST_MILD, COFFEE_FROST_SEVERE = 4.0, -2.0  # °C at 2m (screen height)
 
@@ -23,11 +23,13 @@ def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
-def frost_score(min_tmin_c: float, scenario: str = "baseline", horizon: str = "current") -> float:
-    """0–100 frost hazard from the season's coldest night; warming raises the night → less frost."""
+def frost_score(min_tmin_c: float, scenario: str = "baseline", horizon: str = "current",
+                lat: float | None = None) -> float:
+    """0–100 frost hazard from the season's coldest night; warming raises the night → less frost
+    (AR6 land/latitude-amplified — high-latitude frost falls faster)."""
     if min_tmin_c is None:
         return 0.0
-    warming = SCENARIO_WARMING_C.get(scenario, 0.0) * HORIZON_FRACTION.get(horizon, 0.0)
+    warming = warming_delta(scenario, horizon, lat)
     t = min_tmin_c + warming
     severity = _clip01((COFFEE_FROST_MILD - t) / (COFFEE_FROST_MILD - COFFEE_FROST_SEVERE))
     return round(100.0 * severity, 1)

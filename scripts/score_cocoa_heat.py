@@ -53,7 +53,7 @@ def main():
             scored_cells.add(cell)
             for scen in SCENARIO_WARMING_C:
                 for horz in HORIZON_FRACTION:
-                    sc = heat_score(tc, m, sd, scen, horz)
+                    sc = heat_score(tc, m, sd, scen, horz, lat=float(la))
                     rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8,
                                  "hz": "heat_acute", "scen": scen, "horz": horz,
                                  "score": sc, "bucket": score_to_bucket(sc).value,

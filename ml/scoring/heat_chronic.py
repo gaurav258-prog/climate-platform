@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from scipy.stats import norm
 
-from .heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
+from .heat_climatology import warming_delta
 
 HOT_DAY_THRESHOLD_C = 30.0  # C3S "Hot Days" indicator reference (mean-temp proxy, see module docstring)
 DAYS_IN_MONTH = {1: 31, 2: 28.25, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
@@ -42,11 +42,13 @@ def _clip01(x: float) -> float:
 
 
 def expected_hot_days_per_year(monthly_clim: dict[int, tuple[float, float]],
-                                scenario: str = "baseline", horizon: str = "current") -> float:
+                                scenario: str = "baseline", horizon: str = "current",
+                                lat: float | None = None) -> float:
     """monthly_clim: {month (1-12): (clim_mean_c, clim_std_c)}.
     Returns the expected number of days/year with mean temp > HOT_DAY_THRESHOLD_C,
-    summed across all 12 months, under the given scenario/horizon's warming shift."""
-    warming = SCENARIO_WARMING_C.get(scenario, 0.0) * HORIZON_FRACTION.get(horizon, 0.0)
+    summed across all 12 months, under the given scenario/horizon's warming shift
+    (AR6 land/latitude-amplified when `lat` is known)."""
+    warming = warming_delta(scenario, horizon, lat)
     total_days = 0.0
     for month, (clim_mean, clim_std) in monthly_clim.items():
         if clim_std is None or clim_std <= 0:
@@ -59,10 +61,11 @@ def expected_hot_days_per_year(monthly_clim: dict[int, tuple[float, float]],
 
 
 def heat_chronic_score(monthly_clim: dict[int, tuple[float, float]],
-                        scenario: str = "baseline", horizon: str = "current") -> dict:
+                        scenario: str = "baseline", horizon: str = "current",
+                        lat: float | None = None) -> dict:
     """0-100 chronic-heat score + the expected-days figure that drove it (for
     shap_factors / transparency — same "show your work" convention as every
     other hazard here)."""
-    days = expected_hot_days_per_year(monthly_clim, scenario, horizon)
+    days = expected_hot_days_per_year(monthly_clim, scenario, horizon, lat)
     score = round(100.0 * _clip01(days / SATURATION_DAYS), 1)
     return {"score": score, "expected_hot_days_per_year": round(days, 1)}
