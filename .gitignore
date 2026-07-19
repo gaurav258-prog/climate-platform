@@ -22,3 +22,9 @@ data/era5_climatology_baseline/
 data/faostat/
 data/usda_psd/
 data/worldbank/
+
+# MITECO reservoir raw dumps — large; keep only the compact distilled index in git
+data/reservoirs/*.mdb
+data/reservoirs/*.zip
+data/reservoirs/embalses.csv
+data/reservoirs/embalses_iso.csv
