@@ -77,6 +77,21 @@ const TIME_HORIZON_ALIASES = {
   long_term: '2100', long: '2100', far_term: '2100', '2100': '2100',
 }
 
+// ISO-3166 alpha-2 → readable country name, for crop ORIGINS shown on the credibility record.
+// A regulated reviewer should read "Morocco", not "MA". Covers the agriculture origins we ingest;
+// falls back to the raw code for anything not listed (never throws — this is display-only).
+export const ORIGIN_NAMES = {
+  ES: 'Spain', MA: 'Morocco', DZ: 'Algeria', TN: 'Tunisia', PT: 'Portugal', FR: 'France',
+  IT: 'Italy', GR: 'Greece', TR: 'Türkiye', SY: 'Syria', AR: 'Argentina', AU: 'Australia',
+  US: 'United States', IN: 'India', CN: 'China', BR: 'Brazil', EG: 'Egypt', LY: 'Libya',
+  IR: 'Iran', CL: 'Chile', CI: "Côte d'Ivoire", DE: 'Germany', TH: 'Thailand', AF: 'Afghanistan',
+}
+
+export function originName(code) {
+  if (!code) return ''
+  return ORIGIN_NAMES[String(code).trim().toUpperCase()] || code
+}
+
 export function normalizeHazard(raw) {
   const v = HAZARD_ALIASES[key(raw)]
   if (!v) throw new Error(`unknown hazard '${raw}'. Canonical: ${HAZARD_VALUES.join(', ')}`)

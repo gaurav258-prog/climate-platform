@@ -3,6 +3,7 @@ import { ShieldCheck, CheckCircle2, AlertTriangle, FlaskConical, Pencil, X } fro
 import { fetchSupplyValidation, fetchSupplyModels, overrideCommodityCogs, clearCommodityCogsOverride } from '../../api/client'
 import { useToast } from '../../components/ToastProvider'
 import GradeBadge from '../../components/GradeBadge'
+import { originName } from '../../constants/vocabulary'
 
 const HAZ_LABEL = { heat_acute: 'Heat', drought: 'Drought', frost: 'Frost' }
 const eur = n => n == null ? '—' : '€' + (n / 1e6).toFixed(2) + 'm'
@@ -69,7 +70,7 @@ export default function SupplyModels({ auth }) {
                 <div key={`${e.event}-${e.origin}`} className="rounded-xl border border-gray-100 bg-[#fafafa] p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-[14px] font-semibold text-[#1d1d1f]">{e.event}
-                      {e.origin && <span className="ml-1.5 text-[12px] font-normal text-gray-400">{e.origin}</span>}
+                      {e.origin && <span className="ml-1.5 text-[12px] font-normal text-gray-400">{originName(e.origin)}</span>}
                       <span className="ml-2 rounded-full bg-[#0071e3]/10 px-2 py-0.5 text-[10px] font-medium text-[#0071e3] capitalize">{HAZ_LABEL[e.hazard] || e.hazard}</span>
                       <span className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${e.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                         {e.passed ? 'passed' : 'failed — € withheld'}
@@ -118,7 +119,7 @@ export default function SupplyModels({ auth }) {
                 <div key={`${f.commodity}-${f.origin}-${f.hazard_driver}`} className="flex items-center justify-between py-2.5">
                   <div>
                     <div className="flex items-center gap-2 text-[13px] font-medium text-[#1d1d1f]">
-                      {f.commodity} <span className="text-[11px] font-normal text-gray-400">{f.origin} · {(f.hazard_driver || '').replace(/_/g, ' ')}</span>
+                      {f.commodity} <span className="text-[11px] font-normal text-gray-400">{originName(f.origin)} · {(f.hazard_driver || '').replace(/_/g, ' ')}</span>
                       {f.publishes
                         ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">ranged · published</span>
                         : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">tested · € withheld</span>}
