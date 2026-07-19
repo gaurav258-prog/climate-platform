@@ -96,6 +96,12 @@ REGIONS: dict[str, Region] = {
     "morocco_wheat": Region("morocco_wheat", "Morocco cereal belt (NW plains)", 31.0, 35.0, -9.0, -5.0),
     # Australian wheat belt (WA + SA + NSW/Vic) — the other classic dryland cereal, El Niño-driven.
     "australia_wheat": Region("australia_wheat", "Australia wheat belt", -37.0, -28.0, 115.0, 150.0),
+    # Algeria cereal belt — the Hauts Plateaux + Tell (Sétif, Constantine, Tiaret, Guelma). Rain-fed
+    # durum on the same Mediterranean winter-rain system as Morocco; national output swings with the
+    # winter rains. The Maghreb rain-fed cluster (with Morocco/Tunisia) where climate should EXPLAIN yield.
+    "algeria_wheat": Region("algeria_wheat", "Algeria cereal belt (Hauts Plateaux/Tell)", 34.5, 36.8, 1.0, 7.5),
+    # Tunisia cereal belt — the northern Medjerda valley (Béja, Jendouba, Le Kef, Siliana). Rain-fed durum.
+    "tunisia_wheat": Region("tunisia_wheat", "Tunisia cereal belt (north/Medjerda)", 35.5, 37.2, 8.3, 10.3),
 }
 
 DEFAULT_REGION = "eu"
