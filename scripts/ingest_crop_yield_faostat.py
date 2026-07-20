@@ -97,6 +97,7 @@ AREA_MAP = {
     41:  "CN",   # China, mainland (NOT 351 aggregate)
     40:  "CL",   # Chile
     102: "IR",   # Iran (Islamic Republic of)
+    108: "KZ",   # Kazakhstan (northern spring-wheat steppe; added 2026-07-20 for the rain-fed book)
     10:  "AU",   # Australia
     2:   "AF",   # Afghanistan
     124: "LY",   # Libya

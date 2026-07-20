@@ -102,6 +102,21 @@ REGIONS: dict[str, Region] = {
     "algeria_wheat": Region("algeria_wheat", "Algeria cereal belt (Hauts Plateaux/Tell)", 34.5, 36.8, 1.0, 7.5),
     # Tunisia cereal belt — the northern Medjerda valley (Béja, Jendouba, Le Kef, Siliana). Rain-fed durum.
     "tunisia_wheat": Region("tunisia_wheat", "Tunisia cereal belt (north/Medjerda)", 35.5, 37.2, 8.3, 10.3),
+    # Turkey cereal belt — the Central Anatolian plateau (Konya basin + Ankara/Eskişehir). The country's
+    # rain-fed winter-wheat heartland; output swings with the spring rains on the plateau.
+    "turkey_wheat": Region("turkey_wheat", "Turkey cereal belt (Central Anatolia)", 37.5, 40.0, 31.0, 36.0),
+    # Syria cereal belt — the NE Jazira (Al-Hasakah/Deir ez-Zor) + Aleppo plains. Rain-fed wheat whose
+    # national output collapses in drought (the 2007-09 drought is the textbook case).
+    "syria_wheat": Region("syria_wheat", "Syria cereal belt (NE Jazira/Aleppo)", 35.0, 37.2, 37.0, 42.0),
+    # Argentina wheat — the Pampas (Buenos Aires, Córdoba, Santa Fe, La Pampa). Rain-fed temperate cereal,
+    # ENSO-influenced; a major Southern-Hemisphere exporter, so a distinct climate system from the Maghreb.
+    "argentina_wheat": Region("argentina_wheat", "Argentina wheat belt (Pampas)", -38.5, -31.0, -64.0, -58.0),
+    # Iran dryland wheat — the western Zagros belt (Kermanshah, Kurdistan, Hamadan, Lorestan). Iran's
+    # RAIN-FED wheat (the central plateau is irrigated); western output swings with the winter-spring rains.
+    "iran_wheat": Region("iran_wheat", "Iran dryland wheat (western Zagros)", 33.0, 38.0, 45.0, 50.0),
+    # Kazakhstan spring wheat — the northern steppe (Kostanay, Akmola, North Kazakhstan). Rain-fed,
+    # continental, spring-sown/summer-grown; high-latitude (~52°N), a distinct dryland cereal system.
+    "kazakhstan_wheat": Region("kazakhstan_wheat", "Kazakhstan spring-wheat steppe (north)", 50.0, 54.5, 62.0, 72.0),
 }
 
 DEFAULT_REGION = "eu"
