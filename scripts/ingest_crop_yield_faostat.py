@@ -56,6 +56,7 @@ ITEM_MAP = {
     "Sugar beet":  "Sugar beet",
     "Rice":        "Rice",
     "Wheat":       "Wheat",
+    "Barley":      "Barley",
     "Maize":       "Maize (corn)",
     "Olive oil":   "Olives",
     "Almonds":     "Almonds, in shell",
