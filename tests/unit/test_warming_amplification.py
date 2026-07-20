@@ -6,7 +6,7 @@ properties of that correction — not exact coefficients (those are tunable), bu
 regulated reviewer would insist on.
 """
 from ml.scoring.heat_climatology import (
-    warming_amplification, warming_delta, LAND_BASE, AMP_MAX,
+    warming_amplification, warming_delta, LAND_BASE, AMP_MAX, precip_drying_spei,
 )
 from ml.scoring.drought_climatology import drought_score
 from ml.scoring.heat_climatology import heat_score
@@ -61,3 +61,35 @@ def test_heat_current_score_latitude_independent():
     a = heat_score(28.0, 26.0, 2.0, scenario="hot_house_3_5c", horizon="current", lat=10)
     b = heat_score(28.0, 26.0, 2.0, scenario="hot_house_3_5c", horizon="current", lat=60)
     assert a == b
+
+
+# --- AR6 Mediterranean precipitation decline (projections v2) ----------------------------------
+
+def test_precip_drying_only_in_mediterranean():
+    # Robust AR6 signal is applied inside the Med box (Spain olive) and nowhere we can't cite it.
+    med = precip_drying_spei("hot_house_3_5c", "2100", lat=38, lon=-4)      # Andalusia
+    iran = precip_drying_spei("hot_house_3_5c", "2100", lat=36, lon=47)     # Zagros — east of the box
+    cocoa = precip_drying_spei("hot_house_3_5c", "2100", lat=6, lon=-5)     # tropics
+    assert med > 0
+    assert iran == 0.0 and cocoa == 0.0
+
+
+def test_precip_drying_zero_at_current_and_without_coords():
+    assert precip_drying_spei("hot_house_3_5c", "current", lat=38, lon=-4) == 0.0
+    assert precip_drying_spei("hot_house_3_5c", "2100", lat=None, lon=None) == 0.0
+    assert precip_drying_spei("hot_house_3_5c", "2100", lat=38, lon=None) == 0.0
+
+
+def test_precip_drying_scales_with_warming():
+    a = precip_drying_spei("orderly_1_5c", "2100", lat=38, lon=-4)
+    b = precip_drying_spei("hot_house_3_5c", "2100", lat=38, lon=-4)
+    assert b > a > 0
+
+
+def test_med_drought_projection_exceeds_temperature_only():
+    # A Med cell's forward drought score must be at least as high WITH the precip term as a cell
+    # outside the Med box at the same latitude/SPEI (which gets temperature-only drying).
+    spei = -0.3
+    med = drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=-4)     # in Med box
+    non_med = drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=100)  # same lat, outside box
+    assert med >= non_med

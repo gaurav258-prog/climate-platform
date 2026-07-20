@@ -59,6 +59,42 @@ def warming_delta(scenario: str = "baseline", horizon: str = "current",
     return global_delta * warming_amplification(lat)
 
 
+# --- Regional PRECIPITATION decline (AR6, projections v2) --------------------------------------
+# v1 dries a forward projection only through TEMPERATURE (more evapotranspiration; DRYING_PER_C in
+# the drought/soil_water scorers). It misses the direct PRECIPITATION decline that CMIP6 robustly
+# projects for the Mediterranean — the region's defining "hotspot" signal, and the one that matters
+# most here because every crop we publish (olive, wheat, barley) sits in it. AR6 WGII CCP4:
+# Mediterranean precipitation declines ~4% per 1 °C of GLOBAL warming (high confidence above 2 °C).
+# We fold that in as an ADDITIONAL SPEI/soil-moisture drying, applied ONLY where AR6's regional
+# precip signal is robust (the Med box) — elsewhere we keep temperature-only rather than invent a
+# precipitation trend we can't cite. This is a PARAMETRIC shift grounded in AR6's regional value,
+# NOT a raw multi-model CMIP6 download+bias-correction (that remains the tracked next step).
+MED_PRECIP_FRAC_PER_C = 0.04   # fractional precip decline per °C GLOBAL warming (AR6 WGII CCP4)
+# fractional-precip-change → SPEI z-units: a mean shift of Δ in a distribution with coefficient of
+# variation CV moves the standardized index by Δ/CV. Med seasonal precip CV ≈ 0.33, so ≈ 1/0.33.
+# Conservative parametric v1 (same class of assumption as DRYING_PER_C); stated, not hidden.
+PRECIP_FRAC_TO_SPEI = 3.0
+_MED_BOX = (28.0, 47.0, -10.0, 45.0)   # lat_min, lat_max, lon_min, lon_max — AR6 Mediterranean region
+
+
+def _in_mediterranean(lat: float | None, lon: float | None) -> bool:
+    if lat is None or lon is None:
+        return False
+    la0, la1, lo0, lo1 = _MED_BOX
+    return la0 <= lat <= la1 and lo0 <= lon <= lo1
+
+
+def precip_drying_spei(scenario: str = "baseline", horizon: str = "current",
+                       lat: float | None = None, lon: float | None = None) -> float:
+    """Extra SPEI/soil-moisture drying from the AR6 regional PRECIPITATION decline (0 outside the
+    robust Mediterranean signal, 0 at the current horizon). Uses the GLOBAL-mean warming (the AR6
+    %/°C is stated per global °C), NOT the land/latitude-amplified local warming."""
+    if not _in_mediterranean(lat, lon):
+        return 0.0
+    global_delta = SCENARIO_WARMING_C.get(scenario, 0.0) * HORIZON_FRACTION.get(horizon, 0.0)
+    return global_delta * MED_PRECIP_FRAC_PER_C * PRECIP_FRAC_TO_SPEI
+
+
 # Cocoa thermal-stress band (mean-temperature proxy, °C) and blend weights.
 T_COMFORT, T_SEVERE = 25.0, 31.0
 Z_FULL = 3.0        # anomaly z at which the temporal component saturates
