@@ -69,6 +69,17 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     vintage = datetime(CURRENT_YEAR, 12, 1, tzinfo=timezone.utc)
 
+    # raw CMIP6 ensemble delta for THIS belt, per scenario×horizon (same for every cell in the
+    # belt — one lookup, not one per cell). Where CMIP6 covers the combo the models set the regional
+    # warming + precipitation change; elsewhere (baseline/current, uncovered belt) it's None and the
+    # scorer uses its parametric fallback.
+    from ml.scoring.cmip6 import cmip6_delta
+    cmip = {(scen, horz): cmip6_delta(args.region, scen, horz)
+            for scen in SCENARIO_WARMING_C for horz in HORIZON_FRACTION}
+    if any(cmip.values()):
+        print(f"  CMIP6 deltas active for {args.region} "
+              f"(e.g. hot_house_3_5c/2100 → {cmip.get(('hot_house_3_5c','2100'))})", flush=True)
+
     rows, scored_cells = [], set()
     for i, la in enumerate(lats):
         for j, lo in enumerate(lons):
@@ -79,10 +90,13 @@ def main() -> int:
             scored_cells.add(cell)
             for scen in SCENARIO_WARMING_C:
                 for horz in HORIZON_FRACTION:
-                    # pass the cell lat+lon so forward horizons carry AR6 land/latitude warming
-                    # amplification AND the AR6 Mediterranean precipitation-decline term (current
-                    # horizon is unaffected — warming is 0 there)
-                    sc = score_fn(sp, scen, horz, lat=float(la), lon=float(lo))
+                    # raw CMIP6 belt deltas where covered (models set regional warming + rainfall);
+                    # else the scorer falls back to the parametric AR6 amplification + Med term.
+                    # Current horizon is unaffected either way (warming is 0 there).
+                    d = cmip[(scen, horz)]
+                    sc = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
+                                  warming_c=(d.dtas_c if d else None),
+                                  precip_frac=(d.dpr_frac if d else None))
                     rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8,
                                  "hz": hazard_type, "scen": scen, "horz": horz,
                                  "score": sc, "bucket": score_to_bucket(sc).value,

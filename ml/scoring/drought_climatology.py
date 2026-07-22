@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-from .heat_climatology import warming_delta, precip_drying_spei
+from .heat_climatology import warming_delta, precip_drying_spei, PRECIP_FRAC_TO_SPEI
 
 DRYING_PER_C = 0.12   # SPEI units of extra drought per °C warming (modest, v0)
 
@@ -25,12 +25,17 @@ def _phi(z: float) -> float:
 
 
 def drought_score(spei: float, scenario: str = "baseline", horizon: str = "current",
-                  lat: float | None = None, lon: float | None = None) -> float:
-    """0–100 drought hazard from SPEI; warming drives it drier — the TEMPERATURE side (AR6
-    land/latitude-amplified evapotranspiration) plus the AR6 regional PRECIPITATION decline
-    (Mediterranean hotspot, 0 elsewhere)."""
+                  lat: float | None = None, lon: float | None = None,
+                  warming_c: float | None = None, precip_frac: float | None = None) -> float:
+    """0–100 drought hazard from SPEI; warming drives it drier. When `warming_c` / `precip_frac`
+    are supplied (raw CMIP6 ensemble deltas for the cell's belt) they REPLACE the parametric
+    temperature (AR6 land/latitude amplification) and precipitation (AR6 Mediterranean coefficient)
+    terms — the models set the regional warming and rainfall change directly. Otherwise the
+    parametric fallback is used."""
     if spei is None:
         return 0.0
-    drying = (warming_delta(scenario, horizon, lat) * DRYING_PER_C
-              + precip_drying_spei(scenario, horizon, lat, lon))
+    temp = warming_c if warming_c is not None else warming_delta(scenario, horizon, lat)
+    precip = (-precip_frac * PRECIP_FRAC_TO_SPEI) if precip_frac is not None \
+        else precip_drying_spei(scenario, horizon, lat, lon)
+    drying = temp * DRYING_PER_C + precip
     return round(max(0.0, min(100.0, 100.0 * _phi(-(spei - drying)))), 1)
