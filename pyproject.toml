@@ -49,6 +49,10 @@ ingest = [
     "cdsapi>=0.7",
     "netCDF4>=1.6",
     "httpx>=0.27",
+    # raw CMIP6 delta-change projections (Pangeo zarr archive on Google Cloud)
+    "gcsfs>=2024.2",
+    "zarr>=2.17",
+    "fsspec>=2024.2",
 ]
 # ML training — everything above + SHAP
 train = [
