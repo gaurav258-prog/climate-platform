@@ -117,6 +117,12 @@ REGIONS: dict[str, Region] = {
     # Kazakhstan spring wheat — the northern steppe (Kostanay, Akmola, North Kazakhstan). Rain-fed,
     # continental, spring-sown/summer-grown; high-latitude (~52°N), a distinct dryland cereal system.
     "kazakhstan_wheat": Region("kazakhstan_wheat", "Kazakhstan spring-wheat steppe (north)", 50.0, 54.5, 62.0, 72.0),
+    # Wildfire-year stress check (2026 Mediterranean fires). NOT crop-calibrated belts — added to let
+    # our drought/heat engine speak for the AGRICULTURAL regions adjacent to the July-2026 fires.
+    # Gironde/Bordeaux wine country (the 2,400 ha blaze west of Bordeaux ran through pine forest + vineyards).
+    "bordeaux_wine": Region("bordeaux_wine", "Bordeaux/Gironde wine belt", 44.4, 45.4, -1.0, 0.2),
+    # Central Spain cereal/olive fringe around the Sierra Norte de Guadalajara (La Mierla, ~32,000 ha).
+    "spain_central": Region("spain_central", "Central Spain cereal/olive (Castilla-La Mancha)", 39.0, 41.0, -4.5, -2.0),
 }
 
 DEFAULT_REGION = "eu"
