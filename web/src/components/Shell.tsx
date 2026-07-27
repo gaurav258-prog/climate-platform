@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
 
 const TABS = [
+  { to: '/', label: 'Home', end: true },
   { to: '/disclosure', label: 'Disclosure & EUDR' },
   { to: '/cogs', label: 'COGS-at-risk' },
   { to: '/sourcing', label: 'Sourcing book' },
@@ -37,7 +38,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         {/* sharp tab strip */}
         <nav className="mx-auto max-w-[1200px] px-4 flex gap-1 overflow-x-auto">
           {TABS.map(t => (
-            <NavLink key={t.to} to={t.to} className={({ isActive }) => clsx(
+            <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => clsx(
               'relative whitespace-nowrap px-3 py-2.5 text-[13px] transition',
               isActive ? 'text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]')}>
               {({ isActive }) => (<>

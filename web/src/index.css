@@ -56,3 +56,7 @@ body {
 
 @keyframes fadeup { from { opacity: 0; transform: translateY(6px);} to { opacity:1; transform:none;} }
 .fadeup { animation: fadeup .4s ease both; }
+
+/* live-earth fallback: slow drifting glow */
+@keyframes drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(-2%,1.5%,0) scale(1.05)} 100%{transform:translate3d(0,0,0) scale(1)} }
+.drift { animation: drift 26s ease-in-out infinite; }
