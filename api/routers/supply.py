@@ -28,6 +28,7 @@ from services.intelligence.supply_cogs import (
     apply_commodity_override, clear_commodity_override, project_org_supply, IMPACT_VERSION,
 )
 from services.scoring.on_demand import process_new_cells
+from services.intelligence.geometry import validate_plot_geometry
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
@@ -407,11 +408,12 @@ def clear_commodity_cogs_override(commodity_id: str, session: DbSession, ctx: Cu
 # polygon is required) vs <=4ha (a single point suffices) -- see services/templates/workbook.py.
 PLOT_TEMPLATE_FIELDS = [
     {"name": "plot_name", "required": True, "description": "Free-text plot/farm name.", "example": "Ashanti Plot 4"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees (EUDR requires 6 d.p.).", "example": "6.694400"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees (EUDR requires 6 d.p.).", "example": "-1.605500"},
+    {"name": "latitude", "required": True, "description": "Decimal degrees, 6 d.p. (EUDR point geolocation). Leave blank if you supply plot_geojson — we take the centroid.", "example": "6.694400"},
+    {"name": "longitude", "required": True, "description": "Decimal degrees, 6 d.p. Leave blank if you supply plot_geojson.", "example": "-1.605500"},
     {"name": "commodity", "required": True, "description": "Must match a commodity already on this platform (e.g. Cocoa, Coffee, Citrus).", "example": "Cocoa"},
     {"name": "annual_spend_eur", "required": True, "description": "Annual procurement spend sourced from this plot.", "example": "150000"},
-    {"name": "plot_area_ha", "required": False, "description": "Plot area in hectares — EUDR requires a full polygon above 4ha.", "example": "2.3"},
+    {"name": "plot_geojson", "required": False, "description": "EUDR plot BOUNDARY as a GeoJSON Polygon — REQUIRED for any plot over 4 ha (a point is only valid at/below 4 ha). Area is computed from it.", "example": '{"type":"Polygon","coordinates":[[[-1.606,6.694],[-1.604,6.694],[-1.604,6.696],[-1.606,6.696],[-1.606,6.694]]]}'},
+    {"name": "plot_area_ha", "required": False, "description": "Plot area in hectares. Auto-computed (geodesic) when plot_geojson is given; only needed for a point-only plot.", "example": "2.3"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Ashanti"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "GH"},
 ]
@@ -438,7 +440,12 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
 
-    missing = [c for c in REQUIRED_PLOT_COLUMNS if c not in df.columns]
+    # latitude/longitude are required only when no plot_geojson column is supplied — a boundary-only
+    # upload derives the point from the polygon centroid.
+    required_cols = REQUIRED_PLOT_COLUMNS
+    if "plot_geojson" in df.columns:
+        required_cols = [c for c in REQUIRED_PLOT_COLUMNS if c not in ("latitude", "longitude")]
+    missing = [c for c in required_cols if c not in df.columns]
     if missing:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
 
@@ -446,10 +453,12 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
                      session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}
 
     org_id = ctx["org"]["org_id"]
+    import json as _json
+    has_geo = "plot_geojson" in df.columns
     records, cell_coords, unknown_commodities = [], {}, set()
+    geometry_errors, needs_polygon = [], []
     for _, row in df.iterrows():
         try:
-            lat, lon = float(row["latitude"]), float(row["longitude"])
             spend = float(row["annual_spend_eur"])
         except (TypeError, ValueError):
             continue
@@ -458,28 +467,56 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
         if not commodity_id:
             unknown_commodities.add(commodity)
             continue
+        name = str(row["plot_name"])
+
+        # Geolocation: a GeoJSON boundary (preferred, EUDR-grade) wins; else the lat/lon point.
+        geojson = None
+        area_ha = float(row["plot_area_ha"]) if "plot_area_ha" in df.columns and pd.notna(row.get("plot_area_ha")) else None
+        lat = lon = None
+        if has_geo and pd.notna(row.get("plot_geojson")) and str(row.get("plot_geojson")).strip():
+            v = validate_plot_geometry(row["plot_geojson"], declared_area_ha=area_ha)
+            if not v["ok"]:
+                geometry_errors.append({"plot": name, "error": v["error"]})
+                continue
+            geojson, lat, lon = _json.dumps(v["geojson"]), v["lat"], v["lon"]
+            if v["kind"] == "polygon":
+                area_ha = v["area_ha"]
+            if v["needs_polygon"]:
+                needs_polygon.append(name)  # a >4ha plot still sent as a point — flagged, not blocked
+        else:
+            try:
+                lat, lon = float(row["latitude"]), float(row["longitude"])
+            except (TypeError, ValueError):
+                continue
+            # A >4ha plot with only a point is EUDR-insufficient — flag it honestly.
+            if area_ha is not None and area_ha > 4.0:
+                needs_polygon.append(name)
+
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
             "plot_id": str(uuid.uuid4()), "org_id": org_id, "commodity_id": commodity_id,
-            "plot_name": str(row["plot_name"]), "latitude": lat, "longitude": lon, "h3_cell": cell,
+            "plot_name": name, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "annual_spend_eur": spend,
-            "plot_area_ha": float(row["plot_area_ha"]) if "plot_area_ha" in df.columns and pd.notna(row.get("plot_area_ha")) else None,
+            "annual_spend_eur": spend, "plot_area_ha": area_ha, "plot_geometry": geojson,
         })
     if not records:
-        raise HTTPException(status_code=400, detail={"error": "no_valid_rows", "unknown_commodities": list(unknown_commodities)})
+        raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
+            "unknown_commodities": list(unknown_commodities), "geometry_errors": geometry_errors})
 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
-                                        h3_cell, region, country, annual_spend_eur, plot_area_ha)
+                                        h3_cell, region, country, annual_spend_eur, plot_area_ha, plot_geometry)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :latitude, :longitude,
-                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha)
+                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb))
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.upload",
                 target_type="sc_sourcing_plots", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename, "unknown_commodities": list(unknown_commodities)})
+                detail={"n_rows": len(records), "filename": file.filename,
+                        "unknown_commodities": list(unknown_commodities),
+                        "geometry_errors": geometry_errors, "needs_polygon": needs_polygon})
 
     processing = process_new_cells(cell_coords)
-    return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities), **processing}
+    return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
+            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon, **processing}

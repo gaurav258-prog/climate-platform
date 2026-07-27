@@ -21,6 +21,9 @@ dependencies = [
     "pandas>=2.2",
     # H3 geospatial indexing
     "h3>=4.0",
+    # Plot geometry — EUDR polygon boundaries: GeoJSON parse + geodesic area (no PostGIS)
+    "shapely>=2.0",
+    "pyproj>=3.6",
     # Config
     "python-dotenv>=1.0",
     "pydantic-settings>=2.2",
