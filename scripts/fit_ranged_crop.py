@@ -15,6 +15,7 @@ spring water balance, not a 3-month spring snapshot); it is NOT the window that 
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
 from sqlalchemy import text
@@ -24,6 +25,7 @@ from ml.features.crop_fit import fit_climate_on_score
 from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
 from ml.features import soil_moisture as smf
 from ml.scoring.drought_climatology import drought_score
+from ml.scoring.heat_climatology import heat_anomaly_score
 from ml.scoring.soil_water_climatology import soil_water_score
 
 MIN_R2 = 0.40   # below this a driver explains too little to publish even as a range
@@ -36,6 +38,26 @@ def _drought_scores(region: str, scale: int, months: list[int]) -> dict[int, flo
     ds = load_monthly(NC_TEMPLATE.format(region=region))
     seasonal = seasonal_by_year(compute_indices(ds, scale=scale), months)
     return {r["year"]: drought_score(r["spei"]) for r in seasonal if r.get("spei") is not None}
+
+
+def _heat_scores(region: str, months: list[int]) -> dict[int, float]:
+    """Per-year grain-fill HEAT score from the seasonal temperature anomaly. The heat analogue of
+    `_drought_scores`: standardize each year's season-mean temp anomaly (already vs the 1991–2020
+    monthly normal) by the interannual σ of that seasonal anomaly, then map Φ(z)×100 — so a season
+    one σ hotter than normal reads ~84. The right driver for crops killed by heat during flowering
+    (US Corn Belt maize), where SPEI-drought explains ~nothing."""
+    ds = load_monthly(NC_TEMPLATE.format(region=region))
+    seasonal = seasonal_by_year(compute_indices(ds), months)
+    anoms = {r["year"]: r["temp_anom_c"] for r in seasonal
+             if r.get("temp_anom_c") is not None and not math.isnan(r["temp_anom_c"])}
+    if len(anoms) < 3:
+        return {}
+    vals = list(anoms.values())
+    mean = sum(vals) / len(vals)
+    sd = (sum((v - mean) ** 2 for v in vals) / (len(vals) - 1)) ** 0.5
+    if sd <= 0:
+        return {}
+    return {y: heat_anomaly_score((a - mean) / sd) for y, a in anoms.items()}
 
 
 def _soil_water_scores(region: str, months: list[int]) -> dict[int, float]:
@@ -63,8 +85,10 @@ def main() -> int:
         scores = _drought_scores(args.region, args.spei_scale, months)
     elif args.driver == "soil_water":
         scores = _soil_water_scores(args.region, months)
+    elif args.driver == "heat":
+        scores = _heat_scores(args.region, months)
     else:
-        print(f"driver '{args.driver}' not wired — use 'drought' or 'soil_water'")
+        print(f"driver '{args.driver}' not wired — use 'drought', 'heat' or 'soil_water'")
         return 2
 
     with get_session() as s:
@@ -81,12 +105,13 @@ def main() -> int:
             print("too few usable, non-edge years overlap — no fit")
             return 1
 
-        print(f"{args.commodity}/{args.origin} {args.driver} SPEI-{args.spei_scale} "
+        scale_lbl = f"SPEI-{args.spei_scale} " if args.driver == "drought" else ""
+        print(f"{args.commodity}/{args.origin} {args.driver} {scale_lbl}"
               f"{args.season}: n={fit.n_years} years {fit.years[0]}-{fit.years[-1]}")
         print(f"  slope={fit.slope:.4f}  intercept={fit.intercept:.2f}  "
-              f"r2={fit.r2:.3f}  rmse={fit.rmse:.2f}pp")
-        lo, mid, hi = fit.predict(85.0)   # a severe-drought score, illustrative
-        print(f"  at drought score 85: climate {mid:.1f}%  (68% band {lo:.1f}%..{hi:.1f}%)")
+              f"r2={fit.r2:.3f}  rmse={fit.rmse:.2f}pp  r2_oos={fit.r2_oos:.3f}")
+        lo, mid, hi = fit.predict(85.0)   # a severe hazard score, illustrative
+        print(f"  at {args.driver} score 85: climate {mid:.1f}%  (68% band {lo:.1f}%..{hi:.1f}%)")
 
         publishes = fit.r2 >= MIN_R2
         if publishes:
@@ -154,6 +179,7 @@ def main() -> int:
             "bfrom": fit.years[0], "bto": fit.years[-1], "ver": FIT_VERSION,
             "note": (f"OLS of cycle-decomposed climate anomaly on the {args.driver} score "
                      + (f"(SPEI-{args.spei_scale}, " if args.driver == "drought"
+                        else "(grain-fill temperature-anomaly percentile, " if args.driver == "heat"
                         else "(root-zone soil-moisture anomaly, ")
                      + f"months {args.season}) over {fit.n_years} years; r2={fit.r2:.3f}. "
                      + ("Published as a RANGE." if publishes

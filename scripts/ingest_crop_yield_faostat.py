@@ -58,6 +58,7 @@ ITEM_MAP = {
     "Wheat":       "Wheat",
     "Barley":      "Barley",
     "Maize":       "Maize (corn)",
+    "Sunflower":   "Sunflower seed",
     "Olive oil":   "Olives",
     "Almonds":     "Almonds, in shell",
     "Wine grapes": "Grapes",
@@ -100,6 +101,7 @@ AREA_MAP = {
     102: "IR",   # Iran (Islamic Republic of)
     108: "KZ",   # Kazakhstan (northern spring-wheat steppe; added 2026-07-20 for the rain-fed book)
     10:  "AU",   # Australia
+    202: "ZA",   # South Africa (rain-fed Highveld maize; added 2026-07-27 for the diversity book)
     2:   "AF",   # Afghanistan
     124: "LY",   # Libya
     5000: "WLD",  # World

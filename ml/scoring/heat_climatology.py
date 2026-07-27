@@ -19,6 +19,8 @@ grounded, not a flat multiplier. v0: absolute Tmax>32 °C pod-fill thresholds = 
 """
 from __future__ import annotations
 
+import math
+
 # Global-mean warming delta (°C) by NGFS-style scenario at full horizon (2100).
 # Applied × horizon fraction. West Africa warms ~1.2–1.4× global; v0 uses global (conservative).
 SCENARIO_WARMING_C = {
@@ -103,6 +105,23 @@ W_ABS, W_ANOM = 0.6, 0.4
 
 def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
+
+
+def _phi(z: float) -> float:
+    """Standard-normal CDF (same as drought_climatology's, kept local to avoid a cross-import)."""
+    return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+
+def heat_anomaly_score(z: float) -> float:
+    """0–100 heat-hazard score from a STANDARDIZED grain-fill temperature anomaly `z`
+    (σ units, positive = hotter than normal). The exact mirror of `drought_score`'s
+    Φ(−SPEI)×100: here Φ(+z)×100, so a season one σ hotter than normal reads ~84, two σ
+    ~98. This is the crop-FIT driver score for heat (the anomaly-percentile analogue of the
+    SPEI drought score), deliberately distinct from the cell-scoring `heat_score` above,
+    which also carries an absolute-stress term and forward warming."""
+    if z is None:
+        return 0.0
+    return round(max(0.0, min(100.0, 100.0 * _phi(z))), 1)
 
 
 def heat_score(temp_c: float, clim_mean: float, clim_std: float,

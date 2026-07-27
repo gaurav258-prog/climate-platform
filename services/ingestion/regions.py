@@ -123,6 +123,15 @@ REGIONS: dict[str, Region] = {
     "bordeaux_wine": Region("bordeaux_wine", "Bordeaux/Gironde wine belt", 44.4, 45.4, -1.0, 0.2),
     # Central Spain cereal/olive fringe around the Sierra Norte de Guadalajara (La Mierla, ~32,000 ha).
     "spain_central": Region("spain_central", "Central Spain cereal/olive (Castilla-La Mancha)", 39.0, 41.0, -4.5, -2.0),
+    # Diversity / EUDR crop expansion (2026-07). Proving the method generalises beyond Mediterranean drought.
+    # US Corn Belt (Iowa/Illinois/Indiana) — the iconic rain-fed maize+soy system; July silking-window drought/heat.
+    "us_cornbelt": Region("us_cornbelt", "US Corn Belt (Iowa/Illinois/Indiana)", 39.0, 43.0, -97.0, -85.0),
+    # Indo-Gangetic rice (Punjab/UP/Bihar) — monsoon kharif rice; heavily irrigated in Punjab (irrigation test).
+    "india_rice": Region("india_rice", "Indo-Gangetic rice belt (Punjab/UP/Bihar)", 24.0, 30.0, 75.0, 87.0),
+    # South African maize triangle (Free State + North West + Mpumalanga Highveld). Rain-fed, El Niño-
+    # driven; repeated droughts (1991/92, 2015/16) devastate the crop — a genuine multi-realization
+    # ranged-drought signal, unlike the US Corn Belt's single 2012 event.
+    "south_africa_maize": Region("south_africa_maize", "South Africa maize triangle (Highveld)", -29.0, -25.5, 24.5, 29.5),
 }
 
 DEFAULT_REGION = "eu"

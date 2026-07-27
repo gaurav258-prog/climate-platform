@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "ui", "run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "climate-api",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8001"],
+      "port": 8001
     }
   ]
 }

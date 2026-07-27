@@ -9,7 +9,20 @@ from ml.scoring.heat_climatology import (
     warming_amplification, warming_delta, LAND_BASE, AMP_MAX, precip_drying_spei,
 )
 from ml.scoring.drought_climatology import drought_score
-from ml.scoring.heat_climatology import heat_score
+from ml.scoring.heat_climatology import heat_score, heat_anomaly_score
+
+
+def test_heat_anomaly_score_mirrors_drought_score():
+    """The crop-fit heat driver is Φ(+z)×100, the exact mirror of drought_score's Φ(−SPEI)×100:
+    a normal season reads ~50, one σ hotter ~84, two σ ~98; monotone in z; None → 0; and a season
+    z σ hot equals a season z σ dry in drought terms (same percentile, opposite tail)."""
+    assert heat_anomaly_score(None) == 0.0
+    assert heat_anomaly_score(0.0) == 50.0
+    assert 83 < heat_anomaly_score(1.0) < 85
+    assert 97 < heat_anomaly_score(2.0) < 99
+    assert heat_anomaly_score(2.0) > heat_anomaly_score(1.0) > heat_anomaly_score(0.0)
+    # symmetry of the two hazard percentiles: hot z ≡ dry SPEI=−z
+    assert abs(heat_anomaly_score(1.3) - drought_score(-1.3)) < 0.2
 
 
 def test_land_floor_and_none_default():
