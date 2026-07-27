@@ -19,17 +19,24 @@ WEST, NORTH, PX = -1.65, 6.75, 0.00025
 LOSS_YEAR = 22  # 2022, i.e. after the 2020 cutoff
 
 
-@pytest.fixture
-def staged_tile(tmp_path):
-    """Write a 300x300 synthetic lossyear tile with a planted 2022-loss block."""
-    assert tile_id(6.70, -1.60) == "10N_010W"
-    arr = np.zeros((300, 300), dtype=np.uint8)
-    arr[80:180, 80:180] = LOSS_YEAR                 # a block of 2022 loss
-    arr[200:220, 200:220] = 19                      # a 2019 loss block (PRE-cutoff, must be ignored)
-    path = tmp_path / f"Hansen_{GFC_VERSION}_lossyear_10N_010W.tif"
-    with rasterio.open(path, "w", driver="GTiff", height=300, width=300, count=1,
+def _write(path, arr):
+    with rasterio.open(path, "w", driver="GTiff", height=arr.shape[0], width=arr.shape[1], count=1,
                        dtype="uint8", crs="EPSG:4326", transform=from_origin(WEST, NORTH, PX, PX)) as ds:
         ds.write(arr, 1)
+
+
+@pytest.fixture
+def staged_tile(tmp_path):
+    """Write synthetic lossyear + treecover2000 tiles for tile 10N_010W."""
+    assert tile_id(6.70, -1.60) == "10N_010W"
+    loss = np.zeros((300, 300), dtype=np.uint8)
+    loss[80:180, 80:180] = LOSS_YEAR                # 2022 loss ON forest
+    loss[200:220, 200:220] = 19                     # 2019 loss (PRE-cutoff, ignored)
+    loss[210:240, 60:100] = LOSS_YEAR               # 2022 loss on NON-forest (must be masked out)
+    tc = np.full((300, 300), 100, dtype=np.uint8)   # forest everywhere...
+    tc[210:240, 60:100] = 0                          # ...except this non-forest block
+    _write(tmp_path / f"Hansen_{GFC_VERSION}_lossyear_10N_010W.tif", loss)
+    _write(tmp_path / f"Hansen_{GFC_VERSION}_treecover2000_10N_010W.tif", tc)
     return str(tmp_path)
 
 
@@ -58,6 +65,12 @@ def test_pre_cutoff_loss_is_ignored(staged_tile):
     # The 2019 block must NOT count as EUDR loss (cutoff is 2020).
     r = forest_loss_since(_rect(200, 220, 200, 220), stage_dir=staged_tile)
     assert not r.has_loss
+
+
+def test_loss_on_nonforest_is_masked_out(staged_tile):
+    # 2022 loss on land that was NOT forest in 2000 (treecover=0) is not deforestation.
+    r = forest_loss_since(_rect(62, 98, 212, 238), stage_dir=staged_tile)
+    assert not r.insufficient and not r.has_loss and r.forest_pixels == 0
 
 
 def test_point_is_buffered_and_sampled(staged_tile):

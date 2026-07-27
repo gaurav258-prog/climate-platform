@@ -33,6 +33,7 @@ from shapely.geometry.base import BaseGeometry
 GFC_VERSION = "GFC-2024-v1.12"
 GFC_BASE = f"https://storage.googleapis.com/earthenginepartners-hansen/{GFC_VERSION}"
 EUDR_CUTOFF_YEAR = 2020            # loss in 2021+ (lossyear >= 21) is EUDR-relevant
+MIN_TREECOVER_PCT = 10             # FAO-aligned "forest": >=10% canopy in 2000 (treecover2000 band)
 STAGE_DIR = "data/forest"
 # Read-a-point plots need a footprint; buffer the point to a small disc to sample pixels.
 DEFAULT_POINT_BUFFER_M = 100.0
@@ -47,16 +48,18 @@ _GDAL_ENV = dict(
 
 @dataclass
 class ForestLoss:
-    has_loss: bool                 # any post-cutoff loss pixel inside the plot?
-    loss_pixels: int               # count of post-cutoff loss pixels
+    has_loss: bool                 # any post-cutoff loss ON FOREST inside the plot?
+    loss_pixels: int               # count of post-cutoff loss pixels (on forest)
     total_pixels: int              # pixels sampled inside the plot
-    loss_ha: float                 # approx hectares lost (per-pixel ground area at latitude)
+    loss_ha: float                 # approx hectares of forest lost (per-pixel area at latitude)
     loss_fraction: float           # loss_pixels / total_pixels
-    first_loss_year: Optional[int] # earliest post-cutoff loss year found (e.g. 2022)
+    first_loss_year: Optional[int] # earliest post-cutoff forest-loss year (e.g. 2022)
     tile: str                      # tile id used, for provenance
     cutoff_year: int
     source: str                    # dataset version + read mode
     insufficient: bool             # True when no pixels could be read (off-grid / no data)
+    min_treecover_pct: int = MIN_TREECOVER_PCT   # forest threshold applied (0 = no mask)
+    forest_pixels: int = 0         # pixels that were forest in 2000 (treecover >= threshold)
 
     def as_evidence(self) -> dict:
         return asdict(self)
@@ -92,47 +95,61 @@ def _pixel_area_ha(transform, lat: float) -> float:
     return (px_deg * m_per_deg_lon) * (py_deg * m_per_deg_lat) / 10_000.0
 
 
+def _read_band(src: str, footprint) -> tuple:
+    with rasterio.Env(**_GDAL_ENV):
+        with rasterio.open(src) as ds:
+            arr, transform = rio_mask(ds, [mapping(footprint)], crop=True, filled=True, nodata=0)
+    return arr[0], transform
+
+
 def forest_loss_since(geom: BaseGeometry, cutoff_year: int = EUDR_CUTOFF_YEAR,
-                      stage_dir: str = STAGE_DIR, point_buffer_m: float = DEFAULT_POINT_BUFFER_M) -> ForestLoss:
-    """Post-cutoff tree-cover loss inside a plot geometry (shapely Point or Polygon).
+                      min_treecover_pct: int = MIN_TREECOVER_PCT, stage_dir: str = STAGE_DIR,
+                      point_buffer_m: float = DEFAULT_POINT_BUFFER_M) -> ForestLoss:
+    """Post-cutoff FOREST loss inside a plot geometry (shapely Point or Polygon).
 
     Reads the Hansen lossyear tile covering the plot centroid, masks to the plot footprint, and
-    counts pixels whose loss year is after `cutoff_year`. A Point is buffered to a small disc so
-    it samples real pixels. Cross-tile plots use the centroid tile in v0 (documented limitation)."""
+    counts pixels whose loss year is after `cutoff_year` AND that were forest in 2000
+    (treecover2000 >= `min_treecover_pct`, FAO-aligned). Masking by treecover is what turns raw
+    tree-cover loss into a DEFORESTATION signal — so pruning an olive grove or harvesting a
+    plantation that was never forest is not flagged. Set min_treecover_pct=0 to skip the mask.
+    A Point is buffered to a small disc. Cross-tile plots use the centroid tile in v0."""
     c = geom.centroid
     lat, lon = c.y, c.x
     tid = tile_id(lat, lon)
-    src = tile_source(tid, stage_dir=stage_dir)
-    is_remote = src.startswith("/vsicurl/")
+    src = tile_source(tid, "lossyear", stage_dir)
+    mode = "remote" if src.startswith("/vsicurl/") else "staged"
 
     footprint = geom
     if geom.geom_type == "Point":
-        # buffer in degrees ~ meters/111320 (lon corrected by latitude)
         deg = point_buffer_m / (111_320.0 * max(math.cos(math.radians(lat)), 1e-6))
         footprint = geom.buffer(deg)
 
     loss_year_min = (cutoff_year - 2000) + 1     # 2020 -> 21 (i.e. 2021)
     try:
-        with rasterio.Env(**_GDAL_ENV):
-            with rasterio.open(src) as ds:
-                arr, transform = rio_mask(ds, [mapping(footprint)], crop=True, filled=True, nodata=0)
-        band = arr[0]
-        sampled = band[band != 255] if False else band  # 255 not used by lossyear; keep all
-        total = int((sampled >= 0).sum())
-        loss_mask = sampled >= loss_year_min
-        loss_pixels = int(loss_mask.sum())
+        loss_band, transform = _read_band(src, footprint)
+        total = int(loss_band.size)
         if total == 0:
-            return ForestLoss(False, 0, 0, 0.0, 0.0, None, tid, cutoff_year,
-                              f"{GFC_VERSION} ({'remote' if is_remote else 'staged'})", insufficient=True)
-        years = sampled[loss_mask]
-        first = 2000 + int(years.min()) if loss_pixels else None   # cast off uint8 before +2000
+            raise ValueError("no pixels under plot footprint")
+        loss_mask = loss_band >= loss_year_min
+
+        forest_pixels = total
+        if min_treecover_pct > 0:
+            tc_band, _ = _read_band(tile_source(tid, "treecover2000", stage_dir), footprint)
+            forest_mask = tc_band >= min_treecover_pct
+            forest_pixels = int(forest_mask.sum())
+            loss_mask = loss_mask & forest_mask   # deforestation = loss ON land that was forest
+
+        loss_pixels = int(loss_mask.sum())
+        years = loss_band[loss_mask]
+        first = 2000 + int(years.min()) if loss_pixels else None
         loss_ha = round(loss_pixels * _pixel_area_ha(transform, lat), 4)
         return ForestLoss(
             has_loss=loss_pixels > 0, loss_pixels=loss_pixels, total_pixels=total,
             loss_ha=loss_ha, loss_fraction=round(loss_pixels / total, 4), first_loss_year=first,
-            tile=tid, cutoff_year=cutoff_year,
-            source=f"{GFC_VERSION} ({'remote' if is_remote else 'staged'})", insufficient=False)
+            tile=tid, cutoff_year=cutoff_year, source=f"{GFC_VERSION} ({mode})", insufficient=False,
+            min_treecover_pct=min_treecover_pct, forest_pixels=forest_pixels)
     except Exception as e:
         # Never fabricate a determination on a read failure — surface it as insufficient.
         return ForestLoss(False, 0, 0, 0.0, 0.0, None, tid, cutoff_year,
-                          f"{GFC_VERSION} read-error: {e}", insufficient=True)
+                          f"{GFC_VERSION} read-error: {e}", insufficient=True,
+                          min_treecover_pct=min_treecover_pct)

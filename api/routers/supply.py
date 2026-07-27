@@ -29,6 +29,7 @@ from services.intelligence.supply_cogs import (
 )
 from services.scoring.on_demand import process_new_cells
 from services.intelligence.geometry import validate_plot_geometry
+from services.intelligence.eudr import determine_plot
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
@@ -167,7 +168,9 @@ def _plots_with_hazard(session, org_id, scenario, horizon):
                p.plot_id::text AS plot_id, co.name AS commodity, co.eudr_covered,
                p.plot_name, p.region, p.country, CAST(p.latitude AS FLOAT) AS lat,
                CAST(p.longitude AS FLOAT) AS lon, CAST(p.annual_spend_eur AS FLOAT) AS spend_eur,
-               p.eudr_status, v.hazard_type AS top_hazard,
+               p.eudr_status, p.eudr_determination, p.eudr_first_loss_year,
+               CAST(p.eudr_loss_ha AS FLOAT) AS eudr_loss_ha, p.eudr_forest_source,
+               p.eudr_determined_at, v.hazard_type AS top_hazard,
                CAST(v.physical_risk_score AS FLOAT) AS hazard_score
         FROM sc_sourcing_plots p
         JOIN sc_commodities co ON co.commodity_id = p.commodity_id
@@ -209,14 +212,24 @@ def disclosure(session: DbSession, org_id: OrgId,
         eudr.append({
             "plot_id": p["plot_id"], "commodity": p["commodity"], "plot": p["plot_name"], "region": p["region"],
             "country": p["country"], "eudr_covered": p["eudr_covered"],
-            "eudr_status": p["eudr_status"], "hazard_score": round(hs, 1) if hs is not None else None,
-            "climate_viable": (hs is not None and hs < 60),
-            "scored": hs is not None,
+            # declared = the customer's self-reported flag; determination = OUR satellite computation.
+            "eudr_declared": p["eudr_status"], "eudr_determination": p["eudr_determination"],
+            "first_loss_year": p["eudr_first_loss_year"], "loss_ha": p["eudr_loss_ha"],
+            "forest_source": p["eudr_forest_source"],
+            "determined_at": p["eudr_determined_at"].isoformat() if p["eudr_determined_at"] else None,
+            "hazard_score": round(hs, 1) if hs is not None else None,
+            "climate_viable": (hs is not None and hs < 60), "scored": hs is not None,
         })
     covered = [e for e in eudr if e["eudr_covered"]]
+    det = lambda status: sum(1 for e in covered if e["eudr_determination"] == status)
     eudr_summary = {
         "covered_plots": len(covered),
-        "deforestation_free": sum(1 for e in covered if e["eudr_status"] == "compliant"),
+        # Computed by us from Hansen forest-loss (None until /eudr/determine has been run).
+        "determined": sum(1 for e in covered if e["eudr_determination"]),
+        "deforestation_free": det("deforestation_free"),
+        "non_compliant": det("non_compliant"),
+        "geolocation_incomplete": det("geolocation_incomplete"),
+        "insufficient": det("insufficient"),
         "climate_at_risk": sum(1 for e in covered if e["scored"] and not e["climate_viable"]),
         "unscored": sum(1 for e in covered if not e["scored"]),
     }
@@ -520,3 +533,42 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     processing = process_new_cells(cell_coords)
     return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
             "geometry_errors": geometry_errors, "needs_polygon": needs_polygon, **processing}
+
+
+@router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")
+def eudr_determine(session: DbSession, ctx: CurrentUser):
+    """Compute each plot's EUDR status from the forest layer (not the customer's declared flag) and
+    persist it. EUDR-covered plots are checked against Hansen forest-loss; non-covered plots are
+    marked not_covered without a forest read. Idempotent — re-run to refresh."""
+    import json as _json
+    from datetime import datetime, timezone
+    org_id = ctx["org"]["org_id"]
+    rows = session.execute(text("""
+        SELECT p.plot_id::text AS plot_id, p.plot_geometry, p.latitude, p.longitude,
+               p.plot_area_ha, co.eudr_covered
+        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        WHERE p.org_id = :o
+    """), {"o": org_id}).mappings().all()
+
+    summary: dict = {}
+    now = datetime.now(timezone.utc)
+    for r in rows:
+        det = determine_plot(
+            eudr_covered=bool(r["eudr_covered"]), plot_geometry=r["plot_geometry"],
+            latitude=r["latitude"], longitude=r["longitude"],
+            area_ha=float(r["plot_area_ha"]) if r["plot_area_ha"] is not None else None)
+        summary[det.status] = summary.get(det.status, 0) + 1
+        session.execute(text("""
+            UPDATE sc_sourcing_plots
+            SET eudr_determination=:s, eudr_loss_ha=:lh, eudr_first_loss_year=:fy,
+                eudr_forest_source=:src, eudr_determined_at=:ts, eudr_evidence=CAST(:ev AS jsonb)
+            WHERE plot_id=:pid
+        """), {"s": det.status, "lh": det.loss_ha, "fy": det.first_loss_year,
+               "src": det.forest_source, "ts": now, "ev": _json.dumps(det.evidence),
+               "pid": r["plot_id"]})
+
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.determine",
+                target_type="sc_sourcing_plots", target_id=None,
+                detail={"n_plots": len(rows), "summary": summary})
+    session.commit()
+    return {"n_plots": len(rows), "summary": summary, "determined_at": now.isoformat()}
