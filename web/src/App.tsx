@@ -3,6 +3,9 @@ import { useAuth } from './lib/auth'
 import Login from './pages/Login'
 import Shell from './components/Shell'
 import Disclosure from './pages/Disclosure'
+import Cogs from './pages/Cogs'
+import Models from './pages/Models'
+import EarlyWarning from './pages/EarlyWarning'
 import Placeholder from './pages/Placeholder'
 
 export default function App() {
@@ -16,11 +19,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/disclosure" replace />} />
         <Route path="/disclosure" element={<Disclosure />} />
-        <Route path="/cogs" element={<Placeholder title="COGS-at-risk" />} />
+        <Route path="/cogs" element={<Cogs />} />
         <Route path="/sourcing" element={<Placeholder title="Sourcing book" />} />
         <Route path="/riskmap" element={<Placeholder title="Risk map" />} />
-        <Route path="/early-warning" element={<Placeholder title="Early warning" />} />
-        <Route path="/models" element={<Placeholder title="Models & validation" />} />
+        <Route path="/early-warning" element={<EarlyWarning />} />
+        <Route path="/models" element={<Models />} />
         <Route path="/foundation" element={<Placeholder title="Data foundation" />} />
         <Route path="*" element={<Navigate to="/disclosure" replace />} />
       </Routes>
