@@ -28,3 +28,6 @@ data/reservoirs/*.mdb
 data/reservoirs/*.zip
 data/reservoirs/embalses.csv
 data/reservoirs/embalses_iso.csv
+
+# Hansen forest tiles (large, reproducible via scripts/ingest_forest_baseline.py)
+data/forest/
