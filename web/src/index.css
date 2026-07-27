@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* ---- Tellumen design system (dark, navy + sky) ---- */
+@theme {
+  --color-bg: #0a0f1c;
+  --color-bg-2: #0c1424;
+  --color-panel: #111a2c;
+  --color-panel-2: #16223a;
+  --color-line: #1e2a40;
+  --color-line-2: #2a3a56;
+  --color-ink: #e8eef7;
+  --color-mute: #94a3b8;
+  --color-faint: #64748b;
+  --color-sky: #7dd3fc;
+  --color-blue: #38bdf8;
+  --color-blued: #1560c4;
+  --color-good: #34d399;
+  --color-warn: #f59e0b;
+  --color-bad: #fb7185;
+  --color-slate: #8290a8;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root { color-scheme: dark; }
+* { border-color: var(--color-line); }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: color-mix(in oklab, var(--color-blue) 35%, transparent); }
+
+/* scrollbars */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--color-line-2); border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* utility bits */
+.mono { font-family: var(--font-mono); }
+.display { font-family: var(--font-display); }
+.card { background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 14px; }
+.hairline { border-color: var(--color-line); }
+.glow { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-sky) 30%, transparent),
+                    0 8px 40px -12px color-mix(in oklab, var(--color-blue) 40%, transparent); }
+
+/* React Flow theme overrides */
+.react-flow__attribution { display: none; }
+.react-flow__edge-path { stroke: var(--color-line-2); }
+.react-flow__node { font-family: var(--font-sans); }
+
+@keyframes fadeup { from { opacity: 0; transform: translateY(6px);} to { opacity:1; transform:none;} }
+.fadeup { animation: fadeup .4s ease both; }
