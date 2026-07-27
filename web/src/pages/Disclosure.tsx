@@ -20,6 +20,7 @@ interface Dds {
   items: { commodity: string; hs_code: string; plot_count: number; countries_of_production: string[] }[]
   blockers: { plot: string; commodity: string; determination: string; reason: string }[]
   operator_completes: string[]
+  reference_number?: string | null; reference_captured_at?: string | null
 }
 
 const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
@@ -36,6 +37,13 @@ export default function Disclosure() {
   const assemble = useMutation({
     mutationFn: () => api.post<Dds>('/v1/supply/eudr/dds'),
     onSuccess: (d) => setDds(d),
+  })
+  const [ref, setRef] = useState('')
+  const [ver, setVer] = useState('')
+  const capture = useMutation({
+    mutationFn: () => api.put<{ reference_number: string; reference_captured_at: string }>(
+      `/v1/supply/eudr/dds/${dds!.dds_id}/reference`, { reference_number: ref.trim(), verification_number: ver.trim() || null }),
+    onSuccess: (r) => setDds(prev => prev ? { ...prev, status: 'filed', reference_number: r.reference_number, reference_captured_at: r.reference_captured_at } : prev),
   })
 
   if (disc.isLoading) return <Center>loading disclosure…</Center>
@@ -165,6 +173,35 @@ export default function Disclosure() {
                 {dds.operator_completes.map((c, i) => <div key={i} className="text-[12px] text-[var(--color-mute)] py-0.5">— {c}</div>)}
               </div>
             </div>
+
+            {/* file & capture the TRACES reference */}
+            {dds.status === 'filed' ? (
+              <div className="rounded-lg border border-[color-mix(in_oklab,var(--color-good)_45%,var(--color-line))] bg-[color-mix(in_oklab,var(--color-good)_9%,transparent)] px-4 py-3">
+                <div className="flex items-center gap-2 text-[13px] text-[var(--color-good)]"><FileCheck2 size={15} /> Filed to EU TRACES</div>
+                <div className="mono text-[12px] text-[var(--color-ink)] mt-1.5">ref {dds.reference_number}
+                  <span className="text-[var(--color-faint)]"> · captured {dds.reference_captured_at ? new Date(dds.reference_captured_at).toLocaleString() : ''}</span></div>
+              </div>
+            ) : dds.ready ? (
+              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-4 py-3">
+                <div className="text-[12.5px] text-[var(--color-mute)] mb-3">File the statement in EU TRACES, then paste the reference number it returns to close the loop — an immutable, audited filing record.</div>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div>
+                    <label className="block mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">TRACES reference *</label>
+                    <input value={ref} onChange={e => setRef(e.target.value)} placeholder="e.g. 25NLABCD1234567"
+                      className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[var(--color-sky)] w-[220px]" />
+                  </div>
+                  <div>
+                    <label className="block mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Verification (optional)</label>
+                    <input value={ver} onChange={e => setVer(e.target.value)} placeholder="verification no."
+                      className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[var(--color-sky)] w-[180px]" />
+                  </div>
+                  <Button onClick={() => capture.mutate()} disabled={capture.isPending || !ref.trim()}>
+                    {capture.isPending ? <><Loader2 size={14} className="animate-spin" /> Recording…</> : 'Mark filed'}
+                  </Button>
+                </div>
+                {capture.error ? <div className="text-[12px] text-[var(--color-bad)] mt-2">Could not record the reference. Re-assemble and try again.</div> : null}
+              </div>
+            ) : null}
           </div>}
       </Card>
 
