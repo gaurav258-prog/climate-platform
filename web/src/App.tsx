@@ -6,7 +6,9 @@ import Disclosure from './pages/Disclosure'
 import Cogs from './pages/Cogs'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
-import Placeholder from './pages/Placeholder'
+import Sourcing from './pages/Sourcing'
+import DataFoundation from './pages/DataFoundation'
+import RiskMap from './pages/RiskMap'
 
 export default function App() {
   const { profile, loading } = useAuth()
@@ -20,11 +22,11 @@ export default function App() {
         <Route path="/" element={<Navigate to="/disclosure" replace />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/cogs" element={<Cogs />} />
-        <Route path="/sourcing" element={<Placeholder title="Sourcing book" />} />
-        <Route path="/riskmap" element={<Placeholder title="Risk map" />} />
+        <Route path="/sourcing" element={<Sourcing />} />
+        <Route path="/riskmap" element={<RiskMap />} />
         <Route path="/early-warning" element={<EarlyWarning />} />
         <Route path="/models" element={<Models />} />
-        <Route path="/foundation" element={<Placeholder title="Data foundation" />} />
+        <Route path="/foundation" element={<DataFoundation />} />
         <Route path="*" element={<Navigate to="/disclosure" replace />} />
       </Routes>
     </Shell>
