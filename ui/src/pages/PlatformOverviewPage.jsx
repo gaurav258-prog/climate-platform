@@ -136,7 +136,8 @@ export default function PlatformOverviewPage({ auth }) {
             </div>
           </div>
         </div>
-        <div className="grid sm:grid-cols-4 gap-4 mt-5">
+        <p className="text-xs text-gray-400 mt-6">The shared foundation underneath — one golden source, the same for every sector:</p>
+        <div className="grid sm:grid-cols-4 gap-4 mt-2">
           <Stat big="51.4M" label="satellite observations" />
           <Stat big="1998–2026" label="28 years of history" />
           <Stat big="H3 res-8" label="~0.7 km² cells, EU" />
