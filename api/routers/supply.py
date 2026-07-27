@@ -30,6 +30,7 @@ from services.intelligence.supply_cogs import (
 from services.scoring.on_demand import process_new_cells
 from services.intelligence.geometry import validate_plot_geometry
 from services.intelligence.eudr import determine_plot
+from services.intelligence.eudr_dds import assemble_dds
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
@@ -572,3 +573,67 @@ def eudr_determine(session: DbSession, ctx: CurrentUser):
                 detail={"n_plots": len(rows), "summary": summary})
     session.commit()
     return {"n_plots": len(rows), "summary": summary, "determined_at": now.isoformat()}
+
+
+class DdsReference(BaseModel):
+    reference_number: str = Field(min_length=1)
+    verification_number: Optional[str] = None
+
+
+@router.post("/eudr/dds", summary="Assemble a submission-ready EUDR Due Diligence Statement")
+def eudr_dds_assemble(session: DbSession, ctx: CurrentUser):
+    """Build a DDS from the deforestation-free plots + operator identity, persist it as a draft,
+    and report readiness (which plots block a filing, what the operator still completes in TRACES)."""
+    import json as _json
+    org_id = ctx["org"]["org_id"]
+    dds = assemble_dds(session, org_id)
+    status = "ready" if dds["ready"] else "draft"
+    dds_id = session.execute(text("""
+        INSERT INTO sc_eudr_dds (org_id, status, payload, blockers, plot_count, covered_count, created_by)
+        VALUES (:o, :st, CAST(:p AS jsonb), CAST(:b AS jsonb), :fc, :cc, :u)
+        RETURNING dds_id::text
+    """), {"o": org_id, "st": status, "p": _json.dumps(dds), "b": _json.dumps(dds["blockers"]),
+           "fc": dds["fileable_plots"], "cc": dds["covered_plots"], "u": ctx["user"]["id"]}).scalar()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.assemble",
+                target_type="sc_eudr_dds", target_id=dds_id,
+                detail={"ready": dds["ready"], "fileable": dds["fileable_plots"], "blocked": len(dds["blockers"])})
+    session.commit()
+    return {"dds_id": dds_id, "status": status, **dds}
+
+
+@router.get("/eudr/dds/{dds_id}", summary="Fetch an assembled DDS (the frozen payload + status)")
+def eudr_dds_get(dds_id: str, session: DbSession, ctx: CurrentUser):
+    r = session.execute(text("""
+        SELECT dds_id::text, status, reference_number, verification_number, payload, blockers,
+               plot_count, covered_count, created_at, filed_at
+        FROM sc_eudr_dds WHERE dds_id = :d AND org_id = :o
+    """), {"d": dds_id, "o": ctx["org"]["org_id"]}).mappings().first()
+    if not r:
+        raise HTTPException(status_code=404, detail="DDS not found")
+    return dict(r)
+
+
+@router.put("/eudr/dds/{dds_id}/reference", summary="Capture the TRACES reference number after filing")
+def eudr_dds_reference(dds_id: str, body: DdsReference, session: DbSession, ctx: CurrentUser):
+    """Record the reference (and optional verification) number the operator receives from TRACES on
+    submission — marks the DDS 'filed'. A DDS can only be filed once it was assembled 'ready'."""
+    from datetime import datetime, timezone
+    org_id = ctx["org"]["org_id"]
+    cur = session.execute(text("SELECT status FROM sc_eudr_dds WHERE dds_id=:d AND org_id=:o"),
+                          {"d": dds_id, "o": org_id}).mappings().first()
+    if not cur:
+        raise HTTPException(status_code=404, detail="DDS not found")
+    if cur["status"] == "draft":
+        raise HTTPException(status_code=409, detail="DDS is not ready to file — resolve blockers and re-assemble")
+    now = datetime.now(timezone.utc)
+    session.execute(text("""
+        UPDATE sc_eudr_dds SET reference_number=:r, verification_number=:v, status='filed',
+               filed_at=COALESCE(filed_at, :ts), reference_captured_at=:ts
+        WHERE dds_id=:d AND org_id=:o
+    """), {"r": body.reference_number, "v": body.verification_number, "ts": now, "d": dds_id, "o": org_id})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.filed",
+                target_type="sc_eudr_dds", target_id=dds_id,
+                detail={"reference_number": body.reference_number})
+    session.commit()
+    return {"dds_id": dds_id, "status": "filed", "reference_number": body.reference_number,
+            "reference_captured_at": now.isoformat()}
