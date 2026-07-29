@@ -40,22 +40,28 @@ def _respect_rate_limit():
         _last_request_time = time.monotonic()
 
 
-def geocode(address: str) -> dict | None:
-    """Address string -> {"lat": float, "lon": float, "display_name": str}, or None if not found."""
+def geocode_candidates(address: str, limit: int = 5) -> list[dict]:
+    """Address string -> ranked list of {"lat","lon","display_name"} (best first, may be empty).
+
+    Powers the UI autocomplete so the user PICKS the right place instead of trusting the top hit —
+    'Springfield' and truncated names ('Delhi' → Delhi/New Delhi/Delhi township) are exactly the
+    ambiguous cases a single best-match gets wrong.
+    """
     _respect_rate_limit()
     r = httpx.get(
         settings.NOMINATIM_URL,
-        params={"q": address, "format": "jsonv2", "limit": 1},
+        params={"q": address, "format": "jsonv2", "limit": max(1, min(limit, 10)), "addressdetails": 0},
         headers={"User-Agent": USER_AGENT},
         timeout=15,
     )
     r.raise_for_status()
-    results = r.json()
-    if not results:
-        return None
-    top = results[0]
-    return {
-        "lat": float(top["lat"]),
-        "lon": float(top["lon"]),
-        "display_name": top.get("display_name", address),
-    }
+    return [
+        {"lat": float(h["lat"]), "lon": float(h["lon"]), "display_name": h.get("display_name", address)}
+        for h in r.json()
+    ]
+
+
+def geocode(address: str) -> dict | None:
+    """Address string -> {"lat","lon","display_name"} best match, or None. (Single-hit convenience.)"""
+    hits = geocode_candidates(address, limit=1)
+    return hits[0] if hits else None

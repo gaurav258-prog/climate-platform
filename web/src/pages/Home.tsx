@@ -1,74 +1,121 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Map, ShieldCheck, FileCheck2, Boxes } from 'lucide-react'
+import { ArrowUpRight, Boxes, Building2, Sprout, ShieldCheck, TrendingDown } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card, Stat, Button } from '../components/ui'
+import { Eyebrow } from '../components/ui'
 import LiveEarthHero from '../components/LiveEarthHero'
 
 interface Summary {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number }
   eudr: { summary: Record<string, number> }
+  commodities?: { commodity: string; volume_at_risk_eur: number | null; top_hazard: string | null }[]
 }
+interface Site { site_id: string; name: string; site_type: string; hazard_score: number | null; top_hazard: string | null; value_eur: number | null }
+interface SitesResp { sites: Site[] }
+interface Plot { plot_id: string; plot_name: string; commodity: string; top_hazard: string | null; hazard_score: number | null; spend_eur: number
+  eudr_covered?: boolean; eudr_determination?: string | null }
+interface Portfolio { plots: Plot[] }
 
-const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
-
-const LINKS = [
-  { to: '/disclosure', icon: ShieldCheck, label: 'Disclosure & EUDR', sub: 'the deforestation-free check + DDS' },
-  { to: '/cogs', icon: Boxes, label: 'COGS-at-risk', sub: 'the volume that won’t arrive' },
-  { to: '/riskmap', icon: Map, label: 'Risk map', sub: 'every plot by live hazard' },
-  { to: '/models', icon: FileCheck2, label: 'Models & validation', sub: 'why the numbers hold up' },
-]
+const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
+const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const hz = (s?: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 
 export default function Home() {
   const nav = useNavigate()
   const { profile } = useAuth()
-  const q = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
-  const s = q.data?.eudr.summary ?? {}
+  const sum = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
+  const sites = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites') })
+  const pf = useQuery({ queryKey: ['portfolio'], queryFn: () => api.get<Portfolio>('/v1/supply/portfolio') })
+
+  const s = sum.data
+  const siteList = sites.data?.sites ?? []
+  const sitesElevated = siteList.filter(x => (x.hazard_score ?? 0) >= 40).length
+  const plots = pf.data?.plots ?? []
+  const coveredPlots = plots.filter(p => p.eudr_covered).length
+  const defFree = plots.filter(p => p.eudr_determination === 'deforestation_free').length
+  const topCommodity = (s?.commodities ?? []).filter(c => (c.volume_at_risk_eur ?? 0) > 0)
+    .sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))[0]
+
+  // biggest exposures across the whole book (sites + suppliers), for the granular strip — each opens its detail
+  const exposures = [
+    ...siteList.map(x => ({ name: x.name, kind: x.site_type.replace(/_/g, ' '), hazard: x.top_hazard, score: x.hazard_score, href: `/detail/site/${x.site_id}` })),
+    ...plots.map(p => ({ name: p.plot_name, kind: p.commodity, hazard: p.top_hazard, score: p.hazard_score, href: `/detail/plot/${p.plot_id}` })),
+  ].filter(e => e.score != null).sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6)
 
   return (
     <div className="fadeup space-y-7">
-      <LiveEarthHero height="60vh">
-        <div className="display text-[clamp(40px,7vw,76px)] font-semibold italic leading-none text-[#F4EFE6]">
+      {/* live Earth-from-space hero */}
+      <LiveEarthHero height="46vh">
+        <div className="display text-[clamp(34px,5.5vw,60px)] font-semibold italic leading-none text-[#F4EFE6]">
           Tel<span className="text-[var(--color-sky)]">lumen</span>
         </div>
         <div className="mono mt-3 text-[11px] uppercase tracking-[0.28em] text-[var(--color-blue)]">Light on the Earth</div>
-        <p className="display italic mt-8 max-w-2xl text-[clamp(22px,3.4vw,38px)] font-light leading-tight text-[#F4EFE6]">
-          See what’s coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
+        <p className="display italic mt-5 max-w-2xl text-[clamp(18px,2.6vw,30px)] font-light leading-tight text-[#F4EFE6]">
+          See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
         </p>
-        <p className="mt-4 max-w-xl text-[15px] text-[#c7d3e6]">
-          Live satellite &amp; sensor data on every sourcing plot — turned into one defensible number, and the EUDR
-          filing to go with it.
-        </p>
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-          <Button onClick={() => nav('/disclosure')}>Open the workspace <ArrowRight size={15} /></Button>
-          <Button variant="ghost" onClick={() => nav('/riskmap')}>See the risk map</Button>
-        </div>
       </LiveEarthHero>
 
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={eur(q.data?.rollup.volume_at_risk_eur)} label="volume at risk (physical)" tone="warn" />
-        <Stat big={`${(q.data?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS" />
-        <Stat big={s.covered_plots ?? '—'} label="EUDR-covered plots" />
-        <Stat big={s.deforestation_free ?? '—'} label="deforestation-free" tone="good" />
+      <div>
+        <Eyebrow>{profile?.org?.name} · agriculture workspace</Eyebrow>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Overview</h1>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Your climate risk across operations and sourcing — one glance, then click any tile to open the detail.</p>
       </div>
 
+      {/* KPI widgets — each clickable → its detail view */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Widget icon={TrendingDown} tone="warn" onClick={() => nav('/cogs')}
+          value={eur(s?.rollup.volume_at_risk_eur)} label="Volume at risk (physical)"
+          sub={s ? `${s.rollup.pct_cogs_at_risk.toFixed(2)}% of COGS · top: ${topCommodity ? `${topCommodity.commodity} ${eur(topCommodity.volume_at_risk_eur)}` : '—'}` : '…'} />
+        <Widget icon={Building2} onClick={() => nav('/operations')}
+          value={siteList.length} label="Operational sites"
+          sub={`${sitesElevated} at elevated hazard (≥40)`} tone={sitesElevated ? 'warn' : 'ink'} />
+        <Widget icon={Sprout} onClick={() => nav('/sourcing')}
+          value={plots.length} label="Sourcing plots"
+          sub={`geolocated & scored · ${eur(plots.reduce((a, p) => a + (p.spend_eur ?? 0), 0))} spend`} />
+        <Widget icon={ShieldCheck} tone="good" onClick={() => nav('/disclosure')}
+          value={coveredPlots ? `${defFree}/${coveredPlots}` : '—'} label="EUDR deforestation-free"
+          sub={coveredPlots ? `of ${coveredPlots} EUDR-covered plots` : 'no EUDR-covered plots'} />
+        <Widget icon={Boxes} onClick={() => nav('/cogs')}
+          value={`${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS at risk"
+          sub="physical climate exposure on the bill of materials" />
+      </div>
+
+      {/* granular strip — what's driving the numbers, clickable */}
       <div>
-        <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-3">
-          {profile?.org?.name} · agriculture workspace
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {LINKS.map(l => (
-            <button key={l.to} onClick={() => nav(l.to)} className="text-left">
-              <Card className="p-5 h-full hover:border-[var(--color-sky)] transition">
-                <l.icon size={18} className="text-[var(--color-sky)] mb-3" />
-                <div className="text-[14px] font-semibold">{l.label}</div>
-                <div className="text-[12px] text-[var(--color-mute)] mt-1">{l.sub}</div>
-              </Card>
+        <div className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-3">Biggest exposures right now</div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {exposures.map((e, i) => (
+            <button key={i} onClick={() => window.open(e.href, '_blank')}
+              className="text-left rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3.5 hover:border-[var(--color-sky)] transition">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] text-[var(--color-ink)] truncate">{e.name}</span>
+                <span className="mono text-[13px] shrink-0" style={{ color: hz(e.score) }}>{Math.round(e.score as number)}</span>
+              </div>
+              <div className="text-[11px] text-[var(--color-faint)] mt-0.5">{pretty(e.hazard)} · {e.kind}</div>
             </button>
           ))}
+          {exposures.length === 0 && <div className="text-[13px] text-[var(--color-faint)]">Add sites or suppliers to see your exposures.</div>}
         </div>
       </div>
     </div>
+  )
+}
+
+function Widget({ icon: Icon, value, label, sub, onClick, tone = 'ink', hideIfUndef }:
+  { icon: typeof Boxes; value: React.ReactNode; label: string; sub: string; onClick: () => void; tone?: 'ink' | 'good' | 'warn'; hideIfUndef?: boolean }) {
+  if (hideIfUndef && (value === '—' || value === undefined)) return null
+  const c = tone === 'good' ? 'var(--color-good)' : tone === 'warn' ? 'var(--color-warn)' : 'var(--color-ink)'
+  return (
+    <button onClick={onClick}
+      className="group text-left rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5 hover:border-[var(--color-sky)] transition">
+      <div className="flex items-start justify-between">
+        <Icon size={18} className="text-[var(--color-sky)]" />
+        <ArrowUpRight size={16} className="text-[var(--color-faint)] group-hover:text-[var(--color-sky)] transition" />
+      </div>
+      <div className="mt-3 text-[28px] font-semibold leading-none" style={{ color: c }}>{value}</div>
+      <div className="mt-1.5 text-[13px] text-[var(--color-ink)]">{label}</div>
+      <div className="mt-1 text-[11px] text-[var(--color-faint)]">{sub}</div>
+    </button>
   )
 }

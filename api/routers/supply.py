@@ -31,7 +31,9 @@ from services.scoring.on_demand import process_new_cells
 from services.intelligence.geometry import validate_plot_geometry
 from services.intelligence.eudr import determine_plot
 from services.intelligence.eudr_dds import assemble_dds
+from services.intelligence.company_sites import add_site, list_sites_with_risk, site_hazards, SiteLocationError, SITE_TYPES
 from services.templates.workbook import build_export_workbook, build_template_workbook
+from services.intelligence.csrd_e1 import build_e1_report
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
 
@@ -96,6 +98,12 @@ def summary(session: DbSession, org_id: OrgId,
             "covered_spend_eur": r.covered_spend_eur,
         },
         "commodities": [asdict(c) for c in r.commodities],
+        # name → commodity_id, so the UI can deep-link each commodity to its analytics detail
+        "commodity_ids": {row["name"]: row["commodity_id"] for row in session.execute(text("""
+            SELECT DISTINCT co.commodity_id::text AS commodity_id, co.name
+            FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+            WHERE p.org_id = :o
+        """), {"o": org_id}).mappings().all()},
         "eudr": _eudr_summary(session, org_id),
     }
 
@@ -135,6 +143,203 @@ def portfolio(session: DbSession, org_id: OrgId,
     }
 
 
+@router.get("/hex-hazard", summary="H3 hexagons around the sourcing plots, each with its own per-cell hazard lookup")
+def hex_hazard(session: DbSession, org_id: OrgId, res: int = Query(4, ge=2, le=9)):
+    """The Earth as the platform actually indexes it — H3 cells around the procurement book, each
+    carrying a REAL hazard lookup from the golden source (canonical_scores), not the plot's own
+    score copied onto its cell. A cell with no reading yet returns status='no_data' (the on-demand
+    grid extends there but hasn't been scored). That honesty is the point of the hex view.
+
+    `res` is the H3 resolution to draw at (the UI raises it as you zoom in). Cells are the plots'
+    own cells at that resolution plus their 1-ring of neighbours, so the grid reads as a patch
+    around the book rather than a full-planet tiling."""
+    from api.routers.lookup import _compute_overall  # local import: dodge a circular import at module load
+
+    plots = session.execute(text("""
+        SELECT p.h3_cell, CAST(p.latitude AS FLOAT) lat, CAST(p.longitude AS FLOAT) lon,
+               p.plot_name, p.country, co.name AS commodity
+        FROM sc_sourcing_plots p
+        JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+    """), {"o": org_id}).mappings().all()
+    if not plots:
+        return {"resolution": res, "hexes": []}
+
+    # Each plot's data cell is the res-8 unit the golden source stores; look its hazard up FOR REAL
+    # (canonical_scores, not the plot's own COGS score) and roll it up to the display hex it sits in.
+    agg: dict[str, dict] = {}
+    for p in plots:
+        r8 = p["h3_cell"] or h3.latlng_to_cell(p["lat"], p["lon"], 8)
+        # exclude heat_acute so a hex shows the standing climate profile, not today's live temperature —
+        # the same rule lookup_score() uses for its baseline figure.
+        ov = _compute_overall(session, r8, exclude_hazards=frozenset({"heat_acute"}))
+        hx = h3.cell_to_parent(r8, res)
+        plot_label = {"name": p["plot_name"], "commodity": p["commodity"], "country": p["country"]}
+        cur = agg.get(hx)
+        if cur is None:
+            agg[hx] = {"score": ov.score, "bucket": ov.bucket, "driver": ov.driver_hazard,
+                       "n_plots": 1, "n_scored": 1 if ov.score is not None else 0, "plots": [plot_label]}
+        else:
+            cur["n_plots"] += 1
+            cur["plots"].append(plot_label)
+            if ov.score is not None:
+                cur["n_scored"] += 1
+                if cur["score"] is None or ov.score > cur["score"]:  # MAX = the region's worst scored cell
+                    cur["score"], cur["bucket"], cur["driver"] = ov.score, ov.bucket, ov.driver_hazard
+
+    plot_hexes = set(agg)
+    ring: set[str] = set()
+    for hx in plot_hexes:
+        ring |= set(h3.grid_disk(hx, 1))   # the grid extends around the book — context cells, not yet scored
+    ring -= plot_hexes
+
+    # Clip each hexagon to the land of the country under its centre, so the grid never spills into the
+    # sea or across a border — cells whose centre isn't on land are dropped.
+    from services.reference.country_boundaries import clip_hex
+
+    def _clipped(cell: str):
+        boundary = [[lon, lat] for (lat, lon) in h3.cell_to_boundary(cell)]  # GeoJSON order: [lon, lat]
+        center_lat, center_lon = h3.cell_to_latlng(cell)
+        return clip_hex(boundary, (center_lon, center_lat))
+
+    hexes = []
+    for hx in plot_hexes:
+        rings = _clipped(hx)
+        if not rings:
+            continue
+        a = agg[hx]
+        hexes.append({"cell": hx, "rings": rings, "score": a["score"], "bucket": a["bucket"],
+                      "driver_hazard": a["driver"], "n_plots": a["n_plots"], "plots": a["plots"],
+                      "is_plot_cell": True, "status": "scored" if a["score"] is not None else "no_data"})
+    for hx in ring:
+        rings = _clipped(hx)
+        if not rings:
+            continue
+        hexes.append({"cell": hx, "rings": rings, "score": None, "bucket": None,
+                      "driver_hazard": None, "n_plots": 0, "is_plot_cell": False, "status": "no_data"})
+    hexes.sort(key=lambda h: (not h["is_plot_cell"], h["score"] is None, -(h["score"] or 0)))
+    return {"resolution": res, "hexes": hexes, "n_plot_cells": len(plot_hexes)}
+
+
+# ── Company operational sites (own footprint: HQ / plants / warehouses / DCs) ──────────────────
+class SiteCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    site_type: str = "other"
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    country: Optional[str] = None
+    annual_value_eur: Optional[float] = None          # asset value (PP&E + inventory) → value-at-risk
+    annual_throughput_eur: Optional[float] = None      # revenue/goods through the site → business-interruption
+
+
+SITE_TEMPLATE_FIELDS = ["name", "site_type", "address", "latitude", "longitude", "country",
+                        "annual_value_eur", "annual_throughput_eur"]
+
+
+@router.get("/sites", summary="The company's own operational sites + each site's worst climate hazard")
+def sites(session: DbSession, org_id: OrgId):
+    rows = list_sites_with_risk(session, org_id)
+    from core.types import score_to_bucket
+    for r in rows:
+        hs = r.get("hazard_score")
+        r["bucket"] = score_to_bucket(hs).value if hs is not None else None
+        r["hazard_score"] = round(hs, 1) if hs is not None else None
+    totals = {
+        "asset_value_eur": sum(r.get("value_eur") or 0 for r in rows),
+        "throughput_eur": sum(r.get("throughput_eur") or 0 for r in rows),
+        "bi_at_risk_eur": sum(r.get("bi_at_risk_eur") or 0 for r in rows),  # v0 illustrative
+        "n_elevated": sum(1 for r in rows if (r.get("hazard_score") or 0) >= 40),
+    }
+    return {"org_id": org_id, "sites": rows, "site_types": sorted(SITE_TYPES),
+            "totals": totals, "bi_note": "Business-interruption is a v0 illustrative estimate (throughput × expected downtime by hazard band); downtime factors are not yet calibrated."}
+
+
+@router.get("/site/{site_id}", summary="One operational site — record + all hazards + adaptation actions")
+def site_detail(site_id: str, session: DbSession):
+    from services.intelligence.adaptation import actions_for
+    from services.intelligence.company_sites import bi_downtime_fraction
+    row = session.execute(text("""
+        SELECT s.site_id::text, s.name, s.site_type, CAST(s.latitude AS FLOAT) lat, CAST(s.longitude AS FLOAT) lon,
+               s.country, s.address, s.h3_cell, CAST(s.annual_value_eur AS FLOAT) value_eur,
+               CAST(s.annual_throughput_eur AS FLOAT) throughput_eur, s.geocode_precision
+        FROM sc_company_sites s WHERE s.site_id = :id
+    """), {"id": site_id}).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="site not found")
+    hazards = site_hazards(session, site_id)
+    worst = max((h["score"] for h in hazards if h["score"] is not None), default=None)
+    bi = round((row["throughput_eur"] or 0) * bi_downtime_fraction(worst), 0) or None
+    return {"kind": "site", "site": dict(row), "hazards": hazards,
+            "bi_at_risk_eur": bi, "adaptation": actions_for([h["hazard_type"] for h in hazards if (h["score"] or 0) >= 40])}
+
+
+@router.post("/sites", summary="Add one operational site (by address or coordinates) → geocode + score")
+def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
+    org_id = ctx["org"]["org_id"]
+    try:
+        site = add_site(session, org_id, body.name, body.site_type, address=body.address,
+                        lat=body.latitude, lon=body.longitude, country=body.country,
+                        annual_value_eur=body.annual_value_eur, annual_throughput_eur=body.annual_throughput_eur,
+                        source="user_entry")
+    except SiteLocationError as e:
+        raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.site.add",
+                target_type="company_site", target_id=site["site_id"], detail={"name": body.name, "type": site["site_type"]})
+    return {"ok": True, "site": site}
+
+
+@router.get("/geocode", summary="Address autocomplete — ranked place candidates (preview, no write)")
+def geocode_preview(q: str = Query(..., min_length=2), limit: int = Query(5, ge=1, le=10)):
+    """Live address lookup returning ranked candidates so the UI can offer a pick-list
+    (the user selects the right place instead of trusting a single best-match)."""
+    from services.geocoding.nominatim import geocode_candidates
+    return {"results": geocode_candidates(q.strip(), limit=limit)}
+
+
+@router.get("/sites/template.xlsx", summary="Download the operational-sites upload template (Excel)")
+def sites_template_xlsx():
+    buf = build_template_workbook(SITE_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=company_sites_template.xlsx"})
+
+
+@router.post("/sites/upload", summary="Bulk-upload operational sites from a CSV")
+async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    org_id = ctx["org"]["org_id"]
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    raw = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+    if "name" not in df.columns:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": ["name"]})
+
+    added, skipped = [], []
+    for _, r in df.iterrows():
+        name = str(r.get("name") or "").strip()
+        if not name:
+            continue
+        def _num(v):
+            try: return float(v)
+            except Exception: return None
+        try:
+            site = add_site(session, org_id, name, str(r.get("site_type") or "other"),
+                            address=(str(r["address"]).strip() if r.get("address") is not None and str(r.get("address")) != "nan" else None),
+                            lat=_num(r.get("latitude")), lon=_num(r.get("longitude")),
+                            country=(str(r["country"]) if r.get("country") is not None and str(r.get("country")) != "nan" else None),
+                            annual_value_eur=_num(r.get("annual_value_eur")),
+                            annual_throughput_eur=_num(r.get("annual_throughput_eur")), source="user_upload")
+            added.append(site["name"])
+        except SiteLocationError:
+            skipped.append({"name": name, "reason": "unlocatable — no coordinates or geocodable address"})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.sites.upload",
+                target_type="company_site", target_id=None, detail={"added": len(added), "skipped": len(skipped)})
+    return {"ok": True, "added": len(added), "skipped": skipped}
+
+
 @router.get("/plot/{plot_id}", summary="One sourcing plot — projection + provenance")
 def plot_detail(plot_id: str, session: DbSession):
     p = session.execute(text("""
@@ -156,9 +361,58 @@ def plot_detail(plot_id: str, session: DbSession):
         FROM v_sc_plot_physical_risk WHERE plot_id=:id
         ORDER BY hazard_type, scenario, time_horizon
     """), {"id": plot_id}).mappings().all()
-    return {"plot": dict(p), "impact_version": IMPACT_VERSION,
-            "risks": [dict(r) for r in risks],
+    from services.intelligence.adaptation import actions_for
+    elevated = [r["hazard_type"] for r in risks
+                if r["scenario"] == "baseline" and r["time_horizon"] == "current" and (r["score"] or 0) >= 40]
+    return {"kind": "plot", "plot": dict(p), "impact_version": IMPACT_VERSION,
+            "risks": [dict(r) for r in risks], "adaptation": actions_for(elevated),
             "note": "€ impact is v0 (uncalibrated); see docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md"}
+
+
+@router.get("/commodity/{commodity_id}", summary="One commodity — analytics: exposure, plots, calibration/validation, projections, adaptation")
+def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
+    co = session.execute(text("SELECT name, eudr_covered FROM sc_commodities WHERE commodity_id=:id"),
+                         {"id": commodity_id}).mappings().first()
+    if not co:
+        raise HTTPException(status_code=404, detail="commodity not found")
+    name = co["name"]
+
+    r = project_org_supply(session, org_id)
+    match = next((c for c in r.commodities if getattr(c, "commodity", None) == name), None)
+    summary = asdict(match) if match else {"commodity": name}
+    driver = summary.get("top_hazard")
+
+    plots = [dict(p) for p in _plots_with_hazard(session, org_id, "baseline", "current") if p["commodity"] == name]
+
+    # projections: the driver hazard across scenarios / time-horizons for this crop's plots
+    projections = []
+    if driver:
+        projections = [dict(x) for x in session.execute(text("""
+            SELECT v.scenario, v.time_horizon, ROUND(AVG(v.physical_risk_score)::numeric, 1) AS avg_score, COUNT(*) AS n
+            FROM v_sc_plot_physical_risk v JOIN sc_sourcing_plots p ON p.plot_id = v.plot_id
+            WHERE p.org_id = :o AND p.commodity_id = :c AND v.hazard_type = :h
+            GROUP BY v.scenario, v.time_horizon ORDER BY v.time_horizon
+        """), {"o": org_id, "c": commodity_id, "h": driver}).mappings().all()]
+
+    # the calibration / validation record for this crop (every regression we ran, published or held)
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
+    from ml.confidence_grade import grade as _grade
+    from services.intelligence.adaptation import actions_for
+    fits = []
+    for f in session.execute(text("""
+        SELECT f.origin, f.hazard_driver, CAST(f.r2 AS FLOAT) r2, CAST(f.r2_oos AS FLOAT) r2_oos,
+               CAST(f.band_cov68 AS FLOAT) band_cov68, f.n_years, f.spei_scale, f.season_months,
+               f.baseline_from, f.baseline_to, f.source_note
+        FROM sc_commodity_fit f WHERE f.commodity_id = :c ORDER BY f.r2_oos DESC NULLS LAST, f.r2 DESC
+    """), {"c": commodity_id}).mappings().all():
+        publishes = (f["r2"] or 0) >= RANGED_PUBLISH_FLOOR
+        g = _grade(tier="ranged", r2_oos=f["r2_oos"], n_years=f["n_years"], band_cov68=f["band_cov68"]) if publishes else None
+        fits.append({**dict(f), "publishes": publishes, "confidence_grade": g.grade if g else None})
+
+    return {"kind": "commodity", "commodity_id": commodity_id, "commodity": name, "eudr_covered": co["eudr_covered"],
+            "summary": summary, "plots": plots, "projections": projections, "fits": fits,
+            "adaptation": actions_for([driver]) if driver else [],
+            "impact_version": IMPACT_VERSION}
 
 
 def _plots_with_hazard(session, org_id, scenario, horizon):
@@ -272,6 +526,40 @@ def disclosure_xlsx(session: DbSession, org_id: OrgId,
     buf = build_export_workbook(headers, rows, sheet_name="CSRD physical risk")
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                               headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-supply-{scenario}-{horizon}.xlsx"})
+
+
+@router.get("/csrd-e1", summary="CSRD / ESRS E1 physical-risk report (own operations + sourcing)")
+def csrd_e1(session: DbSession, org_id: OrgId,
+            scenario: str = Query("baseline"), horizon: str = Query("current")):
+    return build_e1_report(session, org_id, scenario=scenario, horizon=horizon)
+
+
+@router.get("/csrd-e1.xlsx", summary="CSRD / ESRS E1 physical-risk report (Excel)")
+def csrd_e1_xlsx(session: DbSession, org_id: OrgId,
+                 scenario: str = Query("baseline"), horizon: str = Query("current")):
+    rep = build_e1_report(session, org_id, scenario=scenario, horizon=horizon)
+    headers = ["section", "hazard", "class", "assets_exposed", "value_or_spend_eur",
+               "financial_effect_eur", "basis", "max_score"]
+    rows: list[list] = []
+    for h in rep["material_hazards"]:
+        op, up = h.get("own_operations"), h.get("upstream")
+        if op:
+            rows.append(["Own operations", h["label"], h["class"], f'{op["n_sites"]} sites',
+                         round(op["asset_value_eur"]), round(op["bi_at_risk_eur"]),
+                         "asset value / business interruption", op["max_score"]])
+        if up:
+            rows.append(["Upstream sourcing", h["label"], h["class"], f'{up["n_commodities"]} commodities',
+                         round(up["spend_eur"]), round(up["cogs_at_risk_eur"]),
+                         "spend / COGS-at-risk (published)", up["max_score"]])
+    fe = rep["financial_effects"]
+    rows.append([])
+    rows.append(["FINANCIAL EFFECT — asset value at risk", "", "", "", "", round(fe["asset_value_at_risk_eur"]), "", ""])
+    rows.append(["FINANCIAL EFFECT — business interruption (v0)", "", "", "", "", round(fe["business_interruption_eur"]), "", ""])
+    rows.append(["FINANCIAL EFFECT — COGS at risk (published)", "", "", "", "", round(fe["cogs_at_risk_published_eur"]), "", ""])
+    rows.append(["EXPOSURE MAPPED — € withheld (chain not validated)", "", "", "", round(fe["exposure_mapped_but_withheld_eur"]), "", "", ""])
+    buf = build_export_workbook(headers, rows, sheet_name="ESRS E1 physical risk")
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-e1-{scenario}-{horizon}.xlsx"})
 
 
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")

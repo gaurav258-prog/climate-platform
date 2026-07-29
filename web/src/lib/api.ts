@@ -44,3 +44,15 @@ export const api = {
   post: <T,>(p: string, b?: unknown) => request<T>('POST', p, b),
   put: <T,>(p: string, b?: unknown) => request<T>('PUT', p, b),
 }
+
+// Authenticated file download: fetches with the bearer, streams to a Blob, triggers a browser save.
+// A plain <a href> can't carry the JWT, so tenant-scoped .xlsx endpoints need this.
+export async function download(path: string, filename: string): Promise<void> {
+  const token = getToken()
+  const res = await fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  const blob = await res.blob()
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+  URL.revokeObjectURL(a.href)
+}

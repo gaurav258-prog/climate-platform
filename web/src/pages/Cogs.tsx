@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat } from '../components/ui'
 
@@ -11,6 +13,7 @@ interface Commodity {
 interface Summary {
   rollup: { ingredient_spend_eur: number; total_cogs_eur: number; volume_at_risk_eur: number; pct_cogs_at_risk: number }
   commodities: Commodity[]
+  commodity_ids: Record<string, string>
 }
 
 const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
@@ -20,6 +23,7 @@ const TIER: Record<string, { label: string; cls: string }> = {
 }
 
 export default function Cogs() {
+  const nav = useNavigate()
   const q = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
   if (q.isLoading) return <Center>loading…</Center>
   if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
@@ -49,10 +53,14 @@ export default function Cogs() {
         {rows.map(c => {
           const tier = c.calibration ? TIER[c.calibration] : undefined
           const published = c.calibration === 'backtested' || c.calibration === 'ranged'
+          const cid = d.commodity_ids?.[c.commodity]
           return (
-            <Card key={c.commodity} className="p-4">
+            <Card key={c.commodity} className={`p-4 ${cid ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}
+              style={cid ? undefined : undefined}>
+              <div onClick={() => cid && nav(`/detail/commodity/${cid}`)}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-[15px] font-semibold">{c.commodity}</span>
+                {cid && <ChevronRight size={15} className="text-[var(--color-faint)] order-last ml-1" />}
                 {c.eudr_covered && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-blue)] bg-[color-mix(in_oklab,var(--color-blue)_13%,transparent)]">EUDR</span>}
                 {tier && <span className={`mono text-[9px] px-2 py-0.5 rounded-full ${tier.cls}`}>{tier.label}{c.fit_r2 != null ? ` · r² ${c.fit_r2.toFixed(2)}` : ''}</span>}
                 {c.confidence_grade && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-mute)] border border-[var(--color-line-2)]">Grade {c.confidence_grade}</span>}
@@ -71,6 +79,7 @@ export default function Cogs() {
                 {!published && c.held_reason ? <span className="text-[var(--color-faint)]"> · {c.held_reason}</span> : ''}
               </div>
               {c.measured_basis && <div className="text-[11px] text-[var(--color-faint)] mt-1">measures {c.measured_basis}</div>}
+              </div>
             </Card>
           )
         })}
