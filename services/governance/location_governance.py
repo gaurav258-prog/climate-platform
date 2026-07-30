@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.services.rbac import write_audit
-from services.scoring.on_demand import process_new_cells
+from services.scoring.on_demand import schedule_scoring
 
 # Whitelisted editable columns per entity — the ONLY keys an update will touch (SQL-injection safe:
 # column names come from these sets, never from the request).
@@ -66,10 +66,7 @@ def _rescore(session: Session, table: str, id_col: str, target_id: str, org_id: 
     session.execute(text(f"UPDATE {table} SET h3_cell=:c WHERE {id_col}=:i AND org_id=:o"),
                     {"c": cell, "i": target_id, "o": org_id})
     session.commit()
-    try:
-        process_new_cells({cell: (row["lat"], row["lon"])})
-    except Exception:
-        pass  # cell saved; scoring lands on the next sweep
+    schedule_scoring({cell: (row["lat"], row["lon"])})  # background — don't block the edit on a fresh cell
 
 
 def _clean_changes(kind: str, changes: dict) -> dict:

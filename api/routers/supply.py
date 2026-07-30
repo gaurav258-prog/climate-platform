@@ -27,7 +27,7 @@ from api.services.rbac import write_audit
 from services.intelligence.supply_cogs import (
     apply_commodity_override, clear_commodity_override, project_org_supply, IMPACT_VERSION,
 )
-from services.scoring.on_demand import process_new_cells
+from services.scoring.on_demand import schedule_scoring
 from services.intelligence.geometry import validate_plot_geometry
 from services.intelligence.eudr import determine_plot
 from services.intelligence.eudr_dds import assemble_dds
@@ -337,10 +337,7 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,
                 detail={"plot_name": body.plot_name, "commodity": body.commodity})
-    try:
-        process_new_cells({cell: (loc["lat"], loc["lon"])})
-    except Exception:
-        pass  # cell saved; scoring can land on the next golden-source sweep
+    schedule_scoring({cell: (loc["lat"], loc["lon"])})  # background — a fresh cell shouldn't block the add
     return {"ok": True, "plot": {"plot_id": plot_id, "plot_name": body.plot_name, "commodity": body.commodity,
             "lat": loc["lat"], "lon": loc["lon"], "resolved_name": loc.get("resolved_name"),
             "geocode_precision": loc["precision"], "needs_polygon": needs_polygon}}
@@ -958,9 +955,9 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
                         "unknown_commodities": list(unknown_commodities),
                         "geometry_errors": geometry_errors, "needs_polygon": needs_polygon})
 
-    processing = process_new_cells(cell_coords)
+    schedule_scoring(cell_coords)  # background — a bulk upload spanning fresh cells shouldn't block the response
     return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
-            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon, **processing}
+            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon, "scoring": "queued"}
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")

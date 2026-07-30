@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.geocoding.nominatim import geocode
-from services.scoring.on_demand import process_new_cells
+from services.scoring.on_demand import schedule_scoring
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +83,9 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
            "conf": loc["confidence"], "prec": loc["precision"], "source": source}).first()
     session.commit()
 
-    # score the cell if the golden source hasn't reached it yet (sync hazards land immediately)
-    try:
-        process_new_cells({cell: (loc["lat"], loc["lon"])})
-    except Exception:
-        logger.warning("on-demand scoring failed for site cell %s (site still saved)", cell)
+    # score the cell in the background if the golden source hasn't reached it — a fresh cell means
+    # slow ERA5/raster reads, so we don't block the add (the site is already saved; score lands shortly)
+    schedule_scoring({cell: (loc["lat"], loc["lon"])})
 
     return {"site_id": row[0], "name": name, "site_type": site_type, "lat": loc["lat"], "lon": loc["lon"],
             "h3_cell": cell, "geocode_precision": loc["precision"]}

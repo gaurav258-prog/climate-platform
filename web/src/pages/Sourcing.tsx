@@ -45,7 +45,7 @@ export default function Sourcing() {
       })
       const where = useChosen ? chosen!.display_name : `${r.plot.lat.toFixed(3)}, ${r.plot.lon.toFixed(3)}`
       const poly = r.plot.needs_polygon ? ' (>4 ha — add a polygon boundary for EUDR).' : ''
-      setMsg({ text: `✓ Added "${form.plot_name.trim()}" (${form.commodity}) at ${where}. Scored on the live hazard grid.${poly}`, tone: 'ok' })
+      setMsg({ text: `✓ Added "${form.plot_name.trim()}" (${form.commodity}) at ${where}. Scoring on the live hazard grid — it'll appear shortly.${poly}`, tone: 'ok' })
       setForm({ plot_name: '', commodity: '', address: '', latitude: '', longitude: '', annual_spend_eur: '', plot_area_ha: '' })
       setChosen(null)
       await q.refetch()

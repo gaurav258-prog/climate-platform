@@ -50,7 +50,7 @@ export default function Operations() {
         annual_throughput_eur: form.annual_throughput_eur ? Number(form.annual_throughput_eur) : null,
       })
       const where = useChosen ? chosen!.display_name : `${r.site.lat.toFixed(3)}, ${r.site.lon.toFixed(3)}`
-      setMsg({ text: `✓ Added "${form.name.trim()}" at ${where}. Scored on the live hazard grid — see the table below.`, tone: 'ok' })
+      setMsg({ text: `✓ Added "${form.name.trim()}" at ${where}. Scoring on the live hazard grid — it'll appear in the table shortly (a new region may take a moment).`, tone: 'ok' })
       setForm({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
       setChosen(null)
       await q.refetch()

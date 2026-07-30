@@ -7,6 +7,9 @@ address-lookup query does, not a second, drifting copy of this wiring.
 """
 from __future__ import annotations
 
+import logging
+import threading
+
 from services.tasks.hazard_tasks import HAZARD_TASKS
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from ml.features.heat_chronic_point import score_heat_chronic_point
@@ -67,3 +70,26 @@ def process_new_cells(cell_coords: dict) -> dict:
             n_gridded += 1
 
     return {"n_cells": len(cells), "n_sync_scored": n_sync, "n_gridded_dispatched": n_gridded}
+
+
+logger = logging.getLogger(__name__)
+
+
+def schedule_scoring(cell_coords: dict) -> None:
+    """Fire-and-forget version of process_new_cells for the write path.
+
+    Scoring a brand-new cell means synchronous ERA5/raster reads (~seconds), which would
+    otherwise block the add/edit/upload request. process_new_cells opens its OWN DB sessions
+    (get_session), so running it in a daemon thread here is safe — the request returns
+    immediately and the score lands a moment later. Already-scored cells are a fast no-op.
+    """
+    if not cell_coords:
+        return
+
+    def _run() -> None:
+        try:
+            process_new_cells(cell_coords)
+        except Exception:
+            logger.warning("background scoring failed for cells %s", list(cell_coords), exc_info=True)
+
+    threading.Thread(target=_run, name="score-cells", daemon=True).start()
