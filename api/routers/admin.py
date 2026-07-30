@@ -401,6 +401,25 @@ def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
     return get_settings(session, org_id)
 
 
+@router.get("/data-feeds", summary="Golden-source feed freshness (is the data under a filing current?)")
+def data_feeds(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.data.feeds import feed_freshness
+    return {"feeds": feed_freshness(session)}
+
+
+@router.post("/data-feeds/{feed_key}/refresh", summary="Record a golden-source refresh (audited; the pull itself is scheduled)")
+def refresh_feed(feed_key: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.data.feeds import record_refresh
+    try:
+        res = record_refresh(session, feed_key, ctx["user"]["id"])
+    except ValueError as e:
+        raise HTTPException(422, {"error": "unknown_feed", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="data_feed.refresh", target_type="data_feed", target_id=feed_key,
+                detail={"invalidates_basis": res["invalidates_basis"]})
+    return res
+
+
 @router.patch("/organization", summary="Edit the org's reporting identity (audited)")
 def patch_organization(body: OrgPatch, session: DbSession,
                        ctx: dict = Depends(require_permission("admin.users.manage"))):

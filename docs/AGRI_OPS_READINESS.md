@@ -40,10 +40,10 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | **GAP (us)** — fine for demo/onboarding, not for consumer-scale production |
-| **Built** | Address → coordinate resolution via **Nominatim** (OpenStreetMap), with a shared thread-safe rate limiter so parallel loaders respect one rate budget, and a street→city→country fallback ladder. |
-| **Gap** | The **public** Nominatim instance rate-limits hard, offers no SLA, and carries ODbL attribution/usage terms not meant for production volume. Bulk supplier-list uploads will throttle. |
-| **Owner action** | **(us)** Move to either a **self-hosted Nominatim** (own the SLA + rate budget) or a commercial geocoder (Google / HERE / Mapbox) with a caching layer keyed on the normalized address, plus an **address-precision QA** step that flags low-confidence hits for human confirmation rather than silently scoring a bad point. The selectable-autocomplete UI already gives us the confirmation surface. |
+| **Status** | Caching + QA + provider seam **READY (v1.49)**; only pointing at a paid/self-hosted provider (an API key + URL) remains — a config change |
+| **Built** | Address → coordinate resolution via **Nominatim** with a shared thread-safe rate limiter + street→city→country ladder, now wrapped by a **cache-aware, provider-swappable front door** (`services/geocoding/geocoder.py`): every resolved query is persisted in **`geocode_cache`** (keyed on provider + normalized query + limit) so repeated/bulk uploads hit Postgres, not the provider; each candidate carries a real **confidence + precision + `low_confidence`** flag (derived from Nominatim `importance`/`addresstype`, replacing the old flat 0.6), and the autocomplete **warns on a coarse (city/region/country-level) hit**. `GEOCODER_PROVIDER` selects the backend. |
+| **Gap** | Only the last config step: point `GEOCODER_PROVIDER` + URL/key at a **self-hosted Nominatim or a paid geocoder** (Google/HERE/Mapbox) for a real SLA at volume. The cache, the QA flag and the swap seam are done. |
+| **Owner action** | **(us/customer)** choose and configure the production provider; no code change. |
 | **Positioning** | The *hazard* data stays direct from Europe's & America's satellites & agencies (Copernicus/ECMWF, NASA/USGS). Geocoding is a separate, swappable utility; upgrading it does not touch the golden source. |
 
 ## 4. Assurance evidence pack
@@ -60,10 +60,10 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | **GAP (us + customer)** — needs an agreed, owned schedule per feed |
+| **Status** | Registry + freshness tracking + change log **READY (v1.49)**; the scheduled data pulls + cadence sign-off remain external |
 | **Why** | A filing is only as current as the feeds under it. Each source refreshes on its own clock; a re-score and (if a snapshot's basis is affected) a re-freeze must follow, with a change log. |
-| **Sources & indicative cadence** | Hazard/climate — **Copernicus/ECMWF, NASA/USGS** (rolling; re-score on the reporting cadence, plus event-driven for the early-warning nowcast). Deforestation — **Hansen Global Forest Change** (annual release; re-run EUDR determinations on release). Reference — **GLEIF** (LEI, daily-ish), **Climate TRACE** / **GEM** (periodic). Backtests — refit when a new validated shock year lands. |
-| **Owner action** | **(us)** Define, per feed: refresh trigger, the re-score job it kicks, and whether it invalidates a live (un-frozen) basis. **(customer)** Agree the reporting cadence and who signs off a re-freeze. Frozen snapshots never move — a refresh produces a *new* version, preserving the audit line. |
+| **Built** | `services/data/feeds.py` — a **feed registry** (Copernicus/ECMWF, NASA/USGS, Hansen GFC, GLEIF, Climate TRACE, GEM) each with a cadence and an **`invalidates_basis`** flag; `feed_freshness()` computes **fresh / due_soon / overdue / untracked** against the append-only **`feed_refresh_log`**; `record_refresh()` stamps the log (audited). `GET /v1/admin/data-feeds` + `POST /v1/admin/data-feeds/{key}/refresh`; a **Golden-source freshness** panel in the Control Center (status dots + "scores" tag on basis-invalidating feeds + Record-refresh). |
+| **Gap** | The actual **data pulls stay scheduled/external** (this is the tracking + staleness signal, not the ingestion job), and the customer **signs off the cadence**. Recording a refresh logs it and can trigger a re-score; it does not itself fetch data — honest about the boundary. |
 | **Standing** | The score lane invariant holds through refreshes: a live nowcast never retires a calibrated standing climatology, and `canonical_scores` stays append-only. |
 
 ---
@@ -76,15 +76,17 @@ still manual or provisional, the product says so on the page, and so does this d
 | EUDR Tier-2 client (prepared mode; live via config) | READY | live needs customer registration + field alignment |
 | iXBRL/ESEF output + binding mechanism + validator | READY | — |
 | Bind to adopted EFRAG taxonomy (drop-in element map) | GAP | external artifact (drop config JSON when EFRAG finalizes) |
-| Geocoder (demo/onboarding scale) | READY | — |
-| Geocoder (consumer-scale, SLA, QA) | GAP | us |
+| Geocoder cache + confidence/QA + provider seam | READY | — |
+| Geocoder pointed at a paid/self-host provider (SLA) | GAP | config (API key + URL) |
 | Assurance primitives (validation, audit, 4-eyes, provenance, snapshots) | READY | — |
 | Assurance evidence-pack export (hashed ZIP, per snapshot) | READY | — |
-| Golden-source refresh cadence | GAP | us + customer sign-off |
+| Golden-source freshness registry + tracking + change log | READY | — |
+| Golden-source scheduled pulls + cadence sign-off | GAP | scheduled jobs + customer sign-off |
 
-**Reading this to a design partner (updated through v1.48):** everything that produces a *number* is
-production-grade and honest about its own limits, and the **filing last-mile is now built** — iXBRL/ESEF
-output + a drop-in EFRAG binding, the assurance evidence pack, and a TRACES Tier-2 client that prepares
-the exact submission. What remains is genuinely *external*: the customer's EUDR operator registration, the
-adopted EFRAG element map (one JSON), and the official TRACES field-name confirmation — plus two ordinary
-ops disciplines (a production geocoder SLA, a golden-source refresh schedule). None is a rebuild.
+**Reading this to a design partner (updated through v1.49):** everything that produces a *number* is
+production-grade, the **filing last-mile is built** (iXBRL/ESEF + drop-in EFRAG binding, assurance pack,
+TRACES Tier-2 client), and the **two ops disciplines are now built too** — the geocoder has a cache +
+confidence QA + a provider seam, and the golden source has a freshness registry + change log. What remains
+is genuinely *external / config*: the customer's EUDR operator registration, the adopted EFRAG element map
+(one JSON), the official TRACES field confirmation, a production geocoder key/URL, and the scheduled data
+pulls + cadence sign-off. **None is a code rebuild** — the regulated side is functionally complete.

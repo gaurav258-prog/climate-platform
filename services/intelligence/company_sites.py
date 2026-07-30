@@ -48,14 +48,25 @@ class SiteLocationError(ValueError):
     """Raised when a site can be neither geocoded nor given coordinates — we refuse to invent one."""
 
 
-def resolve_location(address: Optional[str], lat: Optional[float], lon: Optional[float]) -> dict:
-    """Return {lat, lon, precision, confidence, resolved_name}. Coordinates win; else geocode the address."""
+def resolve_location(address: Optional[str], lat: Optional[float], lon: Optional[float],
+                     session=None) -> dict:
+    """Return {lat, lon, precision, confidence, low_confidence, resolved_name}. Coordinates win;
+    else geocode the address (cache-aware when a session is supplied) with a real, provider-derived
+    confidence/precision — no more a flat 0.6."""
     if lat is not None and lon is not None:
-        return {"lat": float(lat), "lon": float(lon), "precision": "exact", "confidence": 1.0, "resolved_name": None}
+        return {"lat": float(lat), "lon": float(lon), "precision": "exact", "confidence": 1.0,
+                "low_confidence": False, "resolved_name": None}
     if address and address.strip():
-        hit = geocode(address.strip())
+        if session is not None:
+            from services.geocoding.geocoder import best
+            hit = best(session, address.strip())
+        else:
+            hit = geocode(address.strip())
         if hit:
-            return {"lat": hit["lat"], "lon": hit["lon"], "precision": "geocoded", "confidence": 0.6,
+            return {"lat": hit["lat"], "lon": hit["lon"],
+                    "precision": hit.get("precision", "geocoded"),
+                    "confidence": hit.get("confidence", 0.6),
+                    "low_confidence": hit.get("low_confidence", False),
                     "resolved_name": hit.get("display_name")}
     raise SiteLocationError("could not locate the site — provide coordinates or a geocodable address")
 
@@ -67,7 +78,7 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
              source: str = "user_entry") -> dict:
     """Locate → snap to H3 → persist → score. Returns the created site row (with its H3 cell)."""
     site_type = site_type if site_type in SITE_TYPES else "other"
-    loc = resolve_location(address, lat, lon)
+    loc = resolve_location(address, lat, lon, session=session)
     cell = h3.latlng_to_cell(loc["lat"], loc["lon"], H3_RESOLUTION)
 
     row = session.execute(text("""

@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # public server — it violates their usage policy).
     NOMINATIM_URL: str = "https://nominatim.openstreetmap.org/search"
     NOMINATIM_MIN_INTERVAL_S: float = 1.0
+    # Which geocoding backend the cache-aware layer dispatches to. "nominatim" is the
+    # only one implemented today; the seam lets a paid provider (google/here/mapbox) be
+    # dropped in without touching call sites. Resolved geocodes are cached in Postgres
+    # (geocode_cache) so repeated / bulk lookups don't re-hit the provider.
+    GEOCODER_PROVIDER: str = "nominatim"
 
 
 _DEV_SECRET = "dev-insecure-change-me"

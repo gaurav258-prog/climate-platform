@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Check, AlertCircle, MapPin } from 'lucide-react'
 import { api } from '../lib/api'
 
-export type Place = { display_name: string; lat: number; lon: number }
+export type Place = { display_name: string; lat: number; lon: number; precision?: string; confidence?: number; low_confidence?: boolean }
 
 // Debounced address → ranked, SELECTABLE place candidates. The user picks the right place;
 // the parent gets the exact chosen coordinates (no re-geocode drift). Shared by Operations
@@ -55,6 +55,7 @@ export default function AddressAutocomplete({
                   <MapPin size={13} className="mt-0.5 shrink-0 text-[var(--color-sky)]" />
                   <span className="text-[var(--color-ink)]">{p.display_name}
                     <span className="mono text-[10.5px] text-[var(--color-faint)] ml-1">({p.lat.toFixed(2)}, {p.lon.toFixed(2)})</span>
+                    {p.low_confidence && <span className="ml-1.5 inline-flex items-center gap-0.5 align-middle mono text-[9.5px] text-[var(--color-warn)]"><AlertCircle size={10} /> {p.precision === 'country' || p.precision === 'region' ? p.precision + '-level' : 'low confidence'}</span>}
                   </span>
                 </button>
               </li>
@@ -62,7 +63,8 @@ export default function AddressAutocomplete({
           </ul>
         )}
       </div>
-      {!disabled && selected && <div className="mt-1.5 text-[11px] text-[var(--color-good)]">selected · {selected.lat.toFixed(3)}, {selected.lon.toFixed(3)}</div>}
+      {!disabled && selected && !selected.low_confidence && <div className="mt-1.5 text-[11px] text-[var(--color-good)]">selected · {selected.lat.toFixed(3)}, {selected.lon.toFixed(3)}</div>}
+      {!disabled && selected && selected.low_confidence && <div className="mt-1.5 text-[11px] flex items-center gap-1.5 text-[var(--color-warn)]"><AlertCircle size={12} /> coarse location ({selected.precision}) · confirm or use exact coordinates for a precise score</div>}
       {!disabled && !selected && state === 'none' && <div className="mt-1.5 text-[11px] flex items-center gap-1.5 text-[var(--color-warn)]"><AlertCircle size={12} /> no match — add city/country, or use coordinates</div>}
     </div>
   )

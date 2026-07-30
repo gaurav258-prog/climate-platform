@@ -318,7 +318,7 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     if not commodity_id:
         raise HTTPException(status_code=422, detail={"error": "unknown_commodity", "message": f"'{body.commodity}' is not a known commodity."})
     try:
-        loc = resolve_location(body.address, body.latitude, body.longitude)
+        loc = resolve_location(body.address, body.latitude, body.longitude, session=session)
     except LocErr as e:
         raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
     # a >4ha plot given only as a point is EUDR-insufficient — flag it honestly (don't block the add)
@@ -423,11 +423,13 @@ def delete_plot(plot_id: str, session: DbSession,
 
 
 @router.get("/geocode", summary="Address autocomplete — ranked place candidates (preview, no write)")
-def geocode_preview(q: str = Query(..., min_length=2), limit: int = Query(5, ge=1, le=10)):
+def geocode_preview(session: DbSession, q: str = Query(..., min_length=2), limit: int = Query(5, ge=1, le=10)):
     """Live address lookup returning ranked candidates so the UI can offer a pick-list
-    (the user selects the right place instead of trusting a single best-match)."""
-    from services.geocoding.nominatim import geocode_candidates
-    return {"results": geocode_candidates(q.strip(), limit=limit)}
+    (the user selects the right place instead of trusting a single best-match). Cache-aware, and each
+    candidate carries a confidence/precision + low_confidence flag so the UI can warn on a coarse hit."""
+    from services.geocoding.geocoder import candidates
+    out = candidates(session, q.strip(), limit=limit)
+    return {"results": out["results"], "cached": out["cached"], "provider": out["provider"]}
 
 
 @router.get("/sites/template.xlsx", summary="Download the operational-sites upload template (Excel)")

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -152,6 +152,9 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
       {/* reporting basis — the as-of assumptions every filing is computed on */}
       <ReportingBasis />
 
+      {/* golden-source freshness — is the data under a filing current? */}
+      <GoldenSourceFeeds />
+
       {/* governance + access summary — jump to the relevant tab */}
       <div className="grid sm:grid-cols-3 gap-4">
         <button onClick={() => onTab('Approvals')} className="text-left"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
@@ -226,6 +229,44 @@ function ReportingBasis() {
         </div>
       )}
       {msg && <div className="mt-2 text-[12px]" style={{ color: msg.startsWith('✓') ? 'var(--color-good)' : 'var(--color-warn)' }}>{msg}</div>}
+    </Card>
+  )
+}
+
+interface Feed { key: string; name: string; category: string; cadence_days: number; invalidates_basis: boolean; note: string; last_refresh: string | null; days_since: number | null; status: string }
+const FEED_TONE: Record<string, string> = { fresh: 'var(--color-good)', due_soon: 'var(--color-warn)', overdue: 'var(--color-bad)', untracked: 'var(--color-faint)' }
+
+function GoldenSourceFeeds() {
+  const q = useQuery({ queryKey: ['data-feeds'], queryFn: () => api.get<{ feeds: Feed[] }>('/v1/admin/data-feeds') })
+  const [busy, setBusy] = useState<string | null>(null)
+  const feeds = q.data?.feeds ?? []
+  const refresh = async (k: string) => {
+    setBusy(k)
+    try { await api.post(`/v1/admin/data-feeds/${k}/refresh`, {}); await q.refetch() } finally { setBusy(null) }
+  }
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1"><Database size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Golden-source freshness</h3></div>
+      <p className="text-[11.5px] text-[var(--color-faint)] mb-3">When each satellite/agency &amp; reference feed under your filings was last refreshed. Feeds that <b>invalidate a live basis</b> re-score on refresh; a frozen snapshot never moves — a refresh produces a new version.</p>
+      {q.isLoading ? <div className="text-[13px] text-[var(--color-faint)] py-2">loading…</div> : (
+        <div className="space-y-1.5">
+          {feeds.map(f => (
+            <div key={f.key} className="flex items-center gap-3 border border-[var(--color-line)] rounded-lg px-3 py-2">
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FEED_TONE[f.status] ?? 'var(--color-faint)' }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-[var(--color-ink)] truncate">{f.name}
+                  {f.invalidates_basis && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)] uppercase">scores</span>}</div>
+                <div className="text-[11px] text-[var(--color-faint)]">{f.category} · every {f.cadence_days}d · {f.last_refresh ? `refreshed ${f.days_since}d ago` : 'no refresh recorded'}</div>
+              </div>
+              <span className="mono text-[10px] uppercase tracking-wide" style={{ color: FEED_TONE[f.status] }}>{f.status.replace('_', ' ')}</span>
+              <button onClick={() => refresh(f.key)} disabled={busy === f.key}
+                className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)] disabled:opacity-50">
+                <RefreshCw size={12} className={busy === f.key ? 'animate-spin' : ''} /> {busy === f.key ? '…' : 'Record refresh'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   )
 }
