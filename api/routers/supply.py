@@ -754,6 +754,12 @@ def esrs_xbrl(session: DbSession, org_id: OrgId, scenario: str = Query("baseline
                               headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{scenario}.xbrl"})
 
 
+@router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")
+def taxonomy_adaptation(session: DbSession, org_id: OrgId):
+    from services.intelligence.taxonomy_adaptation import adaptation_kpi
+    return adaptation_kpi(session, org_id)
+
+
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
     # `origin` is part of the key: one event validates a crop PER ORIGIN (cocoa 2023/24 is

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2 } from 'lucide-react'
 import { api, download } from '../lib/api'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Eyebrow, Card, Button, Stat } from '../components/ui'
 
 interface Topic {
   topic: string; title: string; standard?: string; material: boolean
@@ -112,6 +112,8 @@ export default function EsrsPack() {
         })}
       </div>
 
+      <TaxonomyAdaptation />
+
       {/* out of scope — by design */}
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-1"><MinusCircle size={15} className="text-[var(--color-faint)]" /><h3 className="font-semibold">Out of scope — by design</h3></div>
@@ -141,4 +143,40 @@ export default function EsrsPack() {
     </div>
   )
 }
+interface TaxAdapt {
+  objective: string
+  crva: { sites_total: number; sites_assessed: number; coverage_pct: number | null; asset_value_assessed_eur: number }
+  physical_risk: { sites_materially_exposed: number; asset_value_exposed_eur: number; share_of_assets_exposed_pct: number | null; hazards: string[] }
+  substantial_contribution: { adaptation_solutions_identified: boolean; candidate_contributing_value_eur: number }
+  out_of_scope: { note: string; we_provide: string[]; you_provide: string[] }
+}
+
+function TaxonomyAdaptation() {
+  const q = useQuery({ queryKey: ['taxonomy-adaptation'], queryFn: () => api.get<TaxAdapt>('/v1/supply/taxonomy-adaptation') })
+  const d = q.data
+  if (!d) return null
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1"><Trees size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">EU Taxonomy · Climate change adaptation (Art. 8)</h3></div>
+      <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">The mandated hard input for the adaptation objective is a robust <b>Climate Risk &amp; Vulnerability Assessment</b> and evidence that adaptation solutions address the material physical risks — that's ours. We provide the substantial-contribution evidence, not the turnover/capex/opex alignment %.</p>
+      <div className="grid sm:grid-cols-4 gap-4 mb-4">
+        <Stat big={`${d.crva.coverage_pct ?? 0}%`} label="CRVA coverage (sites assessed)" tone={d.crva.coverage_pct === 100 ? 'good' : 'warn'} />
+        <Stat big={eur(d.crva.asset_value_assessed_eur)} label="asset value assessed" />
+        <Stat big={`${d.physical_risk.share_of_assets_exposed_pct ?? 0}%`} label="of assets materially exposed" tone="warn" />
+        <Stat big={eur(d.substantial_contribution.candidate_contributing_value_eur)} label="candidate adaptation-contributing value" tone="warn" />
+      </div>
+      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-[12.5px]">
+        <div>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-good)] mb-1">We provide</div>
+          {d.out_of_scope.we_provide.map((x, i) => <div key={i} className="text-[var(--color-mute)] flex gap-2"><span className="text-[var(--color-good)]">✓</span>{x}</div>)}
+        </div>
+        <div>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Your reporting suite provides</div>
+          {d.out_of_scope.you_provide.map((x, i) => <div key={i} className="text-[var(--color-faint)] flex gap-2"><span>·</span>{x}</div>)}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>
