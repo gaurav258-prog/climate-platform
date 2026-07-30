@@ -1,33 +1,45 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Eyebrow, Card, Button, Stat } from '../components/ui'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
 interface Perm { code: string; description: string }
 interface Policy { action_key: string; label: string; requires_approval: boolean; material_fields: string[]; org_override: boolean }
+interface Check { key: string; label: string; ok: boolean; hint: string | null }
+interface CC {
+  organization: { name: string | null; legal_name: string | null; type: string | null; country: string | null; lei: string | null; eori: string | null; filing_contact_email: string | null; operator_address: string | null }
+  readiness: { passed: number; total: number; checks: Check[] }
+  data: { sites: { total: number; scored: number; elevated: number; value_eur: number }; plots: { total: number; eudr_covered: number; eudr_determined: number; needs_polygon: number } }
+  governance: { pending_approvals: number; audit_events_30d: number; second_approver: boolean }
+  access: { users: number; active: number; ever_logged_in: number }
+  entitlements: string[]
+}
 
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
+const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 
 export default function Admin() {
   const { profile } = useAuth()
   const perms = profile?.permissions ?? []
   const tabs = [
+    'Overview',
     perms.includes('admin.users.manage') && 'Users',
     perms.includes('admin.roles.manage') && 'Roles',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
   ].filter(Boolean) as string[]
-  const [tab, setTab] = useState(tabs[0] ?? 'Users')
+  const [tab, setTab] = useState(tabs[0] ?? 'Overview')
 
   return (
     <div className="fadeup space-y-6">
       <div>
-        <Eyebrow>Governance · administration</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Admin console</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Users, roles &amp; permissions, and the approval matrix that decides which changes need a second approver.</p>
+        <Eyebrow>Governance · control center</Eyebrow>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Control center</h1>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Is your organization set up correctly and your data complete enough to trust the numbers? Reporting identity, data readiness, users, roles, and the approval matrix — in one place.</p>
       </div>
       <div className="flex gap-2 flex-wrap">
         {tabs.map(t => (
@@ -35,9 +47,121 @@ export default function Admin() {
             className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === t ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t}</button>
         ))}
       </div>
+      {tab === 'Overview' && <Overview />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
       {tab === 'Approval matrix' && <Matrix />}
+    </div>
+  )
+}
+
+function Overview() {
+  const q = useQuery({ queryKey: ['control-center'], queryFn: () => api.get<CC>('/v1/admin/control-center') })
+  const [editOrg, setEditOrg] = useState(false)
+  const [form, setForm] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  if (q.isLoading) return <div className="py-16 text-center text-[var(--color-faint)] text-sm">loading…</div>
+  if (q.error || !q.data) return <div className="py-16 text-center text-[var(--color-faint)] text-sm">Could not load.</div>
+  const d = q.data
+  const org = d.organization
+  const pct = Math.round((d.readiness.passed / d.readiness.total) * 100)
+  const tone = pct === 100 ? 'var(--color-good)' : pct >= 60 ? 'var(--color-warn)' : 'var(--color-bad)'
+
+  const startEdit = () => { setForm({ legal_name: org.legal_name ?? '', lei: org.lei ?? '', eori: org.eori ?? '', filing_contact_email: org.filing_contact_email ?? '', operator_address: org.operator_address ?? '' }); setEditOrg(true) }
+  const saveOrg = async () => {
+    setBusy(true)
+    try { await api.patch('/v1/admin/organization', form); setEditOrg(false); await q.refetch() } finally { setBusy(false) }
+  }
+  const F = ({ k, label }: { k: string; label: string }) => (
+    <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">{label}</div>
+      <input className={inp} value={form[k] ?? ''} onChange={e => setForm({ ...form, [k]: e.target.value })} /></label>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* readiness — the "is my house in order" signal */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-14 shrink-0">
+              <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--color-line-2)" strokeWidth="3" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke={tone} strokeWidth="3" strokeLinecap="round"
+                  strokeDasharray={`${(pct / 100) * 97.4} 97.4`} />
+              </svg>
+              <div className="absolute inset-0 grid place-items-center mono text-[12px] font-semibold" style={{ color: tone }}>{pct}%</div>
+            </div>
+            <div>
+              <div className="text-[15px] font-semibold">Reporting readiness</div>
+              <div className="text-[12px] text-[var(--color-mute)]">{d.readiness.passed} of {d.readiness.total} checks passing</div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {d.readiness.checks.map(c => (
+            <div key={c.key} className="flex items-start gap-2.5 text-[13px]">
+              {c.ok ? <Check size={16} className="text-[var(--color-good)] mt-px shrink-0" /> : <AlertCircle size={16} className="text-[var(--color-warn)] mt-px shrink-0" />}
+              <span className={c.ok ? 'text-[var(--color-mute)]' : 'text-[var(--color-ink)]'}>{c.label}{c.hint && <span className="text-[var(--color-warn)]"> — {c.hint}</span>}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* data health */}
+      <div className="grid sm:grid-cols-4 gap-4">
+        <Stat big={`${d.data.sites.scored}/${d.data.sites.total}`} label="sites scored" tone={d.data.sites.scored === d.data.sites.total ? 'good' : 'warn'} />
+        <Stat big={eur(d.data.sites.value_eur)} label="asset value on the book" />
+        <Stat big={`${d.data.plots.eudr_determined}/${d.data.plots.eudr_covered}`} label="EUDR plots determined" tone={d.data.plots.eudr_determined === d.data.plots.eudr_covered ? 'good' : 'warn'} />
+        <Stat big={d.data.plots.needs_polygon} label="plots need a polygon" tone={d.data.plots.needs_polygon ? 'warn' : 'good'} />
+      </div>
+
+      {/* organization identity (editable — feeds CSRD/EUDR) */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2"><Building2 size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Reporting identity</h3></div>
+          {!editOrg && <button onClick={startEdit} className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Pencil size={13} /> Edit</button>}
+        </div>
+        {!editOrg ? (
+          <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[13px]">
+            {[['Name', org.name], ['Legal name', org.legal_name], ['Type', org.type], ['Country', org.country],
+              ['LEI', org.lei], ['EORI', org.eori], ['Filing contact', org.filing_contact_email], ['Operator address', org.operator_address]].map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 border-b border-[var(--color-line)] pb-1.5">
+                <span className="text-[var(--color-mute)]">{k}</span>
+                <span className={v ? 'text-[var(--color-ink)] text-right' : 'text-[var(--color-warn)]'}>{v || 'not set'}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <F k="legal_name" label="Legal name" /><F k="lei" label="LEI" />
+              <F k="eori" label="EORI" /><F k="filing_contact_email" label="Filing contact email" />
+              <F k="operator_address" label="Operator address" />
+            </div>
+            <div className="flex gap-3"><Button onClick={saveOrg} disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
+              <button onClick={() => setEditOrg(false)} className="text-[13px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button></div>
+          </div>
+        )}
+      </Card>
+
+      {/* governance + access summary — links into the surfaces */}
+      <div className="grid sm:grid-cols-3 gap-4">
+        <Link to="/approvals"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
+          <div className="flex items-center gap-2 mb-2"><CheckSquare size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Approvals</span></div>
+          <div className="text-2xl font-semibold" style={{ color: d.governance.pending_approvals ? 'var(--color-warn)' : 'var(--color-ink)' }}>{d.governance.pending_approvals}</div>
+          <div className="text-[11px] text-[var(--color-faint)]">pending · {d.governance.second_approver ? '4-eyes ready' : 'no second approver'}</div>
+        </Card></Link>
+        <Link to="/audit"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
+          <div className="flex items-center gap-2 mb-2"><ScrollText size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Audit trail</span></div>
+          <div className="text-2xl font-semibold">{d.governance.audit_events_30d}</div>
+          <div className="text-[11px] text-[var(--color-faint)]">events in the last 30 days</div>
+        </Card></Link>
+        <Card className="p-4 h-full">
+          <div className="flex items-center gap-2 mb-2"><UsersIcon size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Users</span></div>
+          <div className="text-2xl font-semibold">{d.access.active}<span className="text-[var(--color-faint)] text-base">/{d.access.users}</span></div>
+          <div className="text-[11px] text-[var(--color-faint)]">active · {d.entitlements.join(', ') || 'no modules'}</div>
+        </Card>
+      </div>
     </div>
   )
 }

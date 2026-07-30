@@ -57,6 +57,7 @@ try:
     from api.routers import admin as admin_router
     from api.routers import approvals as approvals_router
     from api.routers import portal as portal_router
+    from api.routers import ops_console as ops_console_router
     ADMIN_ROUTERS_AVAILABLE = True
 except ImportError:
     ADMIN_ROUTERS_AVAILABLE = False
@@ -160,6 +161,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(admin_router.router)
     app.include_router(approvals_router.router)
     app.include_router(portal_router.router)
+    app.include_router(ops_console_router.router)
 
 # Regulatory monitoring (CRCS) - Phase 1
 if regulatory_monitoring:

@@ -271,3 +271,111 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
                 target_type="approval_policy", target_id=body.action_key,
                 detail={"requires_approval": body.requires_approval, "material_fields": mats})
     return {"action_key": body.action_key, "requires_approval": body.requires_approval, "material_fields": mats, "org_override": True}
+
+
+# ── Control center: the customer-admin cockpit (identity + data health + governance) ──────
+
+class OrgPatch(BaseModel):
+    legal_name:          Optional[str] = Field(None, max_length=300)
+    lei:                 Optional[str] = Field(None, max_length=20)
+    eori:                Optional[str] = Field(None, max_length=30)
+    filing_contact_email: Optional[str] = Field(None, max_length=255)
+    operator_address:    Optional[str] = Field(None, max_length=500)
+
+
+@router.get("/control-center", summary="Admin cockpit — org identity, data-readiness, governance & access at a glance")
+def control_center(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    org = session.execute(text("""
+        SELECT name, legal_name, type, country, lei, eori, filing_contact_email, operator_address
+        FROM organizations WHERE org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    sites = session.execute(text("""
+        SELECT count(*) n,
+               count(*) FILTER (WHERE v.physical_risk_score IS NOT NULL) scored,
+               count(*) FILTER (WHERE v.physical_risk_score >= 40) elevated,
+               COALESCE(SUM(s.annual_value_eur),0) value_eur
+        FROM sc_company_sites s
+        LEFT JOIN LATERAL (
+            SELECT physical_risk_score FROM v_sc_site_physical_risk v
+            WHERE v.site_id = s.site_id AND v.scenario='baseline' AND v.time_horizon='current'
+            ORDER BY physical_risk_score DESC NULLS LAST LIMIT 1) v ON true
+        WHERE s.org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    plots = session.execute(text("""
+        SELECT count(*) n,
+               count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
+               count(*) FILTER (WHERE co.eudr_covered) eudr_covered,
+               count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NOT NULL) eudr_determined
+        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        WHERE p.org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    users = session.execute(text("""
+        SELECT count(*) n, count(*) FILTER (WHERE status='active') active,
+               count(*) FILTER (WHERE last_login_at IS NOT NULL) ever_logged_in
+        FROM users WHERE org_id = :o
+    """), {"o": org_id}).mappings().first()
+    # is there a checker distinct from makers? (someone with approvals.decide)
+    n_approvers = session.execute(text("""
+        SELECT count(DISTINCT u.user_id) FROM users u
+        JOIN user_roles ur ON ur.user_id=u.user_id JOIN role_permissions rp ON rp.role_id=ur.role_id
+        JOIN permissions p ON p.permission_id=rp.permission_id
+        WHERE u.org_id=:o AND u.status='active' AND p.code='approvals.decide'
+    """), {"o": org_id}).scalar()
+    pending = session.execute(text("SELECT count(*) FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).scalar()
+    audit_30d = session.execute(text("SELECT count(*) FROM access_audit_log WHERE org_id=:o AND created_at > now() - interval '30 days'"), {"o": org_id}).scalar()
+    entitlements = session.execute(text("SELECT offering_id FROM org_entitlements WHERE org_id=:o ORDER BY offering_id"), {"o": org_id}).scalars().all()
+
+    # readiness checklist — the "is my house in order" signal (each item pass/fail + a hint)
+    identity_ok = bool(org and org["eori"] and org["filing_contact_email"])
+    checks = [
+        {"key": "identity", "label": "Reporting identity complete (EORI + filing contact)", "ok": identity_ok,
+         "hint": "Set EORI and a filing contact email below." if not identity_ok else None},
+        {"key": "sites_scored", "label": "All operational sites scored", "ok": (sites["n"] or 0) > 0 and sites["scored"] == sites["n"],
+         "hint": f"{(sites['n'] or 0) - (sites['scored'] or 0)} site(s) not yet scored." if (sites["n"] or 0) and sites["scored"] != sites["n"] else ("Add your operational sites." if not sites["n"] else None)},
+        {"key": "plots_polygons", "label": "All >4 ha plots have a polygon (EUDR)", "ok": (plots["needs_polygon"] or 0) == 0,
+         "hint": f"{plots['needs_polygon']} plot(s) over 4 ha need a boundary polygon." if plots["needs_polygon"] else None},
+        {"key": "eudr_run", "label": "EUDR determination run on covered plots", "ok": (plots["eudr_covered"] or 0) == 0 or plots["eudr_determined"] == plots["eudr_covered"],
+         "hint": f"{(plots['eudr_covered'] or 0) - (plots['eudr_determined'] or 0)} covered plot(s) not yet checked." if (plots["eudr_covered"] or 0) and plots["eudr_determined"] != plots["eudr_covered"] else None},
+        {"key": "second_approver", "label": "A second approver exists (4-eyes works)", "ok": (n_approvers or 0) >= 2,
+         "hint": "Only one user can approve — 4-eyes needs a second. Add an approver." if (n_approvers or 0) < 2 else None},
+    ]
+    passed = sum(1 for c in checks if c["ok"])
+    return {
+        "organization": {
+            "name": org["name"] if org else None, "legal_name": org["legal_name"] if org else None,
+            "type": org["type"] if org else None, "country": org["country"] if org else None,
+            "lei": org["lei"] if org else None, "eori": org["eori"] if org else None,
+            "filing_contact_email": org["filing_contact_email"] if org else None,
+            "operator_address": org["operator_address"] if org else None,
+        },
+        "readiness": {"passed": passed, "total": len(checks), "checks": checks},
+        "data": {
+            "sites": {"total": sites["n"], "scored": sites["scored"], "elevated": sites["elevated"], "value_eur": float(sites["value_eur"] or 0)},
+            "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_determined": plots["eudr_determined"], "needs_polygon": plots["needs_polygon"]},
+        },
+        "governance": {"pending_approvals": pending, "audit_events_30d": audit_30d, "second_approver": (n_approvers or 0) >= 2},
+        "access": {"users": users["n"], "active": users["active"], "ever_logged_in": users["ever_logged_in"]},
+        "entitlements": list(entitlements),
+    }
+
+
+@router.patch("/organization", summary="Edit the org's reporting identity (audited)")
+def patch_organization(body: OrgPatch, session: DbSession,
+                       ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    cols = {"legal_name", "lei", "eori", "filing_contact_email", "operator_address"}
+    sets, params = [], {"o": org_id}
+    for k, v in changes.items():
+        if k in cols:
+            sets.append(f"{k} = :{k}"); params[k] = v
+    session.execute(text(f"UPDATE organizations SET {', '.join(sets)}, updated_at = now() WHERE org_id = :o"), params)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="organization.update",
+                target_type="organization", target_id=org_id, detail={"changes": changes})
+    return {"ok": True, "changes": changes}

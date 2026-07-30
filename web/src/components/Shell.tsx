@@ -1,33 +1,37 @@
 import { type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, CheckSquare, ScrollText, Settings } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, CheckSquare, ScrollText, Settings, Globe } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
 
 type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string }
 const GROUPS: { label: string | null; items: Item[] }[] = [
-  { label: null, items: [{ to: '/', label: 'Home', icon: Home, end: true }] },
+  // the customer agri workspace (gated by modules.view — the platform operator lacks it)
+  { label: null, items: [{ to: '/', label: 'Home', icon: Home, end: true, perm: 'modules.view' }] },
   { label: 'Your footprint', items: [
-    { to: '/operations', label: 'Operations', icon: Building2 },
-    { to: '/sourcing', label: 'Sourcing book', icon: Sprout },
+    { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view' },
+    { to: '/sourcing', label: 'Sourcing book', icon: Sprout, perm: 'modules.view' },
   ] },
   { label: 'Risk', items: [
-    { to: '/riskmap', label: 'Risk map', icon: MapIcon },
-    { to: '/early-warning', label: 'Early warning', icon: BellRing },
+    { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view' },
+    { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view' },
   ] },
   { label: 'Compliance', items: [
-    { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck },
-    { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText },
+    { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck, perm: 'modules.view' },
+    { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText, perm: 'modules.view' },
   ] },
   { label: 'Assurance', items: [
-    { to: '/models', label: 'Models & validation', icon: FlaskConical },
-    { to: '/foundation', label: 'Data foundation', icon: Database },
+    { to: '/models', label: 'Models & validation', icon: FlaskConical, perm: 'modules.view' },
+    { to: '/foundation', label: 'Data foundation', icon: Database, perm: 'modules.view' },
   ] },
   { label: 'Governance', items: [
+    { to: '/admin', label: 'Control center', icon: Settings, perm: 'admin.users.manage' },
     { to: '/approvals', label: 'Approvals', icon: CheckSquare, perm: 'approvals.view' },
     { to: '/audit', label: 'Audit trail', icon: ScrollText, perm: 'admin.audit.view' },
-    { to: '/admin', label: 'Admin console', icon: Settings, perm: 'admin.users.manage' },
+  ] },
+  { label: 'Platform', items: [
+    { to: '/platform', label: 'Tenants', icon: Globe, perm: 'platform.admin' },
   ] },
 ]
 

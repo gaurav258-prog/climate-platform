@@ -8,6 +8,7 @@ import Csrd from './pages/Csrd'
 import Approvals from './pages/Approvals'
 import Audit from './pages/Audit'
 import Admin from './pages/Admin'
+import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
@@ -24,15 +25,19 @@ export default function App() {
   if (loading) return <Splash />
   if (!profile) return <Login />
 
+  // a platform operator (no customer workspace access) lands on the cross-tenant console
+  const opsOnly = profile.permissions?.includes('platform.admin') && !profile.permissions?.includes('modules.view')
+
   return (
     <Shell>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />
