@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -20,6 +20,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
   { label: 'Compliance', items: [
     { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck, perm: 'modules.view' },
     { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText, perm: 'modules.view' },
+    { to: '/esrs', label: 'ESRS Climate & Nature', icon: Leaf, perm: 'modules.view' },
   ] },
   { label: 'Assurance', items: [
     { to: '/models', label: 'Models & validation', icon: FlaskConical, perm: 'modules.view' },

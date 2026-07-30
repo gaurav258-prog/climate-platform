@@ -698,6 +698,46 @@ def csrd_e1_xlsx(session: DbSession, org_id: OrgId,
                               headers={"Content-Disposition": f"attachment; filename=tellumen-csrd-e1-{scenario}-{horizon}.xlsx"})
 
 
+@router.get("/esrs-pack", summary="ESRS Climate & Nature disclosure pack (E1 physical + E3 water + E4 deforestation)")
+def esrs_pack(session: DbSession, org_id: OrgId,
+              scenario: str = Query("baseline"), horizon: str = Query("current")):
+    from services.intelligence.esrs_nature import build_esrs_pack
+    return build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon)
+
+
+@router.get("/esrs-pack.xlsx", summary="ESRS Climate & Nature disclosure pack (Excel)")
+def esrs_pack_xlsx(session: DbSession, org_id: OrgId,
+                   scenario: str = Query("baseline"), horizon: str = Query("current")):
+    from services.intelligence.esrs_nature import build_esrs_pack
+    p = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon)
+    headers = ["esrs_topic", "title", "material", "metric", "value", "basis"]
+    rows: list[list] = []
+    for t in p["topics"]:
+        if t["topic"] == "E1":
+            fe = t["financial_effects"]
+            for k, label in [("asset_value_at_risk_eur", "Asset value at material risk (€)"),
+                             ("business_interruption_eur", "Business interruption, v0 (€)"),
+                             ("cogs_at_risk_published_eur", "Sourcing COGS at risk, published (€)"),
+                             ("exposure_mapped_but_withheld_eur", "Exposure mapped, € withheld")]:
+                rows.append(["E1", t["title"], t["material"], label, round(fe[k]), ""])
+        elif t["topic"] == "E3":
+            rows.append(["E3", t["title"], t["material"], "Sites water-stressed", t["own_operations"]["sites_water_stressed"], t["basis"]])
+            rows.append(["E3", t["title"], t["material"], "Asset value exposed (€)", round(t["own_operations"]["asset_value_exposed_eur"]), ""])
+            rows.append(["E3", t["title"], t["material"], "Plots water-stressed", t["upstream"]["plots_water_stressed"], ""])
+            rows.append(["E3", t["title"], t["material"], "Spend exposed (€)", round(t["upstream"]["spend_exposed_eur"]), ""])
+        elif t["topic"] == "E4":
+            rows.append(["E4", t["title"], t["material"], "EUDR-covered plots", t["eudr_covered_plots"], t["basis"]])
+            rows.append(["E4", t["title"], t["material"], "Deforestation-free", t["deforestation_free"], ""])
+            rows.append(["E4", t["title"], t["material"], "Non-compliant", t["non_compliant"], ""])
+            rows.append(["E4", t["title"], t["material"], "Post-cutoff forest loss (ha)", t["post_cutoff_forest_loss_ha"], ""])
+    rows.append([])
+    for o in p["out_of_scope"]:
+        rows.append([o["topic"], f'OUT OF SCOPE — {o["label"]}', "", "handled by", o["handled_by"], ""])
+    buf = build_export_workbook(headers, rows, sheet_name="ESRS Climate & Nature")
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{scenario}.xlsx"})
+
+
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
     # `origin` is part of the key: one event validates a crop PER ORIGIN (cocoa 2023/24 is

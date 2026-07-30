@@ -5,6 +5,7 @@ import Shell from './components/Shell'
 import Home from './pages/Home'
 import Disclosure from './pages/Disclosure'
 import Csrd from './pages/Csrd'
+import EsrsPack from './pages/EsrsPack'
 import Approvals from './pages/Approvals'
 import Audit from './pages/Audit'
 import Admin from './pages/Admin'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
+        <Route path="/esrs" element={<EsrsPack />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
