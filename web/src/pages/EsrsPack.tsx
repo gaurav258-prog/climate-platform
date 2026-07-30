@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle } from 'lucide-react'
+import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2 } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { Eyebrow, Card, Button } from '../components/ui'
 
@@ -48,9 +48,14 @@ export default function EsrsPack() {
             {d.entity.name} · {d.entity.country}{d.entity.eori ? ` · EORI ${d.entity.eori}` : ''} · basis {d.reporting_basis.scenario}/{d.reporting_basis.horizon}
           </p>
         </div>
-        <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xlsx', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xlsx`)}>
-          <Download size={15} /> Export (Excel)
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xlsx', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xlsx`)}>
+            <Download size={15} /> Excel
+          </Button>
+          <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xbrl', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xbrl`)}>
+            <Code2 size={15} /> XBRL
+          </Button>
+        </div>
       </div>
 
       {/* the topics we own */}
@@ -131,6 +136,7 @@ export default function EsrsPack() {
           </div>
         ))}
         <p className="text-[11px] text-[var(--color-faint)] pt-1">{d.note}</p>
+        <p className="text-[11px] text-[var(--color-faint)]"><b>XBRL export:</b> each figure is tagged to its ESRS disclosure requirement (E1-9, E3-4/5, E4-5) as a machine-readable, XBRL-shaped instance — ready to bind to the adopted EFRAG ESRS taxonomy in your filing tool. It's the tagged-data layer, not a validated ESEF filing.</p>
       </Card>
     </div>
   )

@@ -738,6 +738,22 @@ def esrs_pack_xlsx(session: DbSession, org_id: OrgId,
                               headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{scenario}.xlsx"})
 
 
+@router.get("/esrs-pack.facts", summary="ESRS pack as tagged facts (machine-readable, XBRL-ready)")
+def esrs_facts(session: DbSession, org_id: OrgId, scenario: str = Query("baseline"),
+               horizon: str = Query("current"), period_end: Optional[str] = Query(None)):
+    from services.intelligence.esrs_xbrl import build_facts
+    return build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end)
+
+
+@router.get("/esrs-pack.xbrl", summary="ESRS pack as an XBRL instance (provisional taxonomy binding)")
+def esrs_xbrl(session: DbSession, org_id: OrgId, scenario: str = Query("baseline"),
+              horizon: str = Query("current"), period_end: Optional[str] = Query(None)):
+    from services.intelligence.esrs_xbrl import build_xbrl_instance
+    xml = build_xbrl_instance(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end)
+    return StreamingResponse(io.BytesIO(xml.encode("utf-8")), media_type="application/xml",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{scenario}.xbrl"})
+
+
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
     # `origin` is part of the key: one event validates a crop PER ORIGIN (cocoa 2023/24 is
