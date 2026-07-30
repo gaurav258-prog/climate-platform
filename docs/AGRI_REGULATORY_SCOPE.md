@@ -60,6 +60,8 @@ climate + nature risk properly, and we don't pretend to do your carbon accountin
 
 - ✅ EUDR (determination + DDS + TRACES reference capture)
 - ✅ CSRD / ESRS **E1 physical risk** (own operations + sourcing; JSON + Excel)
-- 🔨 ESRS **E3 water** + **E4 biodiversity/deforestation** datapoint sections → the Climate & Nature pack
-- ⏭ EU Taxonomy climate-adaptation KPIs; XBRL/ESEF tagging; configurable timing/thresholds
+- ✅ ESRS **Climate & Nature pack** — E1 physical + **E3 water** + **E4 biodiversity/deforestation** (JSON + Excel)
+- ✅ **XBRL tagging** — facts keyed to ESRS disclosure requirements + a well-formed XBRL instance (provisional taxonomy binding, disclosed)
+- ✅ **EU Taxonomy climate-adaptation** — CRVA + substantial-contribution evidence (we do NOT compute aligned turnover/capex/opex %)
+- ⏭ Bind XBRL to the adopted EFRAG ESRS taxonomy (ops/licensing step); configurable timing/thresholds
 - ⛔ (by design) GHG accounting, pollution, circular economy, social, governance
