@@ -587,8 +587,11 @@ def signals(session: DbSession, org_id: OrgId,
     alerts.sort(key=lambda a: -(a["avg_hazard"] or 0))
     pending = [{"commodity": c.commodity, "spend_eur": c.annual_spend_eur}
                for c in r.commodities if c.status == "pending"]
+    # name → commodity_id so the UI can open each alert's commodity detail page
+    commodity_ids = {row["name"]: str(row["commodity_id"]) for row in
+                     session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "n_alerts": len(alerts), "alerts": alerts, "pending": pending}
+            "n_alerts": len(alerts), "alerts": alerts, "pending": pending, "commodity_ids": commodity_ids}
 
 
 @router.get("/disclosure", summary="EUDR overlay + CSRD physical-risk pack from the book")
