@@ -45,6 +45,11 @@ export default function Disclosure() {
       `/v1/supply/eudr/dds/${dds!.dds_id}/reference`, { reference_number: ref.trim(), verification_number: ver.trim() || null }),
     onSuccess: (r) => setDds(prev => prev ? { ...prev, status: 'filed', reference_number: r.reference_number, reference_captured_at: r.reference_captured_at } : prev),
   })
+  const [prep, setPrep] = useState<{ status: string; internal_reference?: string; note?: string } | null>(null)
+  const prepare = useMutation({
+    mutationFn: () => api.post<{ status: string; internal_reference?: string; note?: string }>('/v1/supply/eudr/submit'),
+    onSuccess: (r) => setPrep(r),
+  })
 
   if (disc.isLoading) return <Center>loading disclosure…</Center>
   if (disc.error || !disc.data) return <Center>Could not load. Is the API running on :8001?</Center>
@@ -182,8 +187,27 @@ export default function Disclosure() {
                   <span className="text-[var(--color-faint)]"> · captured {dds.reference_captured_at ? new Date(dds.reference_captured_at).toLocaleString() : ''}</span></div>
               </div>
             ) : dds.ready ? (
+              <div className="space-y-3">
+              {/* Tier 2 — direct TRACES submission (prepared by default; live needs operator registration) */}
+              <div className="rounded-lg border border-[color-mix(in_oklab,var(--color-sky)_40%,var(--color-line))] bg-[color-mix(in_oklab,var(--color-sky)_7%,transparent)] px-4 py-3">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="text-[12.5px] font-medium text-[var(--color-ink)]">Direct submission (Tier 2)</div>
+                  <Button variant="ghost" onClick={() => prepare.mutate()} disabled={prepare.isPending}>
+                    {prepare.isPending ? <><Loader2 size={14} className="animate-spin" /> Preparing…</> : 'Prepare TRACES submission'}
+                  </Button>
+                </div>
+                <div className="text-[12px] text-[var(--color-mute)]">Builds &amp; validates the exact submission envelope the client would file. Live submission flips on once the operator is registered in the EU Information System and API credentials are configured — nothing is filed until then.</div>
+                {prep && (
+                  <div className="mt-2.5 rounded-md border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2">
+                    <div className="mono text-[12px]"><span className="text-[var(--color-faint)]">status</span> <span className="text-[var(--color-sky)]">{prep.status}</span>
+                      {prep.internal_reference && <span className="text-[var(--color-ink)]"> · {prep.internal_reference}</span>}</div>
+                    {prep.note && <div className="text-[11px] text-[var(--color-faint)] mt-1">{prep.note}</div>}
+                  </div>
+                )}
+              </div>
+              {/* Tier 1 — manual reference capture */}
               <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-4 py-3">
-                <div className="text-[12.5px] text-[var(--color-mute)] mb-3">File the statement in EU TRACES, then paste the reference number it returns to close the loop — an immutable, audited filing record.</div>
+                <div className="text-[12.5px] text-[var(--color-mute)] mb-3">Or file the statement in EU TRACES yourself, then paste the reference number it returns to close the loop — an immutable, audited filing record.</div>
                 <div className="flex flex-wrap gap-2 items-end">
                   <div>
                     <label className="block mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">TRACES reference *</label>
@@ -200,6 +224,7 @@ export default function Disclosure() {
                   </Button>
                 </div>
                 {capture.error ? <div className="text-[12px] text-[var(--color-bad)] mt-2">Could not record the reference. Re-assemble and try again.</div> : null}
+              </div>
               </div>
             ) : null}
           </div>}

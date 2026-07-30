@@ -856,6 +856,23 @@ def get_report_snapshot(snapshot_id: str, session: DbSession,
     return snap
 
 
+@router.get("/eudr/submission-preview", summary="EUDR → TRACES: the submission envelope we would file + readiness (no side effects)")
+def eudr_submission_preview(session: DbSession, org_id: OrgId):
+    from services.intelligence.traces_client import submission_preview
+    return submission_preview(session, org_id)
+
+
+@router.post("/eudr/submit", summary="EUDR → TRACES: prepare (default) or live-submit the DDS")
+def eudr_submit(session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.intelligence.traces_client import submit_dds
+    org_id = ctx["org"]["org_id"]
+    result = submit_dds(session, org_id)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="eudr.dds.submit",
+                target_type="eudr_dds", target_id=result.get("internal_reference", "n/a"),
+                detail={"status": result.get("status"), "mode": result.get("mode")})
+    return result
+
+
 @router.get("/report-snapshots/{snapshot_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a frozen filing")
 def assurance_pack(snapshot_id: str, session: DbSession,
                    ctx: dict = Depends(require_permission("reports.view"))):

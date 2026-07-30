@@ -20,10 +20,10 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | Tier 1 **READY**; Tier 2 **GAP (us + customer)** |
-| **Built** | `assemble_dds()` produces a per-consignment Due Diligence Statement from the plot polygons + satellite forest-loss determinations, with blocker/readiness reasons. The operator files the exported statement in the EU Information System / TRACES and enters the reference number back — nothing is ever quietly auto-filed. |
-| **Gap** | Tier 2 is direct submission over the **TRACES API** (no manual re-keying). Two prerequisites: **(customer)** register as an EUDR operator/trader in the EU Information System and obtain API credentials; **(us)** build the TRACES API client + map our DDS fields to their submission schema, and store the returned reference number + status against the consignment. |
-| **Owner action** | Customer completes operator registration and shares API access. Then we wire and certify the Tier-2 submit path against the TRACES sandbox before touching production. |
+| **Status** | Tier 1 **READY**; Tier 2 client **READY (v1.48)** — prepared/dry-run by default, config-flip to live; only the operator registration + official field alignment remain external |
+| **Built** | `assemble_dds()` produces a per-consignment Due Diligence Statement from the plot polygons + satellite forest-loss determinations, with blocker/readiness reasons; the operator can file it and key the reference back (Tier 1). **Tier 2** (`services/intelligence/traces_client.py`): `build_submission()` maps the DDS to a TRACES-shaped envelope; `submission_preview()` (`GET /v1/supply/eudr/submission-preview`) shows exactly what would be filed, no side effects; `submit_dds()` (`POST /v1/supply/eudr/submit`, audited) runs in **`prepared`** mode by default (builds + completeness-checks the envelope, files nothing) and flips to **`live`** only when `TRACES_MODE=live` + `TRACES_BASE_URL` + `TRACES_API_TOKEN` are set. A "Prepare TRACES submission" button sits on the Disclosure page beside the Tier-1 capture. |
+| **Gap** | Two external items only: **(customer)** register as an EUDR operator in the EU Information System and provide API credentials; **(us, data-not-code)** align the envelope field names to the published EUDR IS / TRACES DDS schema (flagged in every response). Live mode without creds returns an explicit `not_configured` — never a fake success. |
+| **Owner action** | Customer completes operator registration and shares sandbox/prod API access; we confirm the field mapping against the published schema and certify against the sandbox before prod. |
 | **Do NOT** | Auto-submit before the customer has reviewed. EUDR liability sits with the operator; the human sign-off stays. |
 
 ## 2. XBRL / EFRAG taxonomy binding
@@ -73,7 +73,7 @@ still manual or provisional, the product says so on the page, and so does this d
 | Gap | Status | Blocking who |
 |---|---|---|
 | EUDR Tier-1 DDS (manual reference-number entry) | READY | — |
-| EUDR Tier-2 direct TRACES submit | GAP | customer registration → us |
+| EUDR Tier-2 client (prepared mode; live via config) | READY | live needs customer registration + field alignment |
 | iXBRL/ESEF output + binding mechanism + validator | READY | — |
 | Bind to adopted EFRAG taxonomy (drop-in element map) | GAP | external artifact (drop config JSON when EFRAG finalizes) |
 | Geocoder (demo/onboarding scale) | READY | — |
@@ -82,7 +82,9 @@ still manual or provisional, the product says so on the page, and so does this d
 | Assurance evidence-pack export (hashed ZIP, per snapshot) | READY | — |
 | Golden-source refresh cadence | GAP | us + customer sign-off |
 
-**Reading this to a design partner:** everything that produces a *number* is production-grade and honest
-about its own limits. The gaps are the **last-mile plumbing to a regulator's inbox** (TRACES API, the
-official XBRL taxonomy) and the **operational disciplines around a real filing** (production geocoding SLA,
-an auditor bundle, a refresh schedule) — each with a clear owner, none of them a rebuild.
+**Reading this to a design partner (updated through v1.48):** everything that produces a *number* is
+production-grade and honest about its own limits, and the **filing last-mile is now built** — iXBRL/ESEF
+output + a drop-in EFRAG binding, the assurance evidence pack, and a TRACES Tier-2 client that prepares
+the exact submission. What remains is genuinely *external*: the customer's EUDR operator registration, the
+adopted EFRAG element map (one JSON), and the official TRACES field-name confirmation — plus two ordinary
+ops disciplines (a production geocoder SLA, a golden-source refresh schedule). None is a rebuild.
