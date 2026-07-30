@@ -856,6 +856,21 @@ def get_report_snapshot(snapshot_id: str, session: DbSession,
     return snap
 
 
+@router.get("/report-snapshots/{snapshot_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a frozen filing")
+def assurance_pack(snapshot_id: str, session: DbSession,
+                   ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.assurance_pack import build_assurance_pack
+    org_id = ctx["org"]["org_id"]
+    out = build_assurance_pack(session, org_id, snapshot_id)
+    if not out:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such snapshot for this organization."})
+    fname, data = out
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
+                target_type="report_snapshot", target_id=snapshot_id, detail={"file": fname})
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip",
+                              headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 @router.get("/validation", summary="Impact-function backtests (the credibility record)")
 def validation(session: DbSession):
     # `origin` is part of the key: one event validates a crop PER ORIGIN (cocoa 2023/24 is

@@ -290,7 +290,7 @@ function FilingsHistory() {
                 <span className="text-[13px] font-medium">{s.label}</span>
                 <span className="text-[11px] text-[var(--color-faint)] ml-auto text-right">{s.created_at.slice(0, 10)} · {s.created_by ?? '—'}</span>
               </button>
-              {open === s.snapshot_id && <FrozenDetail snapshotId={s.snapshot_id} note={s.note} basis={s.reporting_basis} />}
+              {open === s.snapshot_id && <FrozenDetail snapshotId={s.snapshot_id} note={s.note} basis={s.reporting_basis} version={s.version} reportType={s.report_type} />}
             </div>
           ))}
         </div>
@@ -305,7 +305,7 @@ interface FrozenPayload {
   material_hazards?: { hazard: string; label: string }[]
 }
 
-function FrozenDetail({ snapshotId, note, basis }: { snapshotId: string; note: string | null; basis: Basis }) {
+function FrozenDetail({ snapshotId, note, basis, version, reportType }: { snapshotId: string; note: string | null; basis: Basis; version: number; reportType: string }) {
   const q = useQuery({ queryKey: ['report-snapshot', snapshotId], queryFn: () => api.get<{ payload: FrozenPayload }>(`/v1/supply/report-snapshots/${snapshotId}`) })
   const p = q.data?.payload
   // esrs_pack carries topics; csrd_e1 carries financial_effects at the top level
@@ -329,6 +329,12 @@ function FrozenDetail({ snapshotId, note, basis }: { snapshotId: string; note: s
           {e4 && <div className="flex justify-between gap-2"><span>E4 deforestation-free</span><span className="font-medium text-[var(--color-good)]">{e4.deforestation_free}</span></div>}
         </div>
       )}
+      <div className="mt-3">
+        <button onClick={() => download(`/v1/supply/report-snapshots/${snapshotId}/assurance-pack`, `assurance-pack-${reportType}-v${version}.zip`)}
+          className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline">
+          <ShieldCheck size={13} /> Download assurance pack (ZIP)
+        </button>
+      </div>
     </div>
   )
 }

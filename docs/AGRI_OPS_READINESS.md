@@ -50,11 +50,11 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | Primitives **READY**; packaged auditor bundle **GAP (us)** |
+| **Status** | **READY (v1.47)** — primitives *and* the packaged auditor bundle |
 | **Why** | CSRD requires **limited assurance** now (moving toward reasonable). The assurer will ask *how* each number was produced and *who could change it*. |
 | **Built** | We already hold every primitive an auditor asks for: the **model-validation / backtest record** (per crop × origin, with r² and the retired-price-claim honesty note), the **`access_audit_log`** (who did what, when), **4-eyes approvals** on material edits and deletes, **provenance** on every reference table, the **honesty gate** (€ withheld where the hazard→yield chain doesn't clear r²≥0.40), and now **immutable report snapshots** — the exact bytes as filed, on a frozen basis. |
-| **Gap** | These are not yet exported as a single **auditor-ready evidence bundle**: methodology write-up + data-lineage export + validation record + control evidence (approvals, audit trail) + the specific snapshot under assurance, zipped and cross-referenced. |
-| **Owner action** | **(us)** Build an "assurance pack" export keyed on a report snapshot that pulls those primitives into one indexed bundle. Most of the work is assembly, not new data — the spine already exists. |
+| **Built** | `services/governance/assurance_pack.py` → `GET /v1/supply/report-snapshots/{id}/assurance-pack` returns a **ZIP** keyed to a frozen snapshot: `manifest.json` (each artifact SHA-256-hashed, tamper-evident), `methodology.md` (how figures are produced + the r²≥0.40 honesty gate + the controls), the frozen `report.json`, the `validation_record.json` (backtests incl. the retired price claim), `audit_trail.json`, `approvals_4eyes.json`, and `provenance.json`. Download button on each frozen version in the ESRS **Filed versions** panel; the export is itself audited. |
+| **Remaining** | Optional polish only: a data-lineage graph and a rendered PDF cover. The evidence itself is complete. |
 
 ## 5. Golden-source refresh cadence
 
@@ -79,7 +79,7 @@ still manual or provisional, the product says so on the page, and so does this d
 | Geocoder (demo/onboarding scale) | READY | — |
 | Geocoder (consumer-scale, SLA, QA) | GAP | us |
 | Assurance primitives (validation, audit, 4-eyes, provenance, snapshots) | READY | — |
-| Assurance evidence-pack export | GAP | us |
+| Assurance evidence-pack export (hashed ZIP, per snapshot) | READY | — |
 | Golden-source refresh cadence | GAP | us + customer sign-off |
 
 **Reading this to a design partner:** everything that produces a *number* is production-grade and honest
