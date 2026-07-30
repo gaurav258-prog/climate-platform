@@ -243,14 +243,18 @@ def main():
         ROLE_PERMS = {
             "admin": [
                 "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
-                "admin.users.manage", "admin.roles.manage", "admin.audit.view",
-                "approvals.create", "approvals.view", "approvals.decide", "portal.use",
+                "admin.users.manage", "admin.roles.manage", "admin.audit.view", "admin.approval_policy.manage",
+                "approvals.create", "approvals.view", "approvals.decide", "portal.use", "supply.locations.write",
             ],
-            "analyst": ["modules.view", "reports.view", "pricing.view", "approvals.create", "portal.use"],
+            # analyst is a MAKER: can add/edit/delete locations, but material changes go to a checker
+            "analyst": ["modules.view", "reports.view", "pricing.view", "approvals.create", "portal.use", "supply.locations.write"],
+            # approver is a CHECKER: clears 4-eyes requests (must differ from the maker)
+            "approver": ["modules.view", "reports.view", "approvals.view", "approvals.decide", "portal.use", "supply.locations.write"],
         }
         for email, full_name, pw, role_name in [
-            ("admin@terra.demo",   "Teo Admin (Terra)",     "Demo!admin1",   "admin"),
-            ("analyst@terra.demo", "Tomas Analyst (Terra)", "Demo!analyst1", "analyst"),
+            ("admin@terra.demo",    "Teo Admin (Terra)",     "Demo!admin1",   "admin"),
+            ("analyst@terra.demo",  "Tomas Analyst (Terra)", "Demo!analyst1", "analyst"),
+            ("approver@terra.demo", "Pia Approver (Terra)",  "Demo!approve1", "approver"),
         ]:
             s.execute(text("DELETE FROM users WHERE org_id=:o AND email=:e"), {"o": ORG, "e": email})
             uid = str(uuid.uuid4())

@@ -22,7 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, require_permission
 from api.services.rbac import write_audit
 from services.intelligence.supply_cogs import (
     apply_commodity_override, clear_commodity_override, project_org_supply, IMPACT_VERSION,
@@ -287,6 +287,142 @@ def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.site.add",
                 target_type="company_site", target_id=site["site_id"], detail={"name": body.name, "type": site["site_type"]})
     return {"ok": True, "site": site}
+
+
+@router.get("/commodities", summary="The commodities a plot can be tagged to (for the add-plot picker)")
+def commodities(session: DbSession):
+    rows = session.execute(text(
+        "SELECT commodity_id::text AS id, name, eudr_covered FROM sc_commodities ORDER BY name"
+    )).mappings().all()
+    return {"commodities": [dict(r) for r in rows]}
+
+
+class PlotCreate(BaseModel):
+    plot_name: str = Field(..., min_length=1)
+    commodity: str = Field(..., min_length=1)      # commodity NAME (mapped to id server-side)
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    annual_spend_eur: float = Field(..., gt=0)
+    plot_area_ha: Optional[float] = None
+
+
+@router.post("/plots", summary="Add one sourcing plot (by address or coordinates) → geocode + score")
+def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
+    from services.intelligence.company_sites import resolve_location, SiteLocationError as LocErr
+    org_id = ctx["org"]["org_id"]
+    commodity_id = session.execute(text("SELECT commodity_id::text FROM sc_commodities WHERE name=:n"),
+                                   {"n": body.commodity}).scalar()
+    if not commodity_id:
+        raise HTTPException(status_code=422, detail={"error": "unknown_commodity", "message": f"'{body.commodity}' is not a known commodity."})
+    try:
+        loc = resolve_location(body.address, body.latitude, body.longitude)
+    except LocErr as e:
+        raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
+    # a >4ha plot given only as a point is EUDR-insufficient — flag it honestly (don't block the add)
+    needs_polygon = bool(body.plot_area_ha and body.plot_area_ha > 4.0)
+    cell = h3.latlng_to_cell(loc["lat"], loc["lon"], 8)
+    plot_id = str(uuid.uuid4())
+    session.execute(text("""
+        INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
+                                        h3_cell, region, country, annual_spend_eur, plot_area_ha)
+        VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :lat, :lon, :cell, :region, :country, :spend, :area)
+    """), {"plot_id": plot_id, "org_id": org_id, "commodity_id": commodity_id, "plot_name": body.plot_name,
+           "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "region": body.region,
+           "country": body.country or (loc.get("resolved_name") or "").split(", ")[-1] or None,
+           "spend": body.annual_spend_eur, "area": body.plot_area_ha})
+    session.commit()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
+                target_type="sc_sourcing_plots", target_id=plot_id,
+                detail={"plot_name": body.plot_name, "commodity": body.commodity})
+    try:
+        process_new_cells({cell: (loc["lat"], loc["lon"])})
+    except Exception:
+        pass  # cell saved; scoring can land on the next golden-source sweep
+    return {"ok": True, "plot": {"plot_id": plot_id, "plot_name": body.plot_name, "commodity": body.commodity,
+            "lat": loc["lat"], "lon": loc["lon"], "resolved_name": loc.get("resolved_name"),
+            "geocode_precision": loc["precision"], "needs_polygon": needs_polygon}}
+
+
+class SiteUpdate(BaseModel):
+    name: Optional[str] = None
+    site_type: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    annual_value_eur: Optional[float] = None
+    annual_throughput_eur: Optional[float] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+
+
+class PlotUpdate(BaseModel):
+    plot_name: Optional[str] = None
+    commodity: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    annual_spend_eur: Optional[float] = None
+    plot_area_ha: Optional[float] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+
+
+def _own_or_404(session, table, id_col, target_id, org_id, label):
+    row = session.execute(text(f"SELECT 1 FROM {table} WHERE {id_col}=:i AND org_id=:o"),
+                          {"i": target_id, "o": org_id}).first()
+    if not row:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"{label} not found."})
+
+
+@router.patch("/site/{site_id}", summary="Edit an operational site (material edits need 4-eyes approval)")
+def update_site(site_id: str, body: SiteUpdate, session: DbSession,
+                ctx: dict = Depends(require_permission("supply.locations.write"))):
+    from services.governance.location_governance import submit_or_apply
+    org_id = ctx["org"]["org_id"]
+    _own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    changes.pop("commodity", None)  # not a site field
+    if not changes:
+        raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
+    return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                           request_type="supply.site.update", target_id=site_id, changes=changes,
+                           title=f"Edit site {site_id[:8]}")
+
+
+@router.delete("/site/{site_id}", summary="Delete an operational site (needs 4-eyes approval)")
+def delete_site(site_id: str, session: DbSession,
+                ctx: dict = Depends(require_permission("supply.locations.write"))):
+    from services.governance.location_governance import submit_or_apply
+    org_id = ctx["org"]["org_id"]
+    _own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
+    return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                           request_type="supply.site.delete", target_id=site_id, title=f"Delete site {site_id[:8]}")
+
+
+@router.patch("/plot/{plot_id}", summary="Edit a sourcing plot (material edits need 4-eyes approval)")
+def update_plot(plot_id: str, body: PlotUpdate, session: DbSession,
+                ctx: dict = Depends(require_permission("supply.locations.write"))):
+    from services.governance.location_governance import submit_or_apply
+    org_id = ctx["org"]["org_id"]
+    _own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
+    data = body.model_dump(exclude_unset=True, exclude_none=True)
+    commodity = data.pop("commodity", None)
+    if not data and not commodity:
+        raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
+    return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                           request_type="supply.plot.update", target_id=plot_id, changes=data,
+                           commodity=commodity, title=f"Edit plot {plot_id[:8]}")
+
+
+@router.delete("/plot/{plot_id}", summary="Delete a sourcing plot (needs 4-eyes approval)")
+def delete_plot(plot_id: str, session: DbSession,
+                ctx: dict = Depends(require_permission("supply.locations.write"))):
+    from services.governance.location_governance import submit_or_apply
+    org_id = ctx["org"]["org_id"]
+    _own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
+    return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                           request_type="supply.plot.delete", target_id=plot_id, title=f"Delete plot {plot_id[:8]}")
 
 
 @router.get("/geocode", summary="Address autocomplete — ranked place candidates (preview, no write)")

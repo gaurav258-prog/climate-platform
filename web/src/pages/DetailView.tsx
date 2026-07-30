@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Map as MapIcon, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, Eyebrow } from '../components/ui'
 import MiniMap from '../components/MiniMap'
+import LocationEditor from '../components/LocationEditor'
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -44,6 +45,8 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
           <span className="text-3xl font-semibold mono" style={{ color: hz(worst) }}>{Math.round(worst)}</span>
         </div>
       </div>
+
+      <LocationEditor kind={kind} id={id as string} record={(d![kind] as Record<string, unknown>) ?? {}} onChanged={() => q.refetch()} />
 
       <div className="grid lg:grid-cols-2 gap-5">
         {/* location + facts */}

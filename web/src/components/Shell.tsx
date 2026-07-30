@@ -1,11 +1,11 @@
 import { type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, CheckSquare, ScrollText, Settings } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
 
-type Item = { to: string; label: string; icon: typeof Home; end?: boolean }
+type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string }
 const GROUPS: { label: string | null; items: Item[] }[] = [
   { label: null, items: [{ to: '/', label: 'Home', icon: Home, end: true }] },
   { label: 'Your footprint', items: [
@@ -24,6 +24,11 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/models', label: 'Models & validation', icon: FlaskConical },
     { to: '/foundation', label: 'Data foundation', icon: Database },
   ] },
+  { label: 'Governance', items: [
+    { to: '/approvals', label: 'Approvals', icon: CheckSquare, perm: 'approvals.view' },
+    { to: '/audit', label: 'Audit trail', icon: ScrollText, perm: 'admin.audit.view' },
+    { to: '/admin', label: 'Admin console', icon: Settings, perm: 'admin.users.manage' },
+  ] },
 ]
 
 export default function Shell({ children }: { children: ReactNode }) {
@@ -39,11 +44,14 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
-          {GROUPS.map((g, gi) => (
+          {GROUPS.map((g, gi) => {
+            const items = g.items.filter(it => !it.perm || profile?.permissions?.includes(it.perm))
+            if (items.length === 0) return null
+            return (
             <div key={gi}>
               {g.label && <div className="px-2 mb-1.5 mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-faint)]">{g.label}</div>}
               <div className="space-y-0.5">
-                {g.items.map(it => (
+                {items.map(it => (
                   <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => clsx(
                     'relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[14.5px] transition',
                     isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
@@ -57,7 +65,8 @@ export default function Shell({ children }: { children: ReactNode }) {
                 ))}
               </div>
             </div>
-          ))}
+            )
+          })}
         </nav>
 
         <div className="border-t border-[var(--color-line)] px-4 py-3 flex items-center gap-2">

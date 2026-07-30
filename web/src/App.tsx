@@ -5,6 +5,9 @@ import Shell from './components/Shell'
 import Home from './pages/Home'
 import Disclosure from './pages/Disclosure'
 import Csrd from './pages/Csrd'
+import Approvals from './pages/Approvals'
+import Audit from './pages/Audit'
+import Admin from './pages/Admin'
 import Cogs from './pages/Cogs'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
@@ -27,6 +30,9 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
+        <Route path="/approvals" element={<Approvals />} />
+        <Route path="/audit" element={<Audit />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />

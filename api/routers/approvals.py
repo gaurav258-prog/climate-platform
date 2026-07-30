@@ -83,7 +83,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
            ctx: dict = Depends(require_permission("approvals.decide"))):
     org_id = ctx["org"]["org_id"]
     row = session.execute(text("""
-        SELECT maker_user_id, status, request_type FROM approval_requests
+        SELECT maker_user_id, status, request_type, payload FROM approval_requests
         WHERE  request_id = :r AND org_id = :o
     """), {"r": request_id, "o": org_id}).mappings().first()
     if not row:
@@ -117,7 +117,19 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
             raise HTTPException(409, {"error": "submission_transition_failed",
                                       "message": f"Could not {new_status} the linked submission: {e}"})
 
+    # Governed location changes: apply the mutation on approval (shares the exact same apply path
+    # the direct edit uses, so an approved change is identical to a direct one). Audited within.
+    applied = None
+    if body.decision == "approved" and row["request_type"].startswith("supply."):
+        from services.governance.location_governance import apply_location_change
+        try:
+            applied = apply_location_change(session, row["request_type"], row["payload"],
+                                            actor_user_id=ctx["user"]["id"], org_id=org_id)
+        except Exception as e:
+            raise HTTPException(409, {"error": "apply_failed",
+                                      "message": f"Approved, but could not apply the change: {e}"})
+
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,
-                detail={"decision": body.decision, "reason": body.reason})
-    return {"id": request_id, "status": body.decision}
+                detail={"decision": body.decision, "reason": body.reason, "request_type": row["request_type"]})
+    return {"id": request_id, "status": body.decision, "applied": applied}

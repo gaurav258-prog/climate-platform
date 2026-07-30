@@ -215,3 +215,59 @@ def audit(session: DbSession, page: Pagination,
         "actor_email": r["actor_email"], "actor_name": r["actor_name"],
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
     } for r in rows]
+
+
+# ── Approval matrix ────────────────────────────────────────────────────
+
+_POLICY_LABELS = {
+    "supply.site.update": "Edit an operational site",
+    "supply.site.delete": "Delete an operational site",
+    "supply.plot.update": "Edit a sourcing plot",
+    "supply.plot.delete": "Delete a sourcing plot",
+}
+
+
+class PolicyPatch(BaseModel):
+    action_key:        str = Field(..., min_length=1, max_length=80)
+    requires_approval: bool
+    material_fields:   Optional[list[str]] = None
+
+
+@router.get("/approval-policy", summary="The approval matrix — which actions need 4-eyes (org rules over platform defaults)")
+def get_approval_policy(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    org_id = ctx["org"]["org_id"]
+    rows = session.execute(text("""
+        SELECT DISTINCT ON (action_key) action_key, requires_approval, material_fields,
+               (org_id IS NOT NULL) AS org_override
+        FROM   approval_policy
+        WHERE  org_id = :o OR org_id IS NULL
+        ORDER  BY action_key, org_id NULLS LAST
+    """), {"o": org_id}).mappings().all()
+    return [{
+        "action_key": r["action_key"], "label": _POLICY_LABELS.get(r["action_key"], r["action_key"]),
+        "requires_approval": bool(r["requires_approval"]),
+        "material_fields": list(r["material_fields"] or []),
+        "org_override": bool(r["org_override"]),
+    } for r in rows]
+
+
+@router.patch("/approval-policy", summary="Set your org's rule for an action (overrides the platform default)")
+def set_approval_policy(body: PolicyPatch, session: DbSession,
+                        ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    import json
+    org_id = ctx["org"]["org_id"]
+    if body.action_key not in _POLICY_LABELS:
+        raise HTTPException(422, {"error": "unknown_action", "message": f"Unknown action: {body.action_key}"})
+    mats = body.material_fields if body.material_fields is not None else []
+    session.execute(text("""
+        INSERT INTO approval_policy (org_id, action_key, requires_approval, material_fields, updated_by, updated_at)
+        VALUES (:o, :a, :req, CAST(:m AS jsonb), :u, now())
+        ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
+        DO UPDATE SET requires_approval = EXCLUDED.requires_approval,
+                      material_fields = EXCLUDED.material_fields,
+                      updated_by = EXCLUDED.updated_by, updated_at = now()
+    """), {"o": org_id, "a": body.action_key, "req": body.requires_approval, "m": json.dumps(mats), "u": ctx["user"]["id"]})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval_policy.update",
+                target_type="approval_policy", target_id=body.action_key,
+                detail={"requires_approval": body.requires_approval, "material_fields": mats})
+    return {"action_key": body.action_key, "requires_approval": body.requires_approval, "material_fields": mats, "org_override": True}

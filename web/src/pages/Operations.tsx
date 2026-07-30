@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 
 interface Site {
   site_id: string; name: string; site_type: string; lat: number | null; lon: number | null
@@ -29,30 +30,8 @@ export default function Operations() {
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
   const [nameErr, setNameErr] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
-  // address autocomplete — the user PICKS the right place from ranked candidates, not a lone best-guess
-  type Place = { display_name: string; lat: number; lon: number }
-  const [suggest, setSuggest] = useState<{ state: 'idle' | 'searching' | 'ready' | 'none'; results: Place[] }>({ state: 'idle', results: [] })
   const [chosen, setChosen] = useState<Place | null>(null)
-  const [open, setOpen] = useState(false)
   const hasCoords = form.latitude.trim() !== '' && form.longitude.trim() !== ''
-
-  // debounce a candidate lookup as the address is typed (skip if manual coords given, or a place is already chosen)
-  useEffect(() => {
-    const term = form.address.trim()
-    if (hasCoords || term.length < 2 || (chosen && term === chosen.display_name)) { setSuggest({ state: 'idle', results: [] }); return }
-    setSuggest(s => ({ ...s, state: 'searching' }))
-    const id = setTimeout(async () => {
-      try {
-        const r = await api.get<{ results: Place[] }>(`/v1/supply/geocode?q=${encodeURIComponent(term)}`)
-        setSuggest({ state: r.results.length ? 'ready' : 'none', results: r.results })
-        setOpen(r.results.length > 0)
-      } catch { setSuggest({ state: 'none', results: [] }) }
-    }, 450)
-    return () => clearTimeout(id)
-  }, [form.address, hasCoords, chosen])
-
-  const pick = (p: Place) => { setChosen(p); setForm(f => ({ ...f, address: p.display_name })); setOpen(false); setSuggest({ state: 'idle', results: [] }) }
-  const onAddressChange = (v: string) => { setChosen(null); setForm(f => ({ ...f, address: v })) }
 
   const add = async () => {
     if (!form.name.trim()) { setNameErr(true); nameRef.current?.focus(); setMsg({ text: 'Give the site a name first (e.g. "Frankfurt DC").', tone: 'err' }); return }
@@ -73,7 +52,7 @@ export default function Operations() {
       const where = useChosen ? chosen!.display_name : `${r.site.lat.toFixed(3)}, ${r.site.lon.toFixed(3)}`
       setMsg({ text: `✓ Added "${form.name.trim()}" at ${where}. Scored on the live hazard grid — see the table below.`, tone: 'ok' })
       setForm({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
-      setChosen(null); setSuggest({ state: 'idle', results: [] }); setOpen(false)
+      setChosen(null)
       await q.refetch()
     } catch (e) {
       setMsg({ text: (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message
@@ -133,32 +112,9 @@ export default function Operations() {
             </select>
           </Field>
           <Field label="Address (or use coordinates)">
-            <div className="relative">
-              <input className={inp} value={form.address} placeholder="Start typing a place…"
-                onChange={e => onAddressChange(e.target.value)}
-                onFocus={() => suggest.results.length && setOpen(true)}
-                onBlur={() => setTimeout(() => setOpen(false), 150)}
-                onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }} />
-              {!hasCoords && suggest.state === 'searching' && <Loader2 size={13} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-faint)]" />}
-              {chosen && !hasCoords && <Check size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-good)]" />}
-              {open && !hasCoords && suggest.results.length > 0 && (
-                <ul className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] shadow-xl">
-                  {suggest.results.map((p, i) => (
-                    <li key={i}>
-                      <button type="button" onMouseDown={e => { e.preventDefault(); pick(p) }}
-                        className="w-full text-left px-3 py-2 text-[12.5px] leading-snug hover:bg-[var(--color-bg)] flex items-start gap-2">
-                        <MapPin size={13} className="mt-0.5 shrink-0 text-[var(--color-sky)]" />
-                        <span className="text-[var(--color-ink)]">{p.display_name}
-                          <span className="mono text-[10.5px] text-[var(--color-faint)] ml-1">({p.lat.toFixed(2)}, {p.lon.toFixed(2)})</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {chosen && !hasCoords && <div className="mt-1.5 text-[11px] text-[var(--color-good)]">selected · {chosen.lat.toFixed(3)}, {chosen.lon.toFixed(3)}</div>}
-            {!hasCoords && !chosen && suggest.state === 'none' && <div className="mt-1.5 text-[11px] flex items-center gap-1.5 text-[var(--color-warn)]"><AlertCircle size={12} /> no match — add city/country, or use coordinates</div>}
+            <AddressAutocomplete value={form.address} selected={chosen} disabled={hasCoords}
+              onValueChange={v => { setChosen(null); setForm(f => ({ ...f, address: v })) }}
+              onSelect={p => { setChosen(p); setForm(f => ({ ...f, address: p.display_name })) }} />
             {hasCoords && form.address.trim() && <div className="mt-1.5 text-[11px] text-[var(--color-faint)]">using the coordinates below (address ignored)</div>}
           </Field>
           <Field label="Asset value € (PP&E + stock)"><input className={inp} value={form.annual_value_eur} onChange={e => setForm({ ...form, annual_value_eur: e.target.value })} placeholder="85000000" inputMode="numeric" /></Field>
