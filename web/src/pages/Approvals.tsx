@@ -27,7 +27,7 @@ function summarize(p: Record<string, unknown>): string {
   return p.target_id ? `target ${String(p.target_id).slice(0, 8)}` : '—'
 }
 
-export default function Approvals() {
+export default function Approvals({ embedded = false }: { embedded?: boolean }) {
   const { profile } = useAuth()
   const canDecide = profile?.permissions?.includes('approvals.decide')
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
@@ -44,7 +44,8 @@ export default function Approvals() {
 
   const rows = q.data ?? []
   return (
-    <div className="fadeup space-y-6">
+    <div className={embedded ? 'space-y-6' : 'fadeup space-y-6'}>
+      {!embedded && (
       <div>
         <Eyebrow>Governance · maker-checker</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Approvals</h1>
@@ -53,6 +54,7 @@ export default function Approvals() {
           approves or rejects it (4-eyes) — nothing sensitive applies on one person's say-so.
         </p>
       </div>
+      )}
 
       <div className="flex gap-2">
         {(['pending', 'all'] as const).map(f => (

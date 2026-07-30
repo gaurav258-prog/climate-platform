@@ -8,11 +8,50 @@ scripts/seed_platform_operator.py). Read-only — an operator never edits a cust
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
+from api.security import create_access_token
+from api.services.rbac import write_audit
 
 router = APIRouter(prefix="/v1/ops", tags=["Platform operator"])
+
+
+class ImpersonateBody(BaseModel):
+    org_id: str = Field(..., min_length=1)
+
+
+@router.post("/impersonate", summary="Open a customer tenant's workspace (view-as, audited)")
+def impersonate(body: ImpersonateBody, session: DbSession,
+                ctx: dict = Depends(require_permission("platform.admin"))):
+    """Mint a session token as an admin of the target tenant, so a platform operator can enter that
+    customer's full workspace + cockpit from one login. Read/act happens as that tenant; the ENTRY is
+    recorded in the tenant's own audit log (transparency) against the real operator."""
+    org = session.execute(text("SELECT name, type FROM organizations WHERE org_id=:o"), {"o": body.org_id}).mappings().first()
+    if not org:
+        raise HTTPException(404, {"error": "not_found", "message": "Tenant not found."})
+    if org["type"] == "platform":
+        raise HTTPException(422, {"error": "not_a_tenant", "message": "Cannot view-as the platform org itself."})
+    # prefer an active admin of the tenant; else any active user
+    target = session.execute(text("""
+        SELECT u.user_id::text, u.email, u.full_name,
+               bool_or(r.name = 'admin') AS is_admin
+        FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.user_id LEFT JOIN roles r ON r.role_id=ur.role_id
+        WHERE u.org_id=:o AND u.status='active'
+        GROUP BY u.user_id, u.email, u.full_name
+        ORDER BY is_admin DESC, u.created_at ASC LIMIT 1
+    """), {"o": body.org_id}).mappings().first()
+    if not target:
+        raise HTTPException(409, {"error": "no_user", "message": "This tenant has no active user to view as."})
+
+    operator_email = ctx["user"]["email"]
+    token = create_access_token(user_id=target["user_id"], org_id=body.org_id,
+                                extra={"impersonated_by": operator_email})
+    write_audit(session, org_id=body.org_id, actor_user_id=ctx["user"]["id"], action="impersonation.start",
+                target_type="organization", target_id=body.org_id,
+                detail={"operator": operator_email, "as_user": target["email"]})
+    return {"token": token, "tenant_name": org["name"], "as_user_email": target["email"], "as_user_name": target["full_name"]}
 
 
 @router.get("/tenants", summary="All customer tenants with health & usage rollups (cross-tenant)")

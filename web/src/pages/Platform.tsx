@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Globe, ChevronRight, X } from 'lucide-react'
+import { Globe, ChevronRight, X, LogIn } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, Stat } from '../components/ui'
+import { useAuth } from '../lib/auth'
+import { Eyebrow, Card, Stat, Button } from '../components/ui'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -80,7 +81,10 @@ export default function Platform() {
 
 function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }) {
   const q = useQuery({ queryKey: ['ops-tenant', orgId], queryFn: () => api.get<TenantDetail>(`/v1/ops/tenant/${orgId}`) })
+  const { viewAsTenant } = useAuth()
+  const [busy, setBusy] = useState(false)
   const d = q.data
+  const enter = async () => { setBusy(true); try { await viewAsTenant(orgId) } catch { setBusy(false) } }
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
@@ -94,6 +98,12 @@ function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
             <h2 className="display text-2xl font-semibold">{d.organization.name}</h2>
             <p className="text-[12px] text-[var(--color-mute)] capitalize">{d.organization.type.replace('_', ' ')} · {d.organization.country}</p>
           </div>
+          {d.organization.type !== 'platform' && (
+            <div>
+              <Button onClick={enter} disabled={busy}><LogIn size={15} /> {busy ? 'Opening…' : 'View as this tenant'}</Button>
+              <p className="text-[11px] text-[var(--color-faint)] mt-1.5">Opens their full workspace &amp; cockpit. Recorded in their audit log.</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
             {[['Legal name', d.organization.legal_name], ['LEI', d.organization.lei], ['EORI', d.organization.eori], ['Filing contact', d.organization.filing_contact_email]].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 border-b border-[var(--color-line)] pb-1.5"><span className="text-[var(--color-mute)]">{k}</span><span className={v ? 'text-[var(--color-ink)] text-right' : 'text-[var(--color-faint)]'}>{v || '—'}</span></div>

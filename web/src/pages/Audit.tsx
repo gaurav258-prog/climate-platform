@@ -17,13 +17,14 @@ const fmtDetail = (d: Record<string, unknown> | null) => {
   return Object.entries(d).filter(([k]) => k !== 'target_id').map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).slice(0, 3).join(' · ')
 }
 
-export default function Audit() {
+export default function Audit({ embedded = false }: { embedded?: boolean }) {
   const [actor, setActor] = useState('')
   const q = useQuery({ queryKey: ['audit', actor], queryFn: () => api.get<Row[]>(`/v1/admin/audit?limit=100${actor ? `&actor=${encodeURIComponent(actor)}` : ''}`) })
   const rows = q.data ?? []
 
   return (
-    <div className="fadeup space-y-6">
+    <div className={embedded ? 'space-y-6' : 'fadeup space-y-6'}>
+      {!embedded && (
       <div>
         <Eyebrow>Governance · accountability</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Audit trail</h1>
@@ -31,6 +32,7 @@ export default function Audit() {
           Every change — who did what, when, and (where it needed sign-off) who approved it. Immutable, append-only.
         </p>
       </div>
+      )}
 
       <input value={actor} onChange={e => setActor(e.target.value)} placeholder="filter by user email…"
         className="w-full max-w-sm bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />

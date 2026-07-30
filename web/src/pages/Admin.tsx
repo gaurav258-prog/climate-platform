@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
+import Approvals from './Approvals'
+import Audit from './Audit'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
@@ -27,7 +28,9 @@ export default function Admin() {
   const { profile } = useAuth()
   const perms = profile?.permissions ?? []
   const tabs = [
-    'Overview',
+    perms.includes('admin.users.manage') && 'Overview',
+    perms.includes('approvals.view') && 'Approvals',
+    perms.includes('admin.audit.view') && 'Audit',
     perms.includes('admin.users.manage') && 'Users',
     perms.includes('admin.roles.manage') && 'Roles',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
@@ -47,7 +50,9 @@ export default function Admin() {
             className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === t ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t}</button>
         ))}
       </div>
-      {tab === 'Overview' && <Overview />}
+      {tab === 'Overview' && <Overview onTab={setTab} />}
+      {tab === 'Approvals' && <Approvals embedded />}
+      {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
       {tab === 'Approval matrix' && <Matrix />}
@@ -55,7 +60,7 @@ export default function Admin() {
   )
 }
 
-function Overview() {
+function Overview({ onTab }: { onTab: (t: string) => void }) {
   const q = useQuery({ queryKey: ['control-center'], queryFn: () => api.get<CC>('/v1/admin/control-center') })
   const [editOrg, setEditOrg] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
@@ -144,23 +149,23 @@ function Overview() {
         )}
       </Card>
 
-      {/* governance + access summary — links into the surfaces */}
+      {/* governance + access summary — jump to the relevant tab */}
       <div className="grid sm:grid-cols-3 gap-4">
-        <Link to="/approvals"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
+        <button onClick={() => onTab('Approvals')} className="text-left"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
           <div className="flex items-center gap-2 mb-2"><CheckSquare size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Approvals</span></div>
           <div className="text-2xl font-semibold" style={{ color: d.governance.pending_approvals ? 'var(--color-warn)' : 'var(--color-ink)' }}>{d.governance.pending_approvals}</div>
           <div className="text-[11px] text-[var(--color-faint)]">pending · {d.governance.second_approver ? '4-eyes ready' : 'no second approver'}</div>
-        </Card></Link>
-        <Link to="/audit"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
+        </Card></button>
+        <button onClick={() => onTab('Audit')} className="text-left"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
           <div className="flex items-center gap-2 mb-2"><ScrollText size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Audit trail</span></div>
           <div className="text-2xl font-semibold">{d.governance.audit_events_30d}</div>
           <div className="text-[11px] text-[var(--color-faint)]">events in the last 30 days</div>
-        </Card></Link>
-        <Card className="p-4 h-full">
+        </Card></button>
+        <button onClick={() => onTab('Users')} className="text-left"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
           <div className="flex items-center gap-2 mb-2"><UsersIcon size={15} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold">Users</span></div>
           <div className="text-2xl font-semibold">{d.access.active}<span className="text-[var(--color-faint)] text-base">/{d.access.users}</span></div>
           <div className="text-[11px] text-[var(--color-faint)]">active · {d.entitlements.join(', ') || 'no modules'}</div>
-        </Card>
+        </Card></button>
       </div>
     </div>
   )
