@@ -149,6 +149,9 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
         )}
       </Card>
 
+      {/* reporting basis — the as-of assumptions every filing is computed on */}
+      <ReportingBasis />
+
       {/* governance + access summary — jump to the relevant tab */}
       <div className="grid sm:grid-cols-3 gap-4">
         <button onClick={() => onTab('Approvals')} className="text-left"><Card className="p-4 hover:border-[var(--color-sky)] transition cursor-pointer h-full">
@@ -168,6 +171,62 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
         </Card></button>
       </div>
     </div>
+  )
+}
+
+interface RSettings { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string; is_override: boolean }
+const SCENARIOS = [['baseline', 'Baseline (today)'], ['rcp45', 'RCP 4.5 — moderate'], ['rcp85', 'RCP 8.5 — high']]
+const HORIZONS = [['current', 'Current'], ['2030', '2030'], ['2040', '2040'], ['2050', '2050']]
+
+function ReportingBasis() {
+  const q = useQuery({ queryKey: ['reporting-settings'], queryFn: () => api.get<RSettings>('/v1/admin/reporting-settings') })
+  const [edit, setEdit] = useState(false)
+  const [f, setF] = useState<Partial<RSettings>>({})
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const d = q.data
+  const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, materiality_threshold: d.materiality_threshold, reporting_period_end: d.reporting_period_end }); setEdit(true); setMsg(null) }
+  const save = async () => {
+    setBusy(true); setMsg(null)
+    try { await api.patch('/v1/admin/reporting-settings', f); setEdit(false); await q.refetch(); setMsg('✓ Saved — every filing now uses this basis.') }
+    catch (e) { setMsg((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not save.') }
+    finally { setBusy(false) }
+  }
+  const sel = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
+  const label = (arr: string[][], v?: string) => arr.find(([k]) => k === v)?.[1] ?? v
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Reporting basis</h3></div>
+        {!edit && <button onClick={start} className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Pencil size={13} /> Edit</button>}
+      </div>
+      <p className="text-[11.5px] text-[var(--color-faint)] mb-3">The as-of assumptions every CSRD/ESRS filing is computed on. The r²≥0.40 publish gate is a fixed honesty constant — not settable here.</p>
+      {q.isLoading || !d ? <div className="text-[13px] text-[var(--color-faint)] py-2">loading…</div> : !edit ? (
+        <div className="grid sm:grid-cols-4 gap-x-8 gap-y-2 text-[13px]">
+          {[['Reporting period', d.reporting_period_end], ['Scenario', label(SCENARIOS, d.scenario)], ['Horizon', label(HORIZONS, d.horizon)], ['Materiality threshold', `score ≥ ${d.materiality_threshold}`]].map(([k, v]) => (
+            <div key={k}><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5 mono">{k}</div><div className="text-[var(--color-ink)]">{v}</div></div>
+          ))}
+          <div className="sm:col-span-4 text-[11px] text-[var(--color-faint)]">{d.is_override ? 'Custom basis set for this organization.' : 'Using platform defaults.'}</div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Reporting period end</div>
+              <input type="date" className={inp} value={f.reporting_period_end ?? ''} onChange={e => setF({ ...f, reporting_period_end: e.target.value })} /></label>
+            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Materiality threshold (0–100)</div>
+              <input type="number" min={0} max={100} className={inp} value={f.materiality_threshold ?? 40} onChange={e => setF({ ...f, materiality_threshold: Number(e.target.value) })} /></label>
+            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Scenario</div>
+              <select className={sel + ' w-full'} value={f.scenario} onChange={e => setF({ ...f, scenario: e.target.value })}>{SCENARIOS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Time horizon</div>
+              <select className={sel + ' w-full'} value={f.horizon} onChange={e => setF({ ...f, horizon: e.target.value })}>{HORIZONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          </div>
+          <div className="flex gap-3 items-center"><Button onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save basis'}</Button>
+            <button onClick={() => setEdit(false)} className="text-[13px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button></div>
+        </div>
+      )}
+      {msg && <div className="mt-2 text-[12px]" style={{ color: msg.startsWith('✓') ? 'var(--color-good)' : 'var(--color-warn)' }}>{msg}</div>}
+    </Card>
   )
 }
 

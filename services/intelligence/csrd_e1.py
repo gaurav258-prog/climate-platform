@@ -36,7 +36,8 @@ def _class(h: str) -> str:
     return "acute" if h in ACUTE else "chronic" if h in CHRONIC else "other"
 
 
-def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current") -> dict:
+def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
+                    material_threshold: int = MATERIAL_THRESHOLD) -> dict:
     org = session.execute(text("SELECT name, type, country, eori FROM organizations WHERE org_id=:o"),
                           {"o": org_id}).mappings().first()
 
@@ -47,7 +48,7 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
     for s in sites:
         av, tp, hs, hz = (s.get("value_eur") or 0), (s.get("throughput_eur") or 0), s.get("hazard_score"), s.get("top_hazard")
         op_asset_total += av; op_throughput += tp
-        if hz in CLIMATE and hs is not None and hs >= MATERIAL_THRESHOLD:
+        if hz in CLIMATE and hs is not None and hs >= material_threshold:
             op_asset_at_risk += av
             bi = tp * bi_downtime_fraction(hs); op_bi += bi
             d = op_by_hazard.setdefault(hz, {"hazard": hz, "label": _LABELS.get(hz, hz), "class": _class(hz),
@@ -70,7 +71,7 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
                             "published": pub, "volume_at_risk_eur": var if pub else None,
                             "volume_at_risk_low_eur": c.volume_at_risk_low_eur, "volume_at_risk_high_eur": c.volume_at_risk_high_eur,
                             "calibration": c.calibration, "fit_r2": c.fit_r2, "held_reason": c.held_reason})
-        if hz in CLIMATE and hs is not None and hs >= MATERIAL_THRESHOLD:
+        if hz in CLIMATE and hs is not None and hs >= material_threshold:
             d = up_by_hazard.setdefault(hz, {"hazard": hz, "label": _LABELS.get(hz, hz), "class": _class(hz),
                                              "n_commodities": 0, "spend_eur": 0.0, "cogs_at_risk_eur": 0.0, "max_score": 0})
             d["n_commodities"] += 1; d["spend_eur"] += (c.annual_spend_eur or 0)

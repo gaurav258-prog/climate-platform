@@ -363,6 +363,44 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
     }
 
 
+class ReportingSettingsPatch(BaseModel):
+    reporting_period_end:  Optional[str] = Field(None, description="YYYY-MM-DD")
+    scenario:              Optional[str] = Field(None, max_length=40)
+    horizon:               Optional[str] = Field(None, max_length=40)
+    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
+
+
+@router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, materiality)")
+def get_reporting_settings(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, ctx["org"]["org_id"])
+
+
+@router.patch("/reporting-settings", summary="Set the org's reporting basis (audited)")
+def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
+                           ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    # the r²≥0.40 publish gate is intentionally NOT settable here — it's an honesty constant, not a knob.
+    session.execute(text("""
+        INSERT INTO org_reporting_settings (org_id, reporting_period_end, scenario, horizon, materiality_threshold, updated_by, updated_at)
+        VALUES (:o, :p, COALESCE(:s,'baseline'), COALESCE(:h,'current'), COALESCE(:m,40), :u, now())
+        ON CONFLICT (org_id) DO UPDATE SET
+            reporting_period_end = COALESCE(EXCLUDED.reporting_period_end, org_reporting_settings.reporting_period_end),
+            scenario = COALESCE(EXCLUDED.scenario, org_reporting_settings.scenario),
+            horizon = COALESCE(EXCLUDED.horizon, org_reporting_settings.horizon),
+            materiality_threshold = COALESCE(EXCLUDED.materiality_threshold, org_reporting_settings.materiality_threshold),
+            updated_by = EXCLUDED.updated_by, updated_at = now()
+    """), {"o": org_id, "p": changes.get("reporting_period_end"), "s": changes.get("scenario"),
+           "h": changes.get("horizon"), "m": changes.get("materiality_threshold"), "u": ctx["user"]["id"]})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reporting_settings.update",
+                target_type="org_reporting_settings", target_id=org_id, detail={"changes": changes})
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, org_id)
+
+
 @router.patch("/organization", summary="Edit the org's reporting identity (audited)")
 def patch_organization(body: OrgPatch, session: DbSession,
                        ctx: dict = Depends(require_permission("admin.users.manage"))):

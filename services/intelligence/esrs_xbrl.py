@@ -62,9 +62,9 @@ def _facts(pack: dict) -> list[dict]:
 
 
 def build_facts(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                period_end: str | None = None) -> dict:
+                period_end: str | None = None, material: int = 40) -> dict:
     """The tagged-facts export (JSON): entity context + a flat list of ESRS facts + the binding caveat."""
-    pack = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon)
+    pack = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
     ent = pack["entity"]
     scheme, ident = ((LEI_SCHEME, ent.get("lei")) if ent.get("lei") else (EORI_SCHEME, ent.get("eori")) if ent.get("eori") else (EORI_SCHEME, None))
     return {
@@ -79,9 +79,9 @@ def build_facts(session: Session, org_id: str, scenario: str = "baseline", horiz
 
 
 def build_xbrl_instance(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                        period_end: str | None = None) -> str:
+                        period_end: str | None = None, material: int = 40) -> str:
     """A well-formed XBRL instance built from the facts (provisional taxonomy namespace, disclosed)."""
-    d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end)
+    d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end, material=material)
     ident = html.escape(d["entity"]["identifier"] or "UNKNOWN")
     scheme = html.escape(d["entity"]["scheme"])
     period = html.escape(d["period_end"])

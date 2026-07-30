@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2 } from 'lucide-react'
+import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2, Lock, History, ChevronRight } from 'lucide-react'
 import { api, download } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
 
 interface Topic {
@@ -114,6 +116,8 @@ export default function EsrsPack() {
 
       <TaxonomyAdaptation />
 
+      <FilingsHistory />
+
       {/* out of scope — by design */}
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-1"><MinusCircle size={15} className="text-[var(--color-faint)]" /><h3 className="font-semibold">Out of scope — by design</h3></div>
@@ -176,6 +180,96 @@ function TaxonomyAdaptation() {
         </div>
       </div>
     </Card>
+  )
+}
+
+interface Basis { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string }
+interface Snapshot { snapshot_id: string; report_type: string; label: string; version: number; reporting_basis: Basis; note: string | null; created_at: string; created_by: string | null }
+
+function FilingsHistory() {
+  const { profile } = useAuth()
+  const canPublish = (profile?.permissions ?? []).includes('reports.publish')
+  const q = useQuery({ queryKey: ['report-snapshots'], queryFn: () => api.get<{ snapshots: Snapshot[] }>('/v1/supply/report-snapshots') })
+  const [busy, setBusy] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+  const [open, setOpen] = useState<string | null>(null)
+  const snaps = q.data?.snapshots ?? []
+
+  const freeze = async (report_type: string) => {
+    setBusy(report_type)
+    try { await api.post('/v1/supply/report-snapshots', { report_type, note: note.trim() || null }); setNote(''); await q.refetch() }
+    finally { setBusy(null) }
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1"><Lock size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">Filed versions — frozen &amp; immutable</h3></div>
+      <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">
+        Freeze a filing and its exact figures, reporting basis and golden-source state are captured as an immutable, versioned record — reproducible for the board or an assurer even after the live engine moves on. A correction is a new version; nothing is ever overwritten.
+      </p>
+
+      {canPublish && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Optional note (e.g. FY2025 board sign-off)"
+            className="flex-1 min-w-[220px] bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+          <Button variant="ghost" disabled={busy !== null} onClick={() => freeze('esrs_pack')}><Lock size={14} /> {busy === 'esrs_pack' ? 'Freezing…' : 'Freeze this pack'}</Button>
+          <Button variant="ghost" disabled={busy !== null} onClick={() => freeze('csrd_e1')}><Lock size={14} /> {busy === 'csrd_e1' ? 'Freezing…' : 'Freeze ESRS E1'}</Button>
+        </div>
+      )}
+
+      {snaps.length === 0 ? (
+        <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-faint)] py-2"><History size={14} /> No filings frozen yet.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {snaps.map(s => (
+            <div key={s.snapshot_id} className="border border-[var(--color-line)] rounded-lg">
+              <button onClick={() => setOpen(open === s.snapshot_id ? null : s.snapshot_id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--color-panel-2)] rounded-lg transition">
+                <ChevronRight size={14} className={`text-[var(--color-faint)] transition-transform ${open === s.snapshot_id ? 'rotate-90' : ''}`} />
+                <span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)] shrink-0">v{s.version}</span>
+                <span className="text-[13px] font-medium">{s.label}</span>
+                <span className="text-[11px] text-[var(--color-faint)] ml-auto text-right">{s.created_at.slice(0, 10)} · {s.created_by ?? '—'}</span>
+              </button>
+              {open === s.snapshot_id && <FrozenDetail snapshotId={s.snapshot_id} note={s.note} basis={s.reporting_basis} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+interface FrozenPayload {
+  topics?: Topic[]
+  financial_effects?: { asset_value_at_risk_eur: number; business_interruption_eur: number; cogs_at_risk_published_eur: number; exposure_mapped_but_withheld_eur: number }
+  material_hazards?: { hazard: string; label: string }[]
+}
+
+function FrozenDetail({ snapshotId, note, basis }: { snapshotId: string; note: string | null; basis: Basis }) {
+  const q = useQuery({ queryKey: ['report-snapshot', snapshotId], queryFn: () => api.get<{ payload: FrozenPayload }>(`/v1/supply/report-snapshots/${snapshotId}`) })
+  const p = q.data?.payload
+  // esrs_pack carries topics; csrd_e1 carries financial_effects at the top level
+  const topics = p?.topics
+  const e1 = topics?.find(t => t.topic === 'E1'), e3 = topics?.find(t => t.topic === 'E3'), e4 = topics?.find(t => t.topic === 'E4')
+  const fe = e1?.financial_effects ?? p?.financial_effects
+  return (
+    <div className="px-3 pb-3 pt-1 border-t border-[var(--color-line)] text-[12px]">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-[var(--color-faint)] mb-2 mono">
+        <span>PERIOD {basis.reporting_period_end}</span><span>SCENARIO {basis.scenario}</span>
+        <span>HORIZON {basis.horizon}</span><span>MATERIALITY ≥ {basis.materiality_threshold}</span>
+      </div>
+      {note && <p className="text-[12px] text-[var(--color-mute)] mb-2 italic">“{note}”</p>}
+      {!p ? <div className="text-[var(--color-faint)]">loading frozen figures…</div> : (
+        <div className="grid sm:grid-cols-3 gap-x-6 gap-y-1 text-[var(--color-mute)]">
+          {fe && <div className="flex justify-between gap-2"><span>Asset value at risk</span><span className="font-medium text-[var(--color-ink)]">{eur(fe.asset_value_at_risk_eur)}</span></div>}
+          {fe && <div className="flex justify-between gap-2"><span>COGS at risk (published)</span><span className="font-medium text-[var(--color-ink)]">{eur(fe.cogs_at_risk_published_eur)}</span></div>}
+          {fe && <div className="flex justify-between gap-2"><span>Exposure mapped · withheld</span><span className="font-medium text-[var(--color-faint)]">{eur(fe.exposure_mapped_but_withheld_eur)}</span></div>}
+          {e3?.upstream && <div className="flex justify-between gap-2"><span>E3 plots water-stressed</span><span className="font-medium text-[var(--color-ink)]">{e3.upstream.plots_water_stressed}/{e3.upstream.plots}</span></div>}
+          {e4 && <div className="flex justify-between gap-2"><span>E4 EUDR-covered plots</span><span className="font-medium text-[var(--color-ink)]">{e4.eudr_covered_plots}</span></div>}
+          {e4 && <div className="flex justify-between gap-2"><span>E4 deforestation-free</span><span className="font-medium text-[var(--color-good)]">{e4.deforestation_free}</span></div>}
+        </div>
+      )}
+    </div>
   )
 }
 

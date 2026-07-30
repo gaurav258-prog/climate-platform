@@ -31,7 +31,7 @@ OUT_OF_SCOPE = [
 ]
 
 
-def water_topic(session: Session, org_id: str) -> dict:
+def water_topic(session: Session, org_id: str, threshold: int = MATERIAL) -> dict:
     """ESRS E3 — assets & sourcing exposed to water stress (worst water hazard per site/plot)."""
     sites = session.execute(text("""
         SELECT count(*) n,
@@ -43,7 +43,7 @@ def water_topic(session: Session, org_id: str) -> dict:
             WHERE v.site_id = s.site_id AND v.scenario='baseline' AND v.time_horizon='current'
               AND v.hazard_type = ANY(:hz)) w ON true
         WHERE s.org_id = :o
-    """), {"o": org_id, "m": MATERIAL, "hz": list(WATER_HAZARDS)}).mappings().first()
+    """), {"o": org_id, "m": threshold, "hz": list(WATER_HAZARDS)}).mappings().first()
     plots = session.execute(text("""
         SELECT count(*) n,
                count(*) FILTER (WHERE w.score >= :m) exposed,
@@ -55,14 +55,14 @@ def water_topic(session: Session, org_id: str) -> dict:
             WHERE v.plot_id = p.plot_id AND v.scenario='baseline' AND v.time_horizon='current'
               AND v.hazard_type = ANY(:hz)) w ON true
         WHERE p.org_id = :o
-    """), {"o": org_id, "m": MATERIAL, "hz": list(WATER_HAZARDS)}).mappings().first()
+    """), {"o": org_id, "m": threshold, "hz": list(WATER_HAZARDS)}).mappings().first()
     material = (sites["exposed"] or 0) > 0 or (plots["exposed"] or 0) > 0
     return {
         "topic": "E3", "title": "Water", "standard": "ESRS E3 — Water and marine resources",
         "material": material,
         "own_operations": {"sites": sites["n"], "sites_water_stressed": sites["exposed"], "asset_value_exposed_eur": float(sites["value_exposed"] or 0)},
         "upstream": {"plots": plots["n"], "plots_water_stressed": plots["exposed"], "spend_exposed_eur": float(plots["spend_exposed"] or 0), "peak_score": float(plots["peak"]) if plots["peak"] is not None else None},
-        "basis": "Worst standing water hazard (water stress / soil-water deficit) per site & plot, Copernicus/ECMWF-indexed; 'exposed' = score ≥ 40.",
+        "basis": f"Worst standing water hazard (water stress / soil-water deficit) per site & plot, Copernicus/ECMWF-indexed; 'exposed' = score ≥ {threshold}.",
     }
 
 
@@ -97,9 +97,10 @@ def biodiversity_topic(session: Session, org_id: str) -> dict:
     }
 
 
-def build_esrs_pack(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current") -> dict:
+def build_esrs_pack(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
+                    material: int = MATERIAL) -> dict:
     """The Climate & Nature disclosure pack: E1 (physical) + E3 (water) + E4 (deforestation) + scope."""
-    e1 = build_e1_report(session, org_id, scenario=scenario, horizon=horizon)
+    e1 = build_e1_report(session, org_id, scenario=scenario, horizon=horizon, material_threshold=material)
     climate = {
         "topic": "E1", "title": "Climate change — physical risk", "standard": "ESRS E1-9 — anticipated financial effects",
         "material": len(e1["material_hazards"]) > 0,
@@ -111,7 +112,7 @@ def build_esrs_pack(session: Session, org_id: str, scenario: str = "baseline", h
         "entity": e1["entity"],
         "pack": "Climate & Nature (ESRS E1 physical · E3 · E4)",
         "reporting_basis": e1["reporting_basis"],
-        "topics": [climate, water_topic(session, org_id), biodiversity_topic(session, org_id)],
+        "topics": [climate, water_topic(session, org_id, threshold=material), biodiversity_topic(session, org_id)],
         "out_of_scope": OUT_OF_SCOPE,
         "provenance": e1["provenance"],
         "note": "This pack covers only the ESRS topics driven by our physical-climate + deforestation engine. "
