@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2, Lock, History, ChevronRight } from 'lucide-react'
+import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2, Lock, History, ChevronRight, FileCode, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -56,6 +56,9 @@ export default function EsrsPack() {
           </Button>
           <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xbrl', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xbrl`)}>
             <Code2 size={15} /> XBRL
+          </Button>
+          <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.ixbrl', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xhtml`)}>
+            <FileCode size={15} /> iXBRL
           </Button>
         </div>
       </div>
@@ -115,6 +118,8 @@ export default function EsrsPack() {
       </div>
 
       <TaxonomyAdaptation />
+
+      <FilingReadiness scenario={d.reporting_basis.scenario} />
 
       <FilingsHistory />
 
@@ -178,6 +183,61 @@ function TaxonomyAdaptation() {
           <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Your reporting suite provides</div>
           {d.out_of_scope.you_provide.map((x, i) => <div key={i} className="text-[var(--color-faint)] flex gap-2"><span>·</span>{x}</div>)}
         </div>
+      </div>
+    </Card>
+  )
+}
+
+interface ValCheck { name: string; ok: boolean; detail: string }
+interface Validation { ok: boolean; profile: string; profile_status: string; is_ixbrl: boolean; facts: number; checks: ValCheck[]; errors: string[]; disclaimer: string }
+interface Binding { profile: string; status: string; namespace: string; concepts_total: number; concepts_bound: number; concepts_unbound: string[]; note: string }
+
+const CHECK_LABEL: Record<string, string> = {
+  well_formed_xml: 'Well-formed XML', has_contexts: 'Reporting contexts', has_units: 'Units declared',
+  schema_ref: 'Taxonomy schema reference', facts_complete: 'Every fact complete', concepts_bound: 'Concepts bound',
+  arelle_available: 'Full ESEF conformance (filing tool)',
+}
+
+function FilingReadiness({ scenario }: { scenario: string }) {
+  const v = useQuery({ queryKey: ['esrs-validate'], queryFn: () => api.get<Validation>('/v1/supply/esrs-pack.validate?form=ixbrl') })
+  const b = useQuery({ queryKey: ['taxonomy-binding'], queryFn: () => api.get<Binding>('/v1/supply/taxonomy-binding') })
+  const d = v.data
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1"><ShieldCheck size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">Filing readiness — Inline XBRL (ESEF)</h3></div>
+      <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">
+        The pack is emitted as <b>Inline XBRL</b> — one document a person reads and a machine parses, the shape ESEF filings take. We validate it structurally here; full taxonomy conformance runs in the filing tool once bound to the adopted EFRAG taxonomy.
+      </p>
+
+      {d && (
+        <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 mb-4">
+          {d.checks.filter(c => c.name !== 'concepts_bound').map(c => (
+            <div key={c.name} className="flex items-start gap-2 text-[13px]">
+              {c.ok ? <CheckCircle2 size={15} className="text-[var(--color-good)] mt-px shrink-0" /> : <XCircle size={15} className="text-[var(--color-faint)] mt-px shrink-0" />}
+              <span className={c.ok ? 'text-[var(--color-mute)]' : 'text-[var(--color-faint)]'}>{CHECK_LABEL[c.name] ?? c.name} <span className="text-[var(--color-faint)]">— {c.detail}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {b.data && (
+        <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel-2)] p-3.5 text-[12.5px]">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <span className="font-medium text-[var(--color-ink)]">Taxonomy binding</span>
+            <span className="mono text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide"
+              style={{ color: b.data.status === 'adopted' ? 'var(--color-good)' : 'var(--color-warn)',
+                       background: `color-mix(in oklab, ${b.data.status === 'adopted' ? 'var(--color-good)' : 'var(--color-warn)'} 14%, transparent)` }}>
+              {b.data.profile} · {b.data.status.replace(/_/g, ' ')}
+            </span>
+          </div>
+          <div className="text-[var(--color-mute)]">{b.data.concepts_bound}/{b.data.concepts_total} concepts bound · {b.data.note}</div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 mt-4">
+        <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.ixbrl', `tellumen-esrs-climate-nature-${scenario}.xhtml`)}><FileCode size={14} /> Download iXBRL</Button>
+        {d && <span className="inline-flex items-center gap-1.5 text-[12.5px]" style={{ color: d.ok ? 'var(--color-good)' : 'var(--color-bad)' }}>
+          {d.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}{d.ok ? `Structurally valid · ${d.facts} tagged facts` : 'Validation failed'}</span>}
       </div>
     </Card>
   )

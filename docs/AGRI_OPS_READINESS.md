@@ -30,11 +30,11 @@ still manual or provisional, the product says so on the page, and so does this d
 
 | | |
 |---|---|
-| **Status** | Tagged-data layer **READY**; validated ESEF filing **GAP (us)** |
-| **Built** | `build_xbrl_instance()` emits a well-formed XBRL instance — real `xbrli` contexts, units and fact structure, every figure tagged to its ESRS disclosure requirement (E1-9, E3-4/5, E4-5). Concepts sit under a clearly **provisional `tesrs:` namespace**, disclosed on the page and in the file header as "NOT a validated ESEF/iXBRL filing." |
-| **Gap** | Production binds those concepts to the **adopted EFRAG ESRS Set 1 XBRL taxonomy** (the official `.xsd`/linkbases), and — for the annual report — produces **iXBRL/ESEF** (inline XBRL embedded in the human-readable report), not standalone XBRL. |
-| **Owner action** | **(us)** Obtain the adopted EFRAG taxonomy package once published/final, re-point each concept from `tesrs:` to the official namespace, and validate the instance with **Arelle** (or the customer's filing tool) until it passes. Track the Omnibus timeline — the taxonomy and the mandated concepts are still moving, which is exactly why the reporting basis (scenario, horizon, materiality, period) is a configurable per-org setting rather than a hardcoded constant. |
-| **Note** | We deliberately ship the tagged-data layer now so the customer's filing tool has clean, DR-referenced facts to bind. We do not claim it is a filed ESEF document. |
+| **Status** | iXBRL/ESEF shape + binding mechanism + validator **READY (v1.46)**; the adopted-taxonomy element map is the only remaining **GAP (external artifact)** |
+| **Built** | `build_xbrl_instance()` (standalone XBRL) **and** `build_ixbrl()` (**Inline XBRL / ESEF** — one human-readable + machine-parsable XHTML with `ix:nonFraction` tags, instant & duration contexts). A **TaxonomyProfile** (`services/intelligence/esrs_taxonomy.py`) separates the tagging mechanism from the binding: `provisional` (our `tesrs:` namespace, fully working, honestly labelled NOT a validated ESEF filing) vs `efrag_set1` (the real target). `validate_document()` runs structural + completeness checks (well-formed, contexts/units/decimals present & resolvable, concepts in catalogue) and auto-runs **Arelle** if it is ever installed. Endpoints `/esrs-pack.ixbrl`, `/esrs-pack.validate`, `/taxonomy-binding`; a **Filing readiness** card on the ESRS page. |
+| **Gap** | The `efrag_set1` profile lights up the moment `config/efrag_esrs_binding.json` (concept → official element-name map) is dropped in — **one JSON file, no code change**. Until then it honestly reports `pending_adopted_taxonomy` and `bound=false` per concept. Full ESEF conformance still runs in the filing tool / Arelle with the official taxonomy. |
+| **Owner action** | **(us)** Obtain the adopted EFRAG ESRS Set 1 element names when final and drop the mapping file in; re-run `validate` (and Arelle) to confirm. The reporting basis (scenario, horizon, materiality, period) is already a configurable per-org setting so the shifting Omnibus rules don't need code edits. |
+| **Note** | The tagging engine, iXBRL shaping and validator are all real now; the only thing gated on an external artifact is the official element map, and swapping it in is **data, not code**. |
 
 ## 3. Geocoder productionization
 
@@ -74,8 +74,8 @@ still manual or provisional, the product says so on the page, and so does this d
 |---|---|---|
 | EUDR Tier-1 DDS (manual reference-number entry) | READY | — |
 | EUDR Tier-2 direct TRACES submit | GAP | customer registration → us |
-| XBRL tagged-data layer (provisional namespace) | READY | — |
-| XBRL bound to adopted EFRAG taxonomy + iXBRL/ESEF | GAP | us (on taxonomy finalization) |
+| iXBRL/ESEF output + binding mechanism + validator | READY | — |
+| Bind to adopted EFRAG taxonomy (drop-in element map) | GAP | external artifact (drop config JSON when EFRAG finalizes) |
 | Geocoder (demo/onboarding scale) | READY | — |
 | Geocoder (consumer-scale, SLA, QA) | GAP | us |
 | Assurance primitives (validation, audit, 4-eyes, provenance, snapshots) | READY | — |

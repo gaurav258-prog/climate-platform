@@ -755,22 +755,55 @@ def esrs_pack_xlsx(session: DbSession, org_id: OrgId,
 
 @router.get("/esrs-pack.facts", summary="ESRS pack as tagged facts (machine-readable, XBRL-ready)")
 def esrs_facts(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-               horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None)):
+               horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
+               profile: str = Query("provisional", description="taxonomy profile: provisional | efrag_set1")):
     from services.intelligence.esrs_xbrl import build_facts
     b = _reporting_basis(session, org_id, scenario, horizon)
     return build_facts(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                       period_end=period_end or b["period_end"], material=b["material"])
+                       period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
 
 
-@router.get("/esrs-pack.xbrl", summary="ESRS pack as an XBRL instance (provisional taxonomy binding)")
+@router.get("/esrs-pack.xbrl", summary="ESRS pack as an XBRL instance (chosen taxonomy profile)")
 def esrs_xbrl(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
-              horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None)):
+              horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
+              profile: str = Query("provisional")):
     from services.intelligence.esrs_xbrl import build_xbrl_instance
     b = _reporting_basis(session, org_id, scenario, horizon)
     xml = build_xbrl_instance(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
-                              period_end=period_end or b["period_end"], material=b["material"])
+                              period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
     return StreamingResponse(io.BytesIO(xml.encode("utf-8")), media_type="application/xml",
                               headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{b['scenario']}.xbrl"})
+
+
+@router.get("/esrs-pack.ixbrl", summary="ESRS pack as an Inline XBRL (iXBRL/ESEF) report — human + machine readable")
+def esrs_ixbrl(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
+               horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
+               profile: str = Query("provisional")):
+    from services.intelligence.esrs_xbrl import build_ixbrl
+    b = _reporting_basis(session, org_id, scenario, horizon)
+    doc = build_ixbrl(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
+                      period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
+    return StreamingResponse(io.BytesIO(doc.encode("utf-8")), media_type="application/xhtml+xml",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-climate-nature-{b['scenario']}.xhtml"})
+
+
+@router.get("/esrs-pack.validate", summary="Validate the XBRL/iXBRL instance (structural + completeness)")
+def esrs_validate(session: DbSession, org_id: OrgId, scenario: Optional[str] = Query(None),
+                  horizon: Optional[str] = Query(None), period_end: Optional[str] = Query(None),
+                  profile: str = Query("provisional"),
+                  form: str = Query("ixbrl", description="which document to validate: ixbrl | xbrl")):
+    from services.intelligence.esrs_xbrl import build_ixbrl, build_xbrl_instance, validate_document
+    b = _reporting_basis(session, org_id, scenario, horizon)
+    builder = build_ixbrl if form == "ixbrl" else build_xbrl_instance
+    doc = builder(session, org_id, scenario=b["scenario"], horizon=b["horizon"],
+                  period_end=period_end or b["period_end"], material=b["material"], profile_key=profile)
+    return validate_document(doc, profile_key=profile)
+
+
+@router.get("/taxonomy-binding", summary="XBRL taxonomy-binding status (provisional vs adopted EFRAG)")
+def taxonomy_binding(session: DbSession, org_id: OrgId, profile: str = Query("provisional")):
+    from services.intelligence.esrs_taxonomy import binding_status, get_profile
+    return binding_status(get_profile(profile))
 
 
 @router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")

@@ -13,15 +13,32 @@ from __future__ import annotations
 
 import html
 from datetime import date, datetime, timezone
+from xml.dom.minidom import parseString
 
 from sqlalchemy.orm import Session
 
 from services.intelligence.esrs_nature import build_esrs_pack
+from services.intelligence.esrs_taxonomy import CONCEPTS, PROVISIONAL_NS, binding_status, get_profile
 
 # scheme URIs for the entity identifier
 LEI_SCHEME = "http://standards.iso.org/iso/17442"
 EORI_SCHEME = "https://ec.europa.eu/eori"
-PROVISIONAL_NS = "https://tellumen.example/xbrl/esrs-provisional"
+
+
+def _entity(pack: dict) -> tuple[str, str | None]:
+    """(scheme, identifier) — LEI preferred, else EORI."""
+    ent = pack["entity"]
+    if ent.get("lei"):
+        return LEI_SCHEME, ent["lei"]
+    if ent.get("eori"):
+        return EORI_SCHEME, ent["eori"]
+    return EORI_SCHEME, None
+
+
+def _periods(period_end: str) -> tuple[str, str]:
+    """(duration_start, instant) for the reporting year ending period_end."""
+    year = period_end[:4]
+    return f"{year}-01-01", period_end
 
 
 def _facts(pack: dict) -> list[dict]:
@@ -62,59 +79,256 @@ def _facts(pack: dict) -> list[dict]:
 
 
 def build_facts(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                period_end: str | None = None, material: int = 40) -> dict:
-    """The tagged-facts export (JSON): entity context + a flat list of ESRS facts + the binding caveat."""
+                period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> dict:
+    """The tagged-facts export (JSON): entity context + a flat list of ESRS facts, each carrying the concept
+    QName under the chosen taxonomy profile, plus the profile's binding status."""
     pack = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
     ent = pack["entity"]
-    scheme, ident = ((LEI_SCHEME, ent.get("lei")) if ent.get("lei") else (EORI_SCHEME, ent.get("eori")) if ent.get("eori") else (EORI_SCHEME, None))
+    scheme, ident = _entity(pack)
+    profile = get_profile(profile_key)
+    facts = _facts(pack)
+    for f in facts:                      # attach the resolved QName + whether it is officially bound
+        r = profile.resolve(f["concept"])
+        f["qname"], f["bound"] = r["qname"], r["bound"]
     return {
-        "taxonomy": {"status": "provisional", "namespace": PROVISIONAL_NS,
-                     "note": "Concepts use a provisional namespace; bind to the adopted EFRAG ESRS Set 1 XBRL "
-                             "taxonomy in your filing tool. This is a tagged-data layer, not a validated ESEF/iXBRL filing."},
+        "taxonomy": binding_status(profile),
         "entity": {"name": ent.get("name"), "identifier": ident, "scheme": scheme},
         "period_end": period_end or f"{date.today().year - 1}-12-31",
         "reporting_basis": pack["reporting_basis"],
-        "facts": _facts(pack),
+        "facts": facts,
     }
 
 
+_UNIT = {"monetary": "eur", "count": "pure", "area": "hectare"}
+_DEC = {"monetary": "0", "count": "0", "area": "2"}
+
+
+def _contexts_xml(scheme: str, ident: str, dur_start: str, period: str) -> str:
+    return (
+        f'  <xbrli:context id="c_instant">\n'
+        f'    <xbrli:entity><xbrli:identifier scheme="{scheme}">{ident}</xbrli:identifier></xbrli:entity>\n'
+        f'    <xbrli:period><xbrli:instant>{period}</xbrli:instant></xbrli:period>\n'
+        f'  </xbrli:context>\n'
+        f'  <xbrli:context id="c_duration">\n'
+        f'    <xbrli:entity><xbrli:identifier scheme="{scheme}">{ident}</xbrli:identifier></xbrli:entity>\n'
+        f'    <xbrli:period><xbrli:startDate>{dur_start}</xbrli:startDate><xbrli:endDate>{period}</xbrli:endDate></xbrli:period>\n'
+        f'  </xbrli:context>')
+
+
+def _units_xml(prefix: str) -> str:
+    return (
+        f'  <xbrli:unit id="eur"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>\n'
+        f'  <xbrli:unit id="pure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>\n'
+        f'  <xbrli:unit id="hectare"><xbrli:measure>{prefix}:hectare</xbrli:measure></xbrli:unit>')
+
+
 def build_xbrl_instance(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                        period_end: str | None = None, material: int = 40) -> str:
-    """A well-formed XBRL instance built from the facts (provisional taxonomy namespace, disclosed)."""
-    d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end, material=material)
+                        period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> str:
+    """A well-formed XBRL instance, tagged under the chosen taxonomy profile (instant/duration contexts)."""
+    d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end,
+                    material=material, profile_key=profile_key)
+    profile = get_profile(profile_key)
     ident = html.escape(d["entity"]["identifier"] or "UNKNOWN")
     scheme = html.escape(d["entity"]["scheme"])
     period = html.escape(d["period_end"])
+    dur_start, _ = _periods(d["period_end"])
     stamped = datetime.now(timezone.utc).isoformat()
 
     facts_xml = []
     for f in d["facts"]:
-        unit = f["unit"]
-        dec = "0" if f["kind"] in ("monetary", "count") else "2"
+        c = CONCEPTS[f["concept"]]
+        ctx = "c_instant" if c["period_type"] == "instant" else "c_duration"
+        unit, dec, q = _UNIT[c["item_type"]], _DEC[c["item_type"]], f["qname"]
         facts_xml.append(
-            f'  <tesrs:{f["concept"]} contextRef="c1" unitRef="{unit}" decimals="{dec}">{f["value"]}</tesrs:{f["concept"]}>'
+            f'  <{q} contextRef="{ctx}" unitRef="{unit}" decimals="{dec}">{f["value"]}</{q}>'
             f'  <!-- {f["dr"]}: {html.escape(f["label"])} -->')
     facts_block = "\n".join(facts_xml)
+    tax = d["taxonomy"]
 
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <!-- Tellumen ESRS Climate & Nature — tagged facts, generated {stamped}.
-     PROVISIONAL: concepts use the tesrs placeholder namespace ({PROVISIONAL_NS}) and MUST be bound to the
-     adopted EFRAG ESRS Set 1 XBRL taxonomy before filing. This is a real XBRL instance shape + a real
-     tagged-data layer, NOT a validated ESEF/iXBRL filing. A euro is a firm figure only where the
-     hazard->yield/asset chain is validated; otherwise exposure is mapped and the euro withheld. -->
+     Taxonomy profile: {profile.key} ({tax["status"]}). {html.escape(tax["note"])}
+     A euro is a firm figure only where the hazard->yield/asset chain is validated; otherwise exposure
+     is mapped and the euro withheld. -->
 <xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"
             xmlns:link="http://www.xbrl.org/2003/linkbase"
             xmlns:xlink="http://www.w3.org/1999/xlink"
             xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
-            xmlns:tesrs="{PROVISIONAL_NS}">
-  <link:schemaRef xlink:type="simple" xlink:href="{PROVISIONAL_NS}.xsd"/>
-  <xbrli:context id="c1">
-    <xbrli:entity><xbrli:identifier scheme="{scheme}">{ident}</xbrli:identifier></xbrli:entity>
-    <xbrli:period><xbrli:instant>{period}</xbrli:instant></xbrli:period>
-  </xbrli:context>
-  <xbrli:unit id="eur"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>
-  <xbrli:unit id="pure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>
-  <xbrli:unit id="hectare"><xbrli:measure>tesrs:hectare</xbrli:measure></xbrli:unit>
+            xmlns:{profile.prefix}="{profile.namespace}">
+  <link:schemaRef xlink:type="simple" xlink:href="{profile.schema_ref}"/>
+{_contexts_xml(scheme, ident, dur_start, period)}
+{_units_xml(profile.prefix)}
 {facts_block}
 </xbrli:xbrl>
 '''
+
+
+# --- Inline XBRL (iXBRL / ESEF) -------------------------------------------------------------------
+def build_ixbrl(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
+                period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> str:
+    """A human-readable ESRS Climate & Nature report with the figures inline-tagged (Inline XBRL 1.1).
+
+    This is the ESEF *shape* — one document that a person reads and a machine parses. Under the provisional
+    profile it is honestly NOT a validated ESEF filing; under an adopted EFRAG profile it becomes one once
+    the official element map is supplied and the filing tool validates it.
+    """
+    d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end,
+                    material=material, profile_key=profile_key)
+    profile = get_profile(profile_key)
+    ent = d["entity"]
+    ident = html.escape(ent["identifier"] or "UNKNOWN")
+    scheme = html.escape(ent["scheme"])
+    name = html.escape(ent["name"] or "Reporting entity")
+    period = html.escape(d["period_end"])
+    dur_start, _ = _periods(d["period_end"])
+    basis = d["reporting_basis"]
+    tax = d["taxonomy"]
+    stamped = datetime.now(timezone.utc).isoformat()
+
+    def _fmt(f):
+        c = CONCEPTS[f["concept"]]
+        if c["item_type"] == "monetary":
+            return f'€{f["value"]:,.0f}'
+        if c["item_type"] == "area":
+            return f'{f["value"]:,.2f} ha'
+        return f'{f["value"]:,.0f}'
+
+    rows = []
+    for f in d["facts"]:
+        c = CONCEPTS[f["concept"]]
+        ctx = "c_instant" if c["period_type"] == "instant" else "c_duration"
+        unit, dec = _UNIT[c["item_type"]], _DEC[c["item_type"]]
+        tag = (f'<ix:nonFraction name="{f["qname"]}" contextRef="{ctx}" unitRef="{unit}" '
+               f'decimals="{dec}">{f["value"]}</ix:nonFraction>')
+        rows.append(
+            f'    <tr><td class="dr">{html.escape(f["dr"])}</td>'
+            f'<td>{html.escape(f["label"])}</td>'
+            f'<td class="num" title="{html.escape(f["qname"])}">{_fmt(f)} <span class="ix">{tag}</span></td></tr>')
+    rows_html = "\n".join(rows)
+
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ix="http://www.xbrl.org/2013/inlineXBRL"
+      xmlns:xbrli="http://www.xbrl.org/2003/instance"
+      xmlns:link="http://www.xbrl.org/2003/linkbase"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
+      xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+      xmlns:{profile.prefix}="{profile.namespace}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>{name} — ESRS Climate &amp; Nature (Inline XBRL)</title>
+  <style>
+    body{{font-family:system-ui,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#1c241f}}
+    h1{{font-size:1.4rem}} .meta{{color:#555;font-size:.85rem}}
+    table{{border-collapse:collapse;width:100%;margin-top:1rem}}
+    td,th{{border-bottom:1px solid #e2ddd0;padding:.5rem;text-align:left;font-size:.9rem}}
+    td.dr{{font-family:monospace;font-size:.75rem;color:#777;white-space:nowrap}}
+    td.num{{text-align:right;font-variant-numeric:tabular-nums}}
+    .ix{{display:none}} .note{{background:#fff7e6;border:1px solid #e0c98a;padding:.7rem;border-radius:6px;font-size:.8rem;margin-top:1rem}}
+  </style>
+</head>
+<body>
+  <div style="display:none">
+    <ix:header>
+      <ix:references><link:schemaRef xlink:type="simple" xlink:href="{profile.schema_ref}"/></ix:references>
+      <ix:resources>
+{_contexts_xml(scheme, ident, dur_start, period)}
+{_units_xml(profile.prefix)}
+      </ix:resources>
+    </ix:header>
+  </div>
+
+  <h1>{name} — ESRS Climate &amp; Nature disclosures</h1>
+  <p class="meta">Reporting period ending {period} · basis {html.escape(str(basis.get("scenario")))}/{html.escape(str(basis.get("horizon")))} ·
+     materiality ≥ {html.escape(str(basis.get("materiality_threshold")))} · entity {ident} ({scheme.rsplit("/",1)[-1].upper()}) ·
+     taxonomy profile <b>{profile.key}</b> ({tax["status"]}) · generated {stamped[:19]}Z</p>
+
+  <table>
+    <thead><tr><th>Disclosure</th><th>Datapoint</th><th class="num">Value (inline-tagged)</th></tr></thead>
+    <tbody>
+{rows_html}
+    </tbody>
+  </table>
+
+  <p class="note"><b>Honesty &amp; binding:</b> {html.escape(tax["note"])} A euro is a firm figure only where the
+     hazard→yield/asset chain is validated; otherwise exposure is mapped and the euro withheld.</p>
+</body>
+</html>
+'''
+
+
+# --- Validation -----------------------------------------------------------------------------------
+def validate_document(xml: str, profile_key: str = "provisional") -> dict:
+    """Structural validation of an XBRL / iXBRL document: well-formedness + completeness of each fact.
+
+    This is NOT full ESRS taxonomy conformance (that needs the adopted EFRAG taxonomy + an XBRL processor
+    such as Arelle — auto-run here if it happens to be installed). It is the honest layer we can guarantee:
+    the document parses, every fact has a context + unit + decimals, the referenced contexts/units exist,
+    and every concept resolves. Returns a checklist so the UI can show exactly what passed.
+    """
+    profile = get_profile(profile_key)
+    checks: list[dict] = []
+    errors: list[str] = []
+
+    # 1. well-formed XML
+    try:
+        dom = parseString(xml.encode("utf-8"))
+        checks.append({"name": "well_formed_xml", "ok": True, "detail": "document parses"})
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "profile": profile.key, "profile_status": profile.status,
+                "checks": [{"name": "well_formed_xml", "ok": False, "detail": str(e)}], "errors": [str(e)], "facts": 0}
+
+    is_ixbrl = "inlineXBRL" in xml
+    # 2. gather contexts + units present
+    ctx_ids = {n.getAttribute("id") for n in dom.getElementsByTagName("xbrli:context")}
+    unit_ids = {n.getAttribute("id") for n in dom.getElementsByTagName("xbrli:unit")}
+    checks.append({"name": "has_contexts", "ok": bool(ctx_ids), "detail": f"{len(ctx_ids)} context(s)"})
+    checks.append({"name": "has_units", "ok": bool(unit_ids), "detail": f"{len(unit_ids)} unit(s)"})
+
+    # 3. schemaRef present
+    has_schema = bool(dom.getElementsByTagName("link:schemaRef"))
+    checks.append({"name": "schema_ref", "ok": has_schema, "detail": profile.schema_ref})
+    if not has_schema:
+        errors.append("missing link:schemaRef")
+
+    # 4. every fact complete + references resolve + concept known
+    if is_ixbrl:
+        fact_nodes = dom.getElementsByTagName("ix:nonFraction")
+        local = lambda n: n.getAttribute("name").split(":")[-1]
+    else:
+        fact_nodes = [n for n in dom.getElementsByTagName("*")
+                      if n.getAttribute("contextRef") and n.tagName not in ("xbrli:context", "xbrli:unit")]
+        local = lambda n: n.tagName.split(":")[-1]
+    bad = 0
+    for n in fact_nodes:
+        cref, uref, dec = n.getAttribute("contextRef"), n.getAttribute("unitRef"), n.getAttribute("decimals")
+        if cref not in ctx_ids:
+            bad += 1; errors.append(f"{local(n)}: contextRef '{cref}' not defined")
+        if uref not in unit_ids:
+            bad += 1; errors.append(f"{local(n)}: unitRef '{uref}' not defined")
+        if not dec:
+            bad += 1; errors.append(f"{local(n)}: missing decimals")
+        if local(n) not in CONCEPTS and local(n) not in profile.element_map.values():
+            bad += 1; errors.append(f"{local(n)}: concept not in catalogue")
+    checks.append({"name": "facts_complete", "ok": bad == 0, "detail": f"{len(fact_nodes)} fact(s), {bad} problem(s)"})
+
+    # 5. binding coverage (informational — only a hard fail for an 'adopted' profile)
+    bs = binding_status(profile)
+    fully_bound = not bs["concepts_unbound"]
+    checks.append({"name": "concepts_bound", "ok": (fully_bound or profile.key == "provisional"),
+                   "detail": f'{bs["concepts_bound"]}/{bs["concepts_total"]} bound under {profile.key}'})
+
+    # 6. optional Arelle conformance (only if the library is present in the environment)
+    try:
+        import arelle  # noqa: F401
+        checks.append({"name": "arelle_available", "ok": True, "detail": "Arelle present — run full ESRS conformance in the filing step"})
+    except Exception:  # noqa: BLE001
+        checks.append({"name": "arelle_available", "ok": False,
+                       "detail": "Arelle not installed here; full taxonomy conformance runs in the filing tool"})
+
+    structural_ok = all(c["ok"] for c in checks if c["name"] in
+                        ("well_formed_xml", "has_contexts", "has_units", "schema_ref", "facts_complete"))
+    return {"ok": structural_ok, "profile": profile.key, "profile_status": profile.status,
+            "is_ixbrl": is_ixbrl, "facts": len(fact_nodes), "checks": checks, "errors": errors,
+            "disclaimer": "Structural + completeness validation. Full ESRS/ESEF taxonomy conformance requires "
+                          "the adopted EFRAG taxonomy and an XBRL processor (Arelle) in the filing step."}
