@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe } from 'lucide-react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -37,6 +37,11 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
 
 export default function Shell({ children }: { children: ReactNode }) {
   const { profile, logout, viewing, exitViewing } = useAuth()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // show Back only when there's in-app history to return to (router tracks position in history.state.idx).
+  // this hides it on the first page and on detail pages opened in a fresh tab (idx 0), which keep their own link.
+  const canGoBack = pathname !== '/' && (window.history.state?.idx ?? 0) > 0
   return (
     <div className="min-h-screen flex">
       {/* vertical grouped sidebar */}
@@ -92,7 +97,15 @@ export default function Shell({ children }: { children: ReactNode }) {
             <button onClick={exitViewing} className="shrink-0 rounded-lg px-3 py-1 font-medium bg-[var(--color-warn)] text-[#1a1206] hover:opacity-90">Exit to platform</button>
           </div>
         )}
-        <main className="mx-auto max-w-[1200px] w-full px-8 py-7">{children}</main>
+        <main className="mx-auto max-w-[1200px] w-full px-8 py-7">
+          {canGoBack && (
+            <button onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1.5 mb-4 text-[13px] text-[var(--color-mute)] hover:text-[var(--color-sky)] transition">
+              <ArrowLeft size={16} /> Back
+            </button>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   )
