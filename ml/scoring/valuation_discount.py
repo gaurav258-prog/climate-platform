@@ -128,7 +128,11 @@ def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: s
         return {"median_loss_eur": 0.0, "var95_eur": 0.0, "var99_eur": 0.0,
                 "n_sims": n_sims, "relative_uncertainty_band": relative_uncertainty}
 
-    seed = abs(hash((org_id, scenario, horizon))) % (2**32)
+    # Deterministic seed: Python's builtin hash() of strings is salted per-process (PYTHONHASHSEED),
+    # so seeding off it makes the published VaR change on every restart. A stable digest keeps the same
+    # portfolio+settings reproducible across processes/redeploys (audit T2). (default_rng accepts big ints.)
+    import hashlib
+    seed = int.from_bytes(hashlib.sha256(f"{org_id}|{scenario}|{horizon}".encode()).digest()[:8], "big")
     rng = np.random.default_rng(seed)
 
     losses = np.zeros(n_sims)
