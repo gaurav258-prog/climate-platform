@@ -97,6 +97,21 @@ def feed_freshness(session: Session) -> list[dict]:
     return out
 
 
+def overdue_basis_feeds(session: Session) -> list[dict]:
+    """Feeds that (a) drive an un-frozen filing (`invalidates_basis`) AND (b) are overdue for refresh.
+    The pre-filing control: surface these so the operator refreshes the golden source BEFORE a stale
+    figure can reach a filing — rather than only catching it after the fact (audit T4, staleness layer)."""
+    return [{"key": f["key"], "name": f["name"], "days_since": f["days_since"], "cadence_days": f["cadence_days"]}
+            for f in feed_freshness(session)
+            if f["invalidates_basis"] and f["status"] == "overdue"]
+
+
+def basis_freshness_at(session: Session) -> dict:
+    """A compact freshness snapshot of the basis-driving feeds, to stamp into a frozen filing so an
+    auditor can see how current the golden source was at freeze time."""
+    return {f["key"]: f["status"] for f in feed_freshness(session) if f["invalidates_basis"]}
+
+
 def record_refresh(session: Session, feed_key: str, actor_user_id: str | None, note: str | None = None) -> dict:
     """Append a refresh event to the log (does NOT fetch data — the scheduled job does that)."""
     if feed_key not in _BY_KEY:

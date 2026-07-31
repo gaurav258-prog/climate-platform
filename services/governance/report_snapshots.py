@@ -44,7 +44,7 @@ def _git_sha() -> str | None:
 def _engine_versions(session: Session) -> dict:
     """The model/data/code versions in force at freeze — so the exact computation is identifiable."""
     from services.intelligence.supply_cogs import IMPACT_VERSION, RANGED_PUBLISH_FLOOR
-    from services.data.feeds import FEEDS
+    from services.data.feeds import FEEDS, basis_freshness_at
     fit_versions = sorted(v for v in session.execute(
         text("SELECT DISTINCT fit_version FROM sc_commodity_fit WHERE fit_version IS NOT NULL")
     ).scalars().all())
@@ -54,6 +54,7 @@ def _engine_versions(session: Session) -> dict:
         "ranged_gate_metric": "r2_oos",          # gate is out-of-sample r² (audit F2)
         "fit_versions": fit_versions,
         "feed_maturity": {f["key"]: f.get("maturity") for f in FEEDS},
+        "feed_freshness_at_freeze": basis_freshness_at(session),   # audit T4: how current the golden source was
         "code_version": _git_sha(),
     }
 

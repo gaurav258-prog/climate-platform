@@ -343,6 +343,13 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
         {"key": "second_approver", "label": "A second approver exists (4-eyes works)", "ok": (n_approvers or 0) >= 2,
          "hint": "Only one user can approve — 4-eyes needs a second. Add an approver." if (n_approvers or 0) < 2 else None},
     ]
+    # Golden-source freshness — the pre-filing control (audit T4): a filing must not be built on a stale
+    # basis-driving feed. Surfaced here so we/the operator refresh BEFORE freezing, not after.
+    from services.data.feeds import overdue_basis_feeds
+    overdue = overdue_basis_feeds(session)
+    checks.append({"key": "golden_source_fresh", "label": "Golden source is fresh (no overdue basis feed)",
+                   "ok": not overdue,
+                   "hint": (f"Refresh before filing — overdue: {', '.join(f['name'] for f in overdue)}." if overdue else None)})
     passed = sum(1 for c in checks if c["ok"])
     return {
         "organization": {
