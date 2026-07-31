@@ -20,37 +20,51 @@ from sqlalchemy.orm import Session
 # filing (so a re-score, and possibly a re-freeze, must follow). Feeds that inform the *risk view* but are
 # NOT in the climate/nature filing scope are False: atmosphere (E2 pollution is out of scope) and
 # geophysical (seismic/volcanic are not climate-attributable and not part of CSRD/EUDR).
+#
+# `maturity` names the actual state of the ingestion path, honestly — the registry must describe what
+# LANDS, not what we aspire to:
+#   live        — a real adapter lands rows to a queryable store
+#   on_demand   — fetched live per-query from the source (not persisted to our store)
+#   proxy       — a real feed, but standing in for a different source (named in `note`)
+#   partial     — real but limited coverage (named in `note`)
+#   estimated   — derived (e.g. sector-average), not a measured feed
+#   planned     — adapter is stub / not yet in production
+# `name` is the source we ACTUALLY ingest; any gap between that and the ideal source is stated in `note`.
 FEEDS: list[dict] = [
-    {"key": "climate_reanalysis", "name": "Copernicus / ECMWF (ERA5, SPEI)", "category": "hazard",
-     "cadence_days": 30, "invalidates_basis": True,
+    {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5-Land", "category": "hazard",
+     "cadence_days": 30, "invalidates_basis": True, "maturity": "live",
      "note": "European climate reanalysis — heat / drought / frost / soil-water / wind."},
-    {"key": "flood", "name": "Copernicus GloFAS + terrain", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True,
-     "note": "Global flood awareness + river/terrain — flood and water-stress scoring."},
-    {"key": "fire_thermal", "name": "NASA FIRMS · Sentinel-3 SLSTR", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True,
-     "note": "Active fire (VIIRS/MODIS) + land-surface temperature — wildfire / acute heat."},
+    {"key": "flood", "name": "ERA5-Land runoff (flood proxy)", "category": "hazard",
+     "cadence_days": 1, "invalidates_basis": True, "maturity": "proxy",
+     "note": "GloFAS was withdrawn from the CDS in 2025; we currently proxy flood from ERA5-Land total "
+             "runoff (source_provider='era5_total_runoff'). River-gauge/DEM terrain not yet landed."},
+    {"key": "fire_thermal", "name": "NASA FIRMS (VIIRS active fire)", "category": "hazard",
+     "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
+     "note": "Active fire real; Sentinel-3 SLSTR land-surface-temperature integration is stubbed, not in production."},
     {"key": "atmosphere", "name": "Copernicus CAMS", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": False,
-     "note": "Air quality, dust and fire emissions — informs the risk view; E2 pollution is out of filing scope."},
-    {"key": "imagery", "name": "ESA Sentinel-1 SAR · Sentinel-2", "category": "hazard",
-     "cadence_days": 6, "invalidates_basis": True,
-     "note": "Radar + optical (10 m) — vegetation / NDVI, soil, change detection."},
-    {"key": "storms_ocean", "name": "NOAA IBTrACS · Copernicus Marine", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True,
-     "note": "Tropical-cyclone tracks + sea state — storm and coastal scoring."},
-    {"key": "geophysical", "name": "USGS seismic · Smithsonian GVP · GEM", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": False,
-     "note": "Seismic & volcanic catalogs — geophysical (natural-catastrophe) risk, not climate-attributable."},
+     "cadence_days": 1, "invalidates_basis": False, "maturity": "on_demand",
+     "note": "Air quality / dust / fire emissions, fetched per-query (not landed). Informs the risk view; "
+             "E2 pollution is out of filing scope."},
+    {"key": "imagery", "name": "Sentinel-1/2 (SAR + optical)", "category": "hazard",
+     "cadence_days": 6, "invalidates_basis": True, "maturity": "planned",
+     "note": "SAR backscatter and Sentinel-2 NDVI adapters are stub-only; not yet producing production rows."},
+    {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
+     "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
+     "note": "Tropical-cyclone tracks real (→ storm_events); Copernicus Marine sea-state not yet landed."},
+    {"key": "geophysical", "name": "EMSC seismic (EU) · Smithsonian GVP", "category": "hazard",
+     "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
+     "note": "GVP volcanic real (→ volcanic_events); seismic is EMSC (Europe bbox only) with an ESHM20 "
+             "zone-approximation fallback — global USGS/GEM not yet wired. Geophysical, not climate-attributable."},
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
-     "cadence_days": 365, "invalidates_basis": True,
-     "note": "Annual forest-loss release; re-run EUDR determinations on each release."},
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
+     "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
     {"key": "reference_lei", "name": "GLEIF (LEI)", "category": "reference",
-     "cadence_days": 7, "invalidates_basis": False,
+     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "note": "Legal-entity identifiers; changes rename entities, not risk scores."},
-    {"key": "reference_assets", "name": "Climate TRACE · Global Energy Monitor", "category": "reference",
-     "cadence_days": 90, "invalidates_basis": False,
-     "note": "Facility-level emissions and power/industrial asset reference."},
+    {"key": "reference_assets", "name": "Sector-intensity estimates (NACE)", "category": "reference",
+     "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
+     "note": "Emissions are sector-average intensity × revenue (source='estimated'), NOT a Climate TRACE / GEM "
+             "facility feed — no such client is wired. Labelled estimated throughout."},
 ]
 _BY_KEY = {f["key"]: f for f in FEEDS}
 

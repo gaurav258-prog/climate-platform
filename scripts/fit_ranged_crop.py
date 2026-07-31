@@ -113,12 +113,13 @@ def main() -> int:
         lo, mid, hi = fit.predict(85.0)   # a severe hazard score, illustrative
         print(f"  at {args.driver} score 85: climate {mid:.1f}%  (68% band {lo:.1f}%..{hi:.1f}%)")
 
-        publishes = fit.r2 >= MIN_R2
+        publishes = fit.r2_oos is not None and fit.r2_oos >= MIN_R2   # gate on out-of-sample r² (audit F2)
         if publishes:
-            print(f"  r2 {fit.r2:.3f} >= {MIN_R2} — publishes as a RANGE")
+            print(f"  r2_oos {fit.r2_oos:.3f} >= {MIN_R2} — publishes as a RANGE (in-sample r2 {fit.r2:.3f})")
         else:
-            print(f"  r2 {fit.r2:.3f} < {MIN_R2} — STORED but HELD (below the publish floor); the "
-                  f"product will say it was tested and show this r², € withheld")
+            _oos = f"{fit.r2_oos:.3f}" if fit.r2_oos is not None else "n/a"
+            print(f"  r2_oos {_oos} < {MIN_R2} — STORED but HELD (below the publish floor); the "
+                  f"product will say it was tested and show this out-of-sample r², € withheld")
         if args.dry_run:
             print("  --dry-run: not persisted")
             return 0

@@ -30,14 +30,17 @@ T(LX,1.4,LW,0.2,'THE DATA WE OPERATE ON',{s:8,b:true,c:GREEN,cs:1.8});
 T(LX,1.6,LW,0.18,'near-real-time · planetary scale',{s:7.4,i:true,c:MUTE});
 // tone by refresh latency: bright = near-real-time, green = fast, faint = slow
 // cadence colour: bright = near-real-time · green = fast · faint = slow floor
+// Honest to what LANDS today (audit): flood is an ERA5-runoff proxy (GloFAS retired from CDS 2025);
+// seismic is EMSC (EU) + ESHM20 zones, not global USGS/GEM; reference emissions are NACE estimates,
+// not a Climate TRACE / GEM feed; Sentinel radar/optical imagery is in build, not shown as live.
 const feeds=[
- ['Climate reanalysis','hourly',GREENB,0.96,'0.25° · since 1940','Copernicus / ECMWF'],
- ['Flood & hydrology','daily',GREENB,0.80,'~5 km global','GloFAS · terrain'],
- ['Fire, thermal & air','≈ 3 h',GREENB,0.70,'375 m · daily','FIRMS · Sentinel-3 · CAMS'],
- ['Radar & optical imagery','≈ 5 d',GREEN,0.92,'10 m · revisit days','Sentinel-1 / 2'],
- ['Storms & ocean','per event',GREEN,0.52,'cyclone tracks · sea state','IBTrACS · Marine'],
- ['Seismic & volcanic','continuous',GREENB,0.46,'global catalogs + zones','USGS · GEM · GVP'],
- ['Deforestation & reference','yearly → daily',FAINT,0.66,'30 m forest · 2.7M LEIs','Hansen · GLEIF'],
+ ['Climate reanalysis','hourly',GREENB,0.96,'ERA5 · since 1940','Copernicus / ECMWF'],
+ ['Flood (runoff proxy)','daily',GREENB,0.70,'~9 km global','ERA5-Land runoff'],
+ ['Fire & thermal','≈ 3 h',GREENB,0.68,'375 m · daily','NASA FIRMS · CAMS'],
+ ['Storms & cyclones','per event',GREEN,0.52,'cyclone tracks','NOAA IBTrACS'],
+ ['Seismic & volcanic','continuous',GREEN,0.46,'EU seismic + zones','EMSC · GVP · ESHM20'],
+ ['Deforestation','annual',FAINT,0.58,'30 m forest, 2020+','Hansen GFC'],
+ ['Reference & entity','daily',FAINT,0.50,'2.7M LEIs · sector est.','GLEIF · NACE'],
  ['Your own data','on demand',FAINT,0.34,'loan-tape · SOV · EUDR','customer uploads'],
 ];
 let fy=1.86; const rowH=0.55;

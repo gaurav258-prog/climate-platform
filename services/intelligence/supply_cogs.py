@@ -63,8 +63,9 @@ from ml.confidence_grade import grade as _grade
 IMPACT_VERSION = "sc-impact-v0.5"
 
 # A ranged crop's fit must explain at least this share of its climate-attributable variance to
-# publish a € (as a band). Must match scripts/fit_ranged_crop.py MIN_R2 and the tier view's r²
-# gate (ranged_floor migration). A weaker fit is stored + shown as "tested, below bar", € withheld.
+# publish a € (as a band) — measured on OUT-OF-SAMPLE r² (r2_oos), the cross-validated "honest"
+# number, NOT in-sample r². The DB tier view (ranged_gate_oos migration) and scripts/fit_ranged_crop.py
+# gate on the same floor + metric. A weaker fit is stored + shown as "tested, below bar", € withheld.
 RANGED_PUBLISH_FLOOR = 0.40
 
 # v0 crop climate-sensitivity (fraction of yield lost at full hazard). Illustrative,
@@ -497,7 +498,10 @@ def _commodity_risk(name, eudr, spend, plots, sens, global_share,
         worst = sum(_ranged_plot_band(p["hazards"], f, d)[2] * p["spend"] for p, f, d in ranged) / wr
         vol_low_eur = round(best * spend, 2)
         vol_high_eur = round(worst * spend, 2)
-        fit_r2 = round(max(f["r2"] for _, f, _ in ranged), 4)
+        # Display the OUT-OF-SAMPLE r² (the honest, cross-validated number the publish gate uses),
+        # not the optimistic in-sample r². Keeps the held-reason ("explains X% of bad years, below
+        # our 40% bar") coherent with what actually gates publication. (audit F2)
+        fit_r2 = round(max((f["r2_oos"] if f.get("r2_oos") is not None else 0.0) for _, f, _ in ranged), 4)
 
     # ── The price channel: the customer's assumption, never our prediction. ──
     # We tested "supply shock -> price move" on 440 real crop-years: r^2 = 0.018. A harvest

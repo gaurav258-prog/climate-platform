@@ -540,7 +540,7 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
                f.baseline_from, f.baseline_to, f.source_note
         FROM sc_commodity_fit f WHERE f.commodity_id = :c ORDER BY f.r2_oos DESC NULLS LAST, f.r2 DESC
     """), {"c": commodity_id}).mappings().all():
-        publishes = (f["r2"] or 0) >= RANGED_PUBLISH_FLOOR
+        publishes = (f["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
         g = _grade(tier="ranged", r2_oos=f["r2_oos"], n_years=f["n_years"], band_cov68=f["band_cov68"]) if publishes else None
         fits.append({**dict(f), "publishes": publishes, "confidence_grade": g.grade if g else None})
 
@@ -972,7 +972,7 @@ def models(session: DbSession, org_id: OrgId):
     """)).mappings().all()
     fit_rows = []
     for r in fits:
-        publishes = r["r2"] >= RANGED_PUBLISH_FLOOR
+        publishes = (r["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
         # a published fit carries its Confidence Grade on the credibility record; a below-floor
         # (tested-held) fit is shown WITHOUT a grade — it does not publish a euro.
         g = (_grade(tier="ranged", r2_oos=r["r2_oos"], n_years=r["n_years"], band_cov68=r["band_cov68"])

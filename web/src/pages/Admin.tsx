@@ -233,8 +233,17 @@ function ReportingBasis() {
   )
 }
 
-interface Feed { key: string; name: string; category: string; cadence_days: number; invalidates_basis: boolean; note: string; last_refresh: string | null; days_since: number | null; status: string }
+interface Feed { key: string; name: string; category: string; cadence_days: number; invalidates_basis: boolean; note: string; last_refresh: string | null; days_since: number | null; status: string; maturity?: string }
 const FEED_TONE: Record<string, string> = { fresh: 'var(--color-good)', due_soon: 'var(--color-warn)', overdue: 'var(--color-bad)', untracked: 'var(--color-faint)' }
+// honest state of each ingestion path: green = real & landed; amber = proxy/partial/live-but-not-stored; faint = not yet real
+const MATURITY: Record<string, { label: string; tone: string }> = {
+  live: { label: 'live', tone: 'var(--color-good)' },
+  on_demand: { label: 'on-demand', tone: 'var(--color-warn)' },
+  proxy: { label: 'proxy', tone: 'var(--color-warn)' },
+  partial: { label: 'partial', tone: 'var(--color-warn)' },
+  estimated: { label: 'estimated', tone: 'var(--color-faint)' },
+  planned: { label: 'planned', tone: 'var(--color-faint)' },
+}
 
 function GoldenSourceFeeds() {
   const q = useQuery({ queryKey: ['data-feeds'], queryFn: () => api.get<{ feeds: Feed[] }>('/v1/admin/data-feeds') })
@@ -255,8 +264,9 @@ function GoldenSourceFeeds() {
               <span className="h-2 w-2 rounded-full shrink-0" style={{ background: FEED_TONE[f.status] ?? 'var(--color-faint)' }} />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] text-[var(--color-ink)] truncate">{f.name}
+                  {f.maturity && MATURITY[f.maturity] && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded uppercase" style={{ color: MATURITY[f.maturity].tone, background: `color-mix(in oklab, ${MATURITY[f.maturity].tone} 14%, transparent)` }}>{MATURITY[f.maturity].label}</span>}
                   {f.invalidates_basis && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)] uppercase">scores</span>}</div>
-                <div className="text-[11px] text-[var(--color-faint)]">{f.category} · every {f.cadence_days}d · {f.last_refresh ? `refreshed ${f.days_since}d ago` : 'no refresh recorded'}</div>
+                <div className="text-[11px] text-[var(--color-faint)] truncate" title={f.note}>{f.category} · every {f.cadence_days}d · {f.last_refresh ? `refreshed ${f.days_since}d ago` : 'no refresh recorded'}</div>
               </div>
               <span className="mono text-[10px] uppercase tracking-wide" style={{ color: FEED_TONE[f.status] }}>{f.status.replace('_', ' ')}</span>
               <button onClick={() => refresh(f.key)} disabled={busy === f.key}
