@@ -11,12 +11,51 @@ withheld. Freezing never launders an unvalidated number into a firm one.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import subprocess
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.governance.reporting_settings import get_settings
+
+
+def _canonical(obj) -> str:
+    """Deterministic JSON for content-hashing — stable key order + compact separators.
+    MUST match the back-fill in migration snapshot_worm_20260731."""
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _sha256(obj) -> str:
+    return hashlib.sha256(_canonical(obj).encode("utf-8")).hexdigest()
+
+
+def _git_sha() -> str | None:
+    """Short code version, best-effort (None if git is unavailable)."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=".", stderr=subprocess.DEVNULL, timeout=3
+        ).decode().strip() or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _engine_versions(session: Session) -> dict:
+    """The model/data/code versions in force at freeze — so the exact computation is identifiable."""
+    from services.intelligence.supply_cogs import IMPACT_VERSION, RANGED_PUBLISH_FLOOR
+    from services.data.feeds import FEEDS
+    fit_versions = sorted(v for v in session.execute(
+        text("SELECT DISTINCT fit_version FROM sc_commodity_fit WHERE fit_version IS NOT NULL")
+    ).scalars().all())
+    return {
+        "impact_version": IMPACT_VERSION,
+        "ranged_floor": RANGED_PUBLISH_FLOOR,
+        "ranged_gate_metric": "r2_oos",          # gate is out-of-sample r² (audit F2)
+        "fit_versions": fit_versions,
+        "feed_maturity": {f["key"]: f.get("maturity") for f in FEEDS},
+        "code_version": _git_sha(),
+    }
 
 # report_type -> (human label, builder). The builder takes (session, org_id, scenario, horizon, material).
 _BUILDERS = {
@@ -50,20 +89,24 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     basis = {"scenario": s["scenario"], "horizon": s["horizon"],
              "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
     payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"])
+    versions = _engine_versions(session)
+    digest = _sha256(payload)
 
     version = (session.execute(text(
         "SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots WHERE org_id = :o AND report_type = :t"),
         {"o": org_id, "t": report_type}).scalar())
     row = session.execute(text("""
-        INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, note, created_by)
-        VALUES (:o, :t, :v, CAST(:b AS jsonb), CAST(:p AS jsonb), :n, :u)
+        INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, note, created_by,
+                                      payload_sha256, engine_versions)
+        VALUES (:o, :t, :v, CAST(:b AS jsonb), CAST(:p AS jsonb), :n, :u, :h, CAST(:ev AS jsonb))
         RETURNING snapshot_id, version, created_at
     """), {"o": org_id, "t": report_type, "v": version,
            "b": json.dumps(basis, default=str), "p": json.dumps(payload, default=str),
-           "n": note, "u": actor_user_id}).mappings().first()
+           "n": note, "u": actor_user_id, "h": digest, "ev": json.dumps(versions, default=str)}).mappings().first()
     return {"snapshot_id": str(row["snapshot_id"]), "report_type": report_type,
             "label": _BUILDERS[report_type][0], "version": row["version"],
-            "reporting_basis": basis, "created_at": row["created_at"].isoformat(), "note": note}
+            "reporting_basis": basis, "created_at": row["created_at"].isoformat(), "note": note,
+            "payload_sha256": digest, "engine_versions": versions}
 
 
 def list_snapshots(session: Session, org_id: str, report_type: str | None = None) -> list[dict]:
@@ -91,7 +134,7 @@ def get_snapshot(session: Session, org_id: str, snapshot_id: str) -> dict | None
     """One frozen filing, with its full payload — the exact bytes as filed."""
     r = session.execute(text("""
         SELECT rs.snapshot_id, rs.report_type, rs.version, rs.reporting_basis, rs.payload,
-               rs.note, rs.created_at, u.full_name created_by_name
+               rs.note, rs.created_at, rs.payload_sha256, rs.engine_versions, u.full_name created_by_name
         FROM report_snapshots rs
         LEFT JOIN users u ON u.user_id = rs.created_by
         WHERE rs.org_id = :o AND rs.snapshot_id = :s
@@ -99,7 +142,11 @@ def get_snapshot(session: Session, org_id: str, snapshot_id: str) -> dict | None
     if not r:
         return None
     labels = {k: v[0] for k, v in _BUILDERS.items()}
+    # re-verify the content hash: the stored payload must still hash to what was signed off
+    recomputed = _sha256(r["payload"])
     return {"snapshot_id": str(r["snapshot_id"]), "report_type": r["report_type"],
             "label": labels.get(r["report_type"], r["report_type"]), "version": r["version"],
             "reporting_basis": r["reporting_basis"], "payload": r["payload"], "note": r["note"],
-            "created_at": r["created_at"].isoformat(), "created_by": r["created_by_name"]}
+            "created_at": r["created_at"].isoformat(), "created_by": r["created_by_name"],
+            "payload_sha256": r["payload_sha256"], "engine_versions": r["engine_versions"],
+            "hash_verified": (r["payload_sha256"] is not None and r["payload_sha256"] == recomputed)}

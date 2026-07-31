@@ -135,7 +135,10 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
     manifest = {
         "pack": "Tellumen assurance evidence pack",
         "entity": entity, "org_id": org_id,
-        "snapshot": {"id": snap["snapshot_id"], "report_type": snap["report_type"], "version": snap["version"]},
+        "snapshot": {"id": snap["snapshot_id"], "report_type": snap["report_type"], "version": snap["version"],
+                     "payload_sha256": snap.get("payload_sha256"),
+                     "hash_verified": snap.get("hash_verified"),
+                     "engine_versions": snap.get("engine_versions")},
         "reporting_basis": basis, "generated_at": generated,
         "honesty_gate": "A euro is a firm figure only where the hazard→yield/asset chain clears r²>=0.40; "
                         "otherwise exposure is mapped and the euro withheld. The r² floor is a fixed constant.",
