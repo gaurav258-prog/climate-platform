@@ -42,7 +42,9 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
                           {"o": org_id}).mappings().first()
 
     # ── own operations: sites, each with worst climate hazard, asset value + BI exposure ──────────
-    sites = list_sites_with_risk(session, org_id)
+    # Read own-ops on the SAME basis the report is labelled with, so a 2050 filing isn't silently
+    # computed at baseline/current (audit T3) — matches the sourcing half below.
+    sites = list_sites_with_risk(session, org_id, scenario=scenario, horizon=horizon)
     op_by_hazard: dict[str, dict] = {}
     op_asset_total = op_asset_at_risk = op_throughput = op_bi = 0.0
     for s in sites:
@@ -70,7 +72,9 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
         commodities.append({"commodity": c.commodity, "hazard": hz, "avg_hazard": hs, "spend_eur": c.annual_spend_eur,
                             "published": pub, "volume_at_risk_eur": var if pub else None,
                             "volume_at_risk_low_eur": c.volume_at_risk_low_eur, "volume_at_risk_high_eur": c.volume_at_risk_high_eur,
-                            "calibration": c.calibration, "fit_r2": c.fit_r2, "held_reason": c.held_reason})
+                            "calibration": c.calibration, "fit_r2": c.fit_r2, "held_reason": c.held_reason,
+                            # freeze the A–E Confidence Grade INTO the filing, not just the live UI (audit T5)
+                            "confidence_grade": c.confidence_grade, "confidence_checks": c.confidence_checks})
         if hz in CLIMATE and hs is not None and hs >= material_threshold:
             d = up_by_hazard.setdefault(hz, {"hazard": hz, "label": _LABELS.get(hz, hz), "class": _class(hz),
                                              "n_commodities": 0, "spend_eur": 0.0, "cogs_at_risk_eur": 0.0, "max_score": 0})

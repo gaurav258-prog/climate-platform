@@ -33,6 +33,10 @@ def adaptation_kpi(session: Session, org_id: str, threshold: int = MATERIAL) -> 
     pct = lambda part, whole: round(100.0 * part / whole, 1) if whole else None
     return {
         "objective": "Climate change adaptation (EU Taxonomy Objective 2)",
+        # A CRVA is a present-state assessment — say so explicitly rather than sit silently at
+        # baseline/current next to scenario-parameterised E1 outputs (audit T3, basis disclosure).
+        "reporting_basis": {"scenario": "baseline", "horizon": "current",
+                            "note": "CRVA reflects present-state physical risk (baseline/current)."},
         "crva": {
             "sites_total": len(sites), "sites_assessed": len(located),
             "coverage_pct": pct(len(located), len(sites)),

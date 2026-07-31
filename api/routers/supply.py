@@ -875,6 +875,36 @@ def eudr_submit(session: DbSession, ctx: dict = Depends(require_permission("repo
     return result
 
 
+@router.get("/report-snapshots/{snapshot_id}.ixbrl", summary="Inline XBRL built FROM a frozen snapshot (filed bytes = frozen bytes)")
+def snapshot_ixbrl(snapshot_id: str, session: DbSession, profile: str = Query("provisional"),
+                   ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.report_snapshots import get_snapshot
+    from services.intelligence.esrs_xbrl import build_ixbrl
+    snap = get_snapshot(session, ctx["org"]["org_id"], snapshot_id)
+    if not snap:
+        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
+    if snap["report_type"] != "esrs_pack":
+        raise HTTPException(422, {"error": "wrong_type", "message": "iXBRL is generated from an 'esrs_pack' snapshot."})
+    doc = build_ixbrl(session, ctx["org"]["org_id"], pack=snap["payload"], profile_key=profile)
+    return StreamingResponse(io.BytesIO(doc.encode("utf-8")), media_type="application/xhtml+xml",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-v{snap['version']}.xhtml"})
+
+
+@router.get("/report-snapshots/{snapshot_id}.xbrl", summary="XBRL instance built FROM a frozen snapshot (filed bytes = frozen bytes)")
+def snapshot_xbrl(snapshot_id: str, session: DbSession, profile: str = Query("provisional"),
+                  ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.report_snapshots import get_snapshot
+    from services.intelligence.esrs_xbrl import build_xbrl_instance
+    snap = get_snapshot(session, ctx["org"]["org_id"], snapshot_id)
+    if not snap:
+        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
+    if snap["report_type"] != "esrs_pack":
+        raise HTTPException(422, {"error": "wrong_type", "message": "XBRL is generated from an 'esrs_pack' snapshot."})
+    xml = build_xbrl_instance(session, ctx["org"]["org_id"], pack=snap["payload"], profile_key=profile)
+    return StreamingResponse(io.BytesIO(xml.encode("utf-8")), media_type="application/xml",
+                              headers={"Content-Disposition": f"attachment; filename=tellumen-esrs-v{snap['version']}.xbrl"})
+
+
 @router.get("/report-snapshots/{snapshot_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a frozen filing")
 def assurance_pack(snapshot_id: str, session: DbSession,
                    ctx: dict = Depends(require_permission("reports.view"))):

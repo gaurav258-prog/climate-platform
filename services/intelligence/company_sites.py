@@ -102,8 +102,13 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
             "h3_cell": cell, "geocode_precision": loc["precision"]}
 
 
-def list_sites_with_risk(session: Session, org_id: str) -> list[dict]:
-    """Each site + its worst standing hazard (for the operations table / map)."""
+def list_sites_with_risk(session: Session, org_id: str,
+                         scenario: str = "baseline", horizon: str = "current") -> list[dict]:
+    """Each site + its worst standing hazard on the given basis (for the operations table / map, and
+    for E1). Basis defaults to present-state (baseline/current); when the caller reports at a projected
+    scenario/horizon the site risk is read on THAT basis, so the number matches the label the filing
+    carries (audit T3). A site with no projection at the requested horizon simply has no hazard there —
+    same honest behaviour as the sourcing side, which is already basis-scoped."""
     rows = session.execute(text("""
         SELECT DISTINCT ON (s.site_id)
                s.site_id::text, s.name, s.site_type, CAST(s.latitude AS FLOAT) lat, CAST(s.longitude AS FLOAT) lon,
@@ -112,10 +117,10 @@ def list_sites_with_risk(session: Session, org_id: str) -> list[dict]:
                v.hazard_type AS top_hazard, CAST(v.physical_risk_score AS FLOAT) hazard_score
         FROM sc_company_sites s
         LEFT JOIN v_sc_site_physical_risk v
-               ON v.site_id = s.site_id AND v.scenario = 'baseline' AND v.time_horizon = 'current'
+               ON v.site_id = s.site_id AND v.scenario = :sc AND v.time_horizon = :hz
         WHERE s.org_id = :o
         ORDER BY s.site_id, v.physical_risk_score DESC NULLS LAST
-    """), {"o": org_id}).mappings().all()
+    """), {"o": org_id, "sc": scenario, "hz": horizon}).mappings().all()
     out = []
     for r in rows:
         d = dict(r)

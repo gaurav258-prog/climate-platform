@@ -329,11 +329,21 @@ function FrozenDetail({ snapshotId, note, basis, version, reportType }: { snapsh
           {e4 && <div className="flex justify-between gap-2"><span>E4 deforestation-free</span><span className="font-medium text-[var(--color-good)]">{e4.deforestation_free}</span></div>}
         </div>
       )}
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <button onClick={() => download(`/v1/supply/report-snapshots/${snapshotId}/assurance-pack`, `assurance-pack-${reportType}-v${version}.zip`)}
           className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline">
-          <ShieldCheck size={13} /> Download assurance pack (ZIP)
+          <ShieldCheck size={13} /> Assurance pack (ZIP)
         </button>
+        {reportType === 'esrs_pack' && <>
+          <button onClick={() => download(`/v1/supply/report-snapshots/${snapshotId}.ixbrl`, `tellumen-esrs-v${version}.xhtml`)}
+            className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline">
+            <FileCode size={13} /> iXBRL (from this snapshot)
+          </button>
+          <button onClick={() => download(`/v1/supply/report-snapshots/${snapshotId}.xbrl`, `tellumen-esrs-v${version}.xbrl`)}
+            className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline">
+            <Code2 size={13} /> XBRL
+          </button>
+        </>}
       </div>
     </div>
   )

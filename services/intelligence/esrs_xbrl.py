@@ -79,10 +79,15 @@ def _facts(pack: dict) -> list[dict]:
 
 
 def build_facts(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> dict:
+                period_end: str | None = None, material: int = 40, profile_key: str = "provisional",
+                pack: dict | None = None) -> dict:
     """The tagged-facts export (JSON): entity context + a flat list of ESRS facts, each carrying the concept
-    QName under the chosen taxonomy profile, plus the profile's binding status."""
-    pack = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
+    QName under the chosen taxonomy profile, plus the profile's binding status.
+
+    If `pack` is supplied (a frozen snapshot's esrs_pack payload), the facts are tagged FROM THAT payload
+    rather than recomputed live — so the machine-readable filing is the exact frozen bytes (audit T7)."""
+    if pack is None:
+        pack = build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
     ent = pack["entity"]
     scheme, ident = _entity(pack)
     profile = get_profile(profile_key)
@@ -123,10 +128,12 @@ def _units_xml(prefix: str) -> str:
 
 
 def build_xbrl_instance(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                        period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> str:
-    """A well-formed XBRL instance, tagged under the chosen taxonomy profile (instant/duration contexts)."""
+                        period_end: str | None = None, material: int = 40, profile_key: str = "provisional",
+                        pack: dict | None = None) -> str:
+    """A well-formed XBRL instance, tagged under the chosen taxonomy profile (instant/duration contexts).
+    Pass `pack` (a frozen snapshot payload) to tag the exact filed bytes rather than recompute (audit T7)."""
     d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end,
-                    material=material, profile_key=profile_key)
+                    material=material, profile_key=profile_key, pack=pack)
     profile = get_profile(profile_key)
     ident = html.escape(d["entity"]["identifier"] or "UNKNOWN")
     scheme = html.escape(d["entity"]["scheme"])
@@ -165,15 +172,17 @@ def build_xbrl_instance(session: Session, org_id: str, scenario: str = "baseline
 
 # --- Inline XBRL (iXBRL / ESEF) -------------------------------------------------------------------
 def build_ixbrl(session: Session, org_id: str, scenario: str = "baseline", horizon: str = "current",
-                period_end: str | None = None, material: int = 40, profile_key: str = "provisional") -> str:
+                period_end: str | None = None, material: int = 40, profile_key: str = "provisional",
+                pack: dict | None = None) -> str:
     """A human-readable ESRS Climate & Nature report with the figures inline-tagged (Inline XBRL 1.1).
 
     This is the ESEF *shape* — one document that a person reads and a machine parses. Under the provisional
     profile it is honestly NOT a validated ESEF filing; under an adopted EFRAG profile it becomes one once
-    the official element map is supplied and the filing tool validates it.
+    the official element map is supplied and the filing tool validates it. Pass `pack` (a frozen snapshot
+    payload) to tag the exact filed bytes rather than recompute (audit T7).
     """
     d = build_facts(session, org_id, scenario=scenario, horizon=horizon, period_end=period_end,
-                    material=material, profile_key=profile_key)
+                    material=material, profile_key=profile_key, pack=pack)
     profile = get_profile(profile_key)
     ent = d["entity"]
     ident = html.escape(ent["identifier"] or "UNKNOWN")
