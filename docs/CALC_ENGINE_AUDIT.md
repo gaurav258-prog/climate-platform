@@ -30,12 +30,12 @@ The DB pass showed most items were *latent or dormant*, not actively wrong — o
 | **T5** | Confidence Grade never enters the frozen snapshot payload | code-level | **✅ FIXED (v1.55)** — `confidence_grade`/`confidence_checks` added to csrd_e1 commodities → freezes with the snapshot. Test. |
 | **T6** | `calc_settings`/`reporting_settings` changes: no 4-eyes; calc_settings unaudited | code-level | **✅ FIXED (v1.56)** — both config changes now route through `submit_or_apply_config` (`config_governance.py`): always audited, and governed by the same approval matrix as location edits. Two matrix actions seeded platform-default `requires_approval=FALSE` (`config_policy_actions_20260731`) → no UX change; an org toggles 4-eyes on per-action and `approvals.decide` dispatches `config.*` → `apply_config_change`. Integration test (default applies+audits; toggle-on routes to a 4-eyes request). |
 | **T7** | iXBRL/XBRL regenerated live, never snapshotted (can drift from frozen pack) | code-level | **✅ FIXED (v1.55)** — build_ixbrl/build_xbrl_instance accept a `pack`; new `/report-snapshots/{id}.ixbrl` + `.xbrl` build from the FROZEN payload (filed bytes = frozen bytes) + UI buttons. Test. |
-| **T8** | Same asset scoped differently in E1 vs Taxonomy (worst-hazard filter divergence) | code-level | ⏳ tier-3 |
-| **T9** | FX treats NULL/blank currency as EUR (docstring says it never does) | code-level | ⏳ tier-3 |
-| **T10** | r²=0.40 floor triplicated as literals (no parity test) | partially addressed (all now on `r2_oos`, 0.40) | ⏳ tier-3 (single constant + test) |
-| **T11** | No independent challenger for the supply euro; evidence concentration (Cocoa = 1 event; Coffee-BR drought `passed=false` live) | ✅ confirmed | ⏳ tier-3 / disclosure |
-| **T12** | No drift / re-validation trigger (validation is one-time) | code-level | ⏳ tier-3 |
-| **T13** | Geophysical: ESHM20 fallback rows labelled `eshm20_pga`; EMSC EU-only; USGS/GEM not wired | ✅ confirmed | ⏳ tier-3 (tag fallback distinctly; wire global) |
+| **T8** | Same asset scoped differently in E1 vs Taxonomy (worst-hazard filter divergence) | code-level | **✅ FIXED (v1.57)** — climate-hazard scope extracted to `services/intelligence/hazard_scope.py`; E1 and Taxonomy adaptation both import the one `CLIMATE` set, and the Taxonomy report filters exposure on it (a geophysical worst-hazard site no longer counts as materially exposed under a climate objective). Parity test (shared-object identity + no non-climate hazard ever surfaces as exposed). |
+| **T9** | FX treats NULL/blank currency as EUR (docstring says it never does) | code-level | **✅ FIXED (v1.57)** — `to_eur` now raises `FxError` on a None/blank currency (honours its own contract); the holdings router surfaces "market value without a currency" as an fx_error instead of guessing EUR at rate 1.0. A EUR-value-supplied line still needs no FX. Test covers None + blank. |
+| **T10** | r²=0.40 floor triplicated as literals (no parity test) | partially addressed (all now on `r2_oos`, 0.40) | **✅ FIXED (v1.57)** — `fit_ranged_crop.py` imports `RANGED_PUBLISH_FLOOR` (single source of truth); a parity test pins the Python constant to the live DB calibration-view floor. |
+| **T11** | No independent challenger for the supply euro; evidence concentration (Cocoa = 1 event; Coffee-BR drought `passed=false` live) | ✅ confirmed | **✅ DISCLOSURE FIXED (v1.57)** — verified live: the 3 failed validations (Coffee-BR/GT/PR) are all `price_claim_retired` and none publish a tier; Cocoa's single event is disclosed by the Confidence Grade (evidence_depth=Fair, honest_range="single-event uncertainty disclosed"). Both invariants locked by test (a failed validation never publishes 'backtested'; a single-event backtest discloses the caveat). **Roadmap gap (disclosed, not faked):** a genuinely independent challenger MODEL (a second method cross-checking the euro) is not built — tracked, not implied. |
+| **T12** | No drift / re-validation trigger (validation is one-time) | code-level | **✅ FIXED (v1.57)** — `services/intelligence/revalidation.py` flags published calibrations whose training window is ≥3y behind the reporting year (an honesty constant); surfaced as Control-Center check `calibrations_current` (flags Cocoa CI/GH, trained thru 2020). Never auto-retires. Test. |
+| **T13** | Geophysical: ESHM20 fallback rows labelled `eshm20_pga`; EMSC EU-only; USGS/GEM not wired | ✅ confirmed | **✅ FIXED (v1.57)** — adapter tags the raster vs the zone approximation distinctly (`eshm20_pga` vs `eshm20_zone_approx`, quality_flag 0/1); migration `seismic_provenance_20260801` relabelled all 11,325 historical rows honestly. EU-only coverage (global USGS/GEM not wired) already disclosed in the feed registry — a **disclosed roadmap gap**, not faked. |
 
 ## The 7 cross-cutting pillars (what an auditor probes beyond the linear pipeline)
 
@@ -53,8 +53,22 @@ close them progressively.
 ## Tier-2 close-out (2026-08-01)
 
 T1–T7 all shipped. **T4** partially: staleness wired (two-layer); geocode-`low_confidence` /
-missing-input / fallback flags remain latent (tracked, tier-3). Config governance (**T6**) closes the
+missing-input / fallback flags remain latent (tracked as T4b). Config governance (**T6**) closes the
 last tier-2 item — calc/reporting-basis changes are audited and 4-eyes-governable.
 
-Remaining: **T8–T13** (tier-3 hardening) + the append-only trigger regression test + a single r²-floor
-constant with a parity test.
+## Tier-3 close-out (2026-08-01)
+
+**T8–T13 all shipped**, plus the append-only regression test and the single r²-floor constant:
+
+- **T10** — one r²-floor constant (fit script imports it) + DB-vs-Python parity test.
+- **T9** — a blank currency is a surfaced FX error, never assumed EUR.
+- **App-pillar** — `canonical_scores` UPDATE/DELETE both proven blocked by regression test.
+- **T13** — ESHM20 raster vs zone-approximation tagged distinctly; 11,325 historical rows relabelled.
+- **T8** — E1 and Taxonomy adaptation share one `CLIMATE` scope (can't diverge).
+- **T12** — calibration re-validation control (flags training windows ≥3y stale) in the Control Center.
+- **T11** — evidence-concentration honesty locked by test (failed validations never publish; single-event
+  caveat disclosed). Two **disclosed roadmap gaps** (not faked): an independent challenger MODEL, and
+  global (non-EU) seismic wiring.
+
+**Remaining:** T4b — the three latent input-quality flags (geocode `low_confidence` exclude-from-filing,
+missing-input `insufficient_data`, rule-based fallback degraded flag). All DB-verified latent today.
