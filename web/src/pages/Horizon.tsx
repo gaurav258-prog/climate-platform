@@ -1,0 +1,220 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { Play, Pause, Camera, ArrowRight } from 'lucide-react'
+import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { COAST } from '../lib/coastline'
+
+interface GAsset {
+  id: string; name: string; kind: string; lat: number; lon: number; region: string
+  value_eur: number; hazard: string; traj: Record<string, number>
+}
+interface GlobeResp { scenario: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
+
+const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 2030 / 2050 / 2100
+const HK = ['current', '2030', '2050', '2100']
+const D2R = Math.PI / 180
+const SUN = (() => { const v = [-0.5, 0.42, 0.76]; const m = Math.hypot(v[0], v[1], v[2]); return v.map(x => x / m) })()
+const pretty = (h: string) => h.replace(/_/g, ' ')
+
+// real projected score (0..100) at an arbitrary year, linearly interpolating the golden-source horizons
+function scoreAt(a: GAsset, y: number): number {
+  const t = a.traj
+  if (y <= HY[0]) return t.current
+  for (let i = 1; i < 4; i++) if (y <= HY[i]) { const f = (y - HY[i - 1]) / (HY[i] - HY[i - 1]); return t[HK[i - 1]] + (t[HK[i]] - t[HK[i - 1]]) * f }
+  return t['2100']
+}
+function col(l: number): [number, number, number] { return l < 28 ? [207, 232, 255] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59] }
+function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l < 75 ? 'high' : 'severe' }
+
+export default function Horizon() {
+  const nav = useNavigate()
+  const { profile } = useAuth()
+  const cvRef = useRef<HTMLCanvasElement>(null)
+  const yearElRef = useRef<HTMLDivElement>(null)
+  const statElRef = useRef<HTMLDivElement>(null)
+  const [sel, setSel] = useState<GAsset | null>(null)
+  const [playing, setPlaying] = useState(true)
+  const S = useRef({ year: 2025, lon0: -8 * D2R, lat0: 20 * D2R, drag: false, moved: false, px: 0, py: 0, spin: false, play: true, focus: null as GAsset | null, snap: false, sunT: 0 })
+
+  const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
+  const assets = q.data?.assets ?? []
+  const euroToday = q.data?.volume_at_risk_eur_today
+
+  // open the globe already looking at YOUR assets (their centroid), then it drifts
+  const centeredRef = useRef(false)
+  useEffect(() => {
+    if (centeredRef.current || assets.length === 0) return
+    centeredRef.current = true
+    const mLat = assets.reduce((s, a) => s + a.lat, 0) / assets.length
+    const mLon = assets.reduce((s, a) => s + a.lon, 0) / assets.length
+    S.current.lon0 = mLon * D2R; S.current.lat0 = Math.max(-1.1, Math.min(1.1, mLat * D2R))
+  }, [assets])
+
+  useEffect(() => { S.current.play = playing; S.current.spin = playing ? S.current.spin : S.current.spin }, [playing])
+
+  useEffect(() => {
+    const cv = cvRef.current!; const ctx = cv.getContext('2d')!
+    let raf = 0, W = 0, H = 0, DPR = 1, gx = 0, gy = 0, Rg = 0, tprev = 0
+    const resize = () => { DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); gx = W * 0.5; gy = H * 0.52; Rg = Math.min(W * 0.42, H * 0.46) }
+    resize(); addEventListener('resize', resize)
+
+    const project = (la: number, lo: number) => {
+      const lat = la * D2R, lon = lo * D2R, dl = lon - S.current.lon0, cl = Math.cos(lat), l0 = S.current.lat0
+      const Z = Math.sin(l0) * Math.sin(lat) + Math.cos(l0) * cl * Math.cos(dl)
+      const X = cl * Math.sin(dl), Y = Math.cos(l0) * Math.sin(lat) - Math.sin(l0) * cl * Math.cos(dl)
+      return { x: gx + Rg * X, y: gy - Rg * Y, vis: Z > 0, depth: Z, illum: X * SUN[0] + Y * SUN[1] + Z * SUN[2] }
+    }
+    // dotted land mask for the night-lights (coarse ellipses; the coastlines are the real geometry)
+    const LAND: number[][] = [[-100, 45, 30, 20], [-118, 52, 16, 12], [-75, 50, 20, 15], [-88, 15, 12, 8], [-63, -6, 16, 15], [-64, -34, 11, 17], [-42, 72, 15, 9], [12, 50, 20, 11], [22, 63, 14, 8], [15, 25, 30, 15], [24, -14, 18, 18], [45, 27, 14, 12], [80, 58, 46, 16], [78, 22, 12, 11], [105, 12, 15, 13], [110, 36, 20, 14], [118, -2, 20, 7], [134, -25, 17, 11], [-2, 54, 5, 5], [10, 36, 10, 4]]
+    const landPts: number[][] = []
+    for (let la = -78; la <= 80; la += 3.4) for (let lo = -178; lo <= 180; lo += 3.6) for (const L of LAND) { const dx = (lo - L[0]) / L[2], dy = (la - L[1]) / L[3]; if (dx * dx + dy * dy < 1) { landPts.push([la, lo]); break } }
+    const stars = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3, t: Math.random() * 6.28 }))
+
+    const hit = (mx: number, my: number): GAsset | null => { let best = 20, h: GAsset | null = null; for (const a of assets) { const p = project(a.lat, a.lon); if (!p.vis) continue; const d = Math.hypot(p.x - mx, p.y - my); if (d < best) { best = d; h = a } } return h }
+
+    const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; S.current.px = e.clientX; S.current.py = e.clientY; S.current.spin = false; cv.setPointerCapture(e.pointerId) }
+    const onMove = (e: PointerEvent) => {
+      if (S.current.drag) { const dx = e.clientX - S.current.px, dy = e.clientY - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.px = e.clientX; S.current.py = e.clientY; return }
+      cv.style.cursor = hit(e.clientX, e.clientY) ? 'pointer' : 'grab'
+    }
+    const onUp = (e: PointerEvent) => { if (S.current.drag) { S.current.drag = false; if (!S.current.moved) { const a = hit(e.clientX, e.clientY); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a) } } } }
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp)
+
+    const drawCaption = () => {
+      const b = H - 18, MONO = 'ui-monospace,Menlo,monospace', SERIF = 'Georgia,serif'
+      const g = ctx.createLinearGradient(0, H - 100, 0, H); g.addColorStop(0, 'rgba(4,6,11,0)'); g.addColorStop(1, 'rgba(4,6,11,0.92)'); ctx.fillStyle = g; ctx.fillRect(0, H - 100, W, 100)
+      ctx.textAlign = 'left'; ctx.fillStyle = '#5C6879'; ctx.font = '600 11px ' + MONO; ctx.fillText('TELLUMEN · HORIZON · ' + (profile?.org?.name || ''), 30, b - 44)
+      ctx.fillStyle = '#F4EFE6'; ctx.font = '600 30px ' + SERIF; ctx.fillText(String(Math.round(S.current.year)), 30, b - 12)
+      let el = 0; for (const a of assets) if (scoreAt(a, S.current.year) >= 50) el++
+      ctx.fillStyle = '#8C99AC'; ctx.font = '12px ' + MONO; ctx.fillText(el + ' of ' + assets.length + ' assets at elevated risk · disorderly 2°C path', 30, b + 4)
+      ctx.textAlign = 'right'; ctx.fillStyle = '#8FC0F0'; ctx.font = 'italic 17px ' + SERIF; ctx.fillText("See what's coming.", W - 30, b - 14)
+    }
+
+    const draw = (ts: number) => {
+      const t = ts * 0.001
+      if (S.current.spin && !S.current.focus && !S.current.drag) S.current.lon0 -= 0.0015
+      if (S.current.play) { const dt = Math.min(0.05, (ts - tprev) / 1000); S.current.year += dt * 9; if (S.current.year >= 2100) { S.current.year = 2100; S.current.play = false; setPlaying(false) } }
+      tprev = ts
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#05070d'); g.addColorStop(1, '#0a1120'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      for (const s of stars) { const tw = .5 + .5 * Math.sin(t * 1.5 + s.t); ctx.globalAlpha = .12 + tw * .45; ctx.fillStyle = '#cfe0ff'; ctx.fillRect(s.x * W, s.y * H, s.r, s.r) } ctx.globalAlpha = 1
+
+      // sphere
+      const og = ctx.createRadialGradient(gx - Rg * 0.35, gy - Rg * 0.4, Rg * 0.1, gx, gy, Rg); og.addColorStop(0, '#12233a'); og.addColorStop(.55, '#0b1524'); og.addColorStop(1, '#070d17'); ctx.fillStyle = og; ctx.beginPath(); ctx.arc(gx, gy, Rg, 0, 7); ctx.fill()
+      ctx.save(); ctx.beginPath(); ctx.arc(gx, gy, Rg, 0, 7); ctx.clip()
+      const spx = gx + Rg * SUN[0], spy = gy - Rg * SUN[1], apx = gx - Rg * SUN[0], apy = gy + Rg * SUN[1]
+      let dg = ctx.createRadialGradient(spx, spy, 0, spx, spy, Rg * 1.55); dg.addColorStop(0, 'rgba(150,180,215,0.16)'); dg.addColorStop(.5, 'rgba(120,150,190,0.05)'); dg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = dg; ctx.fillRect(gx - Rg, gy - Rg, Rg * 2, Rg * 2)
+      let ng = ctx.createRadialGradient(apx, apy, 0, apx, apy, Rg * 1.5); ng.addColorStop(0, 'rgba(2,4,9,0.6)'); ng.addColorStop(.6, 'rgba(2,4,9,0.18)'); ng.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = ng; ctx.fillRect(gx - Rg, gy - Rg, Rg * 2, Rg * 2)
+      ctx.restore()
+      // night city-lights / day faint land
+      for (const p of landPts) { const pr = project(p[0], p[1]); if (!pr.vis) continue; if (pr.illum > 0.02) { ctx.globalAlpha = 0.05 + pr.depth * 0.13; ctx.fillStyle = '#43648a'; ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.9, 0, 7); ctx.fill() } else { const tw = .55 + .45 * Math.sin(t * 2 + pr.x * 0.05); ctx.globalAlpha = (0.11 + pr.depth * 0.32) * tw; ctx.fillStyle = '#F5D69A'; ctx.beginPath(); ctx.arc(pr.x, pr.y, 0.85, 0, 7); ctx.fill() } } ctx.globalAlpha = 1
+      // coastlines
+      ctx.strokeStyle = 'rgba(150,182,214,0.34)'; ctx.lineWidth = 0.75; ctx.lineJoin = 'round'
+      for (const ring of COAST) { ctx.beginPath(); let pv = false; for (let i = 0; i < ring.length; i++) { const p = project(ring[i][1], ring[i][0]); if (p.vis) { if (pv) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); pv = true } else pv = false } ctx.stroke() }
+      // atmosphere
+      const rim = ctx.createRadialGradient(gx, gy, Rg * 0.96, gx, gy, Rg * 1.09); rim.addColorStop(0, 'rgba(127,178,230,0)'); rim.addColorStop(.55, 'rgba(127,178,230,0.4)'); rim.addColorStop(1, 'rgba(127,178,230,0)'); ctx.beginPath(); ctx.arc(gx, gy, Rg * 1.05, 0, 7); ctx.lineWidth = Rg * 0.09; ctx.strokeStyle = rim; ctx.stroke()
+
+      // assets — real coordinates, real interpolated risk
+      let elevated = 0
+      for (const a of assets) {
+        const p = project(a.lat, a.lon); const l = scoreAt(a, S.current.year); if (l >= 50) elevated++
+        if (!p.vis) continue
+        const [r, gg, b] = col(l), flared = l >= 50, sel2 = S.current.focus === a
+        const dim = S.current.focus && !sel2 ? 0.16 : 1
+        const tw = .6 + .4 * Math.sin(t * (flared ? 4 : 1.4) + a.lon)
+        const dep = 0.55 + 0.45 * p.depth
+        const sz = (2 * (flared ? 1.6 : 1) * (sel2 ? 1.5 : 1)) * dep * (1 + l / 100 * 0.8)
+        const al = dep * (0.7 + tw * 0.3) * dim
+        const gl = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, sz * 7); gl.addColorStop(0, `rgba(${r},${gg},${b},${al * (flared ? 0.9 : 0.5)})`); gl.addColorStop(1, `rgba(${r},${gg},${b},0)`)
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y, sz * 7, 0, 7); ctx.fill()
+        ctx.fillStyle = `rgba(${Math.min(255, r + 60)},${Math.min(255, gg + 50)},${Math.min(255, b + 50)},${al})`; ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, 7); ctx.fill()
+        if (sel2) { ctx.strokeStyle = `rgba(${r},${gg},${b},${.5 + .3 * tw})`; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(p.x, p.y, sz + 9 + 2 * tw, 0, 7); ctx.stroke() }
+      }
+      if (yearElRef.current) yearElRef.current.textContent = String(Math.round(S.current.year))
+      if (statElRef.current) statElRef.current.textContent = `${elevated} of ${assets.length} assets at elevated risk`
+      if (S.current.snap) { S.current.snap = false; drawCaption(); try { const a = document.createElement('a'); a.download = 'tellumen-horizon-' + Math.round(S.current.year) + '.png'; a.href = cv.toDataURL('image/png'); a.click() } catch { /* */ } }
+      raf = requestAnimationFrame(draw)
+    }
+    raf = requestAnimationFrame(draw)
+    return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp) }
+  }, [assets, profile])
+
+  const closeSel = () => { S.current.focus = null; S.current.spin = true; setSel(null) }
+  const cur = sel ? scoreAt(sel, S.current.year) : 0
+
+  return (
+    <div className="fixed inset-0 bg-[#04060b] overflow-hidden select-none">
+      <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
+      {/* top chrome */}
+      <div className="absolute top-6 left-8 flex items-center gap-3 pointer-events-none">
+        <div className="display text-[19px]">Tel<span className="text-[var(--color-sky)] italic">lumen</span></div>
+        <span className="mono text-[9px] tracking-[0.26em] text-[var(--color-faint)] uppercase">Horizon</span>
+      </div>
+      <div className="absolute top-6 right-8 text-right pointer-events-none">
+        <div className="display italic text-[clamp(15px,1.8vw,20px)] text-[#F4EFE6]">See what's coming.</div>
+        <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} sites · real coordinates</div>
+      </div>
+
+      {/* year + readout */}
+      <div className="absolute left-8 top-[42%] -translate-y-1/2 pointer-events-none">
+        <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1">Standing as of</div>
+        <div ref={yearElRef} className="display font-semibold text-[clamp(64px,11vw,148px)] leading-[.8] text-[#F4EFE6]" style={{ letterSpacing: '-2px' }}>2025</div>
+        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4">— of {assets.length} assets at elevated risk</div>
+        {euroToday != null && <div className="mono text-[11px] text-[var(--color-faint)] mt-1.5">€{(euroToday / 1e6).toFixed(1)}m volume-at-risk today (validated crops)</div>}
+        <div className="text-[11px] text-[var(--color-faint)] mt-3 max-w-[30ch] leading-relaxed">Drag to spin the Earth · scrub the years · click any site to open it.</div>
+      </div>
+
+      {/* selected asset */}
+      {sel && (
+        <div className="absolute top-0 right-0 bottom-0 w-[min(400px,44vw)] z-10 p-8 overflow-y-auto"
+          style={{ background: 'linear-gradient(270deg,#070b13 60%,#070b13cc 90%,transparent)' }}>
+          <button onClick={closeSel} className="mono text-[10px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← back</button>
+          <div className="mono text-[10px] tracking-[0.24em] uppercase text-[var(--color-faint)] mt-6">{sel.region} · {sel.kind}</div>
+          <div className="display text-[34px] leading-tight text-[#F4EFE6] mt-1.5">{sel.name}</div>
+          <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1.5">◉ {Math.abs(sel.lat).toFixed(1)}°{sel.lat >= 0 ? 'N' : 'S'}, {Math.abs(sel.lon).toFixed(1)}°{sel.lon >= 0 ? 'E' : 'W'}</div>
+          {(() => { const [r, g, b] = col(cur); return (
+            <div className="inline-flex items-center gap-2 mt-3 mono text-[11px] tracking-wide uppercase px-3 py-1.5 rounded-full"
+              style={{ background: `color-mix(in oklab, rgb(${r},${g},${b}) 16%, transparent)`, color: `rgb(${Math.min(255, r + 40)},${Math.min(255, g + 40)},${Math.min(255, b + 40)})` }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: `rgb(${r},${g},${b})` }} />{stateName(cur)} · {Math.round(S.current.year)}
+            </div>) })()}
+          <div className="mono text-[11.5px] text-[var(--color-mute)] mt-4 leading-[1.7]">
+            worst hazard&nbsp;&nbsp;<b className="text-[#F4EFE6]">{pretty(sel.hazard)}</b><br />
+            risk score now&nbsp;&nbsp;<b className="text-[#F4EFE6]">{Math.round(cur)}/100</b><br />
+            value&nbsp;&nbsp;<b className="text-[#F4EFE6]">€{(sel.value_eur / 1e6).toFixed(1)}m</b>
+          </div>
+          <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-faint)] mt-6 mb-2.5">Risk trajectory · golden source</div>
+          <div className="flex items-end gap-1.5 h-[70px]">
+            {[2025, 2035, 2045, 2055, 2065, 2075, 2085, 2100].map(yy => { const l = scoreAt(sel, yy); const [r, g, b] = col(l); return (
+              <div key={yy} className="flex-1 flex flex-col items-center gap-1.5">
+                <div className="w-full rounded-t" style={{ height: (8 + l * 0.6) + 'px', background: `rgb(${r},${g},${b})` }} />
+                <div className="mono text-[8.5px] text-[#4b5768]">{String(yy).slice(2)}</div>
+              </div>) })}
+          </div>
+          <div className="text-[12px] text-[var(--color-faint)] mt-5 leading-relaxed border-t border-[var(--color-line)] pt-4">
+            Real physical-risk score under the disorderly-2°C warming path, interpolated between the golden source's
+            current / 2030 / 2050 / 2100 horizons. Carried in your CSRD · ESRS E1 physical-risk disclosure.
+          </div>
+        </div>
+      )}
+
+      {/* controls */}
+      <button onClick={() => (S.current.snap = true)} className="absolute right-8 bottom-[136px] inline-flex items-center gap-2 mono text-[10.5px] text-[var(--color-mute)] bg-[#0b121e] border border-[#223046] rounded-full px-4 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><Camera size={13} /> save snapshot</button>
+      <button onClick={() => nav('/home')} className="absolute right-8 bottom-[84px] inline-flex items-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">enter operations <ArrowRight size={14} /></button>
+
+      <div className="absolute left-0 right-0 bottom-0 px-8 pb-6 pt-5" style={{ background: 'linear-gradient(0deg,#04060bE6 30%,transparent)' }}>
+        <div className="flex items-center gap-4 max-w-[1200px] mx-auto">
+          <button onClick={() => { if (S.current.year >= 2100) S.current.year = 2025; const p = !playing; S.current.play = p; setPlaying(p) }}
+            className="w-11 h-11 shrink-0 rounded-full border border-[#2a3a50] bg-[#0e1626] grid place-items-center text-[#F4EFE6] hover:border-[var(--color-sky)]">
+            {playing ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+          <input type="range" min={2025} max={2100} step={1} defaultValue={2025}
+            onInput={e => { S.current.year = +(e.target as HTMLInputElement).value; S.current.play = false; setPlaying(false) }}
+            onPointerDown={() => { S.current.play = false; setPlaying(false) }}
+            className="flex-1 accent-[var(--color-sky)] cursor-pointer" />
+          <div className="mono text-[10px] text-[var(--color-faint)] shrink-0">2025 → 2100</div>
+        </div>
+      </div>
+    </div>
+  )
+}

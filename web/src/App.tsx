@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Login from './pages/Login'
 import Shell from './components/Shell'
+import Horizon from './pages/Horizon'
 import Home from './pages/Home'
 import Disclosure from './pages/Disclosure'
 import Csrd from './pages/Csrd'
@@ -30,9 +31,12 @@ export default function App() {
   const opsOnly = profile.permissions?.includes('platform.admin') && !profile.permissions?.includes('modules.view')
 
   return (
-    <Shell>
-      <Routes>
-        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Home />} />
+    <Routes>
+      {/* the front door — full-screen Horizon globe (customer workspaces); operators skip to their console */}
+      <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Horizon />} />
+      {/* everything else lives inside the operating Shell */}
+      <Route element={<ShellLayout />}>
+        <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
         <Route path="/esrs" element={<EsrsPack />} />
@@ -50,10 +54,14 @@ export default function App() {
         <Route path="/early-warning" element={<EarlyWarning />} />
         <Route path="/models" element={<Models />} />
         <Route path="/foundation" element={<DataFoundation />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Shell>
+        <Route path="*" element={<Navigate to="/home" replace />} />
+      </Route>
+    </Routes>
   )
+}
+
+function ShellLayout() {
+  return <Shell><Outlet /></Shell>
 }
 
 function Splash() {

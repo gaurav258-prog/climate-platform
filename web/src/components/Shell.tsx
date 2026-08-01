@@ -8,7 +8,10 @@ import { BrandMark } from './ui'
 type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[] }
 const GROUPS: { label: string | null; items: Item[] }[] = [
   // the customer agri workspace (gated by modules.view — the platform operator lacks it)
-  { label: null, items: [{ to: '/', label: 'Home', icon: Home, end: true, perm: 'modules.view' }] },
+  { label: null, items: [
+    { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
+    { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view' },
+  ] },
   { label: 'Your footprint', items: [
     { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view' },
     { to: '/sourcing', label: 'Sourcing book', icon: Sprout, perm: 'modules.view' },

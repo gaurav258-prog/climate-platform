@@ -13,12 +13,73 @@ Nothing here is a new number — it's routing the signals we have to the person 
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 
 router = APIRouter(prefix="/v1/me", tags=["Me"])
+
+# Horizon (the globe) forward path — real projection scores, not a fabricated flare year.
+_HORIZONS = ["current", "2030", "2050", "2100"]
+
+
+@router.get("/globe", summary="This org's real assets at true lat/lon with their projected risk trajectory")
+def globe(session: DbSession, ctx: CurrentUser,
+          scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$")):
+    """Every located site + sourcing plot, its coordinates, and its WORST-hazard physical-risk score at
+    current / 2030 / 2050 / 2100 under the chosen warming path. Real coordinates + real projection scores —
+    the front-door globe reads straight off the golden source, no illustrative euros."""
+    org_id = ctx["org"]["org_id"]
+
+    def _pivot(rows):
+        by_asset: dict = {}
+        for r in rows:
+            a = by_asset.setdefault(r["id"], {
+                "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
+                "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
+                "_haz": {}})
+            a["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
+        out = []
+        for a in by_asset.values():
+            # worst hazard = highest score at 2050 (the CSRD forward anchor), fallback current
+            worst = max(a["_haz"].items(),
+                        key=lambda kv: kv[1].get("2050", kv[1].get("current", 0)))
+            a["hazard"] = worst[0]
+            a["traj"] = {h: round(worst[1].get(h, worst[1].get("current", 0)), 1) for h in _HORIZONS}
+            a.pop("_haz")
+            out.append(a)
+        return out
+
+    sites = session.execute(text("""
+        SELECT s.site_id AS id, s.name, 'site' AS kind, s.latitude AS lat, s.longitude AS lon,
+               s.country AS region, s.annual_value_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
+        WHERE s.org_id = :o AND s.latitude IS NOT NULL AND v.scenario = :sc
+    """), {"o": org_id, "sc": scenario}).mappings().all()
+
+    plots = session.execute(text("""
+        SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
+               p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
+               p.annual_spend_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
+    """), {"o": org_id, "sc": scenario}).mappings().all()
+
+    assets = _pivot(sites) + _pivot(plots)
+    # portfolio euro-at-risk TODAY is the real supply-engine figure (not derived from scores)
+    try:
+        from services.intelligence.supply_cogs import project_org_supply
+        summ = project_org_supply(session, org_id)
+        vol_today = round(summ.get("rollup", {}).get("volume_at_risk_eur", 0))
+    except Exception:
+        vol_today = None
+
+    return {"scenario": scenario, "horizons": _HORIZONS, "n_assets": len(assets),
+            "volume_at_risk_eur_today": vol_today, "assets": assets}
 
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.
