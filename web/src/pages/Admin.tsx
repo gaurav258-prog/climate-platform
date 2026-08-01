@@ -281,6 +281,33 @@ function GoldenSourceFeeds() {
   )
 }
 
+// what each role is FOR — shown at the point of assignment so an admin picks the right one without guessing
+const ROLE_INFO: Record<string, { blurb: string; can: string }> = {
+  admin:    { blurb: 'Runs the workspace', can: 'Everything — set up the org, manage users & roles, produce and approve filings, see the audit trail.' },
+  analyst:  { blurb: 'Does the work', can: 'Build the data & filings and submit them for approval. Cannot approve their own work (4-eyes).' },
+  approver: { blurb: 'The second pair of eyes', can: 'Reviews and signs off filings and price claims — the checker in 4-eyes. Cannot be the maker.' },
+  viewer:   { blurb: 'Read-only', can: 'Sees the dashboards, risk and reports. Makes no changes and submits nothing.' },
+}
+
+function RoleCard({ name, selected, onClick }: { name: string; selected: boolean; onClick: () => void }) {
+  const info = ROLE_INFO[name]
+  return (
+    <button onClick={onClick} title={info?.can}
+      className={`text-left rounded-xl border p-3 transition ${selected
+        ? 'border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,transparent)]'
+        : 'border-[var(--color-line-2)] hover:border-[var(--color-line)]'}`}>
+      <div className="flex items-center gap-1.5">
+        <span className={`text-[9px] ${selected ? 'text-[var(--color-sky)]' : 'text-[var(--color-faint)]'}`}>{selected ? '●' : '○'}</span>
+        <span className="text-[13px] font-medium capitalize text-[var(--color-ink)]">{name}</span>
+      </div>
+      {info && <>
+        <div className="text-[11px] text-[var(--color-sky)] mt-1">{info.blurb}</div>
+        <div className="text-[11px] text-[var(--color-faint)] mt-0.5 leading-snug">{info.can}</div>
+      </>}
+    </button>
+  )
+}
+
 function Users() {
   const uq = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get<User[]>('/v1/admin/users') })
   const rq = useQuery({ queryKey: ['admin-roles'], queryFn: () => api.get<Role[]>('/v1/admin/roles') })
@@ -314,11 +341,12 @@ function Users() {
           <input className={inp} placeholder="temp password (6+)" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           <div className="flex items-end"><Button onClick={create}>Create user</Button></div>
         </div>
-        <div className="flex flex-wrap gap-2 mt-3">
-          {roles.map(r => {
+        <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-faint)] mt-4 mb-2">Assign a role — what should this person be able to do?</div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {roles.filter(r => r.name !== 'platform-operator').map(r => {
             const on = form.role_ids.includes(r.id)
-            return <button key={r.id} onClick={() => setForm({ ...form, role_ids: on ? form.role_ids.filter(x => x !== r.id) : [...form.role_ids, r.id] })}
-              className={`text-[11.5px] px-2.5 py-1 rounded-full border ${on ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)]'}`}>{r.name}</button>
+            return <RoleCard key={r.id} name={r.name} selected={on}
+              onClick={() => setForm({ ...form, role_ids: on ? form.role_ids.filter(x => x !== r.id) : [...form.role_ids, r.id] })} />
           })}
         </div>
         {msg && <div className="mt-3 text-[12.5px] text-[var(--color-mute)]">{msg}</div>}

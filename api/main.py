@@ -156,6 +156,8 @@ if ROUTERS_AVAILABLE:
 
 if AUTH_USER_AVAILABLE:
     app.include_router(auth_user.router)
+    from api.routers import tasks as tasks_router
+    app.include_router(tasks_router.router)
 
 if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(admin_router.router)
