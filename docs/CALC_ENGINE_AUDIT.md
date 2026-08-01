@@ -70,5 +70,17 @@ last tier-2 item — calc/reporting-basis changes are audited and 4-eyes-governa
   caveat disclosed). Two **disclosed roadmap gaps** (not faked): an independent challenger MODEL, and
   global (non-EU) seismic wiring.
 
-**Remaining:** T4b — the three latent input-quality flags (geocode `low_confidence` exclude-from-filing,
-missing-input `insufficient_data`, rule-based fallback degraded flag). All DB-verified latent today.
+## T4b close-out (2026-08-01) — the whole audit is closed
+
+**T4b shipped (v1.58).** The three input-quality fail-safes now reach the filing gate (same FLAG + EXCLUDE
+policy as staleness — surfaced so the operator fixes the input first): (1) **low_confidence** — `sc_sourcing_plots`
+gained `confidence`/`geocode_precision` at parity with sites (migration `plot_geocode_quality_20260801`;
+20 existing plots backfilled coordinate-exact), both plot-insert paths persist them, and a coarse geocode
+(confidence < 0.5 or region/country precision) is flagged; (2) **insufficient_data** — a located but
+un-scored in-scope asset is flagged (can't produce a euro, must not read as zero); (3) **degraded** —
+`ParcelYieldRisk.degraded` marks a rule-based (`source != 'canonical'`) euro. All three feed
+`services/intelligence/input_quality.py` + a Control-Center readiness check `inputs_high_quality`
+(verified live: green today; a simulated coarse geocode fails it and names the asset). Tests. All three
+were DB-verified latent — this wires them so they catch such data before a filing.
+
+**Every audit finding (F1/F2/Fab/Reg + T1–T13 + T4b + the append-only invariant) is now closed.**

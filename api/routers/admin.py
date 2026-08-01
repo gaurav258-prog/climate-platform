@@ -363,6 +363,20 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
                    "hint": (f"{rv['overdue_count']} calibration(s) due for re-validation: "
                             + ", ".join(f"{o['commodity']}·{o['origin']} (trained thru {o['trained_through']})"
                                         for o in rv["overdue"][:4]) + "." if rv["overdue_count"] else None)})
+    # Input quality (audit T4b): a coarsely-located or unscored in-scope asset must be fixed before filing,
+    # not silently filed at an imprecise/zero risk — FLAG + EXCLUDE, our control to refresh first.
+    from services.intelligence.input_quality import input_quality_status
+    iq = input_quality_status(session, org_id)
+    iq_bits = []
+    if iq["low_confidence_count"]:
+        iq_bits.append(f"{iq['low_confidence_count']} coarsely-located "
+                       f"({', '.join(x['name'] for x in iq['low_confidence'][:3])})")
+    if iq["insufficient_data_count"]:
+        iq_bits.append(f"{iq['insufficient_data_count']} not yet scored "
+                       f"({', '.join(x['name'] for x in iq['insufficient_data'][:3])})")
+    checks.append({"key": "inputs_high_quality", "label": "Inputs are filing-grade (precise location + scored)",
+                   "ok": iq["all_clear"],
+                   "hint": ("Fix before filing — " + "; ".join(iq_bits) + "." if iq_bits else None)})
     passed = sum(1 for c in checks if c["ok"])
     return {
         "organization": {

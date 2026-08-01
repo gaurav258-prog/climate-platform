@@ -114,6 +114,7 @@ def list_sites_with_risk(session: Session, org_id: str,
                s.site_id::text, s.name, s.site_type, CAST(s.latitude AS FLOAT) lat, CAST(s.longitude AS FLOAT) lon,
                s.country, s.h3_cell, CAST(s.annual_value_eur AS FLOAT) value_eur,
                CAST(s.annual_throughput_eur AS FLOAT) throughput_eur,
+               CAST(s.confidence AS FLOAT) confidence, s.geocode_precision,
                v.hazard_type AS top_hazard, CAST(v.physical_risk_score AS FLOAT) hazard_score
         FROM sc_company_sites s
         LEFT JOIN v_sc_site_physical_risk v
@@ -126,6 +127,11 @@ def list_sites_with_risk(session: Session, org_id: str,
         d = dict(r)
         # business-interruption exposure = throughput × expected-downtime fraction (v0 illustrative)
         d["bi_at_risk_eur"] = round((d.get("throughput_eur") or 0) * bi_downtime_fraction(d.get("hazard_score")), 0) or None
+        # input-quality flags (audit T4b): coarse geocode, or located-but-not-yet-scored (no euro possible)
+        d["low_confidence"] = bool(d.get("lat") is not None and (
+            (d.get("confidence") is not None and d["confidence"] < 0.5)
+            or d.get("geocode_precision") in ("region", "country")))
+        d["insufficient_data"] = bool(d.get("lat") is not None and d.get("hazard_score") is None)
         out.append(d)
     return out
 

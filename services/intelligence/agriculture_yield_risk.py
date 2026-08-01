@@ -80,6 +80,12 @@ class ParcelYieldRisk:
     currency: str = "EUR"
     source: str = "no_canonical_score"
 
+    @property
+    def degraded(self) -> bool:
+        """True when this parcel's risk did NOT come from the canonical golden source — a rule-based
+        fallback, so its euro is lower-quality and must be flagged, never filed as if canonical (T4b)."""
+        return self.source != "canonical"
+
 
 def _sensitivity(crop: str) -> CropSensitivity:
     return CROP_SENSITIVITY.get(crop.strip().lower(), DEFAULT_SENSITIVITY)

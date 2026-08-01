@@ -327,12 +327,15 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     plot_id = str(uuid.uuid4())
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
-                                        h3_cell, region, country, annual_spend_eur, plot_area_ha)
-        VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :lat, :lon, :cell, :region, :country, :spend, :area)
+                                        h3_cell, region, country, annual_spend_eur, plot_area_ha,
+                                        confidence, geocode_precision)
+        VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :lat, :lon, :cell, :region, :country, :spend, :area,
+                :conf, :prec)
     """), {"plot_id": plot_id, "org_id": org_id, "commodity_id": commodity_id, "plot_name": body.plot_name,
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "region": body.region,
            "country": body.country or (loc.get("resolved_name") or "").split(", ")[-1] or None,
-           "spend": body.annual_spend_eur, "area": body.plot_area_ha})
+           "spend": body.annual_spend_eur, "area": body.plot_area_ha,
+           "conf": loc["confidence"], "prec": loc["precision"]})
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,
@@ -1160,6 +1163,8 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
             "annual_spend_eur": spend, "plot_area_ha": area_ha, "plot_geometry": geojson,
+            # bulk upload supplies exact coordinates → exact precision, full confidence (audit T4b)
+            "confidence": 1.0, "geocode_precision": "exact",
         })
     if not records:
         raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
@@ -1167,9 +1172,11 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
-                                        h3_cell, region, country, annual_spend_eur, plot_area_ha, plot_geometry)
+                                        h3_cell, region, country, annual_spend_eur, plot_area_ha, plot_geometry,
+                                        confidence, geocode_precision)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :latitude, :longitude,
-                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb))
+                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb),
+                :confidence, :geocode_precision)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.upload",
                 target_type="sc_sourcing_plots", target_id=None,
