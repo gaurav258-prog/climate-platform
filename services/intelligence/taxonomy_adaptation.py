@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from services.intelligence.company_sites import list_sites_with_risk
 from services.intelligence.adaptation import actions_for
+from services.intelligence.hazard_scope import CLIMATE
 
 MATERIAL = 40
 
@@ -26,7 +27,11 @@ def adaptation_kpi(session: Session, org_id: str, threshold: int = MATERIAL) -> 
     sites = list_sites_with_risk(session, org_id)
     located = [s for s in sites if s.get("lat") is not None]
     total_value = sum((s.get("value_eur") or 0) for s in located)
-    exposed = [s for s in located if (s.get("hazard_score") or 0) >= threshold]
+    # Scope to CLIMATE hazards on the SAME basis as ESRS E1 (audit T8): the Taxonomy climate-adaptation
+    # objective covers climate-related physical hazards only, so a site whose worst hazard is geophysical
+    # (seismic/volcanic) is not "materially exposed" here — exactly as E1 excludes it.
+    exposed = [s for s in located
+               if s.get("top_hazard") in CLIMATE and (s.get("hazard_score") or 0) >= threshold]
     exposed_value = sum((s.get("value_eur") or 0) for s in exposed)
     exposed_hazards = sorted({s["top_hazard"] for s in exposed if s.get("top_hazard")})
 
