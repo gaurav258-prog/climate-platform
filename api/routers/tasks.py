@@ -33,28 +33,95 @@ _SECTOR_ASSETS = {
     "bank": {"noun": "financed assets", "sql": """
         SELECT a.asset_id AS id, a.asset_name AS name, 'asset' AS kind, a.latitude AS lat, a.longitude AS lon,
                COALESCE(a.region, a.country) AS region, a.asset_value_eur AS value_eur,
+               a.outstanding_loan_balance_eur AS f_loan, a.sector AS f_sector, a.taxonomy_status AS f_tax,
+               (COALESCE(a.ghg_emissions_scope1_tco2e,0)+COALESCE(a.ghg_emissions_scope2_tco2e,0)
+                +COALESCE(a.ghg_emissions_scope3_tco2e,0)) AS f_ghg,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM bank_assets a JOIN v_bank_asset_physical_risk v ON v.asset_id = a.asset_id
         WHERE a.org_id = :o AND a.latitude IS NOT NULL AND v.scenario = :sc"""},
     "insurer": {"noun": "insured locations", "sql": """
         SELECT p.policy_id AS id, p.policy_name AS name, 'policy' AS kind, p.latitude AS lat, p.longitude AS lon,
                COALESCE(p.region, p.country) AS region, p.sum_insured_eur AS value_eur,
+               p.deductible_pct AS f_ded, p.construction_type AS f_ctype, p.year_built AS f_year, p.policy_type AS f_peril,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM insurance_policies p JOIN v_insurance_policy_physical_risk v ON v.policy_id = p.policy_id
         WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
     "asset_manager": {"noun": "holdings", "sql": """
         SELECT h.holding_id AS id, h.holding_name AS name, 'holding' AS kind, h.latitude AS lat, h.longitude AS lon,
                COALESCE(h.region, h.country) AS region, h.position_value_eur AS value_eur,
+               h.sector AS f_sector, h.nace_code AS f_nace,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM assetmgmt_holdings h JOIN v_assetmgmt_holding_physical_risk v ON v.holding_id = h.holding_id
         WHERE h.org_id = :o AND h.latitude IS NOT NULL AND v.scenario = :sc"""},
     "reit": {"noun": "properties", "sql": """
         SELECT p.property_id AS id, p.property_name AS name, 'property' AS kind, p.latitude AS lat, p.longitude AS lon,
                COALESCE(p.region, p.country) AS region, p.property_value_eur AS value_eur,
+               p.annual_noi_eur AS f_noi, p.property_type AS f_ptype, p.construction_type AS f_ctype, p.year_built AS f_year,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM realestate_properties p JOIN v_realestate_property_physical_risk v ON v.property_id = p.property_id
         WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
 }
+
+
+def _eur(v) -> str:
+    v = float(v or 0)
+    if v >= 1e9: return f"€{v/1e9:.2f}bn"
+    if v >= 1e6: return f"€{v/1e6:.1f}m"
+    if v >= 1e3: return f"€{v/1e3:.0f}k"
+    return f"€{v:.0f}"
+
+
+# Per-sector "key parameters" for a clicked site — real columns from the sector's own table, mapped to
+# labelled facets the detail panel renders. Every value is real; a missing column simply shows "—".
+def _bank_facets(r):
+    loan, av = r.get("f_loan"), r.get("value_eur")
+    ltv = f"{round(100*float(loan)/float(av))}%" if loan and av else "—"
+    out = [{"k": "Outstanding loan", "v": _eur(loan) if loan else "—"},
+           {"k": "Loan-to-value", "v": ltv},
+           {"k": "Financed emissions", "v": f"{float(r.get('f_ghg') or 0):,.0f} tCO₂e" if r.get("f_ghg") else "—"}]
+    if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
+    if r.get("f_tax"): out.append({"k": "Taxonomy", "v": r["f_tax"]})
+    return out
+
+
+def _insurer_facets(r):
+    out = [{"k": "Sum insured", "v": _eur(r.get("value_eur"))}]
+    if r.get("f_ded") is not None: out.append({"k": "Deductible", "v": f"{r['f_ded']}%"})
+    if r.get("f_ctype") or r.get("f_year"):
+        out.append({"k": "Construction / year", "v": f"{r.get('f_ctype') or '—'} · {r.get('f_year') or '—'}"})
+    if r.get("f_peril"): out.append({"k": "Cover", "v": r["f_peril"]})
+    return out
+
+
+def _am_facets(r):
+    out = [{"k": "Position value", "v": _eur(r.get("value_eur"))}]
+    if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
+    if r.get("f_nace"): out.append({"k": "NACE", "v": r["f_nace"]})
+    return out
+
+
+def _reit_facets(r):
+    out = [{"k": "Property value", "v": _eur(r.get("value_eur"))}]
+    if r.get("f_noi") is not None: out.append({"k": "Annual NOI", "v": _eur(r.get("f_noi"))})
+    if r.get("f_ptype") or r.get("f_year"):
+        out.append({"k": "Type / year", "v": f"{r.get('f_ptype') or '—'} · {r.get('f_year') or '—'}"})
+    return out
+
+
+def _site_facets(r):
+    return [{"k": "Annual value", "v": _eur(r.get("value_eur"))}, {"k": "Country", "v": r.get("region") or "—"}]
+
+
+def _plot_facets(r):
+    out = [{"k": "Annual spend", "v": _eur(r.get("value_eur"))}]
+    if r.get("f_commodity"): out.append({"k": "Commodity", "v": r["f_commodity"]})
+    out.append({"k": "EUDR", "v": "covered · undetermined" if r.get("eudr_undetermined")
+                else ("covered · determined" if r.get("f_eudr_covered") else "not covered")})
+    if r.get("f_area"): out.append({"k": "Plot area", "v": f"{r['f_area']} ha"})
+    return out
+
+
+_FACET_FN = {"bank": _bank_facets, "insurer": _insurer_facets, "asset_manager": _am_facets, "reit": _reit_facets}
 
 
 @router.get("/globe", summary="This org's real assets at true lat/lon with their projected risk trajectory")
@@ -67,14 +134,16 @@ def globe(session: DbSession, ctx: CurrentUser,
     org_id = ctx["org"]["org_id"]
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
 
-    def _pivot(rows):
+    def _pivot(rows, facet_fn=None):
         by_asset: dict = {}
         for r in rows:
-            a = by_asset.setdefault(r["id"], {
-                "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
-                "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
-                "eudr_undetermined": bool(r.get("eudr_undetermined")), "_haz": {}})
-            a["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
+            if r["id"] not in by_asset:
+                by_asset[r["id"]] = {
+                    "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
+                    "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
+                    "eudr_undetermined": bool(r.get("eudr_undetermined")),
+                    "facets": (facet_fn(r) if facet_fn else []), "_haz": {}}
+            by_asset[r["id"]]["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
         out = []
         from services.intelligence.adaptation import actions_for
         for a in by_asset.values():
@@ -109,12 +178,13 @@ def globe(session: DbSession, ctx: CurrentUser,
                    p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
                    p.annual_spend_eur AS value_eur,
                    (co.eudr_covered AND p.eudr_determination IS NULL) AS eudr_undetermined,
+                   co.name AS f_commodity, co.eudr_covered AS f_eudr_covered, p.plot_area_ha AS f_area,
                    v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
             FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
             JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
             WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
         """), {"o": org_id, "sc": scenario}).mappings().all()
-        assets = _pivot(sites) + _pivot(plots)
+        assets = _pivot(sites, _site_facets) + _pivot(plots, _plot_facets)
         # portfolio euro-at-risk TODAY is the real supply-engine figure (not derived from scores)
         try:
             from services.intelligence.supply_cogs import project_org_supply
@@ -126,7 +196,7 @@ def globe(session: DbSession, ctx: CurrentUser,
         cfg = _SECTOR_ASSETS[org_type]
         noun = cfg["noun"]
         rows = session.execute(text(cfg["sql"]), {"o": org_id, "sc": scenario}).mappings().all()
-        assets = _pivot(rows)
+        assets = _pivot(rows, _FACET_FN.get(org_type))
     else:
         noun, assets = "assets", []
 

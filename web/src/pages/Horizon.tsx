@@ -8,7 +8,7 @@ import { COAST } from '../lib/coastline'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
-  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean
+  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean; facets?: { k: string; v: string }[]
 }
 interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
@@ -424,9 +424,22 @@ export default function Horizon() {
             </div>) })()}
           <div className="mono text-[11.5px] text-[var(--color-mute)] mt-4 leading-[1.7]">
             worst hazard&nbsp;&nbsp;<b className="text-[#F4EFE6]">{pretty(sel.hazard)}</b><br />
-            risk score now&nbsp;&nbsp;<b className="text-[#F4EFE6]">{Math.round(cur)}/100</b><br />
-            value&nbsp;&nbsp;<b className="text-[#F4EFE6]">€{(sel.value_eur / 1e6).toFixed(1)}m</b>
+            risk score now&nbsp;&nbsp;<b className="text-[#F4EFE6]">{Math.round(cur)}/100</b>
           </div>
+          {/* sector-specific key parameters for THIS site — real columns from the sector's own table */}
+          {sel.facets && sel.facets.length > 0 && (
+            <>
+              <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-faint)] mt-6 mb-2.5">Site parameters</div>
+              <div className="grid grid-cols-2 gap-2">
+                {sel.facets.map((f, i) => (
+                  <div key={i} className="rounded-lg border border-[var(--color-line)] px-3 py-2">
+                    <div className="text-[14px] text-[#F4EFE6] leading-tight">{f.v}</div>
+                    <div className="mono text-[9px] tracking-[0.05em] uppercase text-[var(--color-faint)] mt-0.5">{f.k}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-faint)] mt-6 mb-2.5">Risk trajectory · golden source</div>
           <div className="flex items-end gap-1.5 h-[70px]">
             {[2025, 2035, 2045, 2055, 2065, 2075, 2085, 2100].map(yy => { const l = scoreAt(sel, yy); const [r, g, b] = col(l); return (
