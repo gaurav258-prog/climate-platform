@@ -14,7 +14,16 @@ interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
 interface MyScope { roles: string[]; raised_pending: number }
 interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; kpis?: Kpis; my_scope?: MyScope; assets: GAsset[] }
-interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string; bucket: string; due: string | null }
+interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string; bucket: string; due: string | null; demo?: boolean }
+
+// Illustrative actions for the logged-in analyst — shown alongside the real feed, each tagged "sample",
+// so the right rail reads as it will once every sector workflow routes into it. Not real data.
+const DEMO_TASKS: Task[] = [
+  { key: 'd_sfdr', title: 'Review the Q4 SFDR PAI draft before filing', detail: 'The mandated Annex I table is assembled — give it a second read before it is frozen.', severity: 'action', cta_label: 'Open filing', cta_href: '/home', bucket: 'this_week', due: 'due Friday', demo: true },
+  { key: 'd_geo', title: '3 assets located only coarsely — confirm before filing', detail: 'A coarse geocode means an imprecise cell. Refine or confirm the location.', severity: 'warning', cta_label: 'Review inputs', cta_href: '/home', bucket: 'this_week', due: 'in 2 days', demo: true },
+  { key: 'd_override', title: 'Sign off the Valencia exposure override', detail: 'A colleague raised an LTV override that needs a second pair of eyes.', severity: 'action', cta_label: 'Review approval', cta_href: '/approvals', bucket: 'overdue', due: 'raised 4d ago', demo: true },
+  { key: 'd_feed', title: 'Refresh EXIOBASE intensity factors', detail: 'The sector-intensity basis has a newer vintage available.', severity: 'info', cta_label: 'Open data', cta_href: '/foundation', bucket: 'upcoming', due: 'next month', demo: true },
+]
 const SEV_COL: Record<string, string> = { action: 'var(--color-sky)', warning: 'var(--color-warn)', info: 'var(--color-blue)', good: 'var(--color-good)' }
 
 const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 2030 / 2050 / 2100
@@ -49,6 +58,9 @@ export default function Horizon() {
   const [resolving, setResolving] = useState(false)
   // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
+  // entity the analyst is working on (an analyst can cover several) — the active reporting entity
+  const [entOpen, setEntOpen] = useState(false)
+  const [entity, setEntity] = useState<string | null>(null)
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
@@ -98,7 +110,7 @@ export default function Horizon() {
   useEffect(() => {
     const cv = cvRef.current!; const ctx = cv.getContext('2d')!
     let raf = 0, W = 0, H = 0, DPR = 1, gx = 0, gy = 0, Rg = 0, tprev = 0
-    const resize = () => { DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); gx = W * 0.5; gy = H * 0.52; Rg = Math.min(W * 0.42, H * 0.46) }
+    const resize = () => { DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); gx = W * 0.5; gy = H * 0.53; Rg = Math.min(W * 0.34, H * 0.40) }
     resize(); addEventListener('resize', resize)
 
     const project = (la: number, lo: number) => {
@@ -217,6 +229,12 @@ export default function Horizon() {
   const BUCKETS: [string, string, string][] = [['overdue', 'Overdue', '#D23B3B'], ['this_week', 'This week', '#E8B24C'], ['upcoming', 'Upcoming', '#8FC0F0'], ['open', 'Open · no fixed date', '#5c6879']]
   const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
   const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
+  // the reporting entity the analyst is currently working on (they can cover several)
+  const orgName = profile?.org?.name ?? 'Your organisation'
+  const entities = [orgName, 'Coastal Holdings SA (demo)', 'Northwind Fund II (demo)']
+  const activeEntity = entity ?? orgName
+  // real tasks + illustrative sample actions, so the agent's action list reads as it will when full
+  const displayTasks = [...tasks, ...DEMO_TASKS]
   const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
@@ -245,7 +263,29 @@ export default function Horizon() {
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className="absolute left-8 top-[12%] w-[min(340px,44vw)] max-h-[calc(100vh-150px)] overflow-y-auto flex flex-col gap-3.5 pr-1">
+      <div className="absolute left-8 top-[10%] w-[min(340px,44vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-3.5 pr-1">
+        {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
+        <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
+          <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-[#0e1728]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="mono text-[9px] tracking-[0.2em] uppercase text-[var(--color-faint)]">Working on</span>
+              <span className="mono text-[10px] text-[var(--color-mute)] shrink-0">{entities.length} entities {entOpen ? '▴' : '▾'}</span>
+            </div>
+            <div className="text-[13.5px] text-[#F4EFE6] truncate mt-0.5">{activeEntity}</div>
+          </button>
+          {entOpen && (
+            <div className="border-t border-[var(--color-line)] px-2 py-2 flex flex-col gap-0.5">
+              {entities.map(e => (
+                <button key={e} onClick={() => { setEntity(e); setEntOpen(false) }}
+                  className={`text-left rounded-lg px-2.5 py-1.5 text-[12.5px] flex items-center gap-2 ${e === activeEntity ? 'text-[var(--color-sky)] bg-[#0e1728]' : 'text-[var(--color-mute)] hover:bg-[#0e1728]'}`}>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: e === activeEntity ? 'var(--color-sky)' : 'transparent', border: e === activeEntity ? 'none' : '1px solid #3a4a60' }} />
+                  <span className="truncate">{e}</span>
+                </button>
+              ))}
+              <div className="mono text-[9px] text-[var(--color-faint)] px-2.5 pt-1">the entity scopes the globe, KPIs & tasks</div>
+            </div>
+          )}
+        </div>
         <div>
           <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
           <div ref={yearElRef} className="display font-semibold text-[clamp(40px,7vw,96px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
@@ -282,13 +322,13 @@ export default function Horizon() {
       {!sel && !beltName && !panel && (
       <div className="absolute right-8 top-[12%] w-[min(320px,42vw)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
         <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-3">What needs you</div>
-        {tasks.length === 0 && (
+        {displayTasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
             {tq.isLoading ? 'Loading…' : tq.isError ? 'Could not load your tasks — reload or sign in again.' : 'All clear — nothing needs you right now.'}
           </div>
         )}
         <div className="flex flex-col gap-4">
-          {BUCKETS.map(([bk, label, bcol]) => { const ts = tasks.filter(t => t.bucket === bk); if (!ts.length) return null; return (
+          {BUCKETS.map(([bk, label, bcol]) => { const ts = displayTasks.filter(t => t.bucket === bk); if (!ts.length) return null; return (
             <div key={bk}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: bcol }} />
@@ -303,6 +343,7 @@ export default function Horizon() {
                     <div className="flex items-center gap-2.5">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
                       <span className="flex-1 min-w-0 text-[12.5px] text-[var(--color-ink)] leading-snug">{t.title}</span>
+                      {t.demo && <span className="mono text-[8px] tracking-[0.1em] uppercase text-[var(--color-faint)] border border-[var(--color-line-2)] rounded px-1 py-0.5 shrink-0">sample</span>}
                     </div>
                     {t.due && <div className="mono text-[10px] text-[var(--color-faint)] mt-1 ml-[18px]">{t.due}</div>}
                   </button>
