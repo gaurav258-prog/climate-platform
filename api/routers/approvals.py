@@ -128,6 +128,14 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         except Exception as e:
             raise HTTPException(409, {"error": "apply_failed",
                                       "message": f"Approved, but could not apply the change: {e}"})
+    elif body.decision == "approved" and row["request_type"].startswith("config."):
+        from services.governance.config_governance import apply_config_change
+        try:
+            applied = apply_config_change(session, row["request_type"], row["payload"],
+                                          actor_user_id=ctx["user"]["id"], org_id=org_id)
+        except Exception as e:
+            raise HTTPException(409, {"error": "apply_failed",
+                                      "message": f"Approved, but could not apply the change: {e}"})
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

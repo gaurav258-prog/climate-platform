@@ -28,7 +28,7 @@ The DB pass showed most items were *latent or dormant*, not actively wrong — o
 | **T3** | E1 own-operations baseline/current but *labelled* with requested scenario/horizon | code-level | **✅ FIXED (v1.55)** — `list_sites_with_risk` now basis-scoped; csrd_e1 reads own-ops on the requested scenario/horizon; taxonomy_adaptation declares its present-state basis. Test. |
 | **T4** | Fail-safe signals computed-but-not-wired: **staleness**, geocode **low_confidence**, **missing-input**, **fallback proxy** all reach the dashboard, not the score | code-level; DB-verified all LATENT (0 low-conf sites, 0 fallback rows, plots don't track geocode confidence) | **✅ STALENESS FIXED (v1.54)** — two-layer: (1) pre-filing readiness gate (`overdue_basis_feeds` → a Control-Center check "refresh before filing"), (2) snapshot stamps `feed_freshness_at_freeze` (auditable). Policy: FLAG + EXCLUDE, but staleness is *our* control so we surface it to refresh first. Test. **Remaining (latent):** geocode-`low_confidence` exclude-from-filing, missing-input `insufficient_data` flag, fallback degraded flag → tracked. |
 | **T5** | Confidence Grade never enters the frozen snapshot payload | code-level | **✅ FIXED (v1.55)** — `confidence_grade`/`confidence_checks` added to csrd_e1 commodities → freezes with the snapshot. Test. |
-| **T6** | `calc_settings`/`reporting_settings` changes: no 4-eyes; calc_settings unaudited | code-level | ⏳ tier-2 |
+| **T6** | `calc_settings`/`reporting_settings` changes: no 4-eyes; calc_settings unaudited | code-level | **✅ FIXED (v1.56)** — both config changes now route through `submit_or_apply_config` (`config_governance.py`): always audited, and governed by the same approval matrix as location edits. Two matrix actions seeded platform-default `requires_approval=FALSE` (`config_policy_actions_20260731`) → no UX change; an org toggles 4-eyes on per-action and `approvals.decide` dispatches `config.*` → `apply_config_change`. Integration test (default applies+audits; toggle-on routes to a 4-eyes request). |
 | **T7** | iXBRL/XBRL regenerated live, never snapshotted (can drift from frozen pack) | code-level | **✅ FIXED (v1.55)** — build_ixbrl/build_xbrl_instance accept a `pack`; new `/report-snapshots/{id}.ixbrl` + `.xbrl` build from the FROZEN payload (filed bytes = frozen bytes) + UI buttons. Test. |
 | **T8** | Same asset scoped differently in E1 vs Taxonomy (worst-hazard filter divergence) | code-level | ⏳ tier-3 |
 | **T9** | FX treats NULL/blank currency as EUR (docstring says it never does) | code-level | ⏳ tier-3 |
@@ -50,4 +50,11 @@ close them progressively.
 - Deleted the `np.random` flood fabricator + a guard test forbidding random generators in ingestion.
 - Relabelled the golden-source registry + the investor slide to what actually lands (`maturity` field).
 
-Remaining T1–T13 are tracked as tier-2/tier-3 tasks.
+## Tier-2 close-out (2026-08-01)
+
+T1–T7 all shipped. **T4** partially: staleness wired (two-layer); geocode-`low_confidence` /
+missing-input / fallback flags remain latent (tracked, tier-3). Config governance (**T6**) closes the
+last tier-2 item — calc/reporting-basis changes are audited and 4-eyes-governable.
+
+Remaining: **T8–T13** (tier-3 hardening) + the append-only trigger regression test + a single r²-floor
+constant with a parity test.

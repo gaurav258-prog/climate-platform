@@ -224,6 +224,9 @@ _POLICY_LABELS = {
     "supply.site.delete": "Delete an operational site",
     "supply.plot.update": "Edit a sourcing plot",
     "supply.plot.delete": "Delete a sourcing plot",
+    # calc/reporting config changes drive what a filing shows — governable with 4-eyes (audit T6)
+    "config.reporting_settings": "Change the reporting basis (scenario / horizon / materiality / period)",
+    "config.calc_settings": "Change a calculation method (VaR / severity / return-period)",
 }
 
 
@@ -383,7 +386,7 @@ def get_reporting_settings(session: DbSession, ctx: dict = Depends(require_permi
     return get_settings(session, ctx["org"]["org_id"])
 
 
-@router.patch("/reporting-settings", summary="Set the org's reporting basis (audited)")
+@router.patch("/reporting-settings", summary="Set the org's reporting basis (audited; 4-eyes if the matrix requires it)")
 def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
                            ctx: dict = Depends(require_permission("admin.users.manage"))):
     org_id = ctx["org"]["org_id"]
@@ -391,21 +394,14 @@ def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
     if not changes:
         raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
     # the r²≥0.40 publish gate is intentionally NOT settable here — it's an honesty constant, not a knob.
-    session.execute(text("""
-        INSERT INTO org_reporting_settings (org_id, reporting_period_end, scenario, horizon, materiality_threshold, updated_by, updated_at)
-        VALUES (:o, :p, COALESCE(:s,'baseline'), COALESCE(:h,'current'), COALESCE(:m,40), :u, now())
-        ON CONFLICT (org_id) DO UPDATE SET
-            reporting_period_end = COALESCE(EXCLUDED.reporting_period_end, org_reporting_settings.reporting_period_end),
-            scenario = COALESCE(EXCLUDED.scenario, org_reporting_settings.scenario),
-            horizon = COALESCE(EXCLUDED.horizon, org_reporting_settings.horizon),
-            materiality_threshold = COALESCE(EXCLUDED.materiality_threshold, org_reporting_settings.materiality_threshold),
-            updated_by = EXCLUDED.updated_by, updated_at = now()
-    """), {"o": org_id, "p": changes.get("reporting_period_end"), "s": changes.get("scenario"),
-           "h": changes.get("horizon"), "m": changes.get("materiality_threshold"), "u": ctx["user"]["id"]})
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reporting_settings.update",
-                target_type="org_reporting_settings", target_id=org_id, detail={"changes": changes})
-    from services.governance.reporting_settings import get_settings
-    return get_settings(session, org_id)
+    # Governed through the same audit + 4-eyes machinery as location edits (audit T6). Direct-apply by
+    # default; needs a second approver only if the org toggles 'config.reporting_settings' in the matrix.
+    from services.governance.config_governance import submit_or_apply_config
+    out = submit_or_apply_config(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                                 request_type="config.reporting_settings", updates=changes)
+    if out["status"] == "pending_approval":
+        return out
+    return out["result"]
 
 
 @router.get("/data-feeds", summary="Golden-source feed freshness (is the data under a filing current?)")

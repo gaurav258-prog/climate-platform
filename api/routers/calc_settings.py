@@ -27,8 +27,12 @@ def get_settings(session: DbSession, ctx: dict = Depends(require_permission("mod
     return get_calc_settings(session, ctx["org"]["org_id"])
 
 
-@router.patch("", summary="Change a calculation-method trigger (admin)")
+@router.patch("", summary="Change a calculation-method trigger (admin; audited, 4-eyes if the matrix requires it)")
 def update_settings(body: CalcSettingsUpdate, session: DbSession,
                      ctx: dict = Depends(require_permission("admin.roles.manage"))):
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    return upsert_calc_settings(session, ctx["org"]["org_id"], updates, ctx["user"]["id"])
+    if not updates:
+        return {"status": "applied", "result": get_calc_settings(session, ctx["org"]["org_id"])}
+    from services.governance.config_governance import submit_or_apply_config
+    return submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                                  request_type="config.calc_settings", updates=updates)
