@@ -40,7 +40,14 @@ class FxError(ValueError):
 
 
 def _norm_ccy(currency: Optional[str]) -> str:
-    return (currency or "EUR").strip().upper() or "EUR"
+    # A blank/None currency is NOT EUR — it is unknown. Surfacing it honours this module's
+    # contract ("EUR is never silently assumed for a non-EUR line"); the caller must pass an
+    # explicit "EUR" for a EUR line (audit T9).
+    ccy = (currency or "").strip().upper()
+    if not ccy:
+        raise FxError("No currency supplied — cannot convert to EUR (EUR is never assumed "
+                      "for a blank currency; pass an explicit 'EUR' for a euro line)")
+    return ccy
 
 
 def to_eur(session, amount: float, currency: Optional[str],

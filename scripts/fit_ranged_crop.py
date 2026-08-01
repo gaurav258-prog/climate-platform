@@ -28,7 +28,9 @@ from ml.scoring.drought_climatology import drought_score
 from ml.scoring.heat_climatology import heat_anomaly_score
 from ml.scoring.soil_water_climatology import soil_water_score
 
-MIN_R2 = 0.40   # below this a driver explains too little to publish even as a range
+from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
+
+MIN_R2 = RANGED_PUBLISH_FLOOR   # single source of truth — the publish floor (audit T10)
 NC_TEMPLATE = "data/era5_baseline/{region}_1991_2024_monthly.nc"
 SM_TEMPLATE = "data/era5_baseline/{region}_1991_2024_soilmoisture.nc"
 FIT_VERSION = "ranged-fit-v0.1"

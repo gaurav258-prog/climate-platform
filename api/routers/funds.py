@@ -326,11 +326,20 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
     fx_errors: list[str] = []
     for h in body.holdings:
         key = (h.isin or "").strip().upper()
-        ccy = (h.currency or "EUR").strip().upper()
+        raw_ccy = (h.currency or "").strip().upper()
         if h.market_value_eur is not None:
+            # EUR value supplied directly — no FX guess needed; currency only labels the native base.
             eur = h.market_value_eur
+            ccy = raw_ccy or "EUR"
             base = h.market_value if h.market_value is not None else (eur if ccy == "EUR" else None)
         else:
+            # Native value → must convert. A blank currency is NOT assumed to be EUR (audit T9):
+            # surface it so the uploader supplies a currency or a market_value_eur.
+            if not raw_ccy:
+                fx_errors.append(f"{key or 'line'}: market value given without a currency — cannot "
+                                 "convert to EUR (specify a currency or provide market_value_eur)")
+                continue
+            ccy = raw_ccy
             try:
                 conv = to_eur(session, h.market_value, ccy, as_of)
             except FxError as e:

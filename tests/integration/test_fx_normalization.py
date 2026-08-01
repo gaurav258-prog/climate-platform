@@ -28,6 +28,11 @@ def test_to_eur_arithmetic_and_unknown_currency():
         assert to_eur(s, 100, "GBP", date(1990, 1, 1))["source"] in ("ecb", "fallback")
         with pytest.raises(FxError):
             to_eur(s, 1, "ZZZ", date(2024, 3, 1))
+        # a blank/None currency is unknown, NOT EUR (audit T9) — surfaced, never assumed 1.0
+        with pytest.raises(FxError):
+            to_eur(s, 1_000_000, None, date(2024, 3, 1))
+        with pytest.raises(FxError):
+            to_eur(s, 1_000_000, "  ", date(2024, 3, 1))
 
 
 @pytest.mark.integration
