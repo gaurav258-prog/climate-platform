@@ -23,14 +23,49 @@ router = APIRouter(prefix="/v1/me", tags=["Me"])
 # Horizon (the globe) forward path — real projection scores, not a fabricated flare year.
 _HORIZONS = ["current", "2030", "2050", "2100"]
 
+# The globe is the front door for EVERY sector. Each org type keeps its located exposures in its own
+# table + a physical-risk view of identical shape (id, h3_cell, hazard_type, scenario, time_horizon,
+# physical_risk_score). We dispatch by organizations.type so a bank sees financed assets, an insurer sees
+# insured locations, an asset manager sees holdings, a REIT sees properties — all on the same real globe,
+# scored off the same golden source. `noun` drives the UI copy; agri (manufacturer) is handled separately
+# because it unions two tables (own sites + sourcing plots) and carries the EUDR flag.
+_SECTOR_ASSETS = {
+    "bank": {"noun": "financed assets", "sql": """
+        SELECT a.asset_id AS id, a.asset_name AS name, 'asset' AS kind, a.latitude AS lat, a.longitude AS lon,
+               COALESCE(a.region, a.country) AS region, a.asset_value_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM bank_assets a JOIN v_bank_asset_physical_risk v ON v.asset_id = a.asset_id
+        WHERE a.org_id = :o AND a.latitude IS NOT NULL AND v.scenario = :sc"""},
+    "insurer": {"noun": "insured locations", "sql": """
+        SELECT p.policy_id AS id, p.policy_name AS name, 'policy' AS kind, p.latitude AS lat, p.longitude AS lon,
+               COALESCE(p.region, p.country) AS region, p.sum_insured_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM insurance_policies p JOIN v_insurance_policy_physical_risk v ON v.policy_id = p.policy_id
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
+    "asset_manager": {"noun": "holdings", "sql": """
+        SELECT h.holding_id AS id, h.holding_name AS name, 'holding' AS kind, h.latitude AS lat, h.longitude AS lon,
+               COALESCE(h.region, h.country) AS region, h.position_value_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM assetmgmt_holdings h JOIN v_assetmgmt_holding_physical_risk v ON v.holding_id = h.holding_id
+        WHERE h.org_id = :o AND h.latitude IS NOT NULL AND v.scenario = :sc"""},
+    "reit": {"noun": "properties", "sql": """
+        SELECT p.property_id AS id, p.property_name AS name, 'property' AS kind, p.latitude AS lat, p.longitude AS lon,
+               COALESCE(p.region, p.country) AS region, p.property_value_eur AS value_eur,
+               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+        FROM realestate_properties p JOIN v_realestate_property_physical_risk v ON v.property_id = p.property_id
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
+}
+
 
 @router.get("/globe", summary="This org's real assets at true lat/lon with their projected risk trajectory")
 def globe(session: DbSession, ctx: CurrentUser,
           scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$")):
-    """Every located site + sourcing plot, its coordinates, and its WORST-hazard physical-risk score at
-    current / 2030 / 2050 / 2100 under the chosen warming path. Real coordinates + real projection scores —
-    the front-door globe reads straight off the golden source, no illustrative euros."""
+    """Every located exposure this org holds, its coordinates, and its WORST-hazard physical-risk score at
+    current / 2030 / 2050 / 2100 under the chosen warming path — sector-aware (bank→financed assets,
+    insurer→insured locations, asset manager→holdings, REIT→properties, agri→sites + sourcing plots).
+    Real coordinates + real projection scores off the golden source, no illustrative euros."""
     org_id = ctx["org"]["org_id"]
+    org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
 
     def _pivot(rows):
         by_asset: dict = {}
@@ -58,36 +93,45 @@ def globe(session: DbSession, ctx: CurrentUser,
             out.append(a)
         return out
 
-    sites = session.execute(text("""
-        SELECT s.site_id AS id, s.name, 'site' AS kind, s.latitude AS lat, s.longitude AS lon,
-               s.country AS region, s.annual_value_eur AS value_eur,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
-        WHERE s.org_id = :o AND s.latitude IS NOT NULL AND v.scenario = :sc
-    """), {"o": org_id, "sc": scenario}).mappings().all()
+    vol_today = None
+    if org_type == "manufacturer":
+        # Agriculture: own operational sites UNION sourcing plots (the plots carry the EUDR flag).
+        noun = "sites & origins"
+        sites = session.execute(text("""
+            SELECT s.site_id AS id, s.name, 'site' AS kind, s.latitude AS lat, s.longitude AS lon,
+                   s.country AS region, s.annual_value_eur AS value_eur,
+                   v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+            FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
+            WHERE s.org_id = :o AND s.latitude IS NOT NULL AND v.scenario = :sc
+        """), {"o": org_id, "sc": scenario}).mappings().all()
+        plots = session.execute(text("""
+            SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
+                   p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
+                   p.annual_spend_eur AS value_eur,
+                   (co.eudr_covered AND p.eudr_determination IS NULL) AS eudr_undetermined,
+                   v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
+            FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+            JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
+            WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
+        """), {"o": org_id, "sc": scenario}).mappings().all()
+        assets = _pivot(sites) + _pivot(plots)
+        # portfolio euro-at-risk TODAY is the real supply-engine figure (not derived from scores)
+        try:
+            from services.intelligence.supply_cogs import project_org_supply
+            summ = project_org_supply(session, org_id)
+            vol_today = round(summ.get("rollup", {}).get("volume_at_risk_eur", 0))
+        except Exception:
+            vol_today = None
+    elif org_type in _SECTOR_ASSETS:
+        cfg = _SECTOR_ASSETS[org_type]
+        noun = cfg["noun"]
+        rows = session.execute(text(cfg["sql"]), {"o": org_id, "sc": scenario}).mappings().all()
+        assets = _pivot(rows)
+    else:
+        noun, assets = "assets", []
 
-    plots = session.execute(text("""
-        SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
-               p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
-               p.annual_spend_eur AS value_eur,
-               (co.eudr_covered AND p.eudr_determination IS NULL) AS eudr_undetermined,
-               v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
-        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
-        JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
-        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
-    """), {"o": org_id, "sc": scenario}).mappings().all()
-
-    assets = _pivot(sites) + _pivot(plots)
-    # portfolio euro-at-risk TODAY is the real supply-engine figure (not derived from scores)
-    try:
-        from services.intelligence.supply_cogs import project_org_supply
-        summ = project_org_supply(session, org_id)
-        vol_today = round(summ.get("rollup", {}).get("volume_at_risk_eur", 0))
-    except Exception:
-        vol_today = None
-
-    return {"scenario": scenario, "horizons": _HORIZONS, "n_assets": len(assets),
-            "volume_at_risk_eur_today": vol_today, "assets": assets}
+    return {"scenario": scenario, "sector": org_type, "noun": noun, "horizons": _HORIZONS,
+            "n_assets": len(assets), "volume_at_risk_eur_today": vol_today, "assets": assets}
 
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.
@@ -99,9 +143,20 @@ def _task(key, title, detail, severity, cta_label, cta_href, need):
             "cta_label": cta_label, "cta_href": cta_href, "_need": need}
 
 
+def _finalize(tasks: list[dict], perms: set) -> dict:
+    """Keep only tasks this user may act on, drop the private _need, rank by severity."""
+    visible = [t for t in tasks if t["_need"] in perms]
+    for t in visible:
+        t.pop("_need", None)
+    visible.sort(key=lambda t: -_WEIGHT.get(t["severity"], 0))
+    return {"tasks": visible, "all_clear": len(visible) == 0}
+
+
 @router.get("/tasks", summary="Role-filtered actionable tasks for the cockpit")
 def my_tasks(session: DbSession, ctx: CurrentUser):
     org_id = ctx["org"]["org_id"]
+    org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
+    is_agri = org_type == "manufacturer"
     perms = set(ctx.get("permissions") or [])
     tasks: list[dict] = []
 
@@ -146,18 +201,25 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
     except Exception:
         pass
 
-    try:
-        from services.intelligence.revalidation import revalidation_status
-        rv = revalidation_status(session)
-        if rv["overdue_count"]:
-            tasks.append(_task(
-                "calibrations_due", f"{rv['overdue_count']} crop calibration(s) due for re-validation",
-                "Their training window is far enough behind that new crop-years should re-check them.",
-                "info", "See models", "/models", "admin.users.manage"))
-    except Exception:
-        pass
+    if is_agri:
+        try:
+            from services.intelligence.revalidation import revalidation_status
+            rv = revalidation_status(session)
+            if rv["overdue_count"]:
+                tasks.append(_task(
+                    "calibrations_due", f"{rv['overdue_count']} crop calibration(s) due for re-validation",
+                    "Their training window is far enough behind that new crop-years should re-check them.",
+                    "info", "See models", "/models", "admin.users.manage"))
+        except Exception:
+            pass
 
     # ── ANALYST / DOER: data & filing completeness ────────────────────────────────────────────────
+    # The site/plot/EUDR completeness signals below are agriculture-shaped (own ops + sourcing plots) and
+    # route to the agri operating pages. Financial sectors keep their exposures elsewhere, so they see only
+    # the cross-sector controls above (approvals, identity, 4-eyes, golden source) — never an agri prompt.
+    if not is_agri:
+        return _finalize(tasks, perms)
+
     sites = session.execute(text("""
         SELECT count(*) n,
                count(*) FILTER (WHERE NOT EXISTS (
@@ -206,9 +268,4 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
     except Exception:
         pass
 
-    # keep only tasks this user has the permission to act on, drop the private _need, rank by severity
-    visible = [t for t in tasks if t["_need"] in perms]
-    for t in visible:
-        t.pop("_need", None)
-    visible.sort(key=lambda t: -_WEIGHT.get(t["severity"], 0))
-    return {"tasks": visible, "all_clear": len(visible) == 0}
+    return _finalize(tasks, perms)

@@ -10,7 +10,7 @@ interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
   value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean
 }
-interface GlobeResp { scenario: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
+interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
 interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string }
 const SEV_COL: Record<string, string> = { action: 'var(--color-sky)', warning: 'var(--color-warn)', info: 'var(--color-blue)', good: 'var(--color-good)' }
 
@@ -46,6 +46,10 @@ export default function Horizon() {
   const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
   const assets = q.data?.assets ?? []
   const euroToday = q.data?.volume_at_risk_eur_today
+  // sector-aware noun (bank→financed assets, insurer→insured locations, agri→sites & origins, …)
+  const noun = q.data?.noun ?? 'assets'
+  const nounRef = useRef('assets')
+  useEffect(() => { nounRef.current = q.data?.noun ?? 'assets' }, [q.data])
   // "what needs you" — the same real, role-filtered signals as the cockpit, surfaced on the landing
   const tq = useQuery({ queryKey: ['my-tasks'], queryFn: () => api.get<{ tasks: Task[] }>('/v1/me/tasks') })
   const tasks = tq.data?.tasks ?? []
@@ -111,7 +115,7 @@ export default function Horizon() {
       ctx.textAlign = 'left'; ctx.fillStyle = '#5C6879'; ctx.font = '600 11px ' + MONO; ctx.fillText('TELLUMEN · HORIZON · ' + (profile?.org?.name || ''), 30, b - 44)
       ctx.fillStyle = '#F4EFE6'; ctx.font = '600 30px ' + SERIF; ctx.fillText(String(Math.round(S.current.year)), 30, b - 12)
       let el = 0; for (const a of assets) if (scoreAt(a, S.current.year) >= 50) el++
-      ctx.fillStyle = '#8C99AC'; ctx.font = '12px ' + MONO; ctx.fillText(el + ' of ' + assets.length + ' assets at elevated risk · disorderly 2°C path', 30, b + 4)
+      ctx.fillStyle = '#8C99AC'; ctx.font = '12px ' + MONO; ctx.fillText(el + ' of ' + assets.length + ' ' + nounRef.current + ' at elevated risk · disorderly 2°C path', 30, b + 4)
       ctx.textAlign = 'right'; ctx.fillStyle = '#8FC0F0'; ctx.font = 'italic 17px ' + SERIF; ctx.fillText("See what's coming.", W - 30, b - 14)
     }
 
@@ -168,7 +172,7 @@ export default function Horizon() {
         if (sel2) { ctx.strokeStyle = `rgba(${r},${gg},${b},${.5 + .3 * tw})`; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(p.x, p.y, sz + 9 + 2 * tw, 0, 7); ctx.stroke() }
       }
       if (yearElRef.current) yearElRef.current.textContent = String(Math.round(S.current.year))
-      if (statElRef.current) statElRef.current.textContent = `${elevated} of ${assets.length} assets at elevated risk`
+      if (statElRef.current) statElRef.current.textContent = `${elevated} of ${assets.length} ${nounRef.current} at elevated risk`
       if (S.current.snap) { S.current.snap = false; drawCaption(); try { const a = document.createElement('a'); a.download = 'tellumen-horizon-' + Math.round(S.current.year) + '.png'; a.href = cv.toDataURL('image/png'); a.click() } catch { /* */ } }
       raf = requestAnimationFrame(draw)
     }
@@ -206,13 +210,13 @@ export default function Horizon() {
           <button onClick={closeBelt} className="mono text-[10px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3.5 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← all regions</button>
           <div>
             <div className="display text-[26px] text-[#F4EFE6] leading-none">{beltName}</div>
-            <div className="mono text-[11px] text-[var(--color-mute)] mt-1">{beltAssets.length} sites · <b className="text-[#E9744A]">{beltElevated} at elevated risk</b> · disorderly 2°C</div>
+            <div className="mono text-[11px] text-[var(--color-mute)] mt-1">{beltAssets.length} {noun} · <b className="text-[#E9744A]">{beltElevated} at elevated risk</b> · disorderly 2°C</div>
           </div>
         </div>
       )}
       <div className="absolute top-6 right-8 text-right pointer-events-none">
         <div className="display italic text-[clamp(15px,1.8vw,20px)] text-[#F4EFE6]">See what's coming.</div>
-        <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} sites · real coordinates</div>
+        <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} {noun} · real coordinates</div>
       </div>
 
       {/* year + readout + WHAT NEEDS YOU — one top-anchored left column (the preemptive landing) */}
@@ -220,7 +224,7 @@ export default function Horizon() {
       <div className="absolute left-8 top-[15%] w-[min(400px,44vw)]">
         <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
         <div ref={yearElRef} className="display font-semibold text-[clamp(56px,9.5vw,124px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
-        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4 pointer-events-none">— of {assets.length} assets at elevated risk</div>
+        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
         {euroToday != null && <div className="mono text-[11px] text-[var(--color-faint)] mt-1.5 pointer-events-none">€{(euroToday / 1e6).toFixed(1)}m volume-at-risk today (validated crops)</div>}
         {tasks.length > 0 && (
           <div className="mt-7">
