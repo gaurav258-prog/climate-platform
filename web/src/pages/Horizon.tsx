@@ -54,8 +54,9 @@ export default function Horizon() {
   const statElRef = useRef<HTMLDivElement>(null)
   const [sel, setSel] = useState<GAsset | null>(null)
   const [beltName, setBeltName] = useState<string | null>(null)
-  const [playing, setPlaying] = useState(true)
-  const S = useRef({ year: 2025, lon0: -8 * D2R, lat0: 20 * D2R, tLon: -8 * D2R, tLat: 20 * D2R, drag: false, moved: false, px: 0, py: 0, play: true, focus: null as GAsset | null, belt: null as string | null, snap: false })
+  // start PAUSED at "today" — the year only advances when the user presses play or drags the scrubber
+  const [playing, setPlaying] = useState(false)
+  const S = useRef({ year: 2025, lon0: -8 * D2R, lat0: 20 * D2R, tLon: -8 * D2R, tLat: 20 * D2R, drag: false, moved: false, px: 0, py: 0, play: false, focus: null as GAsset | null, belt: null as string | null, snap: false })
 
   const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
   const assets = q.data?.assets ?? []
@@ -267,13 +268,25 @@ export default function Horizon() {
               : <KpiCard label={noun} value={String(kpis.n_assets)} onClick={() => openKpi('book')} />}
           </div>
         )}
+        {!kpis && (
+          <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)] max-w-[300px]">
+            {q.isLoading ? 'Loading your book…' : q.isError
+              ? 'Could not load your book — your session may have expired. Reload, or sign out and back in.'
+              : 'No located assets yet — add your first ones to see them here.'}
+          </div>
+        )}
       </div>
       )}
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
-      {!sel && !beltName && !panel && tasks.length > 0 && (
+      {!sel && !beltName && !panel && (
       <div className="absolute right-8 top-[13%] w-[min(336px,40vw)] max-h-[calc(100vh-260px)] overflow-y-auto pr-0.5">
         <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-3">What needs you</div>
+        {tasks.length === 0 && (
+          <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
+            {tq.isLoading ? 'Loading…' : tq.isError ? 'Could not load your tasks — reload or sign in again.' : 'All clear — nothing needs you right now.'}
+          </div>
+        )}
         <div className="flex flex-col gap-4">
           {BUCKETS.map(([bk, label, bcol]) => { const ts = tasks.filter(t => t.bucket === bk); if (!ts.length) return null; return (
             <div key={bk}>
