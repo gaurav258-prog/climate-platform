@@ -31,9 +31,10 @@ from sqlalchemy.orm import Session
 #   planned     — adapter is stub / not yet in production
 # `name` is the source we ACTUALLY ingest; any gap between that and the ideal source is stated in `note`.
 FEEDS: list[dict] = [
-    {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5-Land", "category": "hazard",
+    {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5 / ERA5-Land", "category": "hazard",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "live",
-     "note": "European climate reanalysis — heat / drought / frost / soil-water / wind."},
+     "note": "GLOBAL climate reanalysis — heat / drought / frost / soil-water / wind. Global baselines built "
+             "(climatology_baseline temp+precip, soil_moisture_baseline, frost_baseline) so scoring is worldwide."},
     {"key": "flood", "name": "ERA5-Land runoff (flood proxy)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "proxy",
      "note": "GloFAS was withdrawn from the CDS in 2025; we currently proxy flood from ERA5-Land total "
@@ -51,10 +52,12 @@ FEEDS: list[dict] = [
     {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Tropical-cyclone tracks real (→ storm_events); Copernicus Marine sea-state not yet landed."},
-    {"key": "geophysical", "name": "EMSC seismic (EU) · Smithsonian GVP", "category": "hazard",
+    {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
-     "note": "GVP volcanic real (→ volcanic_events); seismic is EMSC (Europe bbox only) with an ESHM20 "
-             "zone-approximation fallback — global USGS/GEM not yet wired. Geophysical, not climate-attributable."},
+     "note": "Seismic scores from the GLOBAL USGS M>=5.0 catalog (seismic_events, worldwide) + physics; the "
+             "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP volcanic "
+             "real (→ volcanic_events) but hazard zones are curated per-volcano (no global fallback yet). "
+             "Geophysical, not climate-attributable → out of CSRD/EUDR filing scope."},
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
