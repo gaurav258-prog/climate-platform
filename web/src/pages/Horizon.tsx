@@ -35,24 +35,38 @@ export default function Horizon() {
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
   const [sel, setSel] = useState<GAsset | null>(null)
+  const [beltName, setBeltName] = useState<string | null>(null)
   const [playing, setPlaying] = useState(true)
-  const S = useRef({ year: 2025, lon0: -8 * D2R, lat0: 20 * D2R, drag: false, moved: false, px: 0, py: 0, spin: false, play: true, focus: null as GAsset | null, snap: false, sunT: 0 })
+  const S = useRef({ year: 2025, lon0: -8 * D2R, lat0: 20 * D2R, tLon: -8 * D2R, tLat: 20 * D2R, drag: false, moved: false, px: 0, py: 0, play: true, focus: null as GAsset | null, belt: null as string | null, snap: false })
 
   const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
   const assets = q.data?.assets ?? []
   const euroToday = q.data?.volume_at_risk_eur_today
 
-  // open the globe already looking at YOUR assets (their centroid), then it drifts
+  // region groups (belts) — group real assets by their region/country
+  const beltsRef = useRef<Record<string, GAsset[]>>({})
+  useEffect(() => {
+    const b: Record<string, GAsset[]> = {}
+    for (const a of assets) (b[a.region || '—'] = b[a.region || '—'] || []).push(a)
+    beltsRef.current = b
+  }, [assets])
+  const beltMean = (r: string) => { const g = beltsRef.current[r] || []; const la = g.reduce((s, a) => s + a.lat, 0) / g.length; const lo = g.reduce((s, a) => s + a.lon, 0) / g.length; return [la, lo] }
+
+  // open the globe already looking at YOUR assets (their centroid)
   const centeredRef = useRef(false)
   useEffect(() => {
     if (centeredRef.current || assets.length === 0) return
     centeredRef.current = true
     const mLat = assets.reduce((s, a) => s + a.lat, 0) / assets.length
     const mLon = assets.reduce((s, a) => s + a.lon, 0) / assets.length
-    S.current.lon0 = mLon * D2R; S.current.lat0 = Math.max(-1.1, Math.min(1.1, mLat * D2R))
+    S.current.lon0 = S.current.tLon = mLon * D2R
+    S.current.lat0 = S.current.tLat = Math.max(-1.1, Math.min(1.1, mLat * D2R))
   }, [assets])
 
-  useEffect(() => { S.current.play = playing; S.current.spin = playing ? S.current.spin : S.current.spin }, [playing])
+  const openBelt = (r: string) => { const [la, lo] = beltMean(r); S.current.belt = r; S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)); S.current.play = false; setPlaying(false); setBeltName(r) }
+  const closeBelt = () => { S.current.belt = null; setBeltName(null) }
+
+  useEffect(() => { S.current.play = playing }, [playing])
 
   useEffect(() => {
     const cv = cvRef.current!; const ctx = cv.getContext('2d')!
@@ -72,14 +86,16 @@ export default function Horizon() {
     for (let la = -78; la <= 80; la += 3.4) for (let lo = -178; lo <= 180; lo += 3.6) for (const L of LAND) { const dx = (lo - L[0]) / L[2], dy = (la - L[1]) / L[3]; if (dx * dx + dy * dy < 1) { landPts.push([la, lo]); break } }
     const stars = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3, t: Math.random() * 6.28 }))
 
-    const hit = (mx: number, my: number): GAsset | null => { let best = 20, h: GAsset | null = null; for (const a of assets) { const p = project(a.lat, a.lon); if (!p.vis) continue; const d = Math.hypot(p.x - mx, p.y - my); if (d < best) { best = d; h = a } } return h }
+    let regionRects: { r: string; x0: number; x1: number; y0: number; y1: number }[] = []
+    const hit = (mx: number, my: number): GAsset | null => { const pool = S.current.belt ? (beltsRef.current[S.current.belt] || []) : assets; let best = 20, h: GAsset | null = null; for (const a of pool) { const p = project(a.lat, a.lon); if (!p.vis) continue; const d = Math.hypot(p.x - mx, p.y - my); if (d < best) { best = d; h = a } } return h }
+    const hitRegion = (mx: number, my: number): string | null => { for (const rr of regionRects) if (mx >= rr.x0 && mx <= rr.x1 && my >= rr.y0 && my <= rr.y1) return rr.r; return null }
 
-    const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; S.current.px = e.clientX; S.current.py = e.clientY; S.current.spin = false; cv.setPointerCapture(e.pointerId) }
+    const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; S.current.px = e.clientX; S.current.py = e.clientY; cv.setPointerCapture(e.pointerId) }
     const onMove = (e: PointerEvent) => {
-      if (S.current.drag) { const dx = e.clientX - S.current.px, dy = e.clientY - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.px = e.clientX; S.current.py = e.clientY; return }
-      cv.style.cursor = hit(e.clientX, e.clientY) ? 'pointer' : 'grab'
+      if (S.current.drag) { const dx = e.clientX - S.current.px, dy = e.clientY - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = e.clientX; S.current.py = e.clientY; return }
+      cv.style.cursor = (hit(e.clientX, e.clientY) || hitRegion(e.clientX, e.clientY)) ? 'pointer' : 'grab'
     }
-    const onUp = (e: PointerEvent) => { if (S.current.drag) { S.current.drag = false; if (!S.current.moved) { const a = hit(e.clientX, e.clientY); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a) } } } }
+    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const a = hit(e.clientX, e.clientY); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(e.clientX, e.clientY); if (r) openBelt(r) } }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp)
 
     const drawCaption = () => {
@@ -94,7 +110,7 @@ export default function Horizon() {
 
     const draw = (ts: number) => {
       const t = ts * 0.001
-      if (S.current.spin && !S.current.focus && !S.current.drag) S.current.lon0 -= 0.0015
+      if (!S.current.drag) { S.current.lon0 += (S.current.tLon - S.current.lon0) * 0.09; S.current.lat0 += (S.current.tLat - S.current.lat0) * 0.09 }
       if (S.current.play) { const dt = Math.min(0.05, (ts - tprev) / 1000); S.current.year += dt * 9; if (S.current.year >= 2100) { S.current.year = 2100; S.current.play = false; setPlaying(false) } }
       tprev = ts
       const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#05070d'); g.addColorStop(1, '#0a1120'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
@@ -115,13 +131,26 @@ export default function Horizon() {
       // atmosphere
       const rim = ctx.createRadialGradient(gx, gy, Rg * 0.96, gx, gy, Rg * 1.09); rim.addColorStop(0, 'rgba(127,178,230,0)'); rim.addColorStop(.55, 'rgba(127,178,230,0.4)'); rim.addColorStop(1, 'rgba(127,178,230,0)'); ctx.beginPath(); ctx.arc(gx, gy, Rg * 1.05, 0, 7); ctx.lineWidth = Rg * 0.09; ctx.strokeStyle = rim; ctx.stroke()
 
+      // region labels (belts) — click to frame a region
+      regionRects = []
+      if (!S.current.focus) {
+        ctx.font = '600 11px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center'
+        for (const rn of Object.keys(beltsRef.current)) {
+          const g = beltsRef.current[rn]; const mla = g.reduce((s, a) => s + a.lat, 0) / g.length, mlo = g.reduce((s, a) => s + a.lon, 0) / g.length
+          const p = project(mla, mlo); if (!p.vis || p.depth < 0.3) continue
+          const dimr = S.current.belt && S.current.belt !== rn ? 0.25 : 0.62
+          ctx.fillStyle = `rgba(180,196,214,${dimr})`; ctx.fillText(rn.toUpperCase(), p.x, p.y - 16)
+          const w = ctx.measureText(rn.toUpperCase()).width; regionRects.push({ r: rn, x0: p.x - w / 2 - 8, x1: p.x + w / 2 + 8, y0: p.y - 26, y1: p.y - 6 })
+        }
+      }
       // assets — real coordinates, real interpolated risk
       let elevated = 0
       for (const a of assets) {
         const p = project(a.lat, a.lon); const l = scoreAt(a, S.current.year); if (l >= 50) elevated++
         if (!p.vis) continue
         const [r, gg, b] = col(l), flared = l >= 50, sel2 = S.current.focus === a
-        const dim = S.current.focus && !sel2 ? 0.16 : 1
+        let dim = S.current.focus && !sel2 ? 0.16 : 1
+        if (!S.current.focus && S.current.belt && a.region !== S.current.belt) dim = 0.2
         const tw = .6 + .4 * Math.sin(t * (flared ? 4 : 1.4) + a.lon)
         const dep = 0.55 + 0.45 * p.depth
         const sz = (2 * (flared ? 1.6 : 1) * (sel2 ? 1.5 : 1)) * dep * (1 + l / 100 * 0.8)
@@ -140,17 +169,30 @@ export default function Horizon() {
     return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp) }
   }, [assets, profile])
 
-  const closeSel = () => { S.current.focus = null; S.current.spin = true; setSel(null) }
+  const closeSel = () => { S.current.focus = null; if (S.current.belt) { const [la, lo] = beltMean(S.current.belt); S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)) } setSel(null) }
   const cur = sel ? scoreAt(sel, S.current.year) : 0
+  // belt aggregate for the banner
+  const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
+  const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
 
   return (
     <div className="fixed inset-0 bg-[#04060b] overflow-hidden select-none">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
       {/* top chrome */}
-      <div className="absolute top-6 left-8 flex items-center gap-3 pointer-events-none">
+      <div className="absolute top-6 left-8 flex items-center gap-3 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
         <div className="display text-[19px]">Tel<span className="text-[var(--color-sky)] italic">lumen</span></div>
         <span className="mono text-[9px] tracking-[0.26em] text-[var(--color-faint)] uppercase">Horizon</span>
       </div>
+      {/* region (belt) banner */}
+      {beltName && !sel && (
+        <div className="absolute top-5 left-8 flex items-center gap-4 z-10">
+          <button onClick={closeBelt} className="mono text-[10px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3.5 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← all regions</button>
+          <div>
+            <div className="display text-[26px] text-[#F4EFE6] leading-none">{beltName}</div>
+            <div className="mono text-[11px] text-[var(--color-mute)] mt-1">{beltAssets.length} sites · <b className="text-[#E9744A]">{beltElevated} at elevated risk</b> · disorderly 2°C</div>
+          </div>
+        </div>
+      )}
       <div className="absolute top-6 right-8 text-right pointer-events-none">
         <div className="display italic text-[clamp(15px,1.8vw,20px)] text-[#F4EFE6]">See what's coming.</div>
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} sites · real coordinates</div>
