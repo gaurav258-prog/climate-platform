@@ -238,17 +238,17 @@ export default function Horizon() {
           </div>
         </div>
       )}
-      <div className="absolute top-6 right-8 text-right pointer-events-none">
+      <div className="absolute top-6 right-8 text-right pointer-events-none hidden min-[1120px]:block">
         <div className="display italic text-[clamp(15px,1.8vw,20px)] text-[#F4EFE6]">See what's coming.</div>
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} {noun} · real coordinates</div>
       </div>
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className="absolute left-8 top-[13%] w-[min(360px,42vw)] flex flex-col gap-4">
+      <div className="absolute left-8 top-[12%] w-[min(340px,44vw)] max-h-[calc(100vh-150px)] overflow-y-auto flex flex-col gap-3.5 pr-1">
         <div>
           <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
-          <div ref={yearElRef} className="display font-semibold text-[clamp(48px,8vw,104px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
+          <div ref={yearElRef} className="display font-semibold text-[clamp(40px,7vw,96px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
           <div ref={statElRef} className="mono text-[12.5px] text-[var(--color-mute)] mt-3 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
         </div>
         {myScope && (
@@ -280,7 +280,7 @@ export default function Horizon() {
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
       {!sel && !beltName && !panel && (
-      <div className="absolute right-8 top-[13%] w-[min(336px,40vw)] max-h-[calc(100vh-260px)] overflow-y-auto pr-0.5">
+      <div className="absolute right-8 top-[12%] w-[min(320px,42vw)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
         <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-3">What needs you</div>
         {tasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
