@@ -119,7 +119,7 @@ def globe(session: DbSession, ctx: CurrentUser,
         try:
             from services.intelligence.supply_cogs import project_org_supply
             summ = project_org_supply(session, org_id)
-            vol_today = round(summ.get("rollup", {}).get("volume_at_risk_eur", 0))
+            vol_today = round(summ.volume_at_risk_eur or 0)
         except Exception:
             vol_today = None
     elif org_type in _SECTOR_ASSETS:
@@ -130,17 +130,48 @@ def globe(session: DbSession, ctx: CurrentUser,
     else:
         noun, assets = "assets", []
 
+    # ── left-rail KPIs (org) — all real: book value from the assets, elevated from the 2050 worst-hazard
+    #    score, readiness from the shared sector-aware checklist. No fabricated grade. ────────────────
+    n_elevated = sum(1 for a in assets if a["traj"].get("2050", a["traj"].get("current", 0)) >= 50)
+    book_value = round(sum(a["value_eur"] for a in assets))
+    from services.governance.readiness import org_readiness
+    rd = org_readiness(session, org_id, org_type)
+    kpis = {"book_value_eur": book_value, "n_assets": len(assets), "n_elevated": n_elevated,
+            "readiness": {"passed": rd["passed"], "total": rd["total"], "checks": rd["checks"]},
+            "volume_at_risk_eur_today": vol_today}
+
+    # ── left-rail 'my scope' — assets are org-scoped (no per-user ownership), so this is honestly
+    #    "what YOU can act on": your roles + the approvals YOU raised that are still pending. The count of
+    #    your open actions is the /v1/me/tasks feed length (already permission-filtered), read client-side.
+    me = ctx["user"]["id"]
+    raised_pending = session.execute(text(
+        "SELECT count(*) FROM approval_requests WHERE org_id=:o AND maker_user_id=:u AND status='pending'"),
+        {"o": org_id, "u": me}).scalar() or 0
+    my_scope = {"roles": ctx.get("roles", []), "raised_pending": int(raised_pending)}
+
     return {"scenario": scenario, "sector": org_type, "noun": noun, "horizons": _HORIZONS,
-            "n_assets": len(assets), "volume_at_risk_eur_today": vol_today, "assets": assets}
+            "n_assets": len(assets), "volume_at_risk_eur_today": vol_today,
+            "kpis": kpis, "my_scope": my_scope, "assets": assets}
 
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.
 _WEIGHT = {"action": 3, "warning": 2, "info": 1, "good": 0}
 
 
-def _task(key, title, detail, severity, cta_label, cta_href, need):
+# Approval service-level target — a decision that has waited longer than this is treated as overdue. This
+# is OUR disclosed SLA (there is no regulatory approval deadline), surfaced as such in the UI, not a
+# fabricated regulator date.
+_APPROVAL_SLA_DAYS = 3
+
+# Task urgency bucket. "overdue"/"this_week"/"upcoming" are only assigned when a REAL time basis exists
+# (feed age, approval age, revalidation lag, reporting-period end). Everything else is honestly "open" —
+# a real action with no fixed date — never given an invented deadline.
+_BUCKET_ORDER = {"overdue": 0, "this_week": 1, "upcoming": 2, "open": 3}
+
+
+def _task(key, title, detail, severity, cta_label, cta_href, need, bucket="open", due=None):
     return {"key": key, "title": title, "detail": detail, "severity": severity,
-            "cta_label": cta_label, "cta_href": cta_href, "_need": need}
+            "cta_label": cta_label, "cta_href": cta_href, "_need": need, "bucket": bucket, "due": due}
 
 
 def _finalize(tasks: list[dict], perms: set) -> dict:
@@ -148,7 +179,8 @@ def _finalize(tasks: list[dict], perms: set) -> dict:
     visible = [t for t in tasks if t["_need"] in perms]
     for t in visible:
         t.pop("_need", None)
-    visible.sort(key=lambda t: -_WEIGHT.get(t["severity"], 0))
+    # time bucket first (overdue → this_week → upcoming → open), severity as the tie-break within a bucket
+    visible.sort(key=lambda t: (_BUCKET_ORDER.get(t["bucket"], 3), -_WEIGHT.get(t["severity"], 0)))
     return {"tasks": visible, "all_clear": len(visible) == 0}
 
 
@@ -160,14 +192,21 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
     perms = set(ctx.get("permissions") or [])
     tasks: list[dict] = []
 
-    # ── APPROVER: decisions waiting ───────────────────────────────────────────────────────────────
-    pending = session.execute(text(
-        "SELECT count(*) FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).scalar() or 0
+    # ── APPROVER: decisions waiting (bucket from the OLDEST pending request's real age vs our SLA) ────
+    prow = session.execute(text(
+        "SELECT count(*) n, EXTRACT(EPOCH FROM (now()-min(created_at)))/86400 AS oldest_days "
+        "FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).mappings().first()
+    pending = prow["n"] or 0
     if pending:
+        age = float(prow["oldest_days"] or 0)
+        past_sla = age > _APPROVAL_SLA_DAYS
         tasks.append(_task(
             "approvals_pending", f"{pending} approval{'s' if pending != 1 else ''} waiting for you",
             "Review and approve or reject — the second pair of eyes in 4-eyes.",
-            "action", "Review approvals", "/approvals", "approvals.decide"))
+            "action", "Review approvals", "/approvals", "approvals.decide",
+            bucket="overdue" if past_sla else "this_week",
+            due=(f"oldest raised {age:.0f}d ago · past the {_APPROVAL_SLA_DAYS}-day SLA" if past_sla
+                 else f"oldest raised {age:.0f}d ago · {_APPROVAL_SLA_DAYS}-day SLA")))
 
     # ── ADMIN: is the house in order (setup + pre-filing controls) ────────────────────────────────
     org = session.execute(text(
@@ -194,10 +233,12 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
         from services.data.feeds import overdue_basis_feeds
         overdue = overdue_basis_feeds(session)
         if overdue:
+            max_days = max((f.get("days_since") or 0) for f in overdue)
             tasks.append(_task(
                 "golden_source_stale", "Refresh a stale golden source",
                 "A basis feed is overdue: " + ", ".join(f["name"] for f in overdue[:3])
-                + ". Refresh before you file.", "warning", "Review data", "/foundation", "admin.users.manage"))
+                + ". Refresh before you file.", "warning", "Review data", "/foundation", "admin.users.manage",
+                bucket="overdue", due=f"{max_days:.0f}d overdue"))
     except Exception:
         pass
 
@@ -209,7 +250,8 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
                 tasks.append(_task(
                     "calibrations_due", f"{rv['overdue_count']} crop calibration(s) due for re-validation",
                     "Their training window is far enough behind that new crop-years should re-check them.",
-                    "info", "See models", "/models", "admin.users.manage"))
+                    "info", "See models", "/models", "admin.users.manage",
+                    bucket="overdue", due=f"{rv['overdue_count']} past the {rv['horizon_years']}y window"))
         except Exception:
             pass
 
@@ -219,6 +261,24 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
     # the cross-sector controls above (approvals, identity, 4-eyes, golden source) — never an agri prompt.
     if not is_agri:
         return _finalize(tasks, perms)
+
+    # Reporting-period end — a REAL forward date (the org's reporting basis). Bucket by proximity so the
+    # CSRD/ESRS filing shows up as overdue / this week / upcoming rather than as a date-less item.
+    try:
+        from datetime import date, datetime as _dt
+        from services.governance.reporting_settings import get_settings
+        pe = get_settings(session, org_id).get("reporting_period_end")
+        if pe:
+            days = (_dt.strptime(pe, "%Y-%m-%d").date() - date.today()).days
+            if days <= 60:
+                bucket = "overdue" if days < 0 else ("this_week" if days <= 7 else "upcoming")
+                tasks.append(_task(
+                    "reporting_period", f"CSRD/ESRS filing for period ending {pe}",
+                    "Freeze the ESRS E1 filing for this reporting period once the book is complete.",
+                    "warning" if days <= 7 else "info", "Open reporting", "/esrs", "admin.users.manage",
+                    bucket=bucket, due=(f"period ended {-days}d ago" if days < 0 else f"period ends in {days}d")))
+    except Exception:
+        pass
 
     sites = session.execute(text("""
         SELECT count(*) n,

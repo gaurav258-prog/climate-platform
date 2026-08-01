@@ -332,52 +332,10 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
     audit_30d = session.execute(text("SELECT count(*) FROM access_audit_log WHERE org_id=:o AND created_at > now() - interval '30 days'"), {"o": org_id}).scalar()
     entitlements = session.execute(text("SELECT offering_id FROM org_entitlements WHERE org_id=:o ORDER BY offering_id"), {"o": org_id}).scalars().all()
 
-    # readiness checklist — the "is my house in order" signal (each item pass/fail + a hint)
-    identity_ok = bool(org and org["eori"] and org["filing_contact_email"])
-    checks = [
-        {"key": "identity", "label": "Reporting identity complete (EORI + filing contact)", "ok": identity_ok,
-         "hint": "Set EORI and a filing contact email below." if not identity_ok else None},
-        {"key": "sites_scored", "label": "All operational sites scored", "ok": (sites["n"] or 0) > 0 and sites["scored"] == sites["n"],
-         "hint": f"{(sites['n'] or 0) - (sites['scored'] or 0)} site(s) not yet scored." if (sites["n"] or 0) and sites["scored"] != sites["n"] else ("Add your operational sites." if not sites["n"] else None)},
-        {"key": "plots_polygons", "label": "All >4 ha plots have a polygon (EUDR)", "ok": (plots["needs_polygon"] or 0) == 0,
-         "hint": f"{plots['needs_polygon']} plot(s) over 4 ha need a boundary polygon." if plots["needs_polygon"] else None},
-        {"key": "eudr_run", "label": "EUDR determination run on covered plots", "ok": (plots["eudr_covered"] or 0) == 0 or plots["eudr_determined"] == plots["eudr_covered"],
-         "hint": f"{(plots['eudr_covered'] or 0) - (plots['eudr_determined'] or 0)} covered plot(s) not yet checked." if (plots["eudr_covered"] or 0) and plots["eudr_determined"] != plots["eudr_covered"] else None},
-        {"key": "second_approver", "label": "A second approver exists (4-eyes works)", "ok": (n_approvers or 0) >= 2,
-         "hint": "Only one user can approve — 4-eyes needs a second. Add an approver." if (n_approvers or 0) < 2 else None},
-    ]
-    # Golden-source freshness — the pre-filing control (audit T4): a filing must not be built on a stale
-    # basis-driving feed. Surfaced here so we/the operator refresh BEFORE freezing, not after.
-    from services.data.feeds import overdue_basis_feeds
-    overdue = overdue_basis_feeds(session)
-    checks.append({"key": "golden_source_fresh", "label": "Golden source is fresh (no overdue basis feed)",
-                   "ok": not overdue,
-                   "hint": (f"Refresh before filing — overdue: {', '.join(f['name'] for f in overdue)}." if overdue else None)})
-    # Calibration drift (audit T12): a published crop calibration re-validates on a fixed horizon; flag any
-    # whose training window is far enough behind that new crop-years should be re-checked. Never auto-retires.
-    from services.intelligence.revalidation import revalidation_status
-    rv = revalidation_status(session)
-    checks.append({"key": "calibrations_current",
-                   "label": f"Crop calibrations current (re-validated within {rv['horizon_years']}y)",
-                   "ok": rv["overdue_count"] == 0,
-                   "hint": (f"{rv['overdue_count']} calibration(s) due for re-validation: "
-                            + ", ".join(f"{o['commodity']}·{o['origin']} (trained thru {o['trained_through']})"
-                                        for o in rv["overdue"][:4]) + "." if rv["overdue_count"] else None)})
-    # Input quality (audit T4b): a coarsely-located or unscored in-scope asset must be fixed before filing,
-    # not silently filed at an imprecise/zero risk — FLAG + EXCLUDE, our control to refresh first.
-    from services.intelligence.input_quality import input_quality_status
-    iq = input_quality_status(session, org_id)
-    iq_bits = []
-    if iq["low_confidence_count"]:
-        iq_bits.append(f"{iq['low_confidence_count']} coarsely-located "
-                       f"({', '.join(x['name'] for x in iq['low_confidence'][:3])})")
-    if iq["insufficient_data_count"]:
-        iq_bits.append(f"{iq['insufficient_data_count']} not yet scored "
-                       f"({', '.join(x['name'] for x in iq['insufficient_data'][:3])})")
-    checks.append({"key": "inputs_high_quality", "label": "Inputs are filing-grade (precise location + scored)",
-                   "ok": iq["all_clear"],
-                   "hint": ("Fix before filing — " + "; ".join(iq_bits) + "." if iq_bits else None)})
-    passed = sum(1 for c in checks if c["ok"])
+    # readiness checklist — the "is my house in order" signal (each item pass/fail + a hint).
+    # Canonical, sector-aware computation shared with the Horizon front-door KPI so both agree.
+    from services.governance.readiness import org_readiness
+    readiness = org_readiness(session, org_id, org["type"] if org else None)
     return {
         "organization": {
             "name": org["name"] if org else None, "legal_name": org["legal_name"] if org else None,
@@ -386,7 +344,7 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
             "filing_contact_email": org["filing_contact_email"] if org else None,
             "operator_address": org["operator_address"] if org else None,
         },
-        "readiness": {"passed": passed, "total": len(checks), "checks": checks},
+        "readiness": readiness,
         "data": {
             "sites": {"total": sites["n"], "scored": sites["scored"], "elevated": sites["elevated"], "value_eur": float(sites["value_eur"] or 0)},
             "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_determined": plots["eudr_determined"], "needs_polygon": plots["needs_polygon"]},

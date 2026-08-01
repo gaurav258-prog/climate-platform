@@ -10,8 +10,11 @@ interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
   value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean
 }
-interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
-interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string }
+interface Check { key: string; label: string; ok: boolean; hint: string | null }
+interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
+interface MyScope { roles: string[]; raised_pending: number }
+interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; kpis?: Kpis; my_scope?: MyScope; assets: GAsset[] }
+interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string; bucket: string; due: string | null }
 const SEV_COL: Record<string, string> = { action: 'var(--color-sky)', warning: 'var(--color-warn)', info: 'var(--color-blue)', good: 'var(--color-good)' }
 
 const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 2030 / 2050 / 2100
@@ -30,11 +33,22 @@ function scoreAt(a: GAsset, y: number): number {
 function col(l: number): [number, number, number] { return l < 28 ? [207, 232, 255] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59] }
 function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l < 75 ? 'high' : 'severe' }
 
+function KpiCard({ label, value, tint, onClick }: { label: string; value: string; tint?: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[var(--color-sky)] transition">
+      <div className="display text-[20px] leading-none" style={{ color: tint || '#F4EFE6' }}>{value}</div>
+      <div className="mono text-[9px] tracking-[0.12em] uppercase text-[var(--color-faint)] mt-1.5">{label}</div>
+    </button>
+  )
+}
+
 export default function Horizon() {
   const nav = useNavigate()
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [resolving, setResolving] = useState(false)
+  // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
+  const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
@@ -45,7 +59,8 @@ export default function Horizon() {
 
   const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
   const assets = q.data?.assets ?? []
-  const euroToday = q.data?.volume_at_risk_eur_today
+  const kpis = q.data?.kpis
+  const myScope = q.data?.my_scope
   // sector-aware noun (bank→financed assets, insurer→insured locations, agri→sites & origins, …)
   const noun = q.data?.noun ?? 'assets'
   const nounRef = useRef('assets')
@@ -196,6 +211,14 @@ export default function Horizon() {
   const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
   const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
 
+  // left-rail / right-rail helpers
+  const fmtEur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${Math.round(v / 1e3)}k`
+  const BUCKETS: [string, string, string][] = [['overdue', 'Overdue', '#D23B3B'], ['this_week', 'This week', '#E8B24C'], ['upcoming', 'Upcoming', '#8FC0F0'], ['open', 'Open · no fixed date', '#5c6879']]
+  const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
+  const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
+  const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
+  const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
+
   return (
     <div className="fixed inset-0 bg-[#04060b] overflow-hidden select-none">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
@@ -219,30 +242,117 @@ export default function Horizon() {
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} {noun} · real coordinates</div>
       </div>
 
-      {/* year + readout + WHAT NEEDS YOU — one top-anchored left column (the preemptive landing) */}
-      {!sel && !beltName && (
-      <div className="absolute left-8 top-[15%] w-[min(400px,44vw)]">
-        <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
-        <div ref={yearElRef} className="display font-semibold text-[clamp(56px,9.5vw,124px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
-        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
-        {euroToday != null && <div className="mono text-[11px] text-[var(--color-faint)] mt-1.5 pointer-events-none">€{(euroToday / 1e6).toFixed(1)}m volume-at-risk today (validated crops)</div>}
-        {tasks.length > 0 && (
-          <div className="mt-7">
-            <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-2.5 pointer-events-none">What needs you</div>
-            <div className="flex flex-col gap-2">
-              {tasks.slice(0, 3).map(t => (
-                <button key={t.key} onClick={() => nav(t.cta_href)}
-                  className="group flex items-center gap-3 text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[color:var(--tint)] transition"
-                  style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
-                  <span className="flex-1 min-w-0 text-[12.5px] text-[var(--color-ink)] truncate">{t.title}</span>
-                  <span className="mono text-[10.5px] shrink-0" style={{ color: SEV_COL[t.severity] || 'var(--color-sky)' }}>{t.cta_label} →</span>
-                </button>
-              ))}
-            </div>
+      {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
+      {!sel && !beltName && !panel && (
+      <div className="absolute left-8 top-[13%] w-[min(360px,42vw)] flex flex-col gap-4">
+        <div>
+          <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
+          <div ref={yearElRef} className="display font-semibold text-[clamp(48px,8vw,104px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
+          <div ref={statElRef} className="mono text-[12.5px] text-[var(--color-mute)] mt-3 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
+        </div>
+        {myScope && (
+          <button onClick={() => openKpi('scope')} className="text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 hover:border-[var(--color-sky)] transition">
+            <div className="mono text-[9px] tracking-[0.2em] uppercase text-[var(--color-faint)]">Your scope</div>
+            <div className="text-[13px] text-[var(--color-ink)] mt-1 capitalize">{myScope.roles.join(' · ') || 'viewer'}</div>
+            <div className="mono text-[10.5px] text-[var(--color-mute)] mt-0.5">{tasks.length} open action{tasks.length !== 1 ? 's' : ''}{myScope.raised_pending ? ` · ${myScope.raised_pending} you raised` : ''}</div>
+          </button>
+        )}
+        {kpis && (
+          <div className="grid grid-cols-2 gap-2">
+            <KpiCard label="book value" value={fmtEur(kpis.book_value_eur)} onClick={() => openKpi('book')} />
+            <KpiCard label="elevated by 2050" value={`${kpis.n_elevated}/${kpis.n_assets}`} tint="#E9744A" onClick={() => openKpi('elevated')} />
+            <KpiCard label="filing readiness" value={`${kpis.readiness.passed}/${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} onClick={() => openKpi('readiness')} />
+            {kpis.volume_at_risk_eur_today != null
+              ? <KpiCard label="€ at risk today" value={fmtEur(kpis.volume_at_risk_eur_today)} tint="#E8B24C" onClick={() => openKpi('elevated')} />
+              : <KpiCard label={noun} value={String(kpis.n_assets)} onClick={() => openKpi('book')} />}
           </div>
         )}
       </div>
+      )}
+
+      {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
+      {!sel && !beltName && !panel && tasks.length > 0 && (
+      <div className="absolute right-8 top-[13%] w-[min(336px,40vw)] max-h-[calc(100vh-260px)] overflow-y-auto pr-0.5">
+        <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-3">What needs you</div>
+        <div className="flex flex-col gap-4">
+          {BUCKETS.map(([bk, label, bcol]) => { const ts = tasks.filter(t => t.bucket === bk); if (!ts.length) return null; return (
+            <div key={bk}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: bcol }} />
+                <span className="mono text-[9px] tracking-[0.18em] uppercase" style={{ color: bcol }}>{label}</span>
+                <span className="mono text-[9px] text-[var(--color-faint)]">{ts.length}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {ts.map(t => (
+                  <button key={t.key} onClick={() => openTask(t)}
+                    className="group text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[color:var(--tint)] transition"
+                    style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
+                      <span className="flex-1 min-w-0 text-[12.5px] text-[var(--color-ink)] leading-snug">{t.title}</span>
+                    </div>
+                    {t.due && <div className="mono text-[10px] text-[var(--color-faint)] mt-1 ml-[18px]">{t.due}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )})}
+        </div>
+      </div>
+      )}
+
+      {/* drill-down overlay — hybrid: facts + quick action here; deep work opens the workspace page */}
+      {panel && (
+        <div className="absolute top-0 right-0 bottom-0 w-[min(400px,46vw)] z-20 p-8 overflow-y-auto"
+          style={{ background: 'linear-gradient(270deg,#070b13 60%,#070b13cc 90%,transparent)' }}>
+          <button onClick={() => setPanel(null)} className="mono text-[10px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← back</button>
+          {panel.kind === 'scope' && myScope && (
+            <div className="mt-6">
+              <div className="mono text-[10px] tracking-[0.24em] uppercase text-[var(--color-faint)]">Your scope</div>
+              <div className="display text-[30px] text-[#F4EFE6] mt-1.5 capitalize">{myScope.roles.join(' · ') || 'viewer'}</div>
+              <div className="text-[12.5px] text-[var(--color-mute)] mt-3 leading-relaxed">Assets are org-wide — everyone sees the whole book. Your scope is what you can <b className="text-[#F4EFE6]">act on</b>: {tasks.length} open action{tasks.length !== 1 ? 's' : ''} routed to your role{myScope.raised_pending ? `, and ${myScope.raised_pending} approval${myScope.raised_pending !== 1 ? 's' : ''} you raised waiting on a second pair of eyes` : ''}.</div>
+              <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-faint)] mt-6 mb-2">Your open actions</div>
+              <div className="flex flex-col gap-2">{tasks.map(t => (
+                <button key={t.key} onClick={() => openTask(t)} className="text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)] text-[12.5px] text-[var(--color-ink)]">{t.title}</button>))}</div>
+            </div>
+          )}
+          {panel.kind === 'readiness' && kpis && (
+            <div className="mt-6">
+              <div className="mono text-[10px] tracking-[0.24em] uppercase text-[var(--color-faint)]">Filing readiness</div>
+              <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{kpis.readiness.passed} of {kpis.readiness.total} controls green</div>
+              <div className="text-[12px] text-[var(--color-mute)] mt-2 leading-relaxed">The pre-filing checklist — each is a real control, not a score.</div>
+              <div className="flex flex-col gap-2.5 mt-5">{kpis.readiness.checks.map(c => (
+                <div key={c.key} className="flex gap-3 items-start">
+                  <span className="mt-0.5 shrink-0" style={{ color: c.ok ? '#5FB98C' : '#E8B24C' }}>{c.ok ? '✓' : '○'}</span>
+                  <div><div className="text-[12.5px] text-[var(--color-ink)] leading-snug">{c.label}</div>{c.hint && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">{c.hint}</div>}</div>
+                </div>))}</div>
+              <button onClick={() => nav('/admin')} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Open readiness in Admin <ArrowRight size={14} /></button>
+            </div>
+          )}
+          {(panel.kind === 'book' || panel.kind === 'elevated') && kpis && (
+            <div className="mt-6">
+              <div className="mono text-[10px] tracking-[0.24em] uppercase text-[var(--color-faint)]">{panel.kind === 'book' ? 'Book value' : 'Elevated by 2050'}</div>
+              <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{panel.kind === 'book' ? fmtEur(kpis.book_value_eur) : `${kpis.n_elevated} of ${kpis.n_assets} ${noun}`}</div>
+              <div className="text-[12px] text-[var(--color-mute)] mt-2 leading-relaxed">{panel.kind === 'book' ? `Total value across your ${assets.length} located ${noun}. Top exposures:` : 'Highest projected physical-risk under the disorderly-2°C path at 2050:'}</div>
+              <div className="flex flex-col gap-1.5 mt-4">
+                {(panel.kind === 'book' ? topByValue : elevated2050).slice(0, 8).map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
+                  <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
+                    <span className="min-w-0"><span className="block text-[12.5px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[10px] text-[var(--color-faint)]">{a.region}</span></span>
+                    <span className="mono text-[11px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
+                  </button>) })}
+              </div>
+            </div>
+          )}
+          {panel.kind === 'task' && panel.task && (
+            <div className="mt-6">
+              <div className="mono text-[10px] tracking-[0.24em] uppercase" style={{ color: SEV_COL[panel.task.severity] || 'var(--color-sky)' }}>{panel.task.bucket.replace('_', ' ')}{panel.task.due ? ` · ${panel.task.due}` : ''}</div>
+              <div className="display text-[26px] leading-tight text-[#F4EFE6] mt-2">{panel.task.title}</div>
+              <div className="text-[13px] text-[var(--color-mute)] mt-3 leading-relaxed">{panel.task.detail}</div>
+              <button onClick={() => nav(panel.task!.cta_href)} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[11.5px] text-[#0b1206] bg-[var(--color-sky)] border border-[var(--color-sky)] rounded-full px-5 py-3 hover:opacity-90">{panel.task.cta_label} <ArrowRight size={14} /></button>
+              <div className="mono text-[10px] text-[var(--color-faint)] mt-3 text-center">opens the workspace to complete it</div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* selected asset */}
