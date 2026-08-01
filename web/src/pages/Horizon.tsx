@@ -8,9 +8,11 @@ import { COAST } from '../lib/coastline'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
-  value_eur: number; hazard: string; traj: Record<string, number>
+  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]
 }
 interface GlobeResp { scenario: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
+interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string }
+const SEV_COL: Record<string, string> = { action: 'var(--color-sky)', warning: 'var(--color-warn)', info: 'var(--color-blue)', good: 'var(--color-good)' }
 
 const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 2030 / 2050 / 2100
 const HK = ['current', '2030', '2050', '2100']
@@ -42,6 +44,9 @@ export default function Horizon() {
   const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
   const assets = q.data?.assets ?? []
   const euroToday = q.data?.volume_at_risk_eur_today
+  // "what needs you" — the same real, role-filtered signals as the cockpit, surfaced on the landing
+  const tq = useQuery({ queryKey: ['my-tasks'], queryFn: () => api.get<{ tasks: Task[] }>('/v1/me/tasks') })
+  const tasks = tq.data?.tasks ?? []
 
   // region groups (belts) — group real assets by their region/country
   const beltsRef = useRef<Record<string, GAsset[]>>({})
@@ -198,14 +203,31 @@ export default function Horizon() {
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} sites · real coordinates</div>
       </div>
 
-      {/* year + readout */}
-      <div className="absolute left-8 top-[42%] -translate-y-1/2 pointer-events-none">
-        <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1">Standing as of</div>
-        <div ref={yearElRef} className="display font-semibold text-[clamp(64px,11vw,148px)] leading-[.8] text-[#F4EFE6]" style={{ letterSpacing: '-2px' }}>2025</div>
-        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4">— of {assets.length} assets at elevated risk</div>
-        {euroToday != null && <div className="mono text-[11px] text-[var(--color-faint)] mt-1.5">€{(euroToday / 1e6).toFixed(1)}m volume-at-risk today (validated crops)</div>}
-        <div className="text-[11px] text-[var(--color-faint)] mt-3 max-w-[30ch] leading-relaxed">Drag to spin the Earth · scrub the years · click any site to open it.</div>
+      {/* year + readout + WHAT NEEDS YOU — one top-anchored left column (the preemptive landing) */}
+      {!sel && !beltName && (
+      <div className="absolute left-8 top-[15%] w-[min(400px,44vw)]">
+        <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
+        <div ref={yearElRef} className="display font-semibold text-[clamp(56px,9.5vw,124px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
+        <div ref={statElRef} className="mono text-[13px] text-[var(--color-mute)] mt-4 pointer-events-none">— of {assets.length} assets at elevated risk</div>
+        {euroToday != null && <div className="mono text-[11px] text-[var(--color-faint)] mt-1.5 pointer-events-none">€{(euroToday / 1e6).toFixed(1)}m volume-at-risk today (validated crops)</div>}
+        {tasks.length > 0 && (
+          <div className="mt-7">
+            <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mb-2.5 pointer-events-none">What needs you</div>
+            <div className="flex flex-col gap-2">
+              {tasks.slice(0, 3).map(t => (
+                <button key={t.key} onClick={() => nav(t.cta_href)}
+                  className="group flex items-center gap-3 text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[color:var(--tint)] transition"
+                  style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
+                  <span className="flex-1 min-w-0 text-[12.5px] text-[var(--color-ink)] truncate">{t.title}</span>
+                  <span className="mono text-[10.5px] shrink-0" style={{ color: SEV_COL[t.severity] || 'var(--color-sky)' }}>{t.cta_label} →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+      )}
 
       {/* selected asset */}
       {sel && (
@@ -233,10 +255,28 @@ export default function Horizon() {
                 <div className="mono text-[8.5px] text-[#4b5768]">{String(yy).slice(2)}</div>
               </div>) })}
           </div>
-          <div className="text-[12px] text-[var(--color-faint)] mt-5 leading-relaxed border-t border-[var(--color-line)] pt-4">
-            Real physical-risk score under the disorderly-2°C warming path, interpolated between the golden source's
-            current / 2030 / 2050 / 2100 horizons. Carried in your CSRD · ESRS E1 physical-risk disclosure.
+          <div className="text-[11px] text-[var(--color-faint)] mt-4 leading-relaxed">
+            Real physical-risk score under the disorderly-2°C path, interpolated across the golden source's
+            current / 2030 / 2050 / 2100 horizons. Carried in your CSRD · ESRS E1 disclosure.
           </div>
+          {/* what to do — real adaptation measures for this hazard */}
+          {sel.adaptations && sel.adaptations.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
+              <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-2.5">What you can do · adaptation</div>
+              <ul className="flex flex-col gap-2">
+                {sel.adaptations.map((a, i) => (
+                  <li key={i} className="flex gap-2.5 text-[12.5px] text-[var(--color-mute)] leading-snug">
+                    <span className="text-[var(--color-good)] shrink-0 mt-0.5">→</span>{a}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* the action — one click into the operating page for this asset */}
+          <button onClick={() => nav(sel.kind === 'plot' ? '/sourcing' : '/operations')}
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+            open in {sel.kind === 'plot' ? 'Sourcing' : 'Operations'} <ArrowRight size={14} />
+          </button>
         </div>
       )}
 

@@ -41,12 +41,19 @@ def globe(session: DbSession, ctx: CurrentUser,
                 "_haz": {}})
             a["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
         out = []
+        from services.intelligence.adaptation import actions_for
         for a in by_asset.values():
             # worst hazard = highest score at 2050 (the CSRD forward anchor), fallback current
             worst = max(a["_haz"].items(),
                         key=lambda kv: kv[1].get("2050", kv[1].get("current", 0)))
             a["hazard"] = worst[0]
             a["traj"] = {h: round(worst[1].get(h, worst[1].get("current", 0)), 1) for h in _HORIZONS}
+            # real adaptation measures for this hazard (honest actions, not a fabricated % reduction)
+            try:
+                acts = actions_for([a["hazard"]])
+                a["adaptations"] = acts[0]["actions"][:3] if acts else []
+            except Exception:
+                a["adaptations"] = []
             a.pop("_haz")
             out.append(a)
         return out
