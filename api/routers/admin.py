@@ -353,6 +353,16 @@ def control_center(session: DbSession, ctx: dict = Depends(require_permission("a
     checks.append({"key": "golden_source_fresh", "label": "Golden source is fresh (no overdue basis feed)",
                    "ok": not overdue,
                    "hint": (f"Refresh before filing — overdue: {', '.join(f['name'] for f in overdue)}." if overdue else None)})
+    # Calibration drift (audit T12): a published crop calibration re-validates on a fixed horizon; flag any
+    # whose training window is far enough behind that new crop-years should be re-checked. Never auto-retires.
+    from services.intelligence.revalidation import revalidation_status
+    rv = revalidation_status(session)
+    checks.append({"key": "calibrations_current",
+                   "label": f"Crop calibrations current (re-validated within {rv['horizon_years']}y)",
+                   "ok": rv["overdue_count"] == 0,
+                   "hint": (f"{rv['overdue_count']} calibration(s) due for re-validation: "
+                            + ", ".join(f"{o['commodity']}·{o['origin']} (trained thru {o['trained_through']})"
+                                        for o in rv["overdue"][:4]) + "." if rv["overdue_count"] else None)})
     passed = sum(1 for c in checks if c["ok"])
     return {
         "organization": {
