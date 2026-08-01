@@ -38,7 +38,7 @@ def globe(session: DbSession, ctx: CurrentUser,
             a = by_asset.setdefault(r["id"], {
                 "id": str(r["id"]), "name": r["name"], "kind": r["kind"], "lat": float(r["lat"]),
                 "lon": float(r["lon"]), "region": r["region"], "value_eur": float(r["value_eur"] or 0),
-                "_haz": {}})
+                "eudr_undetermined": bool(r.get("eudr_undetermined")), "_haz": {}})
             a["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
         out = []
         from services.intelligence.adaptation import actions_for
@@ -70,6 +70,7 @@ def globe(session: DbSession, ctx: CurrentUser,
         SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
                p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
                p.annual_spend_eur AS value_eur,
+               (co.eudr_covered AND p.eudr_determination IS NULL) AS eudr_undetermined,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id

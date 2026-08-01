@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from ml.features.heat_chronic_point import score_heat_chronic_point
+from ml.scoring.water_stress_point import score_water_stress_point
 
 TERRA = "55555555-5555-4555-8555-555555555555"
 SCEN = ["baseline", "disorderly_2c"]
@@ -66,15 +67,17 @@ def main():
         s.commit()
         print(f"plots ensured: {len(ORIGINS)}")
 
-    # score chronic heat for every cell × scenario × horizon (real baseline value + parametric warming)
+    # score chronic heat AND chronic water-stress for every cell × scenario × horizon, straight from the
+    # global baselines (real climatological value + the platform's parametric warming shift).
     scored = 0
     for cell, (la, lo) in cells.items():
         for scen in SCEN:
             for hor in HOR:
-                r = score_heat_chronic_point(la, lo, scenario=scen, horizon=hor)
-                if r.get("status") in ("scored", "cached_hit"):
-                    scored += 1
-    print(f"heat_chronic scores written/confirmed: {scored} (cells={len(cells)} × {len(SCEN)}×{len(HOR)})")
+                for fn in (score_heat_chronic_point, score_water_stress_point):
+                    r = fn(la, lo, scenario=scen, horizon=hor)
+                    if r.get("status") in ("scored", "cached_hit"):
+                        scored += 1
+    print(f"scores written/confirmed: {scored} (heat_chronic + water_stress) over {len(cells)} cells")
 
 
 if __name__ == "__main__":

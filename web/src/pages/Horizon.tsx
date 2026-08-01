@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Pause, Camera, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -8,7 +8,7 @@ import { COAST } from '../lib/coastline'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
-  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]
+  value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean
 }
 interface GlobeResp { scenario: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; assets: GAsset[] }
 interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string }
@@ -33,6 +33,8 @@ function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l
 export default function Horizon() {
   const nav = useNavigate()
   const { profile } = useAuth()
+  const qc = useQueryClient()
+  const [resolving, setResolving] = useState(false)
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
@@ -176,6 +178,16 @@ export default function Horizon() {
 
   const closeSel = () => { S.current.focus = null; if (S.current.belt) { const [la, lo] = beltMean(S.current.belt); S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)) } setSel(null) }
   const cur = sel ? scoreAt(sel, S.current.year) : 0
+  // globe-native closure: run the real satellite EUDR determination, then the flag + task clear
+  const resolveEudr = async () => {
+    setResolving(true)
+    try {
+      await api.post('/v1/supply/eudr/determine', {})
+      await qc.invalidateQueries({ queryKey: ['globe'] })
+      await qc.invalidateQueries({ queryKey: ['my-tasks'] })
+      closeSel()
+    } finally { setResolving(false) }
+  }
   // belt aggregate for the banner
   const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
   const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
@@ -272,9 +284,20 @@ export default function Horizon() {
               </ul>
             </div>
           )}
+          {/* globe-native closure — an open compliance action resolved right here */}
+          {sel.eudr_undetermined && (
+            <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
+              <div className="mono text-[9.5px] tracking-[0.2em] uppercase text-[var(--color-warn)] mb-2">Needs action · EUDR</div>
+              <div className="text-[12px] text-[var(--color-mute)] leading-relaxed mb-3">This plot is EUDR-covered but has no deforestation-free determination yet — required before you can file.</div>
+              <button onClick={resolveEudr} disabled={resolving}
+                className="w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#0b1206] bg-[var(--color-good)] border border-[var(--color-good)] rounded-full px-5 py-3 hover:opacity-90 disabled:opacity-60">
+                {resolving ? 'running satellite determination…' : 'Run EUDR determination'} {!resolving && <ArrowRight size={14} />}
+              </button>
+            </div>
+          )}
           {/* the action — one click into the operating page for this asset */}
           <button onClick={() => nav(sel.kind === 'plot' ? '/sourcing' : '/operations')}
-            className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+            className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
             open in {sel.kind === 'plot' ? 'Sourcing' : 'Operations'} <ArrowRight size={14} />
           </button>
         </div>
