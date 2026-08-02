@@ -18,7 +18,8 @@ interface DisclosureResp {
   taxonomy: Record<string, TaxBlock>
   financed_emissions_tco2e?: { scope1: number; scope2: number; scope3: number }
 }
-interface TriggerRow { [k: string]: unknown }
+interface TriggerBlock { hazard_type: string; attachment_score: number; exhaustion_score: number; current_score: number | null; is_triggered: boolean; payout_pct: number; payout_eur: number }
+interface TriggerRow { policy_id: string; policy_name: string; region?: string; sum_insured_eur?: number; trigger: TriggerBlock }
 interface TriggersResp {
   rollup: { n_configured: number; n_triggered_now: number; total_payout_if_triggered_eur: number }
   configured: TriggerRow[]; triggered_now: TriggerRow[]
@@ -163,17 +164,36 @@ function TriggersView() {
       </div>
       {q.data.configured.length === 0
         ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">No parametric triggers configured yet. Configure index-based cover on a policy to monitor breaches here.</Card>
-        : <Card className="p-0 overflow-hidden">
-            <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Configured triggers</div>
-            <div className="divide-y divide-[var(--color-line)]">
-              {q.data.configured.map((t, i) => (
-                <div key={i} className="px-5 py-3 text-[13px] text-[var(--color-ink)] flex flex-wrap gap-x-4 gap-y-1">
-                  {Object.entries(t).map(([k, v]) => <span key={k}><span className="mono text-[11px] text-[var(--color-faint)]">{k}:</span> {String(v)}</span>)}
-                </div>
-              ))}
-            </div>
-          </Card>}
+        : <div className="space-y-6">
+            {q.data.triggered_now.length > 0 && <TriggerTable title="Breached now · payout on the line" rows={q.data.triggered_now} breached />}
+            {(() => { const armed = q.data.configured.filter(t => !t.trigger.is_triggered); return armed.length > 0
+              ? <TriggerTable title="Armed · monitoring" rows={armed} /> : null })()}
+          </div>}
     </div>
+  )
+}
+
+function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerRow[]; breached?: boolean }) {
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{title}</div>
+      <div className="divide-y divide-[var(--color-line)]">
+        {rows.map(p => { const t = p.trigger; const [r, g, b] = col(t.current_score ?? 0); return (
+          <div key={p.policy_id} className="px-5 py-3 flex items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] text-[var(--color-ink)] truncate">{p.policy_name}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[p.region, t.hazard_type.replace(/_/g, ' ')].filter(Boolean).join(' · ')} · band {Math.round(t.attachment_score)}–{Math.round(t.exhaustion_score)}</div>
+            </div>
+            <div className="w-20 text-right"><span className="mono text-[12px]" style={{ color: `rgb(${r},${g},${b})` }}>{t.current_score != null ? `${Math.round(t.current_score)}/100` : '—'}</span></div>
+            {breached
+              ? <div className="w-32 text-right">
+                  <div className="mono text-[13px] tabular-nums text-[var(--color-bad)]">{eur(t.payout_eur)}</div>
+                  <div className="mono text-[10.5px] text-[var(--color-faint)]">{t.payout_pct}% payout</div>
+                </div>
+              : <div className="w-32 text-right mono text-[11.5px] text-[var(--color-faint)]">{Math.max(0, Math.round(t.attachment_score - (t.current_score ?? 0)))} pts to attach</div>}
+          </div>) })}
+      </div>
+    </Card>
   )
 }
 
