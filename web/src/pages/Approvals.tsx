@@ -139,24 +139,30 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
                 </div>
               )}
 
-              {/* assign / route — the maker or any approver can hand a pending request to a named approver */}
+              {/* assign / route — hand a pending request to a named approver (the maker can't be the approver) */}
               {r.status === 'pending' && (r.is_own || canDecide) && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Assign to</span>
+                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.is_own ? 'Send to approver' : 'Assign to'}</span>
                   <select value={r.assignee_user_id ?? ''} disabled={busy === r.id}
                     onChange={e => assign(r.id, e.target.value || null)}
                     className="bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] disabled:opacity-50">
-                    <option value="">Anyone (unassigned)</option>
-                    {(dq.data ?? []).map(d => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
+                    <option value="">{r.is_own ? 'Choose an approver…' : 'Anyone (unassigned)'}</option>
+                    {(dq.data ?? []).filter(d => d.email !== r.maker_email).map(d => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
                   </select>
-                  {r.assigned_to_me && <span className="mono text-[10.5px] text-[var(--color-sky)]">· yours to action</span>}
+                  {r.assignee_email && <span className="mono text-[10.5px] text-[var(--color-good)]">✓ sent to {r.assignee_email}</span>}
+                  {r.assigned_to_me && <span className="mono text-[10.5px] text-[var(--color-sky)]">· yours to action ↓</span>}
                 </div>
               )}
 
               {/* actions */}
               {r.status === 'pending' && (
                 r.is_own
-                  ? <div className="mt-3 text-[12px] text-[var(--color-faint)] flex items-center gap-1.5"><Clock size={13} /> Your request — a different approver must action it (4-eyes).</div>
+                  ? <div className="mt-3 text-[12px] text-[var(--color-faint)] flex items-start gap-1.5">
+                      <Clock size={13} className="mt-0.5 shrink-0" />
+                      <span>{r.assignee_email
+                        ? <>Now with <b className="text-[var(--color-sky)]">{r.assignee_email}</b> to approve, reject, or send back — they sign in to action it. You can't action your own request (4-eyes).</>
+                        : <>This is your request. Pick an approver above to send it for review — they approve / reject / send it back. You can't action your own (4-eyes).</>}</span>
+                    </div>
                   : canDecide
                     ? <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
                         <textarea value={note[r.id] ?? ''} onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))}

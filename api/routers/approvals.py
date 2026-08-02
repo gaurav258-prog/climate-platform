@@ -121,6 +121,9 @@ def assign(request_id: str, body: ApprovalAssign, session: DbSession,
         raise HTTPException(403, {"error": "forbidden",
                                   "message": "Only the requester or an approver can assign this request."})
     assignee = body.assignee_user_id
+    if assignee and str(row["maker_user_id"]) == assignee:
+        raise HTTPException(422, {"error": "maker_cannot_be_assignee",
+                                  "message": "The maker can't approve their own request (4-eyes) — assign it to a different approver."})
     if assignee:
         ok = session.execute(text("""
             SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
