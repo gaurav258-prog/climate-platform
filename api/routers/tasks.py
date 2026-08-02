@@ -402,12 +402,16 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
         from services.data.feeds import overdue_basis_feeds
         overdue = overdue_basis_feeds(session)
         if overdue:
+            failed = [f for f in overdue if f.get("status") == "failed"]
             max_days = max((f.get("days_since") or 0) for f in overdue)
+            title = "A golden source failed its auto-refresh" if failed else "A golden source is overdue"
+            detail = ((("Automated refresh FAILED: " + ", ".join(f["name"] for f in failed[:3]))
+                       if failed else ("Overdue: " + ", ".join(f["name"] for f in overdue[:3])))
+                      + ". Fix it before you file — the automated pull needs attention.")
             tasks.append(_task(
-                "golden_source_stale", "Refresh a stale golden source",
-                "A basis feed is overdue: " + ", ".join(f["name"] for f in overdue[:3])
-                + ". Refresh before you file.", "warning", "Review data", "/foundation", "admin.users.manage",
-                bucket="overdue", due=f"{max_days:.0f}d overdue"))
+                "golden_source_stale", title, detail,
+                "warning", "Review data", "/foundation", "admin.users.manage",
+                bucket="overdue", due=(f"{len(failed)} failed" if failed else f"{max_days:.0f}d overdue")))
     except Exception:
         pass
 

@@ -27,7 +27,7 @@ celery_app = Celery(
     # hazard_tasks.py, so none of its @celery_app.task decorators run and the
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
-    include=["services.tasks.hazard_tasks"],
+    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks"],
 )
 
 celery_app.conf.update(
@@ -42,3 +42,16 @@ celery_app.conf.update(
                                  # worker crash mid-job re-queues it, not silently drops it
     task_reject_on_worker_lost=True,
 )
+
+# Golden-source feeds refresh AUTOMATICALLY — no operator has to click. Celery beat runs the sweep every
+# hour; the task itself only refreshes feeds actually DUE by their own cadence (daily/monthly/…), so this
+# is cheap and each source lands on its own clock. Run beat alongside the worker:
+#   celery -A services.tasks.celery_app beat
+from celery.schedules import crontab  # noqa: E402
+
+celery_app.conf.beat_schedule = {
+    "refresh-due-golden-source-feeds": {
+        "task": "feeds.refresh_due",
+        "schedule": crontab(minute=0),   # top of every hour; the task refreshes only what's due
+    },
+}

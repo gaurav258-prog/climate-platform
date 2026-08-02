@@ -392,11 +392,13 @@ def data_feeds(session: DbSession, ctx: dict = Depends(require_permission("admin
     return {"feeds": feed_freshness(session)}
 
 
-@router.post("/data-feeds/{feed_key}/refresh", summary="Record a golden-source refresh (audited; the pull itself is scheduled)")
+@router.post("/data-feeds/{feed_key}/refresh", summary="Manual 'refresh now' override (audited; feeds also refresh automatically on a schedule)")
 def refresh_feed(feed_key: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
-    from services.data.feeds import record_refresh
+    # Feeds refresh automatically (Celery beat → feeds.refresh_due); this is the operator override that
+    # runs the same refresh immediately (its adapter hook), recording refreshed OR failed honestly.
+    from services.data.feeds import refresh_one
     try:
-        res = record_refresh(session, feed_key, ctx["user"]["id"])
+        res = refresh_one(session, feed_key, actor_user_id=ctx["user"]["id"])
     except ValueError as e:
         raise HTTPException(422, {"error": "unknown_feed", "message": str(e)})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],

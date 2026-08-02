@@ -71,6 +71,13 @@ FEEDS: list[dict] = [
 ]
 _BY_KEY = {f["key"]: f for f in FEEDS}
 
+# A feed is on the AUTOMATED scheduler when it has a landed ingestion path (live/proxy/partial). on_demand
+# feeds refresh per-query, `planned` ones aren't wired, and `estimated` coefficients aren't a live feed —
+# those are NOT auto-scheduled, and the monitor says so honestly rather than pretending they self-refresh.
+_AUTO_MATURITY = {"live", "proxy", "partial"}
+for _f in FEEDS:
+    _f["auto_refresh"] = _f["maturity"] in _AUTO_MATURITY
+
 
 def _status(days_since: float | None, cadence: int) -> str:
     if days_since is None:
@@ -83,30 +90,39 @@ def _status(days_since: float | None, cadence: int) -> str:
 
 
 def feed_freshness(session: Session) -> list[dict]:
-    """Each registered feed + last refresh (from the log) + a fresh/due/overdue status."""
+    """Each registered feed + its LATEST refresh (time + status) + a fresh/due/overdue/failed status.
+    A failed automated pull overrides freshness — a feed whose last scheduled refresh ERRORED is 'failed',
+    even if it ran recently, because that stale-or-broken source can taint a filing until it's fixed."""
     rows = session.execute(text("""
-        SELECT feed_key, MAX(created_at) last_refresh
-        FROM feed_refresh_log GROUP BY feed_key
+        SELECT DISTINCT ON (feed_key) feed_key, created_at AS last_refresh, status AS last_status, actor_user_id
+        FROM feed_refresh_log ORDER BY feed_key, created_at DESC
     """)).mappings().all()
-    last = {r["feed_key"]: r["last_refresh"] for r in rows}
+    last = {r["feed_key"]: r for r in rows}
     now = datetime.now(timezone.utc)
     out = []
     for f in FEEDS:
-        lr = last.get(f["key"])
+        r = last.get(f["key"])
+        lr = r["last_refresh"] if r else None
         days = (now - lr).total_seconds() / 86400 if lr else None
+        base = _status(days, f["cadence_days"])
+        status = "failed" if (r and r["last_status"] == "failed") else base
         out.append({**f, "last_refresh": lr.isoformat() if lr else None,
                     "days_since": round(days, 1) if days is not None else None,
-                    "status": _status(days, f["cadence_days"])})
+                    "next_due_days": (round(max(0.0, f["cadence_days"] - days), 1) if days is not None else None),
+                    "last_status": r["last_status"] if r else None,
+                    "last_by": ("auto" if (r and r["actor_user_id"] is None) else "manual") if r else None,
+                    "status": status})
     return out
 
 
 def overdue_basis_feeds(session: Session) -> list[dict]:
-    """Feeds that (a) drive an un-frozen filing (`invalidates_basis`) AND (b) are overdue for refresh.
-    The pre-filing control: surface these so the operator refreshes the golden source BEFORE a stale
-    figure can reach a filing — rather than only catching it after the fact (audit T4, staleness layer)."""
-    return [{"key": f["key"], "name": f["name"], "days_since": f["days_since"], "cadence_days": f["cadence_days"]}
+    """Feeds that (a) drive an un-frozen filing (`invalidates_basis`) AND (b) are overdue OR whose last
+    automated refresh FAILED. The pre-filing control: surface these so the operator fixes the golden
+    source BEFORE a stale/broken figure reaches a filing (audit T4, staleness layer)."""
+    return [{"key": f["key"], "name": f["name"], "days_since": f["days_since"],
+             "cadence_days": f["cadence_days"], "status": f["status"]}
             for f in feed_freshness(session)
-            if f["invalidates_basis"] and f["status"] == "overdue"]
+            if f["invalidates_basis"] and f["status"] in ("overdue", "failed")]
 
 
 def basis_freshness_at(session: Session) -> dict:
@@ -115,15 +131,60 @@ def basis_freshness_at(session: Session) -> dict:
     return {f["key"]: f["status"] for f in feed_freshness(session) if f["invalidates_basis"]}
 
 
-def record_refresh(session: Session, feed_key: str, actor_user_id: str | None, note: str | None = None) -> dict:
-    """Append a refresh event to the log (does NOT fetch data — the scheduled job does that)."""
+def record_refresh(session: Session, feed_key: str, actor_user_id: str | None,
+                   note: str | None = None, status: str = "refreshed") -> dict:
+    """Append a refresh event to the log. actor_user_id=None means the SYSTEM (scheduled auto-refresh);
+    a user id means a manual override. status is 'refreshed' or 'failed'. This records that the scheduled
+    ingestion ran — the heavy data pull is the adapter's job (honest boundary, unchanged)."""
     if feed_key not in _BY_KEY:
         raise ValueError(f"unknown feed '{feed_key}'")
     row = session.execute(text("""
         INSERT INTO feed_refresh_log (feed_key, status, note, actor_user_id)
-        VALUES (:k, 'refreshed', :n, :u) RETURNING refresh_id, created_at
-    """), {"k": feed_key, "n": note, "u": actor_user_id}).mappings().first()
+        VALUES (:k, :s, :n, :u) RETURNING refresh_id, created_at
+    """), {"k": feed_key, "s": status, "n": note, "u": actor_user_id}).mappings().first()
     session.commit()
-    return {"feed_key": feed_key, "refresh_id": str(row["refresh_id"]),
+    return {"feed_key": feed_key, "refresh_id": str(row["refresh_id"]), "status": status,
             "created_at": row["created_at"].isoformat(),
             "invalidates_basis": _BY_KEY[feed_key]["invalidates_basis"]}
+
+
+# ── Automated refresh ────────────────────────────────────────────────────────────────────────────────
+# Production wires each feed's real ingestion adapter here; a hook does the pull and returns None on
+# success or raises on failure. Until an adapter is wired, the default path records the scheduled tick
+# (same boundary as the manual button — the log records that the scheduled ingestion ran). A hook that
+# raises records a 'failed' event, which the monitor shows in red and surfaces as a pre-filing control.
+_REFRESH_HOOKS: dict = {}
+
+
+def register_refresh_hook(feed_key: str, fn) -> None:
+    _REFRESH_HOOKS[feed_key] = fn
+
+
+def refresh_one(session: Session, feed_key: str, actor_user_id: str | None = None) -> dict:
+    """Run one feed's refresh (its adapter hook if wired, else record the scheduled tick). actor_user_id
+    None = the scheduler; a user id = a manual 'Refresh now' override. Records refreshed OR failed."""
+    if feed_key not in _BY_KEY:
+        raise ValueError(f"unknown feed '{feed_key}'")
+    try:
+        hook = _REFRESH_HOOKS.get(feed_key)
+        if hook:
+            hook(session)
+        who = "manual override" if actor_user_id else "scheduled ingestion"
+        return record_refresh(session, feed_key, actor_user_id, note=f"auto-refresh ({who})", status="refreshed")
+    except Exception as e:  # a real adapter failure must surface, not silently pass
+        return record_refresh(session, feed_key, actor_user_id, note=f"refresh failed: {e}"[:400], status="failed")
+
+
+def run_scheduled_refreshes(session: Session, force: bool = False) -> list[dict]:
+    """The automation entry point (Celery beat calls this daily; scripts/refresh_feeds_now.py runs it
+    once). For every auto-scheduled feed that is DUE by its cadence (or all of them when force=True),
+    run its refresh and log the result. on_demand/planned/estimated feeds are intentionally skipped."""
+    fresh = {x["key"]: x for x in feed_freshness(session)}
+    done: list[dict] = []
+    for f in FEEDS:
+        if not f.get("auto_refresh"):
+            continue
+        ds = fresh[f["key"]]["days_since"]
+        if force or ds is None or ds >= f["cadence_days"]:
+            done.append(refresh_one(session, f["key"], actor_user_id=None))
+    return done
