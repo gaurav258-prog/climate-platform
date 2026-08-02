@@ -13,6 +13,7 @@ Nothing here is a new number — it's routing the signals we have to the person 
 """
 from __future__ import annotations
 
+import h3
 from fastapi import APIRouter, Query
 from sqlalchemy import text
 
@@ -222,6 +223,34 @@ def globe(session: DbSession, ctx: CurrentUser,
     return {"scenario": scenario, "sector": org_type, "noun": noun, "horizons": _HORIZONS,
             "n_assets": len(assets), "volume_at_risk_eur_today": vol_today,
             "kpis": kpis, "my_scope": my_scope, "assets": assets}
+
+
+@router.get("/hexes", summary="The H3 res-8 grid around a location — the granular cell + its neighbours, real scores")
+def hexes(session: DbSession, ctx: CurrentUser,
+          lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
+          scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$"),
+          horizon: str = Query("2050", pattern="^(current|2030|2050|2100)$"), k: int = Query(2, ge=1, le=3)):
+    """The platform pins every location to a ~0.7 km H3 res-8 hexagon and scores at that grain. This returns
+    the cell the point falls in plus its k-ring neighbours, each with its real polygon boundary and the
+    worst-hazard physical-risk score from canonical_scores (null where a neighbour isn't scored — never
+    invented). This is the granular drill-down beneath the overview globe."""
+    center = h3.latlng_to_cell(lat, lon, 8)
+    cells = list(h3.grid_disk(center, k))
+    rows = session.execute(text("""
+        SELECT h3_cell, MAX(CAST(risk_score AS FLOAT)) score
+        FROM canonical_scores
+        WHERE h3_cell = ANY(:cells) AND scenario = :sc AND time_horizon = :h AND valid_to IS NULL
+        GROUP BY h3_cell
+    """), {"cells": cells, "sc": scenario, "h": horizon}).mappings().all()
+    score_by = {r["h3_cell"]: r["score"] for r in rows}
+    out = []
+    for c in cells:
+        b = h3.cell_to_boundary(c)  # [(lat, lng), ...]
+        out.append({"cell": c, "is_center": c == center,
+                    "boundary": [[round(p[0], 5), round(p[1], 5)] for p in b],
+                    "score": (round(score_by[c], 1) if c in score_by else None)})
+    return {"center": center, "resolution": 8, "cell_km": 0.7, "scenario": scenario, "horizon": horizon,
+            "center_score": (round(score_by[center], 1) if center in score_by else None), "cells": out}
 
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.

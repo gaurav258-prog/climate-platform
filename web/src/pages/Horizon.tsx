@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X } from 'lucide-react'
 import { api } from '../lib/api'
+import HexMap from '../components/HexMap'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
 
@@ -61,6 +62,8 @@ export default function Horizon() {
   // entity the analyst is working on (an analyst can cover several) — the active reporting entity
   const [entOpen, setEntOpen] = useState(false)
   const [entity, setEntity] = useState<string | null>(null)
+  // granular H3 grid modal for the selected site
+  const [hexOpen, setHexOpen] = useState(false)
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
@@ -481,6 +484,10 @@ export default function Horizon() {
               </button>
             </div>
           )}
+          {/* granular drill — the H3 res-8 grid + basemap under this exact location */}
+          <button onClick={() => setHexOpen(true)}
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+            <Grid3x3 size={14} /> View granular grid (H3 · ~0.7 km)</button>
           {/* deeper drill — the full per-site record (agri has a dedicated detail page); others open the workspace */}
           <button onClick={() => nav((sel.kind === 'plot' || sel.kind === 'site') ? `/detail/${sel.kind}/${sel.id}` : '/home')}
             className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
@@ -506,6 +513,25 @@ export default function Horizon() {
           <div className="mono text-[10px] text-[var(--color-faint)] shrink-0">2025 → 2100</div>
         </div>
       </div>
+
+      {/* granular H3 grid modal — the drill-down beneath the overview globe */}
+      {hexOpen && sel && (
+        <div className="fixed inset-0 z-30 grid place-items-center bg-[#04060bcc] backdrop-blur-sm p-6" onClick={() => setHexOpen(false)}>
+          <div className="relative w-[min(760px,92vw)] h-[min(560px,82vh)] rounded-2xl overflow-hidden border border-[var(--color-line-2)] bg-[#070b13]" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3 bg-[#070b13cc] backdrop-blur border-b border-[var(--color-line)]">
+              <div>
+                <div className="mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-faint)]">Granular grid · {sel.region} · {sel.kind}</div>
+                <div className="display text-[18px] text-[#F4EFE6] leading-tight">{sel.name}</div>
+              </div>
+              <button onClick={() => setHexOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
+            </div>
+            <div className="absolute inset-0 pt-[58px]">
+              <HexMap lat={sel.lat} lon={sel.lon} scenario={q.data?.scenario ?? 'disorderly_2c'}
+                horizon={viewYear <= 2027 ? 'current' : viewYear <= 2040 ? '2030' : viewYear <= 2075 ? '2050' : '2100'} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
