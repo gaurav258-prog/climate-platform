@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -46,6 +46,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
       anyPerm: ['admin.users.manage', 'approvals.view', 'admin.audit.view', 'admin.roles.manage', 'admin.approval_policy.manage'] },
   ] },
   { label: 'Help', items: [
+    { to: '/docs', label: 'Documentation', icon: BookOpen, perm: 'modules.view' },
     { to: '/support', label: 'Support', icon: LifeBuoy, perm: 'portal.use' },
   ] },
   { label: 'Platform', items: [

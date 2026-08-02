@@ -23,6 +23,7 @@ import RiskMap from './pages/RiskMap'
 import DetailView from './pages/DetailView'
 import CommodityDetail from './pages/CommodityDetail'
 import Support from './pages/Support'
+import Docs from './pages/Docs'
 
 export default function App() {
   const { profile, loading } = useAuth()
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/models" element={<Models />} />
         <Route path="/foundation" element={<DataFoundation />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/docs" element={<Docs />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>
