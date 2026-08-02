@@ -546,6 +546,7 @@ export default function Horizon() {
             </div>
             <div className="absolute inset-0 pt-[58px]">
               <HexMap lat={sel.lat} lon={sel.lon} assets={assets} selectedId={sel.id}
+                scenario={q.data?.scenario}
                 horizon={viewYear <= 2027 ? 'current' : viewYear <= 2040 ? '2030' : viewYear <= 2075 ? '2050' : '2100'} />
             </div>
           </div>

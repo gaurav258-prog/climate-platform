@@ -93,3 +93,37 @@ def schedule_scoring(cell_coords: dict) -> None:
             logger.warning("background scoring failed for cells %s", list(cell_coords), exc_info=True)
 
     threading.Thread(target=_run, name="score-cells", daemon=True).start()
+
+
+def warm_sync_scores(cell_coords: dict, scenario: str = "baseline", horizon: str = "current") -> None:
+    """Score ONLY the fetch-free hazards (seismic/heat_chronic/storm) for a set of cells, in a daemon
+    thread. Used by the H3 granular-grid drill-down to fill in the risk texture around a site without a
+    Celery broker: each scorer opens its own session, caches its result in canonical_scores, and is a
+    fast no-op once a cell is scored. Deliberately does NOT dispatch the gridded (ERA5/raster) hazards —
+    those still need the async worker, so a cell shows real seismic/heat/storm here and stays honestly
+    grey for the gridded hazards until the worker runs.
+    """
+    if not cell_coords:
+        return
+
+    def _score_cell(lat: float, lon: float) -> None:
+        for hazard, scorer in SYNC_ON_DEMAND_SCORERS.items():
+            try:
+                scorer(lat, lon, scenario=scenario, horizon=horizon) if hazard == "heat_chronic" else scorer(lat, lon)
+            except TypeError:
+                try:
+                    scorer(lat, lon)
+                except Exception:
+                    pass
+            except Exception:
+                pass  # one hazard on one cell must never abort the rest of the ring
+
+    def _run() -> None:
+        # The scorers are I/O-bound (baseline reads), so score cells concurrently — a 19-cell ring fills
+        # in a few seconds instead of ~a minute. Capped low to stay well under the DB connection pool.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=5, thread_name_prefix="warm-ring") as ex:
+            for lat, lon in cell_coords.values():
+                ex.submit(_score_cell, lat, lon)
+
+    threading.Thread(target=_run, name="warm-ring-sync", daemon=True).start()

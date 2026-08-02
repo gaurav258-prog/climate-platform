@@ -261,28 +261,60 @@ def entities(session: DbSession, ctx: CurrentUser):
 def hexes(session: DbSession, ctx: CurrentUser,
           lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
           scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$"),
-          horizon: str = Query("2050", pattern="^(current|2030|2050|2100)$"), k: int = Query(2, ge=1, le=3)):
+          horizon: str = Query("2050", pattern="^(current|2030|2050|2100)$"), k: int = Query(2, ge=1, le=3),
+          score: bool = Query(True)):
     """The platform pins every location to a ~0.7 km H3 res-8 hexagon and scores at that grain. This returns
     the cell the point falls in plus its k-ring neighbours, each with its real polygon boundary and the
-    worst-hazard physical-risk score from canonical_scores (null where a neighbour isn't scored — never
-    invented). This is the granular drill-down beneath the overview globe."""
+    worst-hazard physical-risk score — so you see the risk TEXTURE around a site, not just the one cell.
+
+    When `score=true` (default) each ring cell is scored ON DEMAND for the cheap, fetch-free hazards
+    (seismic, chronic heat, storm) using the exact same scorers the any-address lookup uses — no Celery,
+    no invented numbers. The worst-hazard per cell then unions the horizon-varying score at the requested
+    (scenario, horizon) with the horizon-invariant baseline hazards (seismic/storm). A cell stays null only
+    where the golden-source baselines genuinely have no coverage (open ocean, polar gaps)."""
     center = h3.latlng_to_cell(lat, lon, 8)
     cells = list(h3.grid_disk(center, k))
-    rows = session.execute(text("""
-        SELECT h3_cell, MAX(CAST(risk_score AS FLOAT)) score
-        FROM canonical_scores
-        WHERE h3_cell = ANY(:cells) AND scenario = :sc AND time_horizon = :h AND valid_to IS NULL
-        GROUP BY h3_cell
-    """), {"cells": cells, "sc": scenario, "h": horizon}).mappings().all()
-    score_by = {r["h3_cell"]: r["score"] for r in rows}
+
+    def _read_scores():
+        # Worst-hazard per cell = max over the requested (scenario,horizon) AND the horizon-invariant
+        # baseline lane (seismic/storm live there). Null where the golden-source baselines have no
+        # coverage — never invented.
+        rows = session.execute(text("""
+            SELECT h3_cell, MAX(CAST(risk_score AS FLOAT)) score
+            FROM   canonical_scores
+            WHERE  h3_cell = ANY(:cells) AND valid_to IS NULL
+              AND ((scenario = :sc AND time_horizon = :h)
+                   OR (scenario = 'baseline' AND time_horizon = 'current'))
+            GROUP  BY h3_cell
+        """), {"cells": cells, "sc": scenario, "h": horizon}).mappings().all()
+        return {r["h3_cell"]: r["score"] for r in rows}
+
+    score_by = _read_scores()
+
+    # A ring cell costs ~3.5s to score cold (heat climatology + seismic catalogue) but ~0 once cached, so
+    # scoring all 19 in-request would block for a minute. Instead: return whatever is cached NOW and warm
+    # the rest in a background daemon thread (same "computing then re-fetch" pattern the any-address lookup
+    # uses). The client re-fetches shortly after and the freshly-scored cells fill in. Fully warm → instant.
+    computing = False
+    if score:
+        # Warm EVERY ring cell (not just the entirely-unscored ones): a cell with only a stale seismic row
+        # would otherwise report a misleadingly low worst-hazard until its heat is computed. The scorers
+        # short-circuit on a cache hit, so re-warming an already-complete cell is ~free.
+        from services.scoring.on_demand import warm_sync_scores
+        warm_sync_scores({c: h3.cell_to_latlng(c) for c in cells}, scenario=scenario, horizon=horizon)
+        # Ask the client to re-fetch while the ring is still filling in.
+        computing = len(score_by) < len(cells)
+
     out = []
     for c in cells:
         b = h3.cell_to_boundary(c)  # [(lat, lng), ...]
         out.append({"cell": c, "is_center": c == center,
                     "boundary": [[round(p[0], 5), round(p[1], 5)] for p in b],
                     "score": (round(score_by[c], 1) if c in score_by else None)})
+    scored_n = sum(1 for c in cells if c in score_by)
     return {"center": center, "resolution": 8, "cell_km": 0.7, "scenario": scenario, "horizon": horizon,
-            "center_score": (round(score_by[center], 1) if center in score_by else None), "cells": out}
+            "center_score": (round(score_by[center], 1) if center in score_by else None),
+            "n_cells": len(cells), "n_scored": scored_n, "computing": computing, "cells": out}
 
 # severity → sort weight (higher first). action = needs a decision/edit; warning = will block a filing;
 # info = awareness; good = a positive confirmation.
