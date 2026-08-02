@@ -1,107 +1,86 @@
 """
 Banking's lending-decision output: "given this collateral's physical-climate
 risk, how much should we discount its value for loan-sizing purposes."
-bank_assets/v_bank_asset_physical_risk previously stopped at a risk score --
-no valuation-discount concept existed anywhere in the schema.
 
-RECOMMENDED_DISCOUNT_PCT is a disclosed haircut-by-risk-bucket schedule, a
-real rule-of-thumb consistent with the range published climate-stress-test
-collateral-haircut guidance uses (0-30%+ depending on severity) -- NOT a
-fitted or regulator-mandated figure for any specific institution. The system
-RECOMMENDS; a human with pricing.approve makes the final call and can
-override it (see api/routers/bank.py's valuation-override endpoint) --
-override wins over the recommendation, and every override is audited via
-access_audit_log (api/services/rbac.py write_audit), never silently applied.
+The damage math now lives in ml/scoring/damage_function.py (the ONE hazard→€
+core shared with insurance/NOI/VaR). This module keeps the banking-facing
+public API — valuation_block / recommended_discount_pct / monte_carlo_var / ltv_pct
+— and delegates the curve to that core, which is:
 
-PERIL_DISCOUNT_PCT is an OPT-IN alternative (org_calc_settings.severity_model
-= 'peril_specific') that varies the haircut by which hazard actually drove
-the bucket -- a wildfire VH plot (real total-loss risk to the structure) is
-not the same economic event as a drought VH plot (crop/water stress, no
-structural damage). Same disclosure standard as the universal table: these
-are illustrative relative-severity multipliers consistent with published
-physical-risk literature (structural/total-loss perils like seismic/volcanic/
-wildfire skew higher; chronic/non-structural perils like drought/heat/
-pollution skew lower), NOT a fitted or regulator-mandated schedule. Every org
-gets the universal table unless it explicitly opts in -- see
-services/calc_settings.py.
+  * CONTINUOUS in the score (no more 4-bucket cliffs), interpolated through the
+    same disclosed haircut schedule, so the anchor magnitudes are unchanged; and
+  * VULNERABILITY-DIFFERENTIATED by the asset's own construction_type / year_built
+    / number_of_stories (a bounded, literature-derived multiplier), capped at the
+    peril's disclosed VH value so figures move WITHIN today's bands, never inflated.
 
-monte_carlo_var() is asset management's OPT-IN alternative
-(org_calc_settings.assetmgmt_var_method = 'monte_carlo') to the default,
-which -- as disclosed elsewhere in the UI -- is really the same deterministic
-haircut relabeled "climate VaR%", not a statistical value-at-risk. This
-platform has no historical portfolio-value time series to run a real
-historical-simulation VaR against, so it does the next most defensible thing:
-Monte Carlo sampling of each holding's loss% from a triangular distribution
-centered on its own deterministic recommended_discount_pct, with a disclosed
-+-40% relative uncertainty band (not fitted to any loss history), aggregated
-across the portfolio to produce genuine P50/P95/P99 percentiles of a
-simulated loss distribution. Seeded deterministically from
-(org_id, scenario, horizon) so the same portfolio+settings always reproduces
-the same figure -- a real risk report cannot change every time someone
-refreshes the page. Still not a fitted or historical VaR; the uncertainty
-band is a disclosed modeling assumption, exactly like the deterministic
-haircut it's built on top of.
+The schedules RECOMMENDED_DISCOUNT_PCT / PERIL_DISCOUNT_PCT are re-exported from
+the core for callers that still import them from here. Overrides are unchanged: a
+human with pricing.approve can override the recommendation (bank.py's override
+endpoint); override wins and is audited (access_audit_log) — never silently applied.
+
+monte_carlo_var is asset management's OPT-IN alternative to the default deterministic
+haircut. It Monte-Carlo-samples each holding's loss% from a triangular distribution
+centered on that holding's OWN vulnerability-adjusted haircut, with a disclosed ±40%
+band (not fitted), seeded deterministically from (org_id, scenario, horizon) so the
+same portfolio+settings always reproduce the same figure (audit T2). Still not a
+fitted or historical VaR — a disclosed modelling assumption on top of the disclosed
+haircut it samples around.
 """
 from __future__ import annotations
 
-RECOMMENDED_DISCOUNT_PCT = {"L": 0.0, "M": 5.0, "H": 15.0, "VH": 30.0}
-
-PERIL_DISCOUNT_PCT = {
-    "seismic":       {"L": 0.0, "M": 8.0, "H": 25.0, "VH": 45.0},
-    "volcanic":      {"L": 0.0, "M": 8.0, "H": 25.0, "VH": 45.0},
-    "wildfire":      {"L": 0.0, "M": 6.0, "H": 20.0, "VH": 38.0},
-    "flood":         {"L": 0.0, "M": 5.0, "H": 18.0, "VH": 32.0},
-    "storm":         {"L": 0.0, "M": 5.0, "H": 16.0, "VH": 30.0},
-    "drought":       {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
-    "heat_acute":    {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
-    "heat_chronic":  {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
-    "pollution":     {"L": 0.0, "M": 2.0, "H": 5.0,  "VH": 10.0},
-}
+from ml.scoring.damage_function import (  # noqa: F401 — re-exported for backward-compatible imports
+    DAMAGE_FUNCTION_VERSION,
+    PERIL_DISCOUNT_PCT,
+    RECOMMENDED_DISCOUNT_PCT,
+    collateral_haircut_pct,
+    vulnerability_factor,
+)
 
 
 def recommended_discount_pct(bucket: str | None, hazard: str | None = None,
-                              severity_model: str = "universal") -> float:
-    if bucket is None:
-        return 0.0
-    if severity_model == "peril_specific" and hazard in PERIL_DISCOUNT_PCT:
-        return PERIL_DISCOUNT_PCT[hazard].get(bucket, 0.0)
-    return RECOMMENDED_DISCOUNT_PCT.get(bucket, 0.0)
+                             severity_model: str = "universal") -> float:
+    """The bucket-based recommendation (no score/attrs) — kept for legacy callers. Reproduces the
+    disclosed schedule value at the bucket. valuation_block() uses the continuous, vulnerability-
+    aware haircut instead."""
+    return collateral_haircut_pct(None, bucket, hazard, severity_model, None)
 
 
 def effective_discount_pct(bucket: str | None, override_pct: float | None,
-                            hazard: str | None = None, severity_model: str = "universal") -> float:
-    """Override wins if present (a human decision beats the recommendation);
-    otherwise fall back to the bucket's (optionally peril-specific) recommended haircut."""
+                           hazard: str | None = None, severity_model: str = "universal") -> float:
+    """Override wins if present (a human decision beats the recommendation)."""
     if override_pct is not None:
         return float(override_pct)
     return recommended_discount_pct(bucket, hazard, severity_model)
 
 
 def ltv_pct(outstanding_balance_eur: float | None, value_eur: float | None) -> float | None:
-    """Loan-to-value: the actual credit-decision number a real loan tape exists to
-    support. None (not 0) when we don't have an outstanding balance -- honest
-    absence, never a fabricated ratio."""
+    """Loan-to-value: None (not 0) when we don't have an outstanding balance — honest absence."""
     if outstanding_balance_eur is None or not value_eur:
         return None
     return round(100 * outstanding_balance_eur / value_eur, 2)
 
 
 def valuation_block(bucket: str | None, value_eur: float | None, override_row: dict | None,
-                     outstanding_balance_eur: float | None = None,
-                     hazard: str | None = None, severity_model: str = "universal") -> dict:
+                    outstanding_balance_eur: float | None = None,
+                    hazard: str | None = None, severity_model: str = "universal",
+                    score: float | None = None, attrs: dict | None = None) -> dict:
     """override_row: {override_discount_pct, overridden_by, overridden_at, reason} or None.
-    hazard/severity_model: pass the driving hazard + the org's chosen severity_model
-    (services/calc_settings.py) to price a wildfire VH differently from a drought VH;
-    omit either to get today's universal bucket->discount% table, unchanged."""
-    recommended = recommended_discount_pct(bucket, hazard, severity_model)
+    score: the headline continuous 0–100 score (drives the continuous curve; falls back to the
+    bucket if omitted, unchanged). attrs: {construction_type, year_built, number_of_stories} for
+    the vulnerability multiplier (a missing attribute is neutral + flagged, never guessed)."""
+    recommended = collateral_haircut_pct(score, bucket, hazard, severity_model, attrs)
     override_pct = override_row["override_discount_pct"] if override_row else None
-    effective = effective_discount_pct(bucket, override_pct, hazard, severity_model)
+    effective = float(override_pct) if override_pct is not None else recommended
     discounted_value = (value_eur or 0) * (1 - effective / 100.0)
+    vf, vprov = vulnerability_factor(hazard, attrs)
     return {
         "recommended_discount_pct": recommended,
         "effective_discount_pct": effective,
         "is_overridden": override_pct is not None,
         "severity_model": severity_model,
+        "vulnerability_factor": vf,
+        "vulnerability": vprov,
+        "damage_function_version": DAMAGE_FUNCTION_VERSION,
         "discounted_value_eur": round(discounted_value, 2),
         "outstanding_loan_balance_eur": outstanding_balance_eur,
         "original_ltv_pct": ltv_pct(outstanding_balance_eur, value_eur),
@@ -116,11 +95,13 @@ def valuation_block(bucket: str | None, value_eur: float | None, override_row: d
 
 
 def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: str,
-                     severity_model: str = "universal", n_sims: int = 10000,
-                     relative_uncertainty: float = 0.4) -> dict:
-    """holdings: [{position_value_eur, bucket, hazard}, ...]. See module docstring
-    for the method and its disclosed limitations. Returns median/P95/P99 of a
-    simulated portfolio loss distribution (in EUR), not a single point estimate."""
+                    severity_model: str = "universal", n_sims: int = 10000,
+                    relative_uncertainty: float = 0.4) -> dict:
+    """holdings: [{position_value_eur, bucket, hazard, score?, attrs?}, ...]. Samples each holding's
+    loss% around its OWN vulnerability-adjusted continuous haircut. Returns median/P95/P99 of a
+    simulated portfolio loss distribution (EUR). Deterministic across processes (audit T2)."""
+    import hashlib
+
     import numpy as np
 
     n = len(holdings)
@@ -128,10 +109,8 @@ def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: s
         return {"median_loss_eur": 0.0, "var95_eur": 0.0, "var99_eur": 0.0,
                 "n_sims": n_sims, "relative_uncertainty_band": relative_uncertainty}
 
-    # Deterministic seed: Python's builtin hash() of strings is salted per-process (PYTHONHASHSEED),
-    # so seeding off it makes the published VaR change on every restart. A stable digest keeps the same
-    # portfolio+settings reproducible across processes/redeploys (audit T2). (default_rng accepts big ints.)
-    import hashlib
+    # Deterministic seed: builtin hash() is per-process salted, so a stable digest keeps the same
+    # portfolio+settings reproducible across processes/redeploys (audit T2).
     seed = int.from_bytes(hashlib.sha256(f"{org_id}|{scenario}|{horizon}".encode()).digest()[:8], "big")
     rng = np.random.default_rng(seed)
 
@@ -140,7 +119,8 @@ def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: s
         value = h.get("position_value_eur") or 0.0
         if value == 0:
             continue
-        mean = recommended_discount_pct(h.get("bucket"), h.get("hazard"), severity_model) / 100.0
+        mean = collateral_haircut_pct(h.get("score"), h.get("bucket"), h.get("hazard"),
+                                      severity_model, h.get("attrs")) / 100.0
         spread = max(mean * relative_uncertainty, 0.02)
         low, high = max(0.0, mean - spread), min(1.0, mean + spread)
         if high <= low:

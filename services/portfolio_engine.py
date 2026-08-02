@@ -109,6 +109,8 @@ def fetch_entities_with_risk(
         hazard = headline["hazard"] if headline else None
 
         extra_val_kwargs = valuation_kwargs(e) if valuation_kwargs else {}
+        attrs = {"construction_type": e["construction_type"], "year_built": e["year_built"],
+                 "number_of_stories": e["number_of_stories"]}
         row = {
             **{k: e[k] for k in e.keys()},
             "hazards": hz,
@@ -116,7 +118,9 @@ def fetch_entities_with_risk(
             "headline_bucket": bucket,
             "headline_hazard": hazard,
             "valuation": valuation_block(bucket, e["primary_value_eur"], val_by_entity.get(e["entity_id"]),
-                                          hazard=hazard, severity_model=severity_model, **extra_val_kwargs),
+                                          hazard=hazard, severity_model=severity_model,
+                                          score=(headline["score"] if headline else None), attrs=attrs,
+                                          **extra_val_kwargs),
         }
         if extra_calc:
             row.update(extra_calc(row, headline, hz))
@@ -179,6 +183,8 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
 
     val_row = get_valuation_row(session, entity_id)
     extra_val_kwargs = valuation_kwargs(e) if valuation_kwargs else {}
+    attrs = {"construction_type": e["construction_type"], "year_built": e["year_built"],
+             "number_of_stories": e["number_of_stories"]}
     row = {
         **{k: e[k] for k in e.keys()},
         "risks": [dict(r) for r in risks],
@@ -186,7 +192,9 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
         "headline_bucket": bucket,
         "headline_hazard": hazard,
         "valuation": valuation_block(bucket, e["primary_value_eur"], val_row,
-                                      hazard=hazard, severity_model=severity_model, **extra_val_kwargs),
+                                      hazard=hazard, severity_model=severity_model,
+                                      score=(headline["score"] if headline else None), attrs=attrs,
+                                      **extra_val_kwargs),
     }
     if extra_calc:
         row.update(extra_calc(row, headline, hz_norm))

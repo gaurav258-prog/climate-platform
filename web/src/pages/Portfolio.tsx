@@ -15,6 +15,8 @@ interface Valuation {
   discounted_value_eur: number; is_overridden: boolean
   recommended_discount_pct?: number; effective_discount_pct?: number
   original_ltv_pct?: number; climate_adjusted_ltv_pct?: number
+  vulnerability_factor?: number
+  vulnerability?: { applied: boolean; complete: boolean; drivers: { attr: string; value: unknown; factor: number }[]; missing: string[] }
 }
 interface Asset {
   region?: string; lat?: number; lon?: number
@@ -195,7 +197,7 @@ export default function Portfolio() {
                             <span className="mono tabular-nums shrink-0" style={{ color: `rgb(${hr},${hg},${hb})` }}>{Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}</span>
                           </div>) })}
                       </div>
-                      {a.valuation && (
+                      {a.valuation && (<>
                         <div className="mono text-[11.5px] text-[var(--color-faint)] mt-3 leading-relaxed">
                           risk-adjusted value <b className="text-[var(--color-mute)]">{eur(a.valuation.discounted_value_eur)}</b>
                           {a.valuation.effective_discount_pct != null ? ` · ${a.valuation.effective_discount_pct}% climate discount` : ''}
@@ -204,7 +206,14 @@ export default function Portfolio() {
                             ? ` · LTV ${a.valuation.original_ltv_pct}% → ${a.valuation.climate_adjusted_ltv_pct}%` : ''}
                           {a.lat != null && a.lon != null ? ` · ${Math.abs(a.lat).toFixed(1)}°${a.lat >= 0 ? 'N' : 'S'}, ${Math.abs(a.lon).toFixed(1)}°${a.lon >= 0 ? 'E' : 'W'}` : ''}
                         </div>
-                      )}
+                        {a.valuation.vulnerability?.applied && a.valuation.vulnerability_factor != null && (
+                          <div className="mono text-[11px] text-[var(--color-faint)] mt-1 leading-relaxed">
+                            vulnerability <b className="text-[var(--color-mute)]">×{a.valuation.vulnerability_factor}</b>
+                            {' — '}{a.valuation.vulnerability.drivers.map(d => `${d.attr.replace(/_/g, ' ')} ${d.value}`).join(' · ')}
+                            <span className="text-[var(--color-faint)]"> · from asset attributes, not fitted to loss history</span>
+                          </div>
+                        )}
+                      </>)}
                     </div>
                   )}
                 </div>

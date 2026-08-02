@@ -71,8 +71,8 @@ inside the deductible costs nothing to insure).
 from __future__ import annotations
 
 from core.types import score_to_bucket
+from ml.scoring.damage_function import HALF_DAMAGE_SCORE, mean_damage_ratio as _core_mdr  # noqa: F401
 
-HALF_DAMAGE_SCORE = 65.0  # score_to_bucket's High/Very-High boundary — see module docstring
 EXPENSE_RATIO = 0.25
 PROFIT_MARGIN = 0.05
 
@@ -93,15 +93,16 @@ PERIL_RETURN_PERIOD_YEARS = {
 }
 
 
-def mean_damage_ratio(risk_score: float) -> float:
-    """Emanuel(2011)/CLIMADA-style sigmoid: 0 at score=0, 0.5 at HALF_DAMAGE_SCORE,
-    asymptotic to 1.0 for very severe scores."""
-    v = max(0.0, risk_score) / HALF_DAMAGE_SCORE
-    return v**3 / (1.0 + v**3)
+def mean_damage_ratio(risk_score: float, hazard: str | None = None, attrs: dict | None = None) -> float:
+    """Emanuel(2011)/CLIMADA sigmoid — now vulnerability-aware via the shared damage core
+    (ml/scoring/damage_function.py). With no attrs it is the bare sigmoid, unchanged: 0 at score=0,
+    0.5 at HALF_DAMAGE_SCORE, asymptotic to 1.0 for very severe scores."""
+    return _core_mdr(risk_score, hazard, attrs)
 
 
 def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: float = 0.0,
-                  hazard: str | None = None, return_period_model: str = "fixed") -> dict:
+                  hazard: str | None = None, return_period_model: str = "fixed",
+                  attrs: dict | None = None) -> dict:
     """Returns {mdr, scenario_loss_eur, retained_loss_eur, net_scenario_loss_eur,
     annual_occurrence_prob, expected_annual_loss_eur, pure_premium_eur,
     gross_premium_eur, rate_on_line_pct, risk_bucket} — the full "score ->
@@ -114,7 +115,7 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
     seismic VH policy's frequency differently from a flood VH policy; omit
     either to get today's fixed L/M/H/VH tier, unchanged."""
     bucket = score_to_bucket(risk_score).value
-    mdr = mean_damage_ratio(risk_score)
+    mdr = mean_damage_ratio(risk_score, hazard, attrs)
     scenario_loss = sum_insured_eur * mdr
     retained_loss = sum_insured_eur * max(0.0, deductible_pct or 0.0)
     net_scenario_loss = max(0.0, scenario_loss - retained_loss)
