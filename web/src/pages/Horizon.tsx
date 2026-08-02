@@ -250,6 +250,13 @@ export default function Horizon() {
   const BUCKETS: [string, string, string][] = [['overdue', 'Overdue', '#D23B3B'], ['this_week', 'This week', '#E8B24C'], ['upcoming', 'Upcoming', '#8FC0F0'], ['open', 'Open · no fixed date', '#5c6879']]
   const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
   const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
+  // Choose the year to animate TO, then run from today up to it, so you watch the progression arrive.
+  const playTo = (y: number) => { S.current.target = y; setTargetYear(y); S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025); S.current.play = true; setPlaying(true) }
+  const togglePlay = () => {
+    if (playing) { S.current.play = false; setPlaying(false); return }
+    if (S.current.year >= S.current.target) { S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025) }  // at the end → replay from today
+    S.current.play = true; setPlaying(true)
+  }
   const displayTasks = tasks
   const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
@@ -536,16 +543,24 @@ export default function Horizon() {
 
       <div className="absolute left-0 right-0 bottom-0 px-8 pb-6 pt-5" style={{ background: 'linear-gradient(0deg,#04060bE6 30%,transparent)' }}>
         <div className="flex items-center gap-4 max-w-[1200px] mx-auto">
-          <button onClick={() => { if (!playing) { if (S.current.year >= S.current.target) { S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025) } S.current.play = true; setPlaying(true) } else { S.current.play = false; setPlaying(false) } }}
+          <button onClick={togglePlay} title={playing ? 'Pause' : `Play to ${targetYear}`}
             className="w-11 h-11 shrink-0 rounded-full border border-[#2a3a50] bg-[#0e1626] grid place-items-center text-[#F4EFE6] hover:border-[var(--color-sky)]">
             {playing ? <Pause size={16} /> : <Play size={16} />}
           </button>
-          {/* controlled: the thumb tracks the current year (so it MOVES during play); dragging sets the
-              year to view AND the target play stops at */}
+          {/* the thumb tracks the year (moves during play); dragging is pure manual scrub — it does NOT
+              change the play target, so you can inspect any year without losing your target */}
           <input type="range" min={2025} max={2100} step={1} value={Math.round(viewYear)}
-            onChange={e => { const y = +e.target.value; S.current.year = y; S.current.target = y; S.current.yearInt = y; S.current.play = false; setPlaying(false); setViewYear(y); setTargetYear(y) }}
-            className="flex-1 accent-[var(--color-sky)] cursor-pointer" />
-          <div className="mono text-[11px] text-[var(--color-mute)] shrink-0 tabular-nums">{Math.round(viewYear)}<span className="text-[var(--color-faint)]"> · play → {targetYear}</span></div>
+            onChange={e => { const y = +e.target.value; S.current.year = y; S.current.yearInt = y; S.current.play = false; setPlaying(false); setViewYear(y) }}
+            className="flex-1 min-w-0 accent-[var(--color-sky)] cursor-pointer" />
+          {/* choose the year to play TO — click runs the globe from today up to it */}
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="mono text-[10px] text-[var(--color-faint)] mr-0.5 max-[560px]:hidden">play to</span>
+            {[2030, 2050, 2100].map(y => (
+              <button key={y} onClick={() => playTo(y)}
+                className={`mono text-[11px] px-2 py-1 rounded-md border transition ${targetYear === y ? 'border-[var(--color-sky)] text-[var(--color-sky)] bg-[#0e1626]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{y}</button>
+            ))}
+          </div>
+          <div className="mono text-[12px] text-[var(--color-ink)] shrink-0 tabular-nums w-11 text-right">{Math.round(viewYear)}</div>
         </div>
       </div>
 
