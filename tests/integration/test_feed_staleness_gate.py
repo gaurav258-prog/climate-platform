@@ -17,6 +17,11 @@ def test_overdue_basis_feed_is_detected_then_clears_on_refresh():
     # pick a basis-driving feed with a short cadence to make it easy to age past
     with get_session() as s:
         before = {f["key"] for f in overdue_basis_feeds(s)}
+        # clean slate: a pre-existing FRESH flood refresh (real op or a prior run) would mask the
+        # staleness we're about to simulate, since overdue is judged on the MOST RECENT refresh.
+        # feed_refresh_log is an operational log (not WORM), so clearing recent flood rows is safe.
+        s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='flood' "
+                       "AND created_at > now() - interval '5 days'"))
         # simulate a refresh older than the feed's cadence → overdue
         s.execute(text("INSERT INTO feed_refresh_log (feed_key, status, created_at) "
                        "VALUES ('flood', 'refreshed', now() - interval '5 days')"))

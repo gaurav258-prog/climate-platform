@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from services.intelligence.supply_cogs import compute
 
-# a fit like Spain olive drought: loss rises with the score, wide residual band
+# a fit like Spain olive drought: loss rises with the score, wide residual band.
+# fit_r2 surfaced to the buyer is the OUT-OF-SAMPLE r² (r2_oos) — the honest, cross-validated number
+# the publish gate keys on (audit F2 / #94), NOT the optimistic in-sample r2. r2 here is deliberately
+# higher than r2_oos so the assertions prove the engine states the honest number.
 _FIT = {"hazard_driver": "drought", "slope": -0.667, "intercept": 37.6, "rmse": 17.6,
-        "r2": 0.51, "score_mean": 53.0, "score_sxx": 12000.0, "n_years": 31}
+        "r2": 0.60, "r2_oos": 0.51, "score_mean": 53.0, "score_sxx": 12000.0, "n_years": 31}
 
 
 def _ranged_cal(score_driver="drought"):
@@ -72,7 +75,7 @@ def test_below_floor_fit_is_held_but_surfaces_its_r2_and_reason():
     """A crop we tested but whose driver fell below the publish floor must be HELD (no € band),
     yet still surface fit_r2 and an honest 'tested, explains X%, below the bar' reason — the
     engine keeps r² precisely so the reason can be specific."""
-    weak = dict(_FIT, r2=0.36)   # below the 0.40 floor
+    weak = dict(_FIT, r2=0.55, r2_oos=0.36)   # out-of-sample below the 0.40 floor (in-sample looks fine)
     cal = {"Durum wheat": {"ES": {"sensitivity": None, "world_share": None,
                                   "calibration_tier": "indicative",   # view returns this when r²<floor
                                   "hazard_driver": "drought", "fit": weak}}}
