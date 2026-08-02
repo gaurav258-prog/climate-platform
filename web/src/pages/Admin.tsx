@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -307,50 +307,90 @@ function RegistryLookup({ onPick }: { onPick: (h: RegHit) => void }) {
   )
 }
 
+// Feeds grouped into a few categories — each a card the operator opens to see the real named sources
+// and their live status. Keeps the panel compact while the provenance stays one click away.
+const FEED_CATEGORIES: { key: string; label: string; icon: typeof Database; blurb: string }[] = [
+  { key: 'hazard', label: 'Climate & hazard', icon: CloudRain, blurb: 'Satellite & agency hazard feeds — heat, drought, flood, fire, storm, seismic.' },
+  { key: 'nature', label: 'Nature', icon: Leaf, blurb: 'Forest cover / deforestation for EUDR & ESRS E4.' },
+  { key: 'reference', label: 'Reference', icon: Landmark, blurb: 'Entity identity (LEI) & sector reference data.' },
+]
+
 function GoldenSourceFeeds() {
   const q = useQuery({ queryKey: ['data-feeds'], queryFn: () => api.get<{ feeds: Feed[] }>('/v1/admin/data-feeds') })
   const [busy, setBusy] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
   const feeds = q.data?.feeds ?? []
   const refresh = async (k: string) => {
     setBusy(k)
     try { await api.post(`/v1/admin/data-feeds/${k}/refresh`, {}); await q.refetch() } finally { setBusy(null) }
   }
-  const nFailed = feeds.filter(f => f.status === 'failed').length
-  const nAuto = feeds.filter(f => f.auto_refresh).length
+  // worst-status summary for a category card: red if any failed/overdue, amber if due soon, else green.
+  const catSummary = (cat: string) => {
+    const fs = feeds.filter(f => f.category === cat)
+    const failed = fs.filter(f => f.status === 'failed' || f.status === 'overdue').length
+    const soon = fs.filter(f => f.status === 'due_soon').length
+    const auto = fs.filter(f => f.auto_refresh).length
+    const tone = failed ? 'var(--color-bad)' : soon ? 'var(--color-warn)' : 'var(--color-good)'
+    const label = failed ? `${failed} need${failed !== 1 ? '' : 's'} attention` : soon ? `${soon} due soon` : auto ? 'all current' : `${fs.length} source${fs.length !== 1 ? 's' : ''}`
+    return { n: fs.length, tone, label, auto }
+  }
+
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1"><Database size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Golden-source health</h3></div>
       <p className="text-[11.5px] text-[var(--color-faint)] mb-3">
-        {nAuto} satellite/agency feeds under your filings refresh <b>automatically</b> on their own cadence — no action needed.
-        This monitor shows the last automated refresh and flags any that fall behind or fail, so a stale or broken source
-        is caught before it reaches a filing. Feeds that <b>invalidate a live basis</b> re-score on refresh; a frozen snapshot never moves.
-        {nFailed > 0 && <span className="text-[var(--color-bad)]"> · {nFailed} feed{nFailed !== 1 ? 's' : ''} failed its last refresh — needs attention.</span>}
+        Your filings run on named satellite &amp; agency feeds that refresh <b>automatically</b> on their own cadence — no action needed.
+        Open a category to see each source and its live status; anything stale or failed is flagged and raised before it can reach a filing.
       </p>
       {q.isLoading ? <div className="text-[13px] text-[var(--color-faint)] py-2">loading…</div> : (
-        <div className="space-y-1.5">
-          {feeds.map(f => {
-            const auto = !!f.auto_refresh
-            // non-auto feeds don't self-refresh — show their honest nature, not a freshness clock
-            const subline = auto
-              ? `${f.category} · auto · every ${f.cadence_days}d${f.last_refresh ? ` · refreshed ${f.days_since}d ago${f.next_due_days != null ? ` · next in ${f.next_due_days}d` : ''}` : ' · awaiting first auto-refresh'}`
-              : `${f.category} · ${f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'adapter not yet wired' : 'derived — not a live feed'}`
-            const statusLabel = auto ? f.status.replace('_', ' ') : (MATURITY[f.maturity ?? '']?.label ?? '—')
-            const statusTone = auto ? (FEED_TONE[f.status] ?? 'var(--color-faint)') : (MATURITY[f.maturity ?? '']?.tone ?? 'var(--color-faint)')
+        <div className="space-y-2">
+          {FEED_CATEGORIES.filter(c => feeds.some(f => f.category === c.key)).map(cat => {
+            const s = catSummary(cat.key)
+            const isOpen = open === cat.key
             return (
-              <div key={f.key} className="flex items-center gap-3 border border-[var(--color-line)] rounded-lg px-3 py-2">
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: statusTone }} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] text-[var(--color-ink)] truncate">{f.name}
-                    {f.maturity && MATURITY[f.maturity] && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded uppercase" style={{ color: MATURITY[f.maturity].tone, background: `color-mix(in oklab, ${MATURITY[f.maturity].tone} 14%, transparent)` }}>{MATURITY[f.maturity].label}</span>}
-                    {f.invalidates_basis && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)] uppercase">scores</span>}</div>
-                  <div className="text-[11px] text-[var(--color-faint)] truncate" title={f.note}>{subline}</div>
-                </div>
-                <span className="mono text-[10px] uppercase tracking-wide shrink-0" style={{ color: statusTone }}>{statusLabel}</span>
-                {/* auto feeds self-refresh; keep a manual 'Refresh now' override for ops (audited) */}
-                {auto && <button onClick={() => refresh(f.key)} disabled={busy === f.key} title="Refresh now (override — feeds also refresh automatically)"
-                  className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)] disabled:opacity-50 shrink-0">
-                  <RefreshCw size={12} className={busy === f.key ? 'animate-spin' : ''} /> {busy === f.key ? '…' : 'Refresh now'}
-                </button>}
+              <div key={cat.key} className="rounded-xl border border-[var(--color-line)] overflow-hidden">
+                {/* the category "button" */}
+                <button onClick={() => setOpen(isOpen ? null : cat.key)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-bg-2)] transition">
+                  <cat.icon size={17} className="text-[var(--color-blue)] shrink-0" />
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="text-[13.5px] font-medium text-[var(--color-ink)]">{cat.label} <span className="text-[var(--color-faint)] font-normal">· {s.n}</span></div>
+                    <div className="text-[11px] text-[var(--color-faint)] truncate">{cat.blurb}</div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 mono text-[10.5px] uppercase tracking-wide shrink-0" style={{ color: s.tone }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.tone }} />{s.label}
+                  </span>
+                  <ChevronDown size={15} className={`shrink-0 text-[var(--color-faint)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {/* the dropdown — the real named sources + status */}
+                {isOpen && (
+                  <div className="border-t border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2 space-y-1.5">
+                    {feeds.filter(f => f.category === cat.key).map(f => {
+                      const auto = !!f.auto_refresh
+                      const subline = auto
+                        ? `auto · every ${f.cadence_days}d${f.last_refresh ? ` · refreshed ${f.days_since}d ago${f.next_due_days != null ? ` · next in ${f.next_due_days}d` : ''}` : ' · awaiting first auto-refresh'}`
+                        : (f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'adapter not yet wired' : 'derived — not a live feed')
+                      const statusLabel = auto ? f.status.replace('_', ' ') : (MATURITY[f.maturity ?? '']?.label ?? '—')
+                      const statusTone = auto ? (FEED_TONE[f.status] ?? 'var(--color-faint)') : (MATURITY[f.maturity ?? '']?.tone ?? 'var(--color-faint)')
+                      return (
+                        <div key={f.key} className="flex items-center gap-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-line)] px-3 py-2">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: statusTone }} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] text-[var(--color-ink)] truncate">{f.name}
+                              {f.maturity && MATURITY[f.maturity] && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded uppercase" style={{ color: MATURITY[f.maturity].tone, background: `color-mix(in oklab, ${MATURITY[f.maturity].tone} 14%, transparent)` }}>{MATURITY[f.maturity].label}</span>}
+                              {f.invalidates_basis && <span className="mono text-[9px] ml-1.5 px-1 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)] uppercase">scores</span>}</div>
+                            <div className="text-[11px] text-[var(--color-faint)] truncate" title={f.note}>{subline}</div>
+                          </div>
+                          <span className="mono text-[10px] uppercase tracking-wide shrink-0" style={{ color: statusTone }}>{statusLabel}</span>
+                          {auto && <button onClick={() => refresh(f.key)} disabled={busy === f.key} title="Refresh now (override — feeds also refresh automatically)"
+                            className="inline-flex items-center gap-1 text-[11.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)] disabled:opacity-50 shrink-0">
+                            <RefreshCw size={12} className={busy === f.key ? 'animate-spin' : ''} /> {busy === f.key ? '…' : 'Refresh now'}
+                          </button>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
