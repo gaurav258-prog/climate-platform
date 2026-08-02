@@ -27,7 +27,8 @@ class ApprovalCreate(BaseModel):
 
 
 class ApprovalDecision(BaseModel):
-    decision: str = Field(..., pattern="^(approved|rejected)$")
+    # 'returned' = send back to the maker for more info (not terminal; the change is NOT applied)
+    decision: str = Field(..., pattern="^(approved|rejected|returned)$")
     reason:   Optional[str] = None
 
 
@@ -104,7 +105,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         WHERE  request_id = :r
     """), {"s": body.decision, "c": ctx["user"]["id"], "reason": body.reason, "r": request_id})
 
-    if row["request_type"] == "submission.release":
+    if row["request_type"] == "submission.release" and body.decision in ("approved", "rejected"):
         new_status = "released" if body.decision == "approved" else "rejected"
         try:
             session.execute(text(f"""
