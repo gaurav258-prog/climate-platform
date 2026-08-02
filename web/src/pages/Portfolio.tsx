@@ -10,8 +10,12 @@ import { Eyebrow, Card } from '../components/ui'
 // its rollup — every number is the projected book from the golden source, nothing invented. Agriculture
 // keeps its own workspace (Sourcing/Cogs/…); this is the equivalent operating book for the four financials.
 
-interface Hazard { hazard: string; score: number; bucket: string }
-interface Valuation { discounted_value_eur: number; is_overridden: boolean }
+interface Hazard { hazard: string; score: number; bucket: string; model_version?: string; scored_at?: string }
+interface Valuation {
+  discounted_value_eur: number; is_overridden: boolean
+  recommended_discount_pct?: number; effective_discount_pct?: number
+  original_ltv_pct?: number; climate_adjusted_ltv_pct?: number
+}
 interface Asset {
   region?: string; lat?: number; lon?: number
   headline_score: number | null; headline_bucket: string | null; headline_hazard: string | null
@@ -184,13 +188,20 @@ export default function Portfolio() {
                         {(a.hazards ?? []).length === 0 && <div className="text-[12.5px] text-[var(--color-faint)]">No hazard scores under this scenario/horizon yet.</div>}
                         {(a.hazards ?? []).map(h => { const [hr, hg, hb] = col(h.score); return (
                           <div key={h.hazard} className="flex items-center justify-between gap-3 text-[12.5px] border-b border-[var(--color-line)] py-1">
-                            <span className="text-[var(--color-mute)] capitalize">{h.hazard.replace(/_/g, ' ')}</span>
-                            <span className="mono tabular-nums" style={{ color: `rgb(${hr},${hg},${hb})` }}>{Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}</span>
+                            <span className="min-w-0">
+                              <span className="text-[var(--color-mute)] capitalize">{h.hazard.replace(/_/g, ' ')}</span>
+                              {h.model_version && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{h.model_version}{h.scored_at ? ` · ${h.scored_at.slice(0, 10)}` : ''}</span>}
+                            </span>
+                            <span className="mono tabular-nums shrink-0" style={{ color: `rgb(${hr},${hg},${hb})` }}>{Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}</span>
                           </div>) })}
                       </div>
                       {a.valuation && (
-                        <div className="mono text-[11.5px] text-[var(--color-faint)] mt-3">
-                          risk-adjusted value {eur(a.valuation.discounted_value_eur)}{a.valuation.is_overridden ? ' · analyst override on file' : ''}
+                        <div className="mono text-[11.5px] text-[var(--color-faint)] mt-3 leading-relaxed">
+                          risk-adjusted value <b className="text-[var(--color-mute)]">{eur(a.valuation.discounted_value_eur)}</b>
+                          {a.valuation.effective_discount_pct != null ? ` · ${a.valuation.effective_discount_pct}% climate discount` : ''}
+                          {a.valuation.is_overridden ? ' · analyst override on file' : ''}
+                          {a.valuation.original_ltv_pct != null && a.valuation.climate_adjusted_ltv_pct != null
+                            ? ` · LTV ${a.valuation.original_ltv_pct}% → ${a.valuation.climate_adjusted_ltv_pct}%` : ''}
                           {a.lat != null && a.lon != null ? ` · ${Math.abs(a.lat).toFixed(1)}°${a.lat >= 0 ? 'N' : 'S'}, ${Math.abs(a.lon).toFixed(1)}°${a.lon >= 0 ? 'E' : 'W'}` : ''}
                         </div>
                       )}
