@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
+import { BrandMark } from '../components/ui'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
 
@@ -265,9 +266,10 @@ export default function Horizon() {
     <div className="fixed inset-0 bg-[#04060b] overflow-hidden select-none">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
       {/* top chrome */}
-      <div className="absolute top-6 left-8 flex items-center gap-3 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
-        <div className="display text-[19px]">Tel<span className="text-[var(--color-sky)] italic">lumen</span></div>
-        <span className="mono text-[9px] tracking-[0.26em] text-[var(--color-faint)] uppercase">Horizon</span>
+      <div className="absolute top-6 left-8 flex items-center gap-2.5 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
+        <BrandMark size={26} />
+        <div className="display text-[19px] font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
+        <span className="mono text-[9px] tracking-[0.26em] text-[var(--color-faint)] uppercase ml-0.5">Horizon</span>
       </div>
       {/* region (belt) banner */}
       {beltName && !sel && (
