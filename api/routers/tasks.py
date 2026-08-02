@@ -357,16 +357,21 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
     tasks: list[dict] = []
 
     # ── APPROVER: decisions waiting (bucket from the OLDEST pending request's real age vs our SLA) ────
+    # Only requests THIS user can actually action — a decider can't approve their own (4-eyes), so a
+    # request they raised is not "waiting for you". Count excludes own; a request assigned to someone
+    # else is still counted (any approver may act unless assignment routes it — keep it discoverable).
+    me = ctx["user"]["id"]
     prow = session.execute(text(
         "SELECT count(*) n, EXTRACT(EPOCH FROM (now()-min(created_at)))/86400 AS oldest_days "
-        "FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).mappings().first()
+        "FROM approval_requests WHERE org_id=:o AND status='pending' AND maker_user_id <> :u"),
+        {"o": org_id, "u": me}).mappings().first()
     pending = prow["n"] or 0
     if pending:
         age = float(prow["oldest_days"] or 0)
         past_sla = age > _APPROVAL_SLA_DAYS
         tasks.append(_task(
             "approvals_pending", f"{pending} approval{'s' if pending != 1 else ''} waiting for you",
-            "Review and approve or reject — the second pair of eyes in 4-eyes.",
+            "Review and approve, reject, or send back — the second pair of eyes in 4-eyes.",
             "action", "Review approvals", "/approvals", "approvals.decide",
             bucket="overdue" if past_sla else "this_week",
             due=(f"oldest raised {age:.0f}d ago · past the {_APPROVAL_SLA_DAYS}-day SLA" if past_sla
@@ -379,7 +384,7 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
         tasks.append(_task(
             "identity_incomplete", "Complete your reporting identity",
             "EORI and a filing-contact email are needed before a CSRD/EUDR filing.",
-            "warning", "Finish setup", "/admin", "admin.users.manage"))
+            "warning", "Finish setup", "/admin?setup=identity", "admin.users.manage"))
 
     n_approvers = session.execute(text("""
         SELECT count(DISTINCT u.user_id) FROM users u

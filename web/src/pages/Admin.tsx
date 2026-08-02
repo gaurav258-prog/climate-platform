@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api'
@@ -65,6 +65,23 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
   const [editOrg, setEditOrg] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  // deep-link from the "Complete your reporting identity" task (/admin?setup=identity): open the edit
+  // form on the missing fields and scroll straight to it, instead of dropping the user on a generic page.
+  const identityRef = useRef<HTMLDivElement>(null)
+  const didDeepLink = useRef(false)
+  useEffect(() => {
+    if (didDeepLink.current) return
+    const wants = new URLSearchParams(window.location.search).get('setup') === 'identity'
+    const o = q.data?.organization
+    if (!wants || !o) return
+    didDeepLink.current = true
+    if (!(o.eori && o.filing_contact_email)) {
+      setForm({ legal_name: o.legal_name ?? '', lei: o.lei ?? '', eori: o.eori ?? '',
+                filing_contact_email: o.filing_contact_email ?? '', operator_address: o.operator_address ?? '' })
+      setEditOrg(true)
+    }
+    setTimeout(() => identityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120)
+  }, [q.data])
   if (q.isLoading) return <div className="py-16 text-center text-[var(--color-faint)] text-sm">loading…</div>
   if (q.error || !q.data) return <div className="py-16 text-center text-[var(--color-faint)] text-sm">Could not load.</div>
   const d = q.data
@@ -121,7 +138,8 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
       </div>
 
       {/* organization identity (editable — feeds CSRD/EUDR) */}
-      <Card className="p-5">
+      <div ref={identityRef} className="scroll-mt-24">
+      <Card className="p-5" style={editOrg && !(org.eori && org.filing_contact_email) ? { borderColor: 'var(--color-warn)' } : undefined}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2"><Building2 size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Reporting identity</h3></div>
           {!editOrg && <button onClick={startEdit} className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Pencil size={13} /> Edit</button>}
@@ -148,6 +166,7 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
           </div>
         )}
       </Card>
+      </div>
 
       {/* reporting basis — the as-of assumptions every filing is computed on */}
       <ReportingBasis />

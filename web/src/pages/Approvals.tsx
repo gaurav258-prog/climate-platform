@@ -48,6 +48,7 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState<Record<string, string>>({})   // per-request comment for the decision
+  const [pick, setPick] = useState<Record<string, string>>({})   // per-request pending assignee selection (before Send)
   const q = useQuery({ queryKey: ['approvals', filter], queryFn: () => api.get<Req[]>(`/v1/approvals${filter === 'pending' ? '?status=pending' : ''}`) })
   const dq = useQuery({ queryKey: ['approval-deciders'], queryFn: () => api.get<Decider[]>('/v1/approvals/deciders') })
 
@@ -139,46 +140,56 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
                 </div>
               )}
 
-              {/* assign / route — hand a pending request to a named approver (the maker can't be the approver) */}
-              {r.status === 'pending' && (r.is_own || canDecide) && (
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.is_own ? 'Send to approver' : 'Assign to'}</span>
-                  <select value={r.assignee_user_id ?? ''} disabled={busy === r.id}
-                    onChange={e => assign(r.id, e.target.value || null)}
-                    className="bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] disabled:opacity-50">
-                    <option value="">{r.is_own ? 'Choose an approver…' : 'Anyone (unassigned)'}</option>
-                    {(dq.data ?? []).filter(d => d.email !== r.maker_email).map(d => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
-                  </select>
-                  {r.assignee_email && <span className="mono text-[10.5px] text-[var(--color-good)]">✓ sent to {r.assignee_email}</span>}
-                  {r.assigned_to_me && <span className="mono text-[10.5px] text-[var(--color-sky)]">· yours to action ↓</span>}
-                </div>
-              )}
+              {/* assign / route — pick an approver, THEN click Send (no auto-execute on select). */}
+              {r.status === 'pending' && (r.is_own || canDecide) && (() => {
+                const current = r.assignee_user_id ?? ''
+                const chosen = pick[r.id] ?? current                    // local selection, defaults to the current assignee
+                const changed = chosen !== current
+                return (
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.is_own ? 'Send to approver' : 'Assign to'}</span>
+                    <select value={chosen} disabled={busy === r.id}
+                      onChange={e => setPick(p => ({ ...p, [r.id]: e.target.value }))}
+                      className="bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] disabled:opacity-50">
+                      <option value="">{r.is_own ? 'Choose an approver…' : 'Anyone (unassigned)'}</option>
+                      {(dq.data ?? []).filter(d => d.email !== r.maker_email).map(d => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
+                    </select>
+                    <button disabled={!changed || busy === r.id}
+                      onClick={() => assign(r.id, chosen || null).then(() => setPick(p => { const n = { ...p }; delete n[r.id]; return n }))}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium bg-[var(--color-sky)] text-[#0b1206] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                      {chosen ? 'Send →' : 'Unassign'}
+                    </button>
+                    {!changed && r.assignee_email && <span className="mono text-[10.5px] text-[var(--color-good)]">✓ sent to {r.assignee_email}</span>}
+                    {r.assigned_to_me && <span className="mono text-[10.5px] text-[var(--color-sky)]">· yours to action ↓</span>}
+                  </div>
+                )
+              })()}
 
-              {/* actions */}
-              {r.status === 'pending' && (
-                r.is_own
-                  ? <div className="mt-3 text-[12px] text-[var(--color-faint)] flex items-start gap-1.5">
-                      <Clock size={13} className="mt-0.5 shrink-0" />
-                      <span>{r.assignee_email
-                        ? <>Now with <b className="text-[var(--color-sky)]">{r.assignee_email}</b> to approve, reject, or send back — they sign in to action it. You can't action your own request (4-eyes).</>
-                        : <>This is your request. Pick an approver above to send it for review — they approve / reject / send it back. You can't action your own (4-eyes).</>}</span>
+              {/* actions — always shown for consistency; disabled (greyed) with a reason when you can't act */}
+              {r.status === 'pending' && (() => {
+                const canAct = canDecide && !r.is_own
+                const reason = r.is_own
+                  ? (r.assignee_email
+                      ? <>Now with <b className="text-[var(--color-sky)]">{r.assignee_email}</b> to action — you can't approve your own request (4-eyes).</>
+                      : <>Your request — assign it to an approver above; you can't approve your own (4-eyes).</>)
+                  : !canDecide ? <>You don't have permission to decide approvals.</> : null
+                return (
+                  <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                    <textarea value={note[r.id] ?? ''} onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))} disabled={!canAct}
+                      placeholder={canAct ? 'Add a comment — required to reject or send back, optional to approve' : 'Comment'}
+                      rows={2} className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] resize-y disabled:opacity-40 disabled:cursor-not-allowed" />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button disabled={!canAct || busy === r.id} title={typeof reason === 'string' ? reason : undefined} onClick={() => decide(r.id, 'approved')}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium bg-[var(--color-good)] text-[#08210f] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"><Check size={14} /> Approve</button>
+                      <button disabled={!canAct || busy === r.id} onClick={() => decide(r.id, 'returned')}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium border border-[var(--color-line-2)] text-[var(--color-sky)] hover:border-[var(--color-sky)] disabled:opacity-40 disabled:cursor-not-allowed"><Undo2 size={14} /> Send back</button>
+                      <button disabled={!canAct || busy === r.id} onClick={() => decide(r.id, 'rejected')}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-bad)] hover:text-[var(--color-bad)] disabled:opacity-40 disabled:cursor-not-allowed"><X size={14} /> Reject</button>
                     </div>
-                  : canDecide
-                    ? <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-                        <textarea value={note[r.id] ?? ''} onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))}
-                          placeholder="Add a comment — required to reject or send back, optional to approve"
-                          rows={2} className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] resize-y" />
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <button disabled={busy === r.id} onClick={() => decide(r.id, 'approved')}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium bg-[var(--color-good)] text-[#08210f] hover:opacity-90 disabled:opacity-50"><Check size={14} /> Approve</button>
-                          <button disabled={busy === r.id} onClick={() => decide(r.id, 'returned')}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium border border-[var(--color-line-2)] text-[var(--color-sky)] hover:border-[var(--color-sky)] disabled:opacity-50"><Undo2 size={14} /> Send back</button>
-                          <button disabled={busy === r.id} onClick={() => decide(r.id, 'rejected')}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-bad)] hover:text-[var(--color-bad)] disabled:opacity-50"><X size={14} /> Reject</button>
-                        </div>
-                      </div>
-                    : <div className="mt-3 text-[12px] text-[var(--color-faint)]">You don't have permission to decide approvals.</div>
-              )}
+                    {reason && <div className="mt-2 text-[11.5px] text-[var(--color-faint)] flex items-start gap-1.5"><Clock size={12} className="mt-0.5 shrink-0" /><span>{reason}</span></div>}
+                  </div>
+                )
+              })()}
             </Card>
           ))}
         </div>
