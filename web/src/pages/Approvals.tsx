@@ -8,8 +8,10 @@ import { Eyebrow, Card } from '../components/ui'
 interface Req {
   id: string; request_type: string; title: string | null; payload: Record<string, unknown>
   status: string; maker_email: string | null; checker_email: string | null; reason: string | null
+  assignee_email: string | null; assignee_user_id: string | null; assigned_to_me?: boolean
   created_at: string | null; decided_at: string | null; is_own: boolean
 }
+interface Decider { user_id: string; email: string; name: string | null }
 
 const TYPE_LABEL: Record<string, string> = {
   'supply.site.update': 'Edit site', 'supply.site.delete': 'Delete site',
@@ -47,6 +49,14 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState<Record<string, string>>({})   // per-request comment for the decision
   const q = useQuery({ queryKey: ['approvals', filter], queryFn: () => api.get<Req[]>(`/v1/approvals${filter === 'pending' ? '?status=pending' : ''}`) })
+  const dq = useQuery({ queryKey: ['approval-deciders'], queryFn: () => api.get<Decider[]>('/v1/approvals/deciders') })
+
+  const assign = async (id: string, userId: string | null) => {
+    setBusy(id)
+    try { await api.post(`/v1/approvals/${id}/assign`, { assignee_user_id: userId }); await q.refetch() }
+    catch (e) { alert((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not assign.') }
+    finally { setBusy(null) }
+  }
 
   const decide = async (id: string, decision: 'approved' | 'rejected' | 'returned') => {
     const reason = (note[id] ?? '').trim()
@@ -103,6 +113,7 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
               <div className="text-[11.5px] text-[var(--color-faint)] mt-2 flex flex-wrap gap-x-4 gap-y-0.5">
                 <span>maker: {r.maker_email ?? '—'}</span>
                 {r.created_at && <span>requested {new Date(r.created_at).toLocaleString()}</span>}
+                {r.assignee_email && <span className="text-[var(--color-sky)]">assigned to {r.assignee_email}</span>}
                 {r.checker_email && <span>decided by {r.checker_email}{r.decided_at ? ` · ${new Date(r.decided_at).toLocaleString()}` : ''}</span>}
               </div>
 
@@ -125,6 +136,20 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
               {r.reason && (
                 <div className="mt-2 text-[12.5px] text-[var(--color-mute)]">
                   <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.status === 'returned' ? 'sent back' : r.status === 'rejected' ? 'rejected' : 'note'}:</span> {r.reason}
+                </div>
+              )}
+
+              {/* assign / route — the maker or any approver can hand a pending request to a named approver */}
+              {r.status === 'pending' && (r.is_own || canDecide) && (
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Assign to</span>
+                  <select value={r.assignee_user_id ?? ''} disabled={busy === r.id}
+                    onChange={e => assign(r.id, e.target.value || null)}
+                    className="bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] disabled:opacity-50">
+                    <option value="">Anyone (unassigned)</option>
+                    {(dq.data ?? []).map(d => <option key={d.user_id} value={d.user_id}>{d.name || d.email}</option>)}
+                  </select>
+                  {r.assigned_to_me && <span className="mono text-[10.5px] text-[var(--color-sky)]">· yours to action</span>}
                 </div>
               )}
 

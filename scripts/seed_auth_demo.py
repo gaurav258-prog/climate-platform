@@ -74,10 +74,13 @@ USERS = [
     ("approver@meridian.demo", "Pieter Approver (Meridian)", "Demo!approve1", MERIDIAN, "approver"),
     ("admin@iberia.demo",      "Iria Admin (Iberia)",      "Demo!admin1",   IBERIA,   "admin"),
     ("analyst@iberia.demo",    "Alba Analyst (Iberia)",    "Demo!analyst1", IBERIA,   "analyst"),
+    ("approver@iberia.demo",   "Bruno Approver (Iberia)",  "Demo!approve1", IBERIA,   "approver"),
     ("admin@stellar.demo",     "Sven Admin (Stellar)",     "Demo!admin1",   STELLAR,  "admin"),
     ("analyst@stellar.demo",   "Sanne Analyst (Stellar)",  "Demo!analyst1", STELLAR,  "analyst"),
+    ("approver@stellar.demo",  "Femke Approver (Stellar)", "Demo!approve1", STELLAR,  "approver"),
     ("admin@nordkap.demo",     "Nils Admin (Nordkap)",     "Demo!admin1",   NORDKAP,  "admin"),
     ("analyst@nordkap.demo",   "Nora Analyst (Nordkap)",   "Demo!analyst1", NORDKAP,  "analyst"),
+    ("approver@nordkap.demo",  "Erik Approver (Nordkap)",  "Demo!approve1", NORDKAP,  "approver"),
 ]
 
 

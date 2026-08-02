@@ -32,11 +32,18 @@ class ApprovalDecision(BaseModel):
     reason:   Optional[str] = None
 
 
+class ApprovalAssign(BaseModel):
+    # null clears the assignment (back to "any approver can pick it up")
+    assignee_user_id: Optional[str] = None
+
+
 def _serialize(r) -> dict:
     return {
         "id": str(r["request_id"]), "request_type": r["request_type"],
         "title": r["title"], "payload": r["payload"], "status": r["status"],
         "maker_email": r["maker_email"], "checker_email": r["checker_email"],
+        "assignee_email": r.get("assignee_email"),
+        "assignee_user_id": str(r["assigned_to_user_id"]) if r.get("assigned_to_user_id") else None,
         "reason": r["reason"],
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "decided_at": r["decided_at"].isoformat() if r["decided_at"] else None,
@@ -65,18 +72,70 @@ def list_approvals(session: DbSession, status: Optional[str] = Query(None),
                    ctx: dict = Depends(require_permission("approvals.view"))):
     rows = session.execute(text("""
         SELECT ar.request_id, ar.request_type, ar.title, ar.payload, ar.status, ar.reason,
-               ar.created_at, ar.decided_at, ar.maker_user_id,
-               mu.email AS maker_email, cu.email AS checker_email
+               ar.created_at, ar.decided_at, ar.maker_user_id, ar.assigned_to_user_id,
+               mu.email AS maker_email, cu.email AS checker_email, au.email AS assignee_email
         FROM   approval_requests ar
         LEFT   JOIN users mu ON mu.user_id = ar.maker_user_id
         LEFT   JOIN users cu ON cu.user_id = ar.checker_user_id
+        LEFT   JOIN users au ON au.user_id = ar.assigned_to_user_id
         WHERE  ar.org_id = :o
           AND  (CAST(:st AS text) IS NULL OR ar.status = :st)
         ORDER  BY ar.created_at DESC
     """), {"o": ctx["org"]["org_id"], "st": status}).mappings().all()
-    # flag which ones the caller may NOT decide (their own) so the UI can disable
+    # flag which ones the caller may NOT decide (their own) + whether it's assigned to them, so the UI can shape
     me = ctx["user"]["id"]
-    return [{**_serialize(r), "is_own": str(r["maker_user_id"]) == me} for r in rows]
+    return [{**_serialize(r), "is_own": str(r["maker_user_id"]) == me,
+             "assigned_to_me": str(r["assigned_to_user_id"]) == me if r["assigned_to_user_id"] else False}
+            for r in rows]
+
+
+@router.get("/deciders", summary="Users who can decide approvals (candidate assignees)")
+def deciders(session: DbSession, ctx: dict = Depends(require_permission("approvals.view"))):
+    """The org's approvers — users whose roles carry approvals.decide. Used to populate the
+    'assign to…' picker so a request can be routed to a named second pair of eyes."""
+    rows = session.execute(text("""
+        SELECT DISTINCT u.user_id, u.email, u.full_name
+        FROM   users u
+        JOIN   user_roles ur ON ur.user_id = u.user_id
+        JOIN   role_permissions rp ON rp.role_id = ur.role_id
+        JOIN   permissions p ON p.permission_id = rp.permission_id
+        WHERE  u.org_id = :o AND p.code = 'approvals.decide' AND u.status = 'active'
+        ORDER  BY u.email
+    """), {"o": ctx["org"]["org_id"]}).mappings().all()
+    return [{"user_id": str(r["user_id"]), "email": r["email"], "name": r["full_name"]} for r in rows]
+
+
+@router.post("/{request_id}/assign", summary="Assign a pending request to a specific approver (routing)")
+def assign(request_id: str, body: ApprovalAssign, session: DbSession,
+           ctx: dict = Depends(require_permission("approvals.view"))):
+    org_id = ctx["org"]["org_id"]
+    row = session.execute(text("""
+        SELECT maker_user_id, status FROM approval_requests WHERE request_id = :r AND org_id = :o
+    """), {"r": request_id, "o": org_id}).mappings().first()
+    if not row:
+        raise HTTPException(404, {"error": "not_found", "message": "Approval request not found."})
+    if row["status"] != "pending":
+        raise HTTPException(409, {"error": "already_decided", "message": f"Request is already {row['status']}."})
+    # only the maker or a decider may route the request (assignment ≠ deciding, but it shouldn't be open to all)
+    if str(row["maker_user_id"]) != ctx["user"]["id"] and "approvals.decide" not in ctx["permissions"]:
+        raise HTTPException(403, {"error": "forbidden",
+                                  "message": "Only the requester or an approver can assign this request."})
+    assignee = body.assignee_user_id
+    if assignee:
+        ok = session.execute(text("""
+            SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
+            JOIN role_permissions rp ON rp.role_id = ur.role_id
+            JOIN permissions p ON p.permission_id = rp.permission_id
+            WHERE u.user_id = CAST(:a AS uuid) AND u.org_id = :o AND p.code = 'approvals.decide'
+        """), {"a": assignee, "o": org_id}).first()
+        if not ok:
+            raise HTTPException(422, {"error": "invalid_assignee",
+                                      "message": "The assignee must be an approver in this organisation."})
+    session.execute(text("UPDATE approval_requests SET assigned_to_user_id = CAST(:a AS uuid) WHERE request_id = :r"),
+                    {"a": assignee, "r": request_id})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.assign",
+                target_type="approval", target_id=request_id, detail={"assignee_user_id": assignee})
+    return {"id": request_id, "assignee_user_id": assignee}
 
 
 @router.post("/{request_id}/decide", summary="Approve or reject (checker — must differ from maker)")
