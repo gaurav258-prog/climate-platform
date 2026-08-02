@@ -1,33 +1,41 @@
 import { type ReactNode } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
 
-type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[] }
+// sector = organizations.type. The agri workspace (manufacturer) and the four financial verticals see
+// different operating surfaces behind the shared globe. `sectors` gates an item to specific org types
+// (undefined = every sector). This keeps a bank out of the Sourcing/EUDR pages, and agri out of Portfolio.
+const AGRI = ['manufacturer']
+const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
+const SECTOR_TAG: Record<string, string> = { manufacturer: 'AGRI', bank: 'BANK', insurer: 'INSURER', asset_manager: 'ASSET MGMT', reit: 'REIT' }
+
+type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[]; sectors?: string[] }
 const GROUPS: { label: string | null; items: Item[] }[] = [
-  // the customer agri workspace (gated by modules.view — the platform operator lacks it)
   { label: null, items: [
     { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
-    { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view' },
+    { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
+    { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
   ] },
+  // ── agriculture workspace ──
   { label: 'Your footprint', items: [
-    { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view' },
-    { to: '/sourcing', label: 'Sourcing book', icon: Sprout, perm: 'modules.view' },
+    { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view', sectors: AGRI },
+    { to: '/sourcing', label: 'Sourcing book', icon: Sprout, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Risk', items: [
-    { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view' },
-    { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view' },
+    { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },
+    { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Compliance', items: [
-    { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck, perm: 'modules.view' },
-    { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText, perm: 'modules.view' },
-    { to: '/esrs', label: 'ESRS Climate & Nature', icon: Leaf, perm: 'modules.view' },
+    { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
+    { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText, perm: 'modules.view', sectors: AGRI },
+    { to: '/esrs', label: 'ESRS Climate & Nature', icon: Leaf, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Assurance', items: [
-    { to: '/models', label: 'Models & validation', icon: FlaskConical, perm: 'modules.view' },
-    { to: '/foundation', label: 'Data foundation', icon: Database, perm: 'modules.view' },
+    { to: '/models', label: 'Models & validation', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
+    { to: '/foundation', label: 'Data foundation', icon: Database, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Governance', items: [
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
@@ -46,6 +54,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   // show Back only when there's in-app history to return to (router tracks position in history.state.idx).
   // this hides it on the first page and on detail pages opened in a fresh tab (idx 0), which keep their own link.
   const canGoBack = pathname !== '/' && (window.history.state?.idx ?? 0) > 0
+  const sector = profile?.org?.type ?? ''
   return (
     <div className="min-h-screen flex">
       {/* vertical grouped sidebar */}
@@ -53,14 +62,15 @@ export default function Shell({ children }: { children: ReactNode }) {
         <div className="h-14 px-5 flex items-center gap-2 border-b border-[var(--color-line)]">
           <BrandMark size={24} />
           <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
-          <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">AGRI</span>
+          <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">{SECTOR_TAG[sector] ?? ''}</span>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
           {GROUPS.map((g, gi) => {
             const items = g.items.filter(it =>
               (!it.perm || profile?.permissions?.includes(it.perm)) &&
-              (!it.anyPerm || it.anyPerm.some(p => profile?.permissions?.includes(p))))
+              (!it.anyPerm || it.anyPerm.some(p => profile?.permissions?.includes(p))) &&
+              (!it.sectors || it.sectors.includes(sector)))
             if (items.length === 0) return null
             return (
             <div key={gi}>

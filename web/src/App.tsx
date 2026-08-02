@@ -12,6 +12,7 @@ import Audit from './pages/Audit'
 import Admin from './pages/Admin'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
+import Portfolio from './pages/Portfolio'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
+        <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />
         <Route path="/detail/site/:id" element={<DetailView kind="site" />} />

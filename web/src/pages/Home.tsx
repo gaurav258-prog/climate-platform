@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { ArrowUpRight, ArrowRight, Boxes, Building2, Sprout, ShieldCheck, TrendingDown, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -83,9 +83,13 @@ const hz = (s?: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? '
 export default function Home() {
   const nav = useNavigate()
   const { profile } = useAuth()
-  const sum = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
-  const sites = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites') })
-  const pf = useQuery({ queryKey: ['portfolio'], queryFn: () => api.get<Portfolio>('/v1/supply/portfolio') })
+  // Home is the agriculture cockpit (it reads the /v1/supply/* endpoints). The financial verticals have
+  // their own operating surface — send them to the Portfolio instead of loading agri data they don't have.
+  const isFin = ['bank', 'insurer', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
+  const sum = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary'), enabled: !isFin })
+  const sites = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites'), enabled: !isFin })
+  const pf = useQuery({ queryKey: ['portfolio'], queryFn: () => api.get<Portfolio>('/v1/supply/portfolio'), enabled: !isFin })
+  if (isFin) return <Navigate to="/portfolio" replace />
 
   const s = sum.data
   const siteList = sites.data?.sites ?? []

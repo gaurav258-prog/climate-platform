@@ -92,6 +92,9 @@ export default function Horizon() {
   const activeEntity = entityId ? (entityList.find(e => e.entity_id === entityId)?.name ?? '—') : `All of ${profile?.org?.name ?? 'the org'}`
   // sector-aware noun (bank→financed assets, insurer→insured locations, agri→sites & origins, …)
   const noun = q.data?.noun ?? 'assets'
+  // "enter operations" lands on the operating surface for this sector: financial books open the Portfolio,
+  // the agri workspace opens its cockpit. (The four financial sectors report sector = their org type.)
+  const opsHref = ['bank', 'insurer', 'asset_manager', 'reit'].includes(q.data?.sector ?? '') ? '/portfolio' : '/home'
   const nounRef = useRef('assets')
   useEffect(() => { nounRef.current = q.data?.noun ?? 'assets' }, [q.data])
   // "what needs you" — the same real, role-filtered signals as the cockpit, surfaced on the landing
@@ -529,7 +532,7 @@ export default function Horizon() {
 
       {/* controls */}
       <button onClick={() => (S.current.snap = true)} className="absolute right-8 bottom-[136px] inline-flex items-center gap-2 mono text-[10.5px] text-[var(--color-mute)] bg-[#0b121e] border border-[#223046] rounded-full px-4 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] max-[800px]:hidden"><Camera size={13} /> save snapshot</button>
-      <button onClick={() => nav('/home')} className="absolute right-8 bottom-[84px] inline-flex items-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] max-[800px]:right-3 max-[800px]:bottom-[78px] max-[800px]:py-2.5">enter operations <ArrowRight size={14} /></button>
+      <button onClick={() => nav(opsHref)} className="absolute right-8 bottom-[84px] inline-flex items-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] max-[800px]:right-3 max-[800px]:bottom-[78px] max-[800px]:py-2.5">enter operations <ArrowRight size={14} /></button>
 
       <div className="absolute left-0 right-0 bottom-0 px-8 pb-6 pt-5" style={{ background: 'linear-gradient(0deg,#04060bE6 30%,transparent)' }}>
         <div className="flex items-center gap-4 max-w-[1200px] mx-auto">
