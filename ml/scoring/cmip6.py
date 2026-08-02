@@ -58,3 +58,45 @@ def cmip6_delta(region_key: Optional[str], scenario: str, horizon: str) -> Optio
 
 def has_coverage() -> bool:
     return bool(_table())
+
+
+# ── global (lat/lon) delta field — the worldwide analogue of the belt table ──────────────────────
+GLOBAL_NPZ = "data/cmip6/cmip6_global_deltas.npz"
+
+
+@lru_cache(maxsize=1)
+def _global():
+    """Lazy-load the global 2° delta field (built by scripts/build_cmip6_global.py). Returns a dict
+    with 'lat','lon','n_models' and per-(ssp,period) mean/std arrays, or None if not built yet."""
+    if not os.path.exists(GLOBAL_NPZ):
+        return None
+    import numpy as np
+    z = np.load(GLOBAL_NPZ)
+    return {k: z[k] for k in z.files}
+
+
+def cmip6_delta_latlon(lat: Optional[float], lon: Optional[float],
+                       scenario: str, horizon: str) -> Optional[Cmip6Delta]:
+    """CMIP6 ensemble delta at an arbitrary location (nearest 2° grid cell), for worldwide assets that
+    aren't on a named belt. None where CMIP6 doesn't cover the combo (baseline/current), the field
+    isn't built, or the nearest cell is NaN (e.g. a precip-fraction over desert / ocean gap)."""
+    ssp = SCENARIO_TO_SSP.get(scenario)
+    per = HORIZON_TO_PERIOD.get(horizon)
+    g = _global()
+    if not (ssp and per and g is not None and lat is not None and lon is not None):
+        return None
+    key = f"{ssp}|{per}"
+    if f"{key}|dtas_mean" not in g:
+        return None
+    import numpy as np
+    i = int(np.abs(g["lat"] - float(lat)).argmin())
+    j = int(np.abs(g["lon"] - float(lon)).argmin())
+    dtas = float(g[f"{key}|dtas_mean"][i, j])
+    dtas_std = float(g[f"{key}|dtas_std"][i, j])
+    dpr = g[f"{key}|dpr_mean"][i, j] if f"{key}|dpr_mean" in g else np.nan
+    dpr_std = g[f"{key}|dpr_std"][i, j] if f"{key}|dpr_std" in g else np.nan
+    if np.isnan(dtas):
+        return None
+    dpr = 0.0 if (dpr is None or np.isnan(dpr)) else float(dpr)          # temp always defined; precip
+    dpr_std = 0.0 if (dpr_std is None or np.isnan(dpr_std)) else float(dpr_std)  # frac may be NaN (desert)
+    return Cmip6Delta(dtas, dpr, int(g["n_models"]), dtas_std, dpr_std)

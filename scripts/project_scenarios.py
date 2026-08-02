@@ -1,75 +1,103 @@
-"""
-Project the baseline golden source forward under NGFS scenarios × time horizons.
+"""Project flood / storm / wildfire forward under NGFS scenarios × horizons — CMIP6-driven (v2).
 
-TCFD/IFRS S2 require forward-looking scenario analysis, but we only scored
-(baseline, current). This amplifies each baseline cell's physical risk by a
-warming × time factor so the Scenario / Horizon selectors return real, different
-numbers (risk rises under hotter pathways and later horizons).
+Supersedes the old flat `score × (1 + warming_intensity × horizon_weight)` uplift, which had no
+physical basis and no uncertainty. Each exposure cell is now projected from its OWN local CMIP6
+warming + precip change (the global delta field, scripts/build_cmip6_global.py) through a documented,
+cited per-hazard sensitivity (ml/scoring/physical_projection.py), and carries a real across-model
+band in score_ci_lower/upper.
 
-Method (transparent, illustrative): score' = min(100, baseline_score × (1 + s·h)),
-where s is the scenario warming intensity and h the horizon weight. Append-only:
-prior projections are retired (valid_to) before inserting fresh ones. Seismic is
-geophysical (not climate-scenario dependent) so it is left at baseline/current only.
+Scope: cells that host actual exposure (financial assets, own sites, sourcing plots) — the cells the
+Scenario/Horizon selectors and portfolio projections consume — not the whole globe. Append-only:
+prior projections (anything that isn't the real baseline/current) are retired before inserting fresh.
 
-Run:  .venv/bin/python scripts/project_scenarios.py
+  baseline (NGFS current-policies) has no CMIP6 SSP mapping and 'current' is 0 warming → both are held
+  at today's hazard (no fabricated baseline warming). The three SSP-mapped pathways carry the modelled
+  change + band. Seismic/volcanic are geophysical (not projected); drought/soil-water/heat have their
+  own climatology paths.
+
+Run (after scripts/build_cmip6_global.py):  .venv/bin/python -m scripts.project_scenarios
 """
 import uuid
 from datetime import datetime, timezone
 
+import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
+from ml.scoring.cmip6 import cmip6_delta_latlon
+from ml.scoring.physical_projection import project, SENSITIVITY
 
-# scenario warming intensity (incl. committed warming in 'baseline') and horizon weight
-SCEN = {"baseline": 0.06, "orderly_1_5c": 0.12, "disorderly_2c": 0.24, "hot_house_3_5c": 0.45}
-HORZ = {"current": 0.0, "2030": 0.3, "2050": 0.6, "2100": 1.0}
+HAZARDS = list(SENSITIVITY)                       # flood, storm, wildfire
+SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
+HORIZONS = ["current", "2030", "2050", "2100"]
+ASSET_TABLES = ["portfolio_entities", "bank_assets", "realestate_properties",
+                "sc_company_sites", "sc_sourcing_plots"]
+
+
+def _asset_cells(s) -> list:
+    cells = set()
+    for t in ASSET_TABLES:
+        try:
+            for c in s.execute(text(f"SELECT DISTINCT h3_cell FROM {t} WHERE h3_cell IS NOT NULL")).scalars():
+                cells.add(c)
+        except Exception:
+            pass
+    return list(cells)
 
 
 def main():
     now = datetime.now(timezone.utc)
     with get_session() as s:
+        cells = _asset_cells(s)
         base = s.execute(text("""
             SELECT h3_cell, hazard_type, CAST(risk_score AS FLOAT) AS score,
                    model_version, data_vintage, COALESCE(h3_resolution, 8) AS res
             FROM   canonical_scores
             WHERE  scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
-            AND   (hazard_type='flood'
-                   OR (hazard_type='wildfire' AND h3_cell IN (SELECT h3_cell FROM portfolio_entities)))
-        """)).mappings().all()
+              AND  COALESCE(score_lane,'standing')='standing'
+              AND  hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
+        """), {"hz": HAZARDS, "cells": cells}).mappings().all()
 
-        # retire previous projections (everything that isn't the real baseline/current)
+        # retire previous projections (everything that isn't the real baseline/current) for these hazards
         s.execute(text("""
             UPDATE canonical_scores SET valid_to = :now
-            WHERE  valid_to IS NULL AND hazard_type IN ('flood','wildfire')
-            AND    NOT (scenario='baseline' AND time_horizon='current')
-        """), {"now": now})
+            WHERE  valid_to IS NULL AND hazard_type = ANY(:hz)
+              AND  COALESCE(score_lane,'standing')='standing'
+              AND  NOT (scenario='baseline' AND time_horizon='current')
+        """), {"now": now, "hz": HAZARDS})
 
-        rows = []
+        rows, banded = [], 0
         for b in base:
-            for scen, inten in SCEN.items():
-                for horz, w in HORZ.items():
+            lat, lon = h3.cell_to_latlng(b["h3_cell"])
+            for scen in SCENARIOS:
+                for horz in HORIZONS:
                     if scen == "baseline" and horz == "current":
                         continue  # the real scored value — never overwrite
-                    score = min(100.0, b["score"] * (1 + inten * w))
+                    # baseline (no SSP) and 'current' (0 warming) are held at today's hazard, no band
+                    delta = cmip6_delta_latlon(lat, lon, scen, horz)
+                    score, lo, hi = project(b["score"], b["hazard_type"], delta)
+                    if lo is not None:
+                        banded += 1
                     rows.append({
                         "id": str(uuid.uuid4()), "h3": b["h3_cell"], "res": b["res"],
                         "hz": b["hazard_type"], "scen": scen, "horz": horz,
                         "score": round(score, 2), "bucket": score_to_bucket(score).value,
-                        "mv": b["model_version"], "dv": b["data_vintage"], "now": now,
+                        "lo": lo, "hi": hi, "mv": b["model_version"], "dv": b["data_vintage"], "now": now,
                     })
 
         for i in range(0, len(rows), 2000):
             s.execute(text("""
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, model_version, data_vintage, scored_at, valid_from, valid_to)
+                     risk_score, risk_bucket, score_ci_lower, score_ci_upper,
+                     model_version, data_vintage, scored_at, valid_from, valid_to, score_lane)
                 VALUES
-                    (:id, :h3, :res, :hz, :scen, :horz, :score, :bucket, :mv, :dv, :now, :now, NULL)
+                    (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:dv,:now,:now,NULL,'standing')
             """), rows[i:i + 2000])
 
-    print(f"projected {len(rows)} scores across "
-          f"{len(SCEN) * len(HORZ) - 1} scenario×horizon combos from {len(base)} baseline cells")
+    print(f"projected {len(rows)} rows over {len(base)} (cell×hazard) from {len(cells)} exposure cells; "
+          f"{banded} carry a CMIP6 model-disagreement band")
 
 
 if __name__ == "__main__":

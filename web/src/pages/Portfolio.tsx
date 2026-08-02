@@ -10,7 +10,7 @@ import { Eyebrow, Card } from '../components/ui'
 // its rollup — every number is the projected book from the golden source, nothing invented. Agriculture
 // keeps its own workspace (Sourcing/Cogs/…); this is the equivalent operating book for the four financials.
 
-interface Hazard { hazard: string; score: number; bucket: string; model_version?: string; scored_at?: string }
+interface Hazard { hazard: string; score: number; bucket: string; model_version?: string; scored_at?: string; ci_lo?: number | null; ci_hi?: number | null }
 interface Valuation {
   discounted_value_eur: number; is_overridden: boolean
   recommended_discount_pct?: number; effective_discount_pct?: number
@@ -194,7 +194,10 @@ export default function Portfolio() {
                               <span className="text-[var(--color-mute)] capitalize">{h.hazard.replace(/_/g, ' ')}</span>
                               {h.model_version && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{h.model_version}{h.scored_at ? ` · ${h.scored_at.slice(0, 10)}` : ''}</span>}
                             </span>
-                            <span className="mono tabular-nums shrink-0" style={{ color: `rgb(${hr},${hg},${hb})` }}>{Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}</span>
+                            <span className="mono tabular-nums shrink-0 text-right" style={{ color: `rgb(${hr},${hg},${hb})` }}>
+                              {Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}
+                              {h.ci_lo != null && h.ci_hi != null && <span className="block text-[9.5px] text-[var(--color-faint)] leading-tight" title="CMIP6 across-model 68% band (model disagreement)">band {Math.round(h.ci_lo)}–{Math.round(h.ci_hi)}</span>}
+                            </span>
                           </div>) })}
                       </div>
                       {a.valuation && (<>

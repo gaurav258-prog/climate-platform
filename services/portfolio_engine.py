@@ -78,7 +78,8 @@ def fetch_entities_with_risk(
 
     risks = session.execute(text("""
         SELECT entity_id::text AS entity_id, hazard_type,
-               physical_risk_score AS score, risk_bucket, model_version, scored_at
+               physical_risk_score AS score, risk_bucket, model_version, scored_at,
+               physical_risk_ci_lower AS ci_lo, physical_risk_ci_upper AS ci_hi
         FROM v_portfolio_entity_physical_risk
         WHERE org_id = :o AND vertical = :v AND scenario = :s AND time_horizon = :h
     """), {"o": org_id, "v": vertical, "s": scenario, "h": horizon}).mappings().all()
@@ -89,6 +90,8 @@ def fetch_entities_with_risk(
             "hazard": r["hazard_type"], "score": round(r["score"], 1),
             "bucket": r["risk_bucket"], "model_version": r["model_version"],
             "scored_at": r["scored_at"],
+            "ci_lo": round(r["ci_lo"], 1) if r["ci_lo"] is not None else None,
+            "ci_hi": round(r["ci_hi"], 1) if r["ci_hi"] is not None else None,
         })
 
     valuations = session.execute(text("""
@@ -161,7 +164,8 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
 
     risks = session.execute(text("""
         SELECT hazard_type, scenario, time_horizon,
-               physical_risk_score AS score, risk_bucket, model_version, scored_at
+               physical_risk_score AS score, risk_bucket, model_version, scored_at,
+               physical_risk_ci_lower AS ci_lo, physical_risk_ci_upper AS ci_hi
         FROM v_portfolio_entity_physical_risk WHERE entity_id = :i
         ORDER BY hazard_type, scenario, time_horizon
     """), {"i": entity_id}).mappings().all()
