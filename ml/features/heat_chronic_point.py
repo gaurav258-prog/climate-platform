@@ -96,6 +96,8 @@ def score_heat_chronic_point(lat: float, lon: float, scenario: str = "baseline",
             VALUES
                 (:score_id, :h3_cell, 8, 'heat_chronic', :scenario, :horizon,
                  :risk_score, :risk_bucket, :mv, :now, CAST(:shap AS jsonb), :now, :now, NULL)
+            ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane)
+                WHERE valid_to IS NULL DO NOTHING
         """), {
             "score_id": str(uuid.uuid4()), "h3_cell": cell, "scenario": scenario, "horizon": horizon,
             "risk_score": risk, "risk_bucket": score_to_bucket(risk).value,

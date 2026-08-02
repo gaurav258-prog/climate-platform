@@ -119,6 +119,8 @@ def score_seismic_point(lat: float, lon: float) -> dict:
                 (:score_id,:h3_cell,8,'seismic','baseline','current',
                  :risk_score,:risk_bucket,:mv,:vintage, CAST(:shap AS jsonb),
                  :now,:now, NULL)
+            ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane)
+                WHERE valid_to IS NULL DO NOTHING
         """), {
             "score_id": str(uuid.uuid4()), "h3_cell": cell,
             "risk_score": round(risk, 2), "risk_bucket": score_to_bucket(risk).value,
@@ -199,6 +201,8 @@ def score_storm_point(lat: float, lon: float) -> dict:
                 (:score_id,:h3_cell,8,'storm','baseline','current',
                  :risk_score,:risk_bucket,:mv,:vintage, CAST(:shap AS jsonb),
                  :now,:now, NULL)
+            ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane)
+                WHERE valid_to IS NULL DO NOTHING
         """), {
             "score_id": str(uuid.uuid4()), "h3_cell": cell,
             "risk_score": round(best_score, 2), "risk_bucket": score_to_bucket(best_score).value,

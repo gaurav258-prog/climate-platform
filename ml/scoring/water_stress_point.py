@@ -64,6 +64,8 @@ def score_water_stress_point(lat: float, lon: float, scenario: str = "baseline",
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
                 risk_score, risk_bucket, model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to)
             VALUES (:id, :c, 8, 'soil_water', :sc, :h, :r, :b, :mv, :now, CAST(:shap AS jsonb), :now, :now, NULL)
+            ON CONFLICT (h3_cell, hazard_type, scenario, time_horizon, score_lane)
+                WHERE valid_to IS NULL DO NOTHING
         """), {"id": str(uuid.uuid4()), "c": cell, "sc": scenario, "h": horizon, "r": risk,
                "b": score_to_bucket(risk).value, "mv": MODEL_VERSION, "now": now, "shap": json.dumps(shap)})
     return {"status": "scored", "h3_cell": cell, "risk_score": risk, "risk_bucket": score_to_bucket(risk).value}
