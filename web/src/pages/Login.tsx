@@ -2,8 +2,14 @@ import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { BrandMark, Button } from '../components/ui'
 
+// one demo tenant per sector — clicking signs straight in as that sector's admin
+const DEMO_PW = 'Demo!admin1'
 const DEMOS = [
-  { label: 'Terra · Agriculture', email: 'analyst@terra.demo', pw: 'Demo!analyst1' },
+  { label: 'Bank', sub: 'financed assets', email: 'admin@meridian.demo' },
+  { label: 'Insurer', sub: 'insured locations', email: 'admin@iberia.demo' },
+  { label: 'Asset manager', sub: 'holdings', email: 'admin@nordkap.demo' },
+  { label: 'REIT', sub: 'properties', email: 'admin@stellar.demo' },
+  { label: 'Agriculture', sub: 'sites & origins', email: 'admin@terra.demo' },
 ]
 
 export default function Login() {
@@ -19,6 +25,12 @@ export default function Login() {
     try { await login(email.trim(), pw) }
     catch { setErr('Email or password is incorrect.') }
     finally { setBusy(false) }
+  }
+
+  async function demoLogin(demoEmail: string) {
+    setBusy(true); setErr(null)
+    try { await login(demoEmail, DEMO_PW) }  // login() reloads on success
+    catch { setErr('Could not open the demo tenant.'); setBusy(false) }
   }
 
   return (
@@ -37,7 +49,7 @@ export default function Login() {
 
         <form onSubmit={submit} className="card p-6">
           <h1 className="display text-lg font-semibold m-0">Sign in</h1>
-          <p className="text-[13px] text-[var(--color-mute)] mt-1 mb-5">Agriculture · supply-chain risk workspace</p>
+          <p className="text-[13px] text-[var(--color-mute)] mt-1 mb-5">Physical climate-risk workspace · every sector</p>
 
           <label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Email</label>
           <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="username"
@@ -56,13 +68,20 @@ export default function Login() {
         </form>
 
         <div className="mt-5">
-          <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Demo account</div>
-          {DEMOS.map(d => (
-            <button key={d.email} onClick={() => { setEmail(d.email); setPw(d.pw) }}
-              className="w-full text-left card px-4 py-2.5 text-[13px] hover:border-[var(--color-sky)] transition">
-              {d.label} <span className="text-[var(--color-faint)] mono text-[11px]">· {d.email}</span>
-            </button>
-          ))}
+          <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Jump into a demo sector</div>
+          <div className="flex flex-col gap-2">
+            {DEMOS.map(d => (
+              <button key={d.email} onClick={() => demoLogin(d.email)} disabled={busy}
+                className="w-full text-left card px-4 py-2.5 hover:border-[var(--color-sky)] transition disabled:opacity-60 flex items-center justify-between gap-3">
+                <span>
+                  <span className="text-[13px] text-[var(--color-ink)]">{d.label}</span>
+                  <span className="text-[var(--color-faint)] mono text-[11px]"> · {d.sub}</span>
+                </span>
+                <span className="mono text-[11px] text-[var(--color-sky)] shrink-0">open →</span>
+              </button>
+            ))}
+          </div>
+          <div className="mono text-[10px] text-[var(--color-faint)] mt-2">one-click sign-in as each sector's admin</div>
         </div>
       </div>
     </div>
