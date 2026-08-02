@@ -138,21 +138,70 @@ def main() -> int:
 
         # snap this commodity's plots to the nearest scored cell by their stored coordinates
         plots = s.execute(text("""
-            SELECT p.plot_name, p.latitude, p.longitude
+            SELECT p.plot_name, p.latitude, p.longitude, p.country, p.commodity_id::text AS commodity_id
             FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
             WHERE co.name = :c AND p.latitude IS NOT NULL
-        """), {"c": args.commodity}).fetchall()
+        """), {"c": args.commodity}).mappings().fetchall()
         snapped = 0
-        for name, lat, lon in plots:
-            lat, lon = float(lat), float(lon)
+        plot_slots = set()   # (commodity_id, origin, cell) → cells to write a crop-calendar overlay for
+        # REGION-SCOPED snap: a commodity's plots live on many belts (Spain olive, Morocco wheat, …),
+        # so only snap a plot to THIS belt when its coordinates actually fall in/near it. Without this,
+        # scoring one belt drags every plot of the commodity onto it (an Australian wheat plot onto
+        # Morocco), silently mis-locating it. SNAP_MAX_DEG ≈ 2.5° (~275 km) — inside a belt the nearest
+        # scored cell is a fraction of a degree away; a plot on another belt is tens of degrees away.
+        SNAP_MAX_DEG = 2.5
+        for pl in plots:
+            name, lat, lon = pl["plot_name"], float(pl["latitude"]), float(pl["longitude"])
             glat, glon = round(lat * 10) / 10, round(lon * 10) / 10
             cell = h3.latlng_to_cell(glat, glon, 8)
             if cell not in scored_cells:
                 cell = min(scored_cells,
                            key=lambda c: (lambda p: (p[0]-lat)**2 + (p[1]-lon)**2)(h3.cell_to_latlng(c)))
+                clat, clon = h3.cell_to_latlng(cell)
+                if ((clat - lat) ** 2 + (clon - lon) ** 2) ** 0.5 > SNAP_MAX_DEG:
+                    continue   # this plot belongs to a different belt — leave it where it is
             r = s.execute(text("UPDATE sc_sourcing_plots SET h3_cell=:c WHERE plot_name=:n"),
                           {"c": cell, "n": name})
             snapped += r.rowcount
+            if pl["country"]:
+                plot_slots.add((pl["commodity_id"], pl["country"], cell))
+
+        # WS4b — crop-calendar OVERLAY: write THIS crop's own-season reading (score + CMIP6 band) for
+        # the cells its plots occupy, so two crops on one belt don't overwrite each other in the generic
+        # canonical lane. Keyed by (commodity, origin, cell) → append-only, retire prior same-key, leave
+        # canonical_scores untouched (financial/any-address readers unaffected). Season/SPEI stored for
+        # provenance. Only the agri plot view reads this overlay (prefers it, else the generic reading).
+        season_str = args.season
+        spei = args.spei_scale if args.driver == "drought" else None
+        by_cell = {}
+        for row in rows:
+            by_cell.setdefault(row["h3"], []).append(row)
+        overlay = []
+        for commodity_id, origin, cell in plot_slots:
+            for row in by_cell.get(cell, []):
+                overlay.append({"id": str(uuid.uuid4()), "cid": commodity_id, "org": origin,
+                                "h3": cell, "res": 8, "hz": hazard_type,
+                                "scen": row["scen"], "horz": row["horz"],
+                                "score": row["score"], "bucket": row["bucket"],
+                                "ci_lo": row["ci_lo"], "ci_hi": row["ci_hi"],
+                                "season": season_str, "spei": spei,
+                                "mv": MODEL_VERSION, "dv": vintage, "now": now})
+        if overlay:
+            cells_here = list({o["h3"] for o in overlay})
+            s.execute(text("""
+                UPDATE sc_crop_calendar_score SET valid_to = :now
+                WHERE commodity_id = :cid AND hazard_type = :hz AND valid_to IS NULL
+                  AND h3_cell = ANY(:cells)
+            """), {"now": now, "cid": overlay[0]["cid"], "hz": hazard_type, "cells": cells_here})
+            for k in range(0, len(overlay), 2000):
+                s.execute(text("""
+                    INSERT INTO sc_crop_calendar_score
+                        (score_id, commodity_id, origin, h3_cell, h3_resolution, hazard_type, scenario,
+                         time_horizon, risk_score, risk_bucket, score_ci_lower, score_ci_upper,
+                         season_months, spei_scale, model_version, data_vintage, scored_at, valid_from, valid_to)
+                    VALUES (:id,:cid,:org,:h3,:res,:hz,:scen,:horz,:score,:bucket,:ci_lo,:ci_hi,
+                            :season,:spei,:mv,:dv,:now,:now,NULL)
+                """), overlay[k:k + 2000])
 
     # register/refresh this hazard's active climatology model (reproducible; mirrors score_cocoa_heat)
     try:
