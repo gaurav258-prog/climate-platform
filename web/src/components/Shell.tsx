@@ -19,6 +19,9 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
   ] },
+  { label: 'Compliance', items: [
+    { to: '/compliance', label: 'Disclosure', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
+  ] },
   // ── agriculture workspace ──
   { label: 'Your footprint', items: [
     { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view', sectors: AGRI },

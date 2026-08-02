@@ -13,6 +13,7 @@ import Admin from './pages/Admin'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
+import Compliance from './pages/Compliance'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/compliance" element={<Compliance />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />
         <Route path="/detail/site/:id" element={<DetailView kind="site" />} />
