@@ -346,58 +346,17 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
 
     org_id = ctx["org"]["org_id"]
-    records, cell_coords = [], {}
-    for _, row in df.iterrows():
-        try:
-            lat, lon = float(row["latitude"]), float(row["longitude"])
-            value_eur = float(row["appraised_value_eur"])
-        except (TypeError, ValueError):
-            continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
-        cell = h3.latlng_to_cell(lat, lon, 8)
-        cell_coords[cell] = (lat, lon)
-        outstanding = row.get("outstanding_loan_balance_eur")
-        origination = row.get("loan_origination_date")
-        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
-        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
-            safeguards = None
-        records.append({
-            "entity_id": str(uuid.uuid4()), "org_id": org_id,
-            "entity_name": str(row["asset_name"]), "entity_type": str(row["asset_type"]),
-            "latitude": lat, "longitude": lon, "h3_cell": cell,
-            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "primary_value_eur": value_eur, "sector": str(row["sector"]),
-            "outstanding_loan_balance_eur": float(outstanding) if pd.notna(outstanding) else None,
-            "loan_origination_date": str(origination)[:10] if pd.notna(origination) else None,
-            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
-            "minimum_safeguards_status": safeguards,
-            # No nace_code in today's upload template, so real EU Taxonomy classification
-            # (ml/regulatory/eu_taxonomy_classifier.py) can't run yet -- honest "not assessed",
-            # never a guessed status, even with minimum_safeguards_status on file. Adding a
-            # nace_code column is a natural follow-on.
-            "taxonomy_status": "not_assessed",
-        })
-    if not records:
+    # Same core the direct-integration API uses (NaN → None so the shared row parser sees real blanks).
+    rows = df.where(pd.notnull(df), None).to_dict("records")
+    from services.ingest.portfolio_ingest import ingest_bank_assets
+    res = ingest_bank_assets(session, org_id, rows)
+    if res["n_ingested"] == 0:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
-
-    session.execute(text("""
-        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
-                                         h3_cell, region, country, primary_value_eur, sector,
-                                         borrower_entity_id, minimum_safeguards_status)
-        VALUES (:entity_id, :org_id, 'banking', :entity_name, :entity_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :primary_value_eur, :sector,
-                :borrower_entity_id, :minimum_safeguards_status)
-    """), records)
-    session.execute(text("""
-        INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)
-        VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status)
-    """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
                 target_type="bank_assets", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename})
+                detail={"n_rows": res["n_ingested"], "n_skipped": res["n_skipped"], "filename": file.filename})
 
-    processing = process_new_cells(cell_coords)
-    return {"n_uploaded": len(records), **processing}
+    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], **res["processing"]}
 
 
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")

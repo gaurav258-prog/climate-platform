@@ -75,6 +75,33 @@ def require_customer_id(
 CustomerId = Annotated[str, Depends(require_customer_id)]
 
 
+# ── Tenant ingest-token auth (direct source-system integration) ─────────
+# A tenant service account. Token format tlm_live_… ; distinct from user JWTs and legacy cp_live_ keys.
+
+def require_ingest_org(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
+    session:     DbSession = None,
+) -> dict:
+    """Validate a Bearer ingest token → {org_id, token_id, org_type, org_name}."""
+    raw = credentials.credentials if credentials else None
+    if not raw:
+        raise HTTPException(status_code=401, detail={
+            "error": "missing_credentials", "message": "Authorization: Bearer <ingest_token> header required."})
+    if not raw.startswith("tlm_live_"):
+        raise HTTPException(status_code=401, detail={
+            "error": "ingest_token_required",
+            "message": "This endpoint needs a tenant ingest token (tlm_live_…), not a user session or legacy key."})
+    from api.services.ingest_tokens import validate_token
+    res = validate_token(session, raw)
+    if not res:
+        raise HTTPException(status_code=401, detail={
+            "error": "invalid_ingest_token", "message": "Ingest token is invalid, revoked, or expired."})
+    return res
+
+
+IngestOrg = Annotated[dict, Depends(require_ingest_org)]
+
+
 # ── User JWT auth (login sessions) ──────────────────────────────────────
 # Disambiguation: machine API keys start with "cp_live_"; user JWTs never do.
 

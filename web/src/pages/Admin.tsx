@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -34,6 +34,7 @@ export default function Admin() {
     perms.includes('admin.users.manage') && 'Users',
     perms.includes('admin.roles.manage') && 'Roles',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
+    perms.includes('admin.users.manage') && 'Integrations',
   ].filter(Boolean) as string[]
   const [tab, setTab] = useState(tabs[0] ?? 'Overview')
 
@@ -56,6 +57,114 @@ export default function Admin() {
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
       {tab === 'Approval matrix' && <Matrix />}
+      {tab === 'Integrations' && <Integrations />}
+    </div>
+  )
+}
+
+interface Token { token_id: string; name: string; token_prefix: string; is_active: boolean; created_by_email: string | null; created_at: string | null; last_used_at: string | null }
+
+function Integrations() {
+  const { profile } = useAuth()
+  const sector = profile?.org?.type ?? ''
+  const q = useQuery({ queryKey: ['ingest-tokens'], queryFn: () => api.get<Token[]>('/v1/ingest/tokens') })
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [revealed, setRevealed] = useState<{ name: string; raw: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const ago = (iso: string | null) => { if (!iso) return 'never'; const d = (Date.now() - new Date(iso).getTime()) / 86400000; return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.floor(d)}d ago` }
+
+  const create = async () => {
+    if (name.trim().length < 2) { alert('Give the token a name.'); return }
+    setBusy(true)
+    try {
+      const res = await api.post<{ raw_token: string; name: string }>('/v1/ingest/tokens', { name: name.trim() })
+      setRevealed({ name: res.name, raw: res.raw_token }); setName(''); q.refetch()
+    } catch { alert('Could not create the token.') } finally { setBusy(false) }
+  }
+  const revoke = async (id: string) => {
+    if (!confirm('Revoke this token? Any system using it stops working immediately.')) return
+    try { await api.del(`/v1/ingest/tokens/${id}`); q.refetch() } catch { alert('Could not revoke.') }
+  }
+  const copy = () => { if (revealed?.raw) { navigator.clipboard?.writeText(revealed.raw); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
+
+  const origin = window.location.origin
+  const isBank = sector === 'bank'
+  const rows = q.data ?? []
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center gap-2"><Plug size={16} className="text-[var(--color-sky)]" /><h2 className="display text-xl font-semibold">Direct integration</h2></div>
+        <p className="text-[13px] text-[var(--color-mute)] mt-1 max-w-2xl">Let your own systems push data straight into your tenant with an API token — the third way to get data in, alongside manual entry and template upload. A token acts as your organization; keep it secret and revoke it if it leaks.</p>
+      </div>
+
+      {/* create */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex-1 min-w-[220px]">
+            <span className="text-[11.5px] text-[var(--color-mute)]">New token name</span>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Core banking nightly" maxLength={80} className={inp + ' mt-1'} />
+          </label>
+          <Button onClick={create} disabled={busy}><KeyRound size={15} /> {busy ? 'Creating…' : 'Create token'}</Button>
+        </div>
+        {revealed && (
+          <div className="mt-4 rounded-lg border border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,transparent)] p-3.5">
+            <div className="flex items-center gap-2 text-[12px] text-[var(--color-sky)] mb-2"><AlertCircle size={14} /> Copy this now — it is shown only once.</div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 mono text-[12.5px] break-all bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded px-3 py-2">{revealed.raw}</code>
+              <button onClick={copy} className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium border border-[var(--color-line-2)] hover:border-[var(--color-sky)]"><Copy size={13} /> {copied ? 'Copied' : 'Copy'}</button>
+            </div>
+            <div className="text-[11px] text-[var(--color-faint)] mt-1.5">Token “{revealed.name}”. Store it in your system's secret manager.</div>
+          </div>
+        )}
+      </Card>
+
+      {/* list */}
+      <Card className="p-0 overflow-x-auto">
+        {rows.length === 0 ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">No tokens yet.</div> : (
+          <table className="w-full text-[13px]">
+            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+              <th className="font-normal py-2.5 px-4">Name</th><th className="font-normal px-4">Prefix</th><th className="font-normal px-4">Created by</th>
+              <th className="font-normal px-4">Last used</th><th className="font-normal px-4">Status</th><th className="font-normal px-4"></th>
+            </tr></thead>
+            <tbody>
+              {rows.map(t => (
+                <tr key={t.token_id} className="border-b border-[var(--color-line)] last:border-0">
+                  <td className="py-2.5 px-4 text-[var(--color-ink)]">{t.name}</td>
+                  <td className="px-4 mono text-[11.5px] text-[var(--color-mute)]">{t.token_prefix}…</td>
+                  <td className="px-4 text-[11.5px] text-[var(--color-mute)]">{t.created_by_email ?? '—'}</td>
+                  <td className="px-4 text-[11.5px] text-[var(--color-mute)]">{ago(t.last_used_at)}</td>
+                  <td className="px-4">{t.is_active
+                    ? <span className="mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]">active</span>
+                    : <span className="mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-faint)] bg-[var(--color-panel-2)]">revoked</span>}</td>
+                  <td className="px-4 text-right">{t.is_active && <button onClick={() => revoke(t.token_id)} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-bad)]"><Trash2 size={13} /> Revoke</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      {/* how to connect */}
+      <Card className="p-5">
+        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-3">How to connect</div>
+        <ol className="space-y-3 text-[13px] text-[var(--color-mute)]">
+          <li><b className="text-[var(--color-ink)]">1. Check the token</b> — confirm it authenticates your tenant:
+            <pre className="mono text-[11.5px] mt-1.5 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 overflow-x-auto">curl -H "Authorization: Bearer &lt;token&gt;" {origin}/v1/ingest/ping</pre></li>
+          <li><b className="text-[var(--color-ink)]">2. Push your data</b> —
+            {isBank
+              ? <> POST your loan-tape rows (same fields as the CSV template):
+                  <pre className="mono text-[11.5px] mt-1.5 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 overflow-x-auto">{`curl -X POST ${origin}/v1/ingest/bank/assets \\
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \\
+  -d '{"rows":[{"asset_name":"Frankfurt Tower 1","asset_type":"commercial_real_estate",
+      "latitude":50.11,"longitude":8.68,"appraised_value_eur":12000000,"sector":"Commercial real estate"}]}'`}</pre>
+                  Rows are validated, located, and scored against the golden source — exactly like the upload. A row missing a required field is skipped and reported, never guessed.</>
+              : <span className="text-[var(--color-faint)]"> the direct-push endpoint for the <b className="capitalize">{sector.replace('_', ' ')}</b> sector is rolling out — your token and the handshake work today; talk to us to be an early integration partner. Template upload remains available now.</span>}
+          </li>
+        </ol>
+        <a href="/docs" className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline mt-3"><Database size={13} /> Full data-in guide in Documentation</a>
+      </Card>
     </div>
   )
 }

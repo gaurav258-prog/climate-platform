@@ -77,8 +77,10 @@ Your team feeds the software in one of three ways:
 1. **Manual entry** — add an asset directly in the workspace.
 2. **Template upload** — download the template for your sector, fill it, and upload the CSV. This is the
    fastest way to bring a whole book in.
-3. **Direct integration** — a secure API pull from your source systems. *(On the roadmap — talk to us if you
-   want to be an early integration partner.)*
+3. **Direct integration** — a secure API push from your source systems using a tenant **ingest token**. An
+   admin creates a token in **Control center › Integrations**; your system then POSTs rows to the ingest API,
+   which validates, locates and scores them exactly like an upload. *(Live for banking today; other sectors'
+   push endpoints are rolling out — the token and handshake work for every sector now.)*
 
 ## The validation gate
 Nothing is silently accepted. On upload we check schema, units, and completeness, then return a **coverage
