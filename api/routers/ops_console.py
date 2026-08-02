@@ -7,7 +7,9 @@ scripts/seed_platform_operator.py). Read-only — an operator never edits a cust
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -118,3 +120,109 @@ def tenant(org_id: str, session: DbSession, ctx: dict = Depends(require_permissi
         "recent_activity": [{"action": r["action"], "email": r["email"],
                              "created_at": r["created_at"].isoformat() if r["created_at"] else None} for r in recent],
     }
+
+
+# ─────────────────────────── Support queue (the "with us" side) ───────────────────────────
+# The customer raises requests in their own tenant (/v1/portal). Here a Tellumen operator sees them ACROSS
+# every tenant, replies on the shared thread, and drives them to resolution. An operator's reply is written
+# into the customer's OWN audit log (transparency), exactly like impersonation entries.
+
+class SupportReply(BaseModel):
+    body:   str = Field(..., min_length=1, max_length=4000)
+    status: Optional[str] = Field(None, pattern="^(open|in_progress|resolved)$")
+
+
+def _sr_serialize(r) -> dict:
+    last_side = r.get("last_side")
+    return {
+        "id": str(r["request_id"]), "org_id": str(r["org_id"]), "org_name": r.get("org_name"),
+        "category": r["category"], "subject": r["subject"], "body": r["body"],
+        "priority": r["priority"], "status": r["status"], "requester_email": r.get("requester_email"),
+        "message_count": int(r.get("message_count") or 0),
+        "awaiting_support": (last_side is None or last_side == "customer") and r["status"] != "resolved",
+        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        "first_response_at": r["first_response_at"].isoformat() if r.get("first_response_at") else None,
+        "resolved_at": r["resolved_at"].isoformat() if r.get("resolved_at") else None,
+        "last_activity": r["last_activity"].isoformat() if r.get("last_activity") else None,
+    }
+
+
+_SR_COLS = """
+    sr.request_id, sr.org_id, o.name AS org_name, sr.category, sr.subject, sr.body, sr.priority, sr.status,
+    sr.created_at, sr.first_response_at, sr.resolved_at, u.email AS requester_email,
+    (SELECT count(*)      FROM service_request_messages m WHERE m.request_id = sr.request_id) AS message_count,
+    (SELECT m.author_side FROM service_request_messages m WHERE m.request_id = sr.request_id ORDER BY m.created_at DESC LIMIT 1) AS last_side,
+    GREATEST(sr.updated_at, COALESCE(
+        (SELECT max(m.created_at) FROM service_request_messages m WHERE m.request_id = sr.request_id), sr.updated_at)) AS last_activity
+"""
+
+
+@router.get("/support", summary="Support queue — every tenant's service requests (cross-tenant)")
+def support_queue(session: DbSession, ctx: dict = Depends(require_permission("platform.admin")),
+                  status: str = Query("open", pattern="^(open|in_progress|resolved|all)$")):
+    where = "" if status == "all" else "WHERE sr.status = :st"
+    rows = session.execute(text(f"""
+        SELECT {_SR_COLS}
+        FROM   service_requests sr
+        JOIN   organizations o ON o.org_id = sr.org_id
+        LEFT   JOIN users u ON u.user_id = sr.requester_user_id
+        {where}
+        ORDER  BY (sr.status = 'resolved'), sr.priority = 'urgent' DESC, last_activity DESC
+    """), ({} if status == "all" else {"st": status})).mappings().all()
+    items = [_sr_serialize(r) for r in rows]
+    open_n = sum(1 for i in items if i["status"] != "resolved")
+    awaiting = sum(1 for i in items if i["awaiting_support"])
+    return {"totals": {"shown": len(items), "open": open_n, "awaiting_support": awaiting}, "requests": items}
+
+
+@router.get("/support/{request_id}", summary="One request + its thread (cross-tenant)")
+def support_detail(request_id: str, session: DbSession,
+                   ctx: dict = Depends(require_permission("platform.admin"))):
+    r = session.execute(text(f"""
+        SELECT {_SR_COLS}
+        FROM   service_requests sr
+        JOIN   organizations o ON o.org_id = sr.org_id
+        LEFT   JOIN users u ON u.user_id = sr.requester_user_id
+        WHERE  sr.request_id = :r
+    """), {"r": request_id}).mappings().first()
+    if not r:
+        raise HTTPException(404, {"error": "not_found", "message": "Request not found."})
+    msgs = session.execute(text("""
+        SELECT m.message_id, m.author_side, m.body, m.created_at,
+               u.email AS author_email, u.full_name AS author_name
+        FROM   service_request_messages m
+        LEFT   JOIN users u ON u.user_id = m.author_user_id
+        WHERE  m.request_id = :r ORDER BY m.created_at ASC
+    """), {"r": request_id}).mappings().all()
+    return {"request": _sr_serialize(r), "messages": [
+        {"id": str(m["message_id"]), "author_side": m["author_side"], "author_email": m.get("author_email"),
+         "author_name": m.get("author_name"), "body": m["body"],
+         "created_at": m["created_at"].isoformat() if m["created_at"] else None} for m in msgs]}
+
+
+@router.post("/support/{request_id}/reply", status_code=201, summary="Reply as Tellumen support (cross-tenant)")
+def support_reply(request_id: str, body: SupportReply, session: DbSession,
+                  ctx: dict = Depends(require_permission("platform.admin"))):
+    req = session.execute(text(
+        "SELECT org_id, status FROM service_requests WHERE request_id = :r"),
+        {"r": request_id}).mappings().first()
+    if not req:
+        raise HTTPException(404, {"error": "not_found", "message": "Request not found."})
+    mid = session.execute(text("""
+        INSERT INTO service_request_messages (request_id, author_user_id, author_side, body)
+        VALUES (:r, :u, 'support', :b) RETURNING message_id
+    """), {"r": request_id, "u": ctx["user"]["id"], "b": body.body}).scalar()
+    # Status: an explicit choice wins; otherwise a first reply on an 'open' request moves it to in_progress.
+    new_status = body.status or ("in_progress" if req["status"] == "open" else req["status"])
+    session.execute(text("""
+        UPDATE service_requests
+        SET status = :s, updated_at = now(),
+            first_response_at = COALESCE(first_response_at, now()),
+            resolved_at = CASE WHEN :res THEN now() ELSE NULL END
+        WHERE request_id = :r
+    """), {"s": new_status, "res": new_status == "resolved", "r": request_id})
+    # Recorded in the CUSTOMER's audit log — the tenant can see that Tellumen support replied.
+    write_audit(session, org_id=req["org_id"], actor_user_id=ctx["user"]["id"],
+                action="support.reply", target_type="service_request", target_id=request_id,
+                detail={"operator": ctx["user"]["email"], "status": new_status})
+    return {"id": str(mid), "status": new_status}

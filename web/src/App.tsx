@@ -22,6 +22,7 @@ import DataFoundation from './pages/DataFoundation'
 import RiskMap from './pages/RiskMap'
 import DetailView from './pages/DetailView'
 import CommodityDetail from './pages/CommodityDetail'
+import Support from './pages/Support'
 
 export default function App() {
   const { profile, loading } = useAuth()
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/early-warning" element={<EarlyWarning />} />
         <Route path="/models" element={<Models />} />
         <Route path="/foundation" element={<DataFoundation />} />
+        <Route path="/support" element={<Support />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>

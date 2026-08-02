@@ -415,6 +415,22 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
     except Exception:
         pass
 
+    # ── SUPPORT: Tellumen replied to a request you raised (cross-sector; anyone with portal access) ──
+    try:
+        awaiting = session.execute(text("""
+            SELECT count(*) FROM service_requests sr
+            WHERE sr.org_id = :o AND sr.status <> 'resolved'
+              AND (SELECT m.author_side FROM service_request_messages m
+                   WHERE m.request_id = sr.request_id ORDER BY m.created_at DESC LIMIT 1) = 'support'
+        """), {"o": org_id}).scalar() or 0
+        if awaiting:
+            tasks.append(_task(
+                "support_reply", f"Tellumen replied to {awaiting} support request{'s' if awaiting != 1 else ''}",
+                "Support has responded — read the reply and either close the loop or reply back.",
+                "info", "Open support", "/support", "portal.use"))
+    except Exception:
+        pass
+
     if is_agri:
         try:
             from services.intelligence.revalidation import revalidation_status

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Globe, ChevronRight, X, LogIn } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Stat, Button } from '../components/ui'
@@ -74,7 +74,123 @@ export default function Platform() {
         </table>
       </Card>
 
+      <SupportQueue />
+
       {open && <TenantDrawer orgId={open} onClose={() => setOpen(null)} />}
+    </div>
+  )
+}
+
+// ─────────────── Support queue — the "with us" side of the service portal ───────────────
+interface SReq {
+  id: string; org_id: string; org_name: string | null; category: string; subject: string
+  priority: string; status: string; requester_email: string | null; message_count: number
+  awaiting_support: boolean; created_at: string | null; first_response_at: string | null; last_activity: string | null
+}
+interface SMsg { id: string; author_side: 'customer' | 'support'; author_email: string | null; author_name: string | null; body: string; created_at: string | null }
+
+const sPill = (s: string) => s === 'resolved' ? 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]'
+  : s === 'in_progress' ? 'text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_14%,transparent)]'
+  : 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]'
+
+function SupportQueue() {
+  const [status, setStatus] = useState<'open' | 'all'>('open')
+  const [sel, setSel] = useState<string | null>(null)
+  const q = useQuery({ queryKey: ['ops-support', status], queryFn: () => api.get<{ totals: { open: number; awaiting_support: number }; requests: SReq[] }>(`/v1/ops/support?status=${status === 'open' ? 'open' : 'all'}`) })
+  const rows = q.data?.requests ?? []
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2"><LifeBuoy size={16} className="text-[var(--color-sky)]" /><h2 className="display text-xl font-semibold">Support queue</h2></div>
+        {q.data && <span className="text-[12px] text-[var(--color-mute)]">{q.data.totals.awaiting_support} awaiting a reply · {q.data.totals.open} open</span>}
+        <div className="ml-auto flex gap-2">
+          {(['open', 'all'] as const).map(f => (
+            <button key={f} onClick={() => setStatus(f)} className={`px-3 py-1 rounded-lg text-[12.5px] border transition ${status === f ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{f === 'open' ? 'Open' : 'All'}</button>
+          ))}
+        </div>
+      </div>
+      <Card className="p-0 overflow-x-auto">
+        {rows.length === 0 ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">Nothing {status === 'open' ? 'open' : 'here'}.</div> : (
+          <table className="w-full text-[13px]">
+            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+              <th className="font-normal py-2.5 px-4">Tenant</th><th className="font-normal px-4">Request</th><th className="font-normal px-4">Type</th>
+              <th className="font-normal px-4">Status</th><th className="font-normal px-4 text-right">Msgs</th><th className="font-normal px-4">Last</th><th className="font-normal px-4"></th>
+            </tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.id} onClick={() => setSel(r.id)} className="border-b border-[var(--color-line)] last:border-0 cursor-pointer hover:bg-[var(--color-panel)] transition">
+                  <td className="py-2.5 px-4 text-[var(--color-ink)]">{r.org_name}</td>
+                  <td className="px-4 text-[var(--color-mute)]">{r.subject}{r.awaiting_support && <span className="ml-2 mono text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]">needs reply</span>}</td>
+                  <td className="px-4 text-[var(--color-faint)] capitalize">{r.category}{r.priority !== 'normal' && <span className="ml-1 text-[var(--color-warn)]">· {r.priority}</span>}</td>
+                  <td className="px-4"><span className={`mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide ${sPill(r.status)}`}>{r.status.replace('_', ' ')}</span></td>
+                  <td className="px-4 text-right mono text-[var(--color-mute)]">{r.message_count}</td>
+                  <td className="px-4 text-[11px] text-[var(--color-mute)]">{ago(r.last_activity)}</td>
+                  <td className="px-4"><ChevronRight size={15} className="text-[var(--color-faint)]" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      {sel && <SupportDrawer id={sel} onClose={() => setSel(null)} onChanged={() => q.refetch()} />}
+    </div>
+  )
+}
+
+function SupportDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['ops-support-detail', id], queryFn: () => api.get<{ request: SReq; messages: SMsg[] }>(`/v1/ops/support/${id}`) })
+  const [reply, setReply] = useState('')
+  const [busy, setBusy] = useState(false)
+  const d = q.data
+  const send = async (resolve = false) => {
+    if (!reply.trim()) { alert('Write a reply.'); return }
+    setBusy(true)
+    try {
+      await api.post(`/v1/ops/support/${id}/reply`, { body: reply.trim(), status: resolve ? 'resolved' : undefined })
+      setReply(''); await q.refetch(); qc.invalidateQueries({ queryKey: ['ops-support'] }); onChanged()
+    } catch { alert('Could not send.') } finally { setBusy(false) }
+  }
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2"><LifeBuoy size={16} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Support · reply as Tellumen</span></div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+        </div>
+        {!d ? <div className="text-[var(--color-faint)] text-sm">loading…</div> : (<>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide ${sPill(d.request.status)}`}>{d.request.status.replace('_', ' ')}</span>
+              <span className="text-[11px] text-[var(--color-faint)]">{d.request.org_name} · {d.request.requester_email}</span>
+            </div>
+            <h2 className="text-[17px] font-semibold mt-1.5 leading-snug">{d.request.subject}</h2>
+          </div>
+          <div className="space-y-3 border-t border-[var(--color-line)] pt-4">
+            {d.request.category && d.messages.length === 0 && !d.request.first_response_at && <div className="text-[12.5px] text-[var(--color-faint)]">No messages yet — the customer raised this request. Reply below.</div>}
+            {d.messages.map(m => {
+              const sup = m.author_side === 'support'
+              return (
+                <div key={m.id} className={`flex ${sup ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${sup ? 'bg-[color-mix(in_oklab,var(--color-sky)_10%,var(--color-bg-2))] border border-[color-mix(in_oklab,var(--color-sky)_28%,var(--color-line))]' : 'bg-[var(--color-panel-2)] border border-[var(--color-line)]'}`}>
+                    <div className="flex items-center gap-2 mb-1"><span className={`mono text-[9px] uppercase tracking-wide ${sup ? 'text-[var(--color-sky)]' : 'text-[var(--color-faint)]'}`}>{sup ? 'Tellumen' : (m.author_name || m.author_email || 'Customer')}</span><span className="text-[10px] text-[var(--color-faint)]">{ago(m.created_at)}</span></div>
+                    <div className="text-[13px] text-[var(--color-ink)] whitespace-pre-wrap leading-relaxed">{m.body}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="border-t border-[var(--color-line)] pt-4">
+            <textarea value={reply} onChange={e => setReply(e.target.value)} rows={4} maxLength={4000} placeholder="Reply to the customer…"
+              className="w-full bg-[var(--color-bg-3,var(--color-bg))] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] resize-y" />
+            <div className="flex gap-2 mt-2">
+              <button disabled={busy || !reply.trim()} onClick={() => send(false)} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-medium bg-[var(--color-sky)] text-[#0b1206] hover:opacity-90 disabled:opacity-40"><Send size={14} /> Send reply</button>
+              <button disabled={busy || !reply.trim()} onClick={() => send(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-medium border border-[var(--color-line-2)] text-[var(--color-good)] hover:border-[var(--color-good)] disabled:opacity-40"><CheckCircle2 size={14} /> Send &amp; resolve</button>
+            </div>
+          </div>
+        </>)}
+      </div>
     </div>
   )
 }
