@@ -316,7 +316,8 @@ def _finalize(tasks: list[dict], perms: set) -> dict:
 
 
 @router.get("/tasks", summary="Role-filtered actionable tasks for the cockpit")
-def my_tasks(session: DbSession, ctx: CurrentUser):
+def my_tasks(session: DbSession, ctx: CurrentUser,
+             entity_id: Optional[str] = Query(None, description="scope asset-completeness tasks to one entity")):
     org_id = ctx["org"]["org_id"]
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
     is_agri = org_type == "manufacturer"
@@ -417,14 +418,16 @@ def my_tasks(session: DbSession, ctx: CurrentUser):
                    SELECT 1 FROM v_sc_site_physical_risk v
                    WHERE v.site_id=s.site_id AND v.scenario='baseline' AND v.time_horizon='current')) unscored
         FROM sc_company_sites s WHERE s.org_id=:o
-    """), {"o": org_id}).mappings().first()
+          AND (s.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
+    """), {"o": org_id, "ent": entity_id}).mappings().first()
     plots = session.execute(text("""
         SELECT count(*) n,
                count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
                count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NULL) needs_eudr
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id=p.commodity_id
         WHERE p.org_id=:o
-    """), {"o": org_id}).mappings().first()
+          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
+    """), {"o": org_id, "ent": entity_id}).mappings().first()
 
     if (sites["n"] or 0) == 0 and (plots["n"] or 0) == 0:
         tasks.append(_task(

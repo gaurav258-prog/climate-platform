@@ -81,7 +81,7 @@ export default function Horizon() {
   const nounRef = useRef('assets')
   useEffect(() => { nounRef.current = q.data?.noun ?? 'assets' }, [q.data])
   // "what needs you" — the same real, role-filtered signals as the cockpit, surfaced on the landing
-  const tq = useQuery({ queryKey: ['my-tasks'], queryFn: () => api.get<{ tasks: Task[] }>('/v1/me/tasks') })
+  const tq = useQuery({ queryKey: ['my-tasks', entityId], queryFn: () => api.get<{ tasks: Task[] }>('/v1/me/tasks' + (entityId ? `?entity_id=${entityId}` : '')) })
   const tasks = tq.data?.tasks ?? []
 
   // region groups (belts) — group real assets by their region/country
