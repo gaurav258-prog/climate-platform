@@ -13,6 +13,8 @@ Nothing here is a new number — it's routing the signals we have to the person 
 """
 from __future__ import annotations
 
+from typing import Optional
+
 import h3
 from fastapi import APIRouter, Query
 from sqlalchemy import text
@@ -39,28 +41,32 @@ _SECTOR_ASSETS = {
                 +COALESCE(a.ghg_emissions_scope3_tco2e,0)) AS f_ghg,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM bank_assets a JOIN v_bank_asset_physical_risk v ON v.asset_id = a.asset_id
-        WHERE a.org_id = :o AND a.latitude IS NOT NULL AND v.scenario = :sc"""},
+        WHERE a.org_id = :o AND a.latitude IS NOT NULL AND v.scenario = :sc
+          AND (a.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
     "insurer": {"noun": "insured locations", "sql": """
         SELECT p.policy_id AS id, p.policy_name AS name, 'policy' AS kind, p.latitude AS lat, p.longitude AS lon,
                COALESCE(p.region, p.country) AS region, p.sum_insured_eur AS value_eur,
                p.deductible_pct AS f_ded, p.construction_type AS f_ctype, p.year_built AS f_year, p.policy_type AS f_peril,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM insurance_policies p JOIN v_insurance_policy_physical_risk v ON v.policy_id = p.policy_id
-        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
+          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
     "asset_manager": {"noun": "holdings", "sql": """
         SELECT h.holding_id AS id, h.holding_name AS name, 'holding' AS kind, h.latitude AS lat, h.longitude AS lon,
                COALESCE(h.region, h.country) AS region, h.position_value_eur AS value_eur,
                h.sector AS f_sector, h.nace_code AS f_nace,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM assetmgmt_holdings h JOIN v_assetmgmt_holding_physical_risk v ON v.holding_id = h.holding_id
-        WHERE h.org_id = :o AND h.latitude IS NOT NULL AND v.scenario = :sc"""},
+        WHERE h.org_id = :o AND h.latitude IS NOT NULL AND v.scenario = :sc
+          AND (h.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
     "reit": {"noun": "properties", "sql": """
         SELECT p.property_id AS id, p.property_name AS name, 'property' AS kind, p.latitude AS lat, p.longitude AS lon,
                COALESCE(p.region, p.country) AS region, p.property_value_eur AS value_eur,
                p.annual_noi_eur AS f_noi, p.property_type AS f_ptype, p.construction_type AS f_ctype, p.year_built AS f_year,
                v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
         FROM realestate_properties p JOIN v_realestate_property_physical_risk v ON v.property_id = p.property_id
-        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc"""},
+        WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
+          AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)"""},
 }
 
 
@@ -127,7 +133,8 @@ _FACET_FN = {"bank": _bank_facets, "insurer": _insurer_facets, "asset_manager": 
 
 @router.get("/globe", summary="This org's real assets at true lat/lon with their projected risk trajectory")
 def globe(session: DbSession, ctx: CurrentUser,
-          scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$")):
+          scenario: str = Query("disorderly_2c", pattern="^(baseline|orderly_1_5c|disorderly_2c|hot_house_3_5c)$"),
+          entity_id: Optional[str] = Query(None, description="scope to one reporting entity; null = all entities")):
     """Every located exposure this org holds, its coordinates, and its WORST-hazard physical-risk score at
     current / 2030 / 2050 / 2100 under the chosen warming path — sector-aware (bank→financed assets,
     insurer→insured locations, asset manager→holdings, REIT→properties, agri→sites + sourcing plots).
@@ -173,7 +180,8 @@ def globe(session: DbSession, ctx: CurrentUser,
                    v.hazard_type AS hazard, v.time_horizon AS horizon, v.physical_risk_score AS score
             FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
             WHERE s.org_id = :o AND s.latitude IS NOT NULL AND v.scenario = :sc
-        """), {"o": org_id, "sc": scenario}).mappings().all()
+              AND (s.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
+        """), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
         plots = session.execute(text("""
             SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, 'plot' AS kind,
                    p.latitude AS lat, p.longitude AS lon, COALESCE(p.country, p.region) AS region,
@@ -184,19 +192,22 @@ def globe(session: DbSession, ctx: CurrentUser,
             FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
             JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
             WHERE p.org_id = :o AND p.latitude IS NOT NULL AND v.scenario = :sc
-        """), {"o": org_id, "sc": scenario}).mappings().all()
+              AND (p.entity_id = CAST(:ent AS uuid) OR CAST(:ent AS uuid) IS NULL)
+        """), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
         assets = _pivot(sites, _site_facets) + _pivot(plots, _plot_facets)
-        # portfolio euro-at-risk TODAY is the real supply-engine figure (not derived from scores)
-        try:
-            from services.intelligence.supply_cogs import project_org_supply
-            summ = project_org_supply(session, org_id)
-            vol_today = round(summ.volume_at_risk_eur or 0)
-        except Exception:
-            vol_today = None
+        # portfolio euro-at-risk TODAY is the real supply-engine figure (org-wide only — the engine isn't
+        # entity-scoped yet, so we don't show an org number against a single entity's book)
+        if entity_id is None:
+            try:
+                from services.intelligence.supply_cogs import project_org_supply
+                summ = project_org_supply(session, org_id)
+                vol_today = round(summ.volume_at_risk_eur or 0)
+            except Exception:
+                vol_today = None
     elif org_type in _SECTOR_ASSETS:
         cfg = _SECTOR_ASSETS[org_type]
         noun = cfg["noun"]
-        rows = session.execute(text(cfg["sql"]), {"o": org_id, "sc": scenario}).mappings().all()
+        rows = session.execute(text(cfg["sql"]), {"o": org_id, "sc": scenario, "ent": entity_id}).mappings().all()
         assets = _pivot(rows, _FACET_FN.get(org_type))
     else:
         noun, assets = "assets", []
@@ -223,6 +234,27 @@ def globe(session: DbSession, ctx: CurrentUser,
     return {"scenario": scenario, "sector": org_type, "noun": noun, "horizons": _HORIZONS,
             "n_assets": len(assets), "volume_at_risk_eur_today": vol_today,
             "kpis": kpis, "my_scope": my_scope, "assets": assets}
+
+
+@router.get("/entities", summary="The reporting entities this org holds — the analyst scopes their work to one")
+def entities(session: DbSession, ctx: CurrentUser):
+    """Real reporting entities (legal entity / fund / client / …) for the logged-in org, each with a live
+    count of the located assets assigned to it. The analyst picks one to scope the globe/KPIs/tasks; the
+    implicit 'All entities' (entity_id=null) is the whole org. Assets are counted across every sector table
+    so the count is right whatever the sector."""
+    org_id = ctx["org"]["org_id"]
+    rows = session.execute(text("""
+        SELECT e.entity_id, e.name, e.kind,
+               (SELECT count(*) FROM bank_assets a WHERE a.entity_id = e.entity_id)
+             + (SELECT count(*) FROM insurance_policies p WHERE p.entity_id = e.entity_id)
+             + (SELECT count(*) FROM assetmgmt_holdings h WHERE h.entity_id = e.entity_id)
+             + (SELECT count(*) FROM realestate_properties r WHERE r.entity_id = e.entity_id)
+             + (SELECT count(*) FROM sc_company_sites s WHERE s.entity_id = e.entity_id)
+             + (SELECT count(*) FROM sc_sourcing_plots pl WHERE pl.entity_id = e.entity_id) AS n_assets
+        FROM reporting_entities e WHERE e.org_id = :o ORDER BY e.name
+    """), {"o": org_id}).mappings().all()
+    return {"entities": [{"entity_id": str(r["entity_id"]), "name": r["name"], "kind": r["kind"],
+                          "n_assets": int(r["n_assets"])} for r in rows]}
 
 
 @router.get("/hexes", summary="The H3 res-8 grid around a location — the granular cell + its neighbours, real scores")

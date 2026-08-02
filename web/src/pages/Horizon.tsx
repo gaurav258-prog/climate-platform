@@ -15,16 +15,8 @@ interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
 interface MyScope { roles: string[]; raised_pending: number }
 interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; kpis?: Kpis; my_scope?: MyScope; assets: GAsset[] }
-interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string; bucket: string; due: string | null; demo?: boolean }
-
-// Illustrative actions for the logged-in analyst — shown alongside the real feed, each tagged "sample",
-// so the right rail reads as it will once every sector workflow routes into it. Not real data.
-const DEMO_TASKS: Task[] = [
-  { key: 'd_sfdr', title: 'Review the Q4 SFDR PAI draft before filing', detail: 'The mandated Annex I table is assembled — give it a second read before it is frozen.', severity: 'action', cta_label: 'Open filing', cta_href: '/home', bucket: 'this_week', due: 'due Friday', demo: true },
-  { key: 'd_geo', title: '3 assets located only coarsely — confirm before filing', detail: 'A coarse geocode means an imprecise cell. Refine or confirm the location.', severity: 'warning', cta_label: 'Review inputs', cta_href: '/home', bucket: 'this_week', due: 'in 2 days', demo: true },
-  { key: 'd_override', title: 'Sign off the Valencia exposure override', detail: 'A colleague raised an LTV override that needs a second pair of eyes.', severity: 'action', cta_label: 'Review approval', cta_href: '/approvals', bucket: 'overdue', due: 'raised 4d ago', demo: true },
-  { key: 'd_feed', title: 'Refresh EXIOBASE intensity factors', detail: 'The sector-intensity basis has a newer vintage available.', severity: 'info', cta_label: 'Open data', cta_href: '/foundation', bucket: 'upcoming', due: 'next month', demo: true },
-]
+interface Task { key: string; title: string; detail: string; severity: string; cta_label: string; cta_href: string; bucket: string; due: string | null }
+interface Ent { entity_id: string; name: string; kind: string; n_assets: number }
 const SEV_COL: Record<string, string> = { action: 'var(--color-sky)', warning: 'var(--color-warn)', info: 'var(--color-blue)', good: 'var(--color-good)' }
 
 const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 2030 / 2050 / 2100
@@ -61,7 +53,7 @@ export default function Horizon() {
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
   // entity the analyst is working on (an analyst can cover several) — the active reporting entity
   const [entOpen, setEntOpen] = useState(false)
-  const [entity, setEntity] = useState<string | null>(null)
+  const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
   // granular H3 grid modal for the selected site
   const [hexOpen, setHexOpen] = useState(false)
   const cvRef = useRef<HTMLCanvasElement>(null)
@@ -76,10 +68,14 @@ export default function Horizon() {
   const [viewYear, setViewYear] = useState(2025)
   const S = useRef({ year: 2025, target: 2100, lon0: -8 * D2R, lat0: 20 * D2R, tLon: -8 * D2R, tLat: 20 * D2R, drag: false, moved: false, px: 0, py: 0, play: false, yearInt: 2025, focus: null as GAsset | null, belt: null as string | null, snap: false })
 
-  const q = useQuery({ queryKey: ['globe'], queryFn: () => api.get<GlobeResp>('/v1/me/globe') })
+  const q = useQuery({ queryKey: ['globe', entityId], queryFn: () => api.get<GlobeResp>('/v1/me/globe' + (entityId ? `?entity_id=${entityId}` : '')) })
   const assets = q.data?.assets ?? []
   const kpis = q.data?.kpis
   const myScope = q.data?.my_scope
+  // real reporting entities the analyst can scope to (legal entity / fund / client / …)
+  const eq = useQuery({ queryKey: ['entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/me/entities') })
+  const entityList = eq.data?.entities ?? []
+  const activeEntity = entityId ? (entityList.find(e => e.entity_id === entityId)?.name ?? '—') : `All of ${profile?.org?.name ?? 'the org'}`
   // sector-aware noun (bank→financed assets, insurer→insured locations, agri→sites & origins, …)
   const noun = q.data?.noun ?? 'assets'
   const nounRef = useRef('assets')
@@ -237,12 +233,7 @@ export default function Horizon() {
   const BUCKETS: [string, string, string][] = [['overdue', 'Overdue', '#D23B3B'], ['this_week', 'This week', '#E8B24C'], ['upcoming', 'Upcoming', '#8FC0F0'], ['open', 'Open · no fixed date', '#5c6879']]
   const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
   const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
-  // the reporting entity the analyst is currently working on (they can cover several)
-  const orgName = profile?.org?.name ?? 'Your organisation'
-  const entities = [orgName, 'Coastal Holdings SA (demo)', 'Northwind Fund II (demo)']
-  const activeEntity = entity ?? orgName
-  // real tasks + illustrative sample actions, so the agent's action list reads as it will when full
-  const displayTasks = [...tasks, ...DEMO_TASKS]
+  const displayTasks = tasks
   const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
@@ -277,20 +268,26 @@ export default function Horizon() {
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-[#0e1728]">
             <div className="flex items-center justify-between gap-2">
               <span className="mono text-[11px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Working on</span>
-              <span className="mono text-[11px] text-[var(--color-mute)] shrink-0">{entities.length} entities {entOpen ? '▴' : '▾'}</span>
+              <span className="mono text-[11px] text-[var(--color-mute)] shrink-0">{entityList.length ? `${entityList.length} entities ` : ''}{entOpen ? '▴' : '▾'}</span>
             </div>
             <div className="text-[16px] text-[#F4EFE6] truncate mt-1">{activeEntity}</div>
           </button>
           {entOpen && (
             <div className="border-t border-[var(--color-line)] px-2 py-2 flex flex-col gap-0.5">
-              {entities.map(e => (
-                <button key={e} onClick={() => { setEntity(e); setEntOpen(false) }}
-                  className={`text-left rounded-lg px-2.5 py-2 text-[14px] flex items-center gap-2 ${e === activeEntity ? 'text-[var(--color-sky)] bg-[#0e1728]' : 'text-[var(--color-mute)] hover:bg-[#0e1728]'}`}>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: e === activeEntity ? 'var(--color-sky)' : 'transparent', border: e === activeEntity ? 'none' : '1px solid #3a4a60' }} />
-                  <span className="truncate">{e}</span>
-                </button>
-              ))}
-              <div className="mono text-[10.5px] text-[var(--color-faint)] px-2.5 pt-1">the entity scopes the globe, KPIs & tasks</div>
+              {[{ entity_id: null as string | null, name: `All of ${profile?.org?.name ?? 'the org'}`, kind: 'all', n_assets: assets.length }, ...entityList].map(e => {
+                const on = e.entity_id === entityId
+                return (
+                  <button key={e.entity_id ?? 'all'} onClick={() => { setEntityId(e.entity_id); setEntOpen(false) }}
+                    className={`text-left rounded-lg px-2.5 py-2 flex items-center gap-2.5 ${on ? 'bg-[#0e1728]' : 'hover:bg-[#0e1728]'}`}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: on ? 'var(--color-sky)' : 'transparent', border: on ? 'none' : '1px solid #3a4a60' }} />
+                    <span className="flex-1 min-w-0">
+                      <span className={`block text-[14px] truncate ${on ? 'text-[var(--color-sky)]' : 'text-[var(--color-ink)]'}`}>{e.name}</span>
+                      <span className="mono text-[10px] text-[var(--color-faint)]">{e.kind === 'all' ? 'whole org' : e.kind.replace('_', ' ')}{e.entity_id ? ` · ${e.n_assets} assets` : ''}</span>
+                    </span>
+                  </button>
+                )
+              })}
+              <div className="mono text-[10.5px] text-[var(--color-faint)] px-2.5 pt-1.5">picking one scopes the globe & KPIs</div>
             </div>
           )}
         </div>
@@ -351,7 +348,6 @@ export default function Horizon() {
                     <div className="flex items-center gap-2.5">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
                       <span className="flex-1 min-w-0 text-[14px] text-[var(--color-ink)] leading-snug">{t.title}</span>
-                      {t.demo && <span className="mono text-[9px] tracking-[0.1em] uppercase text-[var(--color-faint)] border border-[var(--color-line-2)] rounded px-1 py-0.5 shrink-0">sample</span>}
                     </div>
                     {t.due && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-1 ml-[18px]">{t.due}</div>}
                   </button>
