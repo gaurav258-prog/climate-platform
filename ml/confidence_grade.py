@@ -51,9 +51,15 @@ def _letter(total: int) -> str:
 def grade(*, tier: str,
           r2_oos: Optional[float] = None, n_years: Optional[int] = None,
           band_cov68: Optional[float] = None,
-          reproduction_err_pct: Optional[float] = None, n_events: Optional[int] = None) -> GradeResult:
+          reproduction_err_pct: Optional[float] = None, n_events: Optional[int] = None,
+          corroboration: Optional[str] = None) -> GradeResult:
     """Compute the grade for one published crop. `tier` is 'backtested' or 'ranged'; the metrics
-    used depend on it (see module docstring). Missing inputs score Weak, never silently pass."""
+    used depend on it (see module docstring). Missing inputs score Weak, never silently pass.
+
+    corroboration: the independent-challenger verdict ('agree'/'partial'/'diverge'/'insufficient')
+    when a second method cross-checked the fit. It is surfaced as a check but NOT added to the /8
+    total (so an existing grade is never silently upgraded by corroboration); a DIVERGENCE is a red
+    flag that caps the letter at C, exactly like weak predictive power."""
     checks = []
 
     if tier == "backtested":
@@ -90,11 +96,25 @@ def grade(*, tier: str,
     for c in checks:
         c["label"] = _LABEL[c["points"]]
 
-    total = sum(c["points"] for c in checks)
+    total = sum(c["points"] for c in checks)  # the earned score is the 4 evidence checks (0–8)
     letter = _letter(total)
     # honesty cap: weak predictive power → cannot exceed C
     capped = False
     predictive_weak = checks[0]["points"] == WEAK
     if predictive_weak and letter in ("A", "B"):
         letter, capped = "C", True
+
+    # Independent-challenger corroboration — surfaced (not additive), and a divergence caps at C.
+    if corroboration:
+        pts = {"agree": STRONG, "partial": FAIR}.get(corroboration, WEAK)
+        detail = {
+            "agree": "an independent method (isotonic) corroborates the fit",
+            "partial": "an independent method partly corroborates the fit",
+            "diverge": "an independent method DISAGREES with the fit — treat with caution",
+            "insufficient": "independent cross-check inconclusive (too few years)",
+        }.get(corroboration, str(corroboration))
+        checks.append({"key": "corroboration", "points": pts, "label": _LABEL.get(pts, "weak"),
+                       "detail": detail, "additive": False})
+        if corroboration == "diverge" and letter in ("A", "B"):
+            letter, capped = "C", True
     return GradeResult(grade=letter, total=total, capped=capped, checks=checks)

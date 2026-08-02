@@ -234,6 +234,8 @@ class CommodityRisk:
     # Sits ON TOP of the visible stats, never replaces them. None for held/pending (no published €).
     confidence_grade: Optional[str] = None
     confidence_checks: Optional[list] = None
+    # Independent second-method (isotonic) cross-check of the champion fit — model-risk corroboration.
+    challenger: Optional[dict] = None
     # Per-origin breakdown: which origin actually drives the world supply shock.
     origins: list = field(default_factory=list)
     override: Optional[dict] = None  # {model_p50_eur, override_p50_eur, overridden_by, overridden_at, reason} when set
@@ -585,8 +587,11 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
             if _cal_any is not None:
                 if cr.calibration == "ranged":
                     _f = _cal_any["fit"]
+                    _chal = _cal_any.get("challenger")
                     _g = _grade(tier="ranged", r2_oos=_f.get("r2_oos"),
-                                n_years=_f.get("n_years"), band_cov68=_f.get("band_cov68"))
+                                n_years=_f.get("n_years"), band_cov68=_f.get("band_cov68"),
+                                corroboration=(_chal.get("verdict") if _chal else None))
+                    cr.challenger = _chal
                 else:
                     _b = _cal_any["backtest"]
                     _g = _grade(tier="backtested", reproduction_err_pct=_b.get("repro_err_pct"),
@@ -738,6 +743,20 @@ def get_calibrations(session) -> dict:
         if origin is not None:
             origin["backtest"] = {"n_events": b["n_events"],
                                   "repro_err_pct": float(b["repro_err_pct"]) if b["repro_err_pct"] is not None else None}
+
+    # Independent challenger verdict per ranged origin — the model-risk corroboration (a 2nd method,
+    # isotonic, cross-checking the champion OLS on the same panel). See ml/features/challenger.py.
+    for ch in session.execute(text("""
+        SELECT co.name AS commodity, x.origin, x.hazard_driver, x.method, x.n_years, x.verdict,
+               CAST(x.mean_abs_divergence_pp AS FLOAT) AS mean_abs_divergence_pp,
+               CAST(x.tolerance_pp AS FLOAT) AS tolerance_pp, CAST(x.ref_score AS FLOAT) AS ref_score,
+               CAST(x.champion_at_ref_pct AS FLOAT) AS champion_at_ref_pct,
+               CAST(x.challenger_at_ref_pct AS FLOAT) AS challenger_at_ref_pct, x.challenger_version
+        FROM sc_commodity_challenger x JOIN sc_commodities co ON co.commodity_id = x.commodity_id
+    """)).mappings().all():
+        origin = out.get(ch["commodity"], {}).get(ch["origin"])
+        if origin is not None and origin.get("hazard_driver") == ch["hazard_driver"]:
+            origin["challenger"] = dict(ch)
     return out
 
 

@@ -999,16 +999,25 @@ def models(session: DbSession, org_id: OrgId):
                CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos,
                CAST(f.band_cov68 AS FLOAT) AS band_cov68,
                f.n_years, f.spei_scale, f.season_months,
-               CAST(f.rmse AS FLOAT) AS rmse, f.baseline_from, f.baseline_to, f.source_note
+               CAST(f.rmse AS FLOAT) AS rmse, f.baseline_from, f.baseline_to, f.source_note,
+               x.verdict AS challenger_verdict,
+               CAST(x.champion_at_ref_pct AS FLOAT) AS challenger_champion_pct,
+               CAST(x.challenger_at_ref_pct AS FLOAT) AS challenger_pct,
+               CAST(x.ref_score AS FLOAT) AS challenger_ref_score,
+               CAST(x.mean_abs_divergence_pp AS FLOAT) AS challenger_mad_pp,
+               CAST(x.tolerance_pp AS FLOAT) AS challenger_tol_pp
         FROM sc_commodity_fit f JOIN sc_commodities co ON co.commodity_id = f.commodity_id
+        LEFT JOIN sc_commodity_challenger x
+               ON x.commodity_id = f.commodity_id AND x.origin = f.origin AND x.hazard_driver = f.hazard_driver
         ORDER BY f.r2_oos DESC NULLS LAST, f.r2 DESC
     """)).mappings().all()
     fit_rows = []
     for r in fits:
         publishes = (r["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
-        # a published fit carries its Confidence Grade on the credibility record; a below-floor
-        # (tested-held) fit is shown WITHOUT a grade — it does not publish a euro.
-        g = (_grade(tier="ranged", r2_oos=r["r2_oos"], n_years=r["n_years"], band_cov68=r["band_cov68"])
+        # a published fit carries its Confidence Grade — now including the independent challenger's
+        # corroboration verdict; a below-floor (tested-held) fit is shown WITHOUT a grade.
+        g = (_grade(tier="ranged", r2_oos=r["r2_oos"], n_years=r["n_years"], band_cov68=r["band_cov68"],
+                    corroboration=r.get("challenger_verdict"))
              if publishes else None)
         fit_rows.append({**dict(r), "publishes": publishes,
                          "confidence_grade": g.grade if g else None,

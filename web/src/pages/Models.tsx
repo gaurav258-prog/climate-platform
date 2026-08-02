@@ -5,8 +5,15 @@ import { Eyebrow, Card } from '../components/ui'
 interface Fit {
   commodity: string; origin: string; hazard_driver: string; r2: number; r2_oos: number | null
   n_years: number; publishes: boolean; confidence_grade: string | null
+  challenger_verdict?: string | null; challenger_pct?: number | null; challenger_champion_pct?: number | null
+  challenger_ref_score?: number | null; challenger_mad_pp?: number | null; challenger_tol_pp?: number | null
 }
 interface Models { ranged_fits: Fit[]; ranged_publish_floor: number }
+
+const VERDICT_CLS: Record<string, string> = {
+  agree: 'text-[var(--color-good)]', partial: 'text-[var(--color-warn)]', diverge: 'text-[var(--color-bad)]',
+}
+const VERDICT_LABEL: Record<string, string> = { agree: 'agrees', partial: 'partial', diverge: 'diverges', insufficient: 'n/a' }
 
 const COUNTRY: Record<string, string> = {
   MA: 'Morocco', TN: 'Tunisia', DZ: 'Algeria', ES: 'Spain', IR: 'Iran', TR: 'Turkey', SY: 'Syria',
@@ -61,6 +68,7 @@ function FitTable({ title, fits, floor, showGrade }: { title: string; fits: Fit[
               <th className="font-normal py-2 pr-3">Crop</th><th className="font-normal pr-3">Origin</th>
               <th className="font-normal pr-3">Driver</th><th className="font-normal pr-3 text-right">r² (in)</th>
               <th className="font-normal pr-3 text-right">r² (out)</th><th className="font-normal pr-3 text-right">years</th>
+              {showGrade && <th className="font-normal pr-3 text-right">challenger</th>}
               {showGrade && <th className="font-normal text-right">grade</th>}
             </tr>
           </thead>
@@ -73,6 +81,14 @@ function FitTable({ title, fits, floor, showGrade }: { title: string; fits: Fit[
                 <td className={`pr-3 text-right mono ${f.r2 >= floor ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>{f.r2.toFixed(2)}</td>
                 <td className="pr-3 text-right mono text-[var(--color-mute)]">{f.r2_oos != null ? f.r2_oos.toFixed(2) : '—'}</td>
                 <td className="pr-3 text-right mono text-[var(--color-faint)]">{f.n_years}</td>
+                {showGrade && (
+                  <td className={`pr-3 text-right mono text-[11px] ${VERDICT_CLS[f.challenger_verdict || ''] ?? 'text-[var(--color-faint)]'}`}
+                    title={f.challenger_verdict && f.challenger_pct != null
+                      ? `Independent isotonic method @ score ${f.challenger_ref_score}: champion ${f.challenger_champion_pct}% vs challenger ${f.challenger_pct}% (mean divergence ${f.challenger_mad_pp}pp vs tolerance ${f.challenger_tol_pp}pp)`
+                      : 'no independent challenger'}>
+                    {f.challenger_verdict ? (VERDICT_LABEL[f.challenger_verdict] ?? f.challenger_verdict) : '—'}
+                  </td>
+                )}
                 {showGrade && <td className={`text-right mono font-semibold ${GRADE_CLS[f.confidence_grade || ''] ?? 'text-[var(--color-mute)]'}`}>{f.confidence_grade ?? '—'}</td>}
               </tr>
             ))}
