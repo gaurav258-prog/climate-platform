@@ -52,6 +52,7 @@ PERIL_DISCOUNT_PCT = {
     "volcanic":     {"L": 0.0, "M": 8.0, "H": 25.0, "VH": 45.0},
     "wildfire":     {"L": 0.0, "M": 6.0, "H": 20.0, "VH": 38.0},
     "flood":        {"L": 0.0, "M": 5.0, "H": 18.0, "VH": 32.0},
+    "coastal_flood": {"L": 0.0, "M": 6.0, "H": 22.0, "VH": 40.0},  # permanent inundation skews to total loss
     "storm":        {"L": 0.0, "M": 5.0, "H": 16.0, "VH": 30.0},
     "drought":      {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
     "heat_acute":   {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
@@ -72,6 +73,7 @@ _BUCKET_MIDPOINT = {"L": 12.5, "M": 37.5, "H": 62.5, "VH": 87.5}
 _FIRE, _SEISMIC, _WIND, _FLOOD, _CHRONIC = "fire", "seismic", "wind", "flood", "chronic"
 _HAZARD_FAMILY = {
     "wildfire": _FIRE, "seismic": _SEISMIC, "volcanic": _SEISMIC, "storm": _WIND, "flood": _FLOOD,
+    "coastal_flood": _FLOOD,  # storey/elevation vulnerability — same family as pluvial/riverine flood
     "heat_acute": _CHRONIC, "heat_chronic": _CHRONIC, "drought": _CHRONIC,
     "pollution": _CHRONIC, "frost": _CHRONIC, "soil_water": _CHRONIC,
 }

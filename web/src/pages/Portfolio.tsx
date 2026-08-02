@@ -196,7 +196,7 @@ export default function Portfolio() {
                             </span>
                             <span className="mono tabular-nums shrink-0 text-right" style={{ color: `rgb(${hr},${hg},${hb})` }}>
                               {Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}
-                              {h.ci_lo != null && h.ci_hi != null && <span className="block text-[9.5px] text-[var(--color-faint)] leading-tight" title="CMIP6 across-model 68% band (model disagreement)">band {Math.round(h.ci_lo)}–{Math.round(h.ci_hi)}</span>}
+                              {h.ci_lo != null && h.ci_hi != null && Math.round(h.ci_lo) !== Math.round(h.ci_hi) && <span className="block text-[9.5px] text-[var(--color-faint)] leading-tight" title="Across-model / sea-level 68% band (projection uncertainty)">band {Math.round(h.ci_lo)}–{Math.round(h.ci_hi)}</span>}
                             </span>
                           </div>) })}
                       </div>

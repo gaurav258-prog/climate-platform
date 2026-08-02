@@ -35,6 +35,11 @@ _ACTIONS: dict[str, list[str]] = {
         "Avoid new siting in the floodplain; relocate high-value stock above flood level",
         "Flood emergency + business-continuity plan with early-warning triggers",
     ],
+    "coastal_flood": [
+        "Coastal defences / managed realignment; raise ground floors above future extreme sea level",
+        "Site new critical assets outside the sea-level-rise inundation zone; plan managed retreat",
+        "Wet-/dry-floodproofing and saltwater-resilient materials for exposed structures",
+    ],
     "storm": [
         "Structural hardening (roofing, cladding, windbreaks) to design wind loads",
         "Secure / shelter equipment and stock ahead of storm warnings",
@@ -59,7 +64,8 @@ _ACTIONS: dict[str, list[str]] = {
 
 _LABELS = {
     "drought": "Drought", "soil_water": "Soil-water deficit", "heat_chronic": "Chronic heat",
-    "heat_acute": "Acute heat", "flood": "Flood", "storm": "Storm / wind", "wildfire": "Wildfire",
+    "heat_acute": "Acute heat", "flood": "Flood", "coastal_flood": "Coastal flood / sea-level",
+    "storm": "Storm / wind", "wildfire": "Wildfire",
     "seismic": "Seismic", "water_stress": "Water stress",
 }
 

@@ -47,6 +47,7 @@ __all__ = [
 
 class HazardType(str, Enum):
     FLOOD = "flood"
+    COASTAL_FLOOD = "coastal_flood"
     HEAT_ACUTE = "heat_acute"
     HEAT_CHRONIC = "heat_chronic"
     WILDFIRE = "wildfire"
@@ -144,8 +145,11 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     # flood
     "flood": HazardType.FLOOD, "flooding": HazardType.FLOOD,
     "river_flood": HazardType.FLOOD, "fluvial": HazardType.FLOOD,
-    "coastal_flood": HazardType.FLOOD, "pluvial": HazardType.FLOOD,
-    "urban_flood": HazardType.FLOOD,
+    "pluvial": HazardType.FLOOD, "urban_flood": HazardType.FLOOD,
+    # coastal flood / sea-level rise — its own hazard (sea-driven), distinct from rain-driven flood
+    "coastal_flood": HazardType.COASTAL_FLOOD, "sea_level": HazardType.COASTAL_FLOOD,
+    "sea_level_rise": HazardType.COASTAL_FLOOD, "slr": HazardType.COASTAL_FLOOD,
+    "storm_surge": HazardType.COASTAL_FLOOD, "coastal": HazardType.COASTAL_FLOOD,
     # heat (acute is the default for bare "heat")
     "heat": HazardType.HEAT_ACUTE, "heat_acute": HazardType.HEAT_ACUTE,
     "heat_stress": HazardType.HEAT_ACUTE, "heatwave": HazardType.HEAT_ACUTE,
