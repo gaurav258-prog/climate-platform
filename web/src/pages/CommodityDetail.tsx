@@ -12,7 +12,7 @@ const scen = (s: string) => ({ baseline: 'Baseline', orderly_1_5c: 'Orderly 1.5�
 
 interface Plot { plot_id: string; plot_name: string; country: string | null; lat: number; lon: number; spend_eur: number; top_hazard: string | null; hazard_score: number | null }
 interface Fit { origin: string; hazard_driver: string; r2: number | null; r2_oos: number | null; band_cov68: number | null; n_years: number | null; spei_scale: number | null; season_months: string | null; baseline_from: number | null; baseline_to: number | null; source_note: string | null; publishes: boolean; confidence_grade: string | null }
-interface Proj { scenario: string; time_horizon: string; avg_score: number; n: number }
+interface Proj { scenario: string; time_horizon: string; avg_score: number; ci_lo: number | null; ci_hi: number | null; n: number }
 interface Adapt { hazard: string; label: string; actions: string[] }
 interface Summary { annual_spend_eur: number; n_plots: number; calibration: string | null; held_reason: string | null; avg_hazard: number | null; top_hazard: string | null; yield_shock_pct: number | null; volume_at_risk_eur: number | null; volume_at_risk_low_eur: number | null; volume_at_risk_high_eur: number | null; fit_r2: number | null; confidence_grade: string | null; measured_basis: string | null }
 interface Resp { commodity: string; eudr_covered: boolean; summary: Summary; plots: Plot[]; projections: Proj[]; fits: Fit[]; adaptation: Adapt[] }
@@ -34,7 +34,8 @@ export default function CommodityDetail() {
   // projections matrix: scenarios × horizons
   const horizons = [...new Set(d.projections.map(p => p.time_horizon))].sort()
   const scenarios = [...new Set(d.projections.map(p => p.scenario))]
-  const cell = (sc: string, h: string) => d.projections.find(p => p.scenario === sc && p.time_horizon === h)?.avg_score ?? null
+  const at = (sc: string, h: string) => d.projections.find(p => p.scenario === sc && p.time_horizon === h) ?? null
+  const cell = (sc: string, h: string) => at(sc, h)?.avg_score ?? null
 
   return (
     <div className="fadeup space-y-6">
@@ -131,13 +132,17 @@ export default function CommodityDetail() {
                     {scenarios.map(sc => (
                       <tr key={sc} className="border-t border-[var(--color-line)]">
                         <td className="py-1.5 pr-3 text-[var(--color-ink)]">{scen(sc)}</td>
-                        {horizons.map(h => { const v = cell(sc, h); return <td key={h} className="px-2 text-center mono" style={{ color: hz(v) }}>{v != null ? Math.round(v) : '·'}</td> })}
+                        {horizons.map(h => { const p = at(sc, h); const v = p?.avg_score ?? null; const band = p && p.ci_lo != null && p.ci_hi != null ? `${Math.round(p.ci_lo)}–${Math.round(p.ci_hi)}` : null
+                          return <td key={h} className="px-2 text-center mono align-top">
+                            <div style={{ color: hz(v) }}>{v != null ? Math.round(v) : '·'}</div>
+                            {band && <div className="text-[9px] text-[var(--color-faint)] leading-tight mt-0.5" title="CMIP6 across-model 68% band">{band}</div>}
+                          </td> })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="text-[10px] text-[var(--color-faint)] mt-2">Downscaled CMIP6 ensemble; higher = more hazard on this crop's cells.</div>
+              <div className="text-[10px] text-[var(--color-faint)] mt-2">Downscaled CMIP6 ensemble; higher = more hazard on this crop's cells. Small figure = the across-model 68% band (model disagreement) — shown only where the ensemble projects a forward change, never on the current reading.</div>
             </Card>
           )}
 

@@ -526,7 +526,9 @@ def plot_detail(plot_id: str, session: DbSession):
         return {"error": "plot not found"}
     risks = session.execute(text("""
         SELECT hazard_type, scenario, time_horizon,
-               CAST(physical_risk_score AS FLOAT) AS score, model_version, scored_at
+               CAST(physical_risk_score AS FLOAT) AS score,
+               CAST(physical_risk_ci_lower AS FLOAT) AS ci_lo,
+               CAST(physical_risk_ci_upper AS FLOAT) AS ci_hi, model_version, scored_at
         FROM v_sc_plot_physical_risk WHERE plot_id=:id
         ORDER BY hazard_type, scenario, time_horizon
     """), {"id": plot_id}).mappings().all()
@@ -558,7 +560,9 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
     projections = []
     if driver:
         projections = [dict(x) for x in session.execute(text("""
-            SELECT v.scenario, v.time_horizon, ROUND(AVG(v.physical_risk_score)::numeric, 1) AS avg_score, COUNT(*) AS n
+            SELECT v.scenario, v.time_horizon, ROUND(AVG(v.physical_risk_score)::numeric, 1) AS avg_score,
+                   ROUND(AVG(v.physical_risk_ci_lower)::numeric, 1) AS ci_lo,
+                   ROUND(AVG(v.physical_risk_ci_upper)::numeric, 1) AS ci_hi, COUNT(*) AS n
             FROM v_sc_plot_physical_risk v JOIN sc_sourcing_plots p ON p.plot_id = v.plot_id
             WHERE p.org_id = :o AND p.commodity_id = :c AND v.hazard_type = :h
             GROUP BY v.scenario, v.time_horizon ORDER BY v.time_horizon

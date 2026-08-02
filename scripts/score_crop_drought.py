@@ -97,9 +97,21 @@ def main() -> int:
                     sc = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
                                   warming_c=(d.dtas_c if d else None),
                                   precip_frac=(d.dpr_frac if d else None))
+                    # CMIP6 MODEL-DISAGREEMENT band: re-score at the across-model ±1σ envelope
+                    # (hotter+drier → upper, cooler+wetter → lower). This is honest projection
+                    # uncertainty from the ensemble spread already in the deltas — NULL where CMIP6
+                    # doesn't cover the combo (baseline/current), an honest point rather than a fake band.
+                    ci_lo = ci_hi = None
+                    if d and d.n_models > 1 and (d.dtas_std_c or d.dpr_std):
+                        s_hi = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
+                                        warming_c=d.dtas_c + d.dtas_std_c, precip_frac=d.dpr_frac - d.dpr_std)
+                        s_lo = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
+                                        warming_c=d.dtas_c - d.dtas_std_c, precip_frac=d.dpr_frac + d.dpr_std)
+                        ci_lo, ci_hi = round(min(s_lo, s_hi), 2), round(max(s_lo, s_hi), 2)
                     rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8,
                                  "hz": hazard_type, "scen": scen, "horz": horz,
                                  "score": sc, "bucket": score_to_bucket(sc).value,
+                                 "ci_lo": ci_lo, "ci_hi": ci_hi,
                                  "mv": MODEL_VERSION, "dv": vintage, "now": now})
 
     if not scored_cells:
@@ -119,9 +131,9 @@ def main() -> int:
             s.execute(text("""
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, model_version, data_vintage, scored_at,
-                     valid_from, valid_to, score_lane)
-                VALUES (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:mv,:dv,:now,:now,NULL,'standing')
+                     risk_score, risk_bucket, score_ci_lower, score_ci_upper, model_version, data_vintage,
+                     scored_at, valid_from, valid_to, score_lane)
+                VALUES (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:ci_lo,:ci_hi,:mv,:dv,:now,:now,NULL,'standing')
             """), rows[k:k + 2000])
 
         # snap this commodity's plots to the nearest scored cell by their stored coordinates
