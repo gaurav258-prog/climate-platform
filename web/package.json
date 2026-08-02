@@ -14,6 +14,7 @@
     "@xyflow/react": "^12.11.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
+    "h3-js": "^4.5.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.27.0",
     "maplibre-gl": "^6.0.0",

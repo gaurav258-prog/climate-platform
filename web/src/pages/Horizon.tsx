@@ -545,7 +545,7 @@ export default function Horizon() {
               <button onClick={() => setHexOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
             </div>
             <div className="absolute inset-0 pt-[58px]">
-              <HexMap lat={sel.lat} lon={sel.lon} scenario={q.data?.scenario ?? 'disorderly_2c'}
+              <HexMap lat={sel.lat} lon={sel.lon} assets={assets} selectedId={sel.id}
                 horizon={viewYear <= 2027 ? 'current' : viewYear <= 2040 ? '2030' : viewYear <= 2075 ? '2050' : '2100'} />
             </div>
           </div>
