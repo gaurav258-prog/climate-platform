@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
 import { useAuth } from '../lib/auth'
@@ -56,6 +56,16 @@ export default function Horizon() {
   const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
   // granular H3 grid modal for the selected site
   const [hexOpen, setHexOpen] = useState(false)
+  // site detail panel width — user can drag the left edge (any size) or maximize to full window
+  const [selW, setSelW] = useState(440)
+  const [selMax, setSelMax] = useState(false)
+  const startSelResize = (e: React.PointerEvent) => {
+    e.preventDefault(); setSelMax(false)
+    const move = (ev: PointerEvent) => setSelW(Math.max(320, Math.min(window.innerWidth, window.innerWidth - ev.clientX)))
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
+  }
+  const toggleSelMax = () => setSelMax(m => !m)
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
@@ -66,6 +76,7 @@ export default function Horizon() {
   // viewYear mirrors the animating year into React so the SELECTED site's live values (score, badge) update
   // as time plays; `target` is the year the scrubber sets — play runs only up to it, then stops.
   const [viewYear, setViewYear] = useState(2025)
+  const [targetYear, setTargetYear] = useState(2100)  // the year play animates TO (set by the scrubber)
   const S = useRef({ year: 2025, target: 2100, lon0: -8 * D2R, lat0: 20 * D2R, tLon: -8 * D2R, tLat: 20 * D2R, drag: false, moved: false, px: 0, py: 0, play: false, yearInt: 2025, focus: null as GAsset | null, belt: null as string | null, snap: false })
 
   const q = useQuery({ queryKey: ['globe', entityId], queryFn: () => api.get<GlobeResp>('/v1/me/globe' + (entityId ? `?entity_id=${entityId}` : '')) })
@@ -415,9 +426,20 @@ export default function Horizon() {
 
       {/* selected asset */}
       {sel && (
-        <div className="absolute top-0 right-0 bottom-0 w-[min(400px,44vw)] z-10 p-8 overflow-y-auto"
-          style={{ background: 'linear-gradient(270deg,#070b13 60%,#070b13cc 90%,transparent)' }}>
-          <button onClick={closeSel} className="mono text-[11.5px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3.5 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← back</button>
+        <div className="absolute top-0 right-0 bottom-0 z-10 p-8 overflow-y-auto"
+          style={{ width: selMax ? '100vw' : selW, maxWidth: '100vw', background: selMax ? '#070b13' : 'linear-gradient(270deg,#070b13 80%,#070b13ee 93%,transparent)' }}>
+          {/* drag the left edge to resize */}
+          <div onPointerDown={startSelResize} title="drag to resize"
+            className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group flex items-center justify-center">
+            <div className="w-0.5 h-10 rounded bg-[var(--color-line-2)] group-hover:bg-[var(--color-sky)]" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={closeSel} className="mono text-[11.5px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3.5 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← back</button>
+            <button onClick={toggleSelMax} title="expand / restore"
+              className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+              {selMax ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          </div>
           <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)] mt-6">{sel.region} · {sel.kind}</div>
           <div className="display text-[34px] leading-tight text-[#F4EFE6] mt-1.5">{sel.name}</div>
           <div className="mono text-[12px] text-[var(--color-faint)] mt-2">◉ {Math.abs(sel.lat).toFixed(1)}°{sel.lat >= 0 ? 'N' : 'S'}, {Math.abs(sel.lon).toFixed(1)}°{sel.lon >= 0 ? 'E' : 'W'}</div>
@@ -498,15 +520,16 @@ export default function Horizon() {
 
       <div className="absolute left-0 right-0 bottom-0 px-8 pb-6 pt-5" style={{ background: 'linear-gradient(0deg,#04060bE6 30%,transparent)' }}>
         <div className="flex items-center gap-4 max-w-[1200px] mx-auto">
-          <button onClick={() => { if (!playing && S.current.year >= S.current.target) { S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025) } const p = !playing; S.current.play = p; setPlaying(p) }}
+          <button onClick={() => { if (!playing) { if (S.current.year >= S.current.target) { S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025) } S.current.play = true; setPlaying(true) } else { S.current.play = false; setPlaying(false) } }}
             className="w-11 h-11 shrink-0 rounded-full border border-[#2a3a50] bg-[#0e1626] grid place-items-center text-[#F4EFE6] hover:border-[var(--color-sky)]">
             {playing ? <Pause size={16} /> : <Play size={16} />}
           </button>
-          <input type="range" min={2025} max={2100} step={1} defaultValue={2025}
-            onInput={e => { const y = +(e.target as HTMLInputElement).value; S.current.year = y; S.current.target = y; S.current.yearInt = y; S.current.play = false; setPlaying(false); setViewYear(y) }}
-            onPointerDown={() => { S.current.play = false; setPlaying(false) }}
+          {/* controlled: the thumb tracks the current year (so it MOVES during play); dragging sets the
+              year to view AND the target play stops at */}
+          <input type="range" min={2025} max={2100} step={1} value={Math.round(viewYear)}
+            onChange={e => { const y = +e.target.value; S.current.year = y; S.current.target = y; S.current.yearInt = y; S.current.play = false; setPlaying(false); setViewYear(y); setTargetYear(y) }}
             className="flex-1 accent-[var(--color-sky)] cursor-pointer" />
-          <div className="mono text-[10px] text-[var(--color-faint)] shrink-0">2025 → 2100</div>
+          <div className="mono text-[11px] text-[var(--color-mute)] shrink-0 tabular-nums">{Math.round(viewYear)}<span className="text-[var(--color-faint)]"> · play → {targetYear}</span></div>
         </div>
       </div>
 
