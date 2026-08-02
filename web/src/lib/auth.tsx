@@ -44,13 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const data = await api.post<{ access_token: string } & Profile>('/v1/auth/login', { email, password })
     setToken(data.access_token)
-    const me = await api.get<Profile>('/v1/auth/me')
-    setProfile(me)
+    // full reload → the app rehydrates as the NEW user with an empty query cache, so a different org's
+    // data (globe/entities/tasks) can never bleed through from the previous session
+    window.location.href = '/'
   }
 
   function logout() {
     setToken(null); localStorage.removeItem(OP_TOKEN); localStorage.removeItem(VIEWING)
     setProfile(null); setViewing(null)
+    window.location.href = '/'   // full reload → clears any cached tenant data on the way out
   }
 
   // platform operator opens a customer tenant's full workspace (audited server-side)
