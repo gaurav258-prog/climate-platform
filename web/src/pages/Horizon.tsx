@@ -56,6 +56,9 @@ export default function Horizon() {
   const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
   // granular H3 grid modal for the selected site
   const [hexOpen, setHexOpen] = useState(false)
+  // mobile (<800px): the two rails can't sit side-by-side over the globe, so a segmented control shows
+  // one at a time. Ignored at ≥800px, where both rails render as usual.
+  const [mobileTab, setMobileTab] = useState<'overview' | 'tasks'>('overview')
   // site detail panel width — user can drag the left edge (any size) or maximize to full window
   const [selW, setSelW] = useState(440)
   const [selMax, setSelMax] = useState(false)
@@ -271,9 +274,19 @@ export default function Horizon() {
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} {noun} · real coordinates</div>
       </div>
 
+      {/* mobile-only segmented control — pick which rail to show over the globe (hidden ≥800px) */}
+      {!sel && !beltName && !panel && (
+        <div className="hidden max-[800px]:flex absolute top-[52px] left-3 right-3 z-20 gap-1 p-1 rounded-full border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
+          {([['overview', 'Overview'], ['tasks', `Needs you${displayTasks.length ? ` · ${displayTasks.length}` : ''}`]] as const).map(([k, lbl]) => (
+            <button key={k} onClick={() => setMobileTab(k)}
+              className={`flex-1 rounded-full py-1.5 mono text-[11px] tracking-wide transition ${mobileTab === k ? 'bg-[#17233a] text-[#F4EFE6]' : 'text-[var(--color-mute)]'}`}>{lbl}</button>
+          ))}
+        </div>
+      )}
+
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className="absolute left-8 top-[10%] w-[min(340px,44vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-3.5 pr-1">
+      <div className={`absolute left-8 top-[10%] w-[min(340px,44vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-3.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-[#0e1728]">
@@ -336,8 +349,8 @@ export default function Horizon() {
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
       {!sel && !beltName && !panel && (
-      <div className="absolute right-8 top-[12%] w-[min(320px,42vw)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
-        <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3">What needs you</div>
+      <div className={`absolute right-8 top-[12%] w-[min(320px,42vw)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
+        <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3 max-[800px]:hidden">What needs you</div>
         {displayTasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
             {tq.isLoading ? 'Loading…' : tq.isError ? 'Could not load your tasks — reload or sign in again.' : 'All clear — nothing needs you right now.'}
@@ -372,7 +385,7 @@ export default function Horizon() {
 
       {/* drill-down overlay — hybrid: facts + quick action here; deep work opens the workspace page */}
       {panel && (
-        <div className="absolute top-0 right-0 bottom-0 w-[min(400px,46vw)] z-20 p-8 overflow-y-auto"
+        <div className="absolute top-0 right-0 bottom-0 w-[min(400px,46vw)] z-20 p-8 overflow-y-auto max-[800px]:w-full max-[800px]:p-5 max-[800px]:!bg-[#070b13]"
           style={{ background: 'linear-gradient(270deg,#070b13 60%,#070b13cc 90%,transparent)' }}>
           <button onClick={() => setPanel(null)} className="mono text-[11.5px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-3.5 py-1.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">← back</button>
           {panel.kind === 'scope' && myScope && (
@@ -426,7 +439,7 @@ export default function Horizon() {
 
       {/* selected asset */}
       {sel && (
-        <div className="absolute top-0 right-0 bottom-0 z-10 p-8 overflow-y-auto"
+        <div className="absolute top-0 right-0 bottom-0 z-10 p-8 overflow-y-auto max-[800px]:!w-full max-[800px]:p-5 max-[800px]:!bg-[#070b13]"
           style={{ width: selMax ? '100vw' : selW, maxWidth: '100vw', background: selMax ? '#070b13' : 'linear-gradient(270deg,#070b13 80%,#070b13ee 93%,transparent)' }}>
           {/* drag the left edge to resize */}
           <div onPointerDown={startSelResize} title="drag to resize"
@@ -515,8 +528,8 @@ export default function Horizon() {
       )}
 
       {/* controls */}
-      <button onClick={() => (S.current.snap = true)} className="absolute right-8 bottom-[136px] inline-flex items-center gap-2 mono text-[10.5px] text-[var(--color-mute)] bg-[#0b121e] border border-[#223046] rounded-full px-4 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><Camera size={13} /> save snapshot</button>
-      <button onClick={() => nav('/home')} className="absolute right-8 bottom-[84px] inline-flex items-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">enter operations <ArrowRight size={14} /></button>
+      <button onClick={() => (S.current.snap = true)} className="absolute right-8 bottom-[136px] inline-flex items-center gap-2 mono text-[10.5px] text-[var(--color-mute)] bg-[#0b121e] border border-[#223046] rounded-full px-4 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] max-[800px]:hidden"><Camera size={13} /> save snapshot</button>
+      <button onClick={() => nav('/home')} className="absolute right-8 bottom-[84px] inline-flex items-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] max-[800px]:right-3 max-[800px]:bottom-[78px] max-[800px]:py-2.5">enter operations <ArrowRight size={14} /></button>
 
       <div className="absolute left-0 right-0 bottom-0 px-8 pb-6 pt-5" style={{ background: 'linear-gradient(0deg,#04060bE6 30%,transparent)' }}>
         <div className="flex items-center gap-4 max-w-[1200px] mx-auto">
