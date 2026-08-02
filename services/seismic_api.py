@@ -322,32 +322,32 @@ async def design_parametric_trigger(
 @app.websocket("/seismic/events/live")
 async def websocket_live_events(websocket: WebSocket):
     """
-    WebSocket stream of real-time earthquake events.
+    DEMO WebSocket stream of SYNTHETIC earthquake events (for UI/integration testing only).
+
+    This does NOT carry real observations. Every event is randomly generated and is labelled
+    `source: 'SYNTHETIC_DEMO'` + `synthetic: true` so no consumer can mistake it for a real feed.
+    Wire a real provider (EMSC/USGS) before presenting this as live data.
 
     Connection: ws://localhost:8000/seismic/events/live
-
-    Messages:
-    - Server sends earthquake events as they occur
-    - Client can send filter queries: {"filter": {"min_magnitude": 5.0}}
     """
     await websocket.accept()
 
     try:
         while True:
-            # Send mock real-time data every 10 seconds
+            # Emit a synthetic demo event every 10 seconds — NOT a real observation.
             await asyncio.sleep(10)
 
-            # Simulate new event
             new_event = {
                 'type': 'earthquake',
-                'event_id': f"rt_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                'magnitude': np.random.uniform(4.5, 7.5),
+                'event_id': f"synthetic_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                'magnitude': round(np.random.uniform(4.5, 7.5), 1),
                 'latitude': np.random.uniform(35, 50),
                 'longitude': np.random.uniform(-10, 40),
                 'depth_km': np.random.uniform(5, 100),
                 'origin_time': datetime.now(timezone.utc).isoformat(),
-                'risk_score': np.random.randint(20, 90),
-                'source': 'EMSC'
+                'risk_score': int(np.random.randint(20, 90)),
+                'source': 'SYNTHETIC_DEMO',   # honesty: randomly generated, not a real EMSC/USGS feed
+                'synthetic': True,
             }
 
             await websocket.send_json(new_event)

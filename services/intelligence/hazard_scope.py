@@ -8,7 +8,9 @@ means the two reports can never silently diverge on whether a given asset is mat
 from __future__ import annotations
 
 # ACUTE = event-driven; CHRONIC = gradual. Their union is the climate-hazard scope.
-ACUTE = {"flood", "storm", "wildfire", "heat_acute"}
+# coastal_flood (sea-level rise) and frost (cold-wave) are climate-attributable temperature/sea
+# extremes and are explicitly acute climate hazards under ESRS E1 AR.11 → ACUTE (NOT geophysical).
+ACUTE = {"flood", "coastal_flood", "storm", "wildfire", "heat_acute", "frost"}
 CHRONIC = {"drought", "heat_chronic", "soil_water", "water_stress"}
 CLIMATE = ACUTE | CHRONIC
 
