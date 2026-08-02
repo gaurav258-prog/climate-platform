@@ -203,4 +203,16 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,
                 detail={"decision": body.decision, "reason": body.reason, "request_type": row["request_type"]})
+
+    # Forward the governed decision to any subscribed customer system (best-effort; never blocks the
+    # decision or fails it if a webhook is down — delivery runs in a background thread and is logged).
+    try:
+        from services.integrations.webhooks import emit_event
+        emit_event(session, org_id, "approval.decided", {
+            "request_id": request_id, "request_type": row["request_type"],
+            "decision": body.decision, "checker": ctx["user"].get("email"),
+        })
+    except Exception:
+        pass
+
     return {"id": request_id, "status": body.decision, "applied": applied}

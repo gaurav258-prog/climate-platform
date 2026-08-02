@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -165,6 +165,124 @@ function Integrations() {
         </ol>
         <a href="/docs" className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline mt-3"><Database size={13} /> Full data-in guide in Documentation</a>
       </Card>
+
+      <Webhooks />
+    </div>
+  )
+}
+
+interface WEndpoint { endpoint_id: string; name: string; url: string; events: string[]; is_active: boolean; created_by_email: string | null; last_delivery_at: string | null }
+interface WDelivery { delivery_id: string; event_type: string; status: string; http_status: number | null; error: string | null; endpoint_name: string | null; created_at: string | null }
+interface WEvent { type: string; label: string }
+
+function Webhooks() {
+  const cat = useQuery({ queryKey: ['wh-events'], queryFn: () => api.get<{ events: WEvent[] }>('/v1/webhooks/events') })
+  const eps = useQuery({ queryKey: ['wh-endpoints'], queryFn: () => api.get<WEndpoint[]>('/v1/webhooks') })
+  const del = useQuery({ queryKey: ['wh-deliveries'], queryFn: () => api.get<WDelivery[]>('/v1/webhooks/deliveries') })
+  const [url, setUrl] = useState(''); const [name, setName] = useState(''); const [sel, setSel] = useState<string[]>([])
+  const [busy, setBusy] = useState(false); const [secret, setSecret] = useState<string | null>(null); const [copied, setCopied] = useState(false)
+  const ago = (iso: string | null) => { if (!iso) return 'never'; const d = (Date.now() - new Date(iso).getTime()) / 86400000; return d < 0.04 ? 'just now' : d < 1 ? 'today' : `${Math.floor(d)}d ago` }
+
+  const create = async () => {
+    if (!/^https?:\/\//.test(url)) { alert('URL must start with http:// or https://'); return }
+    if (name.trim().length < 2) { alert('Name the endpoint.'); return }
+    setBusy(true)
+    try {
+      const r = await api.post<{ secret: string }>('/v1/webhooks', { url: url.trim(), name: name.trim(), events: sel })
+      setSecret(r.secret); setUrl(''); setName(''); setSel([]); eps.refetch()
+    } catch (e) { alert((e as { body?: { message?: string } })?.body?.message || 'Could not create the endpoint.') } finally { setBusy(false) }
+  }
+  const revoke = async (id: string) => { if (!confirm('Revoke this endpoint? It will stop receiving events.')) return; try { await api.del(`/v1/webhooks/${id}`); eps.refetch() } catch { alert('Could not revoke.') } }
+  const test = async (id: string) => { try { const r = await api.post<{ status: string; http_status: number | null }>(`/v1/webhooks/${id}/test`); alert(r.status === 'delivered' ? `Test delivered (HTTP ${r.http_status}).` : `Test failed (${r.http_status ? 'HTTP ' + r.http_status : 'no response'}). Check the URL.`); del.refetch(); eps.refetch() } catch { alert('Could not send the test.') } }
+  const toggle = (t: string) => setSel(s => s.includes(t) ? s.filter(x => x !== t) : [...s, t])
+  const copy = () => { if (secret) { navigator.clipboard?.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
+
+  const rows = eps.data ?? []; const dels = del.data ?? []
+  return (
+    <div className="space-y-4 pt-5 mt-1 border-t border-[var(--color-line)]">
+      <div>
+        <div className="flex items-center gap-2"><Webhook size={16} className="text-[var(--color-sky)]" /><h2 className="display text-xl font-semibold">Webhooks (outbound)</h2></div>
+        <p className="text-[13px] text-[var(--color-mute)] mt-1 max-w-2xl">Push Tellumen events to your GRC, reporting or data systems the moment they happen. We POST a signed JSON payload; your system verifies the <span className="mono text-[11.5px]">X-Tellumen-Signature</span> header with the secret below.</p>
+      </div>
+
+      <Card className="p-4 space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label><span className="text-[11.5px] text-[var(--color-mute)]">Endpoint URL</span>
+            <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://your-system.example.com/tellumen" className={inp + ' mt-1'} /></label>
+          <label><span className="text-[11.5px] text-[var(--color-mute)]">Name</span>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. GRC listener" maxLength={80} className={inp + ' mt-1'} /></label>
+        </div>
+        <div>
+          <div className="text-[11.5px] text-[var(--color-mute)] mb-1.5">Events <span className="text-[var(--color-faint)]">(none selected = all)</span></div>
+          <div className="flex flex-wrap gap-2">
+            {(cat.data?.events ?? []).map(ev => (
+              <button key={ev.type} onClick={() => toggle(ev.type)} title={ev.label}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] border transition ${sel.includes(ev.type) ? 'border-[var(--color-sky)] text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+                {sel.includes(ev.type) && <Check size={12} />}<span className="mono">{ev.type}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <Button onClick={create} disabled={busy}><Webhook size={15} /> {busy ? 'Adding…' : 'Add endpoint'}</Button>
+        {secret && (
+          <div className="rounded-lg border border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,transparent)] p-3.5">
+            <div className="flex items-center gap-2 text-[12px] text-[var(--color-sky)] mb-2"><AlertCircle size={14} /> Signing secret — copy now, shown only once.</div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 mono text-[12.5px] break-all bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded px-3 py-2">{secret}</code>
+              <button onClick={copy} className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium border border-[var(--color-line-2)] hover:border-[var(--color-sky)]"><Copy size={13} /> {copied ? 'Copied' : 'Copy'}</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {rows.length > 0 && (
+        <Card className="p-0 overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+              <th className="font-normal py-2.5 px-4">Endpoint</th><th className="font-normal px-4">Events</th><th className="font-normal px-4">Last delivery</th><th className="font-normal px-4">Status</th><th className="font-normal px-4"></th>
+            </tr></thead>
+            <tbody>
+              {rows.map(e => (
+                <tr key={e.endpoint_id} className="border-b border-[var(--color-line)] last:border-0">
+                  <td className="py-2.5 px-4"><div className="text-[var(--color-ink)]">{e.name}</div><div className="mono text-[11px] text-[var(--color-faint)] break-all">{e.url}</div></td>
+                  <td className="px-4 mono text-[11px] text-[var(--color-mute)]">{e.events.length ? e.events.join(', ') : 'all'}</td>
+                  <td className="px-4 text-[11.5px] text-[var(--color-mute)]">{ago(e.last_delivery_at)}</td>
+                  <td className="px-4">{e.is_active
+                    ? <span className="mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]">active</span>
+                    : <span className="mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-faint)] bg-[var(--color-panel-2)]">revoked</span>}</td>
+                  <td className="px-4 text-right whitespace-nowrap">{e.is_active && <>
+                    <button onClick={() => test(e.endpoint_id)} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline mr-3"><Send size={12} /> Test</button>
+                    <button onClick={() => revoke(e.endpoint_id)} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-bad)]"><Trash2 size={12} /> Revoke</button></>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {dels.length > 0 && (
+        <div>
+          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Recent deliveries</div>
+          <Card className="p-0 overflow-x-auto">
+            <table className="w-full text-[12.5px]">
+              <tbody>
+                {dels.slice(0, 12).map(d => (
+                  <tr key={d.delivery_id} className="border-b border-[var(--color-line)] last:border-0">
+                    <td className="py-2 px-4 mono text-[11.5px] text-[var(--color-mute)]">{d.event_type}</td>
+                    <td className="px-4 text-[var(--color-faint)]">{d.endpoint_name ?? '—'}</td>
+                    <td className="px-4">{d.status === 'delivered'
+                      ? <span className="text-[var(--color-good)]">delivered · {d.http_status}</span>
+                      : <span className="text-[var(--color-bad)]" title={d.error ?? ''}>failed{d.http_status ? ` · ${d.http_status}` : ''}</span>}</td>
+                    <td className="px-4 text-right text-[11px] text-[var(--color-faint)]">{ago(d.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
+      <p className="text-[11.5px] text-[var(--color-faint)]">HTTP push is live. SFTP delivery to a drop server is interface-ready — talk to us if you need it.</p>
     </div>
   )
 }
