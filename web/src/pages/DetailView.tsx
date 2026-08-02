@@ -11,7 +11,8 @@ const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 interface Adapt { hazard: string; label: string; actions: string[] }
 interface Norm { title: string; sub: string; lat: number | null; lon: number | null
-  facts: { k: string; v: string }[]; hazards: { hazard: string; score: number | null }[]; adaptation: Adapt[] }
+  facts: { k: string; v: string }[]; hazards: { hazard: string; score: number | null }[]; adaptation: Adapt[]
+  irrigationContext?: { status: string; buffers: string[]; note?: string } | null }
 
 export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
   const { id } = useParams()
@@ -86,6 +87,15 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
             </div>
           </Card>
 
+          {n.irrigationContext?.note && (
+            <Card className="p-4">
+              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">
+                Water management · declared {n.irrigationContext.status.replace('_', '-')}
+              </div>
+              <div className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{n.irrigationContext.note}</div>
+            </Card>
+          )}
+
           {n.adaptation.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -153,6 +163,7 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
     ],
     hazards: risks.map(r => ({ hazard: r.hazard_type, score: r.score })),
     adaptation: (d.adaptation as Adapt[]) ?? [],
+    irrigationContext: (d.irrigation_context as { status: string; buffers: string[]; note?: string } | null) ?? null,
   }
 }
 

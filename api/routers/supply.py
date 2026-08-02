@@ -297,6 +297,35 @@ def commodities(session: DbSession):
     return {"commodities": [dict(r) for r in rows]}
 
 
+IRRIGATION_VALUES = {"irrigated", "rain_fed", "mixed"}
+
+
+def _norm_irrigation(value) -> Optional[str]:
+    v = (str(value).strip().lower() if value is not None else "") or None
+    if v and v not in IRRIGATION_VALUES:
+        return None  # unrecognised → treated as undeclared, never guessed
+    return v
+
+
+def irrigation_context(irrigation_status: Optional[str], elevated_hazards: list) -> Optional[dict]:
+    """An honest water-management context flag for a plot — NEVER a euro adjustment. Where a plot is
+    declared irrigated and a water hazard (drought / soil_water) is elevated, we say the water score is an
+    upper bound; the published crop € still reflects the origin's national irrigated/rain-fed mix."""
+    water = [h for h in (elevated_hazards or []) if h in ("drought", "soil_water")]
+    if irrigation_status == "irrigated" and water:
+        return {"status": "irrigated", "buffers": water,
+                "note": ("Declared irrigated — irrigation can buffer drought/soil-water stress, so the water "
+                         "score at this plot is an UPPER BOUND. The published crop € reflects the origin's "
+                         "national irrigated/rain-fed mix and is not adjusted per-plot (a per-plot buffer "
+                         "would need a fitted coefficient we don't yet have).")}
+    if irrigation_status == "rain_fed" and water:
+        return {"status": "rain_fed", "buffers": [],
+                "note": "Declared rain-fed — fully exposed to the drought/soil-water score (no irrigation buffer)."}
+    if irrigation_status:
+        return {"status": irrigation_status, "buffers": []}
+    return None
+
+
 class PlotCreate(BaseModel):
     plot_name: str = Field(..., min_length=1)
     commodity: str = Field(..., min_length=1)      # commodity NAME (mapped to id server-side)
@@ -307,6 +336,7 @@ class PlotCreate(BaseModel):
     country: Optional[str] = None
     annual_spend_eur: float = Field(..., gt=0)
     plot_area_ha: Optional[float] = None
+    irrigation_status: Optional[str] = None        # 'irrigated' | 'rain_fed' | 'mixed' | None (undeclared)
 
 
 @router.post("/plots", summary="Add one sourcing plot (by address or coordinates) → geocode + score")
@@ -328,14 +358,14 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
                                         h3_cell, region, country, annual_spend_eur, plot_area_ha,
-                                        confidence, geocode_precision)
+                                        confidence, geocode_precision, irrigation_status)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :lat, :lon, :cell, :region, :country, :spend, :area,
-                :conf, :prec)
+                :conf, :prec, :irr)
     """), {"plot_id": plot_id, "org_id": org_id, "commodity_id": commodity_id, "plot_name": body.plot_name,
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "region": body.region,
            "country": body.country or (loc.get("resolved_name") or "").split(", ")[-1] or None,
            "spend": body.annual_spend_eur, "area": body.plot_area_ha,
-           "conf": loc["confidence"], "prec": loc["precision"]})
+           "conf": loc["confidence"], "prec": loc["precision"], "irr": _norm_irrigation(body.irrigation_status)})
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,
@@ -485,7 +515,8 @@ def plot_detail(plot_id: str, session: DbSession):
                co.name AS commodity, co.eudr_covered, s.name AS supplier, p.country, p.region,
                CAST(p.latitude AS FLOAT) AS lat, CAST(p.longitude AS FLOAT) AS lon, p.h3_cell,
                CAST(p.annual_spend_eur AS FLOAT) AS spend_eur,
-               CAST(p.volume_share AS FLOAT) AS volume_share, p.eudr_status, p.eudr_geolocated_at
+               CAST(p.volume_share AS FLOAT) AS volume_share, p.eudr_status, p.eudr_geolocated_at,
+               p.irrigation_status
         FROM sc_sourcing_plots p
         JOIN sc_commodities co ON co.commodity_id=p.commodity_id
         LEFT JOIN sc_suppliers s ON s.supplier_id=p.supplier_id
@@ -504,6 +535,7 @@ def plot_detail(plot_id: str, session: DbSession):
                 if r["scenario"] == "baseline" and r["time_horizon"] == "current" and (r["score"] or 0) >= 40]
     return {"kind": "plot", "plot": dict(p), "impact_version": IMPACT_VERSION,
             "risks": [dict(r) for r in risks], "adaptation": actions_for(elevated),
+            "irrigation_context": irrigation_context(p["irrigation_status"], elevated),
             "note": "€ impact is v0 (uncalibrated); see docs/SUPPLY_CHAIN_IMPACT_FUNCTION_METHODOLOGY.md"}
 
 
@@ -1088,6 +1120,9 @@ PLOT_TEMPLATE_FIELDS = [
     {"name": "plot_area_ha", "required": False, "description": "Plot area in hectares. Auto-computed (geodesic) when plot_geojson is given; only needed for a point-only plot.", "example": "2.3"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Ashanti"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "GH"},
+    {"name": "irrigation_status", "required": False, "description": "irrigated / rain_fed / mixed. Declared, "
+     "not modelled: an irrigated plot's drought score is shown as an upper bound; the crop € is unchanged "
+     "(it reflects the origin's national irrigated/rain-fed mix).", "example": "irrigated"},
 ]
 REQUIRED_PLOT_COLUMNS = [f["name"] for f in PLOT_TEMPLATE_FIELDS if f["required"]]
 
@@ -1174,6 +1209,7 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
             "annual_spend_eur": spend, "plot_area_ha": area_ha, "plot_geometry": geojson,
             # bulk upload supplies exact coordinates → exact precision, full confidence (audit T4b)
             "confidence": 1.0, "geocode_precision": "exact",
+            "irrigation_status": _norm_irrigation(row.get("irrigation_status")) if "irrigation_status" in df.columns else None,
         })
     if not records:
         raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
@@ -1182,10 +1218,10 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
                                         h3_cell, region, country, annual_spend_eur, plot_area_ha, plot_geometry,
-                                        confidence, geocode_precision)
+                                        confidence, geocode_precision, irrigation_status)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :latitude, :longitude,
                 :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb),
-                :confidence, :geocode_precision)
+                :confidence, :geocode_precision, :irrigation_status)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.upload",
                 target_type="sc_sourcing_plots", target_id=None,
