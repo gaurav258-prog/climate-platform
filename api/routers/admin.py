@@ -407,6 +407,26 @@ def refresh_feed(feed_key: str, session: DbSession, ctx: dict = Depends(require_
     return res
 
 
+@router.get("/registry/search", summary="Search the global LEI registry (GLEIF) to auto-fill reporting identity")
+def registry_search(q: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    """Look an entity up in GLEIF (the authoritative, regulator-recognised LEI registry we already ingest)
+    by legal name or a pasted LEI, and return candidates the operator can pick to auto-fill legal name +
+    LEI + registered address. EORI and the filing-contact email are NOT in GLEIF (customs / internal), so
+    they stay manual — we never invent them."""
+    from services.reference import gleif
+    if len((q or "").strip()) < 2:
+        return {"query": q, "results": []}
+    try:
+        recs = gleif.search_entities(q, limit=8)
+    except gleif.GleifError as e:
+        raise HTTPException(502, {"error": "registry_unreachable",
+                                  "message": f"The LEI registry (GLEIF) could not be reached: {e}"})
+    return {"query": q, "source": "GLEIF", "results": [
+        {"lei": r.lei, "legal_name": r.name, "country": r.country, "jurisdiction": r.jurisdiction,
+         "status": r.entity_status, "address": gleif.registered_address(r)}
+        for r in recs]}
+
+
 @router.patch("/organization", summary="Edit the org's reporting identity (audited)")
 def patch_organization(body: OrgPatch, session: DbSession,
                        ctx: dict = Depends(require_permission("admin.users.manage"))):

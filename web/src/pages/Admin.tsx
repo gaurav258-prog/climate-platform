@@ -156,6 +156,8 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
           </div>
         ) : (
           <div className="space-y-3">
+            <RegistryLookup onPick={h => setForm(f => ({ ...f, legal_name: h.legal_name, lei: h.lei,
+              operator_address: h.address ?? f.operator_address ?? '' }))} />
             <div className="grid sm:grid-cols-2 gap-3">
               <F k="legal_name" label="Legal name" /><F k="lei" label="LEI" />
               <F k="eori" label="EORI" /><F k="filing_contact_email" label="Filing contact email" />
@@ -262,6 +264,47 @@ const MATURITY: Record<string, { label: string; tone: string }> = {
   partial: { label: 'partial', tone: 'var(--color-warn)' },
   estimated: { label: 'estimated', tone: 'var(--color-faint)' },
   planned: { label: 'planned', tone: 'var(--color-faint)' },
+}
+
+interface RegHit { lei: string; legal_name: string; country?: string; jurisdiction?: string; status?: string; address?: string }
+// Auto-fill the reporting identity from GLEIF — the authoritative LEI registry we already ingest. The
+// operator searches their entity (name or LEI) and picks it; we fill legal name + LEI + registered address.
+function RegistryLookup({ onPick }: { onPick: (h: RegHit) => void }) {
+  const [q, setQ] = useState('')
+  const [hits, setHits] = useState<RegHit[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const search = async () => {
+    if (q.trim().length < 2) return
+    setBusy(true); setErr(null)
+    try { const r = await api.get<{ results: RegHit[] }>(`/v1/admin/registry/search?q=${encodeURIComponent(q.trim())}`); setHits(r.results) }
+    catch { setErr('Couldn’t reach the LEI registry — try again, or enter the details manually below.'); setHits(null) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3">
+      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Auto-fill from the global LEI registry (GLEIF)</div>
+      <div className="flex gap-2">
+        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()}
+          placeholder="Search by legal name, or paste a 20-char LEI"
+          className="flex-1 bg-[var(--color-bg)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <Button onClick={search} disabled={busy || q.trim().length < 2}>{busy ? 'Searching…' : 'Search'}</Button>
+      </div>
+      {err && <div className="text-[12px] text-[var(--color-bad)] mt-2">{err}</div>}
+      {hits && hits.length === 0 && <div className="text-[12px] text-[var(--color-faint)] mt-2">No match in GLEIF — check the spelling, or enter the details manually below.</div>}
+      {hits && hits.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1 max-h-56 overflow-y-auto">
+          {hits.map(h => (
+            <button key={h.lei} onClick={() => onPick(h)} className="text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)] transition">
+              <div className="text-[13px] text-[var(--color-ink)]">{h.legal_name}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)] truncate">{h.lei} · {[h.country || h.jurisdiction, h.status, h.address].filter(Boolean).join(' · ')}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="mono text-[10px] text-[var(--color-faint)] mt-2">Fills legal name, LEI &amp; registered address from GLEIF. EORI &amp; the filing contact aren’t in GLEIF — add those below.</div>
+    </div>
+  )
 }
 
 function GoldenSourceFeeds() {

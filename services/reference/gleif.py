@@ -184,3 +184,33 @@ def fetch_lei(lei: str) -> Optional[GleifRecord]:
     if not data:
         return None
     return _parse_record(data)
+
+
+def registered_address(rec: GleifRecord) -> Optional[str]:
+    """A one-line registered/HQ address from a GLEIF record — for pre-filling an operator address.
+    GLEIF gives structured address parts (no free-form line); we join what's present, honestly partial."""
+    parts = list(rec.hq_address_lines)
+    for extra in (rec.hq_city, rec.hq_region, rec.hq_country):
+        if extra and extra not in parts:
+            parts.append(extra)
+    return ", ".join(p for p in parts if p) or None
+
+
+def search_entities(query: str, limit: int = 8) -> list[GleifRecord]:
+    """Search GLEIF for entities by legal name (or resolve a pasted LEI directly) and return several
+    candidates so a human can pick the right one. Used by the reporting-identity auto-fill — an operator
+    finds THEIR entity in the authoritative LEI registry rather than hand-typing name/LEI/address.
+    Raises GleifError only on a source outage (callers surface 'registry unreachable', not 'no match')."""
+    q = (query or "").strip()
+    if len(q) < 2:
+        return []
+    if len(q) == 20 and q.isalnum():          # looks like an LEI — direct lookup
+        rec = fetch_lei(q)
+        return [rec] if rec else []
+    payload = _request("lei-records", params={"filter[entity.legalName]": q, "page[size]": max(1, min(limit, 15))})
+    out: list[GleifRecord] = []
+    for d in (payload.get("data") or []):
+        r = _parse_record(d)
+        if r:
+            out.append(r)
+    return out
