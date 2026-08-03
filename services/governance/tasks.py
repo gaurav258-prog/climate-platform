@@ -75,6 +75,13 @@ def create_task(session: Session, org_id: str, actor: str, *, title: str, descri
         raise TaskError("a task needs a title")
     if criticality not in _CRIT:
         raise TaskError(f"criticality must be one of {_CRIT}")
+    # a linked filing must belong to THIS org — never attach to another tenant's filing UUID
+    if filing_id:
+        owned = session.execute(text(
+            "SELECT 1 FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = :o"),
+            {"f": filing_id, "o": org_id}).first()
+        if not owned:
+            raise TaskError("linked filing not found in this organisation")
     # de-dupe: a live task already exists for this source_ref → return it rather than piling up
     if source_ref:
         existing = session.execute(text("""

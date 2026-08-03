@@ -8,7 +8,7 @@ import { Eyebrow, Card, Button } from '../components/ui'
 // Regulatory-change register — the "change the bank" pipeline: a rule change tracked from spotted to shipped
 // (identified → analysis → scheduled → in dev → testing → released).
 
-interface Change { change_id: string; title: string; framework: string | null; summary: string | null; citation: string | null; stage: string; owner: string; impact: string | null; effective_date: string | null }
+interface Change { change_id: string; title: string; framework: string | null; summary: string | null; citation: string | null; stage: string; owner: string; impact: string | null; effective_date: string | null; is_platform: boolean }
 interface Stage { key: string; changes: Change[] }
 interface Board { stages: Stage[]; summary: { total: number; released: number } }
 
@@ -72,11 +72,11 @@ export default function RegChanges() {
                     <div className="text-[12px] text-[var(--color-ink)] leading-snug">{c.title}</div>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {c.framework && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{c.framework}</span>}
-                      <span className="mono text-[9px] text-[var(--color-faint)]">{c.owner}</span>
+                      <span className="mono text-[9px] text-[var(--color-faint)]">{c.is_platform ? 'platform' : 'your org'}</span>
                       {c.effective_date && <span className="mono text-[9px] text-[var(--color-faint)]">eff {c.effective_date.slice(0, 7)}</span>}
                       {c.citation && <span className="inline-flex items-center gap-0.5 mono text-[9px] text-[var(--color-faint)]"><ExternalLink size={9} />{c.citation}</span>}
                     </div>
-                    {canAct && NEXT[c.stage] && (
+                    {canAct && !c.is_platform && NEXT[c.stage] && (
                       <button onClick={() => advance(c)} className="mt-1.5 inline-flex items-center gap-0.5 mono text-[10px] text-[var(--color-sky)] hover:underline">{LABEL[NEXT[c.stage]]}<ChevronRight size={11} /></button>
                     )}
                   </div>

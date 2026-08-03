@@ -17,10 +17,10 @@ class ChangeCreate(BaseModel):
     framework: Optional[str] = None
     summary: Optional[str] = Field(None, max_length=4000)
     citation: Optional[str] = Field(None, max_length=400)
-    owner: str = "platform"
+    owner: str = "tenant"
     impact: Optional[str] = Field(None, max_length=2000)
     effective_date: Optional[str] = None
-    org_scoped: bool = False
+    # a tenant endpoint never creates a platform-wide (NULL) change — those are platform-seeded
 
 
 class Advance(BaseModel):
@@ -38,7 +38,7 @@ def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_p
         return C.create_change(session, ctx["org"]["org_id"], ctx["user"]["id"], title=body.title,
                                framework=body.framework, summary=body.summary, citation=body.citation,
                                owner=body.owner, impact=body.impact, effective_date=body.effective_date,
-                               org_scoped=body.org_scoped)
+                               org_scoped=True)
     except C.ChangeError as e:
         raise HTTPException(409, {"error": "change_error", "message": str(e)})
 
@@ -47,6 +47,6 @@ def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_p
 def advance(change_id: str, body: Advance, session: DbSession,
             ctx: dict = Depends(require_permission("reports.publish"))):
     try:
-        return C.advance(session, change_id, body.stage)
+        return C.advance(session, ctx["org"]["org_id"], change_id, body.stage)
     except C.ChangeError as e:
         raise HTTPException(409, {"error": "change_error", "message": str(e)})

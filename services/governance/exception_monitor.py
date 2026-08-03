@@ -33,11 +33,17 @@ def exceptions(session: Session, org_id: str) -> dict:
               AND source_ref IS NOT NULL
     """), {"o": org_id}).all()}
 
+    import logging
+    _log = logging.getLogger(__name__)
     items: list[dict] = []
+    skipped = 0
     for f in filings:
         try:
             res = validate_filing(session, org_id, f["filing_id"])
-        except Exception:  # noqa: BLE001 — a filing that can't validate shouldn't sink the whole monitor
+        except Exception as e:  # noqa: BLE001 — one broken filing shouldn't sink the whole monitor…
+            # …but never SILENTLY: log it and count it, so a systemic failure can't masquerade as "all clear"
+            _log.warning("exception_monitor: skipped filing %s — validation raised: %s", f["filing_id"], e)
+            skipped += 1
             continue
         for finding in res["findings"]:
             if finding["passed"] or finding["severity"] not in _CRIT:
@@ -64,6 +70,7 @@ def exceptions(session: Session, org_id: str) -> dict:
             "tracked": sum(1 for i in items if i["tracked"]),
             "by_category": by_cat,
             "filings_scanned": len(filings),
+            "filings_skipped": skipped,
         },
     }
 

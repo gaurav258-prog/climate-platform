@@ -14,7 +14,7 @@ interface Exc {
 }
 interface Resp {
   exceptions: Exc[]
-  summary: { total: number; blocking: number; warnings: number; tracked: number; by_category: Record<string, number>; filings_scanned: number }
+  summary: { total: number; blocking: number; warnings: number; tracked: number; by_category: Record<string, number>; filings_scanned: number; filings_skipped: number }
 }
 
 const sevColor = (s: string) => s === 'blocking' ? '#fb7185' : '#f0a860'
@@ -42,6 +42,11 @@ export default function Exceptions() {
         <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first. Turn any of them into a task the team can pick up.</p>
       </div>
 
+      {d && d.summary.filings_skipped > 0 && (
+        <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-bad)]">
+          <AlertTriangle size={14} /> {d.summary.filings_skipped} filing{d.summary.filings_skipped === 1 ? '' : 's'} could not be validated and were skipped — the list below may be incomplete.
+        </div>
+      )}
       {d && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Tile n={d.summary.total} label={`open exceptions · ${d.summary.filings_scanned} filings scanned`} />
