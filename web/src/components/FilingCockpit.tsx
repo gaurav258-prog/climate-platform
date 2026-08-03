@@ -4,6 +4,7 @@ import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, C
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
+import FilingLineage from './FilingLineage'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -186,6 +187,9 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
                 <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2 break-all">sha256 {f.snapshot.payload_sha256.slice(0, 32)}…</div>
               </Card>
             )}
+
+            {/* bidirectional data lineage — trace each reported figure to its source feed and back */}
+            <FilingLineage filingId={filingId} />
 
             {/* validation checklist */}
             {val.data && <ValidationCard v={val.data} />}

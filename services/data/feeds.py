@@ -79,6 +79,39 @@ for _f in FEEDS:
     _f["auto_refresh"] = _f["maturity"] in _AUTO_MATURITY
 
 
+# Which source feed(s) a hazard's score is derived from. canonical_scores carries no feed FK — the link is
+# by construction (a hazard is scored from these feeds), so this registry IS the score→source provenance a
+# lineage trace needs. Kept honest: a hazard maps only to feeds that genuinely drive it. Ordered primary-first.
+HAZARD_FEEDS: dict[str, list[str]] = {
+    "flood":         ["flood", "climate_reanalysis"],       # ERA5-Land runoff proxy + reanalysis
+    "coastal_flood": ["climate_reanalysis"],                # ERA5 surge context + AR6 SLR (model, not a feed)
+    "heat_acute":    ["climate_reanalysis"],
+    "heat_chronic":  ["climate_reanalysis"],
+    "drought":       ["climate_reanalysis"],                # ERA5-Land SPEI/soil-moisture
+    "soil_water":    ["climate_reanalysis"],
+    "frost":         ["climate_reanalysis"],                # ERA5 min-temperature
+    "wildfire":      ["fire_thermal", "climate_reanalysis"],# NASA FIRMS + fire-weather
+    "storm":         ["storms_ocean", "climate_reanalysis"],# IBTrACS + reanalysis
+    "seismic":       ["geophysical"],                       # USGS
+    "volcanic":      ["geophysical"],                       # Smithsonian GVP
+    "pollution":     ["atmosphere"],                        # Copernicus CAMS
+}
+
+
+def feeds_for_hazard(session: Session, hazard: str) -> list[dict]:
+    """The source feed(s) behind a hazard's score, each with live freshness — the score→source hop of a
+    data-lineage trace. Empty if the hazard isn't mapped (never invents a source)."""
+    keys = HAZARD_FEEDS.get(hazard, [])
+    if not keys:
+        return []
+    fresh = {f["key"]: f for f in feed_freshness(session)}
+    return [{"key": k, "name": fresh.get(k, {}).get("name", k),
+             "maturity": fresh.get(k, {}).get("maturity"),
+             "status": fresh.get(k, {}).get("status"),
+             "last_refresh": fresh.get(k, {}).get("last_refresh")}
+            for k in keys if k in fresh]
+
+
 def _status(days_since: float | None, cadence: int) -> str:
     if days_since is None:
         return "untracked"          # no refresh recorded yet — honest, not alarming

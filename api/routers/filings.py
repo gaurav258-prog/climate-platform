@@ -81,6 +81,31 @@ def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
 
 
+@router.get("/filings/{filing_id}/lineage/hazards", summary="The hazard cells a filing reports (trace entry points)")
+def lineage_hazards(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import reported_hazards
+    try:
+        return {"hazards": reported_hazards(session, ctx["org"]["org_id"], filing_id)}
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/filings/{filing_id}/lineage", summary="Forward trace: a reported cell → assets → golden source → feeds")
+def lineage(filing_id: str, hazard: str, session: DbSession,
+            ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import cell_lineage
+    try:
+        return cell_lineage(session, ctx["org"]["org_id"], filing_id, hazard)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/lineage/cell/{h3_cell}", summary="Reverse trace: a granular cell → every holding & filing that reuses it")
+def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import cell_upstream
+    return cell_upstream(session, ctx["org"]["org_id"], h3_cell)
+
+
 # ── lifecycle ───────────────────────────────────────────────────────────
 
 @router.post("/filings", status_code=201, summary="Generate a draft filing (freezes the report)")
