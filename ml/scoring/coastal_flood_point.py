@@ -20,8 +20,8 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.scoring.sea_level import (coastal_flood_score, slr_projection, SlrProjection,
-                                  SEA_LEVEL_VERSION, COAST_KM)
+from ml.scoring.sea_level import (coastal_flood_score, coastal_flood_stress, slr_projection,
+                                  SlrProjection, SEA_LEVEL_VERSION, COAST_KM)
 
 COASTLINE_CACHE = "data/coastline/ne_10m_coastline.geojson"   # fine coastline — resolves estuaries/deltas
 COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson"
@@ -109,8 +109,11 @@ def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline"
     if sc is None:
         return {"status": "insufficient_data", "h3_cell": cell}
     now = datetime.now(timezone.utc)
+    stress = coastal_flood_stress(elev, dist, slr) if slr is not None else None
     shap = {"elevation_m": elev, "dist_to_coast_km": dist, "on_demand": True,
-            "method": "freeboard vs AR6 SLR (screen; hazard not defences)"}
+            "method": "freeboard vs AR6 SLR (screen; hazard not defences)",
+            "slr_stress_m": (slr.stress_m if slr else None), "score_under_slr_stress": stress,
+            "note": "stress = low-likelihood ice-sheet-collapse tail, not in the headline/band"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores

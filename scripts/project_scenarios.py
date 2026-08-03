@@ -17,6 +17,7 @@ prior projections (anything that isn't the real baseline/current) are retired be
 
 Run (after scripts/build_cmip6_global.py):  .venv/bin/python -m scripts.project_scenarios
 """
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -26,7 +27,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.scoring.cmip6 import cmip6_delta_latlon
-from ml.scoring.physical_projection import project, SENSITIVITY
+from ml.scoring.physical_projection import project, SENSITIVITY, PROJECTION_VERSION
 
 HAZARDS = list(SENSITIVITY)                       # flood, storm, wildfire
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
@@ -79,11 +80,17 @@ def main():
                     score, lo, hi = project(b["score"], b["hazard_type"], delta)
                     if lo is not None:
                         banded += 1
+                    # stamp HOW this forward value was produced (base row carries only the hazard's mv)
+                    shap = json.dumps({"projection": PROJECTION_VERSION, "base_score": b["score"],
+                                       "cmip6_covered": delta is not None,
+                                       "method": "local CMIP6 warming/precip × cited per-hazard elasticity"
+                                       if delta is not None else "held flat (no CMIP6 SSP mapping)"})
                     rows.append({
                         "id": str(uuid.uuid4()), "h3": b["h3_cell"], "res": b["res"],
                         "hz": b["hazard_type"], "scen": scen, "horz": horz,
                         "score": round(score, 2), "bucket": score_to_bucket(score).value,
-                        "lo": lo, "hi": hi, "mv": b["model_version"], "dv": b["data_vintage"], "now": now,
+                        "lo": lo, "hi": hi, "mv": b["model_version"], "dv": b["data_vintage"],
+                        "shap": shap, "now": now,
                     })
 
         for i in range(0, len(rows), 2000):
@@ -91,9 +98,9 @@ def main():
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
                      risk_score, risk_bucket, score_ci_lower, score_ci_upper,
-                     model_version, data_vintage, scored_at, valid_from, valid_to, score_lane)
+                     model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to, score_lane)
                 VALUES
-                    (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:dv,:now,:now,NULL,'standing')
+                    (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:dv,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
             """), rows[i:i + 2000])
 
     print(f"projected {len(rows)} rows over {len(base)} (cell×hazard) from {len(cells)} exposure cells; "

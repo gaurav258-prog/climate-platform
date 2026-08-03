@@ -15,8 +15,10 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.scoring.sea_level import (coastal_flood_score, slr_projection, SlrProjection,
-                                  SEA_LEVEL_VERSION)
+import json
+
+from ml.scoring.sea_level import (coastal_flood_score, coastal_flood_stress, slr_projection,
+                                  SlrProjection, SEA_LEVEL_VERSION)
 
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["current", "2030", "2050", "2100"]
@@ -53,17 +55,23 @@ def main():
                         continue
                     if lo is not None:
                         banded += 1
+                    # low-confidence ice-sheet-collapse stress case — carried in provenance, NEVER the headline
+                    stress = coastal_flood_stress(elev, dist, slr) if slr is not None else None
+                    shap = json.dumps({"elevation_m": elev, "dist_to_coast_km": dist,
+                                       "slr_stress_m": (slr.stress_m if slr else None),
+                                       "score_under_slr_stress": stress,
+                                       "note": "stress = low-likelihood ice-sheet-collapse tail, not in the headline/band"})
                     rows.append({"id": str(uuid.uuid4()), "h3": c["h3_cell"], "res": 8, "hz": HAZARD,
                                  "scen": scen, "horz": horz, "score": sc, "bucket": score_to_bucket(sc).value,
-                                 "lo": lo, "hi": hi, "mv": SEA_LEVEL_VERSION, "now": now})
+                                 "lo": lo, "hi": hi, "mv": SEA_LEVEL_VERSION, "shap": shap, "now": now})
 
         for i in range(0, len(rows), 2000):
             s.execute(text("""
                 INSERT INTO canonical_scores
                     (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
                      risk_score, risk_bucket, score_ci_lower, score_ci_upper,
-                     model_version, data_vintage, scored_at, valid_from, valid_to, score_lane)
-                VALUES (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:now,:now,:now,NULL,'standing')
+                     model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to, score_lane)
+                VALUES (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:now,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
             """), rows[i:i + 2000])
 
     print(f"scored {len(rows)} coastal_flood rows over {len(cells)} coastal cells; {banded} carry an SLR band")

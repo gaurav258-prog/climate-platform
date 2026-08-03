@@ -11,8 +11,8 @@
  */
 
 export const HAZARD_VALUES = [
-  'flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic', 'volcanic',
-  'pollution',
+  'flood', 'coastal_flood', 'heat_acute', 'heat_chronic', 'wildfire', 'drought', 'storm', 'seismic',
+  'volcanic', 'pollution', 'frost', 'soil_water',
 ]
 
 export const SCENARIO_VALUES = [
@@ -39,7 +39,10 @@ const key = (raw) =>
 
 const HAZARD_ALIASES = {
   flood: 'flood', flooding: 'flood', river_flood: 'flood', fluvial: 'flood',
-  coastal_flood: 'flood', pluvial: 'flood', urban_flood: 'flood',
+  pluvial: 'flood', urban_flood: 'flood',
+  coastal_flood: 'coastal_flood', sea_level: 'coastal_flood', sea_level_rise: 'coastal_flood',
+  slr: 'coastal_flood', storm_surge: 'coastal_flood',
+  frost: 'frost', soil_water: 'soil_water',
   heat: 'heat_acute', heat_acute: 'heat_acute', heat_stress: 'heat_acute',
   heatwave: 'heat_acute', heat_wave: 'heat_acute', extreme_heat: 'heat_acute',
   extreme_heat_waves: 'heat_acute',

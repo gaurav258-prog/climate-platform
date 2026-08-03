@@ -79,3 +79,12 @@ def coastal_flood_score(elevation_m: Optional[float], dist_to_coast_km: Optional
     lo = round(_score(elevation_m, slr.lo_m), 2)     # less SLR → lower hazard
     hi = round(_score(elevation_m, slr.hi_m), 2)     # more SLR → higher hazard
     return (central, round(min(lo, hi), 2), round(max(lo, hi), 2))
+
+
+def coastal_flood_stress(elevation_m: Optional[float], dist_to_coast_km: Optional[float],
+                         slr: Optional[SlrProjection]) -> Optional[float]:
+    """The coastal-flood score under the LOW-CONFIDENCE ice-sheet-collapse SLR tail — a stress case,
+    surfaced SEPARATELY (never in the headline/band). None where inland / unknown / no SLR applied."""
+    if slr is None or elevation_m is None or dist_to_coast_km is None or dist_to_coast_km > COAST_KM:
+        return None
+    return round(_score(elevation_m, slr.stress_m), 2)
