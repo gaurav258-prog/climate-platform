@@ -139,6 +139,12 @@ def portfolio(session: DbSession, org_id: OrgId,
             "rollup": _rollup(properties), "properties": properties}
 
 
+@router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
+def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
+    from services.intelligence.forward_risk import forward_risk
+    return forward_risk(session, org_id, "realestate", scenario)
+
+
 @router.get("/summary", summary="Portfolio & NOI impact rollup")
 def summary(session: DbSession, org_id: OrgId,
             scenario: str = Query("baseline"), horizon: str = Query("current")):

@@ -11,6 +11,9 @@ import { Eyebrow, Card } from '../components/ui'
 // keeps its own workspace (Sourcing/Cogs/…); this is the equivalent operating book for the four financials.
 
 interface Hazard { hazard: string; score: number; bucket: string; model_version?: string; scored_at?: string; ci_lo?: number | null; ci_hi?: number | null }
+interface FwdPoint { horizon: string; at_risk_eur: number; at_risk_pct: number; at_risk_band_eur: [number, number]; newly_crossing_eur: number; newly_crossing_count: number }
+interface FwdMover { entity_name: string; current_score: number; future_score: number; delta: number; value_eur: number }
+interface ForwardRisk { scenario: string; book_eur: number; entities: number; trajectory: FwdPoint[]; movers: FwdMover[]; runway: string | null; basis: string }
 interface Valuation {
   discounted_value_eur: number; is_overridden: boolean
   recommended_discount_pct?: number; effective_discount_pct?: number
@@ -105,6 +108,13 @@ export default function Portfolio() {
     queryFn: () => api.get<PortfolioResp>(`/v1/${cfg!.prefix}/portfolio?scenario=${scenario}&horizon=${horizon}`),
     enabled: !!cfg,
   })
+  // forward-change decision signal — always a forward pathway (baseline has no projection to decide on)
+  const fwdScenario = scenario === 'baseline' ? 'disorderly_2c' : scenario
+  const fq = useQuery({
+    queryKey: ['fin-forward', cfg?.prefix, fwdScenario],
+    queryFn: () => api.get<ForwardRisk>(`/v1/${cfg!.prefix}/forward-risk?scenario=${fwdScenario}`),
+    enabled: !!cfg,
+  })
 
   if (!cfg) return (
     <div className="fadeup"><Eyebrow>Portfolio</Eyebrow>
@@ -142,6 +152,9 @@ export default function Portfolio() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} />)}
       </div>
+
+      {/* forward-change decision signal */}
+      {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
 
       {/* the book */}
       <Card className="p-0 overflow-hidden">
@@ -235,6 +248,60 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
     <Card className="px-4 py-3.5">
       <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{value}</div>
       <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
+    </Card>
+  )
+}
+
+function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: string }) {
+  const traj = d.trajectory
+  const now = traj.find(t => t.horizon === 'current')
+  const end = traj[traj.length - 1]
+  const worst = traj.filter(t => t.horizon !== 'current').reduce((a, b) => (b.newly_crossing_eur > (a?.newly_crossing_eur ?? -1) ? b : a), traj[1])
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Forward risk · decision signal · {scenarioLabel}</div>
+        <div className="mono text-[10px] text-[var(--color-faint)]">worst-hazard vs the High line (score ≥ 50)</div>
+      </div>
+      {/* headline */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] mb-4">
+        <span className="display text-[22px]" style={{ color: 'var(--color-warm, #f0a860)' }}>{now?.at_risk_pct ?? 0}%</span>
+        <span className="text-[var(--color-mute)]">of your book is at risk today</span>
+        {end && <><span className="text-[var(--color-faint)]">→</span>
+          <span className="display text-[22px]" style={{ color: 'var(--color-bad, #fb7185)' }}>{end.at_risk_pct}%</span>
+          <span className="text-[var(--color-mute)]">by {end.horizon}</span></>}
+        {d.runway
+          ? <span className="ml-1 text-[12.5px] px-2 py-0.5 rounded-md border border-[var(--color-line-2)] text-[var(--color-ink)]">material new exposure by <b>{d.runway}</b></span>
+          : <span className="ml-1 text-[12.5px] text-[var(--color-faint)]">· no material new crossing on the horizon</span>}
+      </div>
+      {/* trajectory */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {traj.map(t => (
+          <div key={t.horizon} className="rounded-lg border border-[var(--color-line)] px-3 py-2.5">
+            <div className="mono text-[10px] text-[var(--color-faint)] uppercase">{t.horizon === 'current' ? 'Now' : t.horizon}</div>
+            <div className="mono text-[15px] mt-0.5">{eur(t.at_risk_eur)}</div>
+            <div className="text-[11px] text-[var(--color-mute)]">{t.at_risk_pct}% at risk</div>
+            {t.horizon !== 'current' && t.at_risk_band_eur[0] !== t.at_risk_band_eur[1] &&
+              <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5" title="CMIP6/AR6 model-disagreement band">band {eur(t.at_risk_band_eur[0])}–{eur(t.at_risk_band_eur[1])}</div>}
+            {t.newly_crossing_eur > 0 && <div className="text-[10px] text-[var(--color-warm,#f0a860)] mt-0.5">+{eur(t.newly_crossing_eur)} new ({t.newly_crossing_count})</div>}
+          </div>
+        ))}
+      </div>
+      {/* movers — the assets to act on */}
+      {d.movers.length > 0 && (
+        <div>
+          <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Movers · act on these first ({worst?.horizon ?? end?.horizon})</div>
+          <div className="space-y-1">
+            {d.movers.map((m, i) => (
+              <div key={i} className="flex items-center justify-between text-[12.5px] border-b border-[var(--color-line)] py-1">
+                <span className="text-[var(--color-ink)] truncate">{m.entity_name}</span>
+                <span className="mono tabular-nums shrink-0 text-[var(--color-mute)]">{Math.round(m.current_score)} → <b className="text-[var(--color-bad,#fb7185)]">{Math.round(m.future_score)}</b> · {eur(m.value_eur)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">{d.basis} Feeds TCFD / IFRS S2 / ECB forward scenario analysis.</div>
     </Card>
   )
 }
