@@ -58,6 +58,7 @@ try:
     from api.routers import approvals as approvals_router
     from api.routers import filings as filings_router
     from api.routers import reg_tasks as reg_tasks_router
+    from api.routers import rconnect as rconnect_router
     from api.routers import portal as portal_router
     from api.routers import ops_console as ops_console_router
     from api.routers import ingest as ingest_router
@@ -168,6 +169,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(approvals_router.router)
     app.include_router(filings_router.router)
     app.include_router(reg_tasks_router.router)
+    app.include_router(rconnect_router.router)
     app.include_router(portal_router.router)
     app.include_router(ingest_router.router)
     app.include_router(webhooks_router.router)
