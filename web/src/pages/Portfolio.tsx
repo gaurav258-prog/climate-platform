@@ -42,10 +42,10 @@ const SECTORS: Record<string, Cfg> = {
     prefix: 'bank', listKey: 'assets', noun: 'financed assets',
     idKey: 'asset_id', nameKey: 'asset_name', typeKey: 'asset_type', valueKey: 'value_eur',
     kpis: [
-      { label: 'Book value', field: 'total_value_eur', fmt: 'eur' },
-      { label: 'Value at risk (High+)', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: '% of book at risk', field: 'pct_value_at_risk', fmt: 'pct' },
-      { label: 'scored', num: 'n_scored', den: 'n_assets', fmt: 'frac' },
+      { label: 'Total book value', field: 'total_value_eur', fmt: 'eur' },
+      { label: 'Money at high risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A' },
+      { label: 'Share of book at high risk', field: 'pct_value_at_risk', fmt: 'pct' },
+      { label: 'Assets analysed', num: 'n_scored', den: 'n_assets', fmt: 'frac' },
     ],
   },
   insurer: {
@@ -153,6 +153,9 @@ export default function Portfolio() {
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} />)}
       </div>
 
+      {/* where the risk comes from — plain-language money-by-hazard, traffic-light by severity */}
+      <HazardExposure items={items} valueKey={cfg.valueKey} />
+
       {/* forward-change decision signal */}
       {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
 
@@ -248,6 +251,49 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
     <Card className="px-4 py-3.5">
       <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{value}</div>
       <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
+    </Card>
+  )
+}
+
+// plain-language hazard names anyone can read
+const HAZARD_LABEL: Record<string, string> = {
+  flood: 'Flooding (rivers & heavy rain)', coastal_flood: 'Sea-level rise & coastal flooding',
+  storm: 'Storms & high winds', wildfire: 'Wildfire', drought: 'Drought',
+  heat_acute: 'Extreme heat (heatwaves)', heat_chronic: 'Rising average heat',
+  seismic: 'Earthquake', volcanic: 'Volcanic activity', pollution: 'Air pollution',
+  frost: 'Frost & cold snaps', soil_water: 'Soil-water stress',
+}
+const hazardLabel = (h: string) => HAZARD_LABEL[h] ?? h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const sevColor = (s: number) => s >= 75 ? '#fb7185' : s >= 50 ? '#f0a860' : '#34d399'   // red / amber / green
+const sevLabel = (s: number) => s >= 75 ? 'Severe' : s >= 50 ? 'High' : 'Moderate'
+
+function HazardExposure({ items, valueKey }: { items: Asset[]; valueKey: string }) {
+  const m: Record<string, { eur: number; n: number; worst: number }> = {}
+  for (const a of items) {
+    const hz = a.headline_hazard, sc = a.headline_score
+    if (!hz || sc == null) continue
+    const g = (m[hz] ??= { eur: 0, n: 0, worst: 0 })
+    g.eur += ((a as unknown as Record<string, number>)[valueKey]) ?? 0
+    g.n += 1; g.worst = Math.max(g.worst, sc)
+  }
+  const groups = Object.entries(m).sort((a, b) => b[1].worst - a[1].worst || b[1].eur - a[1].eur)
+  if (!groups.length) return null
+  return (
+    <Card className="p-5">
+      <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)] mb-3">Where your risk comes from · money exposed by hazard</div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {groups.map(([hz, g]) => (
+          <div key={hz} className="rounded-lg border px-3.5 py-3" style={{ borderColor: sevColor(g.worst) + '55' }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevColor(g.worst) }} />
+              <span className="text-[13px] text-[var(--color-ink)] leading-tight">{hazardLabel(hz)}</span>
+            </div>
+            <div className="display text-[21px] leading-none">{eur(g.eur)}</div>
+            <div className="text-[11px] text-[var(--color-mute)] mt-1"><b style={{ color: sevColor(g.worst) }}>{sevLabel(g.worst)}</b> · {g.n} asset{g.n > 1 ? 's' : ''} exposed</div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">Money = value of the assets whose biggest physical threat is this hazard. Colour shows how severe: <span style={{ color: '#34d399' }}>green</span> moderate · <span style={{ color: '#f0a860' }}>amber</span> high · <span style={{ color: '#fb7185' }}>red</span> severe.</div>
     </Card>
   )
 }
