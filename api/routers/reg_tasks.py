@@ -57,6 +57,13 @@ def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permissi
     return _kri(session, ctx["org"]["org_id"], framework)
 
 
+@router.get("/kri/hazard", summary="The entities contributing a hazard's exposure (drill-down)")
+def kri_hazard(framework: str, hazard: str, session: DbSession,
+               ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.kri import kri_hazard as _kh
+    return _kh(session, ctx["org"]["org_id"], framework, hazard)
+
+
 @router.get("/calendar", summary="Regulatory calendar — filing deadlines + task due-dates")
 def calendar(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_calendar import calendar as _cal

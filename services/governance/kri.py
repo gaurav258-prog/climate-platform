@@ -124,6 +124,50 @@ def _by_hazard(snap: dict) -> list[dict]:
                   key=lambda x: -x["value"])
 
 
+# noun per framework for the hazard drill
+_NOUN = {"bank_tcfd": "assets", "reit_tcfd": "properties", "insurer_climate": "policies"}
+
+
+def _live_snapshot(session: Session, org_id: str, framework: str, scenario: str, horizon: str) -> dict:
+    if framework == "bank_tcfd":
+        from api.routers.bank import build_disclosure_snapshot
+    elif framework == "reit_tcfd":
+        from api.routers.realestate import build_disclosure_snapshot
+    elif framework == "insurer_climate":
+        from api.routers.insurance import build_disclosure_snapshot
+    else:
+        return {}
+    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+
+
+def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> dict:
+    """The entities contributing a hazard's exposure (live) — the drill under a KRI by-hazard bar."""
+    from services.governance.filing_lineage import _LIST_CFG
+    from services.governance.reporting_settings import get_settings
+    s = get_settings(session, org_id)
+    cfg = _LIST_CFG.get(framework)
+    if cfg:
+        snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
+        ents = []
+        for e in snap.get(cfg["list"], []):
+            hz = next((h for h in e.get("hazards", []) if h.get("hazard") == hazard
+                       and h.get("bucket") in ("H", "VH")), None)
+            if hz:
+                ents.append({"name": e.get(cfg["name"]), "value": e.get(cfg["value"]),
+                             "h3_cell": e.get("h3_cell"), "country": e.get("country"), "score": hz.get("score")})
+        ents.sort(key=lambda x: -(x["value"] or 0))
+        return {"supported": True, "hazard": hazard, "noun": _NOUN.get(framework, "items"), "entities": ents[:100]}
+    if framework in ("csrd_e1", "esrs_pack"):
+        from api.routers.supply import _plots_with_hazard
+        ents = [{"name": p["plot_name"], "value": p["spend_eur"], "h3_cell": p.get("h3_cell"),
+                 "country": p.get("country"), "score": p["hazard_score"]}
+                for p in _plots_with_hazard(session, org_id, s["scenario"], s["horizon"])
+                if p.get("top_hazard") == hazard and (p["hazard_score"] or 0) >= 50]
+        ents.sort(key=lambda x: -(x["value"] or 0))
+        return {"supported": True, "hazard": hazard, "noun": "sourcing plots", "entities": ents[:100]}
+    return {"supported": False, "hazard": hazard, "entities": []}
+
+
 def _snapshot_history(session: Session, org_id: str, framework: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT rs.version, rs.reporting_basis, rs.payload, rf.period_label, rf.filing_id::text AS filing_id

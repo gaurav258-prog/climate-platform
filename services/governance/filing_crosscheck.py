@@ -32,6 +32,14 @@ def _shared_figures(framework: str, payload: dict) -> dict:
         if et:
             out["financed emissions (tCO₂e)"] = et
         return {k: v for k, v in out.items() if v}
+    if framework == "reit_tcfd":
+        r = payload.get("rollup") or {}
+        return {k: v for k, v in {"property book value": r.get("total_value_eur"),
+                                  "NOI impact %": r.get("portfolio_noi_impact_pct")}.items() if v}
+    if framework == "insurer_climate":
+        r = payload.get("rollup") or {}
+        return {k: v for k, v in {"sum insured": r.get("total_sum_insured_eur"),
+                                  "expected annual loss": r.get("total_expected_annual_loss_eur")}.items() if v}
     if framework == "sfdr_pai":
         ent = payload.get("entity") or {}
         return {k: v for k, v in {"NAV in scope": ent.get("total_value_eur")}.items() if v}

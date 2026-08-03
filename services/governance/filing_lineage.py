@@ -29,7 +29,17 @@ from services.data.feeds import feeds_for_hazard
 from services.governance.filings import get_filing
 
 # vertical → the framework whose filing consumes that vertical's book (others not wired yet)
-_VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai"}
+_VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
+                       "realestate": "reit_tcfd", "insurance": "insurer_climate"}
+
+# spatial-lineage config per framework: the entity list in the frozen payload + its id/name/value keys.
+# Every located book (bank/reit/insurer) shares the same {h3_cell, hazards[]} entity shape, so one trace
+# serves them all. SFDR/agri statements don't carry per-entity geolocation, so they stay unsupported.
+_LIST_CFG = {
+    "bank_tcfd":       {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
+    "reit_tcfd":       {"list": "properties", "id": "property_id", "name": "property_name", "value": "property_value_eur"},
+    "insurer_climate": {"list": "policies",   "id": "policy_id",   "name": "policy_name",   "value": "sum_insured_eur"},
+}
 
 
 def _granular_row(session: Session, h3_cell: str, hazard: str, scenario: str, horizon: str) -> dict | None:
@@ -70,19 +80,21 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
     scenario = basis.get("scenario", "baseline")
     horizon = basis.get("horizon", "current")
 
-    # spatial lineage is available for the located-book (bank_tcfd) filing; SFDR is emissions-attribution
-    # oriented and doesn't carry per-position geolocation in its statement — traced separately (issuer source).
-    if framework != "bank_tcfd" or "by_hazard" not in payload:
+    # spatial lineage serves every located book (bank / reit / insurer); the SFDR statement and the agri
+    # reports don't carry per-entity geolocation, so they stay unsupported (honest, not a stub).
+    cfg = _LIST_CFG.get(framework)
+    if not cfg or "by_hazard" not in payload:
         return {"supported": False, "framework": framework,
-                "message": "Spatial lineage is available for the located loan-book filing. The SFDR statement "
-                           "traces emissions provenance (per-issuer source), not per-position geolocation."}
+                "message": "Spatial lineage is available for the located-book filings (loan book, property book, "
+                           "underwriting book). SFDR traces emissions provenance per issuer; agri reports assemble "
+                           "from the sites & sourcing book."}
 
     cell = (payload.get("by_hazard") or {}).get(hazard)
     if cell is None:
         raise ValueError(f"hazard '{hazard}' is not a reported cell in this filing")
 
     contributors = []
-    for a in payload.get("assets") or []:
+    for a in payload.get(cfg["list"]) or []:
         hz = next((h for h in a.get("hazards", []) if h.get("hazard") == hazard
                    and h.get("bucket") in ("H", "VH")), None)
         if not hz:
@@ -90,8 +102,8 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
         g = _granular_row(session, a.get("h3_cell"), hazard, scenario, horizon)
         filed_mv = hz.get("model_version")
         contributors.append({
-            "asset_id": a.get("asset_id"), "asset_name": a.get("asset_name"),
-            "value_eur": a.get("value_eur"), "h3_cell": a.get("h3_cell"), "country": a.get("country"),
+            "asset_id": a.get(cfg["id"]), "asset_name": a.get(cfg["name"]),
+            "value_eur": a.get(cfg["value"]), "h3_cell": a.get("h3_cell"), "country": a.get("country"),
             "filed": {"score": hz.get("score"), "bucket": hz.get("bucket"),
                       "model_version": filed_mv, "scored_at": hz.get("scored_at")},
             "granular": g,
