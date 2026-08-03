@@ -1,0 +1,74 @@
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
+
+// The single golden model, browsable — each field, the source feed(s) it derives from, how current the
+// golden source is, and which reports consume it. "Source once, reuse everywhere" made visible.
+
+interface Feed { name: string; maturity: string | null; status: string | null }
+interface Field { field: string; category: string; type: string; source_feeds: Feed[]; data_vintage: string | null; mapped: boolean; consumed_by: string[] }
+interface Resp { fields: Field[]; summary: { hazard_fields: number; mapped_to_source: number; note: string } }
+
+const feedDot = (m: string | null, s: string | null) => s === 'overdue' || s === 'failed' ? '#fb7185' : m === 'live' || s === 'fresh' ? '#34d399' : m === 'estimated' || m === 'proxy' ? '#f0a860' : '#94a3b8'
+
+export default function DataDictionary() {
+  const q = useQuery({ queryKey: ['data-dictionary'], queryFn: () => api.get<Resp>('/v1/meta/data-dictionary') })
+  const d = q.data
+
+  return (
+    <div className="fadeup space-y-5">
+      <div>
+        <Eyebrow>Foundation · golden model</Eyebrow>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Data dictionary</h1>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere.</p>
+      </div>
+
+      {d && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Tile n={d.summary.hazard_fields} label="hazard fields" />
+          <Tile n={d.summary.mapped_to_source} label="mapped to a source" tone="#34d399" />
+          <Card className="px-4 py-3.5 sm:col-span-1 col-span-2"><div className="text-[12px] text-[var(--color-mute)] leading-snug">{d.summary.note}</div></Card>
+        </div>
+      )}
+
+      {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
+        : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the dictionary.</div>
+        : (
+        <Card className="p-0 overflow-hidden">
+          <div className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-2.5 border-b border-[var(--color-line)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">
+            <span>Field</span><span>Type</span><span>Source feed</span><span>Vintage</span><span>Consumed by</span>
+          </div>
+          <div className="divide-y divide-[var(--color-line)]">
+            {d.fields.map(f => (
+              <div key={f.field} className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-3 items-center text-[12px]">
+                <div>
+                  <div className="text-[var(--color-ink)]">{f.category === 'hazard' ? hazardLabel(f.field) : f.field.replace(/_/g, ' ')}</div>
+                  <div className="mono text-[9.5px] text-[var(--color-faint)]">{f.category}</div>
+                </div>
+                <div className="mono text-[10.5px] text-[var(--color-mute)]">{f.type}</div>
+                <div className="space-y-0.5">
+                  {f.source_feeds.length === 0 ? <span className="text-[var(--color-faint)]">not mapped</span>
+                    : f.source_feeds.map((s, i) => (
+                      <div key={i} className="inline-flex items-center gap-1.5 mr-2">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: feedDot(s.maturity, s.status) }} />
+                        <span className="text-[11px] text-[var(--color-mute)]">{s.name}</span>
+                      </div>
+                    ))}
+                </div>
+                <div className="mono text-[10.5px] text-[var(--color-faint)]">{f.data_vintage ? f.data_vintage.slice(0, 10) : '—'}</div>
+                <div className="flex flex-wrap gap-1">
+                  {f.consumed_by.map(c => <span key={c} className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{c}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+function Tile({ n, label, tone }: { n: number; label: string; tone?: string }) {
+  return <Card className="px-4 py-3.5"><div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{n}</div><div className="mono text-[10px] tracking-wide uppercase text-[var(--color-faint)] mt-2">{label}</div></Card>
+}

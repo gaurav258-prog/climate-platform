@@ -18,8 +18,10 @@ import Tasks from './pages/Tasks'
 import Exceptions from './pages/Exceptions'
 import Calendar from './pages/Calendar'
 import Kri from './pages/Kri'
-import RConnect from './pages/RConnect'
+import Transmission from './pages/Transmission'
 import RegChanges from './pages/RegChanges'
+import DataDictionary from './pages/DataDictionary'
+import Filings from './pages/Filings'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -54,8 +56,10 @@ export default function App() {
         <Route path="/exceptions" element={<Exceptions />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/kri" element={<Kri />} />
-        <Route path="/rconnect" element={<RConnect />} />
+        <Route path="/transmission" element={<Transmission />} />
         <Route path="/reg-changes" element={<RegChanges />} />
+        <Route path="/data-dictionary" element={<DataDictionary />} />
+        <Route path="/filings" element={<Filings />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />

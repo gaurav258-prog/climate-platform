@@ -38,6 +38,13 @@ FRAMEWORKS = {
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
+    # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
+    "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
+                "frequency": "annual", "due": (3, 31),
+                "regulator": "National competent authority (CSRD)", "basis": "ESRS E1"},
+    "esrs_pack": {"label": "ESRS Climate & Nature pack (E1 · E3 · E4)", "sectors": ("manufacturer",),
+                  "frequency": "annual", "due": (3, 31),
+                  "regulator": "National competent authority (CSRD)", "basis": "ESRS E1 · E3 · E4"},
 }
 
 # machine-readable export formats available per framework (rendered from the FROZEN snapshot — see
@@ -278,8 +285,9 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * done / mand, 1) if mand else 0},
                 "total_value_eur": ent.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
-    return {"coverage": {"label": "", "done": 0, "total": 0, "pct": 0}, "total_value_eur": None,
-            "noun": "items", "gaps": []}
+    # agri (csrd_e1 / esrs_pack) & any other framework — the report assembles from the org's own footprint;
+    # no single coverage ratio, so present it cleanly (basis + confirm) rather than a fake 0%.
+    return {"coverage": None, "total_value_eur": None, "noun": "sites & sourcing plots", "gaps": []}
 
 
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
@@ -290,6 +298,9 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
         raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    # the confirm-data step is mandatory — a filing is never frozen without an explicit human confirmation
+    if not confirmed:
+        raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
     period_end = date(date.today().year - 1, 12, 31)
     existing = session.execute(text("""
         SELECT filing_id, status FROM regulatory_filing

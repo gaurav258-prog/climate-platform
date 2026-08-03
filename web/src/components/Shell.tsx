@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, MessagesSquare, GitBranch } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -23,10 +23,11 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
   { label: 'Reports', items: [
     { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
     { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view', sectors: FIN },
-    { to: '/rconnect', label: 'RConnect', icon: MessagesSquare, perm: 'modules.view', sectors: FIN },
+    { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view', sectors: FIN },
     { to: '/exceptions', label: 'Exception monitor', icon: AlertOctagon, perm: 'modules.view', sectors: FIN },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view', sectors: FIN },
     { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view', sectors: FIN },
+    { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view', sectors: FIN },
   ] },
   // ── agriculture workspace ──
   { label: 'Your footprint', items: [
@@ -38,6 +39,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Reports', items: [
+    { to: '/filings', label: 'Filings', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
     { to: '/disclosure', label: 'Reports & EUDR', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
     { to: '/csrd', label: 'Climate report (CSRD)', icon: FileText, perm: 'modules.view', sectors: AGRI },
     { to: '/esrs', label: 'Nature report (ESRS)', icon: Leaf, perm: 'modules.view', sectors: AGRI },

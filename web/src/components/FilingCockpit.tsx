@@ -357,9 +357,9 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
 
       {f.status === 'attested' && (canPublish
         ? <div className="space-y-2">
-            <p className="text-[12px] text-[var(--color-mute)]">Transmit to the regulator and record the submission reference.</p>
+            <p className="text-[12px] text-[var(--color-mute)]">Submit to the regulator (via the download/portal), then record the submission reference here. The platform doesn't transmit to the regulator itself — this logs the manual submission of record.</p>
             <input className={box} placeholder="Submission / filing reference" value={subRef} onChange={e => setSubRef(e.target.value)} />
-            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/submit`, { submission_ref: subRef || undefined }))} disabled={busy}><PenLine size={14} /> Mark submitted</Button>
+            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/submit`, { submission_ref: subRef || undefined }))} disabled={busy}><PenLine size={14} /> Record submission</Button>
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Attested. Awaiting submission to the regulator.</p>)}
 

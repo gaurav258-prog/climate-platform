@@ -12,7 +12,7 @@ interface Preflight {
   framework: string; label: string; period_label: string
   basis: { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string }
   can_generate: boolean; existing_status: string | null
-  coverage: { label: string; done: number; total: number; pct: number }
+  coverage: { label: string; done: number; total: number; pct: number } | null
   total_value_eur: number | null; value_at_risk_eur?: number | null; noun: string; positions?: number; gaps: string[]
 }
 
@@ -56,8 +56,12 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
             )}
 
             <div className="grid grid-cols-3 gap-3">
-              <Stat big={`${d.coverage.pct}%`} label={d.coverage.label} sub={`${d.coverage.done}/${d.coverage.total}`} />
-              <Stat big={eur(d.total_value_eur)} label={d.noun === 'positions' ? 'NAV in scope' : 'book value'} sub={d.positions != null ? `${d.positions} positions` : `${d.coverage.total} ${d.noun}`} />
+              {d.coverage
+                ? <Stat big={`${d.coverage.pct}%`} label={d.coverage.label} sub={`${d.coverage.done}/${d.coverage.total}`} />
+                : <Stat big="—" label="coverage" sub={`from your ${d.noun}`} />}
+              {d.total_value_eur != null
+                ? <Stat big={eur(d.total_value_eur)} label={d.noun === 'positions' ? 'NAV in scope' : 'book value'} sub={d.positions != null ? `${d.positions} positions` : (d.coverage ? `${d.coverage.total} ${d.noun}` : '')} />
+                : <div />}
               {d.value_at_risk_eur != null ? <Stat big={eur(d.value_at_risk_eur)} label="value at risk" /> : <div />}
             </div>
 

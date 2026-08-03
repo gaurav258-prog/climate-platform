@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 
-// RConnect — submission cases & regulator communication. A five-stage tracker + an append-only message
+// Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
 // thread per submission. (The real transmission channel to a regulator portal is external; this records it.)
 
 interface Msg { direction: 'outbound' | 'inbound'; author: string; body: string; attachment_ref: string | null; at: string }
@@ -15,21 +15,21 @@ interface CaseDetail extends CaseSummary { created_at: string; filing_id: string
 const STAGES = ['ready', 'submitted', 'query', 'answered', 'closed']
 const STAGE_LABEL: Record<string, string> = { ready: 'Ready to submit', submitted: 'Submitted', query: 'Regulatory query', answered: 'Answer provided', closed: 'Closed' }
 
-export default function RConnect() {
+export default function Transmission() {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const canAct = (profile?.permissions ?? []).includes('reports.publish')
-  const q = useQuery({ queryKey: ['rconnect-cases'], queryFn: () => api.get<{ cases: CaseSummary[] }>('/v1/rconnect/cases') })
+  const q = useQuery({ queryKey: ['transmission-cases'], queryFn: () => api.get<{ cases: CaseSummary[] }>('/v1/transmission/cases') })
   const [sel, setSel] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   const [reg, setReg] = useState('')
   const cases = q.data?.cases ?? []
   const active = sel ?? cases[0]?.case_id ?? null
-  const refresh = () => qc.invalidateQueries({ queryKey: ['rconnect-cases'] })
+  const refresh = () => qc.invalidateQueries({ queryKey: ['transmission-cases'] })
 
   const openCase = async () => {
     if (!reg.trim()) return
-    try { const c = await api.post<CaseDetail>('/v1/rconnect/cases', { regulator: reg.trim() }); setReg(''); setOpening(false); refresh(); setSel(c.case_id) }
+    try { const c = await api.post<CaseDetail>('/v1/transmission/cases', { regulator: reg.trim() }); setReg(''); setOpening(false); refresh(); setSel(c.case_id) }
     catch (e) { alert(e instanceof ApiError ? e.message : 'Could not open the case.') }
   }
 
@@ -38,7 +38,7 @@ export default function RConnect() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <Eyebrow>Regulator communication</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">RConnect</h1>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">Transmission</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every submission and the correspondence around it — one tracker per filing, from ready-to-submit through the regulator's queries to closed.</p>
         </div>
         {canAct && <Button variant="ghost" onClick={() => setOpening(o => !o)}><Plus size={14} /> Open case</Button>}
@@ -77,19 +77,19 @@ export default function RConnect() {
 
 function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boolean; onChanged: () => void }) {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['rconnect-case', caseId], queryFn: () => api.get<CaseDetail>(`/v1/rconnect/cases/${caseId}`) })
+  const q = useQuery({ queryKey: ['transmission-case', caseId], queryFn: () => api.get<CaseDetail>(`/v1/transmission/cases/${caseId}`) })
   const [reply, setReply] = useState('')
   const d = q.data
-  const reload = () => { qc.invalidateQueries({ queryKey: ['rconnect-case', caseId] }); onChanged() }
+  const reload = () => { qc.invalidateQueries({ queryKey: ['transmission-case', caseId] }); onChanged() }
   if (!d) return <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
   const idx = STAGES.indexOf(d.stage)
 
   const post = async () => {
     if (!reply.trim()) return
-    try { await api.post(`/v1/rconnect/cases/${caseId}/message`, { direction: 'outbound', author: 'Us', body: reply.trim() }); setReply(''); reload() }
+    try { await api.post(`/v1/transmission/cases/${caseId}/message`, { direction: 'outbound', author: 'Us', body: reply.trim() }); setReply(''); reload() }
     catch (e) { alert(e instanceof ApiError ? e.message : 'Could not send.') }
   }
-  const stage = async (s: string) => { try { await api.post(`/v1/rconnect/cases/${caseId}/stage`, { stage: s }); reload() } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not advance.') } }
+  const stage = async (s: string) => { try { await api.post(`/v1/transmission/cases/${caseId}/stage`, { stage: s }); reload() } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not advance.') } }
 
   return (
     <Card className="p-0 overflow-hidden flex flex-col">

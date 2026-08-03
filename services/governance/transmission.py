@@ -1,4 +1,4 @@
-"""RConnect — submission case & regulator-communication tracker (institution side).
+"""Transmission — submission case & regulator-communication tracker (institution side).
 
 A case per submission with a five-stage tracker (ready → submitted → query → answered → closed) and an
 append-only message thread, so all correspondence about a filing lives in one auditable place. The actual
