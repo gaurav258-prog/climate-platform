@@ -42,6 +42,10 @@ class AcceptBody(BaseModel):
     ack_ref: Optional[str] = Field(None, max_length=200)
 
 
+class RestateBody(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+
 def _audit(session, ctx, action, filing_id, detail=None):
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                 action=action, target_type="filing", target_id=str(filing_id), detail=detail or {})
@@ -104,6 +108,28 @@ def lineage(filing_id: str, hazard: str, session: DbSession,
 def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_lineage import cell_upstream
     return cell_upstream(session, ctx["org"]["org_id"], h3_cell)
+
+
+@router.get("/filings/{filing_id}/variance", summary="Decompose how the numbers moved vs the prior filing")
+def variance(filing_id: str, session: DbSession, vs: Optional[str] = None,
+             ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_variance import variance as _variance
+    try:
+        return _variance(session, ctx["org"]["org_id"], filing_id, vs_filing_id=vs)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.post("/filings/{filing_id}/restate", status_code=201,
+             summary="Restate a filed filing — freeze a new draft and supersede the old")
+def restate(filing_id: str, body: RestateBody, session: DbSession,
+            ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        f = F.restate_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.restate", filing_id, {"reason": body.reason, "new_filing_id": f["filing_id"]})
+    return f
 
 
 # ── lifecycle ───────────────────────────────────────────────────────────

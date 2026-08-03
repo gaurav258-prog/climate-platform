@@ -54,6 +54,42 @@ def test_full_lifecycle_advances_and_logs():
 
 
 @pytest.mark.integration
+def test_restatement_supersedes_old_and_links_to_new():
+    """Restating a filed filing supersedes it (pointing at the restatement) and opens a fresh draft;
+    the variance of the new vs the old is supported and reconciles (identical data → zero deltas)."""
+    from services.governance.filing_variance import variance
+    with get_session() as s:
+        maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
+        checker = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
+        fid = _mk_draft(s, maker)
+        F.submit_for_review(s, BANK_ORG, fid, maker)
+        F.mark_approved(s, BANK_ORG, fid, checker)
+        F.attest(s, BANK_ORG, fid, maker, "Head of Reg", "I certify.")
+        F.submit(s, BANK_ORG, fid, maker, submission_ref="REF")
+        F.accept(s, BANK_ORG, fid, maker, ack_ref="ACK")
+
+        new = F.restate_filing(s, BANK_ORG, fid, maker, "correct a valuation")
+        old = F.get_filing(s, BANK_ORG, fid, with_payload=False)
+        assert old["status"] == "superseded" and old["superseded_by"] == new["filing_id"]
+        assert new["status"] == "draft"
+
+        v = variance(s, BANK_ORG, new["filing_id"])
+        assert v["supported"] and v["prior_filing_id"] == fid
+        assert v["headline"]["total_value"]["delta"] == 0   # same book → reconciles exactly
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_cannot_restate_a_draft():
+    with get_session() as s:
+        maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
+        fid = _mk_draft(s, maker)
+        with pytest.raises(F.FilingError):
+            F.restate_filing(s, BANK_ORG, fid, maker, "nope")
+        s.rollback()
+
+
+@pytest.mark.integration
 def test_illegal_transition_is_refused():
     """You can't attest a draft, or submit-for-review a filing that's already accepted."""
     with get_session() as s:

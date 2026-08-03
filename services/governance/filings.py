@@ -338,3 +338,55 @@ def accept(session: Session, org_id: str, filing_id: str, actor_user_id: str,
     """Record the regulator's acknowledgement — the filing is accepted."""
     return _apply_transition(session, org_id, filing_id, "accept", actor_user_id,
                              detail={"ack_ref": ack_ref})
+
+
+def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id: str, reason: str) -> dict:
+    """Restate a filed (submitted/accepted) filing: freeze a fresh snapshot at the current basis into a NEW
+    draft, and supersede the old one pointing at the new. Both are preserved — the correction is a new
+    version that runs the full lifecycle again, never an edit of the filed record."""
+    if not reason:
+        raise FilingError("a restatement needs a reason")
+    cur = _load(session, org_id, filing_id)
+    if cur["status"] not in ("submitted", "accepted"):
+        raise FilingError(f"only a filed (submitted/accepted) filing can be restated — this is '{cur['status']}'")
+
+    # period_end of the filing being restated (restatement keeps the same reference period)
+    period = session.execute(text(
+        "SELECT period_end, period_label FROM regulatory_filing WHERE filing_id = :f"),
+        {"f": filing_id}).mappings().first()
+    snap = create_snapshot(session, org_id, cur["framework"], actor_user_id,
+                           note=f"Restatement of {period['period_label']}: {reason}")
+    # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
+    _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
+    new_fid = session.execute(text("""
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u)
+        RETURNING filing_id
+    """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"],
+           "snap": snap["snapshot_id"], "note": f"Restates {period['period_label']}: {reason}",
+           "u": actor_user_id}).scalar()
+    _log_event(session, str(new_fid), None, "draft", "generate", actor_user_id,
+               {"restates": filing_id, "reason": reason, "snapshot_id": snap["snapshot_id"]})
+    # link the superseded old → the restatement (allowed: a superseded row is no longer guard-frozen)
+    session.execute(text("UPDATE regulatory_filing SET superseded_by = :n WHERE filing_id = :f"),
+                    {"n": new_fid, "f": filing_id})
+    return get_filing(session, org_id, str(new_fid), with_payload=False)
+
+
+def prior_filing_id(session: Session, org_id: str, filing_id: str) -> str | None:
+    """The filing this one restates (i.e. the one it superseded), if any — for a variance comparison."""
+    r = session.execute(text(
+        "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND superseded_by = :f"),
+        {"o": org_id, "f": filing_id}).scalar()
+    if r:
+        return r
+    # else: the most recent accepted/submitted filing for the same framework with an EARLIER period
+    cur = session.execute(text(
+        "SELECT framework, period_end FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).mappings().first()
+    if not cur:
+        return None
+    return session.execute(text("""
+        SELECT filing_id::text FROM regulatory_filing
+        WHERE org_id = :o AND framework = :fk AND period_end < :pe AND status IN ('submitted','accepted','superseded')
+        ORDER BY period_end DESC, created_at DESC LIMIT 1
+    """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"]}).scalar()

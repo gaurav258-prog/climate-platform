@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info } from 'lucide-react'
+import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
 import FilingLineage from './FilingLineage'
+import FilingVariance from './FilingVariance'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -122,7 +123,7 @@ export default function FilingCockpit() {
             </div>}
       </Card>
 
-      {openId && <FilingDrawer filingId={openId} onClose={() => setOpenId(null)} onChanged={refresh} />}
+      {openId && <FilingDrawer filingId={openId} onClose={() => setOpenId(null)} onChanged={refresh} onOpen={setOpenId} />}
     </div>
   )
 }
@@ -138,7 +139,7 @@ function PrepareButton({ framework, onDone }: { framework: string; onDone: (id: 
   return <button onClick={go} disabled={busy} className="mono text-[11px] text-[var(--color-sky)] hover:underline disabled:opacity-50">{busy ? 'preparing…' : 'prepare filing →'}</button>
 }
 
-function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onClose: () => void; onChanged: () => void }) {
+function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: string; onClose: () => void; onChanged: () => void; onOpen: (id: string) => void }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const perms = profile?.permissions ?? []
@@ -188,6 +189,9 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
               </Card>
             )}
 
+            {/* change vs the prior version (restatement / prior period) */}
+            <FilingVariance filingId={filingId} />
+
             {/* bidirectional data lineage — trace each reported figure to its source feed and back */}
             <FilingLineage filingId={filingId} />
 
@@ -195,7 +199,7 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
             {val.data && <ValidationCard v={val.data} />}
 
             {/* action panel — gated by status + permission + open blockers */}
-            <ActionPanel f={f} perms={perms} onDone={reload} blocking={val.data?.blocking ?? 0} />
+            <ActionPanel f={f} perms={perms} onDone={reload} blocking={val.data?.blocking ?? 0} onOpen={onOpen} />
 
             {/* lifecycle history */}
             <div>
@@ -280,7 +284,7 @@ function StageRail({ status }: { status: string }) {
   )
 }
 
-function ActionPanel({ f, perms, onDone, blocking }: { f: FilingDetail; perms: string[]; onDone: () => void; blocking: number }) {
+function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; perms: string[]; onDone: () => void; blocking: number; onOpen: (id: string) => void }) {
   const { profile } = useAuth()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -356,6 +360,24 @@ function ActionPanel({ f, perms, onDone, blocking }: { f: FilingDetail; perms: s
         : <p className="text-[12px] text-[var(--color-mute)]">Submitted. Awaiting the regulator's acknowledgement.</p>)}
 
       {f.status === 'accepted' && <p className="text-[12px]" style={{ color: ST.accepted.fg }}>✓ Accepted by the regulator. This filing is complete.</p>}
+
+      {/* restatement — reopen a filed record as a new version (the old is preserved, superseded) */}
+      {(f.status === 'submitted' || f.status === 'accepted') && canPublish && (
+        <div className="pt-2 border-t border-[var(--color-line)] space-y-2">
+          <p className="text-[11.5px] text-[var(--color-mute)]">Need to correct a filed figure? Restate it — a new version is frozen and this one is preserved as superseded.</p>
+          <input className={box} placeholder="Reason for the restatement" value={reason} onChange={e => setReason(e.target.value)} />
+          <Button variant="ghost" disabled={busy || !reason}
+            onClick={() => call(async () => { const r = await api.post<{ filing_id: string }>(`/v1/filings/${f.filing_id}/restate`, { reason }); onDone(); onOpen(r.filing_id) })}>
+            <GitCompareArrows size={14} /> Restate filing
+          </Button>
+        </div>
+      )}
+
+      {f.status === 'superseded' && f.superseded_by && (
+        <button onClick={() => onOpen(f.superseded_by!)} className="text-[12px] text-[var(--color-sky)] hover:underline">
+          Superseded by a restatement → open it
+        </button>
+      )}
     </Card>
   )
 }
