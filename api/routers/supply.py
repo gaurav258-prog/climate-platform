@@ -862,7 +862,8 @@ class SnapshotCreate(BaseModel):
 @router.get("/report-types", summary="Reports that can be frozen as an immutable snapshot")
 def report_types(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.report_snapshots import report_types as _rt
-    return {"report_types": _rt()}
+    # agri workspace — only the manufacturer-sector reports (FIN filings live under the cockpit)
+    return {"report_types": _rt(sectors=("manufacturer",))}
 
 
 @router.post("/report-snapshots", summary="Freeze a report at the current basis as an immutable, versioned snapshot")

@@ -199,6 +199,21 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         except Exception as e:
             raise HTTPException(409, {"error": "apply_failed",
                                       "message": f"Approved, but could not apply the change: {e}"})
+    # Filing approval: a filing.approve request clearing (or being sent back) drives the filing lifecycle.
+    # 4-eyes is already enforced above (checker ≠ maker), so an approved filing is one a second pair of eyes signed.
+    elif row["request_type"] == "filing.approve":
+        from services.governance.filings import mark_approved, mark_returned, FilingError
+        fid = (row["payload"] or {}).get("filing_id")
+        try:
+            if body.decision == "approved":
+                applied = mark_approved(session, org_id, fid, ctx["user"]["id"], reason=body.reason)
+            elif body.decision == "returned":
+                applied = mark_returned(session, org_id, fid, ctx["user"]["id"], reason=body.reason)
+            else:  # rejected
+                applied = mark_returned(session, org_id, fid, ctx["user"]["id"], reason=body.reason, rejected=True)
+        except FilingError as e:
+            raise HTTPException(409, {"error": "apply_failed",
+                                      "message": f"Decision recorded, but could not update the filing: {e}"})
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

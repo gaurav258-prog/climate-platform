@@ -58,12 +58,18 @@ def _engine_versions(session: Session) -> dict:
         "code_version": _git_sha(),
     }
 
-# report_type -> (human label, builder). The builder takes (session, org_id, scenario, horizon, material).
+# report_type -> (human label, builder, applicable org-type sectors). The builder takes
+# (session, org_id, scenario, horizon, material); FIN builders ignore the extra basis args.
 _BUILDERS = {
     "csrd_e1": ("CSRD · ESRS E1 physical-risk report",
-                lambda s, o, sc, hz, m: _csrd_e1(s, o, sc, hz, m)),
+                lambda s, o, sc, hz, m: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
     "esrs_pack": ("ESRS Climate & Nature pack (E1 · E3 · E4)",
-                  lambda s, o, sc, hz, m: _esrs_pack(s, o, sc, hz, m)),
+                  lambda s, o, sc, hz, m: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
+    # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
+    "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
+                  lambda s, o, sc, hz, m: _bank_tcfd(s, o, sc, hz), ("bank",)),
+    "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
+                 lambda s, o, sc, hz, m: _sfdr_pai(s, o), ("asset_manager",)),
 }
 
 
@@ -77,8 +83,24 @@ def _esrs_pack(session, org_id, scenario, horizon, material):
     return build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
 
 
-def report_types() -> list[dict]:
-    return [{"report_type": k, "label": v[0]} for k, v in _BUILDERS.items()]
+def _bank_tcfd(session, org_id, scenario, horizon):
+    from api.routers.bank import build_disclosure_snapshot
+    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+
+
+def _sfdr_pai(session, org_id):
+    from ml.regulatory.sfdr_pai import entity_pai_statement
+    return entity_pai_statement(session, org_id)
+
+
+def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
+    """Registered report types, optionally filtered to those applicable to the given org-type sectors."""
+    out = []
+    for k, v in _BUILDERS.items():
+        applies = v[2] if len(v) > 2 else None
+        if sectors is None or applies is None or any(s in applies for s in sectors):
+            out.append({"report_type": k, "label": v[0]})
+    return out
 
 
 def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_id: str,

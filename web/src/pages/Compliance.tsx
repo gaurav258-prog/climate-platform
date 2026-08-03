@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
+import FilingCockpit from '../components/FilingCockpit'
 
 // The financial-sector compliance surface behind the globe — the regulatory read of the book. Sector-
 // adaptive: bank / asset-manager / REIT show the physical-risk-by-hazard + EU-Taxonomy disclosure the
@@ -70,9 +71,16 @@ export default function Compliance() {
         )}
       </div>
 
-      {cfg.mode === 'disclosure'
-        ? <DisclosureView prefix={cfg.prefix} scenario={scenario} horizon={horizon} emissions={!!cfg.emissions} xlsx={!!cfg.xlsx} />
-        : <TriggersView />}
+      {/* the reporting cockpit — filing calendar, register and lifecycle (hidden for sectors with no
+          frameworks wired yet). Sits above the live read of the book, which is its underlying data. */}
+      <FilingCockpit />
+
+      <div className="pt-2">
+        <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)] mb-3">Live read of the book · the data behind a new filing</div>
+        {cfg.mode === 'disclosure'
+          ? <DisclosureView prefix={cfg.prefix} scenario={scenario} horizon={horizon} emissions={!!cfg.emissions} xlsx={!!cfg.xlsx} />
+          : <TriggersView />}
+      </div>
     </div>
   )
 }
