@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { Card, Eyebrow } from '../components/ui'
 import MiniMap from '../components/MiniMap'
 import LocationEditor from '../components/LocationEditor'
+import { hazardLabel } from '../lib/hazards'
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -75,7 +76,7 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
               {n.hazards.filter(h => h.score != null).map((h, i) => (
                 <div key={i}>
                   <div className="flex justify-between text-[12px] mb-0.5">
-                    <span className="text-[var(--color-ink)]">{pretty(h.hazard)}</span>
+                    <span className="text-[var(--color-ink)]">{hazardLabel(h.hazard)}</span>
                     <span className="mono" style={{ color: hz(h.score) }}>{Math.round(h.score as number)}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-[var(--color-panel-2)] overflow-hidden">

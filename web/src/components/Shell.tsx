@@ -19,34 +19,34 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
   ] },
-  { label: 'Compliance', items: [
-    { to: '/compliance', label: 'Disclosure', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
+  { label: 'Reports', items: [
+    { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
   ] },
   // ── agriculture workspace ──
   { label: 'Your footprint', items: [
-    { to: '/operations', label: 'Operations', icon: Building2, perm: 'modules.view', sectors: AGRI },
-    { to: '/sourcing', label: 'Sourcing book', icon: Sprout, perm: 'modules.view', sectors: AGRI },
+    { to: '/operations', label: 'Our sites', icon: Building2, perm: 'modules.view', sectors: AGRI },
+    { to: '/sourcing', label: 'Suppliers & crops', icon: Sprout, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Risk', items: [
     { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },
     { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view', sectors: AGRI },
   ] },
-  { label: 'Compliance', items: [
-    { to: '/disclosure', label: 'Disclosure & EUDR', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
-    { to: '/csrd', label: 'CSRD · ESRS E1', icon: FileText, perm: 'modules.view', sectors: AGRI },
-    { to: '/esrs', label: 'ESRS Climate & Nature', icon: Leaf, perm: 'modules.view', sectors: AGRI },
+  { label: 'Reports', items: [
+    { to: '/disclosure', label: 'Reports & EUDR', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
+    { to: '/csrd', label: 'Climate report (CSRD)', icon: FileText, perm: 'modules.view', sectors: AGRI },
+    { to: '/esrs', label: 'Nature report (ESRS)', icon: Leaf, perm: 'modules.view', sectors: AGRI },
   ] },
-  { label: 'Assurance', items: [
-    { to: '/models', label: 'Models & validation', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
-    { to: '/foundation', label: 'Data foundation', icon: Database, perm: 'modules.view', sectors: AGRI },
+  { label: 'Trust', items: [
+    { to: '/models', label: 'How we score', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
+    { to: '/foundation', label: 'Where our data comes from', icon: Database, perm: 'modules.view', sectors: AGRI },
   ] },
-  { label: 'Governance', items: [
+  { label: 'Admin', items: [
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
-    { to: '/admin', label: 'Control center', icon: Settings,
+    { to: '/admin', label: 'Settings & team', icon: Settings,
       anyPerm: ['admin.users.manage', 'approvals.view', 'admin.audit.view', 'admin.roles.manage', 'admin.approval_policy.manage'] },
   ] },
   { label: 'Help', items: [
-    { to: '/docs', label: 'Documentation', icon: BookOpen, perm: 'modules.view' },
+    { to: '/docs', label: 'Help & guides', icon: BookOpen, perm: 'modules.view' },
     { to: '/support', label: 'Support', icon: LifeBuoy, perm: 'portal.use' },
   ] },
   { label: 'Platform', items: [

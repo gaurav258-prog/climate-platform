@@ -4,6 +4,7 @@ import { ChevronRight, Download } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
 // type (bank / insurer / asset_manager / reit) chooses which real book endpoint to read and how to label
@@ -52,10 +53,10 @@ const SECTORS: Record<string, Cfg> = {
     prefix: 'insurance', listKey: 'policies', noun: 'insured locations',
     idKey: 'policy_id', nameKey: 'policy_name', typeKey: 'policy_type', valueKey: 'sum_insured_eur',
     kpis: [
-      { label: 'Sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
-      { label: 'Expected annual loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: 'Loss ratio', field: 'portfolio_loss_ratio_pct', fmt: 'pct' },
-      { label: 'priced', num: 'n_priced', den: 'n_policies', fmt: 'frac' },
+      { label: 'Total sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
+      { label: 'Likely yearly loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', tone: '#E9744A' },
+      { label: 'Claims vs premiums', field: 'portfolio_loss_ratio_pct', fmt: 'pct' },
+      { label: 'Locations priced', num: 'n_priced', den: 'n_policies', fmt: 'frac' },
     ],
   },
   asset_manager: {
@@ -63,9 +64,9 @@ const SECTORS: Record<string, Cfg> = {
     idKey: 'holding_id', nameKey: 'holding_name', typeKey: 'sector', valueKey: 'position_value_eur',
     kpis: [
       { label: 'Portfolio value', field: 'total_portfolio_value_eur', fmt: 'eur' },
-      { label: 'Climate VaR', field: 'total_climate_var_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: 'VaR %', field: 'portfolio_climate_var_pct', fmt: 'pct' },
-      { label: 'scored', num: 'n_scored', den: 'n_holdings', fmt: 'frac' },
+      { label: 'Money at climate risk', field: 'total_climate_var_eur', fmt: 'eur', tone: '#E9744A' },
+      { label: 'Share at climate risk', field: 'portfolio_climate_var_pct', fmt: 'pct' },
+      { label: 'Holdings analysed', num: 'n_scored', den: 'n_holdings', fmt: 'frac' },
     ],
   },
   reit: {
@@ -73,9 +74,9 @@ const SECTORS: Record<string, Cfg> = {
     idKey: 'property_id', nameKey: 'property_name', typeKey: 'property_type', valueKey: 'property_value_eur',
     kpis: [
       { label: 'Portfolio value', field: 'total_value_eur', fmt: 'eur' },
-      { label: 'Annual NOI', field: 'total_annual_noi_eur', fmt: 'eur' },
-      { label: 'NOI impact', field: 'portfolio_noi_impact_pct', fmt: 'pct', tone: '#E8B24C' },
-      { label: 'scored', num: 'n_scored', den: 'n_properties', fmt: 'frac' },
+      { label: 'Yearly rental income', field: 'total_annual_noi_eur', fmt: 'eur' },
+      { label: 'Hit to rental income', field: 'portfolio_noi_impact_pct', fmt: 'pct', tone: '#E8B24C' },
+      { label: 'Properties analysed', num: 'n_scored', den: 'n_properties', fmt: 'frac' },
     ],
   },
 }
@@ -132,7 +133,7 @@ export default function Portfolio() {
         <div>
           <Eyebrow>{profile?.org?.name} · {cfg.noun}</Eyebrow>
           <h1 className="display text-3xl font-semibold mt-2 mb-1">Portfolio</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Your {cfg.noun} projected onto the golden source — worst-hazard physical risk and per-asset detail. Every figure is the real projected book; a cell reads “—” where an asset isn’t yet scored.</p>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Your {cfg.noun}, checked against our verified climate data — the biggest physical threat to each one, and how it changes with warming. Every figure is real; “—” means we haven’t scored that one yet.</p>
         </div>
         <div className="flex flex-col gap-2 items-end">
           <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
@@ -162,7 +163,7 @@ export default function Portfolio() {
       {/* the book */}
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">The book · worst-hazard first</div>
+          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your assets · biggest threat first</div>
           <button
              className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"
              onClick={() => download(`/v1/${cfg.prefix}/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, `${cfg.prefix}-portfolio.xlsx`).catch(() => alert('Could not download the export.'))}>
@@ -201,7 +202,7 @@ export default function Portfolio() {
                   </button>
                   {isOpen && (
                     <div className="px-5 pb-4 pt-1 bg-[var(--color-bg-2)]">
-                      <div className="text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-2">Worst hazard: {a.headline_hazard ?? '—'} · scenario {scenario} · {horizon}</div>
+                      <div className="text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-2">Biggest threat: {a.headline_hazard ? hazardLabel(a.headline_hazard) : '—'} · {scenario} · {horizon}</div>
                       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5">
                         {(a.hazards ?? []).length === 0 && <div className="text-[12.5px] text-[var(--color-faint)]">No hazard scores under this scenario/horizon yet.</div>}
                         {(a.hazards ?? []).map(h => { const [hr, hg, hb] = col(h.score); return (
@@ -255,18 +256,6 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
   )
 }
 
-// plain-language hazard names anyone can read
-const HAZARD_LABEL: Record<string, string> = {
-  flood: 'Flooding (rivers & heavy rain)', coastal_flood: 'Sea-level rise & coastal flooding',
-  storm: 'Storms & high winds', wildfire: 'Wildfire', drought: 'Drought',
-  heat_acute: 'Extreme heat (heatwaves)', heat_chronic: 'Rising average heat',
-  seismic: 'Earthquake', volcanic: 'Volcanic activity', pollution: 'Air pollution',
-  frost: 'Frost & cold snaps', soil_water: 'Soil-water stress',
-}
-const hazardLabel = (h: string) => HAZARD_LABEL[h] ?? h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-const sevColor = (s: number) => s >= 75 ? '#fb7185' : s >= 50 ? '#f0a860' : '#34d399'   // red / amber / green
-const sevLabel = (s: number) => s >= 75 ? 'Severe' : s >= 50 ? 'High' : 'Moderate'
-
 function HazardExposure({ items, valueKey }: { items: Asset[]; valueKey: string }) {
   const m: Record<string, { eur: number; n: number; worst: number }> = {}
   for (const a of items) {
@@ -307,7 +296,7 @@ function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: 
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Forward risk · decision signal · {scenarioLabel}</div>
-        <div className="mono text-[10px] text-[var(--color-faint)]">worst-hazard vs the High line (score ≥ 50)</div>
+        <div className="mono text-[10px] text-[var(--color-faint)]">biggest threat crossing into high risk</div>
       </div>
       {/* headline */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] mb-4">
