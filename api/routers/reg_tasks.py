@@ -39,6 +39,12 @@ class SpinTask(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+@router.get("/calendar", summary="Regulatory calendar — filing deadlines + task due-dates")
+def calendar(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_calendar import calendar as _cal
+    return _cal(session, ctx["org"]["org_id"], ctx["org"]["type"])
+
+
 @router.get("/exceptions", summary="Exception Monitor — every open exception across all filings")
 def exceptions(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.exception_monitor import exceptions as _exc

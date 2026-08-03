@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -23,6 +23,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
     { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view', sectors: FIN },
     { to: '/exceptions', label: 'Exception monitor', icon: AlertOctagon, perm: 'modules.view', sectors: FIN },
+    { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view', sectors: FIN },
   ] },
   // ── agriculture workspace ──
   { label: 'Your footprint', items: [
