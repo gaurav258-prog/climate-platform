@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, GitCompareArrows } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card } from './ui'
 import { hazardLabel } from '../lib/hazards'
+import { DivergingBars, PairBars } from './Charts'
 
 // "Why did the numbers move?" — decomposes a filing's change vs the prior version (the one it restates, or
 // the previous period). A reviewer approves deltas, not absolutes. Honest: identical data → "no change".
@@ -54,17 +55,15 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
                 </div>
               )}
 
+              <div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Value at risk · prior vs now</div>
+                <PairBars prior={h.value_at_risk.prior} now={h.value_at_risk.now} format={eur} />
+              </div>
+
               {d.by_hazard!.filter(x => x.delta !== 0).length > 0 && (
                 <div>
-                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Exposure shift by hazard</div>
-                  <div className="space-y-1">
-                    {d.by_hazard!.filter(x => x.delta !== 0).slice(0, 5).map(x => (
-                      <div key={x.hazard} className="flex items-center justify-between text-[12px]">
-                        <span className="text-[var(--color-mute)]">{hazardLabel(x.hazard)}</span>
-                        <span className="mono" style={{ color: riskTone(x.delta) }}>{signedEur(x.delta)}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Exposure shift by hazard (red = more risk)</div>
+                  <DivergingBars data={d.by_hazard!.filter(x => x.delta !== 0).slice(0, 6).map(x => ({ label: hazardLabel(x.hazard), value: x.delta }))} format={eur} />
                 </div>
               )}
 

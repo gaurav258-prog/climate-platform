@@ -216,8 +216,62 @@ def _log_event(session: Session, filing_id: str, from_status: str | None, to_sta
 
 # ── lifecycle operations ────────────────────────────────────────────────
 
+def preflight(session: Session, org_id: str, org_type: str, framework: str) -> dict:
+    """The confirm-data step before freezing: shows the basis, the data coverage, the headline figures and
+    any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes nothing."""
+    if framework not in FRAMEWORKS or framework not in _BUILDERS:
+        raise FilingError(f"unknown framework '{framework}'")
+    if org_type not in FRAMEWORKS[framework]["sectors"]:
+        raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
+    period_end = date(date.today().year - 1, 12, 31)
+    existing = session.execute(text("""
+        SELECT status FROM regulatory_filing
+        WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'
+    """), {"o": org_id, "fk": framework, "pe": period_end}).scalar()
+    from services.governance.reporting_settings import get_settings
+    basis = get_settings(session, org_id)
+    summary = _preflight_summary(session, org_id, framework, basis)
+    return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
+            "period_label": _period_label(period_end), "basis": basis,
+            "can_generate": existing is None, "existing_status": existing, **summary}
+
+
+def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
+    """Live coverage + headline for the confirm-data step. Honest gaps, no freeze."""
+    gaps: list[str] = []
+    if framework == "bank_tcfd":
+        from api.routers.bank import build_disclosure_snapshot
+        snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])
+        r = snap["rollup"]
+        n_total, n_done = r.get("n_assets", 0), r.get("n_scored", 0)
+        if n_total and n_done < n_total:
+            gaps.append(f"{n_total - n_done} of {n_total} assets not yet scored — they'd be excluded from exposure")
+        return {"coverage": {"label": "assets scored", "done": n_done, "total": n_total,
+                             "pct": round(100 * n_done / n_total, 1) if n_total else 0},
+                "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": r.get("value_at_risk_eur"),
+                "noun": "assets", "gaps": gaps}
+    if framework == "sfdr_pai":
+        from ml.regulatory.sfdr_pai import entity_pai_statement
+        st = entity_pai_statement(session, org_id)
+        if st.get("error"):
+            return {"coverage": {"label": "positions", "done": 0, "total": 0, "pct": 0},
+                    "total_value_eur": None, "noun": "positions", "gaps": [st["error"]]}
+        cs, ent, fr = st["coverage_summary"], st["entity"], st.get("filing_readiness", {})
+        if not fr.get("ready_to_file"):
+            gaps.append("Manager identity/narratives incomplete: " + ", ".join(fr.get("missing", [])))
+        mand, done = cs.get("mandatory_indicators", 0), cs.get("computed", 0)
+        if mand and done < mand:
+            gaps.append(f"{done}/{mand} mandatory PAI indicators computed — the rest await issuer input")
+        return {"coverage": {"label": "PAI indicators computed", "done": done, "total": mand,
+                             "pct": round(100 * done / mand, 1) if mand else 0},
+                "total_value_eur": ent.get("total_value_eur"), "value_at_risk_eur": None,
+                "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
+    return {"coverage": {"label": "", "done": 0, "total": 0, "pct": 0}, "total_value_eur": None,
+            "noun": "items", "gaps": []}
+
+
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
-                    actor_user_id: str, note: str | None = None) -> dict:
+                    actor_user_id: str, note: str | None = None, confirmed: bool = False) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
     (framework, period) — regenerating while one is live is refused (supersede it first via a restatement)."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS:
@@ -243,7 +297,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
-                "payload_sha256": snap["payload_sha256"]})
+                "payload_sha256": snap["payload_sha256"], "data_confirmed": bool(confirmed)})
     return get_filing(session, org_id, fid, with_payload=False)
 
 

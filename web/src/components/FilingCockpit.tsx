@@ -6,6 +6,8 @@ import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
 import FilingLineage from './FilingLineage'
 import FilingVariance from './FilingVariance'
+import FilingBasis from './FilingBasis'
+import FilingPreflight from './FilingPreflight'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -48,6 +50,7 @@ export default function FilingCockpit() {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [openId, setOpenId] = useState<string | null>(null)
+  const [preflightFw, setPreflightFw] = useState<string | null>(null)
 
   const perms = profile?.permissions ?? []
   const canPrepare = perms.includes('approvals.create')
@@ -66,6 +69,9 @@ export default function FilingCockpit() {
 
   return (
     <div className="space-y-6">
+      {/* ── reporting basis (the parameters new filings freeze) ── */}
+      <FilingBasis />
+
       {/* ── filing calendar ── */}
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
@@ -93,7 +99,7 @@ export default function FilingCockpit() {
                     {o.filing_id
                       ? <button onClick={() => setOpenId(o.filing_id)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">open filing →</button>
                       : canPrepare
-                        ? <PrepareButton framework={o.framework} onDone={(id) => { refresh(); setOpenId(id) }} />
+                        ? <button onClick={() => setPreflightFw(o.framework)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">prepare filing →</button>
                         : <span className="mono text-[10.5px] text-[var(--color-faint)]">awaiting preparer</span>}
                   </div>
                 </div>
@@ -124,19 +130,10 @@ export default function FilingCockpit() {
       </Card>
 
       {openId && <FilingDrawer filingId={openId} onClose={() => setOpenId(null)} onChanged={refresh} onOpen={setOpenId} />}
+      {preflightFw && <FilingPreflight framework={preflightFw} onClose={() => setPreflightFw(null)}
+        onGenerated={(id) => { setPreflightFw(null); refresh(); setOpenId(id) }} />}
     </div>
   )
-}
-
-function PrepareButton({ framework, onDone }: { framework: string; onDone: (id: string) => void }) {
-  const [busy, setBusy] = useState(false)
-  const go = async () => {
-    setBusy(true)
-    try { const f = await api.post<FilingSummary>('/v1/filings', { framework }); onDone(f.filing_id) }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not prepare the filing.') }
-    finally { setBusy(false) }
-  }
-  return <button onClick={go} disabled={busy} className="mono text-[11px] text-[var(--color-sky)] hover:underline disabled:opacity-50">{busy ? 'preparing…' : 'prepare filing →'}</button>
 }
 
 function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: string; onClose: () => void; onChanged: () => void; onOpen: (id: string) => void }) {

@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown, Satellite, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card } from './ui'
-import { hazardLabel } from '../lib/hazards'
+import { hazardLabel, sevColor } from '../lib/hazards'
+import { HBar } from './Charts'
 
 // Bidirectional data lineage inside the filing drawer: click a reported figure to trace it down to the
 // satellite/agency feed (asset → H3 cell → golden-source row → source feed), and from any cell back up to
@@ -26,8 +27,19 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
   const hazards = q.data?.hazards ?? []
   if (!hazards.length) return null
 
+  const charted = hazards.filter(h => (h.exposed_value_eur ?? 0) > 0).slice(0, 8)
+
   return (
-    <div>
+    <div className="space-y-4">
+      {charted.length > 0 && (
+        <div>
+          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Exposure by hazard · value at High+</div>
+          <Card className="p-4">
+            <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score) }))} format={eur} />
+          </Card>
+        </div>
+      )}
+      <div>
       <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Reported figures · trace to source</div>
       <Card className="p-0 overflow-hidden">
         {hazards.map(h => (
@@ -43,6 +55,7 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
           </div>
         ))}
       </Card>
+      </div>
     </div>
   )
 }

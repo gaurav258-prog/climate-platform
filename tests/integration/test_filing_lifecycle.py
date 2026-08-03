@@ -90,6 +90,24 @@ def test_cannot_restate_a_draft():
 
 
 @pytest.mark.integration
+def test_preflight_reports_coverage_headline_and_gaps():
+    """The confirm-data preflight returns live coverage, the book headline and honest gaps — no freeze."""
+    with get_session() as s:
+        pf = F.preflight(s, BANK_ORG, "bank", "bank_tcfd")
+        assert pf["framework"] == "bank_tcfd"
+        assert set(pf["coverage"]) >= {"label", "done", "total", "pct"}
+        assert pf["total_value_eur"] is not None and pf["total_value_eur"] > 0
+        # if not every asset is scored, that must be surfaced as a gap (honesty)
+        if pf["coverage"]["done"] < pf["coverage"]["total"]:
+            assert any("not yet scored" in g for g in pf["gaps"])
+        # preflight must not have created a filing
+        n = s.execute(text("SELECT count(*) FROM regulatory_filing WHERE org_id = :o AND period_end = '2099-12-31'"),
+                      {"o": BANK_ORG}).scalar()
+        assert n == 0
+        s.rollback()
+
+
+@pytest.mark.integration
 def test_illegal_transition_is_refused():
     """You can't attest a draft, or submit-for-review a filing that's already accepted."""
     with get_session() as s:

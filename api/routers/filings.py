@@ -27,6 +27,14 @@ router = APIRouter(prefix="/v1", tags=["Reporting cockpit"])
 class GenerateBody(BaseModel):
     framework: str = Field(..., min_length=1, max_length=60)
     note: Optional[str] = Field(None, max_length=500)
+    confirmed: bool = False   # set by the confirm-data preflight step
+
+
+class BasisPatch(BaseModel):
+    scenario: Optional[str] = None
+    horizon: Optional[str] = None
+    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
+    reporting_period_end: Optional[str] = None
 
 
 class AttestBody(BaseModel):
@@ -66,6 +74,30 @@ def frameworks(session: DbSession, ctx: dict = Depends(require_permission("repor
 @router.get("/filings", summary="The filing register — every filing, newest first")
 def list_filings(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"filings": F.list_filings(session, ctx["org"]["org_id"])}
+
+
+@router.get("/filings/reporting-basis", summary="The org's reporting basis (scenario / horizon / materiality / period)")
+def get_basis(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, ctx["org"]["org_id"])
+
+
+@router.patch("/filings/reporting-basis", summary="Set the reporting basis (audited; 4-eyes if the matrix requires it)")
+def set_basis(body: BasisPatch, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.governance.config_governance import submit_or_apply_config
+    changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not changes:
+        raise HTTPException(422, {"error": "no_changes", "message": "Nothing to change."})
+    return submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                                  request_type="config.reporting_settings", updates=changes)
+
+
+@router.get("/filings/preflight", summary="Confirm-data step: coverage, headline & gaps before freezing a filing")
+def preflight(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    try:
+        return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
 
 
 @router.get("/filings/{filing_id}", summary="One filing — status, full history, and the frozen report")
@@ -139,7 +171,7 @@ def generate(body: GenerateBody, session: DbSession,
              ctx: dict = Depends(require_permission("approvals.create"))):
     try:
         f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
-                              body.framework, ctx["user"]["id"], note=body.note)
+                              body.framework, ctx["user"]["id"], note=body.note, confirmed=body.confirmed)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework})
