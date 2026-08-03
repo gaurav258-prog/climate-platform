@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp } from 'lucide-react'
+import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
@@ -18,6 +18,8 @@ interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
+interface Finding { rule: string; category: string; severity: 'blocking' | 'warning' | 'info'; passed: boolean; message: string; ref: string | null }
+interface Validation { filing_id: string; framework: string; findings: Finding[]; blocking: number; warnings: number; checks: number; passed: boolean }
 
 // status → label + colour. One vocabulary the whole cockpit speaks.
 const ST: Record<string, { label: string; fg: string; bg: string }> = {
@@ -140,8 +142,9 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
   const qc = useQueryClient()
   const perms = profile?.permissions ?? []
   const q = useQuery({ queryKey: ['filing', filingId], queryFn: () => api.get<FilingDetail>(`/v1/filings/${filingId}`) })
+  const val = useQuery({ queryKey: ['filing-validation', filingId], queryFn: () => api.get<Validation>(`/v1/filings/${filingId}/validation`) })
   const f = q.data
-  const reload = () => { q.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); onChanged() }
+  const reload = () => { q.refetch(); val.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); onChanged() }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -184,8 +187,11 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
               </Card>
             )}
 
-            {/* action panel — gated by status + permission */}
-            <ActionPanel f={f} perms={perms} onDone={reload} />
+            {/* validation checklist */}
+            {val.data && <ValidationCard v={val.data} />}
+
+            {/* action panel — gated by status + permission + open blockers */}
+            <ActionPanel f={f} perms={perms} onDone={reload} blocking={val.data?.blocking ?? 0} />
 
             {/* lifecycle history */}
             <div>
@@ -212,6 +218,41 @@ function FilingDrawer({ filingId, onClose, onChanged }: { filingId: string; onCl
   )
 }
 
+function ValidationCard({ v }: { v: Validation }) {
+  const [open, setOpen] = useState(!v.passed)   // auto-expand when something needs attention
+  const order = { blocking: 0, warning: 1, info: 2 } as const
+  const rows = [...v.findings].sort((a, b) =>
+    (Number(a.passed) - Number(b.passed)) || (order[a.severity] - order[b.severity]))
+  const headFg = v.blocking > 0 ? '#fb7185' : v.warnings > 0 ? '#e8b24c' : '#34d399'
+  return (
+    <Card className="p-4">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between">
+        <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Validation · {v.checks} checks</span>
+        <span className="mono text-[11px]" style={{ color: headFg }}>
+          {v.blocking > 0 ? `${v.blocking} blocking` : v.warnings > 0 ? `${v.warnings} to review` : 'all clear'}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-1.5">
+          {rows.map(r => {
+            const fg = r.passed ? '#34d399' : r.severity === 'blocking' ? '#fb7185' : r.severity === 'warning' ? '#e8b24c' : '#5cc8ff'
+            const Icon = r.passed ? CheckCircle2 : r.severity === 'blocking' ? XCircle : r.severity === 'info' ? Info : AlertTriangle
+            return (
+              <div key={r.rule} className="flex items-start gap-2">
+                <Icon size={13} style={{ color: fg }} className="mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[12.5px]" style={{ color: r.passed ? 'var(--color-mute)' : 'var(--color-ink)' }}>{r.message}</span>
+                  <span className="mono text-[9.5px] text-[var(--color-faint)] ml-1.5">{r.category}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 function StageRail({ status }: { status: string }) {
   if (status === 'rejected' || status === 'superseded') {
     return <div className="mono text-[11px]" style={{ color: ST[status].fg }}>This filing is {ST[status].label.toLowerCase()}.</div>
@@ -235,7 +276,7 @@ function StageRail({ status }: { status: string }) {
   )
 }
 
-function ActionPanel({ f, perms, onDone }: { f: FilingDetail; perms: string[]; onDone: () => void }) {
+function ActionPanel({ f, perms, onDone, blocking }: { f: FilingDetail; perms: string[]; onDone: () => void; blocking: number }) {
   const { profile } = useAuth()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -268,7 +309,10 @@ function ActionPanel({ f, perms, onDone }: { f: FilingDetail; perms: string[]; o
       {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
 
       {(f.status === 'draft' || f.status === 'returned') && (canReview
-        ? <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/submit-for-review`, {}))} disabled={busy}><Send size={14} /> Submit for approval</Button>
+        ? <div className="space-y-2">
+            {blocking > 0 && <p className="text-[12px] text-[var(--color-bad)]">Resolve {blocking} blocking validation issue{blocking === 1 ? '' : 's'} before submitting.</p>}
+            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/submit-for-review`, {}))} disabled={busy || blocking > 0}><Send size={14} /> Submit for approval</Button>
+          </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Ready to prepare; a colleague with maker rights submits it for approval.</p>)}
 
       {f.status === 'in_review' && (canDecide

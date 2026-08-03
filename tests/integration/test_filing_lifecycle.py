@@ -12,18 +12,21 @@ from sqlalchemy.exc import InternalError, ProgrammingError
 
 from core.db.session import get_session
 from services.governance import filings as F
+from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 FUTURE_PERIOD = "2099-12-31"   # a period no real filing uses, so we never collide with the live slot
 
 
 def _mk_draft(session, actor):
-    """Insert a bare draft filing directly (no snapshot needed to exercise the state machine)."""
+    """Insert a draft filing backed by a real frozen snapshot (so the validation gate has something to check),
+    on a throwaway future period so it can't collide with any live filing slot."""
+    snap = create_snapshot(session, BANK_ORG, "bank_tcfd", actor)   # freezes real Meridian book → passes validation
     fid = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, created_by)
-        VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'draft', :u)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
+        VALUES (:o, 'bank_tcfd', :pe, 'FY2099', 'draft', :snap, :u)
         RETURNING filing_id
-    """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "u": actor}).scalar()
+    """), {"o": BANK_ORG, "pe": FUTURE_PERIOD, "snap": snap["snapshot_id"], "u": actor}).scalar()
     F._log_event(session, str(fid), None, "draft", "generate", actor, {})
     return str(fid)
 

@@ -276,10 +276,16 @@ def _apply_transition(session: Session, org_id: str, filing_id: str, action: str
 
 
 def submit_for_review(session: Session, org_id: str, filing_id: str, actor_user_id: str) -> dict:
-    """Move a draft into review and raise a 4-eyes approval request. A *different* user must approve it."""
+    """Move a draft into review and raise a 4-eyes approval request. A *different* user must approve it.
+    Refuses if the filing has an open BLOCKING validation issue — a broken filing never reaches a reviewer."""
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in ("draft", "returned"):
         raise FilingError(f"cannot submit a filing that is '{cur['status']}' for review")
+    from services.governance.filing_validation import validate_filing, blocking_messages
+    vr = validate_filing(session, org_id, filing_id)
+    if not vr["passed"]:
+        raise FilingError("cannot submit for approval — resolve the blocking validation issue(s): "
+                          + "; ".join(blocking_messages(vr)))
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (:o, 'filing.approve', :ti, CAST(:p AS jsonb), :m)
@@ -288,7 +294,9 @@ def submit_for_review(session: Session, org_id: str, filing_id: str, actor_user_
            "p": json.dumps({"filing_id": filing_id, "framework": cur["framework"]}),
            "m": actor_user_id}).scalar()
     return _apply_transition(session, org_id, filing_id, "submit_for_review", actor_user_id,
-                             detail={"approval_request_id": str(rid)},
+                             detail={"approval_request_id": str(rid),
+                                     "validation": {"blocking": vr["blocking"], "warnings": vr["warnings"],
+                                                    "checks": vr["checks"]}},
                              extra_sets={"approval_request_id": rid})
 
 

@@ -72,6 +72,15 @@ def get_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
     return f
 
 
+@router.get("/filings/{filing_id}/validation", summary="Run the pre-submission validation checklist")
+def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_validation import validate_filing
+    try:
+        return validate_filing(session, ctx["org"]["org_id"], filing_id)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
 # ── lifecycle ───────────────────────────────────────────────────────────
 
 @router.post("/filings", status_code=201, summary="Generate a draft filing (freezes the report)")
