@@ -29,9 +29,8 @@ from ml.scoring.sea_level import COAST_KM
 
 ASSET_TABLES = ["portfolio_entities", "bank_assets", "realestate_properties",
                 "sc_company_sites", "sc_sourcing_plots"]
-COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_coastline.geojson"
-COASTLINE_CACHE = "data/coastline/ne_110m_coastline.geojson"
-DEG_TO_KM = 111.19
+COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson"
+COASTLINE_CACHE = "data/coastline/ne_10m_coastline.geojson"   # fine coastline — resolves estuaries/deltas
 
 
 def _coastline():
@@ -75,10 +74,12 @@ def main() -> int:
     elevs = _elevations(coords)
 
     print("computing distance to coast…", flush=True)
+    from shapely.ops import nearest_points
     coast = _coastline()
     rows = []
     for cell, (la, lo), el in zip(cells, coords, elevs):
-        dist_km = coast.distance(Point(lo, la)) * DEG_TO_KM
+        near = nearest_points(coast, Point(lo, la))[0]   # true great-circle km, latitude-correct
+        dist_km = h3.great_circle_distance((la, lo), (near.y, near.x), unit="km")
         rows.append({"h3": cell, "lat": la, "lon": lo, "el": (float(el) if el is not None else None),
                      "d": round(dist_km, 2), "coastal": dist_km <= COAST_KM,
                      "src": "Open-Meteo GLO-90 DEM + Natural Earth 110m coastline", "now": now})

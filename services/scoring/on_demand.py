@@ -15,6 +15,7 @@ from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from ml.features.heat_chronic_point import score_heat_chronic_point
 from ml.scoring.water_stress_point import score_water_stress_point
 from ml.scoring.frost_point import score_frost_point
+from ml.scoring.coastal_flood_point import score_coastal_flood_point
 
 # Hazards scored synchronously, in-request (cheap: read a global baseline, no external fetch).
 # soil_water + frost were globally scored by batch jobs but were absent here, so a NEWLY-uploaded
@@ -25,6 +26,7 @@ SYNC_ON_DEMAND_SCORERS = {
     "seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point,
     "storm": score_storm_point,
     "soil_water": score_water_stress_point, "frost": score_frost_point,
+    "coastal_flood": score_coastal_flood_point,
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).
