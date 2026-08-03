@@ -7,8 +7,9 @@ import { Eyebrow, Card } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { filingLink } from '../lib/links'
 
-// Exception Monitor — every open validation/reconciliation exception across all filings, in one prioritised
-// worklist. Each row can be spun into a task with one click (de-duped), so the team acts instead of hunting.
+// Control Tower — every open validation/reconciliation exception across all filings, in one prioritised
+// worklist (the control surface a filing must clear before attest). Each row can be spun into a task with
+// one click (de-duped), so the team acts instead of hunting. (Route/API keep the "exceptions" identifier.)
 
 interface Exc {
   filing_id: string; filing_label: string; period: string; filing_status: string
@@ -42,9 +43,9 @@ export default function Exceptions() {
   return (
     <div className="fadeup space-y-5">
       <div>
-        <Eyebrow>Workflow · exceptions</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Exception Monitor</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first. Turn any of them into a task the team can pick up.</p>
+        <Eyebrow>Workflow · control tower</Eyebrow>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Control Tower</h1>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up.</p>
       </div>
 
       {d && d.summary.filings_skipped > 0 && (
