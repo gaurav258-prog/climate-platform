@@ -156,14 +156,9 @@ def summary(session: DbSession, org_id: OrgId,
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties)}
 
 
-@router.get("/disclosure", summary="Physical-risk exposure + EU Taxonomy status — the data GRESB's "
-                                    "Resilience module and CSRD physical-risk disclosure ask for")
-def disclosure(session: DbSession, org_id: OrgId,
-               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    """Not a fabricated GRESB score -- GRESB's own survey criteria and scoring
-    weights aren't something we've verified against a primary source, so this
-    surfaces the real underlying data (exposure by hazard, taxonomy status)
-    that a GRESB or CSRD submission would actually need, honestly labeled."""
+def build_disclosure_snapshot(session, org_id, scenario, horizon):
+    """The single source of truth for a REIT TCFD / EU-Taxonomy physical-risk disclosure — live callers
+    (GET /disclosure) and frozen callers (filing snapshots) both go through this so the numbers can't drift."""
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     hazards: dict = {}
@@ -184,11 +179,23 @@ def disclosure(session: DbSession, org_id: OrgId,
         tax[p["taxonomy_status"]]["count"] += 1
         tax[p["taxonomy_status"]]["value_eur"] += p["property_value_eur"] or 0
     return {
-        "org_id": org_id, "scenario": scenario, "horizon": horizon,
-        "rollup": _rollup(properties),
+        "rollup": _rollup(properties), "properties": properties,
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
     }
+
+
+@router.get("/disclosure", summary="Physical-risk exposure + EU Taxonomy status — the data GRESB's "
+                                    "Resilience module and CSRD physical-risk disclosure ask for")
+def disclosure(session: DbSession, org_id: OrgId,
+               scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """Not a fabricated GRESB score -- GRESB's own survey criteria and scoring
+    weights aren't something we've verified against a primary source, so this
+    surfaces the real underlying data (exposure by hazard, taxonomy status)
+    that a GRESB or CSRD submission would actually need, honestly labeled."""
+    snap = build_disclosure_snapshot(session, org_id, scenario, horizon)
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
+            "rollup": snap["rollup"], "by_hazard": snap["by_hazard"], "taxonomy": snap["taxonomy"]}
 
 
 # A property schedule -- ~80% the same shape as insurance's Statement of Values,

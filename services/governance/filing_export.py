@@ -89,6 +89,18 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
             rows.append([i.get("number"), i.get("area"), i.get("metric"), v,
                          i.get("unit"), i.get("coverage_pct"), i.get("input_required")])
         return build_export_workbook(headers, rows, sheet_name="SFDR PAI · Annex I Table 1")
+    if framework == "reit_tcfd":
+        headers = ["property_name", "property_type", "country", "property_value_eur", "headline_score",
+                   "risk_bucket", "taxonomy_status", "h3_cell"]
+        rows = [[p.get("property_name"), p.get("property_type"), p.get("country"), p.get("property_value_eur"),
+                 p.get("headline_score"), p.get("headline_bucket") or "unscored",
+                 p.get("taxonomy_status"), p.get("h3_cell")] for p in payload.get("properties", [])]
+        return build_export_workbook(headers, rows, sheet_name="Property physical-risk disclosure")
+    if framework == "insurer_climate":
+        headers = ["policy_name", "region", "sum_insured_eur", "headline_score", "risk_bucket", "h3_cell"]
+        rows = [[p.get("policy_name"), p.get("region"), p.get("sum_insured_eur"), p.get("headline_score"),
+                 p.get("headline_bucket") or "unscored", p.get("h3_cell")] for p in payload.get("policies", [])]
+        return build_export_workbook(headers, rows, sheet_name="NatCat exposure disclosure")
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 

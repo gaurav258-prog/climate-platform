@@ -45,6 +45,12 @@ FRAMEWORKS = {
     "esrs_pack": {"label": "ESRS Climate & Nature pack (E1 · E3 · E4)", "sectors": ("manufacturer",),
                   "frequency": "annual", "due": (3, 31),
                   "regulator": "National competent authority (CSRD)", "basis": "ESRS E1 · E3 · E4"},
+    "reit_tcfd": {"label": "TCFD · EU-Taxonomy disclosure (property book)", "sectors": ("reit",),
+                  "frequency": "annual", "due": (4, 30),
+                  "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
+    "insurer_climate": {"label": "Climate / NatCat exposure disclosure", "sectors": ("insurer",),
+                        "frequency": "annual", "due": (4, 30),
+                        "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
 }
 
 # machine-readable export formats available per framework (rendered from the FROZEN snapshot — see
@@ -52,6 +58,8 @@ FRAMEWORKS = {
 EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
     "sfdr_pai":  ("json", "xlsx", "xbrl"),
+    "reit_tcfd": ("json", "xlsx"),
+    "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
     "esrs_pack": ("json",),
 }
@@ -285,6 +293,26 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
                              "pct": round(100 * done / mand, 1) if mand else 0},
                 "total_value_eur": ent.get("total_value_eur"), "value_at_risk_eur": None,
                 "noun": "positions", "positions": ent.get("positions"), "gaps": gaps}
+    if framework == "reit_tcfd":
+        from api.routers.realestate import build_disclosure_snapshot
+        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])["rollup"]
+        n_total, n_done = r.get("n_properties", 0), r.get("n_scored", 0)
+        if n_total and n_done < n_total:
+            gaps.append(f"{n_total - n_done} of {n_total} properties not yet scored — excluded from exposure")
+        return {"coverage": {"label": "properties scored", "done": n_done, "total": n_total,
+                             "pct": round(100 * n_done / n_total, 1) if n_total else 0},
+                "total_value_eur": r.get("total_value_eur"), "value_at_risk_eur": None,
+                "noun": "properties", "gaps": gaps}
+    if framework == "insurer_climate":
+        from api.routers.insurance import build_disclosure_snapshot
+        r = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])["rollup"]
+        n_total, n_done = r.get("n_policies", 0), r.get("n_priced", 0)
+        if n_total and n_done < n_total:
+            gaps.append(f"{n_total - n_done} of {n_total} policies not yet priced")
+        return {"coverage": {"label": "policies priced", "done": n_done, "total": n_total,
+                             "pct": round(100 * n_done / n_total, 1) if n_total else 0},
+                "total_value_eur": r.get("total_sum_insured_eur"), "value_at_risk_eur": None,
+                "noun": "policies", "gaps": gaps}
     # agri (csrd_e1 / esrs_pack) & any other framework — the report assembles from the org's own footprint;
     # no single coverage ratio, so present it cleanly (basis + confirm) rather than a fake 0%.
     return {"coverage": None, "total_value_eur": None, "noun": "sites & sourcing plots", "gaps": []}

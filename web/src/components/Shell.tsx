@@ -18,16 +18,10 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
     { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
-    { to: '/kri', label: 'KRI dashboard', icon: Gauge, perm: 'modules.view', sectors: FIN },
+    { to: '/kri', label: 'KRI dashboard', icon: Gauge, perm: 'modules.view' },
   ] },
   { label: 'Reports', items: [
     { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
-    { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view', sectors: FIN },
-    { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view', sectors: FIN },
-    { to: '/exceptions', label: 'Exception monitor', icon: AlertOctagon, perm: 'modules.view', sectors: FIN },
-    { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view', sectors: FIN },
-    { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view', sectors: FIN },
-    { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view', sectors: FIN },
   ] },
   // ── agriculture workspace ──
   { label: 'Your footprint', items: [
@@ -47,6 +41,15 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
   { label: 'Trust', items: [
     { to: '/models', label: 'How we score', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
     { to: '/foundation', label: 'Where our data comes from', icon: Database, perm: 'modules.view', sectors: AGRI },
+  ] },
+  // ── shared workflow layer — every sector, sector-scoped data ──
+  { label: 'Workflow', items: [
+    { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view' },
+    { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view' },
+    { to: '/exceptions', label: 'Exception monitor', icon: AlertOctagon, perm: 'modules.view' },
+    { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view' },
+    { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view' },
+    { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view' },
   ] },
   { label: 'Admin', items: [
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside

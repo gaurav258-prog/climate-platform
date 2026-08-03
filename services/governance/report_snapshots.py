@@ -70,6 +70,10 @@ _BUILDERS = {
                   lambda s, o, sc, hz, m: _bank_tcfd(s, o, sc, hz), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
                  lambda s, o, sc, hz, m: _sfdr_pai(s, o), ("asset_manager",)),
+    "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
+                  lambda s, o, sc, hz, m: _reit_tcfd(s, o, sc, hz), ("reit",)),
+    "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
+                        lambda s, o, sc, hz, m: _insurer_climate(s, o, sc, hz), ("insurer",)),
 }
 
 
@@ -91,6 +95,16 @@ def _bank_tcfd(session, org_id, scenario, horizon):
 def _sfdr_pai(session, org_id):
     from ml.regulatory.sfdr_pai import entity_pai_statement
     return entity_pai_statement(session, org_id)
+
+
+def _reit_tcfd(session, org_id, scenario, horizon):
+    from api.routers.realestate import build_disclosure_snapshot
+    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+
+
+def _insurer_climate(session, org_id, scenario, horizon):
+    from api.routers.insurance import build_disclosure_snapshot
+    return build_disclosure_snapshot(session, org_id, scenario, horizon)
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:

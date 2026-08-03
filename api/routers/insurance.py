@@ -160,6 +160,27 @@ def _rollup(policies):
     }
 
 
+def build_disclosure_snapshot(session, org_id, scenario, horizon):
+    """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
+    loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view."""
+    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
+    hazards: dict = {}
+    for p in policies:
+        for hz in p["hazards"]:
+            h = hazards.setdefault(hz["hazard"], {
+                "exposed_value_eur": 0.0, "n_exposed": 0, "max_score": 0.0,
+                "model_version": hz["model_version"], "scored_at": hz["scored_at"]})
+            if hz["bucket"] in ("H", "VH"):
+                h["exposed_value_eur"] += p["sum_insured_eur"] or 0
+                h["n_exposed"] += 1
+            h["max_score"] = max(h["max_score"], hz["score"])
+    for h in hazards.values():
+        h["exposed_value_eur"] = round(h["exposed_value_eur"])
+        h["max_score"] = round(h["max_score"], 1)
+    return {"rollup": _rollup(policies), "policies": policies, "by_hazard": hazards}
+
+
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
