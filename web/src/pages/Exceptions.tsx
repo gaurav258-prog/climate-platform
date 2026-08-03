@@ -1,8 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, XCircle, CheckCircle2, ListPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import { filingLink } from '../lib/links'
 
 // Exception Monitor — every open validation/reconciliation exception across all filings, in one prioritised
 // worklist. Each row can be spun into a task with one click (de-duped), so the team acts instead of hunting.
@@ -21,6 +24,8 @@ const sevColor = (s: string) => s === 'blocking' ? '#fb7185' : '#f0a860'
 
 export default function Exceptions() {
   const qc = useQueryClient()
+  const nav = useNavigate()
+  const { profile } = useAuth()
   const q = useQuery({ queryKey: ['exceptions'], queryFn: () => api.get<Resp>('/v1/reg-tasks/exceptions') })
   const d = q.data
 
@@ -68,12 +73,13 @@ export default function Exceptions() {
                 return (
                   <div key={i} className="px-5 py-3 flex items-center gap-3">
                     <Icon size={15} style={{ color: sevColor(e.severity) }} className="shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] text-[var(--color-ink)]">{e.message}</div>
+                    <button onClick={() => nav(filingLink(profile?.org?.type, e.filing_id))}
+                      className="min-w-0 flex-1 text-left group" title="Open the filing behind this exception">
+                      <div className="text-[13px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition inline-flex items-center gap-1">{e.message}<ChevronRight size={12} className="opacity-0 group-hover:opacity-100" /></div>
                       <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">
-                        {hazardLabel(e.filing_label) !== e.filing_label ? e.filing_label : e.filing_label} · {e.period} · {e.category}
+                        {e.filing_label} · {e.period} · {e.category}
                       </div>
-                    </div>
+                    </button>
                     {e.tracked
                       ? <span className="inline-flex items-center gap-1 mono text-[11px]" style={{ color: '#34d399' }}><CheckCircle2 size={13} /> tracked</span>
                       : <button onClick={() => spin(e)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition shrink-0">

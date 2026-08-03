@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
@@ -50,8 +51,13 @@ const STAGES = ['draft', 'in_review', 'approved', 'attested', 'submitted', 'acce
 export default function FilingCockpit() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
   const [preflightFw, setPreflightFw] = useState<string | null>(null)
+  // deep-link: /compliance?filing=<id> (or /filings?filing=) opens that filing's drawer — used by the
+  // calendar, exception monitor and KRI history to drill straight into a filing's full detail.
+  useEffect(() => { const f = params.get('filing'); if (f) setOpenId(f) }, [params])
+  const closeDrawer = () => { setOpenId(null); if (params.get('filing')) { params.delete('filing'); setParams(params, { replace: true }) } }
 
   const perms = profile?.permissions ?? []
   const canPrepare = perms.includes('approvals.create')
@@ -130,7 +136,7 @@ export default function FilingCockpit() {
             </div>}
       </Card>
 
-      {openId && <FilingDrawer filingId={openId} onClose={() => setOpenId(null)} onChanged={refresh} onOpen={setOpenId} />}
+      {openId && <FilingDrawer filingId={openId} onClose={closeDrawer} onChanged={refresh} onOpen={setOpenId} />}
       {preflightFw && <FilingPreflight framework={preflightFw} onClose={() => setPreflightFw(null)}
         onGenerated={(id) => { setPreflightFw(null); refresh(); setOpenId(id) }} />}
     </div>

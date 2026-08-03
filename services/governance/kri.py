@@ -58,7 +58,7 @@ def _reit_kri(session: Session, org_id: str) -> dict:
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
     ]
     by_hazard = _by_hazard(snap)
-    history = [{"label": h["label"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
+    history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
                 "value_at_risk": _hplus((h["payload"].get("rollup") or {}).get("by_bucket", {}), "value_eur"),
                 "pct_at_risk": None} for h in _snapshot_history(session, org_id, "reit_tcfd")]
     return {"framework": "reit_tcfd", "supported": True, "label": "REIT physical-risk KRIs",
@@ -83,7 +83,7 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
         _kpi("coverage", "Policies priced", cov, "pct"),
     ]
     by_hazard = _by_hazard(snap)
-    history = [{"label": h["label"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
+    history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
                 "value_at_risk": (h["payload"].get("rollup") or {}).get("total_expected_annual_loss_eur"),
                 "pct_at_risk": None} for h in _snapshot_history(session, org_id, "insurer_climate")]
     return {"framework": "insurer_climate", "supported": True, "label": "Insurer climate/NatCat KRIs",
@@ -126,7 +126,7 @@ def _by_hazard(snap: dict) -> list[dict]:
 
 def _snapshot_history(session: Session, org_id: str, framework: str) -> list[dict]:
     rows = session.execute(text("""
-        SELECT rs.version, rs.reporting_basis, rs.payload, rf.period_label
+        SELECT rs.version, rs.reporting_basis, rs.payload, rf.period_label, rf.filing_id::text AS filing_id
         FROM report_snapshots rs
         JOIN regulatory_filing rf ON rf.snapshot_id = rs.snapshot_id
         WHERE rs.org_id = :o AND rs.report_type = :fw
@@ -137,7 +137,7 @@ def _snapshot_history(session: Session, org_id: str, framework: str) -> list[dic
         p = r["payload"]
         if isinstance(p, str):
             p = json.loads(p)
-        out.append({"label": f'{r["period_label"]} v{r["version"]}', "payload": p})
+        out.append({"label": f'{r["period_label"]} v{r["version"]}', "payload": p, "filing_id": r["filing_id"]})
     return out
 
 
@@ -168,7 +168,7 @@ def _bank_kri(session: Session, org_id: str) -> dict:
         [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
          for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],
         key=lambda x: -x["value"])
-    history = [{"label": h["label"],
+    history = [{"label": h["label"], "filing_id": h["filing_id"],
                 "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
                 "value_at_risk": (h["payload"].get("rollup") or {}).get("value_at_risk_eur"),
                 "pct_at_risk": (h["payload"].get("rollup") or {}).get("pct_value_at_risk")}
@@ -193,7 +193,7 @@ def _sfdr_kri(session: Session, org_id: str) -> dict:
         _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
              tone="#f0a860" if (cs.get("emissions_coverage_pct") or 0) < 50 else None),
     ]
-    history = [{"label": h["label"],
+    history = [{"label": h["label"], "filing_id": h["filing_id"],
                 "total_value": (h["payload"].get("entity") or {}).get("total_value_eur"),
                 "value_at_risk": None, "pct_at_risk": None}
                for h in _snapshot_history(session, org_id, "sfdr_pai")]

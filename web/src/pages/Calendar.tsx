@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare, ChevronRight as Chev } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
+import { filingLink, taskLink } from '../lib/links'
 
 // Regulatory calendar — filing deadlines and task due-dates on one month grid, with an upcoming list.
 
@@ -16,10 +19,19 @@ const kindColor = (e: Ev) => e.overdue ? '#fb7185' : e.kind === 'obligation' ? '
 export default function Calendar() {
   const q = useQuery({ queryKey: ['reg-calendar'], queryFn: () => api.get<Resp>('/v1/reg-tasks/calendar') })
   const d = q.data
+  const nav = useNavigate()
+  const { profile } = useAuth()
   const [ym, setYm] = useState<{ y: number; m: number }>(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
+  const [selDate, setSelDate] = useState<string | null>(null)
 
   const byDate: Record<string, Ev[]> = {}
   for (const e of d?.events ?? []) (byDate[e.date] ??= []).push(e)
+
+  // where an event drills to: an obligation → its filing (or the filings page to prepare); a task → the board
+  const target = (e: Ev): string | null =>
+    e.kind === 'task' ? (e.ref_id ? taskLink(e.ref_id) : '/tasks')
+      : (e.ref_id ? filingLink(profile?.org?.type, e.ref_id) : (profile?.org?.type === 'manufacturer' ? '/filings' : '/compliance'))
+  const go = (e: Ev) => { const t = target(e); if (t) nav(t) }
 
   // build the month grid (Mon-first)
   const firstOfMonth = new Date(ym.y, ym.m, 1)
@@ -57,13 +69,16 @@ export default function Calendar() {
               const key = iso(day)
               const evs = byDate[key] ?? []
               const isToday = key === d?.today
+              const isSel = key === selDate
               return (
-                <div key={i} className="aspect-square rounded-lg border p-1 flex flex-col" style={{ borderColor: isToday ? 'var(--color-sky)' : 'var(--color-line)', background: isToday ? 'var(--color-panel)' : 'transparent' }}>
+                <button key={i} onClick={() => setSelDate(evs.length ? key : null)} disabled={!evs.length}
+                  className={`aspect-square rounded-lg border p-1 flex flex-col text-left ${evs.length ? 'hover:border-[var(--color-sky)] cursor-pointer' : 'cursor-default'}`}
+                  style={{ borderColor: isSel ? 'var(--color-sky)' : isToday ? 'var(--color-sky)' : 'var(--color-line)', background: isSel ? 'var(--color-panel-2)' : isToday ? 'var(--color-panel)' : 'transparent' }}>
                   <div className="text-[10.5px] text-[var(--color-mute)]">{day}</div>
                   <div className="flex flex-wrap gap-0.5 mt-auto">
                     {evs.slice(0, 4).map((e, j) => <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: kindColor(e) }} title={e.title} />)}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -74,33 +89,40 @@ export default function Calendar() {
           </div>
         </Card>
 
-        {/* upcoming */}
-        <Card className="p-0 overflow-hidden">
-          <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center gap-2">
-            <CalendarClock size={15} className="text-[var(--color-sky)]" />
-            <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Upcoming</span>
-          </div>
-          {q.isLoading ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">loading…</div>
-            : (d?.upcoming.length ?? 0) === 0 ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">Nothing due in the near term.</div>
-            : <div className="divide-y divide-[var(--color-line)]">
-                {d!.upcoming.map((e, i) => {
-                  const Icon = e.kind === 'obligation' ? FileText : KanbanSquare
-                  return (
-                    <div key={i} className="px-5 py-3 flex items-center gap-3">
-                      <Icon size={14} style={{ color: kindColor(e) }} className="shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] text-[var(--color-ink)] truncate">{e.title}</div>
-                        <div className="mono text-[10.5px] text-[var(--color-faint)]">{e.sub}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="mono text-[11.5px]" style={{ color: e.overdue ? '#fb7185' : 'var(--color-mute)' }}>{new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
-                        <div className="mono text-[9.5px] text-[var(--color-faint)]">{e.kind}</div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>}
-        </Card>
+        {/* side panel — the selected day's events, or the upcoming list. Every row drills through. */}
+        {(() => {
+          const list = selDate ? (byDate[selDate] ?? []) : (d?.upcoming ?? [])
+          const heading = selDate ? `On ${new Date(selDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}` : 'Upcoming'
+          return (
+            <Card className="p-0 overflow-hidden self-start">
+              <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2"><CalendarClock size={15} className="text-[var(--color-sky)]" /><span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{heading}</span></div>
+                {selDate && <button onClick={() => setSelDate(null)} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">upcoming ↑</button>}
+              </div>
+              {q.isLoading ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">loading…</div>
+                : list.length === 0 ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">{selDate ? 'Nothing on this day.' : 'Nothing due in the near term.'}</div>
+                : <div className="divide-y divide-[var(--color-line)]">
+                    {list.map((e, i) => {
+                      const Icon = e.kind === 'obligation' ? FileText : KanbanSquare
+                      return (
+                        <button key={i} onClick={() => go(e)} className="w-full text-left px-5 py-3 flex items-center gap-3 hover:bg-[var(--color-panel)] transition">
+                          <Icon size={14} style={{ color: kindColor(e) }} className="shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] text-[var(--color-ink)] truncate">{e.title}</div>
+                            <div className="mono text-[10.5px] text-[var(--color-faint)]">{e.sub}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="mono text-[11.5px]" style={{ color: e.overdue ? '#fb7185' : 'var(--color-mute)' }}>{new Date(e.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
+                            <div className="mono text-[9.5px] text-[var(--color-faint)]">{e.kind}</div>
+                          </div>
+                          <Chev size={14} className="text-[var(--color-faint)] shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>}
+            </Card>
+          )
+        })()}
       </div>
     </div>
   )

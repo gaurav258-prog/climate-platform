@@ -149,6 +149,38 @@ def move_task(session: Session, org_id: str, task_id: str, actor: str, status: s
     return get_task(session, org_id, task_id)
 
 
+def update_task(session: Session, org_id: str, task_id: str, actor: str, *, title: str | None = None,
+                description: str | None = None, criticality: str | None = None,
+                due_date: str | None = None, clear_due: bool = False) -> dict:
+    """Edit a task's fields (title / description / criticality / due date). Only supplied fields change."""
+    cur = _load(session, org_id, task_id)
+    if criticality is not None and criticality not in _CRIT:
+        raise TaskError(f"criticality must be one of {_CRIT}")
+    if title is not None and not title.strip():
+        raise TaskError("title can't be empty")
+    session.execute(text("""
+        UPDATE regulatory_task SET
+            title = COALESCE(:t, title),
+            description = CASE WHEN :dset THEN :d ELSE description END,
+            criticality = COALESCE(:c, criticality),
+            due_date = CASE WHEN :ddclear THEN NULL WHEN CAST(:dd AS date) IS NOT NULL THEN CAST(:dd AS date) ELSE due_date END
+        WHERE org_id = :o AND task_id = :tid
+    """), {"t": title.strip() if title else None, "dset": description is not None, "d": description,
+           "c": criticality, "ddclear": clear_due, "dd": due_date, "o": org_id, "tid": task_id})
+    _event(session, task_id, "edited", actor, from_val=cur["title"],
+           to_val=(title.strip() if title else None), note="fields updated")
+    return get_task(session, org_id, task_id)
+
+
+def comment(session: Session, org_id: str, task_id: str, actor: str, body: str) -> dict:
+    """Append a comment to a task's activity log (append-only)."""
+    _load(session, org_id, task_id)   # org-scope check
+    if not (body or "").strip():
+        raise TaskError("comment can't be empty")
+    _event(session, task_id, "commented", actor, note=body.strip())
+    return get_task(session, org_id, task_id)
+
+
 def assign_task(session: Session, org_id: str, task_id: str, actor: str, assignee_user_id: str | None) -> dict:
     cur = _load(session, org_id, task_id)
     if assignee_user_id:

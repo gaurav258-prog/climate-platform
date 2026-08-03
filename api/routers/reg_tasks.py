@@ -31,6 +31,18 @@ class TaskAssign(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+class TaskUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=300)
+    description: Optional[str] = Field(None, max_length=4000)
+    criticality: Optional[str] = None
+    due_date: Optional[str] = None
+    clear_due: bool = False
+
+
+class TaskComment(BaseModel):
+    body: str = Field(..., min_length=1, max_length=2000)
+
+
 class SpinTask(BaseModel):
     filing_id: str
     rule: str
@@ -105,6 +117,26 @@ def move(task_id: str, body: TaskMove, session: DbSession,
          ctx: dict = Depends(require_permission("approvals.create"))):
     try:
         return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status)
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
+@router.patch("/{task_id}", summary="Edit a task's fields")
+def update(task_id: str, body: TaskUpdate, session: DbSession,
+           ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        return T.update_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], title=body.title,
+                             description=body.description, criticality=body.criticality,
+                             due_date=body.due_date, clear_due=body.clear_due)
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
+@router.post("/{task_id}/comment", summary="Add a comment to a task")
+def comment(task_id: str, body: TaskComment, session: DbSession,
+            ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        return T.comment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.body)
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 
