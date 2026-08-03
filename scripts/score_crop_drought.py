@@ -64,7 +64,11 @@ def main() -> int:
         idx = smf.anomaly(smf.load_root_zone(SM_TEMPLATE.format(region=args.region)))
         score_fn = soil_water_score
     seas = idx.sel(time=idx["time.month"].isin(season)).groupby("time.year").mean("time")
-    cur = seas.sel(year=CURRENT_YEAR)
+    cur = seas.sel(year=CURRENT_YEAR)                       # crop-season index → the per-crop OVERLAY
+    # The GENERIC canonical lane uses a crop-INDEPENDENT annual window, so a belt's generic drought is
+    # deterministic (not "whichever crop scored the belt last") — this is what non-crop readers
+    # (financial assets, any-address) see. Agri plots read their crop's own overlay (crop season).
+    cur_annual = idx.groupby("time.year").mean("time").sel(year=CURRENT_YEAR)
     lats, lons = idx["latitude"].values, idx["longitude"].values
     now = datetime.now(timezone.utc)
     vintage = datetime(CURRENT_YEAR, 12, 1, tzinfo=timezone.utc)
@@ -80,39 +84,40 @@ def main() -> int:
         print(f"  CMIP6 deltas active for {args.region} "
               f"(e.g. hot_house_3_5c/2100 → {cmip.get(('hot_house_3_5c','2100'))})", flush=True)
 
-    rows, scored_cells = [], set()
+    def _score_band(spv, scen, horz, la, lo, d):
+        """Score one index value + its CMIP6 ±1σ model-disagreement band (None where CMIP6 doesn't
+        cover the combo — an honest point, not a fake band). Shared by the generic + overlay lanes."""
+        sc = score_fn(spv, scen, horz, lat=la, lon=lo,
+                      warming_c=(d.dtas_c if d else None), precip_frac=(d.dpr_frac if d else None))
+        ci_lo = ci_hi = None
+        if d and d.n_models > 1 and (d.dtas_std_c or d.dpr_std):
+            s_hi = score_fn(spv, scen, horz, lat=la, lon=lo,
+                            warming_c=d.dtas_c + d.dtas_std_c, precip_frac=d.dpr_frac - d.dpr_std)
+            s_lo = score_fn(spv, scen, horz, lat=la, lon=lo,
+                            warming_c=d.dtas_c - d.dtas_std_c, precip_frac=d.dpr_frac + d.dpr_std)
+            ci_lo, ci_hi = round(min(s_lo, s_hi), 2), round(max(s_lo, s_hi), 2)
+        return sc, ci_lo, ci_hi
+
+    rows, overlay_scores, scored_cells = [], {}, set()
     for i, la in enumerate(lats):
         for j, lo in enumerate(lons):
-            sp = float(cur.values[i, j])
-            if np.isnan(sp):
+            sp = float(cur.values[i, j])            # crop-season index → overlay
+            spa = float(cur_annual.values[i, j])    # annual index → generic canonical lane
+            if np.isnan(sp) or np.isnan(spa):
                 continue
             cell = h3.latlng_to_cell(float(la), float(lo), 8)
             scored_cells.add(cell)
             for scen in SCENARIO_WARMING_C:
                 for horz in HORIZON_FRACTION:
-                    # raw CMIP6 belt deltas where covered (models set regional warming + rainfall);
-                    # else the scorer falls back to the parametric AR6 amplification + Med term.
-                    # Current horizon is unaffected either way (warming is 0 there).
                     d = cmip[(scen, horz)]
-                    sc = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
-                                  warming_c=(d.dtas_c if d else None),
-                                  precip_frac=(d.dpr_frac if d else None))
-                    # CMIP6 MODEL-DISAGREEMENT band: re-score at the across-model ±1σ envelope
-                    # (hotter+drier → upper, cooler+wetter → lower). This is honest projection
-                    # uncertainty from the ensemble spread already in the deltas — NULL where CMIP6
-                    # doesn't cover the combo (baseline/current), an honest point rather than a fake band.
-                    ci_lo = ci_hi = None
-                    if d and d.n_models > 1 and (d.dtas_std_c or d.dpr_std):
-                        s_hi = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
-                                        warming_c=d.dtas_c + d.dtas_std_c, precip_frac=d.dpr_frac - d.dpr_std)
-                        s_lo = score_fn(sp, scen, horz, lat=float(la), lon=float(lo),
-                                        warming_c=d.dtas_c - d.dtas_std_c, precip_frac=d.dpr_frac + d.dpr_std)
-                        ci_lo, ci_hi = round(min(s_lo, s_hi), 2), round(max(s_lo, s_hi), 2)
+                    g_sc, g_lo, g_hi = _score_band(spa, scen, horz, float(la), float(lo), d)   # generic (annual)
                     rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8,
                                  "hz": hazard_type, "scen": scen, "horz": horz,
-                                 "score": sc, "bucket": score_to_bucket(sc).value,
-                                 "ci_lo": ci_lo, "ci_hi": ci_hi,
+                                 "score": g_sc, "bucket": score_to_bucket(g_sc).value,
+                                 "ci_lo": g_lo, "ci_hi": g_hi,
                                  "mv": MODEL_VERSION, "dv": vintage, "now": now})
+                    c_sc, c_lo, c_hi = _score_band(sp, scen, horz, float(la), float(lo), d)     # crop season → overlay
+                    overlay_scores[(cell, scen, horz)] = (c_sc, score_to_bucket(c_sc).value, c_lo, c_hi)
 
     if not scored_cells:
         print(f"no cells scored for {args.region} — is the baseline .nc present?")
@@ -173,19 +178,19 @@ def main() -> int:
         # provenance. Only the agri plot view reads this overlay (prefers it, else the generic reading).
         season_str = args.season
         spei = args.spei_scale if args.driver == "drought" else None
-        by_cell = {}
-        for row in rows:
-            by_cell.setdefault(row["h3"], []).append(row)
         overlay = []
         for commodity_id, origin, cell in plot_slots:
-            for row in by_cell.get(cell, []):
-                overlay.append({"id": str(uuid.uuid4()), "cid": commodity_id, "org": origin,
-                                "h3": cell, "res": 8, "hz": hazard_type,
-                                "scen": row["scen"], "horz": row["horz"],
-                                "score": row["score"], "bucket": row["bucket"],
-                                "ci_lo": row["ci_lo"], "ci_hi": row["ci_hi"],
-                                "season": season_str, "spei": spei,
-                                "mv": MODEL_VERSION, "dv": vintage, "now": now})
+            for scen in SCENARIO_WARMING_C:
+                for horz in HORIZON_FRACTION:
+                    v = overlay_scores.get((cell, scen, horz))
+                    if v is None:
+                        continue
+                    sc, bucket, ci_lo, ci_hi = v
+                    overlay.append({"id": str(uuid.uuid4()), "cid": commodity_id, "org": origin,
+                                    "h3": cell, "res": 8, "hz": hazard_type, "scen": scen, "horz": horz,
+                                    "score": sc, "bucket": bucket, "ci_lo": ci_lo, "ci_hi": ci_hi,
+                                    "season": season_str, "spei": spei,
+                                    "mv": MODEL_VERSION, "dv": vintage, "now": now})
         if overlay:
             cells_here = list({o["h3"] for o in overlay})
             s.execute(text("""
