@@ -39,6 +39,12 @@ class SpinTask(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+@router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
+def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.kri import kri as _kri
+    return _kri(session, ctx["org"]["org_id"], framework)
+
+
 @router.get("/calendar", summary="Regulatory calendar — filing deadlines + task due-dates")
 def calendar(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_calendar import calendar as _cal
