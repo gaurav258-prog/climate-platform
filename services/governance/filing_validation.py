@@ -159,6 +159,9 @@ def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
         ruleset = _RULESETS.get(filing["framework"])
         if ruleset:
             findings.extend(ruleset(snap.get("payload") or {}))
+        # cross-report reconciliation vs sibling filings (warning/info only — never blocks a real change)
+        from services.governance.filing_crosscheck import cross_report_findings
+        findings.extend(cross_report_findings(session, org_id, filing))
 
     blocking = sum(1 for f in findings if f["severity"] == "blocking" and not f["passed"])
     warnings = sum(1 for f in findings if f["severity"] == "warning" and not f["passed"])
