@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { Card } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { HBar } from './Charts'
+import LineageGraph from './LineageGraph'
 
 // Bidirectional data lineage inside the filing drawer: click a reported figure to trace it down to the
 // satellite/agency feed (asset → H3 cell → golden-source row → source feed), and from any cell back up to
@@ -62,6 +63,7 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
 
 function HazardTrace({ filingId, hazard }: { filingId: string; hazard: string }) {
   const q = useQuery({ queryKey: ['lineage', filingId, hazard], queryFn: () => api.get<Lineage>(`/v1/filings/${filingId}/lineage?hazard=${hazard}`) })
+  const [graph, setGraph] = useState(false)
   const d = q.data
   if (q.isLoading) return <div className="px-4 py-3 text-[12px] text-[var(--color-faint)]">tracing…</div>
   if (!d) return <div className="px-4 py-3 text-[12px] text-[var(--color-bad)]">could not trace this cell</div>
@@ -69,6 +71,16 @@ function HazardTrace({ filingId, hazard }: { filingId: string; hazard: string })
 
   return (
     <div className="px-4 py-3 bg-[var(--color-panel)] space-y-3">
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-lg border border-[var(--color-line-2)] overflow-hidden text-[10.5px] mono">
+          <button onClick={() => setGraph(false)} className={`px-2 py-0.5 ${!graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>list</button>
+          <button onClick={() => setGraph(true)} className={`px-2 py-0.5 ${graph ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>graph</button>
+        </div>
+      </div>
+      {graph && (
+        <LineageGraph hazardLabel={hazardLabel(d.hazard)} exposed={d.cell.exposed_value_eur}
+          contributors={d.contributors} sources={d.sources} />
+      )}
       {/* source feeds */}
       <div className="flex items-center gap-2 flex-wrap">
         <Satellite size={13} className="text-[var(--color-sky)]" />
