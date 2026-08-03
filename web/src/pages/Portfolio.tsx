@@ -31,7 +31,12 @@ interface Asset {
 type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
 
-type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string }
+type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
+// plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
+const SCENARIO_HINT: Record<string, string> = {
+  baseline: "Today's climate, held steady", orderly_1_5c: 'A 1.5°C-warmer world (fast, orderly action)',
+  disorderly_2c: 'A 2°C-warmer world (late, disorderly action)', hot_house_3_5c: 'A 3.5°C-warmer world (little action)',
+}
 interface Cfg {
   prefix: string; listKey: string; noun: string
   idKey: string; nameKey: string; typeKey: string; valueKey: string
@@ -44,8 +49,8 @@ const SECTORS: Record<string, Cfg> = {
     idKey: 'asset_id', nameKey: 'asset_name', typeKey: 'asset_type', valueKey: 'value_eur',
     kpis: [
       { label: 'Total book value', field: 'total_value_eur', fmt: 'eur' },
-      { label: 'Money at high risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: 'Share of book at high risk', field: 'pct_value_at_risk', fmt: 'pct' },
+      { label: 'Money at high risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A', hint: 'Value at Risk (High+): value of assets in the top two severity bands' },
+      { label: 'Share of book at high risk', field: 'pct_value_at_risk', fmt: 'pct', hint: '% of book value at high risk' },
       { label: 'Assets analysed', num: 'n_scored', den: 'n_assets', fmt: 'frac' },
     ],
   },
@@ -54,8 +59,8 @@ const SECTORS: Record<string, Cfg> = {
     idKey: 'policy_id', nameKey: 'policy_name', typeKey: 'policy_type', valueKey: 'sum_insured_eur',
     kpis: [
       { label: 'Total sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
-      { label: 'Likely yearly loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: 'Claims vs premiums', field: 'portfolio_loss_ratio_pct', fmt: 'pct' },
+      { label: 'Likely yearly loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', tone: '#E9744A', hint: 'Expected annual loss' },
+      { label: 'Claims vs premiums', field: 'portfolio_loss_ratio_pct', fmt: 'pct', hint: 'Loss ratio' },
       { label: 'Locations priced', num: 'n_priced', den: 'n_policies', fmt: 'frac' },
     ],
   },
@@ -64,8 +69,8 @@ const SECTORS: Record<string, Cfg> = {
     idKey: 'holding_id', nameKey: 'holding_name', typeKey: 'sector', valueKey: 'position_value_eur',
     kpis: [
       { label: 'Portfolio value', field: 'total_portfolio_value_eur', fmt: 'eur' },
-      { label: 'Money at climate risk', field: 'total_climate_var_eur', fmt: 'eur', tone: '#E9744A' },
-      { label: 'Share at climate risk', field: 'portfolio_climate_var_pct', fmt: 'pct' },
+      { label: 'Money at climate risk', field: 'total_climate_var_eur', fmt: 'eur', tone: '#E9744A', hint: 'Climate Value at Risk (Climate VaR)' },
+      { label: 'Share at climate risk', field: 'portfolio_climate_var_pct', fmt: 'pct', hint: 'Climate VaR %' },
       { label: 'Holdings analysed', num: 'n_scored', den: 'n_holdings', fmt: 'frac' },
     ],
   },
@@ -75,7 +80,7 @@ const SECTORS: Record<string, Cfg> = {
     kpis: [
       { label: 'Portfolio value', field: 'total_value_eur', fmt: 'eur' },
       { label: 'Yearly rental income', field: 'total_annual_noi_eur', fmt: 'eur' },
-      { label: 'Hit to rental income', field: 'portfolio_noi_impact_pct', fmt: 'pct', tone: '#E8B24C' },
+      { label: 'Hit to rental income', field: 'portfolio_noi_impact_pct', fmt: 'pct', tone: '#E8B24C', hint: 'Net operating income (NOI) impact' },
       { label: 'Properties analysed', num: 'n_scored', den: 'n_properties', fmt: 'frac' },
     ],
   },
@@ -138,7 +143,7 @@ export default function Portfolio() {
         <div className="flex flex-col gap-2 items-end">
           <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
             {SCENARIOS.map(([k, lbl]) => (
-              <button key={k} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
+              <button key={k} title={SCENARIO_HINT[k]} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
             ))}
           </div>
           <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
@@ -151,7 +156,7 @@ export default function Portfolio() {
 
       {/* rollup KPIs — sector-labelled */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} />)}
+        {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
       </div>
 
       {/* where the risk comes from — plain-language money-by-hazard, traffic-light by severity */}
@@ -247,11 +252,13 @@ export default function Portfolio() {
   )
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) {
   return (
     <Card className="px-4 py-3.5">
       <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{value}</div>
-      <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
+      <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2" title={hint}>
+        {label}{hint && <span className="text-[var(--color-faint)] normal-case tracking-normal"> ⓘ</span>}
+      </div>
     </Card>
   )
 }

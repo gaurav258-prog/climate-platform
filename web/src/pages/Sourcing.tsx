@@ -4,6 +4,7 @@ import { Plus, Upload, Sprout } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat, StatusPill, Button } from '../components/ui'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
+import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; region: string | null
@@ -78,6 +79,14 @@ export default function Sourcing() {
   const totalSpend = plots.reduce((s, p) => s + (p.spend_eur ?? 0), 0)
   const eudrPlots = plots.filter(p => p.eudr_covered).length
   const commodities = cq.data?.commodities ?? []
+  // annual spend exposed by hazard — plain-language, traffic-light by severity
+  const byHazard: Record<string, { eur: number; n: number; worst: number }> = {}
+  for (const p of plots) {
+    if (!p.top_hazard || p.hazard_score == null) continue
+    const g = (byHazard[p.top_hazard] ??= { eur: 0, n: 0, worst: 0 })
+    g.eur += p.spend_eur ?? 0; g.n += 1; g.worst = Math.max(g.worst, p.hazard_score)
+  }
+  const hazGroups = Object.entries(byHazard).sort((a, b) => b[1].worst - a[1].worst || b[1].eur - a[1].eur)
 
   return (
     <div className="fadeup space-y-7">
@@ -95,6 +104,31 @@ export default function Sourcing() {
         <Stat big={eur(totalSpend)} label="annual spend" />
         <Stat big={eudrPlots} label="EUDR-covered plots" />
       </div>
+
+      {/* annual spend exposed by hazard — plain-language, traffic-light */}
+      {hazGroups.length > 0 && (
+        <Card className="p-5">
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-[14px] font-semibold">Annual spend at risk, by threat</span>
+            <span className="text-[11px] text-[var(--color-faint)]">worst threat first · colour = severity</span>
+          </div>
+          <p className="text-[12px] text-[var(--color-mute)] mb-4">
+            How much of your yearly procurement spend sits on plots whose biggest climate threat is each of these.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {hazGroups.map(([hz, g]) => (
+              <div key={hz} className="rounded-xl border p-3.5" style={{ borderColor: `${sevColor(g.worst)}55`, background: `${sevColor(g.worst)}10` }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12.5px] font-medium text-[var(--color-ink)]">{hazardLabel(hz)}</span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: sevColor(g.worst), background: `${sevColor(g.worst)}22` }}>{sevLabel(g.worst)}</span>
+                </div>
+                <div className="text-2xl font-semibold mono" style={{ color: sevColor(g.worst) }}>{eur(g.eur)}</div>
+                <div className="text-[11px] text-[var(--color-mute)] mt-0.5">{g.n} plot{g.n === 1 ? '' : 's'} · annual spend exposed</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* add plots — single, or bulk CSV */}
       <Card className="p-5">
