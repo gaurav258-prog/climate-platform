@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, ExternalLink } from 'lucide-react'
+import { ChevronRight, Plus, ExternalLink, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
@@ -23,6 +23,7 @@ export default function RegChanges() {
   const q = useQuery({ queryKey: ['reg-changes'], queryFn: () => api.get<Board>('/v1/reg-changes/board') })
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ title: '', framework: '', effective_date: '' })
+  const [sel, setSel] = useState<Change | null>(null)
   const d = q.data
   const refresh = () => qc.invalidateQueries({ queryKey: ['reg-changes'] })
 
@@ -69,7 +70,7 @@ export default function RegChanges() {
               <div className="space-y-2">
                 {(d?.stages.find(x => x.key === s)?.changes ?? []).map(c => (
                   <div key={c.change_id} className="rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5">
-                    <div className="text-[12px] text-[var(--color-ink)] leading-snug">{c.title}</div>
+                    <button onClick={() => setSel(c)} className="text-[12px] text-[var(--color-ink)] hover:text-[var(--color-sky)] transition leading-snug text-left">{c.title}</button>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {c.framework && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{c.framework}</span>}
                       <span className="mono text-[9px] text-[var(--color-faint)]">{c.is_platform ? 'platform' : 'your org'}</span>
@@ -87,6 +88,33 @@ export default function RegChanges() {
           ))}
         </div>
       </div>
+
+      {sel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSel(null)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <Card className="relative w-full max-w-lg p-0 overflow-hidden" >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]" onClick={e => e.stopPropagation()}>
+              <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulatory change · {LABEL[sel.stage]}</span>
+              <button onClick={() => setSel(null)} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
+            </div>
+            <div className="p-5 space-y-3" onClick={e => e.stopPropagation()}>
+              <h3 className="display text-lg font-semibold">{sel.title}</h3>
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                {sel.framework && <span className="mono px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{sel.framework}</span>}
+                <span className="mono px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">{sel.is_platform ? 'platform-managed' : 'your org'}</span>
+                {sel.effective_date && <span className="mono px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">effective {sel.effective_date}</span>}
+              </div>
+              {sel.summary && <div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Summary</div><p className="text-[13px] text-[var(--color-mute)]">{sel.summary}</p></div>}
+              {sel.impact && <div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Impact</div><p className="text-[13px] text-[var(--color-mute)]">{sel.impact}</p></div>}
+              {sel.citation && <div className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)]"><ExternalLink size={13} /> {sel.citation}</div>}
+              {canAct && !sel.is_platform && NEXT[sel.stage] && (
+                <Button variant="primary" onClick={() => { advance(sel); setSel({ ...sel, stage: NEXT[sel.stage] }) }}>Advance → {LABEL[NEXT[sel.stage]]}</Button>
+              )}
+              {sel.is_platform && <p className="text-[11.5px] text-[var(--color-faint)]">Platform-managed change — read-only for your organisation.</p>}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

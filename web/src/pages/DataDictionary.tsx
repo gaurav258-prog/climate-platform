@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
@@ -14,6 +16,7 @@ const feedDot = (m: string | null, s: string | null) => s === 'overdue' || s ===
 
 export default function DataDictionary() {
   const q = useQuery({ queryKey: ['data-dictionary'], queryFn: () => api.get<Resp>('/v1/meta/data-dictionary') })
+  const [open, setOpen] = useState<string | null>(null)
   const d = q.data
 
   return (
@@ -41,11 +44,15 @@ export default function DataDictionary() {
           </div>
           <div className="divide-y divide-[var(--color-line)]">
             {d.fields.map(f => (
-              <div key={f.field} className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-3 items-center text-[12px]">
-                <div>
-                  <div className="text-[var(--color-ink)]">{f.category === 'hazard' ? hazardLabel(f.field) : f.field.replace(/_/g, ' ')}</div>
-                  <div className="mono text-[9.5px] text-[var(--color-faint)]">{f.category}</div>
-                </div>
+              <div key={f.field}>
+              <div className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-3 items-center text-[12px]">
+                <button onClick={() => setOpen(open === f.field ? null : f.field)} className="text-left flex items-start gap-1.5 group">
+                  {open === f.field ? <ChevronDown size={13} className="mt-0.5 text-[var(--color-faint)]" /> : <ChevronRight size={13} className="mt-0.5 text-[var(--color-faint)]" />}
+                  <div>
+                    <div className="text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition">{f.category === 'hazard' ? hazardLabel(f.field) : f.field.replace(/_/g, ' ')}</div>
+                    <div className="mono text-[9.5px] text-[var(--color-faint)]">{f.category}</div>
+                  </div>
+                </button>
                 <div className="mono text-[10.5px] text-[var(--color-mute)]">{f.type}</div>
                 <div className="space-y-0.5">
                   {f.source_feeds.length === 0 ? <span className="text-[var(--color-faint)]">not mapped</span>
@@ -60,6 +67,25 @@ export default function DataDictionary() {
                 <div className="flex flex-wrap gap-1">
                   {f.consumed_by.map(c => <span key={c} className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{c}</span>)}
                 </div>
+              </div>
+              {open === f.field && (
+                <div className="px-5 pb-4 pt-1 bg-[var(--color-panel)] text-[12px] space-y-2">
+                  <div>
+                    <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Source feeds</div>
+                    {f.source_feeds.length === 0 ? <span className="text-[var(--color-faint)]">not mapped to a source</span>
+                      : <div className="space-y-1">{f.source_feeds.map((s, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: feedDot(s.maturity, s.status) }} />
+                            <span className="text-[var(--color-ink)]">{s.name}</span>
+                            <span className="mono text-[10px] text-[var(--color-faint)]">{[s.maturity, s.status].filter(Boolean).join(' · ')}</span>
+                          </div>))}</div>}
+                  </div>
+                  <div className="flex gap-8">
+                    <div><span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Golden-source vintage</span><div className="mono text-[11px] text-[var(--color-mute)]">{f.data_vintage ? f.data_vintage.slice(0, 10) : '—'}</div></div>
+                    <div><span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Consumed by</span><div className="mono text-[11px] text-[var(--color-mute)]">{f.consumed_by.join(', ')}</div></div>
+                  </div>
+                </div>
+              )}
               </div>
             ))}
           </div>
