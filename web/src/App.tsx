@@ -19,6 +19,7 @@ import Exceptions from './pages/Exceptions'
 import Calendar from './pages/Calendar'
 import Kri from './pages/Kri'
 import RConnect from './pages/RConnect'
+import RegChanges from './pages/RegChanges'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/kri" element={<Kri />} />
         <Route path="/rconnect" element={<RConnect />} />
+        <Route path="/reg-changes" element={<RegChanges />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
