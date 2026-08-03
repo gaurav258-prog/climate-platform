@@ -40,6 +40,15 @@ FRAMEWORKS = {
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
 }
 
+# machine-readable export formats available per framework (rendered from the FROZEN snapshot — see
+# services/governance/filing_export.py). json is the universal record; xlsx/xbrl where a renderer exists.
+EXPORT_FORMATS = {
+    "bank_tcfd": ("json", "xlsx", "xbrl"),
+    "sfdr_pai":  ("json", "xlsx", "xbrl"),
+    "csrd_e1":   ("json",),
+    "esrs_pack": ("json",),
+}
+
 # lifecycle: action -> (allowed from-states, resulting to-state)
 _TRANSITIONS = {
     "submit_for_review": ({"draft", "returned"}, "in_review"),
@@ -194,6 +203,9 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     out["events"] = [{"from": e["from_status"], "to": e["to_status"], "action": e["action"],
                       "detail": e["detail"], "at": e["created_at"].isoformat(),
                       "actor": e["actor_name"], "actor_email": e["actor_email"]} for e in events]
+
+    # machine-readable exports are only meaningful once the report is frozen
+    out["export_formats"] = list(EXPORT_FORMATS.get(r["framework"], ("json",))) if r["snapshot_id"] else []
 
     if with_payload and r["snapshot_id"]:
         snap = get_snapshot(session, org_id, str(r["snapshot_id"]))

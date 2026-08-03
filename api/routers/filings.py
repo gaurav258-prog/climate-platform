@@ -108,6 +108,19 @@ def get_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
     return f
 
 
+@router.get("/filings/{filing_id}/export", summary="Download the filing rendered from its FROZEN snapshot")
+def export_filing(filing_id: str, format: str, session: DbSession,
+                  ctx: dict = Depends(require_permission("reports.view"))):
+    from fastapi.responses import StreamingResponse
+    from services.governance.filing_export import export_filing as _export, ExportError
+    try:
+        filename, media_type, content = _export(session, ctx["org"]["org_id"], filing_id, format)
+    except ExportError as e:
+        raise HTTPException(404 if "not found" in str(e) else 409, {"error": "export_error", "message": str(e)})
+    return StreamingResponse(iter([content]), media_type=media_type,
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
 @router.get("/filings/{filing_id}/validation", summary="Run the pre-submission validation checklist")
 def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_validation import validate_filing

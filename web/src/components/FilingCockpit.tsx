@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download } from 'lucide-react'
+import { api, ApiError, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
 import FilingLineage from './FilingLineage'
@@ -20,6 +20,7 @@ interface FilingSummary { filing_id: string; framework: string; label: string; p
 interface FilingEvent { from: string | null; to: string; action: string; detail: Record<string, unknown>; at: string; actor: string | null; actor_email: string | null }
 interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
+  export_formats?: string[]
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
 interface Finding { rule: string; category: string; severity: 'blocking' | 'warning' | 'info'; passed: boolean; message: string; ref: string | null }
@@ -183,6 +184,20 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                   ))}
                 </div>
                 <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2 break-all">sha256 {f.snapshot.payload_sha256.slice(0, 32)}…</div>
+                {(f.export_formats?.length ?? 0) > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[var(--color-line)]">
+                    <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Download · rendered from these frozen bytes</div>
+                    <div className="flex flex-wrap gap-2">
+                      {f.export_formats!.map(fmt => (
+                        <button key={fmt}
+                          onClick={() => download(`/v1/filings/${f.filing_id}/export?format=${fmt}`, `${f.framework}-${f.period_label}-v${f.snapshot!.version}.${fmt}`).catch(() => alert('Could not download the export.'))}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
+                          <Download size={12} /> {fmt.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
 
