@@ -120,20 +120,31 @@ writers: engine, seismic engine, on-demand point scorers, batch scripts).
 
 ---
 
-## 6. Open items (honest, disclosed)
+## 6. Open items — resolved in this review pass
 
-- Generic canonical drought season = "whichever crop scored the belt last" — a neutral crop-independent
-  window is the documented tidy-up (WS4b note).
+All the follow-ons the review opened have been closed (commits after the review doc landed):
+
+- ✅ **Duplicate-active enforcement** — unique partial index `ux_canonical_active_key` + `ON CONFLICT
+  DO NOTHING` on the four on-demand point scorers (retire-first writers unaffected). Duplicates are now
+  structurally impossible.
+- ✅ **Generic drought lane** — `score_crop_drought` now writes the canonical lane on a crop-INDEPENDENT
+  annual window (deterministic); the crop's season goes to the overlay. Safe for the calibrated € (it
+  reads the overlay). Verified on olive; rolled out across the scored belts.
+- ✅ **`coastal_flood` on-demand** — `coastal_flood_point` fetches elevation + coast-distance for an
+  unknown cell and scores in-request; registered in `SYNC_ON_DEMAND_SCORERS`. Coastline upgraded to
+  1:10m + true great-circle distance (51 → 97 coastal cells).
+- ✅ **SLR stress tail** — `coastal_flood_stress()` carried in every coastal row's `shap_factors`
+  (`slr_stress_m`, `score_under_slr_stress`); surfaced separately, never in the headline.
+- ✅ **Projection provenance** — projected rows now stamp `shap_factors` with `projection=phys-proj-v1`
+  + method + `cmip6_covered`.
+- ✅ **Legacy `ui/` alias** — `coastal_flood` un-aliased; `frost`/`soil_water` added. Active `web/` was
+  already correct.
+
+**Remaining (genuine future modelling, disclosed — not defects):**
 - Financial projection elasticities are first-order (cited, not fitted); a fuller damage model is future.
-- Coastal: global-mean SLR + no sea-wall defences + no local subsidence; regional SLR is a follow-on.
-- Duplicate-active enforcement (unique index + writer audit) — tracked (§3).
-- Projection method is not stamped on the row (the presence of a band signals it); a `phys-proj-v1`
-  provenance tag on projected rows would make it explicit.
-- `coastal_flood` is not on-demand-scoreable (needs precomputed elevation/coast-distance); a new coastal
-  cell is covered by a `build_coastal_exposure` batch refresh, not an in-request score.
-- `sea_level.stress_m` (ice-sheet-collapse tail) is available in the model but not yet surfaced as an
-  explicit stress readout — kept out of the headline (honest); surfacing it is a follow-on.
-- Legacy `ui/` app aliases `coastal_flood → flood`; the active `web/` frontend is correct.
+- Coastal is a screen: global-mean SLR (regional SLR a follow-on), models hazard not sea-wall defences,
+  no local land subsidence; DEM elevation bias near built-up coasts; tidal rivers >25 km from the open
+  coast read as inland.
 
 ---
 
