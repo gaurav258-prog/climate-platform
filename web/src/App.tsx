@@ -15,6 +15,7 @@ import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
 import Compliance from './pages/Compliance'
 import Tasks from './pages/Tasks'
+import Exceptions from './pages/Exceptions'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/csrd" element={<Csrd />} />
         <Route path="/esrs" element={<EsrsPack />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/exceptions" element={<Exceptions />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />

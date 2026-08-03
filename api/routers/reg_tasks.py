@@ -31,6 +31,31 @@ class TaskAssign(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+class SpinTask(BaseModel):
+    filing_id: str
+    rule: str
+    message: str = Field(..., max_length=300)
+    severity: str
+    assignee_user_id: Optional[str] = None
+
+
+@router.get("/exceptions", summary="Exception Monitor — every open exception across all filings")
+def exceptions(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.exception_monitor import exceptions as _exc
+    return _exc(session, ctx["org"]["org_id"])
+
+
+@router.post("/exceptions/spin-task", status_code=201, summary="Turn an exception into a task")
+def spin_task(body: SpinTask, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance.exception_monitor import spin_task as _spin
+    try:
+        return _spin(session, ctx["org"]["org_id"], ctx["user"]["id"], filing_id=body.filing_id,
+                     rule=body.rule, message=body.message, severity=body.severity,
+                     assignee_user_id=body.assignee_user_id)
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
 @router.get("/board", summary="The Kanban board — tasks grouped into columns")
 def board(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return T.board(session, ctx["org"]["org_id"])
