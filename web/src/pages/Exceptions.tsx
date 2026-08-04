@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Lens } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
-import { filingLink } from '../lib/links'
+import { filingLink, taskLink } from '../lib/links'
 
 // Control Tower — every open validation/reconciliation exception across all filings, in one prioritised
 // worklist (the control surface a filing must clear before attest). Each row can be spun into a task with
@@ -14,7 +14,7 @@ import { filingLink } from '../lib/links'
 interface Exc {
   filing_id: string; filing_label: string; period: string; filing_status: string
   rule: string; category: string; severity: string; criticality: string; message: string
-  source_ref: string; tracked: boolean
+  source_ref: string; tracked: boolean; task_id: string | null
 }
 interface Resp {
   exceptions: Exc[]
@@ -85,7 +85,12 @@ export default function Exceptions() {
                       </div>
                     </button>
                     {e.tracked
-                      ? <span className="inline-flex items-center gap-1 mono text-[11px]" style={{ color: '#34d399' }}><CheckCircle2 size={13} /> tracked</span>
+                      ? e.task_id
+                        ? <button onClick={() => nav(taskLink(e.task_id!))} title="Open the task tracking this exception"
+                            className="inline-flex items-center gap-1.5 mono text-[11px] shrink-0 hover:underline" style={{ color: '#34d399' }}>
+                            <CheckCircle2 size={13} /> tracked <span className="text-[var(--color-sky)]">· open task →</span>
+                          </button>
+                        : <span className="inline-flex items-center gap-1 mono text-[11px]" style={{ color: '#34d399' }}><CheckCircle2 size={13} /> tracked</span>
                       : <button onClick={() => spin(e)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition shrink-0">
                           <ListPlus size={13} /> Create task
                         </button>}

@@ -26,12 +26,15 @@ def exceptions(session: Session, org_id: str) -> dict:
         ORDER BY created_at DESC
     """), {"o": org_id}).mappings().all()
 
-    # which (filing, rule) already have a live task, so the UI can show "tracked"
-    tracked = {r[0] for r in session.execute(text("""
-        SELECT source_ref FROM regulatory_task
+    # which (filing, rule) already have a live task → its id, so the UI can show "tracked" AND link to it
+    tracked: dict[str, str] = {}
+    for ref, tid in session.execute(text("""
+        SELECT source_ref, task_id::text FROM regulatory_task
         WHERE org_id = :o AND source IN ('validation','exception') AND status NOT IN ('done','cancelled')
               AND source_ref IS NOT NULL
-    """), {"o": org_id}).all()}
+        ORDER BY source_ref, created_at DESC
+    """), {"o": org_id}).all():
+        tracked.setdefault(ref, tid)   # keep the most-recent task per (filing:rule)
 
     import logging
     _log = logging.getLogger(__name__)
@@ -53,7 +56,8 @@ def exceptions(session: Session, org_id: str) -> dict:
                 "filing_id": f["filing_id"], "filing_label": f["framework"], "period": f["period_label"],
                 "filing_status": f["status"], "rule": finding["rule"], "category": finding["category"],
                 "severity": finding["severity"], "criticality": _CRIT[finding["severity"]],
-                "message": finding["message"], "source_ref": ref, "tracked": ref in tracked,
+                "message": finding["message"], "source_ref": ref,
+                "tracked": ref in tracked, "task_id": tracked.get(ref),
             })
 
     order = {"blocking": 0, "warning": 1}
