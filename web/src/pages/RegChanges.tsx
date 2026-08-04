@@ -50,7 +50,7 @@ export default function RegChanges() {
 
       {adding && (
         <Card className="p-3 flex flex-wrap items-center gap-2">
-          <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Change title (e.g. EBA ITS 2025 — COREP taxonomy 3.5)" className="flex-1 min-w-[240px] bg-transparent outline-none text-[14px]" />
+          <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Change title (e.g. SFDR RTS 2026 — revised PAI methodology)" className="flex-1 min-w-[240px] bg-transparent outline-none text-[14px]" />
           <input value={form.framework} onChange={e => setForm({ ...form, framework: e.target.value })} placeholder="Framework" className="w-28 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12px] outline-none" />
           <input type="date" value={form.effective_date} onChange={e => setForm({ ...form, effective_date: e.target.value })} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1.5 text-[12px] outline-none" />
           <Button variant="primary" onClick={add} disabled={!form.title.trim()}>Add</Button>
