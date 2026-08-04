@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
-import { BrandMark } from '../components/ui'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
 
@@ -38,9 +37,9 @@ function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l
 
 function KpiCard({ label, value, tint, onClick }: { label: string; value: string; tint?: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 hover:border-[var(--color-sky)] transition">
-      <div className="display text-[26px] leading-none" style={{ color: tint || '#F4EFE6' }}>{value}</div>
-      <div className="mono text-[11px] tracking-[0.1em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
+    <button onClick={onClick} className="text-left rounded-lg border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3 py-2.5 hover:border-[var(--color-sky)] transition">
+      <div className="display text-[19px] leading-none" style={{ color: tint || '#F4EFE6' }}>{value}</div>
+      <div className="mono text-[9px] tracking-[0.1em] uppercase text-[var(--color-faint)] mt-1.5">{label}</div>
     </button>
   )
 }
@@ -130,7 +129,14 @@ export default function Horizon() {
   useEffect(() => {
     const cv = cvRef.current!; const ctx = cv.getContext('2d')!
     let raf = 0, W = 0, H = 0, DPR = 1, gx = 0, gy = 0, Rg = 0, tprev = 0
-    const resize = () => { DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); gx = W * 0.5; gy = H * 0.53; Rg = Math.min(W * 0.34, H * 0.40) }
+    const resize = () => {
+      DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight
+      cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
+      gx = W * 0.5; gy = H * 0.53
+      // size the globe to the VIEWPORT, not the (nav-narrowed) content area, so the left nav never shrinks
+      // it — it stays the exact size it was full-screen. Uniform radius → always a true circle, never squeezed.
+      Rg = Math.min(window.innerWidth * 0.34, window.innerHeight * 0.40)
+    }
     resize(); addEventListener('resize', resize)
 
     const project = (la: number, lo: number) => {
@@ -263,13 +269,11 @@ export default function Horizon() {
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
   return (
-    <div className="fixed inset-0 bg-[#04060b] overflow-hidden select-none">
+    <div className="absolute inset-0 bg-[#04060b] overflow-hidden select-none">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
-      {/* top chrome */}
-      <div className="absolute top-6 left-8 flex items-center gap-2.5 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
-        <BrandMark size={26} />
-        <div className="display text-[19px] font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
-        <span className="mono text-[9px] tracking-[0.26em] text-[var(--color-faint)] uppercase ml-0.5">Horizon</span>
+      {/* top chrome — brand lives in the nav now; this just labels the front door */}
+      <div className="absolute top-7 left-8 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
+        <span className="mono text-[10px] tracking-[0.26em] text-[var(--color-faint)] uppercase">Horizon · {profile?.org?.name}</span>
       </div>
       {/* region (belt) banner */}
       {beltName && !sel && (
@@ -298,15 +302,15 @@ export default function Horizon() {
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className={`absolute left-8 top-[10%] w-[min(340px,44vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-3.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
+      <div className={`absolute left-8 top-[11%] w-[min(272px,32vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
-          <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-[#0e1728]">
+          <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#0e1728]">
             <div className="flex items-center justify-between gap-2">
-              <span className="mono text-[11px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Working on</span>
-              <span className="mono text-[11px] text-[var(--color-mute)] shrink-0">{entityList.length ? `${entityList.length} entities ` : ''}{entOpen ? '▴' : '▾'}</span>
+              <span className="mono text-[10px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Working on</span>
+              <span className="mono text-[10px] text-[var(--color-mute)] shrink-0">{entityList.length ? `${entityList.length} entities ` : ''}{entOpen ? '▴' : '▾'}</span>
             </div>
-            <div className="text-[16px] text-[#F4EFE6] truncate mt-1">{activeEntity}</div>
+            <div className="text-[13.5px] text-[#F4EFE6] truncate mt-0.5">{activeEntity}</div>
           </button>
           {entOpen && (
             <div className="border-t border-[var(--color-line)] px-2 py-2 flex flex-col gap-0.5">
@@ -328,15 +332,15 @@ export default function Horizon() {
           )}
         </div>
         <div>
-          <div className="mono text-[11px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-1 pointer-events-none">Standing as of</div>
-          <div ref={yearElRef} className="display font-semibold text-[clamp(44px,7.5vw,100px)] leading-[.8] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-2px' }}>2025</div>
-          <div ref={statElRef} className="mono text-[14px] text-[var(--color-mute)] mt-3 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
+          <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-0.5 pointer-events-none">Standing as of</div>
+          <div ref={yearElRef} className="display font-semibold text-[clamp(34px,4.4vw,60px)] leading-[.82] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-1px' }}>2025</div>
+          <div ref={statElRef} className="mono text-[12px] text-[var(--color-mute)] mt-2 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
         </div>
         {myScope && (
-          <button onClick={() => openKpi('scope')} className="text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 hover:border-[var(--color-sky)] transition">
-            <div className="mono text-[11px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your scope</div>
-            <div className="text-[16px] text-[var(--color-ink)] mt-1 capitalize">{myScope.roles.join(' · ') || 'viewer'}</div>
-            <div className="mono text-[12.5px] text-[var(--color-mute)] mt-1">{tasks.length} open action{tasks.length !== 1 ? 's' : ''}{myScope.raised_pending ? ` · ${myScope.raised_pending} you raised` : ''}</div>
+          <button onClick={() => openKpi('scope')} className="text-left rounded-lg border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[var(--color-sky)] transition">
+            <div className="mono text-[10px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your scope</div>
+            <div className="text-[13.5px] text-[var(--color-ink)] mt-0.5 capitalize">{myScope.roles.join(' · ') || 'viewer'}</div>
+            <div className="mono text-[11.5px] text-[var(--color-mute)] mt-0.5">{tasks.length} open action{tasks.length !== 1 ? 's' : ''}{myScope.raised_pending ? ` · ${myScope.raised_pending} you raised` : ''}</div>
           </button>
         )}
         {kpis && (

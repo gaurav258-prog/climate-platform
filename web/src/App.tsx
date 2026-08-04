@@ -46,10 +46,11 @@ export default function App() {
 
   return (
     <Routes>
-      {/* the front door — full-screen Horizon globe (customer workspaces); operators skip to their console */}
-      <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Horizon />} />
-      {/* everything else lives inside the operating Shell */}
+      {/* everything lives inside the operating Shell — the Horizon front door too, so the nav is consistent.
+          Horizon renders full-bleed inside the content area (Shell drops the padded <main> for '/'). */}
       <Route element={<ShellLayout />}>
+        {/* the front door — Horizon globe (customer workspaces); operators skip to their console */}
+        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Horizon />} />
         <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
