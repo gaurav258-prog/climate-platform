@@ -28,6 +28,29 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <p className="mono text-[11px] uppercase tracking-[0.2em] text-[var(--color-blue)] m-0">{children}</p>
 }
 
+// The three oversight lenses over the same book. Each surface declares which lens it is, so the
+// Control / Governance / Insight frame is legible to users:
+//   Control    — "did we get it right?"     blocks a filing until every check clears   (Control Tower)
+//   Governance — "is risk in appetite?"     thresholds, status & trend, escalates      (KRI)
+//   Insight    — "why · what-if?"           drivers, lineage & scenarios, explains     (Analytics)
+const LENS = {
+  control: { name: 'Control', q: 'did we get it right?' },
+  governance: { name: 'Governance', q: 'is risk in appetite?' },
+  insight: { name: 'Insight', q: 'why · what-if?' },
+} as const
+
+export function Lens({ kind, className }: { kind: keyof typeof LENS; className?: string }) {
+  const l = LENS[kind]
+  return (
+    <span
+      title="Tellumen's three oversight lenses — Control (did we get it right?) · Governance (is risk in appetite?) · Insight (why & what-if?)"
+      className={clsx('inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1 whitespace-nowrap', className)}>
+      <span className="mono text-[9.5px] uppercase tracking-[0.14em] font-semibold text-[var(--color-sky)]">{l.name}</span>
+      <span className="text-[11px] text-[var(--color-faint)]">{l.q}</span>
+    </span>
+  )
+}
+
 export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: string; tone?: 'ink' | 'good' | 'warn' | 'bad' }) {
   const c = { ink: 'text-[var(--color-ink)]', good: 'text-[var(--color-good)]', warn: 'text-[var(--color-warn)]', bad: 'text-[var(--color-bad)]' }[tone]
   return (

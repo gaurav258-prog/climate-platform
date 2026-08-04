@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, Lens } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
@@ -34,10 +34,13 @@ export default function Kri() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Regulatory intelligence</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">KRI dashboard</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Eyebrow>Regulatory intelligence</Eyebrow>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">KRI dashboard</h1>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings.</p>
+        </div>
+        <Lens kind="governance" className="mt-1 shrink-0" />
       </div>
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>

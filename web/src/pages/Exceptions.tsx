@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, Lens } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { filingLink } from '../lib/links'
 
@@ -42,10 +42,13 @@ export default function Exceptions() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Workflow · control tower</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Control Tower</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Eyebrow>Workflow · control tower</Eyebrow>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">Control Tower</h1>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up.</p>
+        </div>
+        <Lens kind="control" className="mt-1 shrink-0" />
       </div>
 
       {d && d.summary.filings_skipped > 0 && (

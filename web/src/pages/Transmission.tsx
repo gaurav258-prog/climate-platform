@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Send, CheckCircle2, Plus } from 'lucide-react'
+import { Send, CheckCircle2, Plus, FileText } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { filingLink } from '../lib/links'
 import { Eyebrow, Card, Button } from '../components/ui'
 
 // Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
@@ -21,6 +23,9 @@ export default function Transmission() {
   const canAct = (profile?.permissions ?? []).includes('reports.publish')
   const q = useQuery({ queryKey: ['transmission-cases'], queryFn: () => api.get<{ cases: CaseSummary[] }>('/v1/transmission/cases') })
   const [sel, setSel] = useState<string | null>(null)
+  // deep-link from a filing: /transmission?case=<id> preselects that case
+  const [params] = useSearchParams()
+  useEffect(() => { const c = params.get('case'); if (c) setSel(c) }, [params])
   const [opening, setOpening] = useState(false)
   const [reg, setReg] = useState('')
   const cases = q.data?.cases ?? []
@@ -77,6 +82,8 @@ export default function Transmission() {
 
 function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boolean; onChanged: () => void }) {
   const qc = useQueryClient()
+  const { profile } = useAuth()
+  const nav = useNavigate()
   const q = useQuery({ queryKey: ['transmission-case', caseId], queryFn: () => api.get<CaseDetail>(`/v1/transmission/cases/${caseId}`) })
   const [reply, setReply] = useState('')
   const d = q.data
@@ -93,9 +100,17 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
 
   return (
     <Card className="p-0 overflow-hidden flex flex-col">
-      <div className="px-5 py-3 border-b border-[var(--color-line)]">
-        <div className="text-[14px] text-[var(--color-ink)]">{d.regulator}</div>
-        <div className="mono text-[11px] text-[var(--color-faint)]">{[d.framework, d.period_label, d.reference].filter(Boolean).join(' · ')}</div>
+      <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] text-[var(--color-ink)]">{d.regulator}</div>
+          <div className="mono text-[11px] text-[var(--color-faint)]">{[d.framework, d.period_label, d.reference].filter(Boolean).join(' · ')}</div>
+        </div>
+        {d.filing_id && (
+          <button onClick={() => nav(filingLink(profile?.org?.type, d.filing_id!))}
+            className="shrink-0 inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline" title="Open the filing this case is about">
+            <FileText size={13} /> Open filing
+          </button>
+        )}
       </div>
 
       {/* five-stage tracker */}

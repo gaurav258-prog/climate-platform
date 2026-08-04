@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown, Minus, GitCompareArrows } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card } from './ui'
+import { Card, Lens } from './ui'
 import { hazardLabel } from '../lib/hazards'
 import { DivergingBars, PairBars } from './Charts'
 
@@ -34,8 +34,11 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
 
   return (
     <div>
-      <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2 flex items-center gap-1.5">
-        <GitCompareArrows size={12} /> Change vs {d.basis?.prior.period}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] flex items-center gap-1.5">
+          <GitCompareArrows size={12} /> Change vs {d.basis?.prior.period}
+        </div>
+        <Lens kind="insight" />
       </div>
       <Card className="p-4 space-y-3">
         {!material

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown, Satellite, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card } from './ui'
+import { Card, Lens } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { HBar } from './Charts'
 import LineageGraph from './LineageGraph'
@@ -41,7 +41,10 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
         </div>
       )}
       <div>
-      <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Reported figures · trace to source</div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Reported figures · trace to source</div>
+        <Lens kind="insight" />
+      </div>
       <Card className="p-0 overflow-hidden">
         {hazards.map(h => (
           <div key={h.hazard} className="border-b border-[var(--color-line)] last:border-0">

@@ -50,6 +50,21 @@ def get_case(session: Session, org_id: str, case_id: str) -> dict | None:
                           "attachment_ref": m["attachment_ref"], "at": m["created_at"].isoformat()} for m in msgs]}
 
 
+def case_for_filing(session: Session, org_id: str, filing_id: str) -> dict | None:
+    """The most-recent transmission case linked to a filing (so the filing drawer can jump to it)."""
+    r = session.execute(text("""
+        SELECT c.case_id::text AS case_id, c.regulator, c.reference, c.stage,
+               (SELECT count(*) FROM reg_case_message m WHERE m.case_id = c.case_id) AS n_msgs
+        FROM reg_submission_case c
+        WHERE c.org_id = :o AND c.filing_id = :f
+        ORDER BY c.updated_at DESC LIMIT 1
+    """), {"o": org_id, "f": filing_id}).mappings().first()
+    if not r:
+        return None
+    return {"case_id": r["case_id"], "regulator": r["regulator"], "reference": r["reference"],
+            "stage": r["stage"], "n_messages": r["n_msgs"]}
+
+
 def open_case(session: Session, org_id: str, actor: str, *, regulator: str, filing_id: str | None = None,
               reference: str | None = None) -> dict:
     if not (regulator or "").strip():

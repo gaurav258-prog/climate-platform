@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download } from 'lucide-react'
+import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
@@ -24,6 +24,7 @@ interface FilingDetail extends FilingSummary {
   export_formats?: string[]
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
+interface CaseLink { case_id: string; regulator: string; reference: string | null; stage: string; n_messages: number }
 interface Finding { rule: string; category: string; severity: 'blocking' | 'warning' | 'info'; passed: boolean; message: string; ref: string | null }
 interface Validation { filing_id: string; framework: string; findings: Finding[]; blocking: number; warnings: number; checks: number; passed: boolean }
 
@@ -55,7 +56,7 @@ export default function FilingCockpit() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [preflightFw, setPreflightFw] = useState<string | null>(null)
   // deep-link: /compliance?filing=<id> (or /filings?filing=) opens that filing's drawer — used by the
-  // calendar, exception monitor and KRI history to drill straight into a filing's full detail.
+  // calendar, Control Tower and KRI history to drill straight into a filing's full detail.
   useEffect(() => { const f = params.get('filing'); if (f) setOpenId(f) }, [params])
   const closeDrawer = () => { setOpenId(null); if (params.get('filing')) { params.delete('filing'); setParams(params, { replace: true }) } }
 
@@ -219,6 +220,9 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
             {/* action panel — gated by status + permission + open blockers */}
             <ActionPanel f={f} perms={perms} onDone={reload} blocking={val.data?.blocking ?? 0} onOpen={onOpen} />
 
+            {/* regulator transmission — link this filing to its submission case (Transmission module) */}
+            <FilingTransmission f={f} />
+
             {/* lifecycle history */}
             <div>
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Lifecycle history</div>
@@ -241,6 +245,48 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
         )}
       </div>
     </div>
+  )
+}
+
+// Links a filing to its regulator submission case in Transmission — jump to an existing case, or (once the
+// filing is far enough to actually transmit) open one linked to this filing so the two modules stay joined.
+const CASE_STAGE: Record<string, string> = { ready: 'Ready to submit', submitted: 'Submitted', query: 'Regulatory query', answered: 'Answer provided', closed: 'Closed' }
+function FilingTransmission({ f }: { f: FilingDetail }) {
+  const { profile } = useAuth()
+  const nav = useNavigate()
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const canPublish = (profile?.permissions ?? []).includes('reports.publish')
+  const q = useQuery({ queryKey: ['filing-case', f.filing_id], queryFn: () => api.get<{ case: CaseLink | null }>(`/v1/transmission/cases/for-filing/${f.filing_id}`) })
+  const c = q.data?.case
+  const canOpen = canPublish && ['attested', 'submitted', 'accepted'].includes(f.status)
+  if (!c && !canOpen) return null   // too early to transmit and no case yet — show nothing
+
+  const openCase = async () => {
+    setBusy(true)
+    try {
+      const nc = await api.post<{ case_id: string }>('/v1/transmission/cases', { regulator: f.regulator || 'Regulator', filing_id: f.filing_id })
+      qc.invalidateQueries({ queryKey: ['transmission-cases'] })
+      nav(`/transmission?case=${nc.case_id}`)
+    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not open the transmission case.') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between">
+        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulator transmission</div>
+        {c && <span className="mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#5cc8ff', background: '#5cc8ff22' }}>{CASE_STAGE[c.stage] ?? c.stage}</span>}
+      </div>
+      {c
+        ? <button onClick={() => nav(`/transmission?case=${c.case_id}`)} className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline">
+            <RadioTower size={13} /> Open the regulator case · {c.regulator}{c.n_messages ? ` · ${c.n_messages} msg${c.n_messages === 1 ? '' : 's'}` : ''} →
+          </button>
+        : <div className="mt-2 space-y-2">
+            <p className="text-[11.5px] text-[var(--color-mute)]">Track the submission and the regulator's correspondence for this filing in Transmission.</p>
+            <Button variant="ghost" onClick={openCase} disabled={busy}><RadioTower size={13} /> Open transmission case</Button>
+          </div>}
+    </Card>
   )
 }
 

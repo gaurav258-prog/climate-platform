@@ -34,6 +34,11 @@ def cases(session: DbSession, ctx: dict = Depends(require_permission("reports.vi
     return {"cases": R.list_cases(session, ctx["org"]["org_id"])}
 
 
+@router.get("/cases/for-filing/{filing_id}", summary="The transmission case linked to a filing (or null)")
+def case_for_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"case": R.case_for_filing(session, ctx["org"]["org_id"], filing_id)}
+
+
 @router.get("/cases/{case_id}", summary="One case with its communication thread")
 def case(case_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     c = R.get_case(session, ctx["org"]["org_id"], case_id)
