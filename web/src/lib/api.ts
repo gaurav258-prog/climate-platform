@@ -21,13 +21,16 @@ export class ApiError extends Error {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = getToken()
+  // FormData must be sent as multipart with a browser-set boundary — never JSON-stringified, or the file is
+  // destroyed. Detecting it here means api.post(path, formData) works for every uploader (bank & agri alike).
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   const res = await fetch(path, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
   })
   const text = await res.text()
   const data = text ? safeJson(text) : null
@@ -45,6 +48,13 @@ export const api = {
   put: <T,>(p: string, b?: unknown) => request<T>('PUT', p, b),
   patch: <T,>(p: string, b?: unknown) => request<T>('PATCH', p, b),
   del: <T,>(p: string) => request<T>('DELETE', p),
+}
+
+// Typed convenience for a single-file multipart POST. Builds the FormData and goes through the shared
+// request() transport (which now handles FormData correctly), so there is ONE upload path, not a parallel one.
+export function upload<T>(path: string, file: File, field = 'file'): Promise<T> {
+  const fd = new FormData(); fd.append(field, file)
+  return api.post<T>(path, fd)
 }
 
 // Authenticated file download: fetches with the bearer, streams to a Blob, triggers a browser save.

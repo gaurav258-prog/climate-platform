@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, Download } from 'lucide-react'
-import { api, download } from '../lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, Download, Upload, FileSpreadsheet } from 'lucide-react'
+import { api, download, upload, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
@@ -40,12 +40,16 @@ const SCENARIO_HINT: Record<string, string> = {
 interface Cfg {
   prefix: string; listKey: string; noun: string
   idKey: string; nameKey: string; typeKey: string; valueKey: string
+  uploadNoun: string   // what a CSV row is, for the import affordance ("loan tape", "SoV", …)
   kpis: Kpi[]
 }
+// upload/template paths follow one shape: /v1/{prefix}/{listKey}/{upload|template.xlsx}
+const uploadPath = (c: Cfg) => `/v1/${c.prefix}/${c.listKey}/upload`
+const templatePath = (c: Cfg) => `/v1/${c.prefix}/${c.listKey}/template.xlsx`
 // The ONLY thing that differs between the four financial books — list key, per-item value key, rollup labels.
 const SECTORS: Record<string, Cfg> = {
   bank: {
-    prefix: 'bank', listKey: 'assets', noun: 'financed assets',
+    prefix: 'bank', listKey: 'assets', noun: 'financed assets', uploadNoun: 'loan tape',
     idKey: 'asset_id', nameKey: 'asset_name', typeKey: 'asset_type', valueKey: 'value_eur',
     kpis: [
       { label: 'Total book value', field: 'total_value_eur', fmt: 'eur' },
@@ -55,7 +59,7 @@ const SECTORS: Record<string, Cfg> = {
     ],
   },
   insurer: {
-    prefix: 'insurance', listKey: 'policies', noun: 'insured locations',
+    prefix: 'insurance', listKey: 'policies', noun: 'insured locations', uploadNoun: 'Statement of Values',
     idKey: 'policy_id', nameKey: 'policy_name', typeKey: 'policy_type', valueKey: 'sum_insured_eur',
     kpis: [
       { label: 'Total sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
@@ -65,7 +69,7 @@ const SECTORS: Record<string, Cfg> = {
     ],
   },
   asset_manager: {
-    prefix: 'assetmgmt', listKey: 'holdings', noun: 'holdings',
+    prefix: 'assetmgmt', listKey: 'holdings', noun: 'holdings', uploadNoun: 'holdings book',
     idKey: 'holding_id', nameKey: 'holding_name', typeKey: 'sector', valueKey: 'position_value_eur',
     kpis: [
       { label: 'Portfolio value', field: 'total_portfolio_value_eur', fmt: 'eur' },
@@ -75,7 +79,7 @@ const SECTORS: Record<string, Cfg> = {
     ],
   },
   reit: {
-    prefix: 'realestate', listKey: 'properties', noun: 'properties',
+    prefix: 'realestate', listKey: 'properties', noun: 'properties', uploadNoun: 'property schedule',
     idKey: 'property_id', nameKey: 'property_name', typeKey: 'property_type', valueKey: 'property_value_eur',
     kpis: [
       { label: 'Portfolio value', field: 'total_value_eur', fmt: 'eur' },
@@ -103,11 +107,13 @@ function kpiValue(k: Kpi, r: Rollup | undefined): string {
 
 export default function Portfolio() {
   const { profile } = useAuth()
+  const qc = useQueryClient()
   const type = profile?.org?.type ?? ''
   const cfg = SECTORS[type]
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState<string>('current')
   const [open, setOpen] = useState<string | null>(null)
+  const refreshBook = () => { qc.invalidateQueries({ queryKey: ['fin-portfolio'] }); qc.invalidateQueries({ queryKey: ['fin-forward'] }) }
 
   const q = useQuery({
     queryKey: ['fin-portfolio', cfg?.prefix, scenario, horizon],
@@ -169,14 +175,17 @@ export default function Portfolio() {
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
           <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your assets · biggest threat first</div>
-          <button
-             className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"
-             onClick={() => download(`/v1/${cfg.prefix}/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, `${cfg.prefix}-portfolio.xlsx`).catch(() => alert('Could not download the export.'))}>
-            <Download size={13} /> Export .xlsx
-          </button>
+          <div className="flex items-center gap-4">
+            <ImportBook cfg={cfg} onDone={refreshBook} />
+            <button
+               className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"
+               onClick={() => download(`/v1/${cfg.prefix}/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, `${cfg.prefix}-portfolio.xlsx`).catch(() => alert('Could not download the export.'))}>
+              <Download size={13} /> Export .xlsx
+            </button>
+          </div>
         </div>
         {q.isLoading ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">loading the book…</div>
-          : sorted.length === 0 ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">No {cfg.noun} located yet.</div>
+          : sorted.length === 0 ? <EmptyBook cfg={cfg} onDone={refreshBook} />
           : (
           <div className="divide-y divide-[var(--color-line)]">
             {sorted.map((a) => {
@@ -260,6 +269,87 @@ function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?
         {label}{hint && <span className="text-[var(--color-faint)] normal-case tracking-normal"> ⓘ</span>}
       </div>
     </Card>
+  )
+}
+
+// Book import — a CSV of the book lands in the org, gets an H3 cell per row and is scored against the
+// golden source (same core as an any-address lookup). Shared by the header control and the empty-state CTA.
+// Pull the most useful message out of an error body. This API wraps HTTPException detail as
+// {"error": <detail>}, so a missing-columns 400 arrives as {error:{error:"missing_columns", missing:[…]}}.
+function uploadErrorText(e: unknown): string {
+  if (e instanceof ApiError) {
+    const b = e.body as Record<string, unknown> | string | undefined
+    if (typeof b === 'string') return b
+    const inner = (b && typeof b === 'object' && 'error' in b ? (b as { error: unknown }).error : b) as Record<string, unknown> | undefined
+    const miss = (inner?.missing ?? (b as { missing?: unknown })?.missing) as string[] | undefined
+    if (Array.isArray(miss)) return `Missing required columns: ${miss.join(', ')}`
+    const msg = (inner?.message ?? (b as { message?: unknown })?.message) as string | undefined
+    if (typeof msg === 'string') return msg
+  }
+  return 'Import failed — check the CSV columns against the template.'
+}
+
+function useBookUpload(cfg: Cfg, onDone: () => void) {
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
+  const send = async (file: File) => {
+    setBusy(true); setMsg(null)
+    try {
+      const r = await upload<{ n_uploaded: number; n_skipped: number }>(uploadPath(cfg), file)
+      setMsg({ text: `Imported ${r.n_uploaded} row${r.n_uploaded === 1 ? '' : 's'}${r.n_skipped ? ` · ${r.n_skipped} skipped` : ''} — scored against the golden source.`, tone: 'ok' })
+      onDone()
+    } catch (e) {
+      setMsg({ text: uploadErrorText(e), tone: 'err' })
+    } finally { setBusy(false) }
+  }
+  return { busy, msg, send }
+}
+
+function TemplateButton({ cfg, big }: { cfg: Cfg; big?: boolean }) {
+  const onClick = () => download(templatePath(cfg), `tellumen-${cfg.prefix}-template.xlsx`).catch(() => alert('Could not download the template.'))
+  return big
+    ? <button onClick={onClick} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-4 py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><FileSpreadsheet size={14} /> Download template</button>
+    : <button onClick={onClick} className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={13} /> template</button>
+}
+
+function FilePickButton({ busy, onPick, big }: { busy: boolean; onPick: (f: File) => void; big?: boolean }) {
+  const cls = big
+    ? `inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium cursor-pointer transition ${busy ? 'bg-[var(--color-panel)] text-[var(--color-faint)]' : 'bg-[var(--color-sky)] text-[#08111f] hover:bg-[var(--color-blue)]'}`
+    : `inline-flex items-center gap-1.5 mono text-[11px] cursor-pointer ${busy ? 'text-[var(--color-faint)]' : 'text-[var(--color-mute)] hover:text-[var(--color-sky)]'}`
+  return (
+    <label className={cls}>
+      <Upload size={big ? 14 : 13} /> {busy ? 'uploading…' : 'Import CSV'}
+      <input type="file" accept=".csv" className="hidden" disabled={busy}
+        onChange={e => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = '' }} />
+    </label>
+  )
+}
+
+// Header import control — now surfaces the result (success/error) inline, not just in the empty state.
+function ImportBook({ cfg, onDone }: { cfg: Cfg; onDone: () => void }) {
+  const { busy, msg, send } = useBookUpload(cfg, onDone)
+  return (
+    <div className="flex items-center gap-4">
+      {msg && <span className={`mono text-[10.5px] max-w-xs truncate ${msg.tone === 'ok' ? 'text-[var(--color-good)]' : 'text-[var(--color-bad)]'}`} title={msg.text}>{msg.text}</span>}
+      <TemplateButton cfg={cfg} />
+      <FilePickButton busy={busy} onPick={send} />
+    </div>
+  )
+}
+
+function EmptyBook({ cfg, onDone }: { cfg: Cfg; onDone: () => void }) {
+  const { busy, msg, send } = useBookUpload(cfg, onDone)
+  return (
+    <div className="p-10 text-center">
+      <FileSpreadsheet size={26} className="mx-auto mb-3 text-[var(--color-faint)]" />
+      <div className="text-[14px] text-[var(--color-ink)] mb-1">No {cfg.noun} yet — import your {cfg.uploadNoun}</div>
+      <p className="text-[12.5px] text-[var(--color-mute)] max-w-md mx-auto mb-4">Upload a CSV and every row is placed on the H3 grid and scored against the golden source — the same engine an any-address lookup uses. Start from the template so the columns line up.</p>
+      <div className="flex items-center justify-center gap-3">
+        <FilePickButton busy={busy} onPick={send} big />
+        <TemplateButton cfg={cfg} big />
+      </div>
+      {msg && <div className={`mono text-[11px] mt-4 ${msg.tone === 'ok' ? 'text-[var(--color-good)]' : 'text-[var(--color-bad)]'}`}>{msg.text}</div>}
+    </div>
   )
 }
 
