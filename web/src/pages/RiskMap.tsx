@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -77,6 +78,7 @@ export default function RiskMap() {
   const [ready, setReady] = useState(false)
   const [selected, setSelected] = useState<Hex | null>(null)           // clicked cell → info panel
   const [hover, setHover] = useState<{ plot: Plot; x: number; y: number } | null>(null)  // hovered plot → tooltip
+  const nav = useNavigate()
 
   // paint the H3 grid as SVG polygons, projected from lng/lat to screen — runs every render frame so it
   // stays glued to the map through pan/zoom, and (unlike a maplibre vector layer) shows on first load.
@@ -177,11 +179,14 @@ export default function RiskMap() {
     plotMarkers.current.forEach(mk => mk.remove()); plotMarkers.current = []
     plots.filter(p => p.lat != null && p.lon != null).forEach(p => {
       const elem = plotEl(hazardColor(p.hazard_score))
+      elem.style.cursor = 'pointer'
       elem.addEventListener('mouseenter', () => {
         const c = el.current?.getBoundingClientRect(); const r = elem.getBoundingClientRect()
         if (c) setHover({ plot: p, x: r.left - c.left + r.width / 2, y: r.top - c.top })
       })
       elem.addEventListener('mouseleave', () => setHover(null))
+      // click a plot marker → its full detail page (parity with every other clickable item in the app)
+      elem.addEventListener('click', ev => { ev.stopPropagation(); nav(`/detail/plot/${p.plot_id}`) })
       const marker = new maplibregl.Marker({ element: elem, anchor: 'center' }).setLngLat([p.lon, p.lat]).addTo(m)
       plotMarkers.current.push(marker)
     })

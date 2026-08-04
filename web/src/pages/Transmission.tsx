@@ -84,6 +84,9 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
   const qc = useQueryClient()
   const { profile } = useAuth()
   const nav = useNavigate()
+  // the backend message endpoint requires approvals.create — gate the reply box on the same permission
+  // so a read-only viewer isn't offered an action the server will reject.
+  const canMessage = (profile?.permissions ?? []).includes('approvals.create')
   const q = useQuery({ queryKey: ['transmission-case', caseId], queryFn: () => api.get<CaseDetail>(`/v1/transmission/cases/${caseId}`) })
   const [reply, setReply] = useState('')
   const d = q.data
@@ -142,10 +145,12 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
 
       {/* actions */}
       <div className="px-5 py-3 border-t border-[var(--color-line)] space-y-2">
-        <div className="flex items-center gap-2">
-          <input value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && post()} placeholder="Log a reply…" className="flex-1 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
-          <Button variant="primary" onClick={post} disabled={!reply.trim()}><Send size={14} /></Button>
-        </div>
+        {canMessage
+          ? <div className="flex items-center gap-2">
+              <input value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === 'Enter' && post()} placeholder="Log a reply…" className="flex-1 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+              <Button variant="primary" onClick={post} disabled={!reply.trim()}><Send size={14} /></Button>
+            </div>
+          : <div className="text-[11.5px] text-[var(--color-faint)]">You have read-only access to this case — logging a reply needs the <span className="mono">approvals.create</span> permission.</div>}
         {canAct && idx < STAGES.length - 1 && (
           <button onClick={() => stage(STAGES[idx + 1])} className="mono text-[11px] text-[var(--color-sky)] hover:underline">advance → {STAGE_LABEL[STAGES[idx + 1]]}</button>
         )}
