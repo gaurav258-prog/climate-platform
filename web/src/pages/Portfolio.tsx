@@ -4,6 +4,7 @@ import { ChevronRight, Download, Upload, FileSpreadsheet } from 'lucide-react'
 import { api, download, upload, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
+import AssetDrawer from '../components/AssetDrawer'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
@@ -41,6 +42,10 @@ interface Cfg {
   prefix: string; listKey: string; noun: string
   idKey: string; nameKey: string; typeKey: string; valueKey: string
   uploadNoun: string   // what a CSV row is, for the import affordance ("loan tape", "SoV", …)
+  itemKey: string      // singular resource for the detail/override path: /v1/{prefix}/{itemKey}/{id}
+  valuationKey?: string  // where the valuation block sits in the detail payload (varies by sector)
+  auditKey: string     // where the audit trail sits in the detail payload
+  overrideMode: 'valuation' | 'trigger'   // insurer configures a parametric trigger, the rest override a discount
   kpis: Kpi[]
 }
 // upload/template paths follow one shape: /v1/{prefix}/{listKey}/{upload|template.xlsx}
@@ -51,6 +56,7 @@ const SECTORS: Record<string, Cfg> = {
   bank: {
     prefix: 'bank', listKey: 'assets', noun: 'financed assets', uploadNoun: 'loan tape',
     idKey: 'asset_id', nameKey: 'asset_name', typeKey: 'asset_type', valueKey: 'value_eur',
+    itemKey: 'asset', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation',
     kpis: [
       { label: 'Total book value', field: 'total_value_eur', fmt: 'eur' },
       { label: 'Money at high risk', field: 'value_at_risk_eur', fmt: 'eur', tone: '#E9744A', hint: 'Value at Risk (High+): value of assets in the top two severity bands' },
@@ -61,6 +67,7 @@ const SECTORS: Record<string, Cfg> = {
   insurer: {
     prefix: 'insurance', listKey: 'policies', noun: 'insured locations', uploadNoun: 'Statement of Values',
     idKey: 'policy_id', nameKey: 'policy_name', typeKey: 'policy_type', valueKey: 'sum_insured_eur',
+    itemKey: 'policy', auditKey: 'audit', overrideMode: 'trigger',
     kpis: [
       { label: 'Total sum insured', field: 'total_sum_insured_eur', fmt: 'eur' },
       { label: 'Likely yearly loss', field: 'total_expected_annual_loss_eur', fmt: 'eur', tone: '#E9744A', hint: 'Expected annual loss' },
@@ -71,6 +78,7 @@ const SECTORS: Record<string, Cfg> = {
   asset_manager: {
     prefix: 'assetmgmt', listKey: 'holdings', noun: 'holdings', uploadNoun: 'holdings book',
     idKey: 'holding_id', nameKey: 'holding_name', typeKey: 'sector', valueKey: 'position_value_eur',
+    itemKey: 'holding', valuationKey: 'climate_var', auditKey: 'valuation_audit', overrideMode: 'valuation',
     kpis: [
       { label: 'Portfolio value', field: 'total_portfolio_value_eur', fmt: 'eur' },
       { label: 'Money at climate risk', field: 'total_climate_var_eur', fmt: 'eur', tone: '#E9744A', hint: 'Climate Value at Risk (Climate VaR)' },
@@ -81,6 +89,7 @@ const SECTORS: Record<string, Cfg> = {
   reit: {
     prefix: 'realestate', listKey: 'properties', noun: 'properties', uploadNoun: 'property schedule',
     idKey: 'property_id', nameKey: 'property_name', typeKey: 'property_type', valueKey: 'property_value_eur',
+    itemKey: 'property', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation',
     kpis: [
       { label: 'Portfolio value', field: 'total_value_eur', fmt: 'eur' },
       { label: 'Yearly rental income', field: 'total_annual_noi_eur', fmt: 'eur' },
@@ -113,7 +122,11 @@ export default function Portfolio() {
   const [scenario, setScenario] = useState('baseline')
   const [horizon, setHorizon] = useState<string>('current')
   const [open, setOpen] = useState<string | null>(null)
-  const refreshBook = () => { qc.invalidateQueries({ queryKey: ['fin-portfolio'] }); qc.invalidateQueries({ queryKey: ['fin-forward'] }) }
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const refreshBook = () => {
+    qc.invalidateQueries({ queryKey: ['fin-portfolio'] }); qc.invalidateQueries({ queryKey: ['fin-forward'] })
+    qc.invalidateQueries({ queryKey: ['fin-detail'] })
+  }
 
   const q = useQuery({
     queryKey: ['fin-portfolio', cfg?.prefix, scenario, horizon],
@@ -248,6 +261,9 @@ export default function Portfolio() {
                           </div>
                         )}
                       </>)}
+                      <button onClick={() => setDetailId(id)} className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline">
+                        Full detail{cfg.overrideMode === 'valuation' ? ' & valuation override' : ' & set trigger'} →
+                      </button>
                     </div>
                   )}
                 </div>
@@ -257,6 +273,8 @@ export default function Portfolio() {
         )}
       </Card>
       {q.isError && <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the book — reload, or sign in again.</div>}
+
+      {detailId && <AssetDrawer cfg={cfg} id={detailId} onClose={() => setDetailId(null)} onChanged={refreshBook} />}
     </div>
   )
 }
