@@ -113,11 +113,13 @@ def _map_policy_row(row):
     }
 
 
-def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed"):
+def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed",
+                        entity_ids=None, value_weights=None):
     """All of an org's policies (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)
     -- the fetch/join/headline logic itself lives there, shared with banking,
-    real estate and asset management."""
+    real estate and asset management. entity_ids / value_weights scope + weight
+    the book for per-entity / consolidated filings."""
     trigger_rows = session.execute(text("""
         SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
                CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
@@ -129,7 +131,8 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
 
     rows = fetch_entities_with_risk(session, org_id, "insurance", scenario, horizon,
                                      ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
-                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model))
+                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model),
+                                     entity_ids=entity_ids, value_weights=value_weights)
     return [_map_policy_row(r) for r in rows]
 
 
@@ -160,11 +163,13 @@ def _rollup(policies):
     }
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
-    loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view."""
+    loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
+    entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
     return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
+                                   entity_ids=entity_ids, value_weights=value_weights)
     hazards: dict = {}
     for p in policies:
         for hz in p["hazards"]:

@@ -172,6 +172,10 @@ def _row_to_summary(r) -> dict:
         "superseded_by": str(r["superseded_by"]) if r["superseded_by"] else None,
         "note": r["note"], "created_by": r.get("created_by_name"),
         "created_at": r["created_at"].isoformat(), "updated_at": r["updated_at"].isoformat(),
+        # reporting scope: NULL entity = whole org; a group kind = a consolidated filing
+        "entity_id": str(r["entity_id"]) if r.get("entity_id") else None,
+        "entity_name": r.get("entity_name"),
+        "scope": ("consolidated" if r.get("entity_kind") == "group" else "entity") if r.get("entity_id") else "organisation",
     }
 
 
@@ -180,10 +184,12 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
                rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at,
-               rs.version AS snapshot_version, u.full_name AS created_by_name
+               rs.version AS snapshot_version, u.full_name AS created_by_name,
+               rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
         LEFT JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         LEFT JOIN users u ON u.user_id = rf.created_by
+        LEFT JOIN reporting_entities re ON re.entity_id = rf.entity_id
         WHERE rf.org_id = :o
         ORDER BY rf.created_at DESC
     """), {"o": org_id}).mappings().all()
@@ -195,10 +201,12 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     r = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
                rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note,
-               rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name
+               rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
+               rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
         LEFT JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         LEFT JOIN users u ON u.user_id = rf.created_by
+        LEFT JOIN reporting_entities re ON re.entity_id = rf.entity_id
         WHERE rf.org_id = :o AND rf.filing_id = :f
     """), {"o": org_id, "f": filing_id}).mappings().first()
     if not r:
@@ -319,9 +327,12 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
 
 
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
-                    actor_user_id: str, note: str | None = None, confirmed: bool = False) -> dict:
+                    actor_user_id: str, note: str | None = None, confirmed: bool = False,
+                    entity_id: str | None = None) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
-    (framework, period) — regenerating while one is live is refused (supersede it first via a restatement)."""
+    (framework, period, entity) — regenerating while one is live is refused (supersede it first).
+    entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
+    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership)."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS:
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
@@ -329,22 +340,36 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     # the confirm-data step is mandatory — a filing is never frozen without an explicit human confirmation
     if not confirmed:
         raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
+
+    # resolve the reporting scope
+    entity_ids = value_weights = None
+    if entity_id is not None:
+        from services.governance import entities as _E
+        ent = _E.get_entity(session, org_id, entity_id)
+        if not ent:
+            raise FilingError("reporting entity not found")
+        entity_ids = _E.subtree_ids(session, org_id, entity_id)
+        if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
+            value_weights = _E.ownership_weights(session, org_id)
+
     period_end = date(date.today().year - 1, 12, 31)
     existing = session.execute(text("""
         SELECT filing_id, status FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end = :pe AND status <> 'superseded'
-    """), {"o": org_id, "fk": framework, "pe": period_end}).mappings().first()
+              AND entity_id IS NOT DISTINCT FROM :ent
+    """), {"o": org_id, "fk": framework, "pe": period_end, "ent": entity_id}).mappings().first()
     if existing:
         raise FilingError(f"a live {framework} filing for {_period_label(period_end)} already exists "
                           f"(status {existing['status']}); supersede it to restate.")
 
-    snap = create_snapshot(session, org_id, framework, actor_user_id, note=note)
+    snap = create_snapshot(session, org_id, framework, actor_user_id, note=note,
+                           entity_ids=entity_ids, value_weights=value_weights)
     row = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by, entity_id)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent)
         RETURNING filing_id
     """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
-           "snap": snap["snapshot_id"], "note": note, "u": actor_user_id}).mappings().first()
+           "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id}).mappings().first()
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],

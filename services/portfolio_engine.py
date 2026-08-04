@@ -54,6 +54,7 @@ def fetch_entities_with_risk(
     exclude_headline_hazards: tuple = ("heat_acute",),
     valuation_kwargs: Optional[Callable] = None,
     entity_ids: Optional[list] = None,
+    value_weights: Optional[dict] = None,
 ) -> list:
     """All of an org's entities for one vertical (metadata + extension fields)
     + their per-hazard projected risk + shared valuation block. exclude_headline_hazards
@@ -75,7 +76,8 @@ def fetch_entities_with_risk(
                CAST(e.latitude AS FLOAT) AS lat, CAST(e.longitude AS FLOAT) AS lon, e.h3_cell,
                e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
                e.construction_type, e.year_built, e.number_of_stories,
-               e.borrower_entity_id, e.minimum_safeguards_status
+               e.borrower_entity_id, e.minimum_safeguards_status,
+               e.reporting_entity_id::text AS reporting_entity_id
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
@@ -118,16 +120,24 @@ def fetch_entities_with_risk(
         bucket = headline["bucket"] if headline else None
         hazard = headline["hazard"] if headline else None
 
-        extra_val_kwargs = valuation_kwargs(e) if valuation_kwargs else {}
-        attrs = {"construction_type": e["construction_type"], "year_built": e["year_built"],
-                 "number_of_stories": e["number_of_stories"]}
+        # consolidation weighting: a proportional/equity line contributes only its owned share of VALUE
+        # (physical risk SCORES are per-asset and unchanged; scaling the value flows through to every
+        # value-based aggregate — value-at-risk, financed emissions, taxonomy €). Full lines weight 1.0.
+        ev = dict(e)
+        w = value_weights.get(e["reporting_entity_id"], 1.0) if value_weights else 1.0
+        if w != 1.0 and ev["primary_value_eur"] is not None:
+            ev["primary_value_eur"] = ev["primary_value_eur"] * w
+
+        extra_val_kwargs = valuation_kwargs(ev) if valuation_kwargs else {}
+        attrs = {"construction_type": ev["construction_type"], "year_built": ev["year_built"],
+                 "number_of_stories": ev["number_of_stories"]}
         row = {
-            **{k: e[k] for k in e.keys()},
+            **ev,
             "hazards": hz,
             "headline_score": headline["score"] if headline else None,
             "headline_bucket": bucket,
             "headline_hazard": hazard,
-            "valuation": valuation_block(bucket, e["primary_value_eur"], val_by_entity.get(e["entity_id"]),
+            "valuation": valuation_block(bucket, ev["primary_value_eur"], val_by_entity.get(ev["entity_id"]),
                                           hazard=hazard, severity_model=severity_model,
                                           score=(headline["score"] if headline else None), attrs=attrs,
                                           **extra_val_kwargs),

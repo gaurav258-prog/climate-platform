@@ -28,6 +28,7 @@ class GenerateBody(BaseModel):
     framework: str = Field(..., min_length=1, max_length=60)
     note: Optional[str] = Field(None, max_length=500)
     confirmed: bool = False   # set by the confirm-data preflight step
+    entity_id: Optional[str] = None   # None = whole org; a leaf = its book; a group = consolidated subtree
 
 
 class BasisPatch(BaseModel):
@@ -190,10 +191,11 @@ def generate(body: GenerateBody, session: DbSession,
              ctx: dict = Depends(require_permission("approvals.create"))):
     try:
         f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
-                              body.framework, ctx["user"]["id"], note=body.note, confirmed=body.confirmed)
+                              body.framework, ctx["user"]["id"], note=body.note, confirmed=body.confirmed,
+                              entity_id=body.entity_id)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
-    _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework})
+    _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id})
     return f
 
 

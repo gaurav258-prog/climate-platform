@@ -60,20 +60,23 @@ def _engine_versions(session: Session) -> dict:
 
 # report_type -> (human label, builder, applicable org-type sectors). The builder takes
 # (session, org_id, scenario, horizon, material); FIN builders ignore the extra basis args.
+# builder args are (session, org_id, scenario, horizon, material, entity_ids, value_weights). entity_ids /
+# value_weights scope + consolidation-weight the book — supported by the located FIN books (bank/reit/insurer);
+# the others (CSRD/ESRS entity-level, SFDR fund-aggregated) ignore them and report whole-org.
 _BUILDERS = {
     "csrd_e1": ("CSRD · ESRS E1 physical-risk report",
-                lambda s, o, sc, hz, m: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
+                lambda s, o, sc, hz, m, ei, vw: _csrd_e1(s, o, sc, hz, m), ("manufacturer",)),
     "esrs_pack": ("ESRS Climate & Nature pack (E1 · E3 · E4)",
-                  lambda s, o, sc, hz, m: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
+                  lambda s, o, sc, hz, m, ei, vw: _esrs_pack(s, o, sc, hz, m), ("manufacturer",)),
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
-                  lambda s, o, sc, hz, m: _bank_tcfd(s, o, sc, hz), ("bank",)),
+                  lambda s, o, sc, hz, m, ei, vw: _bank_tcfd(s, o, sc, hz, ei, vw), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
-                 lambda s, o, sc, hz, m: _sfdr_pai(s, o), ("asset_manager",)),
+                 lambda s, o, sc, hz, m, ei, vw: _sfdr_pai(s, o), ("asset_manager",)),
     "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
-                  lambda s, o, sc, hz, m: _reit_tcfd(s, o, sc, hz), ("reit",)),
+                  lambda s, o, sc, hz, m, ei, vw: _reit_tcfd(s, o, sc, hz, ei, vw), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
-                        lambda s, o, sc, hz, m: _insurer_climate(s, o, sc, hz), ("insurer",)),
+                        lambda s, o, sc, hz, m, ei, vw: _insurer_climate(s, o, sc, hz, ei, vw), ("insurer",)),
 }
 
 
@@ -87,9 +90,9 @@ def _esrs_pack(session, org_id, scenario, horizon, material):
     return build_esrs_pack(session, org_id, scenario=scenario, horizon=horizon, material=material)
 
 
-def _bank_tcfd(session, org_id, scenario, horizon):
+def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     from api.routers.bank import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
 
 
 def _sfdr_pai(session, org_id):
@@ -97,14 +100,14 @@ def _sfdr_pai(session, org_id):
     return entity_pai_statement(session, org_id)
 
 
-def _reit_tcfd(session, org_id, scenario, horizon):
+def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     from api.routers.realestate import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
 
 
-def _insurer_climate(session, org_id, scenario, horizon):
+def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     from api.routers.insurance import build_disclosure_snapshot
-    return build_disclosure_snapshot(session, org_id, scenario, horizon)
+    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
@@ -118,14 +121,18 @@ def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dic
 
 
 def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_id: str,
-                    note: str | None = None) -> dict:
-    """Compute the report at the org's current basis and freeze it as the next version. Immutable once written."""
+                    note: str | None = None, entity_ids: list | None = None,
+                    value_weights: dict | None = None) -> dict:
+    """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
+    entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
+    value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them."""
     if report_type not in _BUILDERS:
         raise ValueError(f"unknown report_type '{report_type}'")
     s = get_settings(session, org_id)
     basis = {"scenario": s["scenario"], "horizon": s["horizon"],
              "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
-    payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"])
+    payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
+                                        entity_ids, value_weights)
     versions = _engine_versions(session)
     digest = _sha256(payload)
 
