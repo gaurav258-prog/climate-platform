@@ -22,6 +22,8 @@ import Transmission from './pages/Transmission'
 import RegChanges from './pages/RegChanges'
 import DataDictionary from './pages/DataDictionary'
 import Filings from './pages/Filings'
+import Funds from './pages/Funds'
+import FundDetail from './pages/FundDetail'
 import Models from './pages/Models'
 import EarlyWarning from './pages/EarlyWarning'
 import Sourcing from './pages/Sourcing'
@@ -66,6 +68,8 @@ export default function App() {
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/funds" element={<Funds />} />
+        <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />
