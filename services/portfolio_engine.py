@@ -53,6 +53,7 @@ def fetch_entities_with_risk(
     extra_calc: Optional[Callable] = None,
     exclude_headline_hazards: tuple = ("heat_acute",),
     valuation_kwargs: Optional[Callable] = None,
+    entity_ids: Optional[list] = None,
 ) -> list:
     """All of an org's entities for one vertical (metadata + extension fields)
     + their per-hazard projected risk + shared valuation block. exclude_headline_hazards
@@ -63,6 +64,12 @@ def fetch_entities_with_risk(
     kwargs (outstanding_balance_eur, for LTV) without every vertical needing that concept."""
     ext_select = (", " + ", ".join(ext_columns)) if ext_columns else ""
     ext_join = f"LEFT JOIN {ext_table} x ON x.entity_id = e.entity_id" if ext_table else ""
+    # entity_ids scopes the book to a set of reporting entities (a legal entity, or a group's whole subtree)
+    # for per-entity / consolidated reporting; None = the whole org (the implicit top scope).
+    scope = "AND e.reporting_entity_id = ANY(:eids)" if entity_ids else ""
+    params = {"o": org_id, "v": vertical}
+    if entity_ids:
+        params["eids"] = list(entity_ids)
     entities = session.execute(text(f"""
         SELECT e.entity_id::text AS entity_id, e.entity_name, e.entity_type, e.sector, e.nace_code,
                CAST(e.latitude AS FLOAT) AS lat, CAST(e.longitude AS FLOAT) AS lon, e.h3_cell,
@@ -72,9 +79,9 @@ def fetch_entities_with_risk(
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
-        WHERE e.org_id = :o AND e.vertical = :v
+        WHERE e.org_id = :o AND e.vertical = :v {scope}
         ORDER BY e.primary_value_eur DESC
-    """), {"o": org_id, "v": vertical}).mappings().all()
+    """), params).mappings().all()
 
     risks = session.execute(text("""
         SELECT entity_id::text AS entity_id, hazard_type,
