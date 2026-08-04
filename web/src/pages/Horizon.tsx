@@ -155,12 +155,16 @@ export default function Horizon() {
     const hit = (mx: number, my: number): GAsset | null => { const pool = S.current.belt ? (beltsRef.current[S.current.belt] || []) : assets; let best = 20, h: GAsset | null = null; for (const a of pool) { const p = project(a.lat, a.lon); if (!p.vis) continue; const d = Math.hypot(p.x - mx, p.y - my); if (d < best) { best = d; h = a } } return h }
     const hitRegion = (mx: number, my: number): string | null => { for (const rr of regionRects) if (mx >= rr.x0 && mx <= rr.x1 && my >= rr.y0 && my <= rr.y1) return rr.r; return null }
 
-    const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; S.current.px = e.clientX; S.current.py = e.clientY; cv.setPointerCapture(e.pointerId) }
+    // pointer coords must be CANVAS-LOCAL (the canvas no longer starts at the viewport origin — the left nav
+    // offsets it), else marker/region hit-testing misses. Subtract the canvas's bounding rect.
+    const rel = (e: PointerEvent): [number, number] => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top] }
+    const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; const [x, y] = rel(e); S.current.px = x; S.current.py = y; cv.setPointerCapture(e.pointerId) }
     const onMove = (e: PointerEvent) => {
-      if (S.current.drag) { const dx = e.clientX - S.current.px, dy = e.clientY - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = e.clientX; S.current.py = e.clientY; return }
-      cv.style.cursor = (hit(e.clientX, e.clientY) || hitRegion(e.clientX, e.clientY)) ? 'pointer' : 'grab'
+      const [x, y] = rel(e)
+      if (S.current.drag) { const dx = x - S.current.px, dy = y - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = x; S.current.py = y; return }
+      cv.style.cursor = (hit(x, y) || hitRegion(x, y)) ? 'pointer' : 'grab'
     }
-    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const a = hit(e.clientX, e.clientY); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(e.clientX, e.clientY); if (r) openBelt(r) } }
+    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e); const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp)
 
     const drawCaption = () => {
