@@ -17,7 +17,7 @@ import FilingPreflight from './FilingPreflight'
 
 interface Obligation { obligation_id: string; framework: string; label: string; period_label: string; due_date: string; frequency: string; filing_id: string | null; filing_status: string; days_to_due: number; overdue: boolean }
 interface Framework { framework: string; label: string; frequency: string; regulator: string; basis: string }
-interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; note: string | null; created_by: string | null; created_at: string; updated_at: string }
+interface FilingSummary { filing_id: string; framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; submission_ref: string | null; note: string | null; created_by: string | null; created_at: string; updated_at: string; entity_name?: string | null; scope?: string }
 interface FilingEvent { from: string | null; to: string; action: string; detail: Record<string, unknown>; at: string; actor: string | null; actor_email: string | null }
 interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
@@ -44,6 +44,12 @@ const ST: Record<string, { label: string; fg: string; bg: string }> = {
 const Chip = ({ status }: { status: string }) => {
   const s = ST[status] ?? ST.not_started
   return <span className="mono text-[10.5px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap" style={{ color: s.fg, background: s.bg }}>{s.label}</span>
+}
+// scope of a filing: a specific legal entity, or a consolidated group (the whole subtree, ownership-weighted)
+const ScopeChip = ({ scope, name }: { scope: string; name?: string | null }) => {
+  const consolidated = scope === 'consolidated'
+  const c = consolidated ? '#a78bfa' : '#5cc8ff'
+  return <span className="mono text-[9.5px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap" style={{ color: c, background: `${c}22` }} title={name ?? undefined}>{consolidated ? '⤳ consolidated' : 'entity'}{name ? ` · ${name}` : ''}</span>
 }
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 // the six lifecycle stages, in order — used to draw the progress rail
@@ -128,7 +134,7 @@ export default function FilingCockpit() {
                 <button key={f.filing_id} onClick={() => setOpenId(f.filing_id)}
                   className="w-full text-left px-5 py-3.5 flex items-center gap-4 hover:bg-[var(--color-panel)] transition">
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] text-[var(--color-ink)] truncate">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span></div>
+                    <div className="text-[14px] text-[var(--color-ink)] truncate flex items-center gap-2">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span>{f.scope && f.scope !== 'organisation' && <ScopeChip scope={f.scope} name={f.entity_name} />}</div>
                     <div className="mono text-[11px] text-[var(--color-faint)]">v{f.snapshot_version ?? '—'} · prepared by {f.created_by ?? '—'} · {fmtDate(f.created_at)}{f.submission_ref ? ` · ref ${f.submission_ref}` : ''}</div>
                   </div>
                   <Chip status={f.status} />
@@ -165,10 +171,11 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
         {!f ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div> : (
           <div className="p-6 space-y-6">
             <div>
-              <div className="flex items-center gap-3 mb-1">
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h2 className="display text-xl font-semibold">{f.label}</h2><Chip status={f.status} />
+                {f.scope && f.scope !== 'organisation' && <ScopeChip scope={f.scope} name={f.entity_name} />}
               </div>
-              <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? f.framework}{f.regulator ? ` · ${f.regulator}` : ''}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? f.framework}{f.regulator ? ` · ${f.regulator}` : ''}{f.scope === 'organisation' ? ' · whole organisation' : ''}</div>
             </div>
 
             {/* lifecycle rail */}

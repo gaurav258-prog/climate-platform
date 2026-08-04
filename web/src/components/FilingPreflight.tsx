@@ -15,24 +15,31 @@ interface Preflight {
   coverage: { label: string; done: number; total: number; pct: number } | null
   total_value_eur: number | null; value_at_risk_eur?: number | null; noun: string; positions?: number; gaps: string[]
 }
+interface Ent { entity_id: string; name: string; kind: string; parent_entity_id: string | null; n_assets: number }
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 export default function FilingPreflight({ framework, onClose, onGenerated }: { framework: string; onClose: () => void; onGenerated: (id: string) => void }) {
   const q = useQuery({ queryKey: ['preflight', framework], queryFn: () => api.get<Preflight>(`/v1/filings/preflight?framework=${framework}`) })
+  const ents = useQuery({ queryKey: ['filing-entities'], queryFn: () => api.get<{ entities: Ent[] }>('/v1/filings/entities') })
   const [confirmed, setConfirmed] = useState(false)
+  const [entityId, setEntityId] = useState<string>('')   // '' = whole organisation
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const d = q.data
+  const entities = ents.data?.entities ?? []
 
   const freeze = async () => {
     setBusy(true); setErr(null)
     try {
-      const f = await api.post<{ filing_id: string }>('/v1/filings', { framework, confirmed: true })
+      const f = await api.post<{ filing_id: string }>('/v1/filings', { framework, confirmed: true, entity_id: entityId || null })
       onGenerated(f.filing_id)
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not freeze the filing.') }
     finally { setBusy(false) }
   }
+  // when a specific entity is chosen the backend's own (entity-aware) guard decides; only block whole-org
+  // generation when a whole-org filing already exists.
+  const blockedByExisting = entityId === '' && !d?.can_generate
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -49,9 +56,22 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
               <div className="mono text-[11px] text-[var(--color-faint)]">{d.period_label} · basis {d.basis.scenario}/{d.basis.horizon} · materiality {d.basis.materiality_threshold}</div>
             </div>
 
-            {!d.can_generate && (
+            {entities.length > 0 && (
+              <div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Reporting scope</div>
+                <select value={entityId} onChange={e => setEntityId(e.target.value)}
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
+                  <option value="">Whole organisation</option>
+                  {entities.filter(e => e.kind === 'group').map(e => <option key={e.entity_id} value={e.entity_id}>Consolidated — {e.name} (group)</option>)}
+                  {entities.filter(e => e.kind !== 'group').map(e => <option key={e.entity_id} value={e.entity_id}>{e.name} ({e.n_assets} assets)</option>)}
+                </select>
+                <div className="mono text-[10px] text-[var(--color-faint)] mt-1">a group consolidates its whole subtree (proportional lines ownership‑weighted); a legal entity files its own book.</div>
+              </div>
+            )}
+
+            {blockedByExisting && (
               <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-warn)]">
-                <AlertTriangle size={14} /> A live {d.label} for {d.period_label} already exists ({d.existing_status}). Supersede it to restate.
+                <AlertTriangle size={14} /> A live {d.label} for {d.period_label} (whole organisation) already exists ({d.existing_status}). Supersede it, or file a specific entity instead.
               </div>
             )}
 
@@ -77,11 +97,11 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
             {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
 
             <label className="flex items-start gap-2 text-[12.5px] text-[var(--color-ink)] cursor-pointer">
-              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-0.5 accent-[var(--color-sky)]" disabled={!d.can_generate} />
+              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-0.5 accent-[var(--color-sky)]" disabled={blockedByExisting} />
               I confirm this is the data to file — freeze it as an immutable filing.
             </label>
             <div className="flex items-center gap-3">
-              <Button variant="primary" onClick={freeze} disabled={busy || !confirmed || !d.can_generate}><Snowflake size={14} /> Confirm & freeze filing</Button>
+              <Button variant="primary" onClick={freeze} disabled={busy || !confirmed || blockedByExisting}><Snowflake size={14} /> Confirm & freeze filing</Button>
               {confirmed && <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#34d399' }}><CheckCircle2 size={12} /> ready</span>}
             </div>
           </>)}
