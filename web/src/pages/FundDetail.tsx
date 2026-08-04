@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileCheck2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { Eyebrow, Card, Button } from '../components/ui'
-import { hazardLabel } from '../lib/hazards'
 import { SfdrBadge } from './Funds'
+import FundPositions from '../components/FundPositions'
+import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
 // mandatory indicators + taxonomy + narratives) ready to download or freeze as the official filing.
@@ -31,6 +32,7 @@ interface Statement { error?: string; message?: string
   indicators?: Indicator[]; real_estate_indicators?: Indicator[]; sovereign_indicators?: Indicator[]
   taxonomy?: { taxonomy_eligible_pct?: number; taxonomy_aligned_pct?: number; alignment_coverage_pct?: number; alignment_note?: string }
   narratives?: { policies?: string; actions?: string; engagement?: string; standards?: string; missing?: string[] }
+  additional_indicators?: { selected?: string[] }
   coverage_summary?: { mandatory_indicators: number; computed: number; partial: number; not_available: number; emissions_coverage_pct?: number } }
 interface Filing { reference_year: number; filed_at: string; filed_by: string; status: string }
 
@@ -60,6 +62,7 @@ export default function FundDetail() {
   const s = sum.data
   const st = stmt.data
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null)
+  const refreshAll = () => { sum.refetch(); stmt.refetch(); qc.invalidateQueries({ queryKey: ['fund-positions', id] }); qc.invalidateQueries({ queryKey: ['funds'] }) }
 
   const fileStatement = async () => {
     setBusy(true); setMsg(null)
@@ -106,6 +109,9 @@ export default function FundDetail() {
               </div>
             </Card>
           </div>}
+
+      {/* onboard holdings by ISIN — the data-in path */}
+      <OnboardHoldings fundId={id} onDone={refreshAll} />
 
       {/* SFDR PAI statement */}
       {st && !st.error && (
@@ -180,6 +186,12 @@ export default function FundDetail() {
         </Card>
       )}
       {st?.error && <Card className="p-6 text-[13px] text-[var(--color-mute)]">{st.error === 'fund has no positions to report on' ? 'No positions to report on yet.' : st.error}</Card>}
+
+      {/* voluntary PAI selection */}
+      {st && !st.error && <VoluntaryPai fundId={id} selected={st.additional_indicators?.selected ?? []} onDone={refreshAll} />}
+
+      {/* holdings with issuer drill */}
+      <FundPositions fundId={id} />
 
       {/* prior filings */}
       {(filings.data?.filings?.length ?? 0) > 0 && (
