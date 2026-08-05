@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell } from 'lucide-react'
+import { api, ApiError, upload, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 import { filingLink } from '../lib/links'
@@ -19,10 +19,13 @@ interface Task {
   depends_on: string[]; created_by: string | null
 }
 interface TaskEvent { kind: string; from: string | null; to: string | null; note: string | null; at: string; actor: string | null }
-interface TaskDetail extends Task { events: TaskEvent[] }
+interface Attachment { attachment_id: string; filename: string; content_type: string | null; size_bytes: number; by: string | null; at: string }
+interface TaskDetail extends Task { events: TaskEvent[]; attachments: Attachment[] }
 interface Column { key: string; tasks: Task[] }
 interface Board { columns: Column[]; summary: { total: number; overdue: number; unassigned: number } }
 interface Member { user_id: string; email: string; name: string }
+interface Mention { mention_id: string; task_id: string; task_title: string; snippet: string | null; by: string | null; at: string }
+const fmtBytes = (n: number) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
 const COLS = ['icebox', 'todo', 'blocked', 'doing', 'review', 'done']
 
 const COL_LABEL: Record<string, string> = { icebox: 'Icebox', todo: 'To do', blocked: 'Blocked', doing: 'Doing', review: 'Review', done: 'Done' }
@@ -108,11 +111,14 @@ export default function Tasks() {
           <h1 className="display text-3xl font-semibold mt-2 mb-1">Tasks</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">Everything the team needs to do to get a filing out — move a card across the board, or assign it to a colleague.</p>
         </div>
-        {b && <div className="flex gap-4 text-right">
-          <Stat n={b.summary.total} label="open" />
-          <Stat n={b.summary.overdue} label="overdue" tone={b.summary.overdue > 0 ? '#fb7185' : undefined} />
-          <Stat n={b.summary.unassigned} label="unassigned" tone={b.summary.unassigned > 0 ? '#f0a860' : undefined} />
-        </div>}
+        <div className="flex items-center gap-5">
+          <MentionsBell onOpen={setOpenId} />
+          {b && <div className="flex gap-4 text-right">
+            <Stat n={b.summary.total} label="open" />
+            <Stat n={b.summary.overdue} label="overdue" tone={b.summary.overdue > 0 ? '#fb7185' : undefined} />
+            <Stat n={b.summary.unassigned} label="unassigned" tone={b.summary.unassigned > 0 ? '#f0a860' : undefined} />
+          </div>}
+        </div>
       </div>
 
       {/* quick add */}
@@ -251,10 +257,11 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
   const { profile } = useAuth()
   const q = useQuery({ queryKey: ['reg-task', taskId], queryFn: () => api.get<TaskDetail>(`/v1/reg-tasks/${taskId}`) })
   const t = q.data
-  const [comment, setComment] = useState('')
   const [gate, setGate] = useState<string | null>(null)   // target stage awaiting its checklist
   const reload = () => { qc.invalidateQueries({ queryKey: ['reg-task', taskId] }); onChanged() }
   const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { alert(errMsg(e, 'Action failed.')) } }
+  // opening a task clears my unread @mentions on it (drives the header bell)
+  useEffect(() => { api.post(`/v1/reg-tasks/${taskId}/seen`, {}).then(() => qc.invalidateQueries({ queryKey: ['reg-task-mentions'] })).catch(() => {}) }, [taskId, qc])
   // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist
   const doMove = (target: string, attestations?: string[]) => call(() => api.post(`/v1/reg-tasks/${taskId}/move`, { status: target, attestations }))
   const changeStatus = (target: string) => { if (!t || target === t.status) return; if (isGatedForward(t, target)) setGate(target); else doMove(target) }
@@ -305,21 +312,26 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
                 onBlur={e => e.target.value !== (t.description ?? '') && call(() => api.patch(`/v1/reg-tasks/${taskId}`, { description: e.target.value }))} className={box} />
             </Field>
 
+            {/* attachments */}
+            <Attachments taskId={taskId} items={t.attachments} onChanged={reload} />
+
             {/* activity log */}
             <div>
               <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center gap-1"><Clock size={11} /> Activity</div>
               <div className="space-y-2">
                 {t.events.map((e, i) => (
                   <div key={i} className="text-[11.5px]">
-                    <span className="text-[var(--color-ink)]">{e.kind === 'moved' ? `moved ${e.from} → ${e.to}` : e.kind === 'assigned' ? 'assignment changed' : e.kind === 'commented' ? e.note : e.kind === 'created' ? 'created' : e.note || e.kind}</span>
+                    <span className="text-[var(--color-ink)]">{e.kind === 'commented'
+                      ? renderMentions(e.note ?? '', members)
+                      : e.kind === 'moved' ? `moved ${e.from} → ${e.to}` : e.kind === 'assigned' ? 'assignment changed'
+                      : e.kind === 'attached' ? <>attached <span className="text-[var(--color-mute)]">{e.note}</span></>
+                      : e.kind === 'removed_attachment' ? <>removed attachment <span className="text-[var(--color-mute)]">{e.note}</span></>
+                      : e.kind === 'created' ? 'created' : e.note || e.kind}</span>
                     <span className="mono text-[9.5px] text-[var(--color-faint)] ml-1.5">{e.actor ?? 'system'} · {new Date(e.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center gap-2 mt-3">
-                <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === 'Enter' && comment.trim() && call(() => api.post(`/v1/reg-tasks/${taskId}/comment`, { body: comment.trim() }).then(() => setComment('')))} placeholder="Comment…" className={box} />
-                <Button variant="primary" disabled={!comment.trim()} onClick={() => call(() => api.post(`/v1/reg-tasks/${taskId}/comment`, { body: comment.trim() }).then(() => setComment('')))}><Send size={14} /></Button>
-              </div>
+              <CommentComposer taskId={taskId} members={members} onDone={reload} />
             </div>
           </div>
         )}
@@ -332,4 +344,158 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span><div className="mt-1">{children}</div></label>
+}
+
+// a colleague's @handle — their name without the trailing "(Org)" qualifier
+const handleOf = (m: Member) => m.name.replace(/\s*\(.*\)$/, '').trim() || m.email.split('@')[0]
+
+// render a comment, highlighting @mentions that match a colleague
+function renderMentions(text: string, members: Member[]): ReactNode {
+  const handles = [...new Set(members.map(handleOf))].filter(Boolean).sort((a, b) => b.length - a.length)
+  if (!handles.length) return text
+  const re = new RegExp(`@(${handles.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g')
+  const out: ReactNode[] = []
+  let last = 0, m: RegExpExecArray | null
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(<span key={m.index} className="text-[var(--color-sky)] font-medium">@{m[1]}</span>)
+    last = m.index + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out.length ? out : text
+}
+
+// ── task attachments ─────────────────────────────────────────────────────────────────────────────────────
+function Attachments({ taskId, items, onChanged }: { taskId: string; items: Attachment[]; onChanged: () => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const pick = async (file: File) => {
+    setBusy(true)
+    try { await upload(`/v1/reg-tasks/${taskId}/attachments`, file); onChanged() }
+    catch (e) { alert(errMsg(e, 'Could not attach the file.')) }
+    finally { setBusy(false); if (ref.current) ref.current.value = '' }
+  }
+  const remove = async (a: Attachment) => {
+    if (!confirm(`Remove “${a.filename}”?`)) return
+    try { await api.del(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`); onChanged() }
+    catch (e) { alert(errMsg(e, 'Could not remove the attachment.')) }
+  }
+  return (
+    <div>
+      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1"><Paperclip size={11} /> Attachments</span>
+        <button onClick={() => ref.current?.click()} disabled={busy} className="text-[var(--color-sky)] hover:underline normal-case tracking-normal disabled:opacity-50">{busy ? 'uploading…' : '+ attach file'}</button>
+        <input ref={ref} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) pick(f) }} />
+      </div>
+      {items.length === 0
+        ? <div className="text-[11.5px] text-[var(--color-faint)]">No files attached. Attach supporting evidence, a source file, or a screenshot.</div>
+        : <div className="space-y-1.5">
+            {items.map(a => (
+              <div key={a.attachment_id} className="flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5">
+                <Paperclip size={13} className="text-[var(--color-faint)] shrink-0" />
+                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => alert('Could not download the file.'))}
+                  className="text-[12.5px] text-[var(--color-ink)] hover:text-[var(--color-sky)] truncate flex-1 text-left" title={a.filename}>{a.filename}</button>
+                <span className="mono text-[9.5px] text-[var(--color-faint)] shrink-0">{fmtBytes(a.size_bytes)}{a.by ? ` · ${a.by.split(' ')[0]}` : ''}</span>
+                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => {})} title="Download" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={13} /></button>
+                <button onClick={() => remove(a)} title="Remove" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+          </div>}
+    </div>
+  )
+}
+
+// ── comment composer with @mention autocomplete ──────────────────────────────────────────────────────────
+function CommentComposer({ taskId, members, onDone }: { taskId: string; members: Member[]; onDone: () => void }) {
+  const [val, setVal] = useState('')
+  const [query, setQuery] = useState<string | null>(null)   // active @… token, or null
+  const [busy, setBusy] = useState(false)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] resize-none'
+
+  const onChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const v = e.target.value; setVal(v)
+    const before = v.slice(0, e.target.selectionStart ?? v.length)
+    const m = before.match(/@([^@]*)$/)   // text after the last @ up to the caret
+    setQuery(m && m[1].length <= 40 ? m[1] : null)
+  }
+  const suggestions = query != null ? members.filter(m => handleOf(m).toLowerCase().includes(query.toLowerCase())).slice(0, 6) : []
+  const pick = (m: Member) => {
+    const el = ref.current, caret = el?.selectionStart ?? val.length
+    const before = val.slice(0, caret).replace(/@([^@]*)$/, `@${handleOf(m)} `)
+    const nv = before + val.slice(caret)
+    setVal(nv); setQuery(null)
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(before.length, before.length) })
+  }
+  const mentionIds = () => members.filter(m => val.includes(`@${handleOf(m)}`)).map(m => m.user_id)
+  const submit = async () => {
+    const body = val.trim(); if (!body) return
+    setBusy(true)
+    try { await api.post(`/v1/reg-tasks/${taskId}/comment`, { body, mentions: mentionIds() }); setVal(''); setQuery(null); onDone() }
+    catch (e) { alert(errMsg(e, 'Could not add the comment.')) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="mt-3 relative">
+      {query != null && suggestions.length > 0 && (
+        <div className="absolute bottom-full mb-1 left-0 w-64 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl overflow-hidden z-20">
+          {suggestions.map(m => (
+            <button key={m.user_id} onMouseDown={e => { e.preventDefault(); pick(m) }}
+              className="w-full text-left px-3 py-1.5 hover:bg-[var(--color-panel)] flex items-center gap-2">
+              <AtSign size={12} className="text-[var(--color-sky)]" />
+              <span className="text-[12.5px] text-[var(--color-ink)]">{handleOf(m)}</span>
+              <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto">{m.email}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-end gap-2">
+        <textarea ref={ref} rows={2} value={val} onChange={onChange}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              if (query != null && suggestions.length) { e.preventDefault(); pick(suggestions[0]) }
+              else { e.preventDefault(); submit() }
+            }
+            if (e.key === 'Escape') setQuery(null)
+          }}
+          placeholder="Comment…  type @ to mention a colleague" className={box} />
+        <Button variant="primary" disabled={busy || !val.trim()} onClick={submit}><Send size={14} /></Button>
+      </div>
+      <div className="mono text-[9px] text-[var(--color-faint)] mt-1 flex items-center gap-1"><AtSign size={9} /> mention a colleague to ping them — they’ll see it in their mentions. Enter to send, Shift+Enter for a new line.</div>
+    </div>
+  )
+}
+
+// ── the mentions inbox (header bell) ─────────────────────────────────────────────────────────────────────
+function MentionsBell({ onOpen }: { onOpen: (taskId: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const q = useQuery({ queryKey: ['reg-task-mentions'], queryFn: () => api.get<Mention[]>('/v1/reg-tasks/mentions'), refetchInterval: 30000 })
+  const items = q.data ?? []
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)} title="Mentions of you" className="relative text-[var(--color-mute)] hover:text-[var(--color-ink)] p-1.5">
+        <Bell size={19} />
+        {items.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full text-[9.5px] font-semibold flex items-center justify-center" style={{ background: 'var(--color-sky)', color: 'var(--color-on-accent)' }}>{items.length}</span>}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-2xl overflow-hidden z-50">
+            <div className="px-4 py-2.5 border-b border-[var(--color-line)] mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Mentions of you</div>
+            {items.length === 0
+              ? <div className="px-4 py-6 text-[12px] text-[var(--color-faint)] text-center">No unread mentions.</div>
+              : <div className="max-h-96 overflow-y-auto divide-y divide-[var(--color-line)]">
+                  {items.map(m => (
+                    <button key={m.mention_id} onClick={() => { onOpen(m.task_id); setOpen(false) }} className="w-full text-left px-4 py-2.5 hover:bg-[var(--color-panel)]">
+                      <div className="text-[12.5px] text-[var(--color-ink)] truncate">{m.task_title}</div>
+                      {m.snippet && <div className="text-[11.5px] text-[var(--color-mute)] mt-0.5 line-clamp-2">{m.snippet}</div>}
+                      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-1">{m.by ?? 'someone'} · {new Date(m.at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                    </button>
+                  ))}
+                </div>}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }

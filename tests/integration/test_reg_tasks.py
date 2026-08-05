@@ -69,6 +69,45 @@ def test_board_groups_into_columns():
 
 
 @pytest.mark.integration
+def test_attachments_add_list_get_delete():
+    with get_session() as s:
+        u = _actor(s)
+        t = T.create_task(s, BANK_ORG, u, title="Attach evidence")
+        tid = t["task_id"]
+        a = T.add_attachment(s, BANK_ORG, tid, u, filename="notes.txt", content_type="text/plain", data=b"hello")
+        assert a["size_bytes"] == 5
+        items = T.list_attachments(s, BANK_ORG, tid)
+        assert len(items) == 1 and items[0]["filename"] == "notes.txt"
+        got = T.get_attachment(s, BANK_ORG, tid, a["attachment_id"])
+        assert got["data"] == b"hello" and got["content_type"] == "text/plain"
+        with pytest.raises(T.TaskError):
+            T.add_attachment(s, BANK_ORG, tid, u, filename="", content_type=None, data=b"x")
+        T.delete_attachment(s, BANK_ORG, tid, a["attachment_id"], u)
+        assert T.list_attachments(s, BANK_ORG, tid) == []
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_comment_mentions_and_inbox():
+    with get_session() as s:
+        maker = _actor(s)
+        target = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
+        t = T.create_task(s, BANK_ORG, maker, title="Clarify NACE mapping")
+        tid = t["task_id"]
+        # a comment mentioning a colleague creates an unread mention for them
+        T.comment(s, BANK_ORG, tid, maker, "@Pieter please confirm", mentions=[target])
+        inbox = T.my_mentions(s, BANK_ORG, target)
+        assert any(m["task_id"] == tid for m in inbox)
+        # you are never mentioned to yourself
+        T.comment(s, BANK_ORG, tid, maker, "note to self @me", mentions=[maker])
+        assert all(m["task_id"] != tid for m in T.my_mentions(s, BANK_ORG, maker))
+        # opening the task clears the recipient's unread mentions on it
+        T.mark_mentions_seen(s, BANK_ORG, tid, target)
+        assert all(m["task_id"] != tid for m in T.my_mentions(s, BANK_ORG, target))
+        s.rollback()
+
+
+@pytest.mark.integration
 def test_bad_status_and_missing_title_refused():
     with get_session() as s:
         u = _actor(s)

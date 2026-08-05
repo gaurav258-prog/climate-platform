@@ -122,6 +122,7 @@ def get_task(session: Session, org_id: str, task_id: str) -> dict | None:
     """), {"t": task_id}).mappings().all()
     out["events"] = [{"kind": e["kind"], "from": e["from_val"], "to": e["to_val"], "note": e["note"],
                       "at": e["created_at"].isoformat(), "actor": e["actor"]} for e in evs]
+    out["attachments"] = list_attachments(session, org_id, task_id)
     return out
 
 
@@ -214,13 +215,101 @@ def update_task(session: Session, org_id: str, task_id: str, actor: str, *, titl
     return get_task(session, org_id, task_id)
 
 
-def comment(session: Session, org_id: str, task_id: str, actor: str, body: str) -> dict:
-    """Append a comment to a task's activity log (append-only)."""
+def comment(session: Session, org_id: str, task_id: str, actor: str, body: str,
+            mentions: list[str] | None = None) -> dict:
+    """Append a comment to a task's activity log (append-only). Any @mentioned colleagues (passed as user_ids
+    the picker resolved) are recorded as mentions so they get pinged — for a question, a clarification, or a
+    delegation. Mentions are validated to this org and a user is never mentioned to themselves."""
     _load(session, org_id, task_id)   # org-scope check
-    if not (body or "").strip():
+    body = (body or "").strip()
+    if not body:
         raise TaskError("comment can't be empty")
-    _event(session, task_id, "commented", actor, note=body.strip())
+    _event(session, task_id, "commented", actor, note=body)
+    for uid in {m for m in (mentions or []) if m and m != actor}:
+        ok = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:u AS uuid) AND org_id = :o"),
+                             {"u": uid, "o": org_id}).first()
+        if not ok:
+            continue  # skip anything not a member of this org — never mention across tenants
+        session.execute(text("""
+            INSERT INTO regulatory_task_mention (org_id, task_id, mentioned_user, by_user, snippet)
+            VALUES (:o, :t, CAST(:u AS uuid), :a, :s)
+        """), {"o": org_id, "t": task_id, "u": uid, "a": actor, "s": body[:280]})
     return get_task(session, org_id, task_id)
+
+
+# ── attachments ──────────────────────────────────────────────────────────────────────────────────────────
+_MAX_ATTACH_BYTES = 15 * 1024 * 1024  # 15 MB — inline BYTEA, ample for the docs a filing task needs
+
+
+def add_attachment(session: Session, org_id: str, task_id: str, actor: str, *, filename: str,
+                   content_type: str | None, data: bytes) -> dict:
+    _load(session, org_id, task_id)   # org-scope check
+    if not (filename or "").strip():
+        raise TaskError("the file needs a name")
+    if not data:
+        raise TaskError("the file is empty")
+    if len(data) > _MAX_ATTACH_BYTES:
+        raise TaskError(f"file is too large (max {_MAX_ATTACH_BYTES // (1024 * 1024)} MB)")
+    aid = session.execute(text("""
+        INSERT INTO regulatory_task_attachment (org_id, task_id, filename, content_type, size_bytes, data, uploaded_by)
+        VALUES (:o, :t, :f, :ct, :sz, :d, :u) RETURNING attachment_id
+    """), {"o": org_id, "t": task_id, "f": filename.strip(), "ct": content_type,
+           "sz": len(data), "d": data, "u": actor}).scalar()
+    _event(session, task_id, "attached", actor, note=filename.strip())
+    return {"attachment_id": str(aid), "filename": filename.strip(), "size_bytes": len(data)}
+
+
+def list_attachments(session: Session, org_id: str, task_id: str) -> list[dict]:
+    rows = session.execute(text("""
+        SELECT a.attachment_id, a.filename, a.content_type, a.size_bytes, a.uploaded_at, u.full_name AS by
+        FROM regulatory_task_attachment a LEFT JOIN users u ON u.user_id = a.uploaded_by
+        WHERE a.org_id = :o AND a.task_id = :t ORDER BY a.uploaded_at DESC
+    """), {"o": org_id, "t": task_id}).mappings().all()
+    return [{"attachment_id": str(r["attachment_id"]), "filename": r["filename"], "content_type": r["content_type"],
+             "size_bytes": r["size_bytes"], "by": r["by"], "at": r["uploaded_at"].isoformat()} for r in rows]
+
+
+def get_attachment(session: Session, org_id: str, task_id: str, attachment_id: str) -> dict | None:
+    r = session.execute(text("""
+        SELECT filename, content_type, data FROM regulatory_task_attachment
+        WHERE org_id = :o AND task_id = :t AND attachment_id = :a
+    """), {"o": org_id, "t": task_id, "a": attachment_id}).mappings().first()
+    if not r:
+        return None
+    return {"filename": r["filename"], "content_type": r["content_type"] or "application/octet-stream",
+            "data": bytes(r["data"])}
+
+
+def delete_attachment(session: Session, org_id: str, task_id: str, attachment_id: str, actor: str) -> None:
+    fn = session.execute(text("""
+        DELETE FROM regulatory_task_attachment WHERE org_id = :o AND task_id = :t AND attachment_id = :a
+        RETURNING filename
+    """), {"o": org_id, "t": task_id, "a": attachment_id}).scalar()
+    if fn:
+        _event(session, task_id, "removed_attachment", actor, note=fn)
+
+
+# ── @mention inbox ───────────────────────────────────────────────────────────────────────────────────────
+def my_mentions(session: Session, org_id: str, user_id: str) -> list[dict]:
+    """Unread @mentions of this user across the org's tasks — the board's mentions inbox."""
+    rows = session.execute(text("""
+        SELECT m.mention_id, m.task_id, t.title, m.snippet, m.created_at, u.full_name AS by
+        FROM regulatory_task_mention m
+        JOIN regulatory_task t ON t.task_id = m.task_id
+        LEFT JOIN users u ON u.user_id = m.by_user
+        WHERE m.org_id = :o AND m.mentioned_user = CAST(:u AS uuid) AND m.read_at IS NULL
+        ORDER BY m.created_at DESC
+    """), {"o": org_id, "u": user_id}).mappings().all()
+    return [{"mention_id": str(r["mention_id"]), "task_id": str(r["task_id"]), "task_title": r["title"],
+             "snippet": r["snippet"], "by": r["by"], "at": r["created_at"].isoformat()} for r in rows]
+
+
+def mark_mentions_seen(session: Session, org_id: str, task_id: str, user_id: str) -> None:
+    """Mark this user's unread mentions on a task as read — called when they open the task."""
+    session.execute(text("""
+        UPDATE regulatory_task_mention SET read_at = now()
+        WHERE org_id = :o AND task_id = :t AND mentioned_user = CAST(:u AS uuid) AND read_at IS NULL
+    """), {"o": org_id, "t": task_id, "u": user_id})
 
 
 def assign_task(session: Session, org_id: str, task_id: str, actor: str, assignee_user_id: str | None) -> dict:

@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -42,6 +43,7 @@ class TaskUpdate(BaseModel):
 
 class TaskComment(BaseModel):
     body: str = Field(..., min_length=1, max_length=2000)
+    mentions: Optional[List[str]] = None  # user_ids the @mention picker resolved in the comment
 
 
 class SpinTask(BaseModel):
@@ -112,6 +114,11 @@ def create(body: TaskCreate, session: DbSession, ctx: dict = Depends(require_per
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 
 
+@router.get("/mentions", summary="My unread @mentions across the board")
+def mentions(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return T.my_mentions(session, ctx["org"]["org_id"], ctx["user"]["id"])
+
+
 @router.get("/{task_id}", summary="One task with its activity")
 def get(task_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     t = T.get_task(session, ctx["org"]["org_id"], task_id)
@@ -144,7 +151,7 @@ def update(task_id: str, body: TaskUpdate, session: DbSession,
 def comment(task_id: str, body: TaskComment, session: DbSession,
             ctx: dict = Depends(require_permission("approvals.create"))):
     try:
-        return T.comment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.body)
+        return T.comment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.body, body.mentions)
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 
@@ -156,3 +163,45 @@ def assign(task_id: str, body: TaskAssign, session: DbSession,
         return T.assign_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.assignee_user_id)
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
+# ── attachments ──────────────────────────────────────────────────────────────────────────────────────────
+@router.post("/{task_id}/attachments", status_code=201, summary="Attach a file to a task")
+async def upload_attachment(task_id: str, session: DbSession, file: UploadFile = File(...),
+                            ctx: dict = Depends(require_permission("approvals.create"))):
+    data = await file.read()
+    try:
+        return T.add_attachment(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"],
+                                filename=file.filename or "file", content_type=file.content_type, data=data)
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
+@router.get("/{task_id}/attachments", summary="List a task's attachments")
+def attachments(task_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return T.list_attachments(session, ctx["org"]["org_id"], task_id)
+
+
+@router.get("/{task_id}/attachments/{attachment_id}", summary="Download an attachment")
+def download_attachment(task_id: str, attachment_id: str, session: DbSession,
+                        ctx: dict = Depends(require_permission("reports.view"))):
+    a = T.get_attachment(session, ctx["org"]["org_id"], task_id, attachment_id)
+    if not a:
+        raise HTTPException(404, {"error": "not_found", "message": "Attachment not found."})
+    # ASCII-safe Content-Disposition (RFC 5987 filename* for the real name)
+    from urllib.parse import quote
+    disp = f"attachment; filename*=UTF-8''{quote(a['filename'])}"
+    return Response(content=a["data"], media_type=a["content_type"], headers={"Content-Disposition": disp})
+
+
+@router.delete("/{task_id}/attachments/{attachment_id}", status_code=204, summary="Remove an attachment")
+def remove_attachment(task_id: str, attachment_id: str, session: DbSession,
+                      ctx: dict = Depends(require_permission("approvals.create"))):
+    T.delete_attachment(session, ctx["org"]["org_id"], task_id, attachment_id, ctx["user"]["id"])
+    return Response(status_code=204)
+
+
+@router.post("/{task_id}/seen", status_code=204, summary="Mark my @mentions on a task as read")
+def seen(task_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    T.mark_mentions_seen(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"])
+    return Response(status_code=204)
