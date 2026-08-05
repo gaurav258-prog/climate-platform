@@ -45,6 +45,14 @@
   --color-warn: #b45309;
   --color-bad: #e11d48;
   --color-on-accent: #ffffff;
+  /* Analytics chart tokens — scenario severity ramp (cool→hot) + sequential magnitude hue.
+     Validated (dataviz skill) for the light chart surface; dark values below. */
+  --scn-baseline: #2a78d6;   /* Today          */
+  --scn-orderly: #12938a;    /* Orderly 1.5°C   */
+  --scn-disorderly: #d97e0a; /* Disorderly 2°C  */
+  --scn-hot: #d1355a;        /* Hot-house 3.5°C */
+  --chart-seq: #256abf;      /* single-hue sequential (hazard small-multiples) */
+  --chart-grid: #e6ebf3;
 }
 /* applies at the <html> root (app theme) AND on any nested container — so the Horizon globe can force its
    own dark chrome even when the app is in light mode (the space globe is always a night visual). */
@@ -67,6 +75,13 @@
   --color-warn: #f59e0b;
   --color-bad: #fb7185;
   --color-on-accent: #08111f;
+  /* Analytics chart tokens — dark-surface steps of the same ramp (validated, dataviz skill). */
+  --scn-baseline: #3987e5;
+  --scn-orderly: #1fa595;
+  --scn-disorderly: #cf7d12;
+  --scn-hot: #d43d5c;
+  --chart-seq: #3987e5;
+  --chart-grid: #223049;
 }
 * { border-color: var(--color-line); }
 html, body, #root { height: 100%; }
