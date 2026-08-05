@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send } from 'lucide-react'
+import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
@@ -31,6 +31,30 @@ const PREV: Record<string, string> = { todo: 'icebox', blocked: 'todo', doing: '
 const CRIT: Record<string, string> = { critical: '#fb7185', high: '#f0a860', normal: '#5cc8ff', low: '#64748b' }
 const SRC_LABEL: Record<string, string> = { manual: 'manual', validation: 'validation', exception: 'exception', obligation: 'obligation', regulatory_change: 'reg change' }
 
+// Mandatory stage-gate: to ENTER a stage a card must satisfy that stage's checklist. `auto` items are
+// verified from the task's own state (assignee set, work documented, no open dependencies) and can't be
+// faked; the rest are attestations the mover confirms. A forward move — by drag OR arrow — is held until
+// every item is satisfied. Only the meaningful "you must have done X to be here" stages are gated.
+interface GateItem { id: string; label: string; auto?: (t: Task) => boolean; onlyIfFiling?: boolean }
+const GATE: Record<string, GateItem[]> = {
+  doing: [
+    { id: 'assignee', label: 'An owner is assigned to this task', auto: t => !!t.assignee_user_id },
+    { id: 'unblocked', label: 'No open dependencies remain', auto: t => (t.depends_on ?? []).length === 0 },
+    { id: 'ready', label: 'The inputs / source data needed to start are available' },
+  ],
+  review: [
+    { id: 'documented', label: 'The work done is recorded in the task', auto: t => !!(t.description && t.description.trim()) },
+    { id: 'complete', label: 'The deliverable is complete and self-checked' },
+    { id: 'validation', label: 'The linked filing’s validation was run with no blocking errors', onlyIfFiling: true },
+  ],
+  done: [
+    { id: 'foureyes', label: 'Reviewed by a second person (4-eyes)' },
+    { id: 'recorded', label: 'The outcome is recorded / the filing is submitted' },
+  ],
+}
+const idx = (s: string) => COLS.indexOf(s)
+const gateItemsFor = (target: string, t: Task) => (GATE[target] ?? []).filter(i => !i.onlyIfFiling || !!t.filing_id)
+
 export default function Tasks() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['reg-tasks-board'], queryFn: () => api.get<Board>('/v1/reg-tasks/board') })
@@ -40,6 +64,9 @@ export default function Tasks() {
   const [busy, setBusy] = useState(false)
   const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
+  const [drag, setDrag] = useState<Task | null>(null)
+  const [overCol, setOverCol] = useState<string | null>(null)
+  const [gate, setGate] = useState<{ task: Task; target: string } | null>(null)
   useEffect(() => { const t = params.get('task'); if (t) setOpenId(t) }, [params])
   const members = mq.data ?? []
   const refresh = () => qc.invalidateQueries({ queryKey: ['reg-tasks-board'] })
@@ -55,6 +82,12 @@ export default function Tasks() {
   const move = async (t: Task, status: string) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status }); refresh() }
     catch (e) { alert(e instanceof ApiError ? e.message : 'Could not move the task.') }
+  }
+  // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight through
+  const attemptMove = (t: Task, target: string) => {
+    if (target === t.status) return
+    if (idx(target) > idx(t.status) && gateItemsFor(target, t).length > 0) { setGate({ task: t, target }); return }
+    move(t, target)
   }
   const assign = async (t: Task, uid: string) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/assign`, { assignee_user_id: uid || null }); refresh() }
@@ -93,34 +126,89 @@ export default function Tasks() {
         : (
         <div className="overflow-x-auto pb-2">
           <div className="grid grid-cols-6 gap-3 min-w-[1050px]">
-            {b.columns.map(c => (
-              <div key={c.key} className="rounded-xl bg-[var(--color-panel)] border border-[var(--color-line)] p-2">
+            {b.columns.map(c => {
+              const isTarget = overCol === c.key && !!drag && drag.status !== c.key
+              const gated = !!drag && idx(c.key) > idx(drag.status) && gateItemsFor(c.key, drag).length > 0
+              return (
+              <div key={c.key}
+                onDragOver={e => { if (drag) { e.preventDefault(); setOverCol(c.key) } }}
+                onDragLeave={() => setOverCol(o => o === c.key ? null : o)}
+                onDrop={e => { e.preventDefault(); if (drag) attemptMove(drag, c.key); setDrag(null); setOverCol(null) }}
+                className={`rounded-xl border p-2 transition ${isTarget ? 'border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,var(--color-panel))]' : 'border-[var(--color-line)] bg-[var(--color-panel)]'}`}>
                 <div className="flex items-center justify-between px-1.5 py-1.5">
                   <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-mute)]">{COL_LABEL[c.key]}</span>
-                  <span className="mono text-[10.5px] text-[var(--color-faint)]">{c.tasks.length}</span>
+                  <span className="mono text-[10.5px] text-[var(--color-faint)]">{isTarget && gated ? <span className="text-[var(--color-sky)] inline-flex items-center gap-0.5"><ShieldCheck size={11} />gate</span> : c.tasks.length}</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-h-[40px]">
                   {c.tasks.map(t => (
-                    <TaskCard key={t.task_id} t={t} members={members} onMove={move} onAssign={assign} onOpen={() => setOpenId(t.task_id)} />
+                    <TaskCard key={t.task_id} t={t} members={members} onMove={attemptMove} onAssign={assign} onOpen={() => setOpenId(t.task_id)}
+                      dragging={drag?.task_id === t.task_id} onDragStart={() => setDrag(t)} onDragEnd={() => { setDrag(null); setOverCol(null) }} />
                   ))}
                   {c.tasks.length === 0 && <div className="text-[11px] text-[var(--color-faint)] px-1.5 py-3 text-center">—</div>}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
 
       {openId && <TaskDrawer taskId={openId} members={members} onClose={closeDrawer} onChanged={refresh} />}
+      {gate && <GateModal task={gate.task} target={gate.target} onClose={() => setGate(null)}
+        onConfirm={() => { const g = gate; setGate(null); move(g.task, g.target) }} />}
     </div>
   )
 }
 
-function TaskCard({ t, members, onMove, onAssign, onOpen }: { t: Task; members: Member[]; onMove: (t: Task, s: string) => void; onAssign: (t: Task, u: string) => void; onOpen: () => void }) {
-  const overdue = t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10)
+// The stage-gate dialog — the mandatory checklist a card must clear to enter a stage. Auto items are
+// pre-satisfied from the task's own state and locked; attestations must be ticked. Confirm unlocks only when
+// every item is satisfied, then the move goes through.
+function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: string; onClose: () => void; onConfirm: () => void }) {
+  const items = gateItemsFor(target, task)
+  const autoOk = (i: GateItem) => (i.auto ? i.auto(task) : false)
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(items.map(i => [i.id, autoOk(i)])))
+  const allOk = items.every(i => (i.auto ? autoOk(i) : checked[i.id]))
   return (
-    <div className="rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="relative w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <div>
+            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> Stage gate</div>
+            <h3 className="display text-lg font-semibold mt-1">Move to “{COL_LABEL[target]}”</h3>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+        </div>
+        <p className="text-[12.5px] text-[var(--color-mute)] mb-3">Complete these mandatory checks before the card can enter this stage.</p>
+        <div className="space-y-2">
+          {items.map(i => {
+            const auto = !!i.auto, ok = auto ? autoOk(i) : !!checked[i.id]
+            return (
+              <button key={i.id} disabled={auto} onClick={() => !auto && setChecked(c => ({ ...c, [i.id]: !c[i.id] }))}
+                className={`w-full flex items-start gap-2.5 text-left rounded-lg border p-2.5 transition ${ok ? 'border-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_8%,transparent)]' : 'border-[var(--color-line-2)] hover:border-[var(--color-sky)]'} ${auto ? 'cursor-default' : ''}`}>
+                <span className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center shrink-0 ${ok ? 'bg-[var(--color-good)] text-[var(--color-on-accent)]' : 'border border-[var(--color-line-2)]'}`}>{ok && <Check size={12} />}</span>
+                <span className="text-[12.5px] text-[var(--color-ink)] leading-snug flex-1">{i.label}{auto && <span className="mono text-[9.5px] ml-1.5" style={{ color: ok ? 'var(--color-good)' : 'var(--color-bad)' }}>{ok ? 'verified' : 'not met'}</span>}</span>
+              </button>
+            )
+          })}
+        </div>
+        {items.some(i => i.auto && !autoOk(i)) && <p className="text-[11px] text-[var(--color-bad)] mt-2">A verified check isn’t met yet — resolve it on the task (assign an owner, clear dependencies, or add detail) before moving.</p>}
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!allOk} onClick={onConfirm}><Check size={14} /> Confirm move</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TaskCard({ t, members, onMove, onAssign, onOpen, dragging, onDragStart, onDragEnd }: { t: Task; members: Member[]; onMove: (t: Task, s: string) => void; onAssign: (t: Task, u: string) => void; onOpen: () => void; dragging?: boolean; onDragStart?: () => void; onDragEnd?: () => void }) {
+  const overdue = t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10)
+  const gatedNext = NEXT[t.status] && idx(NEXT[t.status]) > idx(t.status) && gateItemsFor(NEXT[t.status], t).length > 0
+  return (
+    <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.() }} onDragEnd={onDragEnd}
+      className={`group/card rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5 cursor-grab active:cursor-grabbing transition ${dragging ? 'opacity-40 ring-1 ring-[var(--color-sky)]' : ''}`}>
       <button onClick={onOpen} className="flex items-start gap-1.5 w-full text-left group">
+        <GripVertical size={12} className="text-[var(--color-faint)] opacity-0 group-hover/card:opacity-100 transition shrink-0 mt-1" />
         <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: CRIT[t.criticality] }} title={t.criticality} />
         <div className="text-[12.5px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition leading-snug flex-1">{t.title}</div>
       </button>
@@ -138,7 +226,7 @@ function TaskCard({ t, members, onMove, onAssign, onOpen }: { t: Task; members: 
         </select>
         <div className="flex items-center gap-0.5">
           {PREV[t.status] && <button onClick={() => onMove(t, PREV[t.status])} title="move back" className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronLeft size={14} /></button>}
-          {NEXT[t.status] && <button onClick={() => onMove(t, NEXT[t.status])} title="move forward" className="text-[var(--color-faint)] hover:text-[var(--color-sky)]"><ChevronRight size={14} /></button>}
+          {NEXT[t.status] && <button onClick={() => onMove(t, NEXT[t.status])} title={gatedNext ? `move to ${COL_LABEL[NEXT[t.status]]} — passes a stage gate` : 'move forward'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] inline-flex items-center">{gatedNext && <ShieldCheck size={11} className="text-[var(--color-faint)] group-hover/card:text-[var(--color-sky)]" />}<ChevronRight size={14} /></button>}
         </div>
       </div>
     </div>
