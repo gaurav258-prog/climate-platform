@@ -144,6 +144,14 @@ def delete_entity(entity_id: str, session: DbSession, ctx: dict = Depends(requir
     return {"ok": True}
 
 
+@router.get("/filings/{filing_id}/form", summary="The final form — the frozen disclosure as labelled datapoints")
+def filing_form(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    v = F.form_view(session, ctx["org"]["org_id"], filing_id)
+    if not v:
+        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+    return v
+
+
 @router.get("/filings", summary="The filing register — every filing, newest first")
 def list_filings(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"filings": F.list_filings(session, ctx["org"]["org_id"])}

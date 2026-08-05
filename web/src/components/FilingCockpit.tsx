@@ -11,6 +11,7 @@ import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
 import FilingRequirements from './FilingRequirements'
+import FilingForm from './FilingForm'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -219,6 +220,9 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 )}
               </Card>
             )}
+
+            {/* the final form — the frozen disclosure as the submittable datapoint form */}
+            <FilingForm filingId={filingId} />
 
             {/* change vs the prior version (restatement / prior period) */}
             <FilingVariance filingId={filingId} />

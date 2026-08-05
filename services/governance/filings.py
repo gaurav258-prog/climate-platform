@@ -105,6 +105,26 @@ def available_frameworks(org_type: str) -> list[dict]:
 _MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 
+def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
+    """The final form for a filing — the frozen snapshot flattened into labelled datapoints (see
+    filing_form.build_form), each with a stable key so a manual override can target it."""
+    from services.governance.filing_form import build_form
+    from services.governance.reg_reference import reference
+    r = session.execute(text("""
+        SELECT rf.framework, rf.status, rf.period_label, s.payload, s.version
+        FROM regulatory_filing rf
+        LEFT JOIN report_snapshots s ON s.snapshot_id = rf.snapshot_id
+        WHERE rf.org_id = :o AND rf.filing_id = :f
+    """), {"o": org_id, "f": filing_id}).mappings().first()
+    if not r:
+        return None
+    groups = build_form(r["framework"], r["payload"] or {})
+    return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
+            "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
+            "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
+            "groups": groups}
+
+
 def reporting_requirements(session: Session, org_id: str, org_type: str) -> list[dict]:
     """Every mandatory reporting obligation for the org: what the regulation is (name, authority, summary,
     official link + form), how often + to which regulator + by when, what data to supply, when it was last
