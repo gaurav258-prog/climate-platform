@@ -78,11 +78,10 @@ export default function Shell({ children }: { children: ReactNode }) {
   const bleed = pathname === '/'
   // light is the default; the toggle flips data-theme on <html> and persists it (init runs in index.html)
   const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark')
-  const toggleTheme = () => {
-    const next = dark ? 'light' : 'dark'
+  const applyTheme = (next: 'light' | 'dark') => {
     document.documentElement.dataset.theme = next
     localStorage.setItem('tellumen.theme', next)
-    setDark(!dark)
+    setDark(next === 'dark')
   }
   return (
     <div className="min-h-screen flex">
@@ -123,13 +122,25 @@ export default function Shell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-[var(--color-line)] px-4 py-3 flex items-center gap-2">
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="text-[12px] text-[var(--color-ink)] truncate">{profile?.org?.name}</div>
-            <div className="text-[10px] text-[var(--color-faint)] mono truncate">{profile?.user?.email}</div>
+        <div className="border-t border-[var(--color-line)] px-4 py-3 space-y-2.5">
+          {/* theme toggle — a clearly-labelled segmented control */}
+          <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+            <button onClick={() => applyTheme('light')} title="Light theme"
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${!dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
+              <Sun size={13} /> Light
+            </button>
+            <button onClick={() => applyTheme('dark')} title="Dark theme"
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
+              <Moon size={13} /> Dark
+            </button>
           </div>
-          <button onClick={toggleTheme} title={dark ? 'Switch to light' : 'Switch to dark'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] transition shrink-0">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
-          <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition shrink-0"><LogOut size={16} /></button>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-[12px] text-[var(--color-ink)] truncate">{profile?.org?.name}</div>
+              <div className="text-[10px] text-[var(--color-faint)] mono truncate">{profile?.user?.email}</div>
+            </div>
+            <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition shrink-0"><LogOut size={16} /></button>
+          </div>
         </div>
       </aside>
 
