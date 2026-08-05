@@ -11,7 +11,7 @@ import { Card, Button } from './ui'
 interface Preflight {
   framework: string; label: string; period_label: string
   basis: { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string }
-  can_generate: boolean; existing_status: string | null
+  can_generate: boolean; existing_status: string | null; entity_scoped: boolean
   coverage: { label: string; done: number; total: number; pct: number } | null
   total_value_eur: number | null; value_at_risk_eur?: number | null; noun: string; positions?: number; gaps: string[]
 }
@@ -56,7 +56,7 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
               <div className="mono text-[11px] text-[var(--color-faint)]">{d.period_label} · basis {d.basis.scenario}/{d.basis.horizon} · materiality {d.basis.materiality_threshold}</div>
             </div>
 
-            {entities.length > 0 && (
+            {entities.length > 0 && d.entity_scoped && (
               <div>
                 <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Reporting scope</div>
                 <select value={entityId} onChange={e => setEntityId(e.target.value)}
@@ -67,6 +67,9 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
                 </select>
                 <div className="mono text-[10px] text-[var(--color-faint)] mt-1">a group consolidates its whole subtree (proportional lines ownership‑weighted); a legal entity files its own book.</div>
               </div>
+            )}
+            {entities.length > 0 && !d.entity_scoped && (
+              <div className="mono text-[10px] text-[var(--color-faint)]">Files at whole-organisation level{d.framework === 'sfdr_pai' ? ' — per-fund SFDR statements are in the Funds workspace.' : '.'}</div>
             )}
 
             {blockedByExisting && (

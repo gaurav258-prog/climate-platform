@@ -83,13 +83,22 @@ class FilingError(ValueError):
 
 # ── framework catalog ──────────────────────────────────────────────────
 
+# Frameworks whose builder genuinely HONOURS entity scope — the located FIN books, where each asset carries a
+# clear reporting-entity + value, so a group consolidates correctly (ownership-weighted). The others do NOT:
+# SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
+# aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
+# Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
+_ENTITY_SCOPED = {"bank_tcfd", "reit_tcfd", "insurer_climate"}
+
+
 def available_frameworks(org_type: str) -> list[dict]:
     """Frameworks that apply to this org-type sector, each with its cadence and statutory deadline shape."""
     out = []
     for key, f in FRAMEWORKS.items():
         if org_type in f["sectors"] and key in _BUILDERS:
             out.append({"framework": key, "label": f["label"], "frequency": f["frequency"],
-                        "regulator": f["regulator"], "basis": f["basis"]})
+                        "regulator": f["regulator"], "basis": f["basis"],
+                        "entity_scoped": key in _ENTITY_SCOPED})
     return out
 
 
@@ -268,7 +277,8 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
     summary = _preflight_summary(session, org_id, framework, basis)
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
             "period_label": _period_label(period_end), "basis": basis,
-            "can_generate": existing is None, "existing_status": existing, **summary}
+            "can_generate": existing is None, "existing_status": existing,
+            "entity_scoped": framework in _ENTITY_SCOPED, **summary}
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
@@ -341,7 +351,12 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     if not confirmed:
         raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
 
-    # resolve the reporting scope
+    # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
+    # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD has no per-legal-entity split.
+    if entity_id is not None and framework not in _ENTITY_SCOPED:
+        raise FilingError(f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
+                          f"consolidated scope isn't available for it (SFDR consolidates by fund in the Funds "
+                          f"workspace; agri CSRD/ESRS has no per-legal-entity COGS attribution).")
     entity_ids = value_weights = None
     if entity_id is not None:
         from services.governance import entities as _E
