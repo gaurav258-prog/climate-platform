@@ -11,6 +11,7 @@ import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
 import FilingRequirements from './FilingRequirements'
+import FilingCoverage from './FilingCoverage'
 import FilingForm from './FilingForm'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
@@ -86,10 +87,14 @@ export default function FilingCockpit() {
 
   return (
     <div className="space-y-6">
-      {/* ── reporting requirements — what must be filed, to whom, by when, with the regulation + prior reports ── */}
+      {/* ── the reporting workflow, top to bottom ──
+           1-2 · what must be filed + the regulation, links, prior reports */}
       <FilingRequirements onOpen={setOpenId} />
 
-      {/* ── reporting basis (the parameters new filings freeze) ── */}
+      {/* 3-4 · eligibility & coverage — what of the book qualifies for the disclosure, what doesn't */}
+      <FilingCoverage />
+
+      {/* 5 · reporting basis (the regulatory parameters new filings freeze — period-end + materiality) */}
       <FilingBasis />
 
       {/* ── filing calendar ── */}
