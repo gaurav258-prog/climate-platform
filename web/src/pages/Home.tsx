@@ -4,6 +4,7 @@ import { ArrowUpRight, ArrowRight, Boxes, Building2, Sprout, ShieldCheck, Trendi
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 import LiveEarthHero from '../components/LiveEarthHero'
 
 interface Task { key: string; title: string; detail: string; severity: 'action' | 'warning' | 'info' | 'good'; cta_label: string; cta_href: string }
@@ -77,7 +78,7 @@ interface Plot { plot_id: string; plot_name: string; commodity: string; top_haza
 interface Portfolio { plots: Plot[] }
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
-const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 
 export default function Home() {

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown, Minus, GitCompareArrows } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, Lens } from './ui'
-import { hazardLabel } from '../lib/hazards'
+import { hazardLabel, bucketLabel } from '../lib/hazards'
 import { DivergingBars, PairBars } from './Charts'
 
 // "Why did the numbers move?" — decomposes a filing's change vs the prior version (the one it restates, or
@@ -72,7 +72,7 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
 
               {d.drivers!.new_at_risk.length > 0 && (
                 <Driver title="Newly at risk" tone="#fb7185"
-                  rows={d.drivers!.new_at_risk.map(e => `${e.asset} · ${eur(e.value_eur)} (${e.bucket})`)} />
+                  rows={d.drivers!.new_at_risk.map(e => `${e.asset} · ${eur(e.value_eur)} (${bucketLabel(e.bucket)})`)} />
               )}
               {d.drivers!.movers.length > 0 && (
                 <Driver title="Biggest score movers" tone="#e8b24c"

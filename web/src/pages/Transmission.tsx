@@ -5,6 +5,7 @@ import { Send, CheckCircle2, Plus, FileText } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { filingLink } from '../lib/links'
+import { frameworkLabel } from '../lib/hazards'
 import { Eyebrow, Card, Button } from '../components/ui'
 
 // Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
@@ -66,7 +67,7 @@ export default function Transmission() {
                 {cases.map(c => (
                   <button key={c.case_id} onClick={() => setSel(c.case_id)} className={`w-full text-left px-4 py-3 transition ${active === c.case_id ? 'bg-[var(--color-panel)]' : 'hover:bg-[var(--color-panel)]'}`}>
                     <div className="text-[13px] text-[var(--color-ink)] truncate">{c.regulator}</div>
-                    <div className="mono text-[10.5px] text-[var(--color-faint)]">{[c.framework, c.period_label, `${c.n_messages} msgs`].filter(Boolean).join(' · ')}</div>
+                    <div className="mono text-[10.5px] text-[var(--color-faint)]">{[c.framework ? frameworkLabel(c.framework) : null, c.period_label, `${c.n_messages} msgs`].filter(Boolean).join(' · ')}</div>
                     <div className="mt-1"><StagePill stage={c.stage} /></div>
                   </button>
                 ))}
@@ -106,7 +107,7 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
       <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-start justify-between gap-3">
         <div>
           <div className="text-[14px] text-[var(--color-ink)]">{d.regulator}</div>
-          <div className="mono text-[11px] text-[var(--color-faint)]">{[d.framework, d.period_label, d.reference].filter(Boolean).join(' · ')}</div>
+          <div className="mono text-[11px] text-[var(--color-faint)]">{[d.framework ? frameworkLabel(d.framework) : null, d.period_label, d.reference].filter(Boolean).join(' · ')}</div>
         </div>
         {d.filing_id && (
           <button onClick={() => nav(filingLink(profile?.org?.type, d.filing_id!))}

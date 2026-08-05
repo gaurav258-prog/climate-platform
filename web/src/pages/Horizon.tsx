@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
+import { hazardLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
 
@@ -23,7 +24,7 @@ const HY = [2025, 2030, 2050, 2100]           // horizon years ↔ current / 203
 const HK = ['current', '2030', '2050', '2100']
 const D2R = Math.PI / 180
 const SUN = (() => { const v = [-0.5, 0.42, 0.76]; const m = Math.hypot(v[0], v[1], v[2]); return v.map(x => x / m) })()
-const pretty = (h: string) => h.replace(/_/g, ' ')
+const pretty = hazardLabel
 
 // real projected score (0..100) at an arbitrary year, linearly interpolating the golden-source horizons
 function scoreAt(a: GAsset, y: number): number {

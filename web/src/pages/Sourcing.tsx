@@ -184,7 +184,7 @@ export default function Sourcing() {
                   <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(p.spend_eur)}</td>
                   <td className="pr-3">
                     {p.hazard_score != null
-                      ? <span className="mono text-[12px]" style={{ color: hz(p.hazard_score) }}>{p.top_hazard} {p.hazard_score.toFixed(0)}</span>
+                      ? <span className="mono text-[12px]" style={{ color: hz(p.hazard_score) }}>{hazardLabel(p.top_hazard)} {p.hazard_score.toFixed(0)}</span>
                       : <span className="mono text-[11px] text-[var(--color-faint)]">unscored</span>}
                   </td>
                   <td>{p.eudr_covered ? <StatusPill status={p.eudr_determination} /> : <span className="mono text-[11px] text-[var(--color-faint)]">n/a</span>}</td>

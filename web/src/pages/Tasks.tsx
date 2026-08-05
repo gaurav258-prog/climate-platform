@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 import { filingLink } from '../lib/links'
+import { prettify } from '../lib/hazards'
 
 // Kanban board for the regulatory workflow — every task (import a file, investigate a failed validation,
 // generate the XBRL, run the 4-eyes approval) as a card you move across columns and assign to a colleague.
@@ -197,7 +198,7 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
               </Field>
             </div>
 
-            {t.source !== 'manual' && <div className="text-[11px] text-[var(--color-faint)]">created from a <b className="text-[var(--color-mute)]">{SRC_LABEL[t.source]}</b>{t.source_ref ? ` · ${t.source_ref}` : ''}</div>}
+            {t.source !== 'manual' && <div className="text-[11px] text-[var(--color-faint)]">created from a <b className="text-[var(--color-mute)]">{SRC_LABEL[t.source]}</b>{t.source_ref ? ` · ${prettify(t.source_ref.split(':').pop())}` : ''}</div>}
             {t.filing_id && <button onClick={() => nav(filingLink(profile?.org?.type, t.filing_id!))} className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-sky)] hover:underline"><FileText size={13} /> Open the linked filing</button>}
 
             {/* description */}

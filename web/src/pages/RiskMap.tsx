@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../lib/api'
 import { PLACE_LABELS } from '../lib/placeLabels'
 import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; country: string | null
@@ -22,7 +23,7 @@ interface HexResponse { resolution: number; hexes: Hex[]; n_plot_cells?: number 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const hazardColor = (s: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 const bandLabel = (s: number | null) => s == null ? 'unscored' : s >= 60 ? 'High' : s >= 40 ? 'Medium' : 'Low'
-const prettyHazard = (h: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const prettyHazard = hazardLabel
 
 // H3 display resolution follows the map zoom — coarse cells zoomed out, finer as you zoom in.
 // Calibrated so a cell stays roughly readable on screen (~30px) instead of shrinking as you zoom.

@@ -92,7 +92,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
                   : <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
                       {risks.map(h => (
                         <div key={h.hazard_type} className="flex items-center justify-between gap-3 text-[12.5px] border-b border-[var(--color-line)] py-1">
-                          <span className="text-[var(--color-mute)] capitalize truncate">{h.hazard_type.replace(/_/g, ' ')}</span>
+                          <span className="text-[var(--color-mute)] truncate">{hazardLabel(h.hazard_type)}</span>
                           <span className="mono tabular-nums shrink-0" style={{ color: sevColor(h.score) }}>{Math.round(h.score)}/100 · {BUCKET[h.risk_bucket] ?? h.risk_bucket}</span>
                         </div>
                       ))}

@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
+import { frameworkLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
 import FilingLineage from './FilingLineage'
@@ -175,7 +176,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 <h2 className="display text-xl font-semibold">{f.label}</h2><Chip status={f.status} />
                 {f.scope && f.scope !== 'organisation' && <ScopeChip scope={f.scope} name={f.entity_name} />}
               </div>
-              <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? f.framework}{f.regulator ? ` · ${f.regulator}` : ''}{f.scope === 'organisation' ? ' · whole organisation' : ''}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)]">{f.period_label} · {f.basis ?? frameworkLabel(f.framework)}{f.regulator ? ` · ${f.regulator}` : ''}{f.scope === 'organisation' ? ' · whole organisation' : ''}</div>
             </div>
 
             {/* lifecycle rail */}

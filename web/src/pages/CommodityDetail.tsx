@@ -3,10 +3,11 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, ShieldAlert, TrendingUp, FlaskConical } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, Eyebrow, Stat } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
-const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 const scen = (s: string) => ({ baseline: 'Baseline', orderly_1_5c: 'Orderly 1.5°C', disorderly_2c: 'Disorderly 2°C', hot_house_3_5c: 'Hot-house 3.5°C' } as Record<string, string>)[s] || s
 

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown, Satellite, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, Lens } from './ui'
-import { hazardLabel, sevColor } from '../lib/hazards'
+import { hazardLabel, sevColor, frameworkLabel, bucketLabel } from '../lib/hazards'
 import { HBar } from './Charts'
 import LineageGraph from './LineageGraph'
 
@@ -128,7 +128,7 @@ function ContributorRow({ c }: { c: Contributor }) {
       </div>
       {/* golden-source row */}
       <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] border-t border-[var(--color-line)] pt-2">
-        <Kv k="filed score" v={c.filed.score != null ? `${c.filed.score} (${c.filed.bucket})` : '—'} />
+        <Kv k="filed score" v={c.filed.score != null ? `${c.filed.score} (${bucketLabel(c.filed.bucket)})` : '—'} />
         <Kv k="golden source" v={g?.risk_score != null ? String(g.risk_score) : '—'} tone={c.drift ? 'warn' : undefined} />
         <Kv k="model" v={g?.model_version ?? '—'} mono />
         <Kv k="data vintage" v={g?.data_vintage ? g.data_vintage.slice(0, 10) : '—'} />
@@ -153,7 +153,7 @@ function ReverseTrace({ h3 }: { h3: string }) {
         <div key={i} className="text-[11.5px]">
           <span className="text-[var(--color-ink)] capitalize">{u.vertical}</span>
           <span className="text-[var(--color-mute)]"> · {u.n} holding{u.n === 1 ? '' : 's'} · {eur(u.value_eur)}</span>
-          {u.filing && <span className="mono text-[10px] text-[var(--color-sky)]"> → {u.framework} filing ({u.filing.status})</span>}
+          {u.filing && <span className="mono text-[10px] text-[var(--color-sky)]"> → {frameworkLabel(u.framework)} filing ({u.filing.status})</span>}
         </div>
       ))}
     </div>

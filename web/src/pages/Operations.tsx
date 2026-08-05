@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import { hazardLabel, bucketLabel } from '../lib/hazards'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 
 interface Site {
@@ -15,7 +16,7 @@ interface SitesResp { sites: Site[]; site_types: string[]; totals: Totals; bi_no
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const hz = (s: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
-const pretty = (h: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+const pretty = hazardLabel
 const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 const TypeIcon = ({ t }: { t: string }) => {
   const I = t === 'hq' ? Building2 : t === 'factory' ? Factory : t === 'warehouse' ? Warehouse
@@ -159,7 +160,7 @@ export default function Operations() {
                       <td className="pr-3 text-right mono" style={{ color: s.bi_at_risk_eur ? 'var(--color-warn)' : 'var(--color-faint)' }}>{s.bi_at_risk_eur ? eur(s.bi_at_risk_eur) : '—'}</td>
                       <td className="pr-3">
                         {s.hazard_score != null
-                          ? <span className="mono text-[12px]" style={{ color: hz(s.hazard_score) }}>{pretty(s.top_hazard)} {s.hazard_score.toFixed(0)} · {s.bucket}</span>
+                          ? <span className="mono text-[12px]" style={{ color: hz(s.hazard_score) }}>{pretty(s.top_hazard)} {s.hazard_score.toFixed(0)} · {bucketLabel(s.bucket)}</span>
                           : <span className="mono text-[11px] text-[var(--color-faint)]">not yet scored</span>}
                       </td>
                     </tr>

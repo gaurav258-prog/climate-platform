@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 import { Radar, Upload, Boxes, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
 
 interface Scores { total_current_scores: number; hazards: { hazard_type: string; cells: number }[] }
@@ -16,7 +17,7 @@ export default function DataFoundation() {
   const q = useQuery({ queryKey: ['scores'], queryFn: () => api.get<Scores>('/v1/scores/summary') })
   const rows = q.data?.hazards.filter(h => AGRI_HAZARDS.includes(h.hazard_type)) ?? []
   const agriScores = rows.reduce((s, h) => s + h.cells, 0)
-  const liveHazards = [...new Set(rows.map(h => h.hazard_type))]
+  const liveHazards = [...new Set(rows.map(h => hazardLabel(h.hazard_type)))]
 
   return (
     <div className="fadeup space-y-7">

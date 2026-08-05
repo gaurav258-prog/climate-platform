@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 import { Radio, ChevronRight } from 'lucide-react'
 
 interface Alert { commodity: string; hazard: string; avg_hazard: number; level: string; spend_eur: number }
@@ -44,7 +45,7 @@ export default function EarlyWarning() {
                 className={`flex items-center gap-3 rounded-lg border border-[var(--color-line)] px-4 py-3 ${clickable ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}>
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: LEVEL[a.level] ?? 'var(--color-slate)' }} />
                 <span className="text-[14px] font-medium">{a.commodity}</span>
-                <span className="mono text-[11px] text-[var(--color-mute)]">{a.hazard} · {a.avg_hazard}</span>
+                <span className="mono text-[11px] text-[var(--color-mute)]">{hazardLabel(a.hazard)} · {a.avg_hazard}</span>
                 <span className="ml-auto mono text-[12px] text-[var(--color-mute)]">{eur(a.spend_eur)} spend</span>
                 {clickable && <ChevronRight size={15} className="text-[var(--color-faint)] shrink-0" />}
               </div>

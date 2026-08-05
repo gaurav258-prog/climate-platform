@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 
 // The financial-sector compliance surface behind the globe — the regulatory read of the book. Sector-
@@ -123,7 +124,7 @@ function DisclosureView({ prefix, scenario, horizon, emissions, xlsx }: { prefix
           <div className="space-y-3">
             {(['eligible', 'not_eligible'] as const).map(k => tax[k] && (
               <div key={k} className="flex items-center justify-between">
-                <div className="text-[14px] text-[var(--color-ink)] capitalize">{k.replace('_', '-')}</div>
+                <div className="text-[14px] text-[var(--color-ink)]">{k === 'eligible' ? 'Taxonomy-eligible' : 'Not eligible'}</div>
                 <div className="text-right">
                   <div className="mono text-[14px] tabular-nums">{eur(tax[k].value_eur)}</div>
                   <div className="mono text-[11px] text-[var(--color-faint)]">{tax[k].count} position{tax[k].count !== 1 ? 's' : ''}</div>
@@ -190,7 +191,7 @@ function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerR
           <div key={p.policy_id} className="px-5 py-3 flex items-center gap-4">
             <div className="min-w-0 flex-1">
               <div className="text-[14px] text-[var(--color-ink)] truncate">{p.policy_name}</div>
-              <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[p.region, t.hazard_type.replace(/_/g, ' ')].filter(Boolean).join(' · ')} · band {Math.round(t.attachment_score)}–{Math.round(t.exhaustion_score)}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[p.region, hazardLabel(t.hazard_type)].filter(Boolean).join(' · ')} · band {Math.round(t.attachment_score)}–{Math.round(t.exhaustion_score)}</div>
             </div>
             <div className="w-20 text-right"><span className="mono text-[12px]" style={{ color: `rgb(${r},${g},${b})` }}>{t.current_score != null ? `${Math.round(t.current_score)}/100` : '—'}</span></div>
             {breached

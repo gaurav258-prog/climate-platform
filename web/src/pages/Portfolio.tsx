@@ -284,7 +284,7 @@ export default function Portfolio() {
                         {(a.hazards ?? []).map(h => { const [hr, hg, hb] = col(h.score); return (
                           <div key={h.hazard} className="flex items-center justify-between gap-3 text-[12.5px] border-b border-[var(--color-line)] py-1">
                             <span className="min-w-0">
-                              <span className="text-[var(--color-mute)] capitalize">{h.hazard.replace(/_/g, ' ')}</span>
+                              <span className="text-[var(--color-mute)]">{hazardLabel(h.hazard)}</span>
                               {h.model_version && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{h.model_version}{h.scored_at ? ` · ${h.scored_at.slice(0, 10)}` : ''}</span>}
                             </span>
                             <span className="mono tabular-nums shrink-0 text-right" style={{ color: `rgb(${hr},${hg},${hb})` }}>

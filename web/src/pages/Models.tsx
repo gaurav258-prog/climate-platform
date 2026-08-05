@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 
 interface Fit {
   commodity: string; origin: string; hazard_driver: string; r2: number; r2_oos: number | null
@@ -77,7 +78,7 @@ function FitTable({ title, fits, floor, showGrade }: { title: string; fits: Fit[
               <tr key={i} className="border-t border-[var(--color-line)]">
                 <td className="py-2 pr-3 text-[var(--color-ink)]">{f.commodity}</td>
                 <td className="pr-3 text-[var(--color-mute)]">{COUNTRY[f.origin] ?? f.origin}</td>
-                <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{f.hazard_driver}</td>
+                <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{hazardLabel(f.hazard_driver)}</td>
                 <td className={`pr-3 text-right mono ${f.r2 >= floor ? 'text-[var(--color-ink)]' : 'text-[var(--color-faint)]'}`}>{f.r2.toFixed(2)}</td>
                 <td className="pr-3 text-right mono text-[var(--color-mute)]">{f.r2_oos != null ? f.r2_oos.toFixed(2) : '—'}</td>
                 <td className="pr-3 text-right mono text-[var(--color-faint)]">{f.n_years}</td>

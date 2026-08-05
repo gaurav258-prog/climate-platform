@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, Building2, Sprout, TrendingUp, ShieldCheck } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import { hazardLabel } from '../lib/hazards'
 
 interface HazardBlock { hazard: string; label: string; class: string
   own_operations: { n_sites: number; asset_value_eur: number; bi_at_risk_eur: number; max_score: number } | null
@@ -120,7 +121,7 @@ export default function Csrd() {
             {d.upstream_sourcing.commodities.map(c => (
               <div key={c.commodity} className="flex items-center gap-2 text-[12px]">
                 <span className="text-[var(--color-ink)]">{c.commodity}</span>
-                <span className="text-[var(--color-faint)]">· {c.hazard} {c.avg_hazard ?? '—'}</span>
+                <span className="text-[var(--color-faint)]">· {hazardLabel(c.hazard)} {c.avg_hazard ?? '—'}</span>
                 <span className="ml-auto">{c.published
                   ? <span className="text-[var(--color-warn)] font-medium">{c.calibration === 'ranged' ? `${eur(c.volume_at_risk_low_eur)}–${eur(c.volume_at_risk_high_eur)}` : eur(c.volume_at_risk_eur)}{c.fit_r2 != null ? ` · r² ${c.fit_r2.toFixed(2)}` : ''}</span>
                   : <span className="mono text-[11px] text-[var(--color-faint)]" title={c.held_reason ?? ''}>€ withheld</span>}</span>

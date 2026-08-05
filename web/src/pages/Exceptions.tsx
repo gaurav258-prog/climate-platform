@@ -4,7 +4,7 @@ import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lu
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Lens } from '../components/ui'
-import { hazardLabel } from '../lib/hazards'
+import { hazardLabel, frameworkLabel, prettify } from '../lib/hazards'
 import { filingLink, taskLink } from '../lib/links'
 
 // Control Tower — every open validation/reconciliation exception across all filings, in one prioritised
@@ -81,7 +81,7 @@ export default function Exceptions() {
                       className="min-w-0 flex-1 text-left group" title="Open the filing behind this exception">
                       <div className="text-[13px] text-[var(--color-ink)] group-hover:text-[var(--color-sky)] transition inline-flex items-center gap-1">{e.message}<ChevronRight size={12} className="opacity-0 group-hover:opacity-100" /></div>
                       <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">
-                        {e.filing_label} · {e.period} · {e.category}
+                        {frameworkLabel(e.filing_label)} · {e.period} · {prettify(e.category)}
                       </div>
                     </button>
                     {e.tracked
