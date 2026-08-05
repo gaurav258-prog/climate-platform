@@ -54,8 +54,13 @@ body {
 .react-flow__edge-path { stroke: var(--color-line-2); }
 .react-flow__node { font-family: var(--font-sans); }
 
-@keyframes fadeup { from { opacity: 0; transform: translateY(6px);} to { opacity:1; transform:none;} }
-.fadeup { animation: fadeup .4s ease both; }
+/* Opacity-only entrance — deliberately NO transform. Animating transform leaves .fadeup with a retained
+   identity-matrix transform, and ANY non-none transform makes it a containing block for position:fixed
+   descendants — which pins drawers/overlays (AssetDrawer, issuer drawer, filing drawer, KRI drill, …) to
+   the scrolled page top instead of the viewport, so they render blank when the page is scrolled down.
+   Keeping it to opacity fixes every fixed overlay app-wide. */
+@keyframes fadeup { from { opacity: 0; } to { opacity: 1; } }
+.fadeup { animation: fadeup .35s ease; }
 
 /* live-earth fallback: slow drifting glow */
 @keyframes drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(-2%,1.5%,0) scale(1.05)} 100%{transform:translate3d(0,0,0) scale(1)} }
