@@ -78,6 +78,67 @@ def filing_entities(session: DbSession, ctx: dict = Depends(require_permission("
     return {"entities": E.entity_tree(session, ctx["org"]["org_id"])}
 
 
+class EntityCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    kind: str = Field("legal_entity", max_length=40)
+    parent_entity_id: Optional[str] = None
+    ownership_pct: float = Field(100.0, ge=0, le=100)
+    consolidation_method: str = Field("full", max_length=20)
+
+
+class EntityPatch(BaseModel):
+    name: Optional[str] = Field(None, max_length=200)
+    kind: Optional[str] = Field(None, max_length=40)
+    parent_entity_id: Optional[str] = None
+    set_parent: bool = False   # apply parent_entity_id (True lets you move a node to the top with null)
+    ownership_pct: Optional[float] = Field(None, ge=0, le=100)
+    consolidation_method: Optional[str] = Field(None, max_length=20)
+
+
+@router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
+def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    try:
+        e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
+                            parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
+                            consolidation_method=body.consolidation_method)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
+                target_type="reporting_entity", target_id=e["entity_id"], detail={"name": body.name, "kind": body.kind})
+    return e
+
+
+@router.patch("/filings/entities/{entity_id}", summary="Edit a reporting entity (name / parent / ownership / method)")
+def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    kwargs: dict = {}
+    if body.name is not None: kwargs["name"] = body.name
+    if body.kind is not None: kwargs["kind"] = body.kind
+    if body.ownership_pct is not None: kwargs["ownership_pct"] = body.ownership_pct
+    if body.consolidation_method is not None: kwargs["consolidation_method"] = body.consolidation_method
+    if body.set_parent: kwargs["parent_entity_id"] = body.parent_entity_id
+    try:
+        e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.update",
+                target_type="reporting_entity", target_id=entity_id, detail=kwargs)
+    return e
+
+
+@router.delete("/filings/entities/{entity_id}", summary="Remove a reporting entity (its book falls back to whole-org)")
+def delete_entity(entity_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    try:
+        E.delete_entity(session, ctx["org"]["org_id"], entity_id)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.delete",
+                target_type="reporting_entity", target_id=entity_id, detail={})
+    return {"ok": True}
+
+
 @router.get("/filings", summary="The filing register — every filing, newest first")
 def list_filings(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"filings": F.list_filings(session, ctx["org"]["org_id"])}

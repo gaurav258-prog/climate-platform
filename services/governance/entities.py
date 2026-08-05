@@ -49,6 +49,89 @@ def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+class EntityError(ValueError):
+    pass
+
+
+METHODS = {"full", "proportional", "equity"}
+# the raw books that also carry a reporting-entity link (so a delete can unassign, never orphan)
+_RAW_TABLES = ["bank_assets", "insurance_policies", "assetmgmt_holdings",
+               "realestate_properties", "sc_company_sites", "sc_sourcing_plots"]
+_UNSET = object()
+
+
+def _validate(name=None, kind=None, ownership_pct=None, consolidation_method=None):
+    if name is not None and not name.strip():
+        raise EntityError("name is required")
+    if kind is not None and not kind.strip():
+        raise EntityError("kind is required")
+    if ownership_pct is not None and not (0 <= ownership_pct <= 100):
+        raise EntityError("ownership_pct must be between 0 and 100")
+    if consolidation_method is not None and consolidation_method not in METHODS:
+        raise EntityError(f"consolidation_method must be one of {sorted(METHODS)}")
+
+
+def _parent_in_org(session, org_id, parent_entity_id) -> bool:
+    return bool(session.execute(text(
+        "SELECT 1 FROM reporting_entities WHERE org_id=:o AND entity_id=:e"),
+        {"o": org_id, "e": parent_entity_id}).first())
+
+
+def create_entity(session: Session, org_id: str, *, name: str, kind: str = "legal_entity",
+                  parent_entity_id: str | None = None, ownership_pct: float = 100.0,
+                  consolidation_method: str = "full") -> dict:
+    _validate(name, kind, ownership_pct, consolidation_method)
+    if parent_entity_id and not _parent_in_org(session, org_id, parent_entity_id):
+        raise EntityError("parent entity not found in your organisation")
+    eid = session.execute(text("""
+        INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct, consolidation_method)
+        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m) RETURNING entity_id
+    """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id,
+           "pct": ownership_pct, "m": consolidation_method}).scalar()
+    return get_entity(session, org_id, str(eid))
+
+
+def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
+                  parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None) -> dict:
+    if not get_entity(session, org_id, entity_id):
+        raise EntityError("entity not found")
+    _validate(name, kind, ownership_pct, consolidation_method)
+    sets, params = [], {"o": org_id, "e": entity_id}
+    if name is not None: sets.append("name = :n"); params["n"] = name.strip()
+    if kind is not None: sets.append("kind = :k"); params["k"] = kind.strip()
+    if ownership_pct is not None: sets.append("ownership_pct = :pct"); params["pct"] = ownership_pct
+    if consolidation_method is not None: sets.append("consolidation_method = :m"); params["m"] = consolidation_method
+    if parent_entity_id is not _UNSET:
+        if parent_entity_id == entity_id:
+            raise EntityError("an entity can't be its own parent")
+        if parent_entity_id is not None:
+            if not _parent_in_org(session, org_id, parent_entity_id):
+                raise EntityError("parent entity not found in your organisation")
+            # cycle guard: the new parent must not be the entity's own descendant
+            if parent_entity_id in subtree_ids(session, org_id, entity_id):
+                raise EntityError("can't reparent an entity under one of its own descendants")
+        sets.append("parent_entity_id = :p"); params["p"] = parent_entity_id
+    if sets:
+        session.execute(text(f"UPDATE reporting_entities SET {', '.join(sets)} WHERE org_id=:o AND entity_id=:e"), params)
+    return get_entity(session, org_id, entity_id)
+
+
+def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
+    if not get_entity(session, org_id, entity_id):
+        raise EntityError("entity not found")
+    kids = session.execute(text("SELECT count(*) FROM reporting_entities WHERE org_id=:o AND parent_entity_id=:e"),
+                           {"o": org_id, "e": entity_id}).scalar()
+    if kids:
+        raise EntityError("remove or reparent this entity's child entities first")
+    # unassign its book everywhere (fall back to whole-org) so nothing dangles
+    session.execute(text("UPDATE portfolio_entities SET reporting_entity_id = NULL WHERE org_id=:o AND reporting_entity_id=:e"),
+                    {"o": org_id, "e": entity_id})
+    for t in _RAW_TABLES:
+        session.execute(text(f"UPDATE {t} SET entity_id = NULL WHERE org_id=:o AND entity_id=:e"), {"o": org_id, "e": entity_id})
+    session.execute(text("DELETE FROM reporting_entities WHERE org_id=:o AND entity_id=:e"), {"o": org_id, "e": entity_id})
+    return {"ok": True}
+
+
 def ownership_weights(session: Session, org_id: str) -> dict[str, float]:
     """entity_id -> the fraction of its book that consolidates upward, from the ownership path to the root.
     Full/equity lines weight 1.0 at this level; a proportional line weights ownership_pct/100. (Equity-method

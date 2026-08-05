@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
 import Approvals from './Approvals'
 import Audit from './Audit'
+import AdminEntities from '../components/AdminEntities'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
@@ -33,6 +34,7 @@ export default function Admin() {
     perms.includes('admin.audit.view') && 'Audit',
     perms.includes('admin.users.manage') && 'Users',
     perms.includes('admin.roles.manage') && 'Roles',
+    perms.includes('admin.users.manage') && 'Entities',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
     perms.includes('admin.users.manage') && 'Integrations',
   ].filter(Boolean) as string[]
@@ -56,6 +58,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
+      {tab === 'Entities' && <AdminEntities />}
       {tab === 'Approval matrix' && <Matrix />}
       {tab === 'Integrations' && <Integrations />}
     </div>
