@@ -80,7 +80,7 @@ export function Button({ children, onClick, variant = 'primary', disabled, class
 }) {
   const base = 'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed'
   const v = variant === 'primary'
-    ? 'bg-[var(--color-sky)] text-[#08111f] hover:bg-[var(--color-blue)]'
+    ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] hover:bg-[var(--color-blue)]'
     : 'border border-[var(--color-line-2)] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]'
   return <button onClick={onClick} disabled={disabled} className={clsx(base, v, className)}>{children}</button>
 }

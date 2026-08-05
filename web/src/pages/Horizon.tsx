@@ -274,7 +274,7 @@ export default function Horizon() {
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
   return (
-    <div className="absolute inset-0 bg-[#04060b] overflow-hidden select-none">
+    <div data-theme="dark" className="absolute inset-0 bg-[#04060b] overflow-hidden select-none">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
       {/* top chrome — brand lives in the nav now; this just labels the front door */}
       <div className="absolute top-7 left-8 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>

@@ -1,6 +1,6 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { BrandMark } from './ui'
@@ -76,6 +76,14 @@ export default function Shell({ children }: { children: ReactNode }) {
   const sector = profile?.org?.type ?? ''
   // the Horizon front door is a full-bleed globe — it fills the content area beside the nav (no padded main)
   const bleed = pathname === '/'
+  // light is the default; the toggle flips data-theme on <html> and persists it (init runs in index.html)
+  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark')
+  const toggleTheme = () => {
+    const next = dark ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    localStorage.setItem('tellumen.theme', next)
+    setDark(!dark)
+  }
   return (
     <div className="min-h-screen flex">
       {/* vertical grouped sidebar */}
@@ -120,6 +128,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <div className="text-[12px] text-[var(--color-ink)] truncate">{profile?.org?.name}</div>
             <div className="text-[10px] text-[var(--color-faint)] mono truncate">{profile?.user?.email}</div>
           </div>
+          <button onClick={toggleTheme} title={dark ? 'Switch to light' : 'Switch to dark'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] transition shrink-0">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
           <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition shrink-0"><LogOut size={16} /></button>
         </div>
       </aside>

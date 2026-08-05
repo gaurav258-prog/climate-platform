@@ -24,7 +24,50 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-:root { color-scheme: dark; }
+/* ── Light is the default; the sidebar toggle sets data-theme="dark" (persisted). Every component reads
+   these vars at runtime via bg-[var(--color-*)], so overriding them here re-themes the whole app. ── */
+:root {
+  color-scheme: light;
+  --color-bg: #eef2f8;
+  --color-bg-2: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-2: #f2f5fb;
+  --color-line: #dbe2ee;
+  --color-line-2: #c6d1e1;
+  --color-ink: #111c2e;
+  --color-mute: #48576e;
+  --color-faint: #6a7990;
+  --color-slate: #5a6a80;
+  --color-sky: #0369a1;
+  --color-blue: #0284c7;
+  --color-blued: #0c4a6e;
+  --color-good: #15803d;
+  --color-warn: #b45309;
+  --color-bad: #e11d48;
+  --color-on-accent: #ffffff;
+}
+/* applies at the <html> root (app theme) AND on any nested container — so the Horizon globe can force its
+   own dark chrome even when the app is in light mode (the space globe is always a night visual). */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0a0f1c;
+  --color-bg-2: #0e1728;
+  --color-panel: #15213a;
+  --color-panel-2: #1d2c48;
+  --color-line: #2b3a54;
+  --color-line-2: #384b6d;
+  --color-ink: #eef3fb;
+  --color-mute: #adb9cd;
+  --color-faint: #8492a8;
+  --color-slate: #8290a8;
+  --color-sky: #8ad8ff;
+  --color-blue: #38bdf8;
+  --color-blued: #1560c4;
+  --color-good: #34d399;
+  --color-warn: #f59e0b;
+  --color-bad: #fb7185;
+  --color-on-accent: #08111f;
+}
 * { border-color: var(--color-line); }
 html, body, #root { height: 100%; }
 body {
