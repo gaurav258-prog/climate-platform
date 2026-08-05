@@ -214,6 +214,11 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         except FilingError as e:
             raise HTTPException(409, {"error": "apply_failed",
                                       "message": f"Decision recorded, but could not update the filing: {e}"})
+    # Cell-level manual override on the final form: on approval it takes effect over the frozen snapshot;
+    # 4-eyes (checker ≠ maker) is enforced above, so an approved override carries a second person's sign-off.
+    elif row["request_type"] == "filing.cell_override":
+        from services.governance.filing_overrides import apply_decision
+        applied = apply_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

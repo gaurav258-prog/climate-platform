@@ -119,10 +119,30 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     if not r:
         return None
     groups = build_form(r["framework"], r["payload"] or {})
+    # merge the audited manual-override layer over the immutable snapshot: an APPROVED override replaces the
+    # cell (flagged manual, original preserved); a PENDING one is surfaced awaiting 4-eyes.
+    from services.governance.filing_overrides import overrides_for_filing
+    ov = overrides_for_filing(session, org_id, filing_id)
+    n_manual = n_pending = 0
+    for g in groups:
+        for d in g["datapoints"]:
+            o = ov.get(d["key"])
+            if not o:
+                continue
+            if o["status"] == "approved":
+                d["value"] = o["proposed_value"]
+                d["manual"] = True
+                d["original_value"] = o["original_value"]
+                d["override"] = {"reason": o["reason"], "by": o["proposed_by"], "at": o["proposed_at"],
+                                 "approved_by": o["decided_by"], "approved_at": o["decided_at"]}
+                n_manual += 1
+            elif o["status"] == "pending":
+                d["pending"] = {"value": o["proposed_value"], "reason": o["reason"], "by": o["proposed_by"]}
+                n_pending += 1
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
-            "groups": groups}
+            "n_manual": n_manual, "n_pending": n_pending, "groups": groups}
 
 
 def reporting_requirements(session: Session, org_id: str, org_type: str) -> list[dict]:

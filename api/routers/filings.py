@@ -152,6 +152,27 @@ def filing_form(filing_id: str, session: DbSession, ctx: dict = Depends(require_
     return v
 
 
+class CellOverride(BaseModel):
+    datapoint_key: str = Field(..., min_length=1, max_length=120)
+    value: float
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/filings/{filing_id}/overrides", status_code=201, summary="Propose a manual override of one form cell (needs 4-eyes)")
+def propose_override(filing_id: str, body: CellOverride, session: DbSession,
+                     ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance import filing_overrides as O
+    try:
+        r = O.propose(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
+                      datapoint_key=body.datapoint_key, value=body.value, reason=body.reason)
+    except O.OverrideError as e:
+        raise HTTPException(409, {"error": "override_error", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="filing.cell_override.propose",
+                target_type="regulatory_filing", target_id=filing_id,
+                detail={"datapoint_key": body.datapoint_key, "to": body.value, "reason": body.reason})
+    return r
+
+
 @router.get("/filings", summary="The filing register — every filing, newest first")
 def list_filings(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"filings": F.list_filings(session, ctx["org"]["org_id"])}
