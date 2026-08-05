@@ -225,16 +225,52 @@ def comment(session: Session, org_id: str, task_id: str, actor: str, body: str,
     if not body:
         raise TaskError("comment can't be empty")
     _event(session, task_id, "commented", actor, note=body)
-    for uid in {m for m in (mentions or []) if m and m != actor}:
-        ok = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:u AS uuid) AND org_id = :o"),
-                             {"u": uid, "o": org_id}).first()
-        if not ok:
-            continue  # skip anything not a member of this org — never mention across tenants
-        session.execute(text("""
-            INSERT INTO regulatory_task_mention (org_id, task_id, mentioned_user, by_user, snippet)
-            VALUES (:o, :t, CAST(:u AS uuid), :a, :s)
-        """), {"o": org_id, "t": task_id, "u": uid, "a": actor, "s": body[:280]})
+    targets = {m for m in (mentions or []) if m and m != actor}
+    if targets:
+        _notify_mentions(session, org_id, task_id, actor, body, targets)
     return get_task(session, org_id, task_id)
+
+
+def _notify_mentions(session: Session, org_id: str, task_id: str, actor: str, body: str, targets: set[str]) -> None:
+    """Record each mention and queue an email ping to the mentioned colleague (delivered best-effort)."""
+    from services.notifications import mailer
+    from core.config import settings
+    who = session.execute(text("""
+        SELECT u.full_name AS actor, t.title AS task_title FROM regulatory_task t
+        LEFT JOIN users u ON u.user_id = CAST(:a AS uuid)
+        WHERE t.task_id = :t AND t.org_id = :o
+    """), {"a": actor, "t": task_id, "o": org_id}).mappings().first()
+    actor_name = (who or {}).get("actor") or "A colleague"
+    task_title = (who or {}).get("task_title") or "a task"
+    link = f"{settings.APP_BASE_URL}/tasks?task={task_id}"
+    outbox_ids: list[str] = []
+    for uid in targets:
+        rec = session.execute(text("SELECT email, full_name FROM users WHERE user_id = CAST(:u AS uuid) AND org_id = :o"),
+                              {"u": uid, "o": org_id}).mappings().first()
+        if not rec:
+            continue  # skip anything not a member of this org — never mention across tenants
+        mid = session.execute(text("""
+            INSERT INTO regulatory_task_mention (org_id, task_id, mentioned_user, by_user, snippet)
+            VALUES (:o, :t, CAST(:u AS uuid), :a, :s) RETURNING mention_id
+        """), {"o": org_id, "t": task_id, "u": uid, "a": actor, "s": body[:280]}).scalar()
+        subject = f"{actor_name} mentioned you on “{task_title}”"
+        text_body = (f"{actor_name} mentioned you on the task “{task_title}”:\n\n  {body}\n\n"
+                     f"Open the task: {link}\n")
+        html = (f'<p><strong>{_esc(actor_name)}</strong> mentioned you on the task '
+                f'“{_esc(task_title)}”:</p><blockquote style="margin:8px 0;padding:8px 12px;'
+                f'border-left:3px solid #5cc8ff;color:#334">{_esc(body)}</blockquote>'
+                f'<p><a href="{_esc(link)}">Open the task →</a></p>')
+        oid = mailer.queue_email(session, org_id=org_id, to_email=rec["email"], subject=subject,
+                                 html=html, text_body=text_body, kind="task_mention",
+                                 ref_type="task_mention", ref_id=str(mid))
+        if oid:
+            outbox_ids.append(oid)
+    if outbox_ids:
+        mailer.deliver(session, outbox_ids)   # best-effort inline; whatever fails stays retriable
+
+
+def _esc(s: str) -> str:
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 # ── attachments ──────────────────────────────────────────────────────────────────────────────────────────

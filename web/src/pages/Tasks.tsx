@@ -461,7 +461,7 @@ function CommentComposer({ taskId, members, onDone }: { taskId: string; members:
           placeholder="Comment…  type @ to mention a colleague" className={box} />
         <Button variant="primary" disabled={busy || !val.trim()} onClick={submit}><Send size={14} /></Button>
       </div>
-      <div className="mono text-[9px] text-[var(--color-faint)] mt-1 flex items-center gap-1"><AtSign size={9} /> mention a colleague to ping them — they’ll see it in their mentions. Enter to send, Shift+Enter for a new line.</div>
+      <div className="mono text-[9px] text-[var(--color-faint)] mt-1 flex items-center gap-1"><AtSign size={9} /> mention a colleague to ping them — in their mentions and by email. Enter to send, Shift+Enter for a new line.</div>
     </div>
   )
 }

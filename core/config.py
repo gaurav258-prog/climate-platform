@@ -79,6 +79,22 @@ class Settings(BaseSettings):
     # public server — it violates their usage policy).
     NOMINATIM_URL: str = "https://nominatim.openstreetmap.org/search"
     NOMINATIM_MIN_INTERVAL_S: float = 1.0
+
+    # Email — outbound notifications (e.g. a task @mention pings the colleague by email).
+    # EMAIL_TRANSPORT: "" = auto (smtp if SMTP_HOST is set, else off) | "smtp" | "console" | "off".
+    #   console  — render + log the email without delivering (dev / demo); the outbox marks it sent.
+    #   off      — record the intent only (status 'skipped'); no delivery. The production default until
+    #              SMTP is configured, so a missing mail server never blocks a comment.
+    # SMTP_* come from the environment / secret manager — never committed. APP_BASE_URL builds the
+    # deep-link back to the task in the email.
+    EMAIL_TRANSPORT: str = ""
+    EMAIL_FROM: str = "Tellumen <notifications@tellumen.local>"
+    APP_BASE_URL: str = "http://localhost:5183"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_STARTTLS: bool = True
     # Which geocoding backend the cache-aware layer dispatches to. "nominatim" is the
     # only one implemented today; the seam lets a paid provider (google/here/mapbox) be
     # dropped in without touching call sites. Resolved geocodes are cached in Postgres
