@@ -31,6 +31,12 @@ def _pct_text(part, whole):
     return f"{round(part / whole * 100, 1)}%"
 
 
+def _pretty_hazard(label: str) -> str:
+    """Readable hazard name for the official-form label column (drought → Drought, soil_water → Soil water)."""
+    s = (label or "").replace("_", " ").strip()
+    return s[:1].upper() + s[1:] if s else s
+
+
 # ── SFDR — RTS 2022/1288 Annex I, Table 1 (the 14 mandatory Principal Adverse Impact indicators) ───────────
 # Official indicator wording, grouped by the Annex's own themed headers. Value/coverage come from the
 # assembled indicators (indicator.<n>); a missing indicator still shows its mandatory row as "—".
@@ -139,7 +145,7 @@ def _located_annex(dps: dict) -> list[dict]:
     if haz_keys:
         haz_rows.append({"type": "subheader", "label": "Value exposed at High+ by hazard"})
         for key in haz_keys:
-            haz_rows.append({"type": "row", "cells": [_txt(dps[key].get("label", key.split(".", 1)[1])), _cell(dps, key)]})
+            haz_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(dps[key].get("label") or key.split(".", 1)[1])), _cell(dps, key)]})
     if haz_rows:
         sections.append({"title": "TCFD · Metrics & targets — physical climate risk",
                          "columns": ["Metric", "Value"], "rows": haz_rows, "note": None})
