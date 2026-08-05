@@ -139,10 +139,15 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             elif o["status"] == "pending":
                 d["pending"] = {"value": o["proposed_value"], "reason": o["reason"], "by": o["proposed_by"]}
                 n_pending += 1
+    # the official regulator-form layout (SFDR Annex I Table 1, Taxonomy Art.8 GAR, ESRS E1 …) built from the
+    # SAME merged datapoints, so the official form and the datapoint list stay in lock-step (overrides included).
+    from services.governance.filing_annex import build_annex
+    dps_by_key = {d["key"]: d for g in groups for d in g["datapoints"]}
+    annex = build_annex(r["framework"], dps_by_key, groups)
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
-            "n_manual": n_manual, "n_pending": n_pending, "groups": groups}
+            "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex}
 
 
 def reporting_requirements(session: Session, org_id: str, org_type: str) -> list[dict]:
