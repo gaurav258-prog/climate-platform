@@ -123,6 +123,10 @@ export default function Portfolio() {
   const [horizon, setHorizon] = useState<string>('current')
   const [open, setOpen] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
+  // the book is search-driven — not a full dump. filter by text (name/region/sector), hazard, and severity.
+  const [search, setSearch] = useState('')
+  const [hazardF, setHazardF] = useState('')
+  const [bandF, setBandF] = useState('')
   const refreshBook = () => {
     qc.invalidateQueries({ queryKey: ['fin-portfolio'] }); qc.invalidateQueries({ queryKey: ['fin-forward'] })
     qc.invalidateQueries({ queryKey: ['fin-detail'] })
@@ -150,6 +154,24 @@ export default function Portfolio() {
   const r = q.data?.rollup
   const items = (q.data?.[cfg.listKey] as Asset[] | undefined) ?? []
   const sorted = [...items].sort((a, b) => (b.headline_score ?? -1) - (a.headline_score ?? -1))
+
+  // search-driven book: filter by free text (name / region / sector-or-type), headline hazard, and severity
+  const bandOf = (sc: number | null | undefined) => sc == null ? '' : sc < 28 ? 'low' : sc < 50 ? 'elevated' : sc < 75 ? 'high' : 'severe'
+  const hazardOpts = [...new Set(sorted.map(a => a.headline_hazard).filter(Boolean))] as string[]
+  const term = search.trim().toLowerCase()
+  const searching = !!(term || hazardF || bandF)
+  const filtered = sorted.filter(a => {
+    if (term) {
+      const hay = `${a[cfg.nameKey] ?? ''} ${a.region ?? ''} ${a[cfg.typeKey] ?? ''} ${a.headline_hazard ?? ''}`.toLowerCase()
+      if (!hay.includes(term)) return false
+    }
+    if (hazardF && a.headline_hazard !== hazardF) return false
+    if (bandF && bandOf(a.headline_score) !== bandF) return false
+    return true
+  })
+  // default (nothing searched): show only the most-exposed few — never the whole list
+  const shown = searching ? filtered : sorted.slice(0, 6)
+  const clearSearch = () => { setSearch(''); setHazardF(''); setBandF('') }
 
   return (
     <div className="fadeup space-y-6">
@@ -187,7 +209,7 @@ export default function Portfolio() {
       {/* the book */}
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your assets · biggest threat first</div>
+          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your {cfg.noun}</div>
           <div className="flex items-center gap-4">
             <ImportBook cfg={cfg} onDone={refreshBook} />
             <button
@@ -200,8 +222,35 @@ export default function Portfolio() {
         {q.isLoading ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">loading the book…</div>
           : sorted.length === 0 ? <EmptyBook cfg={cfg} onDone={refreshBook} />
           : (
+          <>
+            {/* search + filters — the book is found, not dumped */}
+            <div className="px-5 py-3 border-b border-[var(--color-line)] flex flex-wrap items-center gap-2">
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search your ${cfg.noun} — name, region, sector…`}
+                className="flex-1 min-w-[200px] bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+              <select value={hazardF} onChange={e => setHazardF(e.target.value)} title="Filter by biggest hazard"
+                className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[12.5px] text-[var(--color-mute)] outline-none focus:border-[var(--color-sky)]">
+                <option value="">All hazards</option>
+                {hazardOpts.map(h => <option key={h} value={h}>{hazardLabel(h)}</option>)}
+              </select>
+              <select value={bandF} onChange={e => setBandF(e.target.value)} title="Filter by severity"
+                className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[12.5px] text-[var(--color-mute)] outline-none focus:border-[var(--color-sky)]">
+                <option value="">All severity</option>
+                <option value="severe">Severe</option>
+                <option value="high">High</option>
+                <option value="elevated">Elevated</option>
+                <option value="low">Low</option>
+              </select>
+              {searching && <button onClick={clearSearch} className="mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)] px-1">clear</button>}
+            </div>
+            <div className="px-5 py-2 mono text-[10.5px] text-[var(--color-faint)] border-b border-[var(--color-line)]">
+              {searching ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'} · of ${sorted.length} ${cfg.noun}`
+                         : `Most exposed · showing ${shown.length} of ${sorted.length} — search or filter above to open any`}
+            </div>
+            {shown.length === 0
+              ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">No {cfg.noun} match — adjust your search or filters.</div>
+              : (
           <div className="divide-y divide-[var(--color-line)]">
-            {sorted.map((a) => {
+            {shown.map((a) => {
               const id = String(a[cfg.idKey] ?? '')
               const name = String(a[cfg.nameKey] ?? '—')
               const atype = a[cfg.typeKey] ? String(a[cfg.typeKey]) : null
@@ -270,6 +319,8 @@ export default function Portfolio() {
               )
             })}
           </div>
+              )}
+          </>
         )}
       </Card>
       {q.isError && <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the book — reload, or sign in again.</div>}
