@@ -63,16 +63,21 @@ def _send_smtp(to_email: str, subject: str, html: str | None, text_body: str | N
 
 def deliver(session: Session, outbox_ids: list[str] | None = None, limit: int = 100) -> dict:
     """Attempt delivery of pending outbox rows (a specific set, or the oldest `limit` pending).
-    Never raises — each row's outcome is recorded on the row. Returns a small tally."""
+    Never raises — each row's outcome is recorded on the row. Returns a small tally.
+
+    Rows are claimed with FOR UPDATE SKIP LOCKED so concurrent drainers (the request's BackgroundTask and
+    the Celery beat sweep) never grab the same row — no double-send."""
     if outbox_ids:
         rows = session.execute(text("""
             SELECT outbox_id, to_email, subject, body_html, body_text FROM email_outbox
             WHERE outbox_id = ANY(CAST(:ids AS uuid[])) AND status IN ('pending','failed')
+            FOR UPDATE SKIP LOCKED
         """), {"ids": outbox_ids}).mappings().all()
     else:
         rows = session.execute(text("""
             SELECT outbox_id, to_email, subject, body_html, body_text FROM email_outbox
             WHERE status IN ('pending','failed') ORDER BY created_at LIMIT :n
+            FOR UPDATE SKIP LOCKED
         """), {"n": limit}).mappings().all()
 
     mode = transport()
@@ -98,3 +103,42 @@ def deliver(session: Session, outbox_ids: list[str] | None = None, limit: int = 
             WHERE outbox_id = :id
         """), {"s": status, "tr": mode, "e": err, "id": r["outbox_id"]})
     return tally
+
+
+def drain_outbox(limit: int = 200) -> dict:
+    """Open a session, deliver the pending outbox, commit. Used by the Celery worker (the beat sweep and the
+    on-demand drain) — never on the request path."""
+    from core.db.session import get_session
+    try:
+        with get_session() as s:
+            return deliver(s, limit=limit)
+    except Exception:  # a background drain must never surface
+        logger.exception("outbox drain failed")
+        return {"sent": 0, "skipped": 0, "failed": 0}
+
+
+def request_async_drain() -> None:
+    """Best-effort: ask the Celery worker to drain the outbox now (so SMTP delivery is near-real-time without
+    touching the request). Enqueued from a daemon thread so a slow/unreachable broker never blocks the caller;
+    if it can't be enqueued the Celery beat sweep is the backstop. The worker runs AFTER the request has
+    committed, so it always sees the queued row (no read-your-writes race)."""
+    import threading
+
+    def _enqueue() -> None:
+        try:
+            from services.tasks.email_tasks import drain_outbox as task
+            task.delay()
+        except Exception:
+            logger.debug("async drain not enqueued (no broker?); beat sweep will deliver", exc_info=True)
+
+    threading.Thread(target=_enqueue, name="email-drain-enqueue", daemon=True).start()
+
+
+def dispatch(session: Session) -> None:
+    """Deliver queued email for the just-committed action. Fast transports (console / off) go inline in this
+    same transaction — instant, no request latency, and they see their own uncommitted rows. SMTP is handed to
+    the Celery worker so its network handshake never blocks the request; the beat sweep guarantees delivery."""
+    if transport() == "smtp":
+        request_async_drain()
+    else:
+        deliver(session)

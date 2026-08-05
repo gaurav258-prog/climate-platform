@@ -27,7 +27,7 @@ celery_app = Celery(
     # hazard_tasks.py, so none of its @celery_app.task decorators run and the
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
-    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks"],
+    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks"],
 )
 
 celery_app.conf.update(
@@ -41,6 +41,11 @@ celery_app.conf.update(
     task_acks_late=True,        # only ack after the task actually finishes — a
                                  # worker crash mid-job re-queues it, not silently drops it
     task_reject_on_worker_lost=True,
+    # Publishing must FAIL FAST, never block a web request: if the broker is unreachable (e.g. Redis down),
+    # a .delay() call should raise in ~2s and be swallowed by request_async_drain, not retry for 15s+. The
+    # durable outbox + beat sweep already guarantee eventual delivery, so a dropped enqueue is harmless here.
+    task_publish_retry=False,
+    broker_transport_options={"socket_connect_timeout": 2, "socket_timeout": 2},
 )
 
 # Golden-source feeds refresh AUTOMATICALLY — no operator has to click. Celery beat runs the sweep every
@@ -53,5 +58,11 @@ celery_app.conf.beat_schedule = {
     "refresh-due-golden-source-feeds": {
         "task": "feeds.refresh_due",
         "schedule": crontab(minute=0),   # top of every hour; the task refreshes only what's due
+    },
+    # Deliver queued notification email (task @mentions). The comment endpoint delivers immediately in-process;
+    # this sweep is the durable retry backstop — every 2 minutes, sends only what's still pending/failed.
+    "drain-email-outbox": {
+        "task": "emails.drain_outbox",
+        "schedule": 120.0,   # seconds
     },
 }

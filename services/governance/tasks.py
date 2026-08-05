@@ -243,7 +243,6 @@ def _notify_mentions(session: Session, org_id: str, task_id: str, actor: str, bo
     actor_name = (who or {}).get("actor") or "A colleague"
     task_title = (who or {}).get("task_title") or "a task"
     link = f"{settings.APP_BASE_URL}/tasks?task={task_id}"
-    outbox_ids: list[str] = []
     for uid in targets:
         rec = session.execute(text("SELECT email, full_name FROM users WHERE user_id = CAST(:u AS uuid) AND org_id = :o"),
                               {"u": uid, "o": org_id}).mappings().first()
@@ -260,13 +259,12 @@ def _notify_mentions(session: Session, org_id: str, task_id: str, actor: str, bo
                 f'“{_esc(task_title)}”:</p><blockquote style="margin:8px 0;padding:8px 12px;'
                 f'border-left:3px solid #5cc8ff;color:#334">{_esc(body)}</blockquote>'
                 f'<p><a href="{_esc(link)}">Open the task →</a></p>')
-        oid = mailer.queue_email(session, org_id=org_id, to_email=rec["email"], subject=subject,
-                                 html=html, text_body=text_body, kind="task_mention",
-                                 ref_type="task_mention", ref_id=str(mid))
-        if oid:
-            outbox_ids.append(oid)
-    if outbox_ids:
-        mailer.deliver(session, outbox_ids)   # best-effort inline; whatever fails stays retriable
+        mailer.queue_email(session, org_id=org_id, to_email=rec["email"], subject=subject,
+                           html=html, text_body=text_body, kind="task_mention",
+                           ref_type="task_mention", ref_id=str(mid))
+    # dispatch: fast transports send inline (same transaction, instant); SMTP is handed to the Celery worker so
+    # its handshake never adds latency to the comment. The Celery beat sweep guarantees delivery either way.
+    mailer.dispatch(session)
 
 
 def _esc(s: str) -> str:

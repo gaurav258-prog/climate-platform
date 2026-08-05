@@ -50,9 +50,26 @@ def test_mention_queues_email(monkeypatch):
         target = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
         t = T.create_task(s, BANK_ORG, maker, title="Ping by email")
         T.comment(s, BANK_ORG, t["task_id"], maker, "@Pieter please confirm", mentions=[target])
+        # console is a fast transport → dispatch() delivers inline in the same transaction
         row = s.execute(text("""
-            SELECT to_email, kind, status FROM email_outbox
-            WHERE kind='task_mention' ORDER BY created_at DESC LIMIT 1
+            SELECT to_email, status FROM email_outbox WHERE kind='task_mention' ORDER BY created_at DESC LIMIT 1
         """)).mappings().first()
         assert row["to_email"] == "approver@meridian.demo" and row["status"] == "sent"
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_smtp_transport_defers_to_worker(monkeypatch):
+    """With SMTP configured, a mention does NOT deliver inline (no request latency) — it stays pending for the
+    Celery worker / beat sweep. request_async_drain is a no-op when no broker is up."""
+    monkeypatch.setattr(config.settings, "EMAIL_TRANSPORT", "smtp", raising=False)
+    with get_session() as s:
+        maker = _actor(s)
+        target = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
+        t = T.create_task(s, BANK_ORG, maker, title="SMTP defer")
+        T.comment(s, BANK_ORG, t["task_id"], maker, "@Pieter please confirm", mentions=[target])
+        row = s.execute(text("""
+            SELECT status, attempts FROM email_outbox WHERE kind='task_mention' ORDER BY created_at DESC LIMIT 1
+        """)).mappings().first()
+        assert row["status"] == "pending" and row["attempts"] == 0
         s.rollback()
