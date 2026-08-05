@@ -72,6 +72,11 @@ def frameworks(session: DbSession, ctx: dict = Depends(require_permission("repor
     return {"frameworks": F.available_frameworks(ctx["org"]["type"])}
 
 
+@router.get("/filings/requirements", summary="Every mandatory reporting requirement — regulation, cadence, links, last filed")
+def reporting_requirements(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"requirements": F.reporting_requirements(session, ctx["org"]["org_id"], ctx["org"]["type"])}
+
+
 @router.get("/filings/entities", summary="The reporting-entity hierarchy — file per entity or consolidate a group")
 def filing_entities(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance import entities as E

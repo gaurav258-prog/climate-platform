@@ -102,6 +102,45 @@ def available_frameworks(org_type: str) -> list[dict]:
     return out
 
 
+_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+
+def reporting_requirements(session: Session, org_id: str, org_type: str) -> list[dict]:
+    """Every mandatory reporting obligation for the org: what the regulation is (name, authority, summary,
+    official link + form), how often + to which regulator + by when, what data to supply, when it was last
+    filed, and the full list of prior filings (for access to previously submitted reports)."""
+    from services.governance.reg_reference import reference
+    out = []
+    for f in available_frameworks(org_type):
+        fk = f["framework"]
+        ref = reference(fk) or {}
+        spec = FRAMEWORKS[fk]
+        due_m, due_d = spec.get("due", (0, 0))
+        rows = session.execute(text("""
+            SELECT rf.filing_id::text AS filing_id, rf.period_label, rf.status, rf.submission_ref,
+                   rf.created_at, rf.updated_at, s.version AS snapshot_version,
+                   rf.entity_id::text AS entity_id, re.name AS entity_name
+            FROM regulatory_filing rf
+            LEFT JOIN report_snapshots s ON s.snapshot_id = rf.snapshot_id
+            LEFT JOIN reporting_entities re ON re.entity_id = rf.entity_id
+            WHERE rf.org_id = :o AND rf.framework = :fk
+            ORDER BY rf.period_end DESC, rf.created_at DESC
+        """), {"o": org_id, "fk": fk}).mappings().all()
+        filings = [{"filing_id": r["filing_id"], "period_label": r["period_label"], "status": r["status"],
+                    "submission_ref": r["submission_ref"], "snapshot_version": r["snapshot_version"],
+                    "entity_name": r["entity_name"], "filed_at": r["updated_at"].isoformat() if r["updated_at"] else None}
+                   for r in rows]
+        # "last filed" = the most-recent filing that actually reached the regulator — it carries a submission
+        # ref (or is accepted), even if later superseded by a restatement.
+        last = next((x for x in filings if x["submission_ref"] or x["status"] in ("submitted", "accepted")), None)
+        out.append({
+            **f, **ref,
+            "due_label": f"{spec['frequency']} · by {due_d} {_MONTHS[due_m]}" if due_m else spec["frequency"],
+            "n_filings": len(filings), "last_filed": last, "filings": filings,
+        })
+    return out
+
+
 def _due_date(framework: str, period_end: date) -> date:
     m, d = FRAMEWORKS[framework]["due"]
     return date(period_end.year + 1, m, d)

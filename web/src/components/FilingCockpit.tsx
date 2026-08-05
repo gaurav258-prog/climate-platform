@@ -10,6 +10,7 @@ import FilingLineage from './FilingLineage'
 import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
+import FilingRequirements from './FilingRequirements'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -84,6 +85,9 @@ export default function FilingCockpit() {
 
   return (
     <div className="space-y-6">
+      {/* ── reporting requirements — what must be filed, to whom, by when, with the regulation + prior reports ── */}
+      <FilingRequirements onOpen={setOpenId} />
+
       {/* ── reporting basis (the parameters new filings freeze) ── */}
       <FilingBasis />
 
