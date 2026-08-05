@@ -134,18 +134,60 @@ def _load(session: Session, org_id: str, task_id: str) -> dict:
     return dict(r)
 
 
-def move_task(session: Session, org_id: str, task_id: str, actor: str, status: str) -> dict:
+# Stage-gate enforced at the source: a card can only ADVANCE into a gated stage once that stage's mandatory
+# conditions are met. The objective conditions are verified here from the task's own state (can't be faked);
+# the human attestations must be supplied with the move and are recorded on the activity log. Any move path —
+# board arrow, drag-and-drop, the task-drawer dropdown, or a raw API call — passes through this check.
+_STAGE_ORDER = {"icebox": 0, "todo": 1, "blocked": 2, "doing": 3, "review": 4, "done": 5, "cancelled": 6}
+_GATED_STAGES = {"doing", "review", "done"}
+
+
+def _gate_check(session: Session, org_id: str, task_id: str, cur: dict, target: str, attestations) -> None:
+    """Raise TaskError if a forward move into `target` doesn't clear that stage's mandatory gate."""
+    forward = _STAGE_ORDER.get(target, 0) > _STAGE_ORDER.get(cur["status"], 0)
+    if not forward or target not in _GATED_STAGES:
+        return  # only advancing INTO a gated stage is gated; backward / sideways moves are free
+    # objective conditions — read from the task's own state
+    if target == "doing":
+        if not cur.get("assignee_user_id"):
+            raise TaskError("Assign an owner before moving this task into Doing.")
+        dep = session.execute(text("""
+            SELECT count(*) FROM regulatory_task d
+            JOIN regulatory_task t ON d.task_id = ANY(t.depends_on)
+            WHERE t.task_id = :t AND t.org_id = :o AND d.status <> 'done'
+        """), {"t": task_id, "o": org_id}).scalar()
+        if dep:
+            raise TaskError(f"{dep} dependency task(s) are still open — clear them before starting.")
+    if target == "review":
+        desc = session.execute(text("SELECT description FROM regulatory_task WHERE org_id=:o AND task_id=:t"),
+                               {"o": org_id, "t": task_id}).scalar()
+        if not (desc or "").strip():
+            raise TaskError("Record what was done (add a description) before sending this task to Review.")
+    # human attestations — a gated forward move must carry its confirmed checklist
+    items = [a for a in (attestations or []) if str(a).strip()]
+    if not items:
+        raise TaskError(f"Confirm the mandatory checklist for “{target}” before moving this task there.")
+
+
+def move_task(session: Session, org_id: str, task_id: str, actor: str, status: str,
+              attestations: list[str] | None = None) -> dict:
     if status not in ("icebox", "todo", "blocked", "doing", "review", "done", "cancelled"):
         raise TaskError(f"unknown status '{status}'")
     cur = _load(session, org_id, task_id)
     if cur["status"] == status:
         return get_task(session, org_id, task_id)
+    _gate_check(session, org_id, task_id, cur, status, attestations)
     session.execute(text("""
         UPDATE regulatory_task SET status = :s,
             position = COALESCE((SELECT MAX(position)+1 FROM regulatory_task WHERE org_id=:o AND status=:s), 0)
         WHERE org_id = :o AND task_id = :t
     """), {"s": status, "o": org_id, "t": task_id})
-    _event(session, task_id, "moved", actor, from_val=cur["status"], to_val=status)
+    note = None
+    if status in _GATED_STAGES and _STAGE_ORDER.get(status, 0) > _STAGE_ORDER.get(cur["status"], 0):
+        confirmed = [str(a).strip() for a in (attestations or []) if str(a).strip()]
+        if confirmed:
+            note = "gate confirmed · " + " · ".join(confirmed)
+    _event(session, task_id, "moved", actor, from_val=cur["status"], to_val=status, note=note)
     return get_task(session, org_id, task_id)
 
 

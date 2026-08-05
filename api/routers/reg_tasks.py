@@ -25,6 +25,7 @@ class TaskCreate(BaseModel):
 
 class TaskMove(BaseModel):
     status: str
+    attestations: Optional[List[str]] = None  # the stage-gate checklist the mover confirmed (gated forward moves)
 
 
 class TaskAssign(BaseModel):
@@ -123,7 +124,7 @@ def get(task_id: str, session: DbSession, ctx: dict = Depends(require_permission
 def move(task_id: str, body: TaskMove, session: DbSession,
          ctx: dict = Depends(require_permission("approvals.create"))):
     try:
-        return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status)
+        return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status, body.attestations)
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 

@@ -54,6 +54,11 @@ const GATE: Record<string, GateItem[]> = {
 }
 const idx = (s: string) => COLS.indexOf(s)
 const gateItemsFor = (target: string, t: Task) => (GATE[target] ?? []).filter(i => !i.onlyIfFiling || !!t.filing_id)
+// the server rejects a gated move it doesn't like (owner missing, dependency open, checklist absent) with a
+// 409 carrying { message }; surface that so the mover sees exactly what's required.
+const errMsg = (e: unknown, fallback: string) => e instanceof ApiError ? String((e.body as { message?: string })?.message ?? e.message) : fallback
+// is a move into `target` a gated forward move for this task?
+const isGatedForward = (t: Task, target: string) => target !== t.status && idx(target) > idx(t.status) && gateItemsFor(target, t).length > 0
 
 export default function Tasks() {
   const qc = useQueryClient()
@@ -79,14 +84,14 @@ export default function Tasks() {
     catch (e) { alert(e instanceof ApiError ? e.message : 'Could not create the task.') }
     finally { setBusy(false) }
   }
-  const move = async (t: Task, status: string) => {
-    try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status }); refresh() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not move the task.') }
+  const move = async (t: Task, status: string, attestations?: string[]) => {
+    try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status, attestations }); refresh() }
+    catch (e) { alert(errMsg(e, 'Could not move the task.')) }
   }
   // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight through
   const attemptMove = (t: Task, target: string) => {
     if (target === t.status) return
-    if (idx(target) > idx(t.status) && gateItemsFor(target, t).length > 0) { setGate({ task: t, target }); return }
+    if (isGatedForward(t, target)) { setGate({ task: t, target }); return }
     move(t, target)
   }
   const assign = async (t: Task, uid: string) => {
@@ -154,7 +159,7 @@ export default function Tasks() {
 
       {openId && <TaskDrawer taskId={openId} members={members} onClose={closeDrawer} onChanged={refresh} />}
       {gate && <GateModal task={gate.task} target={gate.target} onClose={() => setGate(null)}
-        onConfirm={() => { const g = gate; setGate(null); move(g.task, g.target) }} />}
+        onConfirm={atts => { const g = gate; setGate(null); move(g.task, g.target, atts) }} />}
     </div>
   )
 }
@@ -162,11 +167,12 @@ export default function Tasks() {
 // The stage-gate dialog — the mandatory checklist a card must clear to enter a stage. Auto items are
 // pre-satisfied from the task's own state and locked; attestations must be ticked. Confirm unlocks only when
 // every item is satisfied, then the move goes through.
-function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: string; onClose: () => void; onConfirm: () => void }) {
+function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: string; onClose: () => void; onConfirm: (attestations: string[]) => void }) {
   const items = gateItemsFor(target, task)
   const autoOk = (i: GateItem) => (i.auto ? i.auto(task) : false)
   const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(items.map(i => [i.id, autoOk(i)])))
   const allOk = items.every(i => (i.auto ? autoOk(i) : checked[i.id]))
+  const confirm = () => onConfirm(items.map(i => i.label))
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
@@ -194,7 +200,7 @@ function GateModal({ task, target, onClose, onConfirm }: { task: Task; target: s
         {items.some(i => i.auto && !autoOk(i)) && <p className="text-[11px] text-[var(--color-bad)] mt-2">A verified check isn’t met yet — resolve it on the task (assign an owner, clear dependencies, or add detail) before moving.</p>}
         <div className="flex items-center justify-end gap-2 mt-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!allOk} onClick={onConfirm}><Check size={14} /> Confirm move</Button>
+          <Button variant="primary" disabled={!allOk} onClick={confirm}><Check size={14} /> Confirm move</Button>
         </div>
       </div>
     </div>
@@ -246,8 +252,12 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
   const q = useQuery({ queryKey: ['reg-task', taskId], queryFn: () => api.get<TaskDetail>(`/v1/reg-tasks/${taskId}`) })
   const t = q.data
   const [comment, setComment] = useState('')
+  const [gate, setGate] = useState<string | null>(null)   // target stage awaiting its checklist
   const reload = () => { qc.invalidateQueries({ queryKey: ['reg-task', taskId] }); onChanged() }
-  const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { alert(e instanceof ApiError ? e.message : 'Action failed.') } }
+  const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { alert(errMsg(e, 'Action failed.')) } }
+  // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist
+  const doMove = (target: string, attestations?: string[]) => call(() => api.post(`/v1/reg-tasks/${taskId}/move`, { status: target, attestations }))
+  const changeStatus = (target: string) => { if (!t || target === t.status) return; if (isGatedForward(t, target)) setGate(target); else doMove(target) }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -266,7 +276,7 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
             {/* quick facts + controls */}
             <div className="grid grid-cols-2 gap-3 text-[12px]">
               <Field label="Status">
-                <select value={t.status} onChange={e => call(() => api.post(`/v1/reg-tasks/${taskId}/move`, { status: e.target.value }))} className={box}>
+                <select value={t.status} onChange={e => changeStatus(e.target.value)} className={box}>
                   {COLS.map(c => <option key={c} value={c}>{COL_LABEL[c]}</option>)}
                 </select>
               </Field>
@@ -314,6 +324,8 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
           </div>
         )}
       </div>
+      {t && gate && <GateModal task={t} target={gate} onClose={() => setGate(null)}
+        onConfirm={atts => { const target = gate; setGate(null); doMove(target, atts) }} />}
     </div>
   )
 }
