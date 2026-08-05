@@ -152,6 +152,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 - `docs/MULTI_SECTOR.md` — banking/insurance/agriculture architecture
 - `docs/*_METHODOLOGY.md` — one per hazard type (volcanic, seismic, storm, pollution, supply-chain)
 - `docs/BACKTEST_DATA.md` — backtest event dataset status
+- `docs/OPS_EMAIL_NOTIFICATIONS.md` — ops runbook: SMTP config, Celery worker/beat, DNS (SPF/DKIM/DMARC) for the @mention email path
 - `docs/investor_brief.md`, `docs/objection_tracker.md` — external/market-facing material
 
 ## 12. Change log
