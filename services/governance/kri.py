@@ -160,6 +160,14 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
             _kpi("forest_loss_ha", "Post-cutoff forest loss", e4.get("post_cutoff_forest_loss_ha"), "ha",
                  hint="Hectares of forest lost after the 2020 EUDR cutoff · ESRS E4"),
         ]
+        # ESRS E4 — sites/plots in or near a Natura 2000 protected area (free-gov EEA feed, H3 overlap)
+        from services.intelligence.protected_area import protected_area_exposure
+        pa = protected_area_exposure(session, org_id)
+        if pa["cells_loaded"] > 0:
+            in_pa = pa["sites"]["in_protected"] + pa["plots"]["in_protected"]
+            exposed_m = round((pa["sites"]["value_in_eur"] + pa["plots"]["spend_in_eur"]) / 1e6, 1)
+            kpis.append(_kpi("protected_area", "In protected areas", in_pa, "num",
+                             hint=f"Own sites + sourcing plots in/near a Natura 2000 area · €{exposed_m}m exposed · ESRS E4"))
         label = "ESRS E1·E3·E4 nature KRIs"
 
     # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed

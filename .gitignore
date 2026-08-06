@@ -33,3 +33,6 @@ data/reservoirs/embalses_iso.csv
 
 # Hansen forest tiles (large, reproducible via scripts/ingest_forest_baseline.py)
 data/forest/
+
+# Large geospatial source files (preprocessed into protected_h3_cell)
+data/natura2000/

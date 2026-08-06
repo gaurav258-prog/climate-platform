@@ -61,6 +61,10 @@ FEEDS: list[dict] = [
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
+    {"key": "natura2000", "name": "EEA Natura 2000 (protected areas)", "category": "nature",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "partial",
+     "note": "EU protected-area boundaries, precomputed to an H3 lookup; flags own sites / sourcing plots in or "
+             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage (WDPA global is the roadmap)."},
     {"key": "reference_lei", "name": "GLEIF (LEI)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "note": "Legal-entity identifiers; changes rename entities, not risk scores."},

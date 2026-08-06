@@ -86,6 +86,7 @@ KRI_REG["esrs_pack"] = {
     "deforestation_free_pct": ("ESRS E4 / EUDR — deforestation-free %", "core"),
     "non_compliant":          ("ESRS E4 / EUDR — non-compliant plots", "core"),
     "forest_loss_ha":         ("ESRS E4 — post-cutoff forest loss", "support"),
+    "protected_area":         ("ESRS E4 — sites/plots in a protected area (Natura 2000)", "core"),
 }
 
 
