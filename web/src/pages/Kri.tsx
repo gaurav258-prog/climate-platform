@@ -15,7 +15,7 @@ import { filingLink } from '../lib/links'
 interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean }
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number }
+interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string }
 const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
 // the appetite band in words, in the KRI's own unit
 const bandNote = (k: Kpi) => {
@@ -59,6 +59,7 @@ export default function Kri() {
         : (
         <>
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
+          {d.scope_note && <div className="mono text-[10.5px] text-[var(--color-faint)]">{d.scope_note}</div>}
           {(d.breaches ?? 0) > 0 && (
             <div className="flex items-center gap-2 rounded-lg px-3.5 py-2.5" style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: '1px solid color-mix(in oklab, #fb7185 30%, transparent)' }}>
               <span className="w-2 h-2 rounded-full" style={{ background: '#fb7185' }} />

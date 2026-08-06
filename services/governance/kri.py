@@ -27,7 +27,7 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
     elif framework == "insurer_climate":
         result = _insurer_kri(session, org_id)
     elif framework in ("csrd_e1", "esrs_pack"):
-        result = _agri_kri(session, org_id)
+        result = _agri_kri(session, org_id, framework)
     else:
         return {"framework": framework, "supported": False,
                 "message": "No KRI dashboard for this framework yet."}
@@ -97,32 +97,51 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
             "kpis": kpis, "by_hazard": by_hazard, "history": history}
 
 
-def _agri_kri(session: Session, org_id: str) -> dict:
+def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict:
+    """ESRS E1 (climate) KRIs for an agri / manufacturer book — the real E1-9 climate financial effects from
+    build_e1_report (own operations + upstream sourcing), NOT GHG. GHG accounting (Scope 1/2/3) and energy are
+    deliberately out of scope here — the platform computes the physical / nature ESRS and integrates GHG from
+    the customer's carbon-accounting tool — so we never surface a fabricated emissions number."""
+    from services.intelligence.csrd_e1 import build_e1_report
     from api.routers.supply import _plots_with_hazard
     from services.governance.reporting_settings import get_settings
     s = get_settings(session, org_id)
+    e1 = build_e1_report(session, org_id, s["scenario"], s["horizon"])
+    oo = e1.get("own_operations", {}) or {}
+    us = e1.get("upstream_sourcing", {}) or {}
+    fe = e1.get("financial_effects", {}) or {}
     plots = list(_plots_with_hazard(session, org_id, s["scenario"], s["horizon"]))
-    total = sum((p["spend_eur"] or 0) for p in plots)
-    at_risk = sum((p["spend_eur"] or 0) for p in plots if (p["hazard_score"] or 0) >= 50)
     scored = sum(1 for p in plots if p["hazard_score"] is not None)
+    asset = oo.get("asset_value_eur") or 0
+    asset_at_risk = oo.get("asset_value_at_risk_eur") or 0
+
+    kpis = [
+        _kpi("asset_value", "Own-site asset value", asset, "eur", hint="Own operations — sites in scope"),
+        _kpi("asset_at_risk", "Own-site value at risk", asset_at_risk, "eur",
+             hint="Site asset value in severe hazard bands, at the reporting pathway"),
+        _kpi("pct_at_risk", "Share of sites at risk", round(100 * asset_at_risk / asset, 1) if asset else 0, "pct"),
+        _kpi("business_interruption", "Business interruption", oo.get("business_interruption_eur"), "eur",
+             hint="v0 illustrative — throughput × expected downtime by hazard band"),
+        _kpi("ingredient_spend", "Ingredient spend", us.get("ingredient_spend_eur"), "eur", hint="Upstream sourcing spend"),
+        _kpi("cogs_at_risk", "COGS at risk (published)", fe.get("cogs_at_risk_published_eur"), "eur",
+             hint="Upstream COGS at risk where the hazard→yield chain validates (r² ≥ 0.40)"),
+        _kpi("cogs_withheld", "Exposure mapped · € withheld", fe.get("exposure_mapped_but_withheld_eur"), "eur",
+             hint="Spend exposed but the euro withheld pending calibration — honest, not zero"),
+        _kpi("coverage", "Plots scored", round(100 * scored / len(plots), 1) if plots else 0, "pct"),
+    ]
+    # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed
     haz: dict = {}
     for p in plots:
         if p.get("top_hazard") and (p["hazard_score"] or 0) >= 50:
             g = haz.setdefault(p["top_hazard"], {"value": 0.0, "score": 0.0})
             g["value"] += p["spend_eur"] or 0
             g["score"] = max(g["score"], p["hazard_score"] or 0)
-    kpis = [
-        _kpi("total_spend", "Annual sourcing spend", round(total), "eur"),
-        _kpi("spend_at_risk", "Spend at risk (High+)", round(at_risk), "eur", tone="#fb7185",
-             hint="COGS on plots whose top climate threat is severe"),
-        _kpi("pct_at_risk", "Share of spend at risk", round(100 * at_risk / total, 1) if total else 0, "pct", tone="#f0a860"),
-        _kpi("coverage", "Plots scored", round(100 * scored / len(plots), 1) if plots else 0, "pct"),
-        _kpi("plots", "Sourcing plots", len(plots), "num"),
-    ]
     by_hazard = sorted([{"hazard": h, "value": round(v["value"]), "score": round(v["score"], 1)}
                         for h, v in haz.items() if v["value"] > 0], key=lambda x: -x["value"])
-    return {"framework": "csrd_e1", "supported": True, "label": "Agri COGS-at-risk KRIs",
-            "kpis": kpis, "by_hazard": by_hazard, "history": []}
+    return {"framework": framework, "supported": True, "label": "ESRS E1 climate KRIs",
+            "kpis": kpis, "by_hazard": by_hazard, "history": [],
+            "scope_note": "Physical climate risk (ESRS E1 financial effects). GHG accounting (Scope 1/2/3) "
+                          "and energy are integrated from your carbon-accounting tool, not computed here."}
 
 
 def _by_hazard(snap: dict) -> list[dict]:
