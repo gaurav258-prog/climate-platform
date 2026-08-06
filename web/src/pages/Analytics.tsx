@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
@@ -43,6 +44,13 @@ export default function Analytics() {
   const [hz, setHz] = useState(3)   // 0..3 → Now / 2030 / 2050 / 2100
   const [asTable, setAsTable] = useState(false)
   const [drill, setDrill] = useState<string | null>(null)   // hazard key for the drill-down drawer
+  // deep-link from the KRI dashboard ("explore forward →"): pre-select a pathway and open a hazard's drill
+  const [params] = useSearchParams()
+  useEffect(() => {
+    const sc = params.get('scenario'); const h = params.get('hazard')
+    if (sc && SCEN.some(s => s.key === sc)) setSel(sc)
+    if (h && canDrill) setDrill(h)
+  }, [params, canDrill])
 
   // the full 4×4 grid, one query per (scenario, horizon) — SLIM (aggregates only; the per-asset array is
   // fetched on demand for drill-down), cached individually

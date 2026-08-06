@@ -39,6 +39,8 @@ export default function Kri() {
   const nav = useNavigate()
   const fw = FRAMEWORKS[profile?.org?.type ?? ''] ?? 'bank_tcfd'
   const [framework] = useState(fw)
+  // Analytics is the forward (scenario) lens — offered only where it serves this book (bank / AM / REIT).
+  const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
   const [drill, setDrill] = useState<string | null>(null)
   const q = useQuery({ queryKey: ['kri', framework], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}`) })
   const d = q.data
@@ -85,10 +87,17 @@ export default function Kri() {
           <div className="grid lg:grid-cols-2 gap-5">
             {d.by_hazard.length > 0 && (
               <div>
-                <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Value at risk by hazard</div>
+                <div className="flex items-center mb-2">
+                  <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Value at risk by hazard</div>
+                  {hasAnalytics && (
+                    <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="See how this exposure moves as the world warms">
+                      explore forward <ChevronRight size={11} />
+                    </button>
+                  )}
+                </div>
                 <Card className="p-4">
                   <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={eur} onBar={i => setDrill(d.by_hazard[i].hazard)} />
-                  <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it</div>
+                  <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it{hasAnalytics ? ' · then project it forward in Analytics' : ''}</div>
                 </Card>
               </div>
             )}
@@ -113,12 +122,13 @@ export default function Kri() {
         </>
       )}
 
-      {drill && <HazardDrill framework={framework} hazard={drill} onClose={() => setDrill(null)} />}
+      {drill && <HazardDrill framework={framework} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
     </div>
   )
 }
 
-function HazardDrill({ framework, hazard, onClose }: { framework: string; hazard: string; onClose: () => void }) {
+function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: string; hazard: string; hasAnalytics: boolean; onClose: () => void }) {
+  const nav = useNavigate()
   const q = useQuery({ queryKey: ['kri-hazard', framework, hazard], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}`) })
   const d = q.data
   return (
@@ -127,7 +137,14 @@ function HazardDrill({ framework, hazard, onClose }: { framework: string; hazard
       <div className="relative w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
           <div><div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Driving {hazardLabel(hazard)}</div></div>
-          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronRight size={17} className="rotate-180" /></button>
+          <div className="flex items-center gap-3">
+            {hasAnalytics && (
+              <button onClick={() => nav(`/analytics?hazard=${hazard}`)} className="inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="Project this hazard forward across warming pathways">
+                explore forward <ChevronRight size={11} />
+              </button>
+            )}
+            <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronRight size={17} className="rotate-180" /></button>
+          </div>
         </div>
         {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
           : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">Entity-level drill isn't available for this sector's report.</div>
