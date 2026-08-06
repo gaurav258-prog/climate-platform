@@ -1,11 +1,18 @@
-"""Preprocess the EEA Natura 2000 GeoPackage into the `protected_h3_cell` lookup (res-8 H3 cells, h3 v4,
+"""Preprocess a protected-areas GeoPackage into the `protected_h3_cell` lookup (res-8 H3 cells, h3 v4,
 matching the app's `h3.latlng_to_cell(lat, lon, 8)` geocoding). Runs offline — no PostGIS needed at runtime;
 the app then answers "is this site/plot in or near a protected area?" with a simple indexed membership test.
 
+Dataset-agnostic: works for the EU **Natura 2000** (EEA) file and the global **WDPA** (Protected Planet) file
+— it auto-detects the site-id column (SITECODE vs WDPAID) and the country filter (SITECODE prefix vs ISO3).
+The `--dataset` tag keeps sources side by side in `protected_h3_cell`, so EU + global coexist.
+
 Usage:
+    # EU (Natura 2000):
     .venv/bin/python -m scripts.ingest_natura2000 \
-        --gpkg-zip data/natura2000/Natura2000_end2021_rev1_gpkg.zip \
-        [--country ES] [--buffer-km 1.0] [--res 8]
+        --gpkg-zip data/natura2000/Natura2000_end2021_rev1_gpkg.zip --dataset natura2000 [--country ES]
+    # Global (WDPA):
+    .venv/bin/python -m scripts.ingest_natura2000 \
+        --gpkg-zip data/wdpa/WDPA_gpkg.zip --dataset wdpa [--country USA] [--buffer-km 1.0] [--res 8]
 
 Needs geopandas + pyogrio (GDAL):  .venv/bin/pip install geopandas pyogrio
 This is a heavy one-off job (full-EU load produces ~millions of cells); a --country filter keeps a demo run
@@ -42,8 +49,8 @@ def _find_gpkg(zip_path: Path, workdir: Path) -> Path:
 def _polygon_layer(gpkg: Path) -> str:
     import pyogrio
     layers = [l[0] for l in pyogrio.list_layers(gpkg)]
-    # the sites polygon layer (e.g. 'NaturaSite_polygon'); fall back to the first
-    return next((l for l in layers if "polygon" in l.lower()), layers[0])
+    # the polygon layer — Natura 2000 'NaturaSite_polygon', WDPA 'WDPA_poly_…'; fall back to the first
+    return next((l for l in layers if "poly" in l.lower()), layers[0])
 
 
 def _cells_for_geom(geom, res: int) -> set[str]:
@@ -82,11 +89,18 @@ def main() -> None:
     print(f"reading {gpkg.name} · layer {layer}")
     gdf = gpd.read_file(gpkg, layer=layer, engine="pyogrio")
 
-    # a stable site-code column (Natura 2000 uses SITECODE); country filter on its 2-letter prefix
-    code_col = next((c for c in gdf.columns if c.upper() in ("SITECODE", "SITE_CODE")), None)
-    if args.country and code_col:
-        gdf = gdf[gdf[code_col].astype(str).str.upper().str.startswith(args.country.upper())]
-    print(f"{len(gdf)} sites{' (' + args.country + ')' if args.country else ''}")
+    # site-identifier column (Natura 2000: SITECODE · WDPA: WDPAID/WDPA_PID)
+    code_col = next((c for c in gdf.columns if c.upper() in ("SITECODE", "SITE_CODE", "WDPAID", "WDPA_PID", "WDPA_ID")), None)
+    # country filter — WDPA carries an ISO3 column (may be multi, ';'-joined for transboundary); Natura 2000
+    # encodes the country in the SITECODE prefix (2-letter). Pass ES for Natura 2000, ESP for WDPA.
+    iso_col = next((c for c in gdf.columns if c.upper() in ("ISO3", "ISO3_CODE", "PARENT_ISO3", "COUNTRY")), None)
+    if args.country:
+        cc = args.country.upper()
+        if iso_col:
+            gdf = gdf[gdf[iso_col].astype(str).str.upper().str.contains(cc, na=False)]
+        elif code_col:
+            gdf = gdf[gdf[code_col].astype(str).str.upper().str.startswith(cc)]
+    print(f"{len(gdf)} sites{' (' + args.country + ')' if args.country else ''} · id col {code_col} · dataset {args.dataset}")
 
     # WGS84 for H3; add a metric buffer (project to EU LAEA 3035, buffer in metres, back to 4326)
     gdf = gdf.to_crs(4326)
