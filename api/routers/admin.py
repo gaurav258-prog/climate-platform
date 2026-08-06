@@ -335,7 +335,7 @@ def set_decision_playbook(body: PlaybookPatch, session: DbSession,
 _KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_tcfd",
                   "insurer": "insurer_climate", "manufacturer": "esrs_pack"}
 # KRIs whose value is a numeric that can be graded against a band
-_GRADEABLE_FMT = {"eur", "pct", "num", "ha"}
+_GRADEABLE_FMT = {"eur", "pct", "num", "ha", "dec"}
 
 
 class KriThresholdPatch(BaseModel):
@@ -356,7 +356,7 @@ def get_kri_appetite(session: DbSession, ctx: dict = Depends(require_permission(
     kpis = [{"key": k["key"], "label": k["label"], "fmt": k["fmt"], "value": k.get("value"),
              "amber": k.get("amber"), "red": k.get("red"), "direction": k.get("direction"),
              "status": k.get("status")}
-            for k in (data.get("kpis") or []) if k.get("fmt") in _GRADEABLE_FMT]
+            for k in (data.get("kpis") or []) if k.get("fmt") in _GRADEABLE_FMT and not k.get("integrated")]
     return {"supported": True, "framework": data.get("framework", fw), "label": data.get("label"), "kpis": kpis}
 
 

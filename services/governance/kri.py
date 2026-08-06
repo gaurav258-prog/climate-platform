@@ -13,8 +13,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
-def _kpi(key, label, value, fmt, tone=None, hint=None):
-    return {"key": key, "label": label, "value": value, "fmt": fmt, "tone": tone, "hint": hint}
+def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integrated_note=None):
+    # `integrated` = a regulator datapoint whose value comes from OUTSIDE this engine (e.g. GHG from the
+    # customer's carbon tool, or Taxonomy alignment flags) — shown honestly rather than fabricated or blanked.
+    return {"key": key, "label": label, "value": value, "fmt": fmt, "tone": tone, "hint": hint,
+            "integrated": integrated, "integrated_note": integrated_note}
 
 
 def kri(session: Session, org_id: str, framework: str) -> dict:
@@ -132,6 +135,8 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
         _kpi("cogs_withheld", "Exposure mapped · € withheld", fe.get("exposure_mapped_but_withheld_eur"), "eur",
              hint="Spend exposed but the euro withheld pending calibration — honest, not zero"),
         _kpi("coverage", "Plots scored", round(100 * scored / len(plots), 1) if plots else 0, "pct"),
+        _kpi("ghg_emissions", "GHG emissions (Scope 1-3)", None, "num", integrated=True, integrated_note="carbon tool",
+             hint="ESRS E1-6 GHG accounting is integrated from your carbon-accounting tool — Tellumen computes the physical/nature ESRS, not the emissions inventory."),
     ]
     label = "ESRS E1 climate KRIs"
     # The full nature pack (esrs_pack) also carries E3 Water and E4 Biodiversity — real values from the same
@@ -262,6 +267,8 @@ def _bank_kri(session: Session, org_id: str) -> dict:
         _kpi("fin_emissions", "Financed emissions", sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")),
              "num", hint="tCO₂e · PCAF-attributed"),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
+        _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
+             hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
     ]
     by_hazard = sorted(
         [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
@@ -300,6 +307,15 @@ def _sfdr_kri(session: Session, org_id: str) -> dict:
         _kpi("waci", "WACI", _val(3), "num", hint="Weighted-avg carbon intensity · tCO₂e/€M revenue · PAI 3"),
         _kpi("fossil_fuel", "Fossil-fuel exposure", _val(4), "pct", hint="Share of value in fossil-fuel companies · PAI 4"),
         _kpi("non_renewable", "Non-renewable energy", _val(5), "pct", hint="Share of non-renewable energy · PAI 5"),
+        _kpi("energy_intensity", "Energy intensity", _val(6), "dec", hint="GWh per €M revenue (high-impact sectors) · SFDR PAI 6"),
+        _kpi("biodiversity", "Biodiversity areas", _val(7), "pct", hint="Share of value in/near biodiversity-sensitive areas · PAI 7"),
+        _kpi("emissions_water", "Emissions to water", _val(8), "dec", hint="Tonnes per €M invested · SFDR PAI 8"),
+        _kpi("hazardous_waste", "Hazardous waste", _val(9), "dec", hint="Tonnes per €M invested · SFDR PAI 9"),
+        _kpi("ungc_violations", "UNGC / OECD violations", _val(10), "pct", hint="Share of value in violation · SFDR PAI 10"),
+        _kpi("ungc_no_process", "No UNGC monitoring", _val(11), "pct", hint="Share lacking monitoring processes · SFDR PAI 11"),
+        _kpi("gender_pay_gap", "Gender pay gap", _val(12), "pct", hint="Unadjusted · SFDR PAI 12"),
+        _kpi("board_diversity", "Board gender diversity", _val(13), "pct", hint="Share female on boards · SFDR PAI 13"),
+        _kpi("controversial_weapons", "Controversial weapons", _val(14), "pct", hint="Share exposed to controversial weapons · SFDR PAI 14"),
         _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
              hint="Share of NAV with issuer emissions data"),
         _kpi("indicators", "PAI indicators computed", cs.get("computed"), "num",

@@ -12,9 +12,9 @@ import { filingLink } from '../lib/links'
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null }
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
-interface Readiness { core: number; covered: number; gaps: string[] }
+interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
 interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness }
@@ -33,7 +33,7 @@ interface Ent { name: string; value: number | null; h3_cell: string | null; coun
 interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[] }
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
-const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? eur(k.value) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : Math.round(k.value).toLocaleString('en-GB')
+const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? eur(k.value) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
 const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_tcfd', insurer: 'insurer_climate', manufacturer: 'esrs_pack' }
 
 export default function Kri() {
@@ -76,6 +76,7 @@ export default function Kri() {
                 )}
               </div>
               <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.regulator.disclosure}{d.regulator.form_url ? <> · <a href={d.regulator.form_url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">official form ↗</a></> : ''}</div>
+              {d.readiness && d.readiness.integrated.length > 0 && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">needs your input: {d.readiness.integrated.join(' · ')}</div>}
               {d.readiness && d.readiness.gaps.length > 0 && <div className="mono text-[10px] text-[var(--color-warn)] mt-1">awaiting data: {d.readiness.gaps.join(' · ')}</div>}
             </div>
           )}
@@ -94,7 +95,8 @@ export default function Kri() {
               return (
                 <Card key={k.key} className="px-4 py-3.5 relative">
                   {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
-                  <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{fmt(k)}</div>
+                  {k.integrated && k.value == null && <span className="absolute top-3 right-3 mono text-[7.5px] uppercase tracking-wide px-1 py-0.5 rounded text-[var(--color-faint)] border border-[var(--color-line-2)]" title={k.hint ?? undefined}>{k.integrated_note ?? 'integrated'}</span>}
+                  <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{k.integrated && k.value == null ? <span className="text-[15px] text-[var(--color-faint)] italic">—</span> : fmt(k)}</div>
                   <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2" title={k.hint ?? undefined}>{k.label}{k.hint ? ' ⓘ' : ''}</div>
                   {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
                   {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}

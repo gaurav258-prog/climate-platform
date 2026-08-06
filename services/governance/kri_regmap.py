@@ -29,6 +29,7 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "coverage":      ("Data coverage / PCAF data quality", "support"),
         "fin_emissions": ("PCAF — financed emissions (Scope 1–3)", "core"),
         "taxonomy":      ("Taxonomy Art. 8 — eligible % (→ Green Asset Ratio)", "core"),
+        "gar":           ("Taxonomy Art. 8 — Green Asset Ratio (aligned %)", "core"),
     },
     "reit_tcfd": {
         "total_value":   ("Property book value — Art. 8 denominator", "support"),
@@ -93,7 +94,7 @@ def annotate(framework: str, kpis: list[dict]) -> dict:
     summary: of the CORE datapoints the regulator expects, how many we currently carry a value for."""
     tags = KRI_REG.get(framework, {})
     core = covered = 0
-    gaps = []
+    integrated, gaps = [], []
     for k in kpis:
         t = tags.get(k.get("key"))
         if not t:
@@ -102,11 +103,10 @@ def annotate(framework: str, kpis: list[dict]) -> dict:
         k["reg_tier"] = t[1]
         if t[1] == "core":
             core += 1
-            # 'integrated' KRIs (value None but flagged elsewhere) are counted as awaiting integration, not gaps
             if k.get("value") is not None:
                 covered += 1
-            elif k.get("integrated"):
-                pass
+            elif k.get("integrated"):        # a datapoint the regulator wants but the client provides externally
+                integrated.append(k.get("label"))
             else:
                 gaps.append(k.get("label"))
-    return {"core": core, "covered": covered, "gaps": gaps}
+    return {"core": core, "covered": covered, "integrated": integrated, "gaps": gaps}
