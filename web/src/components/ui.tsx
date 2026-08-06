@@ -20,8 +20,8 @@ export function BrandMark({ size = 28 }: { size?: number }) {
   )
 }
 
-export function Card({ className, children, style }: { className?: string; children: ReactNode; style?: React.CSSProperties }) {
-  return <div className={clsx('card', className)} style={style}>{children}</div>
+export function Card({ className, children, style, onClick }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
+  return <div className={clsx('card', className)} style={style} onClick={onClick}>{children}</div>
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {

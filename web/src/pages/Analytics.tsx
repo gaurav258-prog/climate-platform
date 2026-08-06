@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
 } from 'recharts'
-import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2 } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
@@ -29,25 +29,38 @@ const SCEN = [
 const HZ: [string, string][] = [['current', 'Now'], ['2030', '2030'], ['2050', '2050'], ['2100', '2100']]
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(0)}m` : `€${Math.round(n / 1e3)}k`
+const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleString('en-GB')
 const totExposed = (d?: Disc) => d ? Object.values(d.by_hazard).reduce((s, v) => s + (v.exposed_value_eur || 0), 0) : null
+const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
+
+// the metric the hero trajectory plots — all three come from the same scenario grid
+const METRICS = [
+  { key: 'var', label: 'Value at risk', fmt: eur, val: (d?: Disc) => totExposed(d) },
+  { key: 'tax', label: 'Taxonomy-eligible', fmt: eur, val: (d?: Disc) => d?.taxonomy?.eligible?.value_eur ?? null },
+  { key: 'em', label: 'Financed emissions', fmt: tco2e, val: (d?: Disc) => sumEm(d) },
+] as const
 
 export default function Analytics() {
   const { profile } = useAuth()
   const prefix = PREFIX[profile?.org?.type ?? '']
+  const canDrill = profile?.org?.type === 'bank'   // only the loan book returns the per-asset array to drill into
   // the two parameters the user drives — a live "what-if": scenario × horizon. They recompute the headline
   // figures and mark the point on the trajectory. `sel` is the scenario key; `hz` is the horizon index.
   const [sel, setSel] = useState('hot_house_3_5c')
   const [hz, setHz] = useState(3)   // 0..3 → Now / 2030 / 2050 / 2100
+  const [metricKey, setMetricKey] = useState<'var' | 'tax' | 'em'>('var')
   const [asTable, setAsTable] = useState(false)
+  const [drill, setDrill] = useState<string | null>(null)   // hazard key for the drill-down drawer
 
-  // the full 4×4 grid, one query per (scenario, horizon) — cached individually
+  // the full 4×4 grid, one query per (scenario, horizon) — SLIM (aggregates only; the per-asset array is
+  // fetched on demand for drill-down), cached individually
   const specs = useMemo(() => SCEN.flatMap(s => HZ.map(([h]) => ({ s: s.key, h }))), [])
   const results = useQueries({
     queries: specs.map(({ s, h }) => ({
       queryKey: ['analytics-grid', prefix, s, h],
       enabled: !!prefix,
       staleTime: 5 * 60 * 1000,
-      queryFn: () => api.get<Disc>(`/v1/${prefix}/disclosure?scenario=${s}&horizon=${h}`),
+      queryFn: () => api.get<Disc>(`/v1/${prefix}/disclosure?scenario=${s}&horizon=${h}&slim=1`),
     })),
   })
   const at = (scen: string, hIdx: number): Disc | undefined => results[specs.findIndex(x => x.s === scen && x.h === HZ[hIdx][0])]?.data
@@ -59,10 +72,15 @@ export default function Analytics() {
     </div>
   )
 
-  // trajectory rows for the hero line chart: one column per scenario
+  // which metrics have data (asset managers/insurers have no financed-emissions block → hide that pathway)
+  const metrics = METRICS.filter(m => m.key !== 'em' || SCEN.some((s, si) => HZ.some((_, hi) => m.val(results[si * 4 + hi]?.data) != null)))
+  const metric = metrics.find(m => m.key === metricKey) ?? metrics[0]
+  const hasEm = metrics.some(m => m.key === 'em')   // financed-emissions block present (banks only)
+
+  // trajectory rows for the hero line chart: the SELECTED metric, one column per scenario
   const traj = HZ.map(([, lbl], hi) => {
     const row: Record<string, number | string | null> = { hz: lbl }
-    SCEN.forEach(s => { row[s.key] = totExposed(at(s.key, hi)) })
+    SCEN.forEach(s => { row[s.key] = metric.val(at(s.key, hi)) })
     return row
   })
 
@@ -76,11 +94,10 @@ export default function Analytics() {
   const taxNow = sparkTax[0].v, taxEnd = sparkTax[hz].v
   const emNow = sparkEm[0].v, emEnd = sparkEm[hz].v
   const hzLabel = HZ[hz][1]
-  // tighten the hero y-axis to the data band (padded, rounded to €100m) so the divergence is legible
+  const heroY = metric.val(at(sel, hz))   // the marker point on the hero, for the selected pathway/horizon/metric
+  // tighten the hero y-axis to the data band (padded) so the divergence is legible, for any metric magnitude
   const vals = traj.flatMap(r => SCEN.map(s => r[s.key]).filter(v => typeof v === 'number')) as number[]
-  const yDomain: [number, number] = vals.length
-    ? [Math.floor(Math.min(...vals) * 0.94 / 1e8) * 1e8, Math.ceil(Math.max(...vals) * 1.04 / 1e8) * 1e8]
-    : [0, 1]
+  const yDomain: [number, number] = vals.length ? [Math.min(...vals) * 0.94, Math.max(...vals) * 1.04] : [0, 1]
 
   // hazard facets for the selected scenario: top hazards by exposure at the selected horizon
   const hazards = useMemo(() => {
@@ -130,26 +147,39 @@ export default function Analytics() {
         </div>
       </Card>
 
-      {/* headline KPIs — recomputed for the selected pathway × horizon (delta vs the same pathway Now) */}
-      <div className="grid sm:grid-cols-3 gap-3">
+      {/* headline KPIs — recomputed for the selected pathway × horizon (delta vs the same pathway Now).
+          Financed emissions only where the book carries them (banks) — hidden for asset managers / insurers. */}
+      <div className={`grid gap-3 ${hasEm ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={eur(end)} base={now} end={end} spark={sparkVar} mark={hz} tone={scen.color} worseUp loading={loading} />
         <Kpi label="Taxonomy-eligible" sub={`green asset base · ${hzLabel}`} value={eur(taxEnd)} base={taxNow} end={taxEnd} spark={sparkTax} mark={hz} tone="var(--scn-baseline)" loading={loading} />
-        <Kpi label="Financed emissions" sub={`tCO₂e · ${hzLabel}`} value={emEnd == null ? '—' : Math.round(emEnd).toLocaleString('en-GB')} base={emNow} end={emEnd} spark={sparkEm} mark={hz} tone={scen.color} worseUp loading={loading} />
+        {hasEm && <Kpi label="Financed emissions" sub={`tCO₂e · ${hzLabel}`} value={emEnd == null ? '—' : Math.round(emEnd).toLocaleString('en-GB')} base={emNow} end={emEnd} spark={sparkEm} mark={hz} tone={scen.color} worseUp loading={loading} />}
       </div>
 
       {asTable ? <TrajTable at={at} /> : (
         <>
-          {/* hero — scenario trajectories */}
+          {/* hero — scenario trajectories for the selected metric */}
           <Card className="p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-[var(--color-line)]">
-              <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Value exposed at High+ · by warming pathway</span>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {SCEN.map(s => (
-                  <button key={s.key} onClick={() => setSel(s.key)} title="Focus this pathway"
-                    className="inline-flex items-center gap-1.5 text-[11px] transition" style={{ color: sel === s.key ? 'var(--color-ink)' : 'var(--color-mute)', opacity: sel === s.key ? 1 : 0.6 }}>
-                    <span className="w-3 rounded-full" style={{ height: sel === s.key ? 4 : 3, background: s.color }} />{s.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2">
+                {metrics.length > 1 && (
+                  <div className="flex gap-0.5 p-0.5 rounded-lg border border-[var(--color-line-2)]">
+                    {metrics.map(m => (
+                      <button key={m.key} onClick={() => setMetricKey(m.key)} className={`px-2 py-0.5 rounded-md mono text-[10px] uppercase tracking-wide transition ${metric.key === m.key ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>{m.label}</button>
+                    ))}
+                  </div>
+                )}
+                <span className="mono text-[10px] text-[var(--color-faint)]">by warming pathway</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {SCEN.map(s => (
+                    <button key={s.key} onClick={() => setSel(s.key)} title="Focus this pathway"
+                      className="inline-flex items-center gap-1.5 text-[11px] transition" style={{ color: sel === s.key ? 'var(--color-ink)' : 'var(--color-mute)', opacity: sel === s.key ? 1 : 0.6 }}>
+                      <span className="w-3 rounded-full" style={{ height: sel === s.key ? 4 : 3, background: s.color }} />{s.label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => exportCsv(metric, traj)} title="Download the projection as CSV" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={14} /></button>
               </div>
             </div>
             <div className="px-4 py-6" style={{ height: 380 }}>
@@ -158,8 +188,8 @@ export default function Analytics() {
                   <LineChart data={traj} margin={{ top: 8, right: 20, bottom: 4, left: 8 }}>
                     <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
                     <XAxis dataKey="hz" tick={{ fill: 'var(--color-faint)', fontSize: 11.5 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} dy={8} padding={{ left: 12, right: 12 }} />
-                    <YAxis domain={yDomain} tickFormatter={(v) => eur(v)} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
-                    <Tooltip content={<HeroTip />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                    <YAxis domain={yDomain} tickFormatter={metric.fmt} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
+                    <Tooltip content={(p) => <HeroTip {...p} fmt={metric.fmt} />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                     {/* the selected horizon, marked live */}
                     <ReferenceLine x={hzLabel} stroke="var(--color-line-2)" strokeDasharray="4 4" />
                     {SCEN.map(s => {
@@ -171,7 +201,7 @@ export default function Analytics() {
                           isAnimationActive={false} connectNulls />
                       )
                     })}
-                    {typeof end === 'number' && <ReferenceDot x={hzLabel} y={end} r={6} fill={scen.color} stroke="var(--color-bg-2)" strokeWidth={2.5} isFront />}
+                    {typeof heroY === 'number' && <ReferenceDot x={hzLabel} y={heroY} r={6} fill={scen.color} stroke="var(--color-bg-2)" strokeWidth={2.5} isFront />}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -192,9 +222,9 @@ export default function Analytics() {
                 {hazards.map(h => {
                   const d = hazTraj(h); const a = d[0].v, b = d[hz].v
                   return (
-                    <Card key={h} className="p-3">
+                    <Card key={h} className={`p-3 ${canDrill ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`} onClick={canDrill ? () => setDrill(h) : undefined}>
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="text-[12.5px] text-[var(--color-ink)] leading-snug capitalize">{hazardLabel(h)}</div>
+                        <div className="text-[12.5px] text-[var(--color-ink)] leading-snug capitalize">{hazardLabel(h)}{canDrill && <span className="text-[var(--color-faint)] group-hover:text-[var(--color-sky)]"> →</span>}</div>
                         <Delta base={a} cmp={b} />
                       </div>
                       <div className="mono text-[17px] tabular-nums text-[var(--color-ink)] mb-1">{eur(b)}<span className="text-[10.5px] text-[var(--color-faint)] ml-1.5">at {hzLabel}</span></div>
@@ -222,13 +252,70 @@ export default function Analytics() {
           </div>
         </>
       )}
+
+      {drill && canDrill && <DrillDrawer prefix={prefix} hazard={drill} scenario={sel} horizonKey={HZ[hz][0]}
+        scenarioLabel={scen.label} horizonLabel={hzLabel} onClose={() => setDrill(null)} />}
     </div>
   )
 }
 
-const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
+interface DrillAsset { asset_id: string; asset_name: string; value_eur: number | null; country: string | null; region: string | null; hazards: { hazard: string; score: number | null; bucket: string | null }[] }
+const BUCKET: Record<string, { label: string; color: string }> = {
+  VH: { label: 'Severe', color: 'var(--color-bad)' }, H: { label: 'High', color: 'var(--scn-disorderly)' },
+  M: { label: 'Elevated', color: 'var(--scn-orderly)' }, L: { label: 'Low', color: 'var(--color-faint)' },
+}
 
-function HeroTip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string }) {
+// drill-down — the exposures driving one hazard at the selected pathway/horizon. Fetches the FULL disclosure
+// (with the per-asset array) on demand, filters to assets exposed to this hazard at High+, ranks by value.
+function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, horizonLabel, onClose }:
+  { prefix: string; hazard: string; scenario: string; horizonKey: string; scenarioLabel: string; horizonLabel: string; onClose: () => void }) {
+  const q = useQuery({
+    queryKey: ['analytics-drill', prefix, scenario, horizonKey],
+    queryFn: () => api.get<{ assets: DrillAsset[] }>(`/v1/${prefix}/disclosure?scenario=${scenario}&horizon=${horizonKey}`),
+  })
+  const rows = (q.data?.assets ?? [])
+    .map(a => ({ a, hz: a.hazards?.find(x => x.hazard === hazard) }))
+    .filter(x => x.hz && (x.hz.bucket === 'H' || x.hz.bucket === 'VH'))
+    .sort((x, y) => (y.a.value_eur ?? 0) - (x.a.value_eur ?? 0))
+    .slice(0, 20)
+  const total = rows.reduce((s, x) => s + (x.a.value_eur ?? 0), 0)
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-md h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)]" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
+          <div>
+            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Exposures driving this hazard</div>
+            <div className="text-[15px] font-semibold capitalize mt-0.5">{hazardLabel(hazard)}</div>
+            <div className="mono text-[10px] text-[var(--color-faint)]">{scenarioLabel} · {horizonLabel}</div>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+        </div>
+        {q.isLoading ? <div className="p-8 text-[13px] text-[var(--color-faint)]">reading the book…</div>
+          : rows.length === 0 ? <div className="p-8 text-[13px] text-[var(--color-faint)]">No exposures at High+ for this hazard under the selected pathway.</div>
+          : (
+            <div className="p-5">
+              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at High+ · {eur(total)} exposed</div>
+              <div className="space-y-1.5">
+                {rows.map(({ a, hz }) => (
+                  <div key={a.asset_id} className="flex items-center gap-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.asset_name}</div>
+                      <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
+                    </div>
+                    <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: BUCKET[hz!.bucket ?? 'L']?.color, background: `color-mix(in oklab, ${BUCKET[hz!.bucket ?? 'L']?.color} 15%, transparent)` }}>{BUCKET[hz!.bucket ?? 'L']?.label ?? hz!.bucket}{hz!.score != null ? ` ${Math.round(hz!.score)}` : ''}</span>
+                    <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(a.value_eur)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+      </div>
+    </div>
+  )
+}
+
+function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string; fmt?: (n?: number | null) => string }) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl px-3 py-2">
@@ -239,12 +326,23 @@ function HeroTip({ active, payload, label }: { active?: boolean; payload?: { dat
           <div key={p.dataKey} className="flex items-center gap-2 text-[12px]">
             <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
             <span className="text-[var(--color-mute)] flex-1">{s?.label ?? p.dataKey}</span>
-            <span className="mono tabular-nums text-[var(--color-ink)]">{eur(p.value)}</span>
+            <span className="mono tabular-nums text-[var(--color-ink)]">{fmt(p.value)}</span>
           </div>
         )
       })}
     </div>
   )
+}
+
+// download the current metric's scenario × horizon grid as CSV
+function exportCsv(metric: typeof METRICS[number], traj: Record<string, number | string | null>[]) {
+  const head = ['Horizon', ...SCEN.map(s => s.label)]
+  const rows = traj.map(r => [r.hz, ...SCEN.map(s => { const v = r[s.key]; return typeof v === 'number' ? Math.round(v) : '' })])
+  const csv = [head, ...rows].map(r => r.join(',')).join('\n')
+  const blob = new Blob([`# ${metric.label} — projected scenario × horizon\n${csv}\n`], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = `analytics-${metric.key}.csv`; a.click()
+  URL.revokeObjectURL(url)
 }
 
 function FacetTip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {

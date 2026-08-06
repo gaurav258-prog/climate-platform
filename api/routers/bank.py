@@ -225,8 +225,12 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
 
 @router.get("/disclosure", summary="TCFD / EU-Taxonomy disclosure pack from the projected book")
 def disclosure(session: DbSession, org_id: OrgId,
-               scenario: str = Query("baseline"), horizon: str = Query("current")):
+               scenario: str = Query("baseline"), horizon: str = Query("current"),
+               slim: bool = Query(False, description="omit the per-asset array (aggregates only) — for the "
+                                                     "Analytics scenario grid, which needs only the totals")):
     snapshot = build_disclosure_snapshot(session, org_id, scenario, horizon)
+    if slim:
+        snapshot.pop("assets", None)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon, **snapshot}
 
 
