@@ -4,7 +4,7 @@ import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lu
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Lens } from '../components/ui'
-import { hazardLabel, frameworkLabel, prettify } from '../lib/hazards'
+import { frameworkLabel, prettify } from '../lib/hazards'
 import { filingLink, taskLink } from '../lib/links'
 
 // Control Tower — every open validation/reconciliation exception across all filings, in one prioritised

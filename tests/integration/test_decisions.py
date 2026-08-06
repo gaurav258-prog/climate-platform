@@ -19,13 +19,12 @@ def test_crossings_and_decision_flow():
     with get_session() as s:
         rows = D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100")
         assert isinstance(rows, list)
-        if not rows:
-            pytest.skip("no crossings in this demo book for the chosen pathway")
-        c = rows[0]
+        c = next((x for x in rows if x["decision"] is None), None)   # robust to demo data already decided
+        if c is None:
+            pytest.skip("no undecided crossings in this demo book for the chosen pathway")
         # every crossing genuinely crosses the line: below High today (or unseen), High+ at the horizon
         assert c["future_score"] >= D.AT_RISK
         assert c["current_score"] is None or c["current_score"] < D.AT_RISK
-        assert c["decision"] is None
         maker = _actor(s)
         checker = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
         # turn ON 4-eyes for this org (default is OFF — a customer choice), then propose
@@ -99,6 +98,39 @@ def test_playbook_routes_task_and_notifies():
         assert t["assignee_user_id"] == analyst and t["due_date"] is not None
         em = s.execute(text("SELECT to_email FROM email_outbox WHERE kind='decision' ORDER BY created_at DESC LIMIT 1")).scalar()
         assert em == "analyst@meridian.demo"
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_monitor_watchlist_and_recheck_escalates():
+    """An approved 'monitor' decision opens a watch; the re-check re-scores it and escalates only when the
+    exposure has deteriorated past the margin since it was watched."""
+    with get_session() as s:
+        rows = D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100")
+        c = next((x for x in rows if x["decision"] is None), None)
+        if c is None:
+            pytest.skip("no undecided crossings")
+        maker = _actor(s)
+        s.execute(text("""INSERT INTO approval_policy (org_id, action_key, requires_approval)
+                          VALUES (:o,'risk.decision',FALSE)
+                          ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL DO UPDATE SET requires_approval=FALSE"""), {"o": BANK_ORG})
+        D.set_playbook(s, BANK_ORG, maker, "monitor", {"watchlist": True, "due_days": 90})
+        r = D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
+                     scenario="hot_house_3_5c", horizon="2100", action="monitor", rationale="keep an eye", value_eur=c["value_eur"])
+        assert r["status"] == "approved"
+        w = next((x for x in D.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"]), None)
+        assert w is not None and w["status"] == "watching" and w["review_date"] is not None
+        # re-check at the same projection → no deterioration, stays watching
+        esc = D.recheck_watchlist(s, BANK_ORG, due_only=False)
+        assert all(e["entity_name"] != c["entity_name"] for e in esc)
+        # simulate a worse projection since the watch opened → re-check escalates
+        s.execute(text("UPDATE decision_watchlist SET baseline_score = last_score - 10, last_delta = NULL, status='watching' WHERE org_id=:o AND entity_id=CAST(:e AS uuid)"),
+                  {"o": BANK_ORG, "e": c["entity_id"]})
+        esc2 = D.recheck_watchlist(s, BANK_ORG, due_only=False)
+        hit = next((e for e in esc2 if e["entity_name"] == c["entity_name"]), None)
+        assert hit is not None and hit["delta"] >= D.WATCH_DETERIORATION
+        w2 = next(x for x in D.watchlist(s, BANK_ORG) if x["entity_name"] == c["entity_name"])
+        assert w2["status"] == "escalated"
         s.rollback()
 
 

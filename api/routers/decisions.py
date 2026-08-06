@@ -72,3 +72,25 @@ def resolve_flag(flag_id: str, session: DbSession, status: str = "included",
     except D.DecisionError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
     return Response(status_code=204)
+
+
+@router.get("/watchlist", summary="Exposures on the monitor watchlist")
+def watchlist(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"watches": D.watchlist(session, ctx["org"]["org_id"])}
+
+
+@router.post("/watchlist/recheck", summary="Re-score the watchlist now (escalates further deterioration)")
+def recheck(session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    escalated = D.recheck_watchlist(session, ctx["org"]["org_id"], due_only=False)
+    return {"escalated": escalated, "n": len(escalated)}
+
+
+@router.post("/watchlist/{watch_id}/resolve", status_code=204, summary="Clear a watch (or mark it escalated)")
+def resolve_watch(watch_id: str, session: DbSession, status: str = "cleared",
+                  ctx: dict = Depends(require_permission("approvals.create"))):
+    from fastapi import Response
+    try:
+        D.resolve_watch(session, ctx["org"]["org_id"], watch_id, ctx["user"]["id"], status)
+    except D.DecisionError as e:
+        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    return Response(status_code=204)

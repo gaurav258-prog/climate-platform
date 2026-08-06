@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, ShieldAlert, History, Check, Clock } from 'lucide-react'
+import { ArrowRight, ShieldAlert, History, Check, Clock, Eye, RefreshCw, TrendingUp, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
@@ -18,7 +18,7 @@ const ACTIONS: { key: string; label: string; tone: string; desc: string }[] = [
   { key: 'reprice', label: 'Reprice', tone: 'var(--scn-disorderly)', desc: 'Re-price the exposure to reflect the higher climate risk — adjust the margin, spread or terms at the next renewal. Spins a board task.' },
   { key: 'engage', label: 'Engage', tone: 'var(--scn-baseline)', desc: 'Contact the counterparty to understand and reduce the risk (adaptation / transition plan) before repricing or exiting. Spins a board task.' },
   { key: 'disclose', label: 'Disclose', tone: 'var(--scn-orderly)', desc: 'Flag this exposure to include in the climate-risk disclosure / regulatory filing for the period. Spins a board task.' },
-  { key: 'monitor', label: 'Monitor', tone: 'var(--color-mute)', desc: 'No action yet — keep watching; revisit as the projection updates. No board task.' },
+  { key: 'monitor', label: 'Monitor', tone: 'var(--color-mute)', desc: 'No action yet — put the exposure on a watchlist with a re-review date. A scheduled re-check re-scores it and escalates if it deteriorates further (when enabled in the playbook).' },
   { key: 'accept', label: 'Accept', tone: 'var(--color-faint)', desc: 'Formally accept the risk with no change, rationale on record. No board task.' },
 ]
 const actionMeta = (k?: string | null) => ACTIONS.find(a => a.key === k)
@@ -99,6 +99,9 @@ export default function Decisions() {
               {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} onDone={refresh} />)}
             </div>}
       </Card>
+
+      {/* watchlist — from approved 'monitor' decisions */}
+      <Watchlist canAct={canAct} />
 
       {/* audit log */}
       {(lq.data?.decisions.length ?? 0) > 0 && (
@@ -192,6 +195,51 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
         </div>
       )}
     </div>
+  )
+}
+
+interface Watch { watch_id: string; entity_name: string | null; scenario: string; horizon: string; status: string; baseline_score: number | null; last_score: number | null; last_delta: number | null; review_date: string | null; last_checked_at: string | null; by: string | null }
+
+function Watchlist({ canAct }: { canAct: boolean }) {
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const q = useQuery({ queryKey: ['decision-watchlist'], queryFn: () => api.get<{ watches: Watch[] }>('/v1/decisions/watchlist') })
+  const watches = q.data?.watches ?? []
+  if (watches.length === 0) return null
+  const escalated = watches.filter(w => w.status === 'escalated').length
+  const recheck = async () => { setBusy(true); try { await api.post('/v1/decisions/watchlist/recheck', {}); qc.invalidateQueries({ queryKey: ['decision-watchlist'] }) } catch { /* no-op */ } finally { setBusy(false) } }
+  const resolve = async (id: string) => { try { await api.post(`/v1/decisions/watchlist/${id}/resolve?status=cleared`, {}); qc.invalidateQueries({ queryKey: ['decision-watchlist'] }) } catch { /* no-op */ } }
+  const dfmt = (s: string | null) => s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
+        <Eye size={15} className="text-[var(--color-mute)]" />
+        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Watchlist · from monitor decisions</span>
+        {escalated > 0 && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-bad)', background: 'color-mix(in oklab, var(--color-bad) 15%, transparent)' }}>{escalated} escalated</span>}
+        <span className="ml-auto mono text-[10px] text-[var(--color-faint)]">{watches.length} watched</span>
+        {canAct && <button onClick={recheck} disabled={busy} title="Re-score every watch now — escalates any that deteriorated further" className="inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-mute)] hover:text-[var(--color-ink)]"><RefreshCw size={11} className={busy ? 'animate-spin' : ''} /> re-check</button>}
+      </div>
+      <div className="divide-y divide-[var(--color-line)]">
+        {watches.map(w => {
+          const esc = w.status === 'escalated'
+          return (
+            <div key={w.watch_id} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
+              {esc && <TrendingUp size={13} className="text-[var(--color-bad)] shrink-0" />}
+              <div className="min-w-0 flex-1">
+                <span className="text-[var(--color-ink)]">{w.entity_name ?? '—'}</span>
+                <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{scLabel(w.scenario)} · {w.horizon}{w.review_date ? ` · review ${dfmt(w.review_date)}` : ''}</span>
+              </div>
+              <div className="mono text-[11px] tabular-nums shrink-0 flex items-center gap-1.5">
+                <span className="text-[var(--color-mute)]">{w.baseline_score ?? '—'}</span>
+                {w.last_score != null && <><ArrowRight size={11} className="text-[var(--color-faint)]" /><span style={{ color: esc ? 'var(--color-bad)' : 'var(--color-mute)' }}>{w.last_score}</span>{w.last_delta != null && w.last_delta !== 0 && <span style={{ color: w.last_delta > 0 ? 'var(--color-bad)' : 'var(--color-good)' }}>({w.last_delta > 0 ? '+' : ''}{w.last_delta})</span>}</>}
+              </div>
+              {esc && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: 'var(--color-bad)', background: 'color-mix(in oklab, var(--color-bad) 15%, transparent)' }}>deteriorated</span>}
+              {canAct && <button onClick={() => resolve(w.watch_id)} title="Clear from the watchlist" className="text-[var(--color-faint)] hover:text-[var(--color-good)] shrink-0"><X size={13} /></button>}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
   )
 }
 

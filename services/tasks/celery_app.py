@@ -27,7 +27,8 @@ celery_app = Celery(
     # hazard_tasks.py, so none of its @celery_app.task decorators run and the
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
-    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks"],
+    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
+             "services.tasks.decision_tasks"],
 )
 
 celery_app.conf.update(
@@ -64,5 +65,11 @@ celery_app.conf.beat_schedule = {
     "drain-email-outbox": {
         "task": "emails.drain_outbox",
         "schedule": 120.0,   # seconds
+    },
+    # Re-check the decision watchlist daily — re-scores every 'monitor' watch that's due, escalates further
+    # deterioration, and alerts the watcher. The task itself filters to due watches, so this is cheap.
+    "recheck-decision-watchlist": {
+        "task": "decisions.recheck_watchlist",
+        "schedule": crontab(hour=6, minute=30),   # once a day, early
     },
 }

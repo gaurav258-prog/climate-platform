@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, X, MapPin, Factory } from 'lucide-react'
+import { ChevronRight, X, Factory } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'

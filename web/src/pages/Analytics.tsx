@@ -68,7 +68,7 @@ export default function Analytics() {
   // pathway. Taxonomy-eligibility and financed emissions are point-in-time BOOK facts (a classification and a
   // PCAF footprint) that the physical projection doesn't touch, so they're shown as current-book KPIs, not
   // scenario trajectories. `hasEm` gates the emissions KPI (asset managers / insurers carry no such block).
-  const hasEm = SCEN.some((s, si) => HZ.some((_, hi) => sumEm(results[si * 4 + hi]?.data) != null))
+  const hasEm = SCEN.some((_, si) => HZ.some((_, hi) => sumEm(results[si * 4 + hi]?.data) != null))
 
   // trajectory rows for the hero line chart: value exposed at High+, one column per scenario
   const traj = HZ.map(([, lbl], hi) => {
@@ -184,7 +184,7 @@ export default function Analytics() {
                           isAnimationActive={false} connectNulls />
                       )
                     })}
-                    {typeof heroY === 'number' && <ReferenceDot x={hzLabel} y={heroY} r={6} fill={scen.color} stroke="var(--color-bg-2)" strokeWidth={2.5} isFront />}
+                    {typeof heroY === 'number' && <ReferenceDot x={hzLabel} y={heroY} r={6} fill={scen.color} stroke="var(--color-bg-2)" strokeWidth={2.5} />}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -298,12 +298,12 @@ function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, hori
   )
 }
 
-function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string; fmt?: (n?: number | null) => string }) {
+function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payload?: readonly any[]; label?: any; fmt?: (n?: number | null) => string }) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl px-3 py-2">
       <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">{label}</div>
-      {[...payload].sort((a, b) => b.value - a.value).map(p => {
+      {[...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map(p => {
         const s = SCEN.find(x => x.key === p.dataKey)
         return (
           <div key={p.dataKey} className="flex items-center gap-2 text-[12px]">
@@ -328,11 +328,11 @@ function exportCsv(traj: Record<string, number | string | null>[]) {
   URL.revokeObjectURL(url)
 }
 
-function FacetTip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
+function FacetTip({ active, payload, label }: { active?: boolean; payload?: readonly any[]; label?: any }) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl px-2.5 py-1.5 text-[11.5px]">
-      <span className="mono text-[var(--color-faint)]">{label}</span> <span className="mono tabular-nums text-[var(--color-ink)] ml-1.5">{eur(payload[0].value)}</span>
+      <span className="mono text-[var(--color-faint)]">{label}</span> <span className="mono tabular-nums text-[var(--color-ink)] ml-1.5">{eur(payload[0].value ?? null)}</span>
     </div>
   )
 }
@@ -377,7 +377,7 @@ function Kpi({ label, sub, value, base, end, spark, mark, tone, worseUp = false,
               </defs>
               <Tooltip content={<FacetTip />} cursor={{ stroke: 'var(--color-line-2)' }} />
               <Area type="monotone" dataKey="v" stroke={tone} strokeWidth={1.75} fill={`url(#${gid})`} isAnimationActive={false} dot={false} activeDot={{ r: 3, stroke: 'var(--color-bg-2)', strokeWidth: 1.5 }} />
-              {mark != null && spark[mark] && <ReferenceDot x={spark[mark].hz} y={spark[mark].v} r={3.5} fill={tone} stroke="var(--color-bg-2)" strokeWidth={1.5} isFront />}
+              {mark != null && spark[mark] && <ReferenceDot x={spark[mark].hz} y={spark[mark].v} r={3.5} fill={tone} stroke="var(--color-bg-2)" strokeWidth={1.5} />}
             </AreaChart>
           </ResponsiveContainer>
         </div>

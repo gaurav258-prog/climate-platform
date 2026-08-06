@@ -852,16 +852,18 @@ function DecisionPlaybook() {
         <div key={p.action} className="px-4 py-3 border-b border-[var(--color-line)] last:border-0">
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="text-[13.5px] text-[var(--color-ink)] font-medium">{p.label} <span className="mono text-[10px] text-[var(--color-faint)] ml-1">{p.org_override ? 'org' : 'default'}</span></div>
-            {p.spin_task && (
+            {(p.spin_task || p.watchlist) && (
               <div className="flex items-center gap-2">
-                <select value={p.assignee_user_id ?? ''} onChange={e => set(p, { assignee_user_id: e.target.value || null })} disabled={busy === p.action}
-                  className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] outline-none">
-                  <option value="">unassigned</option>
-                  {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
-                </select>
+                {p.spin_task && (
+                  <select value={p.assignee_user_id ?? ''} onChange={e => set(p, { assignee_user_id: e.target.value || null })} disabled={busy === p.action}
+                    className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] outline-none">
+                    <option value="">unassigned</option>
+                    {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
+                  </select>
+                )}
                 <div className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line)] px-2 py-1">
                   <input type="number" min={0} defaultValue={p.due_days ?? 0} onBlur={e => { const v = Math.max(0, Number(e.target.value) || 0); if (v !== (p.due_days ?? 0)) set(p, { due_days: v }) }} className="w-12 bg-transparent text-[11.5px] mono outline-none" />
-                  <span className="text-[10.5px] text-[var(--color-faint)]">days to do</span>
+                  <span className="text-[10.5px] text-[var(--color-faint)]">{p.spin_task ? 'days to do' : 'days to re-review'}</span>
                 </div>
               </div>
             )}

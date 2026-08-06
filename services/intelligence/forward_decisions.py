@@ -17,6 +17,8 @@ ACTIONS = ("reprice", "engage", "disclose", "monitor", "accept")
 ACTIONABLE = {"engage", "reprice", "disclose"}
 _TASK_TITLE = {"engage": "Engage counterparty", "reprice": "Reprice at renewal", "disclose": "Disclose climate risk"}
 VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insurance", "reit": "realestate"}
+WATCH_REVIEW_DAYS = 90               # default re-review cadence for a 'monitor' watch (overridable per playbook)
+WATCH_DETERIORATION = 2.0            # score points a watched exposure must worsen by to escalate on re-check
 
 
 class DecisionError(ValueError):
@@ -177,6 +179,19 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
                 mailer.dispatch(session)
         except Exception:
             pass
+    if pb.get("watchlist") and entity_id:
+        # put the exposure on a watchlist with a re-review date; the scheduled re-check re-scores it and
+        # escalates if it deteriorates further. Baseline = the projected High+ score it was watched under.
+        review_days = int(pb["due_days"]) if pb.get("due_days") is not None else WATCH_REVIEW_DAYS
+        base = _projected_score(session, org_id, entity_id, scenario, horizon)
+        session.execute(text("""
+            INSERT INTO decision_watchlist (org_id, entity_id, entity_name, scenario, horizon, decision_id,
+                                            baseline_score, review_date, added_by)
+            VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :base,
+                    (CURRENT_DATE + (:rd || ' days')::interval)::date, :u)
+            ON CONFLICT (org_id, entity_id) WHERE status = 'watching' DO NOTHING
+        """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did,
+               "base": base, "rd": review_days, "u": actor})
     if pb.get("flag_disclosure") and entity_id:
         # flag the exposure for the next climate filing — the reporting team sees it in the cockpit
         session.execute(text("""
@@ -214,6 +229,113 @@ def resolve_disclosure_flag(session: Session, org_id: str, flag_id: str, actor: 
         UPDATE decision_disclosure_flag SET status = :s, resolved_by = :u, resolved_at = now()
         WHERE org_id = :o AND flag_id = CAST(:f AS uuid) AND status = 'open'
     """), {"s": status, "u": actor, "o": org_id, "f": flag_id})
+
+
+def _projected_score(session: Session, org_id: str, entity_id: str, scenario: str | None,
+                     horizon: str | None) -> float | None:
+    """The worst priceable-hazard physical-risk score for one exposure under (scenario, horizon) — the same
+    number the crossings view ranks on (heat_acute excluded, matching the headline convention)."""
+    if not scenario or not horizon:
+        return None
+    return session.execute(text("""
+        SELECT MAX(v.physical_risk_score)
+        FROM v_portfolio_entity_physical_risk v
+        WHERE v.org_id = :o AND v.entity_id = CAST(:e AS uuid) AND v.hazard_type <> 'heat_acute'
+          AND v.scenario = :s AND v.time_horizon = :h
+    """), {"o": org_id, "e": entity_id, "s": scenario, "h": horizon}).scalar()
+
+
+def watchlist(session: Session, org_id: str) -> list[dict]:
+    """Open 'monitor' watches for this org — what Risk is actively watching, with the re-review date, the
+    projection it was watched under, and (once re-checked) whether it has deteriorated further."""
+    rows = session.execute(text("""
+        SELECT w.watch_id::text AS watch_id, w.entity_name, w.scenario, w.horizon, w.baseline_score,
+               w.review_date, w.status, w.last_checked_at, w.last_score, w.last_delta, u.email AS by, w.added_at
+        FROM decision_watchlist w LEFT JOIN users u ON u.user_id = w.added_by
+        WHERE w.org_id = :o AND w.status IN ('watching','escalated')
+        ORDER BY (w.status = 'escalated') DESC, COALESCE(w.last_delta, 0) DESC, w.review_date NULLS LAST
+    """), {"o": org_id}).mappings().all()
+    return [{"watch_id": r["watch_id"], "entity_name": r["entity_name"], "scenario": r["scenario"],
+             "horizon": r["horizon"], "status": r["status"],
+             "baseline_score": round(r["baseline_score"], 1) if r["baseline_score"] is not None else None,
+             "last_score": round(r["last_score"], 1) if r["last_score"] is not None else None,
+             "last_delta": round(r["last_delta"], 1) if r["last_delta"] is not None else None,
+             "review_date": r["review_date"].isoformat() if r["review_date"] else None,
+             "last_checked_at": r["last_checked_at"].isoformat() if r["last_checked_at"] else None,
+             "by": r["by"], "at": r["added_at"].isoformat()} for r in rows]
+
+
+def resolve_watch(session: Session, org_id: str, watch_id: str, actor: str, status: str = "cleared") -> None:
+    if status not in ("cleared", "escalated"):
+        raise DecisionError("status must be 'cleared' or 'escalated'")
+    session.execute(text("""
+        UPDATE decision_watchlist SET status = :s, resolved_by = :u, resolved_at = now()
+        WHERE org_id = :o AND watch_id = CAST(:w AS uuid) AND status IN ('watching','escalated')
+    """), {"s": status, "u": actor, "o": org_id, "w": watch_id})
+
+
+def recheck_watchlist(session: Session, org_id: str | None = None, *, due_only: bool = False) -> list[dict]:
+    """Re-score every open watch against the projection it was opened under and record the result. A watch
+    that has worsened by ≥ WATCH_DETERIORATION points is ESCALATED and an alert raised (notify the watcher +
+    a webhook). Returns the escalations. `due_only` (the scheduled beat) limits to watches past their review
+    date; the manual trigger re-checks all. Each alert is best-effort — one failure never blocks the rest."""
+    clause = "w.org_id = :o AND" if org_id else ""
+    due = "AND (w.review_date IS NULL OR w.review_date <= CURRENT_DATE)" if due_only else ""
+    rows = session.execute(text(f"""
+        SELECT w.watch_id::text AS watch_id, w.org_id::text AS org_id, w.entity_id::text AS entity_id,
+               w.entity_name, w.scenario, w.horizon, w.baseline_score, w.added_by::text AS added_by
+        FROM decision_watchlist w
+        WHERE {clause} w.status = 'watching' {due}
+    """), {"o": org_id} if org_id else {}).mappings().all()
+    escalations = []
+    for w in rows:
+        score = _projected_score(session, w["org_id"], w["entity_id"], w["scenario"], w["horizon"])
+        base = w["baseline_score"]
+        delta = (score - base) if (score is not None and base is not None) else None
+        worsened = delta is not None and delta >= WATCH_DETERIORATION
+        session.execute(text("""
+            UPDATE decision_watchlist SET last_checked_at = now(), last_score = :sc, last_delta = :dl,
+                   status = CASE WHEN :esc THEN 'escalated' ELSE status END
+            WHERE watch_id = CAST(:w AS uuid)
+        """), {"sc": score, "dl": delta, "esc": worsened, "w": w["watch_id"]})
+        if not worsened:
+            continue
+        escalations.append({"watch_id": w["watch_id"], "entity_name": w["entity_name"],
+                            "scenario": w["scenario"], "horizon": w["horizon"],
+                            "baseline_score": round(base, 1), "score": round(score, 1), "delta": round(delta, 1)})
+        _alert_deterioration(session, w, score, base, delta)
+    return escalations
+
+
+def _alert_deterioration(session: Session, w: dict, score: float, base: float, delta: float) -> None:
+    """A watched exposure has deteriorated further — notify the watcher and fire the webhook. Best-effort."""
+    try:
+        from services.notifications import mailer
+        email = session.execute(text("SELECT email FROM users WHERE user_id = CAST(:u AS uuid)"),
+                                {"u": w["added_by"]}).scalar() if w.get("added_by") else None
+        if email:
+            oid = mailer.queue_email(
+                session, org_id=w["org_id"], to_email=email,
+                subject=f"Watchlist alert · {w['entity_name']} deteriorated further",
+                html=f'<p>An exposure you are monitoring, <b>{w["entity_name"]}</b>, has deteriorated further under '
+                     f'{w["scenario"]} · {w["horizon"]}: projected risk score {base:.0f} → <b>{score:.0f}</b> '
+                     f'(+{delta:.0f}). It has been escalated on your watchlist.</p>',
+                text_body=f"{w['entity_name']} deteriorated further under {w['scenario']} · {w['horizon']}: "
+                          f"{base:.0f} → {score:.0f} (+{delta:.0f}). Escalated on your watchlist.\n",
+                kind="decision", ref_type="watch", ref_id=str(w["watch_id"]))
+            if oid:
+                mailer.dispatch(session)
+    except Exception:
+        pass
+    try:
+        from services.integrations.webhooks import emit_event
+        emit_event(session, w["org_id"], "risk.watch.deteriorated", {
+            "watch_id": w["watch_id"], "entity_id": w["entity_id"], "entity_name": w["entity_name"],
+            "scenario": w["scenario"], "horizon": w["horizon"],
+            "baseline_score": round(base, 1), "score": round(score, 1), "delta": round(delta, 1),
+        })
+    except Exception:
+        pass
 
 
 def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_name: str | None,

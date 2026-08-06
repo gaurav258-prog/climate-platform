@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ExternalLink, FileText, CalendarClock, Building2, CheckCircle2, Clock, Download, Upload } from 'lucide-react'
-import { api, download } from '../lib/api'
+import { api } from '../lib/api'
 import { Card } from './ui'
 
 // What must this org report, to whom, how often, with links to the actual regulation + official form, the

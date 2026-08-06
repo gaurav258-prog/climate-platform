@@ -36,7 +36,6 @@ export default function CommodityDetail() {
   const horizons = [...new Set(d.projections.map(p => p.time_horizon))].sort()
   const scenarios = [...new Set(d.projections.map(p => p.scenario))]
   const at = (sc: string, h: string) => d.projections.find(p => p.scenario === sc && p.time_horizon === h) ?? null
-  const cell = (sc: string, h: string) => at(sc, h)?.avg_score ?? null
 
   return (
     <div className="fadeup space-y-6">

@@ -41,6 +41,7 @@ KNOWN_EVENTS = [
     {"type": "approval.decided",       "label": "A governed change was approved or rejected (publish / release / apply)"},
     {"type": "filing.frozen",          "label": "A disclosure was frozen to an immutable snapshot"},
     {"type": "risk.decision.approved", "label": "A forward-risk decision was approved (reprice / engage / disclose / …)"},
+    {"type": "risk.watch.deteriorated","label": "A monitored exposure deteriorated further on re-check"},
     {"type": "test.ping",              "label": "A manual test event"},
 ]
 

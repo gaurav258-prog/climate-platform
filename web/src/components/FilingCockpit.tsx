@@ -26,7 +26,7 @@ interface FilingSummary { filing_id: string; framework: string; label: string; p
 interface FilingEvent { from: string | null; to: string; action: string; detail: Record<string, unknown>; at: string; actor: string | null; actor_email: string | null }
 interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
-  export_formats?: string[]
+  export_formats?: string[]; superseded_by?: string | null
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
 interface CaseLink { case_id: string; regulator: string; reference: string | null; stage: string; n_messages: number }
