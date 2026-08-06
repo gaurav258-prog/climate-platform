@@ -48,11 +48,43 @@ def data_dictionary(session: Session) -> dict:
          "data_vintage": None, "mapped": True, "consumed_by": ["SFDR", "TCFD"]},
     ]
 
+    # reporting datapoints by framework — each classified by where the data comes from (source category)
+    # and how it enters Tellumen (ingestion lane), read from the canonical datapoint catalog.
+    from services.governance.datapoint_catalog import CATALOG, coverage_source
+    from services.governance.reg_reference import reference as _ref
+    frameworks = []
+    for fw, dps in CATALOG.items():
+        ref = _ref(fw) or {}
+        frameworks.append({
+            "framework": fw,
+            "label": ref.get("official_name", fw),
+            "datapoints": [{"label": d["label"], "source_category": d["source_category"], "lane": d["lane"],
+                            "provider": d["provider"], "note": d["note"], "coverage": coverage_source(d["lane"])}
+                           for d in dps],
+        })
+
     return {
         "fields": fields + reference,
         "summary": {
             "hazard_fields": len(fields),
             "mapped_to_source": sum(1 for f in fields if f["mapped"]),
             "note": "One golden model, sourced once on the H3 cell and reused across every reporting area.",
+        },
+        "frameworks": frameworks,
+        "legend": {
+            "source_category": {
+                "tellumen": "Our engine + authoritative feeds (the physical & nature moat)",
+                "egov": "Free government / agency dataset we integrate",
+                "evendor": "Commercial 3rd-party dataset you license",
+                "customer": "Your proprietary data / judgement / narrative",
+                "none": "Not produced by this platform",
+            },
+            "lane": {
+                "compute": "Tellumen computes it (no input step)",
+                "granular": "You upload raw data; we process it",
+                "provided": "You / your vendor pre-calculate; we reconcile it",
+                "report": "Final input captured on the filing form",
+                "none": "Out of scope",
+            },
         },
     }

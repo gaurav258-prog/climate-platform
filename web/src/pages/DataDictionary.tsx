@@ -10,9 +10,17 @@ import { hazardLabel } from '../lib/hazards'
 
 interface Feed { name: string; maturity: string | null; status: string | null }
 interface Field { field: string; category: string; type: string; source_feeds: Feed[]; data_vintage: string | null; mapped: boolean; consumed_by: string[] }
-interface Resp { fields: Field[]; summary: { hazard_fields: number; mapped_to_source: number; note: string } }
+interface Datapoint { label: string; source_category: string; lane: string; provider: string | null; note: string | null; coverage: string }
+interface Fw { framework: string; label: string; datapoints: Datapoint[] }
+interface Resp { fields: Field[]; summary: { hazard_fields: number; mapped_to_source: number; note: string }; frameworks?: Fw[] }
 
 const feedDot = (m: string | null, s: string | null) => s === 'overdue' || s === 'failed' ? '#fb7185' : m === 'live' || s === 'fresh' ? '#34d399' : m === 'estimated' || m === 'proxy' ? '#f0a860' : '#94a3b8'
+// how a reporting datapoint is sourced + how it enters Tellumen
+const SRCC: Record<string, { l: string; c: string }> = {
+  tellumen: { l: 'Tellumen', c: 'var(--color-good)' }, egov: { l: 'Free-gov', c: 'var(--color-sky)' },
+  evendor: { l: 'Vendor', c: '#f0a860' }, customer: { l: 'You', c: '#a78bfa' }, none: { l: 'Gap', c: 'var(--color-faint)' },
+}
+const LANE: Record<string, string> = { compute: 'we compute', granular: 'you upload → we process', provided: 'you provide → we reconcile', report: 'final input on form', none: '—' }
 
 export default function DataDictionary() {
   const q = useQuery({ queryKey: ['data-dictionary'], queryFn: () => api.get<Resp>('/v1/meta/data-dictionary') })
@@ -86,6 +94,36 @@ export default function DataDictionary() {
                   </div>
                 </div>
               )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* reporting datapoints — where each comes from (source category) and how it enters Tellumen (lane) */}
+      {d?.frameworks && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)]">
+            <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Reporting datapoints · where each comes from & how it enters Tellumen</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+              {Object.entries(SRCC).map(([k, v]) => <span key={k} className="inline-flex items-center gap-1.5 mono text-[9.5px] text-[var(--color-faint)]"><span className="w-1.5 h-1.5 rounded-full" style={{ background: v.c }} />{v.l}</span>)}
+            </div>
+          </div>
+          <div className="divide-y divide-[var(--color-line)]">
+            {d.frameworks.map(fw => (
+              <div key={fw.framework} className="px-5 py-3">
+                <div className="text-[13px] text-[var(--color-ink)] mb-2">{fw.label}</div>
+                <div className="space-y-1.5">
+                  {fw.datapoints.map((dp, i) => (
+                    <div key={i} className="flex items-start gap-3 text-[12px]">
+                      <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 w-16 text-center" style={{ color: SRCC[dp.source_category]?.c, background: `color-mix(in oklab, ${SRCC[dp.source_category]?.c} 14%, transparent)` }}>{SRCC[dp.source_category]?.l}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[var(--color-mute)]">{dp.label}</div>
+                        <div className="mono text-[9.5px] text-[var(--color-faint)]">{LANE[dp.lane]}{dp.provider ? ` · ${dp.provider}` : ''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
