@@ -236,13 +236,26 @@ def _sfdr_kri(session: Session, org_id: str) -> dict:
                 "by_hazard": [], "history": [], "note": st["error"]}
     ent = st.get("entity", {})
     cs = st.get("coverage_summary", {})
+    ind = {i["number"]: i for i in (st.get("indicators") or [])}
+
+    def _val(n):
+        return (ind.get(n) or {}).get("value")
+    em1 = _val(1)
+    total_em = em1.get("total") if isinstance(em1, dict) else em1   # PAI 1 total (Scope 1-3)
+    # The mandatory climate PAI indicators, surfaced as KRIs (values, not just counts) — the RTS Annex I
+    # Table 1 climate block. Each is the value-weighted figure the fund statement already computes.
     kpis = [
         _kpi("nav", "NAV in scope", ent.get("total_value_eur"), "eur"),
         _kpi("positions", "Positions", ent.get("positions"), "num"),
+        _kpi("pai_emissions", "Financed emissions", total_em, "num", hint="tCO₂e · PAI 1 total (Scope 1-3)"),
+        _kpi("carbon_footprint", "Carbon footprint", _val(2), "num", hint="tCO₂e per €M invested · SFDR PAI 2"),
+        _kpi("waci", "WACI", _val(3), "num", hint="Weighted-avg carbon intensity · tCO₂e/€M revenue · PAI 3"),
+        _kpi("fossil_fuel", "Fossil-fuel exposure", _val(4), "pct", hint="Share of value in fossil-fuel companies · PAI 4"),
+        _kpi("non_renewable", "Non-renewable energy", _val(5), "pct", hint="Share of non-renewable energy · PAI 5"),
+        _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
+             hint="Share of NAV with issuer emissions data"),
         _kpi("indicators", "PAI indicators computed", cs.get("computed"), "num",
              hint=f'of {cs.get("mandatory_indicators")} mandatory'),
-        _kpi("emissions_cov", "Emissions coverage", cs.get("emissions_coverage_pct"), "pct",
-             tone="#f0a860" if (cs.get("emissions_coverage_pct") or 0) < 50 else None),
     ]
     history = [{"label": h["label"], "filing_id": h["filing_id"],
                 "total_value": (h["payload"].get("entity") or {}).get("total_value_eur"),
