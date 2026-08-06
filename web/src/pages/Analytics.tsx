@@ -4,7 +4,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
 } from 'recharts'
-import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
@@ -264,12 +264,19 @@ function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, hori
     queryKey: ['analytics-drill', prefix, scenario, horizonKey],
     queryFn: () => api.get<{ assets: DrillAsset[] }>(`/v1/${prefix}/disclosure?scenario=${scenario}&horizon=${horizonKey}`),
   })
+  const [openSev, setOpenSev] = useState<Record<string, boolean>>({})
   const rows = (q.data?.assets ?? [])
     .map(a => ({ a, hz: a.hazards?.find(x => x.hazard === hazard) }))
     .filter(x => x.hz && (x.hz.bucket === 'H' || x.hz.bucket === 'VH'))
     .sort((x, y) => (y.a.value_eur ?? 0) - (x.a.value_eur ?? 0))
-    .slice(0, 20)
   const total = rows.reduce((s, x) => s + (x.a.value_eur ?? 0), 0)
+  // group the exposures by severity band so the list reads as neat, collapsible sections
+  const SEV = [['VH', 'Severe'], ['H', 'High'], ['M', 'Elevated'], ['L', 'Low']] as const
+  const groups = SEV.map(([bk, label]) => {
+    const items = rows.filter(x => x.hz!.bucket === bk)
+    return { bk, label, items, sum: items.reduce((s, x) => s + (x.a.value_eur ?? 0), 0), color: BUCKET[bk]?.color ?? '#8891a0' }
+  }).filter(g => g.items.length)
+  const isOpen = (bk: string) => openSev[bk] ?? (bk === groups[0]?.bk)   // most-severe group open by default
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
@@ -287,17 +294,35 @@ function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, hori
           : (
             <div className="p-5">
               <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at High+ · {eur(total)} exposed</div>
-              <div className="space-y-1.5">
-                {rows.map(({ a, hz }) => (
-                  <div key={a.asset_id} className="flex items-center gap-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.asset_name}</div>
-                      <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
+              <div className="space-y-2">
+                {groups.map(g => {
+                  const open = isOpen(g.bk)
+                  return (
+                    <div key={g.bk} className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                      <button onClick={() => setOpenSev(o => ({ ...o, [g.bk]: !open }))}
+                        className="w-full flex items-center gap-2 px-3 py-2 bg-[var(--color-panel)] hover:bg-[var(--color-bg-2)] transition">
+                        <ChevronRight size={14} className={`shrink-0 text-[var(--color-faint)] transition-transform ${open ? 'rotate-90' : ''}`} />
+                        <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: g.color, background: `color-mix(in oklab, ${g.color} 15%, transparent)` }}>{g.label}</span>
+                        <span className="mono text-[11px] text-[var(--color-mute)]">{g.items.length} exposure{g.items.length === 1 ? '' : 's'}</span>
+                        <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] ml-auto">{eur(g.sum)}</span>
+                      </button>
+                      {open && (
+                        <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
+                          {g.items.map(({ a, hz }) => (
+                            <div key={a.asset_id} className="flex items-center gap-3 px-3 py-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.asset_name}</div>
+                                <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
+                              </div>
+                              <span className="mono text-[10.5px] tabular-nums shrink-0" style={{ color: g.color }}>{hz!.score != null ? Math.round(hz!.score) : ''}</span>
+                              <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(a.value_eur)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: BUCKET[hz!.bucket ?? 'L']?.color, background: `color-mix(in oklab, ${BUCKET[hz!.bucket ?? 'L']?.color} 15%, transparent)` }}>{BUCKET[hz!.bucket ?? 'L']?.label ?? hz!.bucket}{hz!.score != null ? ` ${Math.round(hz!.score)}` : ''}</span>
-                    <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(a.value_eur)}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
