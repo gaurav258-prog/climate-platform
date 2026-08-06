@@ -155,6 +155,7 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
     official link + form), how often + to which regulator + by when, what data to supply, when it was last
     filed, and the full list of prior filings (for access to previously submitted reports)."""
     from services.governance.reg_reference import reference
+    from services.governance.filing_coverage import coverage as _coverage
     out = []
     for f in available_frameworks(org_type):
         fk = f["framework"]
@@ -182,6 +183,7 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
             **f, **ref,
             "due_label": f"{spec['frequency']} · by {due_d} {_MONTHS[due_m]}" if due_m else spec["frequency"],
             "n_filings": len(filings), "last_filed": last, "filings": filings,
+            "coverage": _coverage(fk),
         })
     return out
 

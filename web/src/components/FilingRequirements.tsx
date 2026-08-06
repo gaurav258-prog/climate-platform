@@ -9,13 +9,23 @@ import { Card } from './ui'
 // reporting workflow — it sits above the filing calendar/register in the cockpit.
 
 interface Filing { filing_id: string; period_label: string; status: string; submission_ref: string | null; snapshot_version: number | null; entity_name: string | null; filed_at: string | null }
+interface CovSection { section: string; source: string }
+interface Coverage { sections: CovSection[]; counts: Record<string, number>; total: number; pct_computed: number }
 interface Req {
   framework: string; label: string; official_name?: string; authority?: string; legal_basis?: string
   regulator: string; due_label: string; url?: string; summary?: string; official_form?: string; form_url?: string; inputs?: string
-  entity_scoped: boolean; n_filings: number; last_filed: Filing | null; filings: Filing[]
+  entity_scoped: boolean; n_filings: number; last_filed: Filing | null; filings: Filing[]; coverage?: Coverage | null
 }
 
 const ST: Record<string, string> = { draft: '#94a3b8', in_review: '#e8b24c', returned: '#e8b24c', approved: '#5cc8ff', attested: '#a78bfa', submitted: '#2dd4bf', accepted: '#34d399', rejected: '#fb7185', superseded: '#64748b' }
+// how a filing section is sourced — the honest coverage vocabulary
+const SRC: Record<string, { label: string; color: string }> = {
+  computed:     { label: 'Produced from your data', color: 'var(--color-good)' },
+  integrated:   { label: 'Needs your input / feed', color: '#e8b24c' },
+  client:       { label: 'You author', color: 'var(--color-sky)' },
+  out_of_scope: { label: 'Not covered', color: 'var(--color-faint)' },
+}
+const SRC_ORDER = ['computed', 'integrated', 'client', 'out_of_scope']
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
 export default function FilingRequirements({ onOpen }: { onOpen: (id: string) => void }) {
@@ -42,6 +52,14 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
                       <div className="text-[14px] text-[var(--color-ink)] truncate">{r.official_name || r.label} <span className="mono text-[10px] text-[var(--color-bad)] uppercase tracking-wide ml-1">mandatory</span></div>
                       <div className="mono text-[11px] text-[var(--color-faint)] truncate flex items-center gap-1"><Building2 size={11} /> {r.regulator} · <CalendarClock size={11} /> {r.due_label}</div>
                     </div>
+                    {r.coverage && (
+                      <div className="hidden md:flex flex-col items-end shrink-0 w-32" title={`Tellumen produces ${r.coverage.pct_computed}% of this filing from your data`}>
+                        <div className="mono text-[11px]" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% <span className="text-[var(--color-faint)]">from your data</span></div>
+                        <div className="flex w-28 h-1.5 rounded-full overflow-hidden mt-1 bg-[var(--color-line)]">
+                          {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                        </div>
+                      </div>
+                    )}
                     <div className="text-right shrink-0 w-40">
                       {r.last_filed
                         ? <div className="mono text-[11px]" style={{ color: ST[r.last_filed.status] ?? 'var(--color-mute)' }}><span className="inline-flex items-center gap-1"><CheckCircle2 size={11} /> last filed {r.last_filed.period_label}</span></div>
@@ -52,6 +70,27 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
                   {isOpen && (
                     <div className="px-5 pb-5 pt-1 bg-[var(--color-bg-2)] space-y-4">
                       {r.summary && <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed max-w-3xl">{r.summary}</p>}
+                      {/* honest coverage — how much of this filing we produce from your data, section by section */}
+                      {r.coverage && (
+                        <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                          <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-[var(--color-line)]">
+                            <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Tellumen coverage of this filing</span>
+                            <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% produced from your data</span>
+                          </div>
+                          <div className="flex h-2 bg-[var(--color-line)]">
+                            {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} title={`${r.coverage!.counts[s]} × ${SRC[s].label}`} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                          </div>
+                          <div className="divide-y divide-[var(--color-line)]">
+                            {r.coverage.sections.map((sec, i) => (
+                              <div key={i} className="flex items-center gap-2.5 px-3.5 py-2 text-[12px]">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: SRC[sec.source]?.color }} />
+                                <span className="text-[var(--color-mute)] flex-1 min-w-0">{sec.section}</span>
+                                <span className="mono text-[9.5px] uppercase tracking-wide shrink-0" style={{ color: SRC[sec.source]?.color }}>{SRC[sec.source]?.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[12px]">
                         <Kv k="Legal basis" v={r.legal_basis} />
                         <Kv k="Regulator" v={r.regulator} />
