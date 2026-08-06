@@ -15,6 +15,7 @@ import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
 import Compliance from './pages/Compliance'
 import Analytics from './pages/Analytics'
+import Decisions from './pages/Decisions'
 import Tasks from './pages/Tasks'
 import Exceptions from './pages/Exceptions'
 import Calendar from './pages/Calendar'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/decisions" element={<Decisions />} />
         <Route path="/sourcing" element={<Sourcing />} />
         <Route path="/operations" element={<Operations />} />
         <Route path="/detail/site/:id" element={<DetailView kind="site" />} />
