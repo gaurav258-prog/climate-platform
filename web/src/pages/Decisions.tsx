@@ -14,12 +14,12 @@ import { hazardLabel } from '../lib/hazards'
 const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
 const SCEN: [string, string][] = [['orderly_1_5c', 'Orderly 1.5°C'], ['disorderly_2c', 'Disorderly 2°C'], ['hot_house_3_5c', 'Hot-house 3.5°C']]
 const HZ = ['2030', '2050', '2100']
-const ACTIONS: { key: string; label: string; tone: string }[] = [
-  { key: 'reprice', label: 'Reprice', tone: 'var(--scn-disorderly)' },
-  { key: 'engage', label: 'Engage', tone: 'var(--scn-baseline)' },
-  { key: 'disclose', label: 'Disclose', tone: 'var(--scn-orderly)' },
-  { key: 'monitor', label: 'Monitor', tone: 'var(--color-mute)' },
-  { key: 'accept', label: 'Accept', tone: 'var(--color-faint)' },
+const ACTIONS: { key: string; label: string; tone: string; desc: string }[] = [
+  { key: 'reprice', label: 'Reprice', tone: 'var(--scn-disorderly)', desc: 'Re-price the exposure to reflect the higher climate risk — adjust the margin, spread or terms at the next renewal. Spins a board task.' },
+  { key: 'engage', label: 'Engage', tone: 'var(--scn-baseline)', desc: 'Contact the counterparty to understand and reduce the risk (adaptation / transition plan) before repricing or exiting. Spins a board task.' },
+  { key: 'disclose', label: 'Disclose', tone: 'var(--scn-orderly)', desc: 'Flag this exposure to include in the climate-risk disclosure / regulatory filing for the period. Spins a board task.' },
+  { key: 'monitor', label: 'Monitor', tone: 'var(--color-mute)', desc: 'No action yet — keep watching; revisit as the projection updates. No board task.' },
+  { key: 'accept', label: 'Accept', tone: 'var(--color-faint)', desc: 'Formally accept the risk with no change, rationale on record. No board task.' },
 ]
 const actionMeta = (k?: string | null) => ACTIONS.find(a => a.key === k)
 
@@ -174,12 +174,14 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-3 space-y-2.5">
           <div className="flex flex-wrap gap-1.5">
             {ACTIONS.map(a => (
-              <button key={a.key} onClick={() => setAction(a.key)} className={`px-2.5 py-1.5 rounded-lg text-[12px] border transition ${action === a.key ? 'border-transparent text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}
+              <button key={a.key} onClick={() => setAction(a.key)} title={a.desc} className={`px-2.5 py-1.5 rounded-lg text-[12px] border transition ${action === a.key ? 'border-transparent text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}
                 style={action === a.key ? { background: `color-mix(in oklab, ${a.tone} 16%, transparent)` } : undefined}>
                 <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: a.tone }} />{a.label}</span>
               </button>
             ))}
           </div>
+          {/* what the chosen action means — clarifies the decision in place */}
+          <div className="text-[11.5px] text-[var(--color-mute)] min-h-[16px]">{action ? actionMeta(action)?.desc : 'Pick an action — hover any option to see what it does.'}</div>
           <textarea value={rationale} onChange={e => setRationale(e.target.value)} rows={2} placeholder="Rationale (recorded in the audit log)…"
             className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[12.5px] outline-none focus:border-[var(--color-sky)] resize-none" />
           <div className="flex items-center gap-2">
