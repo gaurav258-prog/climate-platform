@@ -84,7 +84,7 @@ export default function FundDetail() {
   return (
     <div className="fadeup space-y-6">
       <div>
-        <Eyebrow>Asset management · SFDR · fund</Eyebrow>
+        <Eyebrow>Asset management · SFDR (Sustainable Finance Disclosure Regulation) · fund</Eyebrow>
         <div className="flex items-center gap-3 mt-2 mb-1">
           <h1 className="display text-3xl font-semibold">{s.fund.name}</h1>
           <SfdrBadge c={s.fund.sfdr_classification} />

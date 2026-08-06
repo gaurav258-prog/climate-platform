@@ -62,7 +62,7 @@ export default function Disclosure() {
     <div className="fadeup space-y-7">
       <div>
         <Eyebrow>Agriculture · Sense → Score → Act</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Disclosure &amp; EUDR</h1>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Disclosure &amp; EUDR (EU Deforestation Regulation)</h1>
         <p className="text-[var(--color-mute)] text-sm max-w-2xl">
           Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot —
           computed from satellite data, traceable end to end.

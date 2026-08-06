@@ -40,7 +40,7 @@ export default function EsrsPack() {
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
           <Eyebrow>Compliance · corporate sustainability reporting</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">ESRS Climate &amp; Nature pack</h1>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">ESRS (European Sustainability Reporting Standards) Climate &amp; Nature pack</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">
             The ESRS topics driven by our physical-climate &amp; deforestation engine — climate physical risk (E1),
             water (E3) and biodiversity/deforestation (E4) — assembled filing-grade to slot into your wider CSRD

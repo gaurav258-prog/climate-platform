@@ -46,7 +46,7 @@ export default function Csrd() {
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
           <Eyebrow>Compliance · corporate sustainability reporting</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">CSRD · ESRS E1 physical risk</h1>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">CSRD (Corporate Sustainability Reporting Directive) · ESRS E1 physical risk</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">
             The physical-climate-risk section your CSRD report must disclose (ESRS E1-9, anticipated financial
             effects), assembled from your own sites and your sourcing book on the golden source. A euro is shown as a

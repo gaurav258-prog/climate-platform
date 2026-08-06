@@ -41,7 +41,7 @@ export default function Funds() {
   return (
     <div className="fadeup space-y-6">
       <div>
-        <Eyebrow>Asset management · SFDR</Eyebrow>
+        <Eyebrow>Asset management · SFDR (Sustainable Finance Disclosure Regulation)</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Funds</h1>
         <p className="text-[var(--color-mute)] text-sm max-w-2xl">Each fund's physical &amp; transition climate risk and its SFDR Principal-Adverse-Impact statement — assembled from your holdings against the golden source, ready to file.</p>
       </div>
