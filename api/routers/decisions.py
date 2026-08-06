@@ -56,3 +56,19 @@ def decide(body: DecideBody, session: DbSession, ctx: dict = Depends(require_per
 @router.get("/log", summary="The decision audit log")
 def log(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return {"decisions": D.decisions_log(session, ctx["org"]["org_id"])}
+
+
+@router.get("/disclosure-flags", summary="Exposures flagged for the next climate filing")
+def disclosure_flags(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"flags": D.disclosure_flags(session, ctx["org"]["org_id"])}
+
+
+@router.post("/disclosure-flags/{flag_id}/resolve", status_code=204, summary="Mark a disclosure flag included / dismissed")
+def resolve_flag(flag_id: str, session: DbSession, status: str = "included",
+                 ctx: dict = Depends(require_permission("approvals.create"))):
+    from fastapi import Response
+    try:
+        D.resolve_disclosure_flag(session, ctx["org"]["org_id"], flag_id, ctx["user"]["id"], status)
+    except D.DecisionError as e:
+        raise HTTPException(400, {"error": "bad_request", "message": str(e)})
+    return Response(status_code=204)

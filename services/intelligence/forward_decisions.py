@@ -177,6 +177,13 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
                 mailer.dispatch(session)
         except Exception:
             pass
+    if pb.get("flag_disclosure") and entity_id:
+        # flag the exposure for the next climate filing — the reporting team sees it in the cockpit
+        session.execute(text("""
+            INSERT INTO decision_disclosure_flag (org_id, entity_id, entity_name, scenario, horizon, decision_id, flagged_by)
+            VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :u)
+            ON CONFLICT (org_id, entity_id) WHERE status = 'open' DO NOTHING
+        """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did, "u": actor})
     if pb.get("webhook"):
         try:
             from services.integrations.webhooks import emit_event
@@ -187,6 +194,26 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
         except Exception:
             pass
     return task
+
+
+def disclosure_flags(session: Session, org_id: str) -> list[dict]:
+    """Exposures flagged (by an approved 'disclose' decision) for the next climate filing — the Act→Report bridge."""
+    rows = session.execute(text("""
+        SELECT f.flag_id::text AS flag_id, f.entity_name, f.scenario, f.horizon, f.flagged_at, u.email AS by
+        FROM decision_disclosure_flag f LEFT JOIN users u ON u.user_id = f.flagged_by
+        WHERE f.org_id = :o AND f.status = 'open' ORDER BY f.flagged_at DESC
+    """), {"o": org_id}).mappings().all()
+    return [{"flag_id": r["flag_id"], "entity_name": r["entity_name"], "scenario": r["scenario"],
+             "horizon": r["horizon"], "by": r["by"], "at": r["flagged_at"].isoformat()} for r in rows]
+
+
+def resolve_disclosure_flag(session: Session, org_id: str, flag_id: str, actor: str, status: str = "included") -> None:
+    if status not in ("included", "dismissed"):
+        raise DecisionError("status must be 'included' or 'dismissed'")
+    session.execute(text("""
+        UPDATE decision_disclosure_flag SET status = :s, resolved_by = :u, resolved_at = now()
+        WHERE org_id = :o AND flag_id = CAST(:f AS uuid) AND status = 'open'
+    """), {"s": status, "u": actor, "o": org_id, "f": flag_id})
 
 
 def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_name: str | None,
