@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Lens } from '../components/ui'
@@ -12,10 +12,12 @@ import { filingLink } from '../lib/links'
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean }
+interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
+interface Readiness { core: number; covered: number; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string }
+interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness }
 const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
 // the appetite band in words, in the KRI's own unit
 const bandNote = (k: Kpi) => {
@@ -61,6 +63,22 @@ export default function Kri() {
         : (
         <>
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
+          {/* regulator framing — what the supervisor expects to see before you file, and how ready you are */}
+          {d.regulator && (
+            <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <ShieldCheck size={15} className="text-[var(--color-sky)]" />
+                <span className="text-[12.5px] text-[var(--color-ink)]">What your regulator expects before you file — <b>{d.regulator.authority}</b></span>
+                {d.readiness && (
+                  <span className="ml-auto mono text-[10.5px]" style={{ color: d.readiness.covered >= d.readiness.core ? 'var(--color-good)' : 'var(--color-warn)' }}>
+                    {d.readiness.covered}/{d.readiness.core} regulator datapoints covered
+                  </span>
+                )}
+              </div>
+              <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.regulator.disclosure}{d.regulator.form_url ? <> · <a href={d.regulator.form_url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">official form ↗</a></> : ''}</div>
+              {d.readiness && d.readiness.gaps.length > 0 && <div className="mono text-[10px] text-[var(--color-warn)] mt-1">awaiting data: {d.readiness.gaps.join(' · ')}</div>}
+            </div>
+          )}
           {d.scope_note && <div className="mono text-[10.5px] text-[var(--color-faint)]">{d.scope_note}</div>}
           {(d.breaches ?? 0) > 0 && (
             <div className="flex items-center gap-2 rounded-lg px-3.5 py-2.5" style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: '1px solid color-mix(in oklab, #fb7185 30%, transparent)' }}>
@@ -78,6 +96,7 @@ export default function Kri() {
                   {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
                   <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{fmt(k)}</div>
                   <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2" title={k.hint ?? undefined}>{k.label}{k.hint ? ' ⓘ' : ''}</div>
+                  {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
                   {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
                 </Card>
               )

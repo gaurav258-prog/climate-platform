@@ -33,9 +33,13 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
                 "message": "No KRI dashboard for this framework yet."}
     # grade every KPI against the org's appetite bands → green / amber / red (a monitored control, not a number)
     if result.get("supported") and result.get("kpis"):
-        from services.governance import kri_thresholds
+        from services.governance import kri_thresholds, kri_regmap
         kri_thresholds.apply(session, org_id, result["framework"], result["kpis"])
         result["breaches"] = sum(1 for k in result["kpis"] if k.get("breached"))
+        # regulator framing: name the supervisor/disclosure, tag each KRI with the datapoint it feeds, and
+        # summarise submission-readiness (which core datapoints the regulator expects are covered)
+        result["regulator"] = kri_regmap.regulator(result["framework"])
+        result["readiness"] = kri_regmap.annotate(result["framework"], result["kpis"])
     return result
 
 
