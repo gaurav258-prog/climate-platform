@@ -13,6 +13,7 @@ import FilingPreflight from './FilingPreflight'
 import FilingRequirements from './FilingRequirements'
 import FilingCoverage from './FilingCoverage'
 import DisclosureFlags from './DisclosureFlags'
+import ProvidedData from './ProvidedData'
 import FilingForm from './FilingForm'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
@@ -97,6 +98,9 @@ export default function FilingCockpit() {
 
       {/* Act → Report: exposures a forward-risk decision flagged for this period's disclosure */}
       <DisclosureFlags />
+
+      {/* Lane 2 · values calculated on your/vendor side — reconciled + attested before they land in a filing */}
+      <ProvidedData />
 
       {/* 5 · reporting basis (the regulatory parameters new filings freeze — period-end + materiality) */}
       <FilingBasis />

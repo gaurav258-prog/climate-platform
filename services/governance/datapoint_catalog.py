@@ -25,9 +25,11 @@ evendor/provided to egov/compute).
 from __future__ import annotations
 
 
-def _dp(key, label, source, lane, provider=None, note=None, recon_tol=None):
+def _dp(key, label, source, lane, provider=None, note=None, recon_tol=None, reconcilable=False):
+    # `reconcilable` = though Tellumen computes/estimates this, the customer may PROVIDE their own figure
+    # (e.g. an audited number) to reconcile/override it via Lane 2 — a bring-your-own-number cross-check.
     return {"key": key, "label": label, "source_category": source, "lane": lane,
-            "provider": provider, "note": note, "recon_tol": recon_tol}
+            "provider": provider, "note": note, "recon_tol": recon_tol, "reconcilable": reconcilable}
 
 
 # lane → the coverage bucket the customer sees on the filing-coverage panel
@@ -41,8 +43,8 @@ CATALOG: dict[str, list[dict]] = {
         _dp("phys_risk", "Physical climate-risk exposure — value at risk by hazard, scenario × horizon",
             "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)"),
         _dp("financed_emissions", "Financed emissions — PCAF Scope 1–3",
-            "tellumen", "compute", provider="Tellumen PCAF engine",
-            note="Computed from counterparty emissions; needs an issuer-emissions feed (ESG vendor) or falls back to a NACE-intensity estimate."),
+            "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
+            note="Computed from counterparty emissions; needs an issuer-emissions feed (ESG vendor) or falls back to a NACE-intensity estimate. You can provide an audited PCAF figure to reconcile against it."),
         _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility (GAR numerator)",
             "tellumen", "compute", provider="Tellumen + your loan book"),
         _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment: DNSH + minimum safeguards (→ Green Asset Ratio)",

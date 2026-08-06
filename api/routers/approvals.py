@@ -224,6 +224,11 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     elif row["request_type"] == "risk.decision":
         from services.intelligence.forward_decisions import apply_decision as apply_risk_decision
         applied = apply_risk_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+    # Provided datapoint (Lane 2): on attestation the customer/vendor value is signed off and may land in a
+    # filing; 4-eyes (checker ≠ maker) is enforced above.
+    elif row["request_type"] == "provided.datapoint":
+        from services.governance.provided_data import attest as attest_provided
+        applied = attest_provided(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,
