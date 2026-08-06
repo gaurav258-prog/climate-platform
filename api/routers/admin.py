@@ -285,6 +285,50 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
             "material_fields": mats, "threshold_eur": thr, "org_override": True}
 
 
+# ── Decision playbook: which decision → which automated downstream actions (on approval) ──────────────────
+_DECISION_LABELS = {"reprice": "Reprice", "engage": "Engage", "disclose": "Disclose",
+                    "monitor": "Monitor", "accept": "Accept"}
+
+
+class PlaybookPatch(BaseModel):
+    action:           str
+    spin_task:        Optional[bool] = None
+    assignee_user_id: Optional[str] = None
+    due_days:         Optional[int] = None
+    notify:           Optional[bool] = None
+    flag_disclosure:  Optional[bool] = None
+    watchlist:        Optional[bool] = None
+    webhook:          Optional[bool] = None
+
+
+@router.get("/decision-playbook", summary="The decision playbook — automations that fire when a decision is approved")
+def get_decision_playbook(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.intelligence.forward_decisions import playbook
+    pb = playbook(session, ctx["org"]["org_id"])
+    members = session.execute(text("""
+        SELECT user_id::text AS user_id, email, full_name FROM users WHERE org_id = :o AND status = 'active' ORDER BY email
+    """), {"o": ctx["org"]["org_id"]}).mappings().all()
+    order = ["reprice", "engage", "disclose", "monitor", "accept"]
+    return {
+        "members": [{"user_id": m["user_id"], "email": m["email"], "name": m["full_name"]} for m in members],
+        "playbook": [{"action": a, "label": _DECISION_LABELS[a], **pb.get(a, {})} for a in order if a in pb],
+    }
+
+
+@router.patch("/decision-playbook", summary="Set the automations for one decision action")
+def set_decision_playbook(body: PlaybookPatch, session: DbSession,
+                          ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.intelligence.forward_decisions import set_playbook, DecisionError
+    patch = {k: v for k, v in body.model_dump().items() if k != "action" and v is not None}
+    try:
+        row = set_playbook(session, ctx["org"]["org_id"], ctx["user"]["id"], body.action, patch)
+    except DecisionError as e:
+        raise HTTPException(422, {"error": "bad_request", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="decision_playbook.update",
+                target_type="decision_playbook", target_id=body.action, detail=patch)
+    return {"action": body.action, **row}
+
+
 # ── Control center: the customer-admin cockpit (identity + data health + governance) ──────
 
 class OrgPatch(BaseModel):

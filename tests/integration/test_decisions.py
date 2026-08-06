@@ -77,6 +77,32 @@ def test_four_eyes_policy_is_configurable():
 
 
 @pytest.mark.integration
+def test_playbook_routes_task_and_notifies():
+    """The decision playbook drives what happens on approval: the spun card is auto-assigned + given a due
+    date, and a notify email is queued to the owner."""
+    with get_session() as s:
+        rows = D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100")
+        if not rows:
+            pytest.skip("no crossings")
+        c = rows[0]
+        maker = _actor(s)
+        analyst = str(s.execute(text("SELECT user_id FROM users WHERE email='analyst@meridian.demo'")).scalar())
+        # 4-eyes OFF so the decision auto-approves and runs the playbook inline; configure engage
+        s.execute(text("""INSERT INTO approval_policy (org_id, action_key, requires_approval)
+                          VALUES (:o,'risk.decision',FALSE)
+                          ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL DO UPDATE SET requires_approval=FALSE"""), {"o": BANK_ORG})
+        D.set_playbook(s, BANK_ORG, maker, "engage", {"spin_task": True, "assignee_user_id": analyst, "due_days": 7, "notify": True})
+        r = D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
+                     scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="t", value_eur=c["value_eur"])
+        assert r["status"] == "approved" and r["task_id"]
+        t = s.execute(text("SELECT assignee_user_id::text, due_date FROM regulatory_task WHERE task_id=:t"), {"t": r["task_id"]}).mappings().first()
+        assert t["assignee_user_id"] == analyst and t["due_date"] is not None
+        em = s.execute(text("SELECT to_email FROM email_outbox WHERE kind='decision' ORDER BY created_at DESC LIMIT 1")).scalar()
+        assert em == "analyst@meridian.demo"
+        s.rollback()
+
+
+@pytest.mark.integration
 def test_invalid_action_and_horizon_refused():
     with get_session() as s:
         u = _actor(s)

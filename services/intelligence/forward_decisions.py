@@ -85,6 +85,42 @@ def _live_decisions(session: Session, org_id: str, scenario: str, horizon: str) 
                        "by": r["by"], "checker": r["checker"], "at": r["decided_at"].isoformat()} for r in rows}
 
 
+_PLAYBOOK_FIELDS = ("spin_task", "assignee_user_id", "due_days", "notify", "flag_disclosure", "watchlist", "webhook")
+
+
+def playbook(session: Session, org_id: str) -> dict:
+    """The org's effective decision playbook (its rows over the platform defaults), keyed by action → the
+    automations to run when that decision is approved."""
+    rows = session.execute(text("""
+        SELECT DISTINCT ON (action) action, spin_task, assignee_user_id::text AS assignee_user_id, due_days,
+               notify, flag_disclosure, watchlist, webhook, (org_id IS NOT NULL) AS org_override
+        FROM decision_playbook WHERE org_id = :o OR org_id IS NULL
+        ORDER BY action, org_id NULLS LAST
+    """), {"o": org_id}).mappings().all()
+    return {r["action"]: dict(r) for r in rows}
+
+
+def set_playbook(session: Session, org_id: str, actor: str, action: str, patch: dict) -> dict:
+    """Upsert the org's row for one action. Only known automation fields are written."""
+    if action not in ACTIONS:
+        raise DecisionError(f"unknown action '{action}'")
+    cur = playbook(session, org_id).get(action, {})
+    merged = {f: patch.get(f, cur.get(f)) for f in _PLAYBOOK_FIELDS}
+    session.execute(text("""
+        INSERT INTO decision_playbook (org_id, action, spin_task, assignee_user_id, due_days, notify,
+                                       flag_disclosure, watchlist, webhook, updated_by, updated_at)
+        VALUES (:o, :a, :spin, CAST(:asg AS uuid), :due, :notify, :flag, :watch, :hook, :u, now())
+        ON CONFLICT (org_id, action) WHERE org_id IS NOT NULL
+        DO UPDATE SET spin_task=EXCLUDED.spin_task, assignee_user_id=EXCLUDED.assignee_user_id,
+                      due_days=EXCLUDED.due_days, notify=EXCLUDED.notify, flag_disclosure=EXCLUDED.flag_disclosure,
+                      watchlist=EXCLUDED.watchlist, webhook=EXCLUDED.webhook, updated_by=EXCLUDED.updated_by, updated_at=now()
+    """), {"o": org_id, "a": action, "spin": bool(merged["spin_task"]),
+           "asg": merged["assignee_user_id"] or None, "due": merged["due_days"],
+           "notify": bool(merged["notify"]), "flag": bool(merged["flag_disclosure"]),
+           "watch": bool(merged["watchlist"]), "hook": bool(merged["webhook"]), "u": actor})
+    return playbook(session, org_id).get(action, {})
+
+
 def decision_policy(session: Session, org_id: str) -> dict:
     """The org's 4-eyes rule for forward-risk decisions (its own row over the platform default). Onboarding-
     configurable via the approval matrix. requires_approval + an optional value threshold_eur."""
@@ -108,16 +144,49 @@ def _needs_four_eyes(session: Session, org_id: str, value_eur: float | None) -> 
     return (value_eur or 0) >= pol["threshold_eur"]   # on, threshold → only above the line
 
 
-def _spin_task(session: Session, org_id: str, actor: str, decision_id, action: str,
-               entity_name: str | None, scenario: str | None, horizon: str | None, rationale: str | None):
-    """Spin the Kanban card for an actionable, confirmed decision (engage / reprice / disclose)."""
-    if action not in ACTIONABLE:
-        return None
-    from services.governance.tasks import create_task
-    title = f"{_TASK_TITLE.get(action, action.title())} — {entity_name or 'exposure'}"
-    desc = f"Forward-risk decision ({action}) under {scenario} · by {horizon}. " + (rationale or "")
-    return create_task(session, org_id, actor, title=title, description=desc.strip(), criticality="high",
-                       source="decision", source_ref=f"decision:{decision_id}")
+def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *, entity_id: str | None,
+                  entity_name: str | None, scenario: str | None, horizon: str | None, rationale: str | None):
+    """Run the org's configured automations for a CONFIRMED decision — a Kanban card (auto-assigned + due),
+    a notification to the owner, and/or a webhook to the customer's endpoints. Off unless the playbook enables
+    them. Each is best-effort so one failing automation never rolls back the approval."""
+    pb = playbook(session, org_id).get(action, {})
+    label = _TASK_TITLE.get(action, action.title())
+    task = None
+    if pb.get("spin_task"):
+        from services.governance.tasks import create_task
+        due = None
+        if pb.get("due_days") is not None:
+            due = session.execute(text("SELECT (CURRENT_DATE + (:d || ' days')::interval)::date"),
+                                  {"d": int(pb["due_days"])}).scalar().isoformat()
+        title = f"{label} — {entity_name or 'exposure'}"
+        desc = f"Forward-risk decision ({action}) under {scenario} · by {horizon}. " + (rationale or "")
+        task = create_task(session, org_id, actor, title=title, description=desc.strip(), criticality="high",
+                           assignee_user_id=pb.get("assignee_user_id"), due_date=due,
+                           source="decision", source_ref=f"decision:{did}")
+    if pb.get("notify") and task and task.get("assignee_email"):
+        try:
+            from services.notifications import mailer
+            from core.config import settings
+            link = f"{settings.APP_BASE_URL}/tasks?task={task['task_id']}"
+            oid = mailer.queue_email(session, org_id=org_id, to_email=task["assignee_email"],
+                                     subject=f"{label} · {entity_name or 'exposure'} — forward-risk decision",
+                                     html=f'<p>A forward-risk decision (<b>{action}</b>) on “{entity_name}” was approved and assigned to you.</p><p><a href="{link}">Open the task →</a></p>',
+                                     text_body=f"A forward-risk decision ({action}) on {entity_name} was approved and assigned to you.\nOpen: {link}\n",
+                                     kind="decision", ref_type="decision", ref_id=str(did))
+            if oid:
+                mailer.dispatch(session)
+        except Exception:
+            pass
+    if pb.get("webhook"):
+        try:
+            from services.integrations.webhooks import emit_event
+            emit_event(session, org_id, "risk.decision.approved", {
+                "decision_id": str(did), "action": action, "entity_id": entity_id,
+                "entity_name": entity_name, "scenario": scenario, "horizon": horizon,
+            })
+        except Exception:
+            pass
+    return task
 
 
 def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_name: str | None,
@@ -139,8 +208,9 @@ def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_
            "a": action, "r": rationale, "st": status, "u": actor}).scalar()
 
     if not needs:
-        # approved by policy (no second approval required) — spin the card now
-        task = _spin_task(session, org_id, actor, did, action, entity_name, scenario, horizon, rationale)
+        # approved by policy (no second approval required) — run the playbook now
+        task = _run_playbook(session, org_id, actor, did, action, entity_id=entity_id, entity_name=entity_name,
+                             scenario=scenario, horizon=horizon, rationale=rationale)
         return {"decision_id": str(did), "action": action, "status": "approved",
                 "task_id": task.get("task_id") if task else None}
 
@@ -170,8 +240,9 @@ def apply_decision(session: Session, org_id: str, payload: dict, decision: str, 
     task = None
     if status == "approved":
         p = payload or {}
-        task = _spin_task(session, org_id, actor, did, p.get("action"), p.get("entity_name"),
-                          p.get("scenario"), p.get("horizon"), p.get("rationale"))
+        task = _run_playbook(session, org_id, actor, did, p.get("action"), entity_id=p.get("entity_id"),
+                             entity_name=p.get("entity_name"), scenario=p.get("scenario"),
+                             horizon=p.get("horizon"), rationale=p.get("rationale"))
     return {"decision_id": did, "status": status, "task_id": task.get("task_id") if task else None}
 
 

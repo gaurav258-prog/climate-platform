@@ -38,9 +38,10 @@ _TIMEOUT = 6  # seconds — a receiver must ack quickly; a slow endpoint is a fa
 
 # The documented event catalogue the UI offers. Kept small and tied to real moments in the product.
 KNOWN_EVENTS = [
-    {"type": "approval.decided", "label": "A governed change was approved or rejected (publish / release / apply)"},
-    {"type": "filing.frozen",    "label": "A disclosure was frozen to an immutable snapshot"},
-    {"type": "test.ping",        "label": "A manual test event"},
+    {"type": "approval.decided",       "label": "A governed change was approved or rejected (publish / release / apply)"},
+    {"type": "filing.frozen",          "label": "A disclosure was frozen to an immutable snapshot"},
+    {"type": "risk.decision.approved", "label": "A forward-risk decision was approved (reprice / engage / disclose / …)"},
+    {"type": "test.ping",              "label": "A manual test event"},
 ]
 
 

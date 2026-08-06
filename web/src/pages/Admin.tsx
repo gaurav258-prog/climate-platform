@@ -59,7 +59,7 @@ export default function Admin() {
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
       {tab === 'Entities' && <AdminEntities />}
-      {tab === 'Approval matrix' && <Matrix />}
+      {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'Integrations' && <Integrations />}
     </div>
   )
@@ -816,6 +816,68 @@ function Matrix() {
               <span className="text-[11px] text-[var(--color-faint)]">{(p.threshold_eur ?? 0) === 0 ? 'every decision needs 4-eyes' : 'smaller decisions apply directly'}</span>
             </div>
           )}
+        </div>
+      ))}
+    </Card>
+  )
+}
+
+// ── Decision playbook: what happens automatically when each decision is approved ──────────────────────────
+interface PlayRow { action: string; label: string; spin_task?: boolean; assignee_user_id?: string | null; due_days?: number | null; notify?: boolean; flag_disclosure?: boolean; watchlist?: boolean; webhook?: boolean; org_override?: boolean }
+interface Member { user_id: string; email: string; name: string }
+const AUTO: { key: keyof PlayRow; label: string; hint: string }[] = [
+  { key: 'spin_task', label: 'Kanban card', hint: 'create a tracked task on the board' },
+  { key: 'notify', label: 'Notify owner', hint: 'email the assigned owner' },
+  { key: 'flag_disclosure', label: 'Flag for filing', hint: 'include the exposure in the next climate disclosure' },
+  { key: 'watchlist', label: 'Watchlist', hint: 'add to the monitoring watchlist + schedule a re-check' },
+  { key: 'webhook', label: 'Webhook', hint: 'emit risk.decision.approved to your registered endpoints' },
+]
+
+function DecisionPlaybook() {
+  const q = useQuery({ queryKey: ['decision-playbook'], queryFn: () => api.get<{ members: Member[]; playbook: PlayRow[] }>('/v1/admin/decision-playbook') })
+  const [busy, setBusy] = useState<string | null>(null)
+  const set = async (p: PlayRow, patch: Partial<PlayRow>) => {
+    setBusy(p.action)
+    try { await api.patch('/v1/admin/decision-playbook', { action: p.action, ...patch }); await q.refetch() }
+    finally { setBusy(null) }
+  }
+  const members = q.data?.members ?? []
+  return (
+    <Card className="p-0 overflow-hidden mt-4">
+      <div className="p-4 border-b border-[var(--color-line)] flex items-center gap-2">
+        <ShieldCheck size={16} className="text-[var(--color-sky)]" />
+        <span className="text-[13px] text-[var(--color-mute)]">Decision playbook — what runs automatically when a forward-risk decision is <b>approved</b>. Off by default; outward actions still need a person.</span>
+      </div>
+      {(q.data?.playbook ?? []).map(p => (
+        <div key={p.action} className="px-4 py-3 border-b border-[var(--color-line)] last:border-0">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-[13.5px] text-[var(--color-ink)] font-medium">{p.label} <span className="mono text-[10px] text-[var(--color-faint)] ml-1">{p.org_override ? 'org' : 'default'}</span></div>
+            {p.spin_task && (
+              <div className="flex items-center gap-2">
+                <select value={p.assignee_user_id ?? ''} onChange={e => set(p, { assignee_user_id: e.target.value || null })} disabled={busy === p.action}
+                  className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] outline-none">
+                  <option value="">unassigned</option>
+                  {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
+                </select>
+                <div className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line)] px-2 py-1">
+                  <input type="number" min={0} defaultValue={p.due_days ?? 0} onBlur={e => { const v = Math.max(0, Number(e.target.value) || 0); if (v !== (p.due_days ?? 0)) set(p, { due_days: v }) }} className="w-12 bg-transparent text-[11.5px] mono outline-none" />
+                  <span className="text-[10.5px] text-[var(--color-faint)]">days to do</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {AUTO.map(a => {
+              const on = !!p[a.key]
+              return (
+                <button key={a.key} disabled={busy === p.action} title={a.hint} onClick={() => set(p, { [a.key]: !on } as Partial<PlayRow>)}
+                  className={`px-2.5 py-1 rounded-lg text-[11.5px] border transition inline-flex items-center gap-1.5 ${on ? 'border-transparent text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}
+                  style={on ? { background: 'color-mix(in oklab, var(--color-good) 14%, transparent)' } : undefined}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: on ? 'var(--color-good)' : 'var(--color-line-2)' }} />{a.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       ))}
     </Card>
