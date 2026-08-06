@@ -64,7 +64,19 @@ FEEDS: list[dict] = [
     {"key": "natura2000", "name": "EEA Natura 2000 (protected areas)", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "partial",
      "note": "EU protected-area boundaries, precomputed to an H3 lookup; flags own sites / sourcing plots in or "
-             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage (WDPA global is the roadmap)."},
+             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage."},
+    {"key": "wdpa", "name": "WDPA (World Database on Protected Areas)", "category": "nature",
+     "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
+     "note": "Global protected areas (Protected Planet / UNEP-WCMC) — the non-EU counterpart to Natura 2000. "
+             "Loaded per-book-country via the Protected Planet API (needs a free token); coexists with natura2000."},
+    {"key": "wdoecm", "name": "WD-OECM (other conservation measures)", "category": "nature",
+     "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
+     "note": "Other Effective area-based Conservation Measures — companion to WDPA in the same monthly release; "
+             "widens ESRS E4 / TNFD protected-area coverage. Loaded via the same Protected Planet API."},
+    {"key": "kba", "name": "Key Biodiversity Areas (KBA)", "category": "nature",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "planned",
+     "note": "Sites contributing significantly to global biodiversity (KBA Partnership). Needs a data-request "
+             "agreement (not on Protected Planet); loaded from the supplied file into the same H3 lookup."},
     {"key": "reference_lei", "name": "GLEIF (LEI)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "note": "Legal-entity identifiers; changes rename entities, not risk scores."},

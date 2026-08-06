@@ -9,27 +9,25 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
-def protected_area_exposure(session: Session, org_id: str, dataset: str = "natura2000") -> dict:
+def protected_area_exposure(session: Session, org_id: str) -> dict:
+    """Sites/plots in or near a protected area — across EVERY loaded dataset (Natura 2000 EU · WDPA global ·
+    WD-OECM · KBA). EXISTS de-dups an asset that falls in more than one dataset's cells, so counts never
+    double. As new datasets land, non-EU assets light up automatically — no code change."""
     sites = session.execute(text("""
         SELECT COUNT(*) AS total,
-               COUNT(*) FILTER (WHERE pc.h3_cell IS NOT NULL) AS in_protected,
-               COALESCE(SUM(s.annual_value_eur) FILTER (WHERE pc.h3_cell IS NOT NULL), 0) AS value_in
-        FROM sc_company_sites s
-        LEFT JOIN protected_h3_cell pc ON pc.h3_cell = s.h3_cell AND pc.dataset = :d
-        WHERE s.org_id = :o
-    """), {"o": org_id, "d": dataset}).mappings().first()
+               COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = s.h3_cell)) AS in_protected,
+               COALESCE(SUM(s.annual_value_eur) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = s.h3_cell)), 0) AS value_in
+        FROM sc_company_sites s WHERE s.org_id = :o
+    """), {"o": org_id}).mappings().first()
     plots = session.execute(text("""
         SELECT COUNT(*) AS total,
-               COUNT(*) FILTER (WHERE pc.h3_cell IS NOT NULL) AS in_protected,
-               COALESCE(SUM(p.annual_spend_eur) FILTER (WHERE pc.h3_cell IS NOT NULL), 0) AS spend_in
-        FROM sc_sourcing_plots p
-        LEFT JOIN protected_h3_cell pc ON pc.h3_cell = p.h3_cell AND pc.dataset = :d
-        WHERE p.org_id = :o
-    """), {"o": org_id, "d": dataset}).mappings().first()
-    loaded = session.execute(text("SELECT COUNT(*) FROM protected_h3_cell WHERE dataset = :d"),
-                             {"d": dataset}).scalar() or 0
+               COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)) AS in_protected,
+               COALESCE(SUM(p.annual_spend_eur) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)), 0) AS spend_in
+        FROM sc_sourcing_plots p WHERE p.org_id = :o
+    """), {"o": org_id}).mappings().first()
+    ds = session.execute(text("SELECT dataset, COUNT(*) n FROM protected_h3_cell GROUP BY dataset")).mappings().all()
     return {
-        "dataset": dataset, "cells_loaded": int(loaded),
+        "datasets": {d["dataset"]: int(d["n"]) for d in ds}, "cells_loaded": sum(int(d["n"]) for d in ds),
         "sites": {"total": int(sites["total"]), "in_protected": int(sites["in_protected"]),
                   "value_in_eur": float(sites["value_in"])},
         "plots": {"total": int(plots["total"]), "in_protected": int(plots["in_protected"]),
