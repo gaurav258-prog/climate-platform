@@ -268,10 +268,10 @@ export default function Portfolio() {
                       <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[a.region, atype?.replace(/_/g, ' ')].filter(Boolean).join(' · ') || '—'}</div>
                     </div>
                     <div className="mono text-[13px] text-[var(--color-mute)] tabular-nums shrink-0 w-24 text-right">{eur(value)}</div>
-                    <div className="shrink-0 w-28 text-right">
+                    <div className="shrink-0 w-36 flex justify-end">
                       {sc == null ? <span className="mono text-[12px] text-[var(--color-faint)]">—</span>
-                        : <span className="inline-flex items-center gap-1.5 mono text-[12px]" style={{ color: `rgb(${rr},${gg},${bb})` }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${rr},${gg},${bb})` }} />
+                        : <span className="inline-flex items-center gap-1.5 mono text-[12px] whitespace-nowrap" style={{ color: `rgb(${rr},${gg},${bb})` }}>
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: `rgb(${rr},${gg},${bb})` }} />
                             {Math.round(sc)}/100{bk ? ` · ${bk}` : ''}
                           </span>}
                     </div>
