@@ -203,16 +203,23 @@ export default function Horizon() {
       // atmosphere
       const rim = ctx.createRadialGradient(gx, gy, Rg * 0.96, gx, gy, Rg * 1.09); rim.addColorStop(0, 'rgba(127,178,230,0)'); rim.addColorStop(.55, 'rgba(127,178,230,0.4)'); rim.addColorStop(1, 'rgba(127,178,230,0)'); ctx.beginPath(); ctx.arc(gx, gy, Rg * 1.05, 0, 7); ctx.lineWidth = Rg * 0.09; ctx.strokeStyle = rim; ctx.stroke()
 
-      // region labels (belts) — click to frame a region
+      // region labels (belts) — click to frame a region. Nearer-camera (higher depth) labels win a spot; any
+      // label whose box would collide with one already placed is skipped, so names never stack (e.g. Iberian
+      // cities or Caribbean belts no longer print on top of each other).
       regionRects = []
       if (!S.current.focus) {
         ctx.font = '600 11px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center'
-        for (const rn of Object.keys(beltsRef.current)) {
+        const cands = Object.keys(beltsRef.current).map(rn => {
           const g = beltsRef.current[rn]; const mla = g.reduce((s, a) => s + a.lat, 0) / g.length, mlo = g.reduce((s, a) => s + a.lon, 0) / g.length
-          const p = project(mla, mlo); if (!p.vis || p.depth < 0.3) continue
+          return { rn, p: project(mla, mlo) }
+        }).filter(c => c.p.vis && c.p.depth >= 0.3).sort((a, b) => b.p.depth - a.p.depth)   // front-most first
+        for (const { rn, p } of cands) {
+          const w = ctx.measureText(rn.toUpperCase()).width
+          const box = { x0: p.x - w / 2 - 8, x1: p.x + w / 2 + 8, y0: p.y - 26, y1: p.y - 6 }
+          if (regionRects.some(q => box.x0 < q.x1 && box.x1 > q.x0 && box.y0 < q.y1 && box.y1 > q.y0)) continue   // would overlap → skip
           const dimr = S.current.belt && S.current.belt !== rn ? 0.25 : 0.62
           ctx.fillStyle = `rgba(180,196,214,${dimr})`; ctx.fillText(rn.toUpperCase(), p.x, p.y - 16)
-          const w = ctx.measureText(rn.toUpperCase()).width; regionRects.push({ r: rn, x0: p.x - w / 2 - 8, x1: p.x + w / 2 + 8, y0: p.y - 26, y1: p.y - 6 })
+          regionRects.push({ r: rn, ...box })
         }
       }
       // assets — real coordinates, real interpolated risk
