@@ -777,8 +777,8 @@ class FilingProfile(BaseModel):
 @router.get("/manager/filing-profile", summary="The manager's SFDR filing-entity identity")
 def get_filing_profile(session: DbSession, org_id: OrgId):
     row = session.execute(text(
-        "SELECT name, legal_name, lei, filing_contact_email, country FROM organizations WHERE org_id = :o"),
-        {"o": org_id}).mappings().first()
+        "SELECT name, legal_name, lei, filing_contact_email, country, sfdr_narratives "
+        "FROM organizations WHERE org_id = :o"), {"o": org_id}).mappings().first()
     return dict(row) if row else {"error": "org not found"}
 
 
