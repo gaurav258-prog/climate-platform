@@ -902,7 +902,7 @@ function KriAppetite() {
   const d = q.data
   if (d && !d.supported) return <Card className="p-8 mt-4 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No KRI dashboard for this organisation type.'}</Card>
   const kpis = d?.kpis ?? []
-  const unit = (f: string) => f === 'pct' ? '%' : f === 'eur' ? '€' : ''
+  const unit = (f: string) => f === 'pct' ? '%' : f === 'eur' ? '€' : f === 'ha' ? 'ha' : ''
   return (
     <Card className="p-0 overflow-hidden mt-4">
       <div className="p-4 border-b border-[var(--color-line)] flex items-center gap-2">
@@ -914,7 +914,7 @@ function KriAppetite() {
       </div>
       {kpis.map(k => {
         const rag = k.status ? RAG_C[k.status] : null
-        const vfmt = k.value == null ? '—' : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'eur' ? (k.value >= 1e6 ? `€${(k.value / 1e6).toFixed(1)}m` : `€${Math.round(k.value / 1e3)}k`) : Math.round(k.value).toLocaleString('en-GB')
+        const vfmt = k.value == null ? '—' : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'eur' ? (k.value >= 1e6 ? `€${(k.value / 1e6).toFixed(1)}m` : `€${Math.round(k.value / 1e3)}k`) : Math.round(k.value).toLocaleString('en-GB')
         return (
           <div key={k.key} className="grid grid-cols-2 sm:grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 px-4 py-3 border-b border-[var(--color-line)] last:border-0 items-center">
             <div className="flex items-center gap-2">

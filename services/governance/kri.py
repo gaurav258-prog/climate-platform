@@ -129,6 +129,30 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
              hint="Spend exposed but the euro withheld pending calibration — honest, not zero"),
         _kpi("coverage", "Plots scored", round(100 * scored / len(plots), 1) if plots else 0, "pct"),
     ]
+    label = "ESRS E1 climate KRIs"
+    # The full nature pack (esrs_pack) also carries E3 Water and E4 Biodiversity — real values from the same
+    # engine (E3 = hazard-exposure derived; E4 = EUDR deforestation determinations), NOT measured water use.
+    if framework == "esrs_pack":
+        from services.intelligence.esrs_nature import build_esrs_pack
+        tp = {t.get("topic"): t for t in (build_esrs_pack(session, org_id, s["scenario"], s["horizon"]).get("topics") or [])}
+        e3u = (tp.get("E3", {}) or {}).get("upstream", {}) or {}
+        e4 = tp.get("E4", {}) or {}
+        kpis += [
+            _kpi("water_plots_stressed", "Plots water-stressed", e3u.get("plots_water_stressed"), "num",
+                 hint="Plots at water-stress score ≥ 40 · ESRS E3 (hazard-exposure derived)"),
+            _kpi("water_spend_exposed", "Spend water-exposed", e3u.get("spend_exposed_eur"), "eur",
+                 hint="Upstream spend on water-stressed plots · ESRS E3"),
+            _kpi("water_peak", "Peak water-stress", e3u.get("peak_score"), "num",
+                 hint="Worst standing water-stress score (0-100) · ESRS E3"),
+            _kpi("deforestation_free_pct", "Deforestation-free", e4.get("deforestation_free_pct_of_determined"), "pct",
+                 hint="Share of determined plots deforestation-free vs the EUDR cutoff · ESRS E4"),
+            _kpi("non_compliant", "Non-compliant plots", e4.get("non_compliant"), "num",
+                 hint="Plots with post-cutoff deforestation · ESRS E4 / EUDR"),
+            _kpi("forest_loss_ha", "Post-cutoff forest loss", e4.get("post_cutoff_forest_loss_ha"), "ha",
+                 hint="Hectares of forest lost after the 2020 EUDR cutoff · ESRS E4"),
+        ]
+        label = "ESRS E1·E3·E4 nature KRIs"
+
     # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed
     haz: dict = {}
     for p in plots:
@@ -138,10 +162,11 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
             g["score"] = max(g["score"], p["hazard_score"] or 0)
     by_hazard = sorted([{"hazard": h, "value": round(v["value"]), "score": round(v["score"], 1)}
                         for h, v in haz.items() if v["value"] > 0], key=lambda x: -x["value"])
-    return {"framework": framework, "supported": True, "label": "ESRS E1 climate KRIs",
+    return {"framework": framework, "supported": True, "label": label,
             "kpis": kpis, "by_hazard": by_hazard, "history": [],
-            "scope_note": "Physical climate risk (ESRS E1 financial effects). GHG accounting (Scope 1/2/3) "
-                          "and energy are integrated from your carbon-accounting tool, not computed here."}
+            "scope_note": "Physical & nature ESRS (E1 climate financial effects · E3 water · E4 deforestation). "
+                          "GHG accounting (Scope 1/2/3) and energy are integrated from your carbon-accounting tool, "
+                          "not computed here."}
 
 
 def _by_hazard(snap: dict) -> list[dict]:
