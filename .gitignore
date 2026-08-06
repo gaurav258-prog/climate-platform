@@ -36,3 +36,6 @@ data/forest/
 
 # Large geospatial source files (preprocessed into protected_h3_cell)
 data/natura2000/
+data/wdpa/
+data/wdoecm/
+data/kba/
