@@ -27,6 +27,7 @@ class DecideBody(BaseModel):
     horizon: str
     action: str = Field(..., description="reprice | engage | disclose | monitor | accept")
     rationale: Optional[str] = Field(None, max_length=2000)
+    value_eur: Optional[float] = None   # the exposure's value — evaluated against the 4-eyes threshold
 
 
 @router.get("/crossings", summary="Exposures newly crossing into High+ by a scenario/horizon")
@@ -37,6 +38,7 @@ def crossings(session: DbSession, scenario: str = "disorderly_2c", horizon: str 
     except D.DecisionError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
     return {"scenario": scenario, "horizon": horizon, "at_risk_threshold": D.AT_RISK,
+            "policy": D.decision_policy(session, ctx["org"]["org_id"]),
             "n": len(rows), "crossings": rows}
 
 
@@ -46,7 +48,7 @@ def decide(body: DecideBody, session: DbSession, ctx: dict = Depends(require_per
     try:
         return D.decide(session, ctx["org"]["org_id"], ctx["user"]["id"], entity_id=body.entity_id,
                         entity_name=body.entity_name, scenario=body.scenario, horizon=body.horizon,
-                        action=body.action, rationale=body.rationale)
+                        action=body.action, rationale=body.rationale, value_eur=body.value_eur)
     except D.DecisionError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
 

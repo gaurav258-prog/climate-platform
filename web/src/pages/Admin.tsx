@@ -11,7 +11,7 @@ import AdminEntities from '../components/AdminEntities'
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
 interface Perm { code: string; description: string }
-interface Policy { action_key: string; label: string; requires_approval: boolean; material_fields: string[]; org_override: boolean }
+interface Policy { action_key: string; label: string; requires_approval: boolean; material_fields: string[]; org_override: boolean; supports_threshold?: boolean; threshold_eur?: number | null }
 interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface CC {
   organization: { name: string | null; legal_name: string | null; type: string | null; country: string | null; lei: string | null; eori: string | null; filing_contact_email: string | null; operator_address: string | null }
@@ -773,28 +773,49 @@ function Roles() {
 function Matrix() {
   const q = useQuery({ queryKey: ['approval-policy'], queryFn: () => api.get<Policy[]>('/v1/admin/approval-policy') })
   const [busy, setBusy] = useState<string | null>(null)
-  const set = async (p: Policy, requires: boolean) => {
+  const set = async (p: Policy, patch: { requires_approval?: boolean; threshold_eur?: number | null }) => {
     setBusy(p.action_key)
-    try { await api.patch('/v1/admin/approval-policy', { action_key: p.action_key, requires_approval: requires, material_fields: p.material_fields }); await q.refetch() }
-    finally { setBusy(null) }
+    try {
+      await api.patch('/v1/admin/approval-policy', {
+        action_key: p.action_key, material_fields: p.material_fields,
+        requires_approval: patch.requires_approval ?? p.requires_approval,
+        threshold_eur: patch.threshold_eur !== undefined ? patch.threshold_eur : p.threshold_eur,
+      })
+      await q.refetch()
+    } finally { setBusy(null) }
   }
   return (
     <Card className="p-0 overflow-hidden">
       <div className="p-4 border-b border-[var(--color-line)] flex items-center gap-2">
         <ShieldCheck size={16} className="text-[var(--color-sky)]" />
-        <span className="text-[13px] text-[var(--color-mute)]">Which changes require a second approver (4-eyes). Everything is audited regardless.</span>
+        <span className="text-[13px] text-[var(--color-mute)]">Which changes require a second approver (4-eyes). Everything is audited regardless. <span className="text-[var(--color-faint)]">Who approves = your team members with the <b>Approver</b> role.</span></span>
       </div>
       {(q.data ?? []).map(p => (
-        <div key={p.action_key} className="flex items-center gap-4 px-4 py-3 border-b border-[var(--color-line)] last:border-0">
-          <div className="flex-1">
-            <div className="text-[13.5px] text-[var(--color-ink)]">{p.label}</div>
-            <div className="text-[11px] text-[var(--color-faint)] mono">{p.action_key}{p.material_fields.length ? ` · material: ${p.material_fields.join(', ')}` : ''}{p.org_override ? ' · org override' : ' · platform default'}</div>
+        <div key={p.action_key} className="px-4 py-3 border-b border-[var(--color-line)] last:border-0">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <div className="text-[13.5px] text-[var(--color-ink)]">{p.label}</div>
+              <div className="text-[11px] text-[var(--color-faint)] mono">{p.action_key}{p.material_fields.length ? ` · material: ${p.material_fields.join(', ')}` : ''}{p.org_override ? ' · org override' : ' · platform default'}</div>
+            </div>
+            <button disabled={busy === p.action_key} onClick={() => set(p, { requires_approval: !p.requires_approval })}
+              className={`relative w-11 h-6 rounded-full transition ${p.requires_approval ? 'bg-[var(--color-good)]' : 'bg-[var(--color-line-2)]'}`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${p.requires_approval ? 'left-[22px]' : 'left-0.5'}`} />
+            </button>
+            <span className="text-[12px] w-28 text-right" style={{ color: p.requires_approval ? 'var(--color-good)' : 'var(--color-faint)' }}>{p.requires_approval ? '4-eyes required' : 'direct'}</span>
           </div>
-          <button disabled={busy === p.action_key} onClick={() => set(p, !p.requires_approval)}
-            className={`relative w-11 h-6 rounded-full transition ${p.requires_approval ? 'bg-[var(--color-good)]' : 'bg-[var(--color-line-2)]'}`}>
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${p.requires_approval ? 'left-[22px]' : 'left-0.5'}`} />
-          </button>
-          <span className="text-[12px] w-28 text-right" style={{ color: p.requires_approval ? 'var(--color-good)' : 'var(--color-faint)' }}>{p.requires_approval ? '4-eyes required' : 'direct'}</span>
+          {/* value threshold — for actions that support it (forward-risk decisions): only above the line needs 4-eyes */}
+          {p.supports_threshold && p.requires_approval && (
+            <div className="flex items-center gap-2 mt-2 pl-1">
+              <span className="text-[11.5px] text-[var(--color-mute)]">Only when the exposure is above</span>
+              <div className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1">
+                <span className="text-[11px] text-[var(--color-faint)]">€</span>
+                <input type="number" min={0} defaultValue={p.threshold_eur ?? 0}
+                  onBlur={e => { const v = Math.max(0, Number(e.target.value) || 0); if (v !== (p.threshold_eur ?? 0)) set(p, { threshold_eur: v }) }}
+                  className="w-28 bg-transparent text-[12px] mono outline-none" />
+              </div>
+              <span className="text-[11px] text-[var(--color-faint)]">{(p.threshold_eur ?? 0) === 0 ? 'every decision needs 4-eyes' : 'smaller decisions apply directly'}</span>
+            </div>
+          )}
         </div>
       ))}
     </Card>

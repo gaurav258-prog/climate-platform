@@ -227,20 +227,24 @@ _POLICY_LABELS = {
     # calc/reporting config changes drive what a filing shows — governable with 4-eyes (audit T6)
     "config.reporting_settings": "Change the reporting basis (scenario / horizon / materiality / period)",
     "config.calc_settings": "Change a calculation method (VaR / severity / return-period)",
+    "risk.decision": "Act on a forward-risk exposure (reprice / engage / disclose)",
 }
+# actions that support a value THRESHOLD (only decisions above the line need a second approval)
+_POLICY_THRESHOLD_ACTIONS = {"risk.decision"}
 
 
 class PolicyPatch(BaseModel):
     action_key:        str = Field(..., min_length=1, max_length=80)
     requires_approval: bool
     material_fields:   Optional[list[str]] = None
+    threshold_eur:     Optional[float] = None   # only for actions in _POLICY_THRESHOLD_ACTIONS
 
 
 @router.get("/approval-policy", summary="The approval matrix — which actions need 4-eyes (org rules over platform defaults)")
 def get_approval_policy(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
     org_id = ctx["org"]["org_id"]
     rows = session.execute(text("""
-        SELECT DISTINCT ON (action_key) action_key, requires_approval, material_fields,
+        SELECT DISTINCT ON (action_key) action_key, requires_approval, material_fields, threshold_eur,
                (org_id IS NOT NULL) AS org_override
         FROM   approval_policy
         WHERE  org_id = :o OR org_id IS NULL
@@ -250,6 +254,8 @@ def get_approval_policy(session: DbSession, ctx: dict = Depends(require_permissi
         "action_key": r["action_key"], "label": _POLICY_LABELS.get(r["action_key"], r["action_key"]),
         "requires_approval": bool(r["requires_approval"]),
         "material_fields": list(r["material_fields"] or []),
+        "supports_threshold": r["action_key"] in _POLICY_THRESHOLD_ACTIONS,
+        "threshold_eur": float(r["threshold_eur"]) if r["threshold_eur"] is not None else None,
         "org_override": bool(r["org_override"]),
     } for r in rows]
 
@@ -262,18 +268,21 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
     if body.action_key not in _POLICY_LABELS:
         raise HTTPException(422, {"error": "unknown_action", "message": f"Unknown action: {body.action_key}"})
     mats = body.material_fields if body.material_fields is not None else []
+    thr = body.threshold_eur if body.action_key in _POLICY_THRESHOLD_ACTIONS else None
     session.execute(text("""
-        INSERT INTO approval_policy (org_id, action_key, requires_approval, material_fields, updated_by, updated_at)
-        VALUES (:o, :a, :req, CAST(:m AS jsonb), :u, now())
+        INSERT INTO approval_policy (org_id, action_key, requires_approval, material_fields, threshold_eur, updated_by, updated_at)
+        VALUES (:o, :a, :req, CAST(:m AS jsonb), :thr, :u, now())
         ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
         DO UPDATE SET requires_approval = EXCLUDED.requires_approval,
-                      material_fields = EXCLUDED.material_fields,
+                      material_fields = EXCLUDED.material_fields, threshold_eur = EXCLUDED.threshold_eur,
                       updated_by = EXCLUDED.updated_by, updated_at = now()
-    """), {"o": org_id, "a": body.action_key, "req": body.requires_approval, "m": json.dumps(mats), "u": ctx["user"]["id"]})
+    """), {"o": org_id, "a": body.action_key, "req": body.requires_approval, "m": json.dumps(mats),
+           "thr": thr, "u": ctx["user"]["id"]})
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval_policy.update",
                 target_type="approval_policy", target_id=body.action_key,
-                detail={"requires_approval": body.requires_approval, "material_fields": mats})
-    return {"action_key": body.action_key, "requires_approval": body.requires_approval, "material_fields": mats, "org_override": True}
+                detail={"requires_approval": body.requires_approval, "material_fields": mats, "threshold_eur": thr})
+    return {"action_key": body.action_key, "requires_approval": body.requires_approval,
+            "material_fields": mats, "threshold_eur": thr, "org_override": True}
 
 
 # ── Control center: the customer-admin cockpit (identity + data health + governance) ──────

@@ -41,7 +41,7 @@ export default function Decisions() {
   const cq = useQuery({
     queryKey: ['decision-crossings', scenario, horizon],
     enabled: isFin,
-    queryFn: () => api.get<{ n: number; at_risk_threshold: number; crossings: Crossing[] }>(`/v1/decisions/crossings?scenario=${scenario}&horizon=${horizon}`),
+    queryFn: () => api.get<{ n: number; at_risk_threshold: number; policy: { requires_approval: boolean; threshold_eur: number | null }; crossings: Crossing[] }>(`/v1/decisions/crossings?scenario=${scenario}&horizon=${horizon}`),
   })
   const lq = useQuery({ queryKey: ['decision-log'], enabled: isFin, queryFn: () => api.get<{ decisions: LogRow[] }>('/v1/decisions/log') })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['decision-crossings'] }); qc.invalidateQueries({ queryKey: ['decision-log'] }) }
@@ -62,7 +62,14 @@ export default function Decisions() {
       <div>
         <Eyebrow>{profile?.org?.name} · act</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-risk decisions</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Propose a decision on each; a second pair of eyes approves it (4-eyes), and an actionable one spins a card on the board.</p>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one (engage / reprice / disclose) spins a card on the board.</p>
+        {cq.data?.policy && (
+          <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
+            {cq.data.policy.requires_approval
+              ? <>governance · <span className="text-[var(--color-mute)]">4-eyes required{cq.data.policy.threshold_eur ? ` above ${eur(cq.data.policy.threshold_eur)}` : ' on every decision'}</span></>
+              : <>governance · <span className="text-[var(--color-mute)]">decisions apply directly (no 4-eyes)</span> — configurable in Settings → Approval matrix</>}
+          </div>
+        )}
       </div>
 
       {/* controls */}
@@ -130,7 +137,7 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
     if (!action) return
     setBusy(true)
     try {
-      await api.post('/v1/decisions', { entity_id: c.entity_id, entity_name: c.entity_name, scenario, horizon, action, rationale: rationale.trim() || undefined })
+      await api.post('/v1/decisions', { entity_id: c.entity_id, entity_name: c.entity_name, scenario, horizon, action, rationale: rationale.trim() || undefined, value_eur: c.value_eur })
       setOpen(false); onDone()
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not propose the decision.') }
     finally { setBusy(false) }

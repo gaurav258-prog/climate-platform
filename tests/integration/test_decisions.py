@@ -28,9 +28,13 @@ def test_crossings_and_decision_flow():
         assert c["decision"] is None
         maker = _actor(s)
         checker = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
-        # propose — the decision is 'proposed' pending a second approval
+        # turn ON 4-eyes for this org (default is OFF — a customer choice), then propose
+        s.execute(text("""INSERT INTO approval_policy (org_id, action_key, requires_approval, threshold_eur)
+                          VALUES (:o,'risk.decision',TRUE,NULL)
+                          ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
+                          DO UPDATE SET requires_approval=TRUE, threshold_eur=NULL"""), {"o": BANK_ORG})
         r = D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
-                     scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="test")
+                     scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="test", value_eur=c["value_eur"])
         assert r["status"] == "proposed" and r["approval_request_id"]
         hit = next(x for x in D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100") if x["entity_id"] == c["entity_id"])
         assert hit["decision"]["status"] == "proposed"
@@ -42,6 +46,33 @@ def test_crossings_and_decision_flow():
         assert card["source"] == "decision"
         hit2 = next(x for x in D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100") if x["entity_id"] == c["entity_id"])
         assert hit2["decision"]["status"] == "approved"
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_four_eyes_policy_is_configurable():
+    """Off (default) → the decision is approved on the spot + a card spins. On with a threshold → only
+    exposures above the line need a second approval."""
+    with get_session() as s:
+        rows = D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100")
+        if not rows:
+            pytest.skip("no crossings")
+        c = rows[0]
+        maker = _actor(s)
+        _pol = lambda req, thr: s.execute(text("""
+            INSERT INTO approval_policy (org_id, action_key, requires_approval, threshold_eur)
+            VALUES (:o,'risk.decision',:r,:t)
+            ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
+            DO UPDATE SET requires_approval=:r, threshold_eur=:t"""), {"o": BANK_ORG, "r": req, "t": thr})
+        propose = lambda: D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
+                                   scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="t",
+                                   value_eur=c["value_eur"])
+        _pol(False, None); a = propose()
+        assert a["status"] == "approved" and a["task_id"]                      # off → applied directly
+        _pol(True, (c["value_eur"] or 0) + 1e9); b = propose()
+        assert b["status"] == "approved"                                       # on, below the threshold → direct
+        _pol(True, 0); d = propose()
+        assert d["status"] == "proposed"                                       # on, above the threshold → 4-eyes
         s.rollback()
 
 

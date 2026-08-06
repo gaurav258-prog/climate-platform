@@ -85,21 +85,69 @@ def _live_decisions(session: Session, org_id: str, scenario: str, horizon: str) 
                        "by": r["by"], "checker": r["checker"], "at": r["decided_at"].isoformat()} for r in rows}
 
 
+def decision_policy(session: Session, org_id: str) -> dict:
+    """The org's 4-eyes rule for forward-risk decisions (its own row over the platform default). Onboarding-
+    configurable via the approval matrix. requires_approval + an optional value threshold_eur."""
+    row = session.execute(text("""
+        SELECT requires_approval, threshold_eur FROM approval_policy
+        WHERE action_key = 'risk.decision' AND (org_id = :o OR org_id IS NULL)
+        ORDER BY org_id NULLS LAST LIMIT 1
+    """), {"o": org_id}).mappings().first()
+    if not row:
+        return {"requires_approval": False, "threshold_eur": None}
+    return {"requires_approval": bool(row["requires_approval"]),
+            "threshold_eur": float(row["threshold_eur"]) if row["threshold_eur"] is not None else None}
+
+
+def _needs_four_eyes(session: Session, org_id: str, value_eur: float | None) -> bool:
+    pol = decision_policy(session, org_id)
+    if not pol["requires_approval"]:
+        return False                                  # customer hasn't turned it on
+    if pol["threshold_eur"] is None:
+        return True                                   # on, no threshold → every decision
+    return (value_eur or 0) >= pol["threshold_eur"]   # on, threshold → only above the line
+
+
+def _spin_task(session: Session, org_id: str, actor: str, decision_id, action: str,
+               entity_name: str | None, scenario: str | None, horizon: str | None, rationale: str | None):
+    """Spin the Kanban card for an actionable, confirmed decision (engage / reprice / disclose)."""
+    if action not in ACTIONABLE:
+        return None
+    from services.governance.tasks import create_task
+    title = f"{_TASK_TITLE.get(action, action.title())} — {entity_name or 'exposure'}"
+    desc = f"Forward-risk decision ({action}) under {scenario} · by {horizon}. " + (rationale or "")
+    return create_task(session, org_id, actor, title=title, description=desc.strip(), criticality="high",
+                       source="decision", source_ref=f"decision:{decision_id}")
+
+
 def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_name: str | None,
-           scenario: str, horizon: str, action: str, rationale: str | None) -> dict:
-    """PROPOSE a decision — it stays 'proposed' until a second pair of eyes approves it through the shared
-    approval_requests 4-eyes (checker ≠ maker enforced by the approvals router)."""
+           scenario: str, horizon: str, action: str, rationale: str | None, value_eur: float | None = None) -> dict:
+    """Record a decision. Whether it needs a second approval (4-eyes) is the ORG's choice, set at onboarding
+    through the approval matrix — off by default. If 4-eyes doesn't apply, the decision is approved on the spot
+    and any Kanban card is spun immediately; otherwise it stays 'proposed' until a checker approves it."""
     if action not in ACTIONS:
         raise DecisionError(f"action must be one of {ACTIONS}")
+    rationale = (rationale or "").strip() or None
+    needs = _needs_four_eyes(session, org_id, value_eur)
+    status = "proposed" if needs else "approved"
     did = session.execute(text("""
-        INSERT INTO risk_decision (org_id, entity_id, entity_name, scenario, horizon, action, rationale, status, decided_by)
-        VALUES (:o, CAST(:e AS uuid), :n, :s, :h, :a, :r, 'proposed', :u) RETURNING decision_id
+        INSERT INTO risk_decision (org_id, entity_id, entity_name, scenario, horizon, action, rationale, status, decided_by,
+                                   confirmed_at)
+        VALUES (:o, CAST(:e AS uuid), :n, :s, :h, :a, :r, :st, :u, CASE WHEN :st = 'approved' THEN now() END)
+        RETURNING decision_id
     """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon,
-           "a": action, "r": (rationale or "").strip() or None, "u": actor}).scalar()
+           "a": action, "r": rationale, "st": status, "u": actor}).scalar()
+
+    if not needs:
+        # approved by policy (no second approval required) — spin the card now
+        task = _spin_task(session, org_id, actor, did, action, entity_name, scenario, horizon, rationale)
+        return {"decision_id": str(did), "action": action, "status": "approved",
+                "task_id": task.get("task_id") if task else None}
+
+    # 4-eyes required → raise the shared approval request (checker ≠ maker enforced by the approvals router)
     import json
     payload = {"decision_id": str(did), "entity_id": entity_id, "entity_name": entity_name,
-               "scenario": scenario, "horizon": horizon, "action": action,
-               "rationale": (rationale or "").strip() or None}
+               "scenario": scenario, "horizon": horizon, "action": action, "rationale": rationale}
     label = _TASK_TITLE.get(action, action.title())
     rid = session.execute(text("""
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
@@ -112,25 +160,18 @@ def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_
 
 def apply_decision(session: Session, org_id: str, payload: dict, decision: str, actor: str) -> dict:
     """Called from the approvals decide handler when a risk.decision request is decided. On approval the
-    decision becomes the standing call, and an actionable one (engage / reprice / disclose) spins a card on
-    the Kanban board so the work is tracked."""
+    decision becomes the standing call, and an actionable one spins a card on the Kanban board."""
     did = (payload or {}).get("decision_id")
     status = "approved" if decision == "approved" else "rejected"
     session.execute(text("""
         UPDATE risk_decision SET status = :s, decided_by_checker = :c, confirmed_at = now()
         WHERE decision_id = :d AND org_id = :o AND status = 'proposed'
     """), {"s": status, "c": actor, "d": did, "o": org_id})
-
     task = None
-    action = (payload or {}).get("action")
-    if status == "approved" and action in ACTIONABLE:
-        from services.governance.tasks import create_task
-        name = (payload or {}).get("entity_name") or "exposure"
-        scen, hz = (payload or {}).get("scenario"), (payload or {}).get("horizon")
-        title = f"{_TASK_TITLE.get(action, action.title())} — {name}"
-        desc = f"Forward-risk decision ({action}) under {scen} · by {hz}. " + ((payload or {}).get("rationale") or "")
-        task = create_task(session, org_id, actor, title=title, description=desc.strip(), criticality="high",
-                           source="decision", source_ref=f"decision:{did}")
+    if status == "approved":
+        p = payload or {}
+        task = _spin_task(session, org_id, actor, did, p.get("action"), p.get("entity_name"),
+                          p.get("scenario"), p.get("horizon"), p.get("rationale"))
     return {"decision_id": did, "status": status, "task_id": task.get("task_id") if task else None}
 
 
