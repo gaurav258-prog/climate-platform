@@ -26,13 +26,22 @@ def test_crossings_and_decision_flow():
         assert c["future_score"] >= D.AT_RISK
         assert c["current_score"] is None or c["current_score"] < D.AT_RISK
         assert c["decision"] is None
-        u = _actor(s)
-        D.decide(s, BANK_ORG, u, entity_id=c["entity_id"], entity_name=c["entity_name"],
-                 scenario="hot_house_3_5c", horizon="2100", action="reprice", rationale="test")
-        again = D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100")
-        hit = next(x for x in again if x["entity_id"] == c["entity_id"])
-        assert hit["decision"] and hit["decision"]["action"] == "reprice"
-        assert any(d["action"] == "reprice" for d in D.decisions_log(s, BANK_ORG))
+        maker = _actor(s)
+        checker = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
+        # propose — the decision is 'proposed' pending a second approval
+        r = D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
+                     scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="test")
+        assert r["status"] == "proposed" and r["approval_request_id"]
+        hit = next(x for x in D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100") if x["entity_id"] == c["entity_id"])
+        assert hit["decision"]["status"] == "proposed"
+        # approve via the same path the approvals router calls → standing + a Kanban card spun (engage is actionable)
+        payload = s.execute(text("SELECT payload FROM approval_requests WHERE request_id=:r"), {"r": r["approval_request_id"]}).scalar()
+        applied = D.apply_decision(s, BANK_ORG, payload, "approved", checker)
+        assert applied["status"] == "approved" and applied["task_id"]
+        card = s.execute(text("SELECT source, criticality FROM regulatory_task WHERE task_id=:t"), {"t": applied["task_id"]}).mappings().first()
+        assert card["source"] == "decision"
+        hit2 = next(x for x in D.crossings(s, BANK_ORG, "banking", "hot_house_3_5c", "2100") if x["entity_id"] == c["entity_id"])
+        assert hit2["decision"]["status"] == "approved"
         s.rollback()
 
 

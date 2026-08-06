@@ -219,6 +219,11 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     elif row["request_type"] == "filing.cell_override":
         from services.governance.filing_overrides import apply_decision
         applied = apply_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+    # Forward-risk decision: on approval it becomes the standing call and (for actionable actions) spins a
+    # Kanban card. 4-eyes (checker ≠ maker) is enforced above.
+    elif row["request_type"] == "risk.decision":
+        from services.intelligence.forward_decisions import apply_decision as apply_risk_decision
+        applied = apply_risk_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

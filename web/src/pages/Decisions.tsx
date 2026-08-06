@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, ShieldAlert, History, Check } from 'lucide-react'
+import { ArrowRight, ShieldAlert, History, Check, Clock } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
@@ -53,7 +53,8 @@ export default function Decisions() {
   )
 
   const crossings = cq.data?.crossings ?? []
-  const decided = crossings.filter(c => c.decision).length
+  const approved = crossings.filter(c => c.decision?.status === 'approved').length
+  const pending = crossings.filter(c => c.decision?.status === 'proposed').length
   const exposed = crossings.reduce((s, c) => s + (c.value_eur ?? 0), 0)
 
   return (
@@ -61,7 +62,7 @@ export default function Decisions() {
       <div>
         <Eyebrow>{profile?.org?.name} · act</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-risk decisions</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Record a decision on each; it’s written to the audit log.</p>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Propose a decision on each; a second pair of eyes approves it (4-eyes), and an actionable one spins a card on the board.</p>
       </div>
 
       {/* controls */}
@@ -76,7 +77,7 @@ export default function Decisions() {
       <div className="grid sm:grid-cols-3 gap-3">
         <Stat label="Exposures crossing" value={cq.isLoading ? '—' : String(crossings.length)} sub={`${scLabel(scenario)} · by ${horizon}`} />
         <Stat label="Value newly at risk" value={cq.isLoading ? '—' : eur(exposed)} sub="crosses the High line" tone="var(--color-bad)" />
-        <Stat label="Decided" value={cq.isLoading ? '—' : `${decided} / ${crossings.length}`} sub="have a recorded action" tone={decided === crossings.length && crossings.length > 0 ? 'var(--color-good)' : undefined} />
+        <Stat label="Decided" value={cq.isLoading ? '—' : `${approved} / ${crossings.length}`} sub={pending > 0 ? `${pending} pending 4-eyes` : 'approved (4-eyes)'} tone={approved === crossings.length && crossings.length > 0 ? 'var(--color-good)' : pending > 0 ? 'var(--color-warn)' : undefined} />
       </div>
 
       {/* crossings list */}
@@ -105,6 +106,7 @@ export default function Decisions() {
               return (
                 <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
                   <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? d.action}</span>
+                  <span className="mono text-[9px] uppercase tracking-wide shrink-0" style={{ color: d.status === 'approved' ? 'var(--color-good)' : d.status === 'proposed' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{d.status}</span>
                   <span className="text-[var(--color-ink)] truncate flex-1">{d.entity_name ?? '—'}{d.rationale ? <span className="text-[var(--color-faint)]"> · {d.rationale}</span> : ''}</span>
                   <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{scLabel(d.scenario)} · {d.horizon} · {d.by?.split('@')[0]} · {new Date(d.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
                 </div>
@@ -123,13 +125,14 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
   const [rationale, setRationale] = useState(c.decision?.rationale ?? '')
   const [busy, setBusy] = useState(false)
   const dm = actionMeta(c.decision?.action)
+  const proposed = c.decision?.status === 'proposed'
   const save = async () => {
     if (!action) return
     setBusy(true)
     try {
       await api.post('/v1/decisions', { entity_id: c.entity_id, entity_name: c.entity_name, scenario, horizon, action, rationale: rationale.trim() || undefined })
       setOpen(false); onDone()
-    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not record the decision.') }
+    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not propose the decision.') }
     finally { setBusy(false) }
   }
   return (
@@ -147,9 +150,13 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
           <span className="text-[var(--color-faint)]">(+{c.delta})</span>
         </div>
         <div className="mono text-[12.5px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(c.value_eur)}</div>
-        <div className="w-28 flex justify-end shrink-0">
+        <div className="w-32 flex justify-end shrink-0">
           {c.decision
-            ? <button onClick={() => canAct && setOpen(o => !o)} className="mono text-[9.5px] uppercase tracking-wide px-2 py-1 rounded inline-flex items-center gap-1" style={{ color: dm?.tone, background: `color-mix(in oklab, ${dm?.tone} 15%, transparent)` }}><Check size={11} />{dm?.label ?? c.decision.action}</button>
+            ? <button onClick={() => canAct && setOpen(o => !o)} title={proposed ? 'Proposed — awaiting a second approval' : `Approved · ${c.decision.by?.split('@')[0]}`}
+                className="mono text-[9px] uppercase tracking-wide px-2 py-1 rounded inline-flex items-center gap-1"
+                style={proposed ? { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' } : { color: dm?.tone, background: `color-mix(in oklab, ${dm?.tone} 15%, transparent)` }}>
+                {proposed ? <><Clock size={10} /> {dm?.label} · 4-eyes</> : <><Check size={11} /> {dm?.label ?? c.decision.action}</>}
+              </button>
             : canAct
               ? <Button variant="ghost" onClick={() => setOpen(o => !o)}>Decide</Button>
               : <span className="mono text-[10px] text-[var(--color-faint)]">awaiting a decision</span>}
@@ -169,9 +176,9 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
           <textarea value={rationale} onChange={e => setRationale(e.target.value)} rows={2} placeholder="Rationale (recorded in the audit log)…"
             className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[12.5px] outline-none focus:border-[var(--color-sky)] resize-none" />
           <div className="flex items-center gap-2">
-            <Button variant="primary" onClick={save} disabled={busy || !action}><Check size={13} /> Record decision</Button>
+            <Button variant="primary" onClick={save} disabled={busy || !action}><Check size={13} /> Propose decision</Button>
             <button onClick={() => setOpen(false)} className="text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button>
-            {c.decision && <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto">last: {dm?.label} · {c.decision.by?.split('@')[0]}</span>}
+            <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto">{c.decision ? `last: ${dm?.label} · ${c.decision.status}` : 'needs a second approval (4-eyes)'}</span>
           </div>
         </div>
       )}

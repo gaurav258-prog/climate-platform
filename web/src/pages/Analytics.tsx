@@ -33,13 +33,6 @@ const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleS
 const totExposed = (d?: Disc) => d ? Object.values(d.by_hazard).reduce((s, v) => s + (v.exposed_value_eur || 0), 0) : null
 const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
 
-// the metric the hero trajectory plots — all three come from the same scenario grid
-const METRICS = [
-  { key: 'var', label: 'Value at risk', fmt: eur, val: (d?: Disc) => totExposed(d) },
-  { key: 'tax', label: 'Taxonomy-eligible', fmt: eur, val: (d?: Disc) => d?.taxonomy?.eligible?.value_eur ?? null },
-  { key: 'em', label: 'Financed emissions', fmt: tco2e, val: (d?: Disc) => sumEm(d) },
-] as const
-
 export default function Analytics() {
   const { profile } = useAuth()
   const prefix = PREFIX[profile?.org?.type ?? '']
@@ -48,7 +41,6 @@ export default function Analytics() {
   // figures and mark the point on the trajectory. `sel` is the scenario key; `hz` is the horizon index.
   const [sel, setSel] = useState('hot_house_3_5c')
   const [hz, setHz] = useState(3)   // 0..3 → Now / 2030 / 2050 / 2100
-  const [metricKey, setMetricKey] = useState<'var' | 'tax' | 'em'>('var')
   const [asTable, setAsTable] = useState(false)
   const [drill, setDrill] = useState<string | null>(null)   // hazard key for the drill-down drawer
 
@@ -72,30 +64,29 @@ export default function Analytics() {
     </div>
   )
 
-  // which metrics have data (asset managers/insurers have no financed-emissions block → hide that pathway)
-  const metrics = METRICS.filter(m => m.key !== 'em' || SCEN.some((s, si) => HZ.some((_, hi) => m.val(results[si * 4 + hi]?.data) != null)))
-  const metric = metrics.find(m => m.key === metricKey) ?? metrics[0]
-  const hasEm = metrics.some(m => m.key === 'em')   // financed-emissions block present (banks only)
+  // Value at risk is the ONLY genuinely scenario/horizon-projected metric — it moves with the warming
+  // pathway. Taxonomy-eligibility and financed emissions are point-in-time BOOK facts (a classification and a
+  // PCAF footprint) that the physical projection doesn't touch, so they're shown as current-book KPIs, not
+  // scenario trajectories. `hasEm` gates the emissions KPI (asset managers / insurers carry no such block).
+  const hasEm = SCEN.some((s, si) => HZ.some((_, hi) => sumEm(results[si * 4 + hi]?.data) != null))
 
-  // trajectory rows for the hero line chart: the SELECTED metric, one column per scenario
+  // trajectory rows for the hero line chart: value exposed at High+, one column per scenario
   const traj = HZ.map(([, lbl], hi) => {
     const row: Record<string, number | string | null> = { hz: lbl }
-    SCEN.forEach(s => { row[s.key] = metric.val(at(s.key, hi)) })
+    SCEN.forEach(s => { row[s.key] = totExposed(at(s.key, hi)) })
     return row
   })
 
-  // headline: the SELECTED pathway/horizon (the live what-if), each with its trajectory sparkline. The delta
-  // is vs the same scenario Now, i.e. how much this parameter set moves the figure by the chosen horizon.
+  // headline: value at risk for the SELECTED pathway/horizon (delta vs the same pathway Now) + its sparkline;
+  // taxonomy & emissions are the current book facts.
   const scen = SCEN.find(s => s.key === sel) ?? SCEN[3]
   const sparkVar = HZ.map(([, l], hi) => ({ hz: l, v: totExposed(at(sel, hi)) ?? 0 }))
-  const sparkTax = HZ.map(([, l], hi) => ({ hz: l, v: at(sel, hi)?.taxonomy?.eligible?.value_eur ?? 0 }))
-  const sparkEm = HZ.map(([, l], hi) => ({ hz: l, v: sumEm(at(sel, hi)) ?? 0 }))
   const now = sparkVar[0].v, end = sparkVar[hz].v
-  const taxNow = sparkTax[0].v, taxEnd = sparkTax[hz].v
-  const emNow = sparkEm[0].v, emEnd = sparkEm[hz].v
+  const taxBook = at('baseline', 0)?.taxonomy?.eligible?.value_eur ?? null   // point-in-time book fact
+  const emBook = sumEm(at('baseline', 0))                                    // point-in-time book fact
   const hzLabel = HZ[hz][1]
-  const heroY = metric.val(at(sel, hz))   // the marker point on the hero, for the selected pathway/horizon/metric
-  // tighten the hero y-axis to the data band (padded) so the divergence is legible, for any metric magnitude
+  const heroY = totExposed(at(sel, hz))   // the marker point on the hero (selected pathway/horizon)
+  // tighten the hero y-axis to the data band (padded) so the divergence is legible
   const vals = traj.flatMap(r => SCEN.map(s => r[s.key]).filter(v => typeof v === 'number')) as number[]
   const yDomain: [number, number] = vals.length ? [Math.min(...vals) * 0.94, Math.max(...vals) * 1.04] : [0, 1]
 
@@ -147,12 +138,13 @@ export default function Analytics() {
         </div>
       </Card>
 
-      {/* headline KPIs — recomputed for the selected pathway × horizon (delta vs the same pathway Now).
-          Financed emissions only where the book carries them (banks) — hidden for asset managers / insurers. */}
+      {/* headline KPIs — value at risk is the forward number (recomputed for the selected pathway × horizon,
+          delta vs the same pathway Now, with its trajectory sparkline). Taxonomy-eligible and financed
+          emissions are point-in-time BOOK facts — they don't move with the warming pathway, so no delta/spark. */}
       <div className={`grid gap-3 ${hasEm ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={eur(end)} base={now} end={end} spark={sparkVar} mark={hz} tone={scen.color} worseUp loading={loading} />
-        <Kpi label="Taxonomy-eligible" sub={`green asset base · ${hzLabel}`} value={eur(taxEnd)} base={taxNow} end={taxEnd} spark={sparkTax} mark={hz} tone="var(--scn-baseline)" loading={loading} />
-        {hasEm && <Kpi label="Financed emissions" sub={`tCO₂e · ${hzLabel}`} value={emEnd == null ? '—' : Math.round(emEnd).toLocaleString('en-GB')} base={emNow} end={emEnd} spark={sparkEm} mark={hz} tone={scen.color} worseUp loading={loading} />}
+        <Kpi label="Taxonomy-eligible" sub="book · point-in-time" value={eur(taxBook)} tone="var(--scn-baseline)" loading={loading} />
+        {hasEm && <Kpi label="Financed emissions" sub="book · point-in-time · tCO₂e" value={tco2e(emBook)} tone="var(--scn-baseline)" loading={loading} />}
       </div>
 
       {asTable ? <TrajTable at={at} /> : (
@@ -160,16 +152,7 @@ export default function Analytics() {
           {/* hero — scenario trajectories for the selected metric */}
           <Card className="p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-[var(--color-line)]">
-              <div className="flex items-center gap-2">
-                {metrics.length > 1 && (
-                  <div className="flex gap-0.5 p-0.5 rounded-lg border border-[var(--color-line-2)]">
-                    {metrics.map(m => (
-                      <button key={m.key} onClick={() => setMetricKey(m.key)} className={`px-2 py-0.5 rounded-md mono text-[10px] uppercase tracking-wide transition ${metric.key === m.key ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>{m.label}</button>
-                    ))}
-                  </div>
-                )}
-                <span className="mono text-[10px] text-[var(--color-faint)]">by warming pathway</span>
-              </div>
+              <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Value exposed at High+ · by warming pathway</span>
               <div className="flex items-center gap-3">
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {SCEN.map(s => (
@@ -179,7 +162,7 @@ export default function Analytics() {
                     </button>
                   ))}
                 </div>
-                <button onClick={() => exportCsv(metric, traj)} title="Download the projection as CSV" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={14} /></button>
+                <button onClick={() => exportCsv(traj)} title="Download the projection as CSV" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={14} /></button>
               </div>
             </div>
             <div className="px-4 py-6" style={{ height: 380 }}>
@@ -188,8 +171,8 @@ export default function Analytics() {
                   <LineChart data={traj} margin={{ top: 8, right: 20, bottom: 4, left: 8 }}>
                     <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
                     <XAxis dataKey="hz" tick={{ fill: 'var(--color-faint)', fontSize: 11.5 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} dy={8} padding={{ left: 12, right: 12 }} />
-                    <YAxis domain={yDomain} tickFormatter={metric.fmt} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
-                    <Tooltip content={(p) => <HeroTip {...p} fmt={metric.fmt} />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                    <YAxis domain={yDomain} tickFormatter={eur} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
+                    <Tooltip content={(p) => <HeroTip {...p} fmt={eur} />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                     {/* the selected horizon, marked live */}
                     <ReferenceLine x={hzLabel} stroke="var(--color-line-2)" strokeDasharray="4 4" />
                     {SCEN.map(s => {
@@ -334,14 +317,14 @@ function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payl
   )
 }
 
-// download the current metric's scenario × horizon grid as CSV
-function exportCsv(metric: typeof METRICS[number], traj: Record<string, number | string | null>[]) {
+// download the value-at-risk scenario × horizon grid as CSV
+function exportCsv(traj: Record<string, number | string | null>[]) {
   const head = ['Horizon', ...SCEN.map(s => s.label)]
   const rows = traj.map(r => [r.hz, ...SCEN.map(s => { const v = r[s.key]; return typeof v === 'number' ? Math.round(v) : '' })])
   const csv = [head, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob([`# ${metric.label} — projected scenario × horizon\n${csv}\n`], { type: 'text/csv' })
+  const blob = new Blob([`# Value exposed at High+ (EUR) — projected scenario x horizon\n${csv}\n`], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = `analytics-${metric.key}.csv`; a.click()
+  const a = document.createElement('a'); a.href = url; a.download = 'analytics-value-at-risk.csv'; a.click()
   URL.revokeObjectURL(url)
 }
 
