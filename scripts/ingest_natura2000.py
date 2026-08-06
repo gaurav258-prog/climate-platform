@@ -34,23 +34,39 @@ from core.db.session import get_session
 VINTAGE = date(2021, 12, 31)     # Natura 2000 "end 2021" release
 
 
-def _find_gpkg(zip_path: Path, workdir: Path) -> Path:
-    """Unzip and return the .gpkg inside (Natura 2000 ships one GeoPackage in the zip)."""
-    if zip_path.suffix.lower() == ".gpkg":
-        return zip_path
-    with zipfile.ZipFile(zip_path) as z:
-        names = [n for n in z.namelist() if n.lower().endswith(".gpkg")]
-        if not names:
-            sys.exit("No .gpkg found inside the zip.")
-        z.extract(names[0], workdir)
-        return workdir / names[0]
-
-
-def _polygon_layer(gpkg: Path) -> str:
+def _read_polygons(src: Path, workdir: Path):
+    """Read the protected-area POLYGONS from whatever Protected Planet / EEA ship — GeoPackage (.gpkg),
+    File Geodatabase (.gdb), or Shapefile(s) (.shp), inside a .zip or given directly. WDPA's shapefile export
+    is split across WDPA_poly_*_0/1/2.shp; those are concatenated. Returns one GeoDataFrame of polygons."""
+    import geopandas as gpd
+    import pandas as pd
     import pyogrio
-    layers = [l[0] for l in pyogrio.list_layers(gpkg)]
-    # the polygon layer — Natura 2000 'NaturaSite_polygon', WDPA 'WDPA_poly_…'; fall back to the first
-    return next((l for l in layers if "poly" in l.lower()), layers[0])
+
+    root = src
+    if src.suffix.lower() == ".zip":
+        with zipfile.ZipFile(src) as z:
+            z.extractall(workdir)
+        root = workdir
+
+    def poly_layer(path: Path):
+        layers = [l[0] for l in pyogrio.list_layers(path)]
+        return next((l for l in layers if "poly" in l.lower()), layers[0])
+
+    frames = []
+    containers = list(root.rglob("*.gpkg")) + [d for d in root.rglob("*.gdb")] if root.is_dir() else []
+    if root.suffix.lower() in (".gpkg", ".gdb"):
+        containers = [root]
+    for c in containers:
+        frames.append(gpd.read_file(c, layer=poly_layer(c), engine="pyogrio"))
+    if not frames:                                   # shapefile export → take the polygon .shp files
+        shps = [root] if root.suffix.lower() == ".shp" else list(root.rglob("*.shp"))
+        for sh in shps:
+            g = gpd.read_file(sh, engine="pyogrio")
+            if not g.empty and g.geom_type.astype(str).str.contains("Polygon").any():
+                frames.append(g)
+    if not frames:
+        sys.exit("No polygon spatial data found (looked for .gpkg / .gdb / .shp).")
+    return pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
 
 
 def _cells_for_geom(geom, res: int) -> set[str]:
@@ -74,20 +90,19 @@ def _cells_for_geom(geom, res: int) -> set[str]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gpkg-zip", required=True)
+    ap.add_argument("--gpkg-zip", required=True, dest="gpkg_zip",
+                    help="path to the source — a .zip / .gpkg / .gdb / .shp (GeoPackage, File Geodatabase or Shapefile)")
     ap.add_argument("--country", default=None, help="ISO2 filter on SITECODE prefix (e.g. ES) — keeps a demo run small")
     ap.add_argument("--buffer-km", type=float, default=1.0, help="also flag cells within this many km of a site")
     ap.add_argument("--res", type=int, default=8)
     ap.add_argument("--dataset", default="natura2000")
     args = ap.parse_args()
 
-    import geopandas as gpd
-    work = Path("data/natura2000")
+    src = Path(args.gpkg_zip)
+    work = Path("data") / args.dataset / "_extract"
     work.mkdir(parents=True, exist_ok=True)
-    gpkg = _find_gpkg(Path(args.gpkg_zip), work)
-    layer = _polygon_layer(gpkg)
-    print(f"reading {gpkg.name} · layer {layer}")
-    gdf = gpd.read_file(gpkg, layer=layer, engine="pyogrio")
+    print(f"reading {src.name} (GeoPackage / GDB / Shapefile) …")
+    gdf = _read_polygons(src, work)
 
     # site-identifier column (Natura 2000: SITECODE · WDPA: WDPAID/WDPA_PID)
     code_col = next((c for c in gdf.columns if c.upper() in ("SITECODE", "SITE_CODE", "WDPAID", "WDPA_PID", "WDPA_ID")), None)
@@ -95,11 +110,11 @@ def main() -> None:
     # encodes the country in the SITECODE prefix (2-letter). Pass ES for Natura 2000, ESP for WDPA.
     iso_col = next((c for c in gdf.columns if c.upper() in ("ISO3", "ISO3_CODE", "PARENT_ISO3", "COUNTRY")), None)
     if args.country:
-        cc = args.country.upper()
-        if iso_col:
-            gdf = gdf[gdf[iso_col].astype(str).str.upper().str.contains(cc, na=False)]
-        elif code_col:
-            gdf = gdf[gdf[code_col].astype(str).str.upper().str.startswith(cc)]
+        codes = [c.strip().upper() for c in args.country.split(",") if c.strip()]
+        if iso_col:      # WDPA ISO3 may be ';'-joined for transboundary sites → match any code as a substring
+            gdf = gdf[gdf[iso_col].astype(str).str.upper().apply(lambda v: any(c in v for c in codes))]
+        elif code_col:   # Natura 2000 encodes the country in the SITECODE prefix
+            gdf = gdf[gdf[code_col].astype(str).str.upper().apply(lambda v: any(v.startswith(c) for c in codes))]
     print(f"{len(gdf)} sites{' (' + args.country + ')' if args.country else ''} · id col {code_col} · dataset {args.dataset}")
 
     # WGS84 for H3; add a metric buffer (project to EU LAEA 3035, buffer in metres, back to 4326)
