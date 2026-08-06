@@ -1,0 +1,136 @@
+"""The canonical datapoint catalog — single source of truth for WHERE every disclosure datapoint comes from
+and HOW it enters Tellumen. Everything downstream derives from this: the filing-coverage map, the Data
+Dictionary's source/lane taxonomy, ingestion validation, and the customer-facing data-onboarding guide.
+
+Two axes classify each datapoint:
+
+SOURCE CATEGORY — where the data originates
+  tellumen  — our engine + authoritative feeds produce it (the moat: physical & nature risk)
+  egov      — a free government/agency dataset we self-integrate as a feed (WDPA, EPC registers, factors)
+  evendor   — a commercial 3rd-party dataset the customer licenses (ESG/emissions, carbon tool, controversy)
+  customer  — customer-proprietary (their systems, their judgement, their narrative)
+  none      — not produced by this platform (a genuine gap / out-of-scope)
+
+INGESTION LANE — how the value reaches a filing
+  compute   — Tellumen computes it from its own feeds/engine (no customer step)
+  granular  — customer uploads raw records; Tellumen's engine processes them into the value
+  provided  — a PRE-CALCULATED value from customer/vendor; Tellumen reconciles it (bring-your-own-number)
+  report    — a value/statement needed only on the filing; captured at the form (narrative, flag, final figure)
+  none      — n/a (out-of-scope)
+
+The coverage view the customer sees is DERIVED from the lane (see `coverage_source`), so the catalog is the
+one place to change when a datapoint's sourcing changes (e.g. a free-gov feed flips an item from
+evendor/provided to egov/compute).
+"""
+from __future__ import annotations
+
+
+def _dp(key, label, source, lane, provider=None, note=None, recon_tol=None):
+    return {"key": key, "label": label, "source_category": source, "lane": lane,
+            "provider": provider, "note": note, "recon_tol": recon_tol}
+
+
+# lane → the coverage bucket the customer sees on the filing-coverage panel
+def coverage_source(lane: str) -> str:
+    return {"compute": "computed", "granular": "computed",
+            "provided": "integrated", "report": "client"}.get(lane, "out_of_scope")
+
+
+CATALOG: dict[str, list[dict]] = {
+    "bank_tcfd": [
+        _dp("phys_risk", "Physical climate-risk exposure — value at risk by hazard, scenario × horizon",
+            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)"),
+        _dp("financed_emissions", "Financed emissions — PCAF Scope 1–3",
+            "tellumen", "compute", provider="Tellumen PCAF engine",
+            note="Computed from counterparty emissions; needs an issuer-emissions feed (ESG vendor) or falls back to a NACE-intensity estimate."),
+        _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility (GAR numerator)",
+            "tellumen", "compute", provider="Tellumen + your loan book"),
+        _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment: DNSH + minimum safeguards (→ Green Asset Ratio)",
+            "customer", "provided", provider="Your Taxonomy alignment determination (per-exposure flags)",
+            note="The loan template already carries a minimum-safeguards field; full alignment (DNSH) is your assessment."),
+        _dp("transition_risk", "Transition risk — carbon-price sensitivity / stranded assets",
+            "none", "none"),
+        _dp("tcfd_narrative", "TCFD governance, strategy & transition-plan narrative",
+            "customer", "report", provider="You author"),
+    ],
+    "reit_tcfd": [
+        _dp("phys_risk", "Physical climate-risk to property value + net-operating-income impact",
+            "tellumen", "compute", provider="Tellumen hazard engine"),
+        _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility", "tellumen", "compute", provider="Tellumen + your property book"),
+        _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment", "customer", "provided", provider="Your Taxonomy alignment determination"),
+        _dp("epc", "Energy performance (EPC ratings)", "egov", "provided",
+            provider="National EPC registers (UK/IE public) or a property-data vendor",
+            note="Free-gov where a public register exists; otherwise a commercial feed. Attached per property."),
+        _dp("tcfd_narrative", "TCFD governance & strategy narrative", "customer", "report", provider="You author"),
+    ],
+    "sfdr_pai": [
+        _dp("pai_climate", "PAI 1–6 climate indicators — emissions, carbon footprint, WACI, fossil-fuel, energy",
+            "tellumen", "compute", provider="Tellumen PAI engine (from your issuer-data feed)",
+            note="Values computed by Tellumen; depend on an issuer ESG/emissions feed (ESG vendor) with a NACE-intensity fallback."),
+        _dp("pai_nature", "PAI 7–9 nature indicators — biodiversity, emissions to water, hazardous waste",
+            "tellumen", "compute", provider="Tellumen PAI engine (from your issuer-data feed)",
+            note="PAI 7 (biodiversity areas) could move to Tellumen-computed via the free WDPA/Natura 2000 feed (roadmap)."),
+        _dp("pai_social", "PAI 10–14 social & governance indicators — UNGC/OECD, gender pay, board, weapons",
+            "tellumen", "compute", provider="Tellumen PAI engine (from your issuer-data feed)",
+            note="UNGC signatory status is free-gov; violation/weapons screening is a vendor feed; UK gender-pay-gap is free-gov."),
+        _dp("pai_additional", "Additional / opt-in PAI indicators (Tables 2–3)",
+            "evendor", "provided", provider="Issuer ESG data feed (ESG vendor)"),
+        _dp("sfdr_narrative", "Narratives — policies, actions, engagement, reference standards",
+            "customer", "report", provider="You author (in-product narratives editor)"),
+    ],
+    "csrd_e1": [
+        _dp("e1_financial_effects", "ESRS E1-9 — physical-risk anticipated financial effects (own ops + upstream)",
+            "tellumen", "compute", provider="Tellumen E1 engine"),
+        _dp("e1_ghg", "ESRS E1-6 — GHG emissions (Scope 1–3) & energy",
+            "evendor", "provided", provider="Your carbon-accounting tool (Watershed/Persefoni/…)",
+            note="We ingest + reconcile the inventory; activity data is yours, emission factors are free-gov."),
+        _dp("e1_transition", "ESRS E1-1/4 — transition plan, targets, carbon price", "none", "none"),
+        _dp("e1_narrative", "ESRS E1 — governance & impact/risk/opportunity narrative", "customer", "report", provider="You author"),
+    ],
+    "esrs_pack": [
+        _dp("e1_financial_effects", "ESRS E1-9 — physical-risk anticipated financial effects",
+            "tellumen", "compute", provider="Tellumen E1 engine"),
+        _dp("e3_water", "ESRS E3 — water-stress exposure (own ops + upstream)",
+            "tellumen", "compute", provider="Tellumen hazard engine (water-stress / soil-water)"),
+        _dp("e4_deforestation", "ESRS E4 — deforestation determination (EUDR, satellite)",
+            "tellumen", "compute", provider="Tellumen deforestation engine (Hansen Global Forest Change)"),
+        _dp("e1_ghg", "ESRS E1-6 — GHG emissions (Scope 1–3) & energy",
+            "evendor", "provided", provider="Your carbon-accounting tool"),
+        _dp("e3e4_measured", "ESRS E3/E4 — measured water withdrawal / biodiversity-area metrics",
+            "customer", "provided", provider="Your meters (water) · WDPA/Natura 2000 free-gov feed (biodiversity, roadmap)"),
+        _dp("esrs_narrative", "ESRS — transition plan & narrative", "customer", "report", provider="You author"),
+    ],
+    "insurer_climate": [
+        _dp("natcat_eal", "NatCat expected annual loss + loss ratio by peril",
+            "tellumen", "compute", provider="Tellumen NatCat engine"),
+        _dp("sum_insured_at_risk", "Sum insured at risk (High+) by peril & geography",
+            "tellumen", "compute", provider="Tellumen hazard engine + your SoV"),
+        _dp("uw_narrative", "Underwriting strategy & climate narrative", "customer", "report", provider="You author"),
+    ],
+    "eudr_dds": [
+        _dp("eudr_determination", "Per-plot geolocation + deforestation-free determination (satellite vs 2020 cutoff)",
+            "tellumen", "compute", provider="Tellumen (your plot polygons + Hansen Global Forest Change)"),
+        _dp("eudr_legality", "Legality evidence + supplier declarations",
+            "customer", "provided", provider="Your supplier legality documentation"),
+    ],
+}
+
+
+def catalog(framework: str) -> list[dict] | None:
+    """The datapoints for a framework, each with source-category + ingestion lane + provider."""
+    return CATALOG.get(framework)
+
+
+def coverage(framework: str) -> dict | None:
+    """Filing coverage DERIVED from the catalog: each datapoint's lane → a coverage bucket, plus a summary
+    (how much of this filing we produce from your data). Same shape the coverage panel already consumes."""
+    dps = CATALOG.get(framework)
+    if not dps:
+        return None
+    sections = [{"section": d["label"], "source": coverage_source(d["lane"]),
+                 "source_category": d["source_category"], "lane": d["lane"], "provider": d["provider"]} for d in dps]
+    srcs = ("computed", "integrated", "client", "out_of_scope")
+    counts = {k: sum(1 for s in sections if s["source"] == k) for k in srcs}
+    total = len(sections)
+    return {"sections": sections, "counts": counts, "total": total,
+            "pct_computed": round(100 * counts["computed"] / total) if total else 0}
