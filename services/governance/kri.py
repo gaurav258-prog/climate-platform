@@ -19,17 +19,24 @@ def _kpi(key, label, value, fmt, tone=None, hint=None):
 
 def kri(session: Session, org_id: str, framework: str) -> dict:
     if framework == "bank_tcfd":
-        return _bank_kri(session, org_id)
-    if framework == "sfdr_pai":
-        return _sfdr_kri(session, org_id)
-    if framework == "reit_tcfd":
-        return _reit_kri(session, org_id)
-    if framework == "insurer_climate":
-        return _insurer_kri(session, org_id)
-    if framework in ("csrd_e1", "esrs_pack"):
-        return _agri_kri(session, org_id)
-    return {"framework": framework, "supported": False,
-            "message": "No KRI dashboard for this framework yet."}
+        result = _bank_kri(session, org_id)
+    elif framework == "sfdr_pai":
+        result = _sfdr_kri(session, org_id)
+    elif framework == "reit_tcfd":
+        result = _reit_kri(session, org_id)
+    elif framework == "insurer_climate":
+        result = _insurer_kri(session, org_id)
+    elif framework in ("csrd_e1", "esrs_pack"):
+        result = _agri_kri(session, org_id)
+    else:
+        return {"framework": framework, "supported": False,
+                "message": "No KRI dashboard for this framework yet."}
+    # grade every KPI against the org's appetite bands → green / amber / red (a monitored control, not a number)
+    if result.get("supported") and result.get("kpis"):
+        from services.governance import kri_thresholds
+        kri_thresholds.apply(session, org_id, result["framework"], result["kpis"])
+        result["breaches"] = sum(1 for k in result["kpis"] if k.get("breached"))
+    return result
 
 
 def _hplus(by_bucket: dict, key: str) -> float:

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
@@ -36,6 +36,7 @@ export default function Admin() {
     perms.includes('admin.roles.manage') && 'Roles',
     perms.includes('admin.users.manage') && 'Entities',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
+    perms.includes('admin.approval_policy.manage') && 'KRI appetite',
     perms.includes('admin.users.manage') && 'Integrations',
   ].filter(Boolean) as string[]
   const [tab, setTab] = useState(tabs[0] ?? 'Overview')
@@ -60,6 +61,7 @@ export default function Admin() {
       {tab === 'Roles' && <Roles />}
       {tab === 'Entities' && <AdminEntities />}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
+      {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Integrations' && <Integrations />}
     </div>
   )
@@ -883,5 +885,63 @@ function DecisionPlaybook() {
         </div>
       ))}
     </Card>
+  )
+}
+
+interface AppetiteKpi { key: string; label: string; fmt: string; value: number | null; amber: number | null; red: number | null; direction: string | null; status: string | null }
+const RAG_C: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
+
+function KriAppetite() {
+  const q = useQuery({ queryKey: ['kri-appetite'], queryFn: () => api.get<{ supported: boolean; framework?: string; label?: string; kpis?: AppetiteKpi[]; message?: string }>('/v1/admin/kri-appetite') })
+  const [busy, setBusy] = useState<string | null>(null)
+  const set = async (k: AppetiteKpi, patch: Record<string, unknown>) => {
+    setBusy(k.key)
+    try { await api.patch('/v1/admin/kri-appetite', { kri_key: k.key, ...patch }); await q.refetch() }
+    finally { setBusy(null) }
+  }
+  const d = q.data
+  if (d && !d.supported) return <Card className="p-8 mt-4 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No KRI dashboard for this organisation type.'}</Card>
+  const kpis = d?.kpis ?? []
+  const unit = (f: string) => f === 'pct' ? '%' : f === 'eur' ? '€' : ''
+  return (
+    <Card className="p-0 overflow-hidden mt-4">
+      <div className="p-4 border-b border-[var(--color-line)] flex items-center gap-2">
+        <Gauge size={16} className="text-[var(--color-sky)]" />
+        <span className="text-[13px] text-[var(--color-mute)]">Risk-appetite bands on each KRI — a value that crosses <b>warn</b> turns amber, <b>breach</b> turns red on the KRI dashboard. Empty = the indicator is shown but not graded. Direction sets which way is bad.</span>
+      </div>
+      <div className="hidden sm:grid grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 px-4 py-2 border-b border-[var(--color-line)] mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
+        <span>Indicator</span><span>Now</span><span>Warn (amber)</span><span>Breach (red)</span><span>Direction</span>
+      </div>
+      {kpis.map(k => {
+        const rag = k.status ? RAG_C[k.status] : null
+        const vfmt = k.value == null ? '—' : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'eur' ? (k.value >= 1e6 ? `€${(k.value / 1e6).toFixed(1)}m` : `€${Math.round(k.value / 1e3)}k`) : Math.round(k.value).toLocaleString('en-GB')
+        return (
+          <div key={k.key} className="grid grid-cols-2 sm:grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 px-4 py-3 border-b border-[var(--color-line)] last:border-0 items-center">
+            <div className="flex items-center gap-2">
+              {k.status && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rag! }} />}
+              <span className="text-[13px] text-[var(--color-ink)]">{k.label}</span>
+              <span className="mono text-[9px] text-[var(--color-faint)]">{unit(k.fmt)}</span>
+            </div>
+            <div className="mono text-[12.5px] tabular-nums" style={rag ? { color: rag } : { color: 'var(--color-mute)' }}>{vfmt}</div>
+            <ThreshInput disabled={busy === k.key} defaultValue={k.amber} onCommit={v => set(k, { amber: v })} />
+            <ThreshInput disabled={busy === k.key} defaultValue={k.red} onCommit={v => set(k, { red: v })} />
+            <select value={k.direction ?? 'higher_worse'} disabled={busy === k.key} onChange={e => set(k, { direction: e.target.value })}
+              className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] outline-none">
+              <option value="higher_worse">higher is worse</option>
+              <option value="lower_worse">lower is worse</option>
+            </select>
+          </div>
+        )
+      })}
+      {kpis.length === 0 && <div className="px-4 py-6 text-[13px] text-[var(--color-faint)]">loading…</div>}
+    </Card>
+  )
+}
+
+function ThreshInput({ defaultValue, onCommit, disabled }: { defaultValue: number | null; onCommit: (v: number | null) => void; disabled: boolean }) {
+  return (
+    <input type="number" step="any" disabled={disabled} defaultValue={defaultValue ?? ''} placeholder="—"
+      onBlur={e => { const raw = e.target.value.trim(); const v = raw === '' ? null : Number(raw); if (v !== defaultValue) onCommit(Number.isNaN(v as number) ? null : v) }}
+      className="w-20 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] mono outline-none focus:border-[var(--color-sky)]" />
   )
 }

@@ -12,10 +12,21 @@ import { filingLink } from '../lib/links'
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean }
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string }
+interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number }
+const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
+// the appetite band in words, in the KRI's own unit
+const bandNote = (k: Kpi) => {
+  if (k.amber == null && k.red == null) return null
+  const u = k.fmt === 'pct' ? '%' : ''
+  const cmp = k.direction === 'lower_worse' ? '≤' : '≥'
+  const parts: string[] = []
+  if (k.amber != null) parts.push(`warn ${cmp}${k.amber}${u}`)
+  if (k.red != null) parts.push(`breach ${cmp}${k.red}${u}`)
+  return parts.join(' · ')
+}
 interface Ent { name: string; value: number | null; h3_cell: string | null; country: string | null; score: number | null }
 interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[] }
 
@@ -48,13 +59,26 @@ export default function Kri() {
         : (
         <>
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
+          {(d.breaches ?? 0) > 0 && (
+            <div className="flex items-center gap-2 rounded-lg px-3.5 py-2.5" style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: '1px solid color-mix(in oklab, #fb7185 30%, transparent)' }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: '#fb7185' }} />
+              <span className="text-[12.5px] text-[var(--color-ink)]"><b>{d.breaches}</b> indicator{d.breaches === 1 ? '' : 's'} outside appetite</span>
+              <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">bands set in Settings → KRI appetite</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {d.kpis.map(k => (
-              <Card key={k.key} className="px-4 py-3.5" >
-                <div className="display text-[22px] leading-none" style={k.tone ? { color: k.tone } : undefined}>{fmt(k)}</div>
-                <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2" title={k.hint ?? undefined}>{k.label}{k.hint ? ' ⓘ' : ''}</div>
-              </Card>
-            ))}
+            {d.kpis.map(k => {
+              const rag = k.status ? RAG[k.status] : null
+              const note = bandNote(k)
+              return (
+                <Card key={k.key} className="px-4 py-3.5 relative">
+                  {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
+                  <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{fmt(k)}</div>
+                  <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2" title={k.hint ?? undefined}>{k.label}{k.hint ? ' ⓘ' : ''}</div>
+                  {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
+                </Card>
+              )
+            })}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-5">

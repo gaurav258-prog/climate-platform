@@ -329,6 +329,51 @@ def set_decision_playbook(body: PlaybookPatch, session: DbSession,
     return {"action": body.action, **row}
 
 
+# ── KRI appetite: per-org RAG bands on each Key Regulatory Indicator ──────
+
+# org type → the KRI framework it reports on (mirrors web/src/pages/Kri.tsx)
+_KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_tcfd",
+                  "insurer": "insurer_climate", "manufacturer": "csrd_e1"}
+# KRIs whose value is a numeric that can be graded against a band
+_GRADEABLE_FMT = {"eur", "pct", "num"}
+
+
+class KriThresholdPatch(BaseModel):
+    kri_key:   str
+    framework: Optional[str] = None                 # defaults to the org's own framework
+    amber:     Optional[float] = None
+    red:       Optional[float] = None
+    direction: Optional[str] = None                 # higher_worse | lower_worse
+
+
+@router.get("/kri-appetite", summary="The KRI appetite bands — the RAG thresholds graded on each KRI")
+def get_kri_appetite(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance.kri import kri as build_kri
+    fw = _KRI_FRAMEWORK.get(ctx["org"].get("type"))
+    if not fw:
+        return {"supported": False, "message": "No KRI dashboard for this organisation type."}
+    data = build_kri(session, ctx["org"]["org_id"], fw)      # live KRIs, already graded against current bands
+    kpis = [{"key": k["key"], "label": k["label"], "fmt": k["fmt"], "value": k.get("value"),
+             "amber": k.get("amber"), "red": k.get("red"), "direction": k.get("direction"),
+             "status": k.get("status")}
+            for k in (data.get("kpis") or []) if k.get("fmt") in _GRADEABLE_FMT]
+    return {"supported": True, "framework": data.get("framework", fw), "label": data.get("label"), "kpis": kpis}
+
+
+@router.patch("/kri-appetite", summary="Set the appetite band for one KRI")
+def set_kri_appetite(body: KriThresholdPatch, session: DbSession,
+                     ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance import kri_thresholds
+    fw = body.framework or _KRI_FRAMEWORK.get(ctx["org"].get("type"))
+    if not fw:
+        raise HTTPException(422, {"error": "bad_request", "message": "No KRI framework for this organisation type."})
+    patch = {k: v for k, v in body.model_dump().items() if k not in ("kri_key", "framework") and v is not None}
+    row = kri_thresholds.set_threshold(session, ctx["org"]["org_id"], ctx["user"]["id"], fw, body.kri_key, patch)
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="kri_appetite.update",
+                target_type="kri_threshold", target_id=f"{fw}:{body.kri_key}", detail=patch)
+    return {"framework": fw, "kri_key": body.kri_key, **row}
+
+
 # ── Control center: the customer-admin cockpit (identity + data health + governance) ──────
 
 class OrgPatch(BaseModel):
