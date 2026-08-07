@@ -228,6 +228,12 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                           <Download size={12} /> {fmt.toUpperCase()}
                         </button>
                       ))}
+                      {/* auditor / supervisor evidence bundle — methodology, validation record, 4-eyes, provenance, hashed manifest */}
+                      <button onClick={() => download(`/v1/filings/${f.filing_id}/assurance-pack`, `assurance-${f.framework}-${f.period_label}.zip`).catch(() => alert('Could not download the assurance pack.'))}
+                        title="Auditor-ready evidence bundle: methodology, validation record, 4-eyes approvals, provenance, hashed manifest"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
+                        <ShieldCheck size={12} /> Assurance pack
+                      </button>
                     </div>
                   </div>
                 )}

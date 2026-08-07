@@ -18,6 +18,7 @@ import Analytics from './pages/Analytics'
 import Decisions from './pages/Decisions'
 import Tasks from './pages/Tasks'
 import Exceptions from './pages/Exceptions'
+import Oversight from './pages/Oversight'
 import Calendar from './pages/Calendar'
 import Kri from './pages/Kri'
 import Transmission from './pages/Transmission'
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/esrs" element={<EsrsPack />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/exceptions" element={<Exceptions />} />
+        <Route path="/oversight" element={<Oversight />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/kri" element={<Kri />} />
         <Route path="/transmission" element={<Transmission />} />

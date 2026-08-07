@@ -50,6 +50,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
     { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view' },
     { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view' },
     { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'modules.view' },
+    { to: '/oversight', label: 'Supervisory view', icon: ShieldCheck, perm: 'modules.view' },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view' },
     { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view' },
     { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view' },

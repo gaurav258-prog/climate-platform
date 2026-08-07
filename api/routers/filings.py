@@ -223,6 +223,28 @@ def export_filing(filing_id: str, format: str, session: DbSession,
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
+@router.get("/filings/{filing_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a filing")
+def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from fastapi.responses import StreamingResponse
+    import io
+    from sqlalchemy import text
+    from services.governance.assurance_pack import build_assurance_pack
+    from services.governance.audit import write_audit
+    org_id = ctx["org"]["org_id"]
+    sid = session.execute(text("SELECT snapshot_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
+                          {"f": filing_id, "o": org_id}).scalar()
+    if not sid:
+        raise HTTPException(409, {"error": "no_snapshot", "message": "This filing has no frozen snapshot yet — prepare it first."})
+    out = build_assurance_pack(session, org_id, sid)
+    if not out:
+        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
+    fname, data = out
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
+                target_type="regulatory_filing", target_id=filing_id, detail={"file": fname})
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 @router.get("/filings/{filing_id}/validation", summary="Run the pre-submission validation checklist")
 def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_validation import validate_filing

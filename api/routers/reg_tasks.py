@@ -54,6 +54,12 @@ class SpinTask(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+@router.get("/oversight", summary="Supervisor's-eye rollup — every filing's status, coverage, KRI breaches, readiness & exceptions")
+def oversight(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.oversight import supervisor_view
+    return supervisor_view(session, ctx["org"]["org_id"], ctx["org"].get("type"))
+
+
 @router.get("/kri/frameworks", summary="The KRI frameworks this org can report on (for the picker)")
 def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_frameworks as _kf
