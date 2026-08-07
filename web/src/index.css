@@ -53,6 +53,16 @@
   --scn-hot: #d1355a;        /* Hot-house 3.5°C */
   --chart-seq: #256abf;      /* single-hue sequential (hazard small-multiples) */
   --chart-grid: #e6ebf3;
+  /* Operational-flow stage hues — one identifying colour per stage of the loop
+     (Sense→Assess→Decide→Disclose→Operate→Set up). Used only on the stage label/dot and the
+     active nav item's accent, and as a hairline section accent on pages. Semantic, not decorative:
+     blue=observe · indigo=analyse · amber=act · teal=disclose/comply · slate=operate · grey=config. */
+  --stage-sense: #2b6cb0;
+  --stage-assess: #5b52c9;
+  --stage-decide: #b06a12;
+  --stage-disclose: #0f7a5f;
+  --stage-operate: #5a6a80;
+  --stage-setup: #6a7990;
 }
 /* applies at the <html> root (app theme) AND on any nested container — so the Horizon globe can force its
    own dark chrome even when the app is in light mode (the space globe is always a night visual). */
@@ -82,6 +92,13 @@
   --scn-hot: #d43d5c;
   --chart-seq: #3987e5;
   --chart-grid: #223049;
+  /* stage hues — lifted for legibility on the dark active-item background */
+  --stage-sense: #6ab0f0;
+  --stage-assess: #9a91ef;
+  --stage-decide: #e0a24a;
+  --stage-disclose: #3fbf97;
+  --stage-operate: #8290a8;
+  --stage-setup: #8492a8;
 }
 * { border-color: var(--color-line); }
 html, body, #root { height: 100%; }

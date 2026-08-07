@@ -24,8 +24,10 @@ export function Card({ className, children, style, onClick }: { className?: stri
   return <div className={clsx('card', className)} style={style} onClick={onClick}>{children}</div>
 }
 
+// The page's flow-stage hue tints the eyebrow (Shell sets --stage per route), so a page's header echoes
+// its nav stage. Falls back to the neutral blue where --stage isn't set (e.g. login, standalone screens).
 export function Eyebrow({ children }: { children: ReactNode }) {
-  return <p className="mono text-[11px] uppercase tracking-[0.2em] text-[var(--color-blue)] m-0">{children}</p>
+  return <p className="mono text-[11px] uppercase tracking-[0.2em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{children}</p>
 }
 
 // The three oversight lenses over the same book. Each surface declares which lens it is, so the
