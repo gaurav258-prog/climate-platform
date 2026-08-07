@@ -1,8 +1,9 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
+import { useResizableWidth } from '../lib/resizable'
 import { BrandMark } from './ui'
 
 // sector = organizations.type. The agri workspace (manufacturer) and the four financial verticals see
@@ -103,17 +104,27 @@ export default function Shell({ children }: { children: ReactNode }) {
     localStorage.setItem('tellumen.theme', next)
     setDark(next === 'dark')
   }
+  // the nav is drag-to-resize (right edge) and collapses to an icon rail — both persisted, so the user's
+  // chosen layout sticks across sessions. Double-click the resize handle to reset to the default width.
+  const { width: navW, setWidth: setNavW, startResize } = useResizableWidth('tellumen.navw', 240, 194, 420)
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tellumen.navcollapsed') === '1')
+  const toggleCollapse = () => setCollapsed(c => { localStorage.setItem('tellumen.navcollapsed', c ? '0' : '1'); return !c })
+  const RAIL = 68
+  const asideW = collapsed ? RAIL : navW
   return (
     <div className="min-h-screen flex">
-      {/* vertical grouped sidebar */}
-      <aside className="w-60 shrink-0 sticky top-0 h-screen flex flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]">
-        <div className="h-14 px-5 flex items-center gap-2 border-b border-[var(--color-line)]">
+      {/* vertical grouped sidebar — drag the right edge to resize, or collapse to an icon rail (both persisted) */}
+      <aside style={{ width: asideW }} className="shrink-0 sticky top-0 h-screen flex flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)] relative">
+        <div className={clsx('h-14 flex items-center border-b border-[var(--color-line)]', collapsed ? 'justify-center px-0' : 'px-5 gap-2')}>
           <BrandMark size={24} />
-          <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
-          <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">{SECTOR_TAG[sector] ?? ''}</span>
+          {!collapsed && <>
+            <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
+            <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">{SECTOR_TAG[sector] ?? ''}</span>
+            <button onClick={toggleCollapse} title="Collapse sidebar" className="ml-auto text-[var(--color-faint)] hover:text-[var(--color-ink)] transition"><PanelLeftClose size={16} /></button>
+          </>}
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        <nav className={clsx('flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-5', collapsed ? 'px-2' : 'px-3')}>
           {(() => {
             let stageNo = 0  // number only the operational-flow stages, contiguously, after sector filtering
             return GROUPS.map((g, gi) => {
@@ -126,24 +137,26 @@ export default function Shell({ children }: { children: ReactNode }) {
               const n = g.flow ? ++stageNo : null
               return (
               <div key={gi}>
-                {g.label && (
-                  <div className="px-2 mb-1.5 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: hue }} />
-                    <span className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: hue }}>
-                      {n != null && <span className="tabular-nums">{n} · </span>}{g.label}
-                    </span>
-                  </div>
+                {g.label && (collapsed
+                  ? <div className="flex justify-center mb-1.5" title={g.label}><span className="w-1.5 h-1.5 rounded-full" style={{ background: hue }} /></div>
+                  : <div className="px-2 mb-1.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: hue }} />
+                      <span className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: hue }}>
+                        {n != null && <span className="tabular-nums">{n} · </span>}{g.label}
+                      </span>
+                    </div>
                 )}
                 <div className="space-y-0.5">
                   {items.map(it => (
-                    <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => clsx(
-                      'relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-[14.5px] transition',
+                    <NavLink key={it.to} to={it.to} end={it.end} title={collapsed ? it.label : undefined} className={({ isActive }) => clsx(
+                      'relative flex items-center rounded-lg text-[14.5px] transition',
+                      collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-2.5 py-2.5',
                       isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
                                : 'text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
                       {({ isActive }) => (<>
                         {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full" style={{ background: hue }} />}
-                        <it.icon size={17} style={isActive ? { color: hue } : undefined} />
-                        {it.label}
+                        <it.icon size={17} className="shrink-0" style={isActive ? { color: hue } : undefined} />
+                        {!collapsed && <span className="truncate">{it.label}</span>}
                       </>)}
                     </NavLink>
                   ))}
@@ -154,26 +167,41 @@ export default function Shell({ children }: { children: ReactNode }) {
           })()}
         </nav>
 
-        <div className="border-t border-[var(--color-line)] px-4 py-3 space-y-2.5">
-          {/* theme toggle — a clearly-labelled segmented control */}
-          <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
-            <button onClick={() => applyTheme('light')} title="Light theme"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${!dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
-              <Sun size={13} /> Light
-            </button>
-            <button onClick={() => applyTheme('dark')} title="Dark theme"
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
-              <Moon size={13} /> Dark
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1 leading-tight">
-              <div className="text-[12px] text-[var(--color-ink)] truncate">{profile?.org?.name}</div>
-              <div className="text-[10px] text-[var(--color-faint)] mono truncate">{profile?.user?.email}</div>
+        <div className={clsx('border-t border-[var(--color-line)] py-3 space-y-2.5', collapsed ? 'px-2' : 'px-4')}>
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <button onClick={toggleCollapse} title="Expand sidebar" className="text-[var(--color-faint)] hover:text-[var(--color-ink)] transition"><PanelLeftOpen size={17} /></button>
+              <button onClick={() => applyTheme(dark ? 'light' : 'dark')} title={dark ? 'Switch to light' : 'Switch to dark'} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] transition">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
+              <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition"><LogOut size={16} /></button>
             </div>
-            <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition shrink-0"><LogOut size={16} /></button>
-          </div>
+          ) : (<>
+            {/* theme toggle — a clearly-labelled segmented control */}
+            <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+              <button onClick={() => applyTheme('light')} title="Light theme"
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${!dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
+                <Sun size={13} /> Light
+              </button>
+              <button onClick={() => applyTheme('dark')} title="Dark theme"
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11.5px] transition ${dark ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)]' : 'text-[var(--color-faint)] hover:text-[var(--color-ink)]'}`}>
+                <Moon size={13} /> Dark
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="text-[12px] text-[var(--color-ink)] truncate">{profile?.org?.name}</div>
+                <div className="text-[10px] text-[var(--color-faint)] mono truncate">{profile?.user?.email}</div>
+              </div>
+              <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition shrink-0"><LogOut size={16} /></button>
+            </div>
+          </>)}
         </div>
+
+        {/* drag-to-resize handle on the right edge (hidden when collapsed); double-click resets to default */}
+        {!collapsed && (
+          <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setNavW(240)}
+            title="Drag to resize · double-click to reset"
+            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-20" />
+        )}
       </aside>
 
       {/* content — --stage carries the current page's flow-stage hue to the shared Eyebrow + page sections */}

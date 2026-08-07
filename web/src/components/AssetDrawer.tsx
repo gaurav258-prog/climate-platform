@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { X, ShieldCheck, RotateCcw, Save, Clock, MapPin } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useResizableWidth } from '../lib/resizable'
 import { Card, Button } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 
@@ -40,6 +41,7 @@ const errText = (e: unknown, fb: string) => {
 }
 
 export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: DrawerCfg; id: string; onClose: () => void; onChanged: () => void }) {
+  const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 576, 380, 900, 'right')
   const q = useQuery({ queryKey: ['fin-detail', cfg.prefix, id], queryFn: () => api.get<Detail>(`/v1/${cfg.prefix}/${cfg.itemKey}/${id}`) })
   const d = q.data
   const item = (d?.[cfg.itemKey] as Record<string, unknown> | undefined)
@@ -64,7 +66,8 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
-      <div className="relative w-full max-w-xl h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(576)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
           <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{cfg.itemKey}</div>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>

@@ -5,6 +5,7 @@ import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal } fr
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
+import { useResizableWidth } from '../lib/resizable'
 import { Eyebrow, Card, Lens } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
@@ -197,12 +198,14 @@ export default function Kri() {
 
 function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: string; hazard: string; hasAnalytics: boolean; onClose: () => void }) {
   const nav = useNavigate()
+  const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
   const q = useQuery({ queryKey: ['kri-hazard', framework, hazard], queryFn: () => api.get<HazDrill>(`/v1/reg-tasks/kri/hazard?framework=${framework}&hazard=${hazard}`) })
   const d = q.data
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(460)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
         <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-center justify-between">
           <div><div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Driving {hazardLabel(hazard)}</div></div>
           <div className="flex items-center gap-3">
@@ -247,6 +250,7 @@ interface Detail { supported: boolean; message?: string; framework: string; kpi:
 
 function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
   const nav = useNavigate()
+  const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
   const q = useQuery({ queryKey: ['kri-detail', framework, kriKey], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}`) })
   const d = q.data
   const uf = (v: number, unit?: string) => unit === 'eur' ? eur(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
@@ -255,7 +259,8 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(460)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
         {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
           : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No detail for this KRI.'}</div>
           : (() => {
