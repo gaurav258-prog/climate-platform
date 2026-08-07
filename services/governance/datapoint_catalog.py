@@ -97,7 +97,9 @@ CATALOG: dict[str, list[dict]] = {
         _dp("e4_deforestation", "ESRS E4 — deforestation determination (EUDR, satellite)",
             "tellumen", "compute", provider="Tellumen deforestation engine (Hansen Global Forest Change)"),
         _dp("e4_protected_area", "ESRS E4 — own sites / sourcing plots in or near a protected area",
-            "egov", "compute", provider="EEA Natura 2000 (free-gov feed, H3 overlap)"),
+            "egov", "compute", provider="EEA Natura 2000 + OpenStreetMap (free-gov feeds, H3 overlap)", reconcilable=True,
+            note="Computed from free EU (Natura 2000) + global (OSM) feeds. A customer holding the authoritative "
+                 "WDPA (via IBAT) can PROVIDE their count to reconcile/override ours — zero data cost to us."),
         _dp("e1_ghg", "ESRS E1-6 — GHG emissions (Scope 1–3) & energy",
             "evendor", "provided", provider="Your carbon-accounting tool"),
         _dp("e3_measured_water", "ESRS E3 — measured water withdrawal / consumption (m³)",

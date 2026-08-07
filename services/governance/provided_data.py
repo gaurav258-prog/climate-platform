@@ -48,6 +48,11 @@ def _baseline(session: Session, org_id: str, framework: str, key: str) -> float 
             from api.routers.bank import build_disclosure_snapshot
             em = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"]).get("financed_emissions_tco2e", {})
             return sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")) or None
+        # E4 protected-area count: our free-feed (Natura 2000 + OSM) count a WDPA-holder can reconcile against
+        if framework == "esrs_pack" and key == "e4_protected_area":
+            from services.intelligence.protected_area import protected_area_exposure
+            pa = protected_area_exposure(session, org_id)
+            return (pa["sites"]["in_protected"] + pa["plots"]["in_protected"]) or None
     except Exception:
         return None
     return None

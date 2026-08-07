@@ -101,10 +101,20 @@ New free-gov feeds are added to the feed registry the same way our hazard data f
    `data/reference/*.csv` with `source` + `data_vintage`, like `build_country_intensities.py`);
 3. wire `register_refresh_hook(key, fn)` for scheduled pulls; the Data Dictionary surfaces it automatically.
 
-Priority order (each flips its catalog datapoint's source/lane): **protected-area biodiversity** (ESRS E4) →
-**emission factors** (DEFRA/EPA/IPCC) → **EPC registers** (UK/IE) → **UNGC participants**. Commercial (evendor)
-datasets — ESG/emissions, carbon-tool output, controversy screening — connect through the Lane-2 generic
-provided-value ingestion, extended with named vendor profiles.
+Feed status (each flips its catalog datapoint's source/lane when it lands):
+
+- **Protected-area biodiversity (ESRS E4)** — ✅ done: Natura 2000 (EU, authoritative) + OpenStreetMap (global,
+  free/ODbL). Authoritative global (WDPA) is IBAT-licensed *or* customer-provided via Lane 2 (`e4_protected_area`
+  is `reconcilable`).
+- **Emission factors (DEFRA/EPA/IPCC)** — *not built by design*: GHG is **integrated** from the customer's carbon
+  tool (Lane 2), not computed here, so activity-emission factors have no consumer. Would only be needed if we add
+  a Lane-1 "compute Scope 1/2 from activity data" feature.
+- **EPC registers / UNGC participants** — provided-lane today (customer/vendor supplies via Lane 2). A free-gov
+  register/list *loader* is a future upgrade — EPC needs a national-register API key; UNGC needs investee-name
+  matching we don't do reliably. Built only when the value clears the effort, never as dead code.
+
+Commercial (evendor) datasets — ESG/emissions, carbon-tool output, controversy screening — connect through the
+Lane-2 generic provided-value ingestion, extended with named vendor profiles.
 
 ### Feed licensing (important)
 
