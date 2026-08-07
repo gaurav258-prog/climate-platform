@@ -12,7 +12,7 @@ import { filingLink } from '../lib/links'
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated' }
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
@@ -48,8 +48,13 @@ export default function Kri() {
   // Analytics is the forward (scenario) lens — offered only where it serves this book (bank / AM / REIT).
   const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
   const [drill, setDrill] = useState<string | null>(null)
+  // provenance filter — show all KRIs, only those Tellumen computes, or only those you/your vendor provide.
+  const [prov, setProv] = useState<'all' | 'computed' | 'integrated'>('all')
   const q = useQuery({ queryKey: ['kri', framework], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}`) })
   const d = q.data
+  const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
+  const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
+  const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
 
   return (
     <div className="fadeup space-y-5">
@@ -102,16 +107,39 @@ export default function Kri() {
               <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">bands set in Settings → KRI appetite</span>
             </div>
           )}
+          {/* provenance legend + filter — labels the dot on every KRI and lets you isolate what Tellumen
+              computes vs what you/your vendor provide. Standard across every sector's dashboard. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mr-0.5">Data source</span>
+            <button onClick={() => setProv(p => p === 'computed' ? 'all' : 'computed')}
+              className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-[11px] border transition ${prov === 'computed' ? 'border-[var(--color-blue)] bg-[color-mix(in_oklab,var(--color-blue)_10%,transparent)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-blue)]'}`}
+              title="Produced by Tellumen's engine (from our feeds and your processed uploads)">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--color-blue)' }} />
+              Computed by Tellumen <b className="tabular-nums text-[var(--color-ink)]">{nComputed}</b>
+            </button>
+            <button disabled={nIntegrated === 0} onClick={() => setProv(p => p === 'integrated' ? 'all' : 'integrated')}
+              className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-[11px] border transition disabled:opacity-45 disabled:cursor-default ${prov === 'integrated' ? 'border-[var(--color-slate)] bg-[color-mix(in_oklab,var(--color-slate)_12%,transparent)] text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] enabled:hover:border-[var(--color-slate)]'}`}
+              title="A pre-calculated value you or your vendor provide; Tellumen reconciles it (bring-your-own-number)">
+              <span className="w-2 h-2 rounded-full shrink-0 box-border" style={{ border: '1.5px solid var(--color-slate)' }} />
+              Integrated · you provide <b className="tabular-nums text-[var(--color-ink)]">{nIntegrated}</b>
+            </button>
+            {prov !== 'all' && <button onClick={() => setProv('all')} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ml-0.5">show all</button>}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {d.kpis.map(k => {
+            {d.kpis.filter(k => prov === 'all' || kindOf(k) === prov).map(k => {
               const rag = k.status ? RAG[k.status] : null
               const note = bandNote(k)
+              const integrated = kindOf(k) === 'integrated'
               return (
                 <Card key={k.key} className="px-4 py-3.5 relative">
                   {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
                   {k.integrated && k.value == null && <span className="absolute top-3 right-3 mono text-[7.5px] uppercase tracking-wide px-1 py-0.5 rounded text-[var(--color-faint)] border border-[var(--color-line-2)]" title={k.hint ?? undefined}>{k.integrated_note ?? 'integrated'}</span>}
                   <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{k.integrated && k.value == null ? <span className="text-[15px] text-[var(--color-faint)] italic">—</span> : fmt(k)}</div>
-                  <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2" title={k.hint ?? undefined}>{k.label}{k.hint ? ' ⓘ' : ''}</div>
+                  <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2 flex items-start gap-1.5" title={k.hint ?? undefined}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[3px] box-border" style={integrated ? { border: '1.5px solid var(--color-slate)' } : { background: 'var(--color-blue)' }}
+                      title={integrated ? 'Integrated — you or your vendor provide this; Tellumen reconciles it' : 'Computed by Tellumen'} />
+                    <span>{k.label}{k.hint ? ' ⓘ' : ''}</span>
+                  </div>
                   {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
                   {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
                 </Card>

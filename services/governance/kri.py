@@ -16,8 +16,14 @@ from sqlalchemy.orm import Session
 def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integrated_note=None):
     # `integrated` = a regulator datapoint whose value comes from OUTSIDE this engine (e.g. GHG from the
     # customer's carbon tool, or Taxonomy alignment flags) — shown honestly rather than fabricated or blanked.
+    # `kind` makes the data provenance explicit for the dashboard's computed-vs-integrated legend/filter.
+    # It mirrors the canonical datapoint catalog's `coverage_source(lane)`: our engine + processed uploads
+    # (compute/granular) → "computed"; a pre-calculated value the customer/vendor brings in (provided) →
+    # "integrated". This is the SAME `integrated` flag that already drove the honest "—" rendering, now
+    # surfaced as a first-class classification so every KRI is labelled ours-vs-brought-in.
     return {"key": key, "label": label, "value": value, "fmt": fmt, "tone": tone, "hint": hint,
-            "integrated": integrated, "integrated_note": integrated_note}
+            "integrated": integrated, "integrated_note": integrated_note,
+            "kind": "integrated" if integrated else "computed"}
 
 
 # the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
