@@ -123,6 +123,13 @@ def _construction_class(construction_type: Optional[str]) -> Optional[str]:
         return "steel"
     if any(k in s for k in ("wood", "timber", "frame", "light")):
         return "wood"
+    # ISO/ISO-CGL construction classes (common in insurance books): map to the nearest structural family.
+    # "Fire Resistive" (ISO 6) behaves like reinforced concrete; "Non-Combustible" (ISO 3) like steel.
+    # (Masonry-bearing ISO classes — Joisted Masonry, Masonry Non-Combustible — already matched above.)
+    if "resistive" in s:
+        return "concrete"
+    if "combustible" in s:  # i.e. non-combustible / noncombustible (combustible-masonry cases matched above)
+        return "steel"
     return None  # unknown class → neutral contribution
 
 

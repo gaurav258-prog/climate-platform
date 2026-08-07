@@ -44,7 +44,12 @@ EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "
 
 
 def _realestate_extra(row, headline, hz):
-    impact = noi_impact(row["headline_score"], row["primary_value_eur"], row["annual_noi_eur"]) if headline else None
+    # thread the driving peril + building attributes so the NOI drag is vulnerability-differentiated,
+    # consistent with the property's collateral haircut (both now share the one damage core).
+    attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
+             "number_of_stories": row.get("number_of_stories")}
+    impact = noi_impact(row["headline_score"], row["primary_value_eur"], row["annual_noi_eur"],
+                        hazard=headline["hazard"], attrs=attrs) if headline else None
     tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None,
                              epc_rating=row.get("epc_rating"), minimum_safeguards_status=row.get("minimum_safeguards_status"))
     return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"],

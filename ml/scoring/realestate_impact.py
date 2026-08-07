@@ -16,11 +16,16 @@ from __future__ import annotations
 from ml.scoring.insurance_pricing import price_policy
 
 
-def noi_impact(risk_score: float, property_value_eur: float, annual_noi_eur: float) -> dict:
+def noi_impact(risk_score: float, property_value_eur: float, annual_noi_eur: float,
+               hazard: str | None = None, attrs: dict | None = None) -> dict:
     """Returns price_policy()'s full chain plus expected_insurance_premium_eur and
     noi_impact_pct (None, not 0, when annual_noi_eur is absent — honest absence,
-    never a fabricated ratio, matching ml/scoring/valuation_discount.py's ltv_pct())."""
-    pricing = price_policy(risk_score, property_value_eur)
+    never a fabricated ratio, matching ml/scoring/valuation_discount.py's ltv_pct()).
+    hazard/attrs thread the property's driving peril + building attributes into the
+    mean-damage-ratio so the operating-income drag is vulnerability-differentiated —
+    consistent with the same property's collateral haircut (a 1960s masonry block and a
+    2020 reinforced-concrete one at the same flood score no longer price identically)."""
+    pricing = price_policy(risk_score, property_value_eur, hazard=hazard, attrs=attrs)
     premium = pricing["gross_premium_eur"]
     return {
         **pricing,

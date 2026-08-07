@@ -81,3 +81,16 @@ def test_mdr_monotone_bounded_and_vulnerability_raises_it():
         prev = m
     assert (df.mean_damage_ratio(60, "wildfire", {"construction_type": "timber"})
             > df.mean_damage_ratio(60, "wildfire", None))
+
+
+def test_iso_construction_classes_map_to_families():
+    # insurance books carry ISO/ISO-CGL construction classes, not free-text materials.
+    assert df._construction_class("frame") == "wood"
+    assert df._construction_class("joisted_masonry") == "masonry"
+    assert df._construction_class("masonry_non_combustible") == "masonry"  # masonry wins over combustible
+    assert df._construction_class("fire_resistive") == "concrete"
+    assert df._construction_class("non_combustible") == "steel"
+    # a fire-resistive building is less wildfire-vulnerable than a frame one at the same score.
+    assert (df.vulnerability_factor("wildfire", {"construction_type": "frame"})[0]
+            > df.vulnerability_factor("wildfire", {"construction_type": "fire_resistive"})[0])
+

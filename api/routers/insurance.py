@@ -83,8 +83,13 @@ def _insurance_extra(trigger_by_policy, return_period_model):
     be configured against heat_acute even though it's excluded from the
     standing headline/pricing score."""
     def calc(row, headline, hz):
+        # building attributes -> the mdr's bounded vulnerability multiplier, so a URM 1960s risk and a
+        # 2020 reinforced-concrete one at the same score price differently (matches the collateral path).
+        attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
+                 "number_of_stories": row.get("number_of_stories")}
         pricing = price_policy(headline["score"], row["primary_value_eur"], row.get("deductible_pct") or 0.0,
-                                hazard=headline["hazard"], return_period_model=return_period_model) if headline else None
+                                hazard=headline["hazard"], return_period_model=return_period_model,
+                                attrs=attrs) if headline else None
         cfg = trigger_by_policy.get(row["entity_id"])
         trigger = None
         if cfg:

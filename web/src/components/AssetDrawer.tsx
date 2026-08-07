@@ -219,9 +219,19 @@ function TriggerPanel({ id, item, risks, onDone }: { id: string; item?: Record<s
         <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Parametric trigger</div>
         {existing?.hazard_type && <span className="mono text-[10px] text-[var(--color-mute)]">{hazardLabel(existing.hazard_type)} · {existing.attachment_score}–{existing.exhaustion_score}</span>}
       </div>
-      {item?.pricing != null && typeof item.pricing === 'object' && (
-        <div className="mono text-[11px] text-[var(--color-faint)]">pricing on file — expected loss & premium computed from the golden source.</div>
-      )}
+      {item?.pricing != null && typeof item.pricing === 'object' && (() => {
+        const p = item.pricing as { gross_premium_eur?: number; rate_on_line_pct?: number; vulnerability_factor?: number
+          vulnerability?: { applied: boolean; drivers: { attr: string; value: unknown }[] } }
+        return (
+          <div className="mono text-[11px] text-[var(--color-faint)] space-y-1">
+            <div>pricing on file — expected loss &amp; premium computed from the golden source.</div>
+            {p.gross_premium_eur != null && <div className="text-[var(--color-mute)]">premium <b className="text-[var(--color-ink)]">€{Math.round(p.gross_premium_eur).toLocaleString()}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
+            {p.vulnerability?.applied && p.vulnerability_factor != null && (
+              <div>vulnerability <b className="text-[var(--color-mute)]">×{p.vulnerability_factor}</b> — {p.vulnerability.drivers.map(d => `${d.attr.replace(/_/g, ' ')} ${String(d.value)}`).join(' · ')}</div>
+            )}
+          </div>
+        )
+      })()}
       {canPrice ? (
         <div className="space-y-2">
           {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}

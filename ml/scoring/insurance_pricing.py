@@ -71,7 +71,7 @@ inside the deductible costs nothing to insure).
 from __future__ import annotations
 
 from core.types import score_to_bucket
-from ml.scoring.damage_function import HALF_DAMAGE_SCORE, mean_damage_ratio as _core_mdr  # noqa: F401
+from ml.scoring.damage_function import HALF_DAMAGE_SCORE, mean_damage_ratio as _core_mdr, vulnerability_factor  # noqa: F401
 
 EXPENSE_RATIO = 0.25
 PROFIT_MARGIN = 0.05
@@ -116,6 +116,7 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
     either to get today's fixed L/M/H/VH tier, unchanged."""
     bucket = score_to_bucket(risk_score).value
     mdr = mean_damage_ratio(risk_score, hazard, attrs)
+    vf, vf_prov = vulnerability_factor(hazard, attrs)
     scenario_loss = sum_insured_eur * mdr
     retained_loss = sum_insured_eur * max(0.0, deductible_pct or 0.0)
     net_scenario_loss = max(0.0, scenario_loss - retained_loss)
@@ -139,4 +140,8 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
         "gross_premium_eur": round(gross_premium, 2),
         "rate_on_line_pct": round(100 * gross_premium / sum_insured_eur, 3) if sum_insured_eur else 0.0,
         "risk_bucket": bucket,
+        # the building-attribute vulnerability multiplier the mdr already carries, surfaced so the
+        # premium's differentiation from a same-score neutral building is disclosed, not silent.
+        "vulnerability_factor": vf,
+        "vulnerability": vf_prov,
     }
