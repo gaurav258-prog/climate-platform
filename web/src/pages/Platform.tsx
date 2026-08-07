@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Stat, Button } from '../components/ui'
 
@@ -144,12 +145,12 @@ function SupportDrawer({ id, onClose, onChanged }: { id: string; onClose: () => 
   const [busy, setBusy] = useState(false)
   const d = q.data
   const send = async (resolve = false) => {
-    if (!reply.trim()) { alert('Write a reply.'); return }
+    if (!reply.trim()) { toast.error('Write a reply.'); return }
     setBusy(true)
     try {
       await api.post(`/v1/ops/support/${id}/reply`, { body: reply.trim(), status: resolve ? 'resolved' : undefined })
       setReply(''); await q.refetch(); qc.invalidateQueries({ queryKey: ['ops-support'] }); onChanged()
-    } catch { alert('Could not send.') } finally { setBusy(false) }
+    } catch { toast.error('Could not send.') } finally { setBusy(false) }
   }
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>

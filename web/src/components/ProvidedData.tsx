@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Check, Clock, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
 
@@ -62,7 +63,7 @@ function Row({ framework, dp, current, canAct }: { framework: string; dp: Provid
     try {
       await api.post('/v1/provided', { framework, datapoint_key: dp.key, value_num: Number(val), unit: unit || undefined, source, provider_name: provider || undefined, data_vintage: vintage || undefined })
       setOpen(false); setVal(''); qc.invalidateQueries({ queryKey: ['provided'] })
-    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not submit the value.') }
+    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not submit the value.') }
     finally { setBusy(false) }
   }
   const st = current?.status

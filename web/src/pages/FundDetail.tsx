@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileCheck2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
+import { toast } from '../lib/toast'
 import { Eyebrow, Card, Button } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
@@ -122,9 +123,9 @@ export default function FundDetail() {
               <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{st.summary?.reference_period ?? st.entity?.reference_period} · {cov ? `${cov.computed}/${cov.mandatory_indicators} indicators computed` : ''}</div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xlsx`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xlsx`).catch(() => alert('Could not download.'))}
+              <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xlsx`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xlsx`).catch(() => toast.error('Could not download.'))}
                 className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={13} /> xlsx</button>
-              <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xbrl`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xbrl`).catch(() => alert('Could not download.'))}
+              <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xbrl`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xbrl`).catch(() => toast.error('Could not download.'))}
                 className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={13} /> xbrl</button>
             </div>
           </div>

@@ -133,6 +133,11 @@ select {
 @keyframes fadeup { from { opacity: 0; } to { opacity: 1; } }
 .fadeup { animation: fadeup .35s ease; }
 
+/* toast entrance — slide up + fade; respects reduced-motion (opacity only) */
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.toast-in { animation: toastIn .22s cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) { .toast-in { animation: fadeup .22s ease; } }
+
 /* live-earth fallback: slow drifting glow */
 @keyframes drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(-2%,1.5%,0) scale(1.05)} 100%{transform:translate3d(0,0,0) scale(1)} }
 .drift { animation: drift 26s ease-in-out infinite; }

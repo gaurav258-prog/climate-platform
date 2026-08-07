@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, ShieldAlert, History, Check, Clock, Eye, RefreshCw, TrendingUp, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
@@ -142,7 +143,7 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
     try {
       await api.post('/v1/decisions', { entity_id: c.entity_id, entity_name: c.entity_name, scenario, horizon, action, rationale: rationale.trim() || undefined, value_eur: c.value_eur })
       setOpen(false); onDone()
-    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not propose the decision.') }
+    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not propose the decision.') }
     finally { setBusy(false) }
   }
   return (

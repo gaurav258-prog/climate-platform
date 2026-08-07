@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Send, CheckCircle2, Plus, FileText } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { filingLink } from '../lib/links'
 import { frameworkLabel } from '../lib/hazards'
@@ -36,7 +37,7 @@ export default function Transmission() {
   const openCase = async () => {
     if (!reg.trim()) return
     try { const c = await api.post<CaseDetail>('/v1/transmission/cases', { regulator: reg.trim() }); setReg(''); setOpening(false); refresh(); setSel(c.case_id) }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not open the case.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not open the case.') }
   }
 
   return (
@@ -98,9 +99,9 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
   const post = async () => {
     if (!reply.trim()) return
     try { await api.post(`/v1/transmission/cases/${caseId}/message`, { direction: 'outbound', author: 'Us', body: reply.trim() }); setReply(''); reload() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not send.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not send.') }
   }
-  const stage = async (s: string) => { try { await api.post(`/v1/transmission/cases/${caseId}/stage`, { stage: s }); reload() } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not advance.') } }
+  const stage = async (s: string) => { try { await api.post(`/v1/transmission/cases/${caseId}/stage`, { stage: s }); reload() } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not advance.') } }
 
   return (
     <Card className="p-0 overflow-hidden flex flex-col">

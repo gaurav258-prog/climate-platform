@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
+import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { Card, Button } from './ui'
@@ -223,13 +224,13 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                     <div className="flex flex-wrap gap-2">
                       {f.export_formats!.map(fmt => (
                         <button key={fmt}
-                          onClick={() => download(`/v1/filings/${f.filing_id}/export?format=${fmt}`, `${f.framework}-${f.period_label}-v${f.snapshot!.version}.${fmt}`).catch(() => alert('Could not download the export.'))}
+                          onClick={() => download(`/v1/filings/${f.filing_id}/export?format=${fmt}`, `${f.framework}-${f.period_label}-v${f.snapshot!.version}.${fmt}`).catch(() => toast.error('Could not download the export.'))}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
                           <Download size={12} /> {fmt.toUpperCase()}
                         </button>
                       ))}
                       {/* auditor / supervisor evidence bundle — methodology, validation record, 4-eyes, provenance, hashed manifest */}
-                      <button onClick={() => download(`/v1/filings/${f.filing_id}/assurance-pack`, `assurance-${f.framework}-${f.period_label}.zip`).catch(() => alert('Could not download the assurance pack.'))}
+                      <button onClick={() => download(`/v1/filings/${f.filing_id}/assurance-pack`, `assurance-${f.framework}-${f.period_label}.zip`).catch(() => toast.error('Could not download the assurance pack.'))}
                         title="Auditor-ready evidence bundle: methodology, validation record, 4-eyes approvals, provenance, hashed manifest"
                         className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
                         <ShieldCheck size={12} /> Assurance pack
@@ -303,7 +304,7 @@ function FilingTransmission({ f }: { f: FilingDetail }) {
       const nc = await api.post<{ case_id: string }>('/v1/transmission/cases', { regulator: f.regulator || 'Regulator', filing_id: f.filing_id })
       qc.invalidateQueries({ queryKey: ['transmission-cases'] })
       nav(`/transmission?case=${nc.case_id}`)
-    } catch (e) { alert(e instanceof ApiError ? e.message : 'Could not open the transmission case.') }
+    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not open the transmission case.') }
     finally { setBusy(false) }
   }
 

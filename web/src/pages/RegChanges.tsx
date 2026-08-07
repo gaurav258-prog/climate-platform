@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Plus, ExternalLink, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 
@@ -30,11 +31,11 @@ export default function RegChanges() {
   const add = async () => {
     if (!form.title.trim()) return
     try { await api.post('/v1/reg-changes', { title: form.title.trim(), framework: form.framework || null, effective_date: form.effective_date || null }); setForm({ title: '', framework: '', effective_date: '' }); setAdding(false); refresh() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not register the change.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not register the change.') }
   }
   const advance = async (c: Change) => {
     try { await api.post(`/v1/reg-changes/${c.change_id}/advance`, { stage: NEXT[c.stage] }); refresh() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not advance.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not advance.') }
   }
 
   return (

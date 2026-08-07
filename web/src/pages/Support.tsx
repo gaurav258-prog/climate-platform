@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LifeBuoy, Plus, Send, CheckCircle2, RotateCcw, MessageSquare } from 'lucide-react'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 
@@ -107,12 +108,12 @@ function Compose({ onDone }: { onDone: (id?: string) => void }) {
   const [busy, setBusy] = useState(false)
 
   const submit = async () => {
-    if (subject.trim().length < 3) { alert('Give the request a short subject.'); return }
+    if (subject.trim().length < 3) { toast.error('Give the request a short subject.'); return }
     setBusy(true)
     try {
       const res = await api.post<{ id: string }>('/v1/portal/requests', { category, subject: subject.trim(), priority, body: body.trim() || undefined })
       onDone(res.id)
-    } catch (e) { alert((e as { body?: { message?: string } })?.body?.message || 'Could not raise the request.'); setBusy(false) }
+    } catch (e) { toast.error((e as { body?: { message?: string } })?.body?.message || 'Could not raise the request.'); setBusy(false) }
   }
 
   return (
@@ -168,13 +169,13 @@ function Thread({ id, onChanged }: { id: string; onChanged: () => void }) {
     if (!reply.trim()) return
     setBusy(true)
     try { await api.post(`/v1/portal/requests/${id}/messages`, { body: reply.trim() }); setReply(''); refetchAll() }
-    catch (e) { alert((e as { body?: { message?: string } })?.body?.message || 'Could not send.') }
+    catch (e) { toast.error((e as { body?: { message?: string } })?.body?.message || 'Could not send.') }
     finally { setBusy(false) }
   }
   const setStatus = async (status: string) => {
     setBusy(true)
     try { await api.patch(`/v1/portal/requests/${id}`, { status }); refetchAll() }
-    catch { alert('Could not update status.') }
+    catch { toast.error('Could not update status.') }
     finally { setBusy(false) }
   }
 

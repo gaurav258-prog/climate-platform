@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Download, Upload, FileSpreadsheet } from 'lucide-react'
 import { api, download, upload, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import AssetDrawer from '../components/AssetDrawer'
@@ -214,7 +215,7 @@ export default function Portfolio() {
             <ImportBook cfg={cfg} onDone={refreshBook} />
             <button
                className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"
-               onClick={() => download(`/v1/${cfg.prefix}/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, `${cfg.prefix}-portfolio.xlsx`).catch(() => alert('Could not download the export.'))}>
+               onClick={() => download(`/v1/${cfg.prefix}/portfolio.xlsx?scenario=${scenario}&horizon=${horizon}`, `${cfg.prefix}-portfolio.xlsx`).catch(() => toast.error('Could not download the export.'))}>
               <Download size={13} /> Export .xlsx
             </button>
           </div>
@@ -375,7 +376,7 @@ function useBookUpload(cfg: Cfg, onDone: () => void) {
 }
 
 function TemplateButton({ cfg, big }: { cfg: Cfg; big?: boolean }) {
-  const onClick = () => download(templatePath(cfg), `tellumen-${cfg.prefix}-template.xlsx`).catch(() => alert('Could not download the template.'))
+  const onClick = () => download(templatePath(cfg), `tellumen-${cfg.prefix}-template.xlsx`).catch(() => toast.error('Could not download the template.'))
   return big
     ? <button onClick={onClick} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-4 py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><FileSpreadsheet size={14} /> Download template</button>
     : <button onClick={onClick} className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-sky)]"><FileSpreadsheet size={13} /> template</button>

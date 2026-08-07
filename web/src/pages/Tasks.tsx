@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell } from 'lucide-react'
 import { api, ApiError, upload, download } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button } from '../components/ui'
 import { filingLink } from '../lib/links'
@@ -84,12 +85,12 @@ export default function Tasks() {
     if (!title.trim()) return
     setBusy(true)
     try { await api.post('/v1/reg-tasks', { title: title.trim(), criticality: crit }); setTitle(''); refresh() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not create the task.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not create the task.') }
     finally { setBusy(false) }
   }
   const move = async (t: Task, status: string, attestations?: string[]) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status, attestations }); refresh() }
-    catch (e) { alert(errMsg(e, 'Could not move the task.')) }
+    catch (e) { toast.error(errMsg(e, 'Could not move the task.')) }
   }
   // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight through
   const attemptMove = (t: Task, target: string) => {
@@ -99,7 +100,7 @@ export default function Tasks() {
   }
   const assign = async (t: Task, uid: string) => {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/assign`, { assignee_user_id: uid || null }); refresh() }
-    catch (e) { alert(e instanceof ApiError ? e.message : 'Could not assign the task.') }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not assign the task.') }
   }
 
   const b = q.data
@@ -259,7 +260,7 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
   const t = q.data
   const [gate, setGate] = useState<string | null>(null)   // target stage awaiting its checklist
   const reload = () => { qc.invalidateQueries({ queryKey: ['reg-task', taskId] }); onChanged() }
-  const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { alert(errMsg(e, 'Action failed.')) } }
+  const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { toast.error(errMsg(e, 'Action failed.')) } }
   // opening a task clears my unread @mentions on it (drives the header bell)
   useEffect(() => { api.post(`/v1/reg-tasks/${taskId}/seen`, {}).then(() => qc.invalidateQueries({ queryKey: ['reg-task-mentions'] })).catch(() => {}) }, [taskId, qc])
   // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist
@@ -372,13 +373,13 @@ function Attachments({ taskId, items, onChanged }: { taskId: string; items: Atta
   const pick = async (file: File) => {
     setBusy(true)
     try { await upload(`/v1/reg-tasks/${taskId}/attachments`, file); onChanged() }
-    catch (e) { alert(errMsg(e, 'Could not attach the file.')) }
+    catch (e) { toast.error(errMsg(e, 'Could not attach the file.')) }
     finally { setBusy(false); if (ref.current) ref.current.value = '' }
   }
   const remove = async (a: Attachment) => {
     if (!confirm(`Remove “${a.filename}”?`)) return
     try { await api.del(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`); onChanged() }
-    catch (e) { alert(errMsg(e, 'Could not remove the attachment.')) }
+    catch (e) { toast.error(errMsg(e, 'Could not remove the attachment.')) }
   }
   return (
     <div>
@@ -393,7 +394,7 @@ function Attachments({ taskId, items, onChanged }: { taskId: string; items: Atta
             {items.map(a => (
               <div key={a.attachment_id} className="flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5">
                 <Paperclip size={13} className="text-[var(--color-faint)] shrink-0" />
-                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => alert('Could not download the file.'))}
+                <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => toast.error('Could not download the file.'))}
                   className="text-[12.5px] text-[var(--color-ink)] hover:text-[var(--color-sky)] truncate flex-1 text-left" title={a.filename}>{a.filename}</button>
                 <span className="mono text-[9.5px] text-[var(--color-faint)] shrink-0">{fmtBytes(a.size_bytes)}{a.by ? ` · ${a.by.split(' ')[0]}` : ''}</span>
                 <button onClick={() => download(`/v1/reg-tasks/${taskId}/attachments/${a.attachment_id}`, a.filename).catch(() => {})} title="Download" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] shrink-0"><Download size={13} /></button>
@@ -432,7 +433,7 @@ function CommentComposer({ taskId, members, onDone }: { taskId: string; members:
     const body = val.trim(); if (!body) return
     setBusy(true)
     try { await api.post(`/v1/reg-tasks/${taskId}/comment`, { body, mentions: mentionIds() }); setVal(''); setQuery(null); onDone() }
-    catch (e) { alert(errMsg(e, 'Could not add the comment.')) }
+    catch (e) { toast.error(errMsg(e, 'Could not add the comment.')) }
     finally { setBusy(false) }
   }
   return (

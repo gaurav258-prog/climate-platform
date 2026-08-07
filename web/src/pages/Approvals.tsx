@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, X, Clock, ShieldCheck, Undo2 } from 'lucide-react'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 
@@ -55,21 +56,21 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
   const assign = async (id: string, userId: string | null) => {
     setBusy(id)
     try { await api.post(`/v1/approvals/${id}/assign`, { assignee_user_id: userId }); await q.refetch() }
-    catch (e) { alert((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not assign.') }
+    catch (e) { toast.error((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not assign.') }
     finally { setBusy(null) }
   }
 
   const decide = async (id: string, decision: 'approved' | 'rejected' | 'returned') => {
     const reason = (note[id] ?? '').trim()
     if ((decision === 'rejected' || decision === 'returned') && !reason) {
-      alert(decision === 'rejected' ? 'Add a reason before rejecting.' : 'Add a note saying what more is needed before sending back.')
+      toast.error(decision === 'rejected' ? 'Add a reason before rejecting.' : 'Add a note saying what more is needed before sending back.')
       return
     }
     setBusy(id)
     try {
       await api.post(`/v1/approvals/${id}/decide`, { decision, reason: reason || undefined })
       setNote(n => ({ ...n, [id]: '' })); await q.refetch()
-    } catch (e) { alert((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not record the decision.') }
+    } catch (e) { toast.error((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not record the decision.') }
     finally { setBusy(null) }
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge } from 'lucide-react'
 import { api } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, Stat } from '../components/ui'
 import Approvals from './Approvals'
@@ -80,16 +81,16 @@ function Integrations() {
   const ago = (iso: string | null) => { if (!iso) return 'never'; const d = (Date.now() - new Date(iso).getTime()) / 86400000; return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.floor(d)}d ago` }
 
   const create = async () => {
-    if (name.trim().length < 2) { alert('Give the token a name.'); return }
+    if (name.trim().length < 2) { toast.error('Give the token a name.'); return }
     setBusy(true)
     try {
       const res = await api.post<{ raw_token: string; name: string }>('/v1/ingest/tokens', { name: name.trim() })
       setRevealed({ name: res.name, raw: res.raw_token }); setName(''); q.refetch()
-    } catch { alert('Could not create the token.') } finally { setBusy(false) }
+    } catch { toast.error('Could not create the token.') } finally { setBusy(false) }
   }
   const revoke = async (id: string) => {
     if (!confirm('Revoke this token? Any system using it stops working immediately.')) return
-    try { await api.del(`/v1/ingest/tokens/${id}`); q.refetch() } catch { alert('Could not revoke.') }
+    try { await api.del(`/v1/ingest/tokens/${id}`); q.refetch() } catch { toast.error('Could not revoke.') }
   }
   const copy = () => { if (revealed?.raw) { navigator.clipboard?.writeText(revealed.raw); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
 
@@ -189,16 +190,16 @@ function Webhooks() {
   const ago = (iso: string | null) => { if (!iso) return 'never'; const d = (Date.now() - new Date(iso).getTime()) / 86400000; return d < 0.04 ? 'just now' : d < 1 ? 'today' : `${Math.floor(d)}d ago` }
 
   const create = async () => {
-    if (!/^https?:\/\//.test(url)) { alert('URL must start with http:// or https://'); return }
-    if (name.trim().length < 2) { alert('Name the endpoint.'); return }
+    if (!/^https?:\/\//.test(url)) { toast.error('URL must start with http:// or https://'); return }
+    if (name.trim().length < 2) { toast.error('Name the endpoint.'); return }
     setBusy(true)
     try {
       const r = await api.post<{ secret: string }>('/v1/webhooks', { url: url.trim(), name: name.trim(), events: sel })
       setSecret(r.secret); setUrl(''); setName(''); setSel([]); eps.refetch()
-    } catch (e) { alert((e as { body?: { message?: string } })?.body?.message || 'Could not create the endpoint.') } finally { setBusy(false) }
+    } catch (e) { toast.error((e as { body?: { message?: string } })?.body?.message || 'Could not create the endpoint.') } finally { setBusy(false) }
   }
-  const revoke = async (id: string) => { if (!confirm('Revoke this endpoint? It will stop receiving events.')) return; try { await api.del(`/v1/webhooks/${id}`); eps.refetch() } catch { alert('Could not revoke.') } }
-  const test = async (id: string) => { try { const r = await api.post<{ status: string; http_status: number | null }>(`/v1/webhooks/${id}/test`); alert(r.status === 'delivered' ? `Test delivered (HTTP ${r.http_status}).` : `Test failed (${r.http_status ? 'HTTP ' + r.http_status : 'no response'}). Check the URL.`); del.refetch(); eps.refetch() } catch { alert('Could not send the test.') } }
+  const revoke = async (id: string) => { if (!confirm('Revoke this endpoint? It will stop receiving events.')) return; try { await api.del(`/v1/webhooks/${id}`); eps.refetch() } catch { toast.error('Could not revoke.') } }
+  const test = async (id: string) => { try { const r = await api.post<{ status: string; http_status: number | null }>(`/v1/webhooks/${id}/test`); toast.error(r.status === 'delivered' ? `Test delivered (HTTP ${r.http_status}).` : `Test failed (${r.http_status ? 'HTTP ' + r.http_status : 'no response'}). Check the URL.`); del.refetch(); eps.refetch() } catch { toast.error('Could not send the test.') } }
   const toggle = (t: string) => setSel(s => s.includes(t) ? s.filter(x => x !== t) : [...s, t])
   const copy = () => { if (secret) { navigator.clipboard?.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
 

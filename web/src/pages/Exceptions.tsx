@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Lens } from '../components/ui'
 import { frameworkLabel, prettify } from '../lib/hazards'
@@ -37,7 +38,7 @@ export default function Exceptions() {
       })
       qc.invalidateQueries({ queryKey: ['exceptions'] })
       qc.invalidateQueries({ queryKey: ['reg-tasks-board'] })
-    } catch (err) { alert(err instanceof ApiError ? err.message : 'Could not create the task.') }
+    } catch (err) { toast.error(err instanceof ApiError ? err.message : 'Could not create the task.') }
   }
 
   return (
