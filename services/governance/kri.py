@@ -259,6 +259,100 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> di
     return {"supported": False, "hazard": hazard, "entities": []}
 
 
+# ── KRI drill-down: the underlying data + methodology + trend + composition behind one KRI ──────────────
+# Exposure KRIs decompose by hazard; the rest by their own natural breakdown (emissions by scope, coverage
+# scored/unscored, taxonomy eligible/not). Everything here is derived from the SAME live snapshot the KRI
+# tile is computed from — no separate or fabricated data.
+_EXPOSURE_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "asset_value", "asset_at_risk",
+                  "sum_insured", "eal", "cogs_at_risk", "cogs_withheld", "ingredient_spend", "value_exposed"}
+_HIST_FIELD = {"total_value": "total_value", "value_at_risk": "value_at_risk", "pct_at_risk": "pct_at_risk"}
+
+# Plain-language, factual "how it's computed" per KRI. Where a key is absent the UI falls back to the tile's
+# own hint. Written to be honest about calibration gates and integrated (client-provided) datapoints.
+_METHODOLOGY = {
+    "total_value": "Total euro exposure of the book in scope for this filing, summed from your uploaded book.",
+    "value_at_risk": "Exposure sitting in the top two physical-risk severity bands (High + Very High), in euro. Scored per asset by Tellumen's hazard engine, then aggregated.",
+    "pct_at_risk": "Value at risk as a share of total book value — how concentrated the book is in High+ physical risk.",
+    "coverage": "Share of the book carrying a physical-risk score on the golden source. Unscored exposure is excluded from the risk figures, never assumed safe.",
+    "fin_emissions": "PCAF-attributed financed emissions (Scope 1–3, tCO₂e): counterparty emissions weighted by your attribution share, with a NACE-intensity estimate filling gaps where a counterparty figure is missing.",
+    "taxonomy": "EU Taxonomy Article 8 eligible share — the portion of the book in Taxonomy-eligible activities (the GAR numerator's eligibility leg), from your book's activity classification.",
+    "gar": "The Green Asset Ratio needs the Taxonomy-ALIGNED share (substantial contribution + DNSH + minimum safeguards) that you determine per exposure. Only eligibility is computed here; alignment is your input, so this reads '—' until provided.",
+    "noi_impact": "Physical-risk drag on net operating income — the modelled climate insurance premium as a share of NOI.",
+    "sum_insured": "Total sum insured across the underwriting book in scope.",
+    "eal": "Expected annual loss — probability-weighted scenario loss across the book, from the CLIMADA-style mean-damage-ratio × per-peril occurrence frequency.",
+    "loss_ratio": "Modelled claims-vs-premiums (NatCat loss ratio) implied by the current hazard exposure of the book.",
+    "asset_value": "Book value of your own operating sites in scope.",
+    "asset_at_risk": "Own-site value in the top two physical-risk bands (High + Very High).",
+    "cogs_at_risk": "Cost-of-goods-sold at risk that clears the r²≥0.40 calibration gate — published only where the hazard→yield chain validates for that crop × origin.",
+    "cogs_withheld": "Sourcing spend exposed to hazard whose euro impact is honestly WITHHELD because the hazard→yield link hasn't cleared the calibration gate — mapped, not fabricated.",
+    "ingredient_spend": "Total upstream sourcing (ingredient) spend in scope.",
+    "ghg_emissions": "GHG Scope 1–3 — integrated from your carbon-accounting tool. Tellumen computes the physical/nature ESRS, not your emissions inventory.",
+    "deforestation_free_pct": "Share of determined sourcing plots that are deforestation-free against the 2020 EUDR cutoff, from per-plot satellite forest-loss determinations.",
+    "non_compliant": "Sourcing plots with post-2020 forest loss — non-compliant under EUDR.",
+    "protected_area": "Own sites / sourcing plots in or within 1 km of a protected area, computed from the loaded protected-area datasets.",
+    "pai_emissions": "SFDR PAI 1 — total financed GHG emissions (Scope 1–3, tCO₂e) across the fund's value-weighted holdings.",
+    "carbon_footprint": "SFDR PAI 2 — financed emissions per €M invested.",
+    "waci": "SFDR PAI 3 — weighted-average carbon intensity (tCO₂e per €M investee revenue).",
+    "fossil_fuel": "SFDR PAI 4 — share of fund value in companies active in the fossil-fuel sector.",
+    "non_renewable": "SFDR PAI 5 — share of non-renewable energy consumption / production.",
+}
+
+
+def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> dict:
+    """The drill behind one KRI tile: the tile itself (value, appetite, provenance, regulator datapoint),
+    a plain-language methodology, its trend across filed history where tracked, and its composition
+    (by-hazard / by-scope / scored-unscored / eligible-not) — all from the same live snapshot."""
+    result = kri(session, org_id, framework)
+    if not result.get("supported"):
+        return {"supported": False, "message": result.get("message", "unsupported")}
+    kpi = next((k for k in result.get("kpis", []) if k["key"] == kri_key), None)
+    if not kpi:
+        return {"supported": False, "message": "unknown KRI"}
+    hf = _HIST_FIELD.get(kri_key)
+    trend = [{"label": h["label"], "value": h.get(hf), "filing_id": h.get("filing_id")}
+             for h in (result.get("history") or []) if hf and h.get(hf) is not None] if hf else []
+    return {
+        "supported": True, "framework": framework, "kpi": kpi,
+        "regulator": result.get("regulator"),
+        "methodology": _METHODOLOGY.get(kri_key),
+        "trend": {"points": trend, "fmt": kpi.get("fmt")},
+        "composition": _kri_composition(session, org_id, framework, kri_key, result),
+        "actions": {
+            "analytics": kri_key in _EXPOSURE_KEYS and framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd"),
+            "provide": kpi.get("kind") == "integrated",
+        },
+    }
+
+
+def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str, result: dict) -> dict | None:
+    """The real breakdown behind a KRI — never fabricated; returns None when no honest decomposition exists."""
+    if kri_key in _EXPOSURE_KEYS and result.get("by_hazard"):
+        return {"type": "hazard", "unit": "eur",
+                "items": [{"label": h["hazard"], "value": h["value"], "score": h.get("score")}
+                          for h in result["by_hazard"]]}
+    from services.governance.reporting_settings import get_settings
+    s = get_settings(session, org_id)
+    snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
+    if not snap:
+        return None
+    if kri_key == "fin_emissions":
+        em = snap.get("financed_emissions_tco2e", {}) or {}
+        items = [{"label": f"Scope {i}", "value": round(em.get(f"scope{i}") or 0)} for i in (1, 2, 3)]
+        return {"type": "scope", "unit": "num", "items": items} if sum(x["value"] for x in items) > 0 else None
+    if kri_key == "coverage":
+        r = snap.get("rollup", {}) or {}
+        n, sc = r.get("n_assets") or 0, r.get("n_scored") or 0
+        return {"type": "coverage", "unit": "num",
+                "items": [{"label": "Scored", "value": sc}, {"label": "Not yet scored", "value": max(0, n - sc)}]} if n else None
+    if kri_key == "taxonomy":
+        tax = snap.get("taxonomy", {}) or {}
+        elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
+        total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
+        return {"type": "taxonomy", "unit": "eur",
+                "items": [{"label": "Eligible", "value": round(elig)}, {"label": "Not eligible", "value": round(max(0, total - elig))}]} if total else None
+    return None
+
+
 def _snapshot_history(session: Session, org_id: str, framework: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT rs.version, rs.reporting_basis, rs.payload, rf.period_label, rf.filing_id::text AS filing_id

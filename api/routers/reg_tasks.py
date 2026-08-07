@@ -72,6 +72,13 @@ def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permissi
     return _kri(session, ctx["org"]["org_id"], framework)
 
 
+@router.get("/kri/detail", summary="Drill behind one KRI — methodology, trend & composition")
+def kri_detail(framework: str, kri: str, session: DbSession,
+               ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.kri import kri_detail as _kd
+    return _kd(session, ctx["org"]["org_id"], framework, kri)
+
+
 @router.get("/kri/hazard", summary="The entities contributing a hazard's exposure (drill-down)")
 def kri_hazard(framework: str, hazard: str, session: DbSession,
                ctx: dict = Depends(require_permission("reports.view"))):

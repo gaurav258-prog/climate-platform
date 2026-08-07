@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck } from 'lucide-react'
+import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal } from 'lucide-react'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { Eyebrow, Card, Lens } from '../components/ui'
@@ -48,6 +49,7 @@ export default function Kri() {
   // Analytics is the forward (scenario) lens — offered only where it serves this book (bank / AM / REIT).
   const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
   const [drill, setDrill] = useState<string | null>(null)
+  const [detail, setDetail] = useState<string | null>(null)  // clicked KRI tile → its drill drawer
   // provenance filter — show all KRIs, only those Tellumen computes, or only those you/your vendor provide.
   const [prov, setProv] = useState<'all' | 'computed' | 'integrated'>('all')
   const q = useQuery({ queryKey: ['kri', framework], queryFn: () => api.get<Resp>(`/v1/reg-tasks/kri?framework=${framework}`) })
@@ -131,8 +133,10 @@ export default function Kri() {
               const note = bandNote(k)
               const integrated = kindOf(k) === 'integrated'
               return (
-                <Card key={k.key} className="px-4 py-3.5 relative">
+                <Card key={k.key} onClick={() => setDetail(k.key)} className="px-4 py-3.5 relative cursor-pointer hover:border-[var(--color-line-2)] transition group">
                   {k.status && <span className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background: rag! }} title={k.status === 'ok' ? 'within appetite' : k.status === 'amber' ? 'warning' : 'breach'} />}
+                  <ArrowUpRight size={13} className="absolute bottom-3 right-3 text-[var(--color-faint)] opacity-0 group-hover:opacity-100 transition" />
+
                   {k.integrated && k.value == null && <span className="absolute top-3 right-3 mono text-[7.5px] uppercase tracking-wide px-1 py-0.5 rounded text-[var(--color-faint)] border border-[var(--color-line-2)]" title={k.hint ?? undefined}>{k.integrated_note ?? 'integrated'}</span>}
                   <div className="display text-[22px] leading-none" style={{ color: rag ?? k.tone ?? undefined }}>{k.integrated && k.value == null ? <span className="text-[15px] text-[var(--color-faint)] italic">—</span> : fmt(k)}</div>
                   <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-2 flex items-start gap-1.5" title={k.hint ?? undefined}>
@@ -186,6 +190,7 @@ export default function Kri() {
       )}
 
       {drill && <HazardDrill framework={framework} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
+      {detail && <KriDetail framework={framework} kriKey={detail} onClose={() => setDetail(null)} />}
     </div>
   )
 }
@@ -230,6 +235,95 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// The drill behind one KRI tile — methodology, trend across filings, and the real composition (by hazard /
+// scope / scored-unscored / eligible-not), plus contextual actions. All from /kri/detail; nothing fabricated.
+interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
+interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null }[]; fmt: string }; composition?: Comp | null; actions: { analytics: boolean; provide: boolean } }
+
+function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
+  const nav = useNavigate()
+  const q = useQuery({ queryKey: ['kri-detail', framework, kriKey], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}`) })
+  const d = q.data
+  const uf = (v: number, unit?: string) => unit === 'eur' ? eur(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
+  const tf = (v: number) => d?.trend.fmt === 'eur' ? eur(v) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
+  const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible' }
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-md h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        {!d ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
+          : !d.supported ? <div className="p-6 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No detail for this KRI.'}</div>
+          : (() => {
+            const k = d.kpi
+            const integrated = k.kind === 'integrated' || k.integrated
+            const value = k.integrated && k.value == null ? '—' : fmt(k)
+            return (<>
+              <div className="sticky top-0 bg-[var(--color-bg-2)] border-b border-[var(--color-line)] px-5 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full box-border shrink-0" style={integrated ? { border: '1.5px solid var(--color-slate)' } : { background: 'var(--color-blue)' }} />
+                    {integrated ? 'Integrated · you provide' : 'Computed by Tellumen'}
+                  </div>
+                  <div className="display text-[26px] leading-none mt-1.5" style={{ color: k.status ? RAG[k.status] : k.tone ?? undefined }}>{value}</div>
+                  <div className="text-[13px] text-[var(--color-mute)] mt-1">{k.label}</div>
+                </div>
+                <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] shrink-0"><ChevronRight size={17} className="rotate-180" /></button>
+              </div>
+              <div className="p-5 space-y-5">
+                {(d.regulator || k.reg) && (
+                  <div className="space-y-1">
+                    {d.regulator && <div className="text-[11.5px] text-[var(--color-mute)]">{d.regulator.authority} · {d.regulator.disclosure}</div>}
+                    {k.reg && <div className="text-[11px] text-[var(--color-faint)]">{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
+                  </div>
+                )}
+                {(d.methodology || k.hint) && (
+                  <div>
+                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">How it's computed</div>
+                    <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{d.methodology ?? k.hint}</p>
+                  </div>
+                )}
+                {k.status && (
+                  <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 flex items-center gap-2 text-[12px]">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RAG[k.status] }} />
+                    <span className="text-[var(--color-mute)]">{k.status === 'ok' ? 'Within appetite' : k.status === 'amber' ? 'Warning — approaching breach' : 'Outside appetite (breach)'}</span>
+                    {(k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {k.amber} · breach {k.red}</span>}
+                  </div>
+                )}
+                <div>
+                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Trend across filings</div>
+                  {d.trend.points.length >= 2 ? (
+                    <div className="h-40">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={d.trend.points} margin={{ top: 6, right: 12, bottom: 2, left: 4 }}>
+                          <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
+                          <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={tf} />
+                          <Tooltip formatter={(v) => tf(Number(v))} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
+                          <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : <p className="text-[12px] text-[var(--color-faint)] leading-relaxed">This metric's trend appears once you have two or more filed reports (filed history currently tracks book value, value-at-risk and share-at-risk).</p>}
+                </div>
+                {d.composition && d.composition.items.length > 0 && (
+                  <div>
+                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">{compTitle[d.composition.type] ?? 'Composition'}</div>
+                    <HBar data={d.composition.items.map(it => ({ label: d.composition!.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: d.composition!.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)' }))} format={n => uf(n, d.composition!.unit)} />
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {d.actions.analytics && <button onClick={() => nav('/analytics')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
+                  {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
+                  <button onClick={() => nav('/admin')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>
+                </div>
+              </div>
+            </>)
+          })()}
       </div>
     </div>
   )
