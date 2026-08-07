@@ -54,6 +54,12 @@ class SpinTask(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+@router.get("/kri/frameworks", summary="The KRI frameworks this org can report on (for the picker)")
+def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.kri import kri_frameworks as _kf
+    return {"frameworks": _kf(ctx["org"].get("type"))}
+
+
 @router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
 def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri as _kri

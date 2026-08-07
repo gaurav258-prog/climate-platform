@@ -31,6 +31,15 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "taxonomy":      ("Taxonomy Art. 8 — eligible % (→ Green Asset Ratio)", "core"),
         "gar":           ("Taxonomy Art. 8 — Green Asset Ratio (aligned %)", "core"),
     },
+    "bank_p3esg": {
+        "total_value":   ("Banking-book exposures — Template 5 denominator", "support"),
+        "value_at_risk": ("Template 5 — exposures sensitive to climate physical risk", "core"),
+        "pct_at_risk":   ("Template 5 — share of the book at physical risk", "core"),
+        "coverage":      ("Data coverage / PCAF data quality", "support"),
+        "fin_emissions": ("Transition templates — financed emissions (Scope 3)", "core"),
+        "taxonomy":      ("GAR (Templates 7–8) — Taxonomy-eligible %", "core"),
+        "gar":           ("GAR (Templates 7–8) — aligned % (Green Asset Ratio)", "core"),
+    },
     "reit_tcfd": {
         "total_value":   ("Property book value — Art. 8 denominator", "support"),
         "value_at_risk": ("TCFD — physical-risk exposure (value at High+)", "core"),

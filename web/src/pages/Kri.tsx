@@ -35,12 +35,16 @@ interface HazDrill { supported: boolean; hazard: string; noun: string; entities:
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? eur(k.value) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
 const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_tcfd', insurer: 'insurer_climate', manufacturer: 'esrs_pack' }
+interface Fw { framework: string; label: string }
 
 export default function Kri() {
   const { profile } = useAuth()
   const nav = useNavigate()
-  const fw = FRAMEWORKS[profile?.org?.type ?? ''] ?? 'bank_tcfd'
-  const [framework] = useState(fw)
+  // an org can report on several frameworks (e.g. a bank owes TCFD *and* Pillar 3 ESG) — pick which to view.
+  const fwq = useQuery({ queryKey: ['kri-frameworks'], queryFn: () => api.get<{ frameworks: Fw[] }>('/v1/reg-tasks/kri/frameworks') })
+  const frameworks = fwq.data?.frameworks ?? []
+  const [picked, setPicked] = useState<string | null>(null)
+  const framework = picked ?? frameworks[0]?.framework ?? FRAMEWORKS[profile?.org?.type ?? ''] ?? 'bank_tcfd'
   // Analytics is the forward (scenario) lens — offered only where it serves this book (bank / AM / REIT).
   const hasAnalytics = ['bank', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
   const [drill, setDrill] = useState<string | null>(null)
@@ -57,6 +61,16 @@ export default function Kri() {
         </div>
         <Lens kind="governance" className="mt-1 shrink-0" />
       </div>
+
+      {/* framework picker — shown when the org reports on more than one (e.g. a bank: TCFD + Pillar 3 ESG) */}
+      {frameworks.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {frameworks.map(f => (
+            <button key={f.framework} onClick={() => setPicked(f.framework)}
+              className={`px-3 py-1.5 rounded-lg text-[12px] border transition ${framework === f.framework ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{f.label}</button>
+          ))}
+        </div>
+      )}
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
         : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}</Card>

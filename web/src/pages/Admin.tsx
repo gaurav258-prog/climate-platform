@@ -892,14 +892,16 @@ interface AppetiteKpi { key: string; label: string; fmt: string; value: number |
 const RAG_C: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
 
 function KriAppetite() {
-  const q = useQuery({ queryKey: ['kri-appetite'], queryFn: () => api.get<{ supported: boolean; framework?: string; label?: string; kpis?: AppetiteKpi[]; message?: string }>('/v1/admin/kri-appetite') })
+  const [fw, setFw] = useState<string | null>(null)
+  const q = useQuery({ queryKey: ['kri-appetite', fw], queryFn: () => api.get<{ supported: boolean; framework?: string; label?: string; frameworks?: { framework: string; label: string }[]; kpis?: AppetiteKpi[]; message?: string }>(`/v1/admin/kri-appetite${fw ? `?framework=${fw}` : ''}`) })
   const [busy, setBusy] = useState<string | null>(null)
   const set = async (k: AppetiteKpi, patch: Record<string, unknown>) => {
     setBusy(k.key)
-    try { await api.patch('/v1/admin/kri-appetite', { kri_key: k.key, ...patch }); await q.refetch() }
+    try { await api.patch('/v1/admin/kri-appetite', { kri_key: k.key, framework: q.data?.framework, ...patch }); await q.refetch() }
     finally { setBusy(null) }
   }
   const d = q.data
+  const fws = d?.frameworks ?? []
   if (d && !d.supported) return <Card className="p-8 mt-4 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No KRI dashboard for this organisation type.'}</Card>
   const kpis = d?.kpis ?? []
   const unit = (f: string) => f === 'pct' ? '%' : f === 'eur' ? '€' : f === 'ha' ? 'ha' : f === 'dec' ? '·' : ''
@@ -909,6 +911,14 @@ function KriAppetite() {
         <Gauge size={16} className="text-[var(--color-sky)]" />
         <span className="text-[13px] text-[var(--color-mute)]">Risk-appetite bands on each KRI — a value that crosses <b>warn</b> turns amber, <b>breach</b> turns red on the KRI dashboard. Empty = the indicator is shown but not graded. Direction sets which way is bad.</span>
       </div>
+      {fws.length > 1 && (
+        <div className="px-4 py-2.5 border-b border-[var(--color-line)] flex flex-wrap gap-1.5">
+          {fws.map(f => (
+            <button key={f.framework} onClick={() => setFw(f.framework)}
+              className={`px-2.5 py-1 rounded-lg text-[11.5px] border transition ${d?.framework === f.framework ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] border-transparent' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{f.label}</button>
+          ))}
+        </div>
+      )}
       <div className="hidden sm:grid grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 px-4 py-2 border-b border-[var(--color-line)] mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
         <span>Indicator</span><span>Now</span><span>Warn (amber)</span><span>Breach (red)</span><span>Direction</span>
       </div>

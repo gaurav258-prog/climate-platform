@@ -20,9 +20,23 @@ def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integra
             "integrated": integrated, "integrated_note": integrated_note}
 
 
+# the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
+_KRI_LABELS = {"bank_tcfd": "TCFD · Taxonomy", "bank_p3esg": "Pillar 3 ESG", "sfdr_pai": "SFDR PAI",
+               "reit_tcfd": "TCFD · property", "insurer_climate": "Climate / NatCat", "esrs_pack": "ESRS E1·E3·E4"}
+
+
+def kri_frameworks(org_type: str | None) -> list[dict]:
+    """The KRI frameworks an org-type can report on — the picker options on the KRI dashboard."""
+    from services.governance.filings import available_frameworks
+    return [{"framework": f["framework"], "label": _KRI_LABELS[f["framework"]]}
+            for f in available_frameworks(org_type or "") if f["framework"] in _KRI_LABELS]
+
+
 def kri(session: Session, org_id: str, framework: str) -> dict:
     if framework == "bank_tcfd":
         result = _bank_kri(session, org_id)
+    elif framework == "bank_p3esg":
+        result = _p3esg_kri(session, org_id)
     elif framework == "sfdr_pai":
         result = _sfdr_kri(session, org_id)
     elif framework == "reit_tcfd":
@@ -196,11 +210,11 @@ def _by_hazard(snap: dict) -> list[dict]:
 
 
 # noun per framework for the hazard drill
-_NOUN = {"bank_tcfd": "assets", "reit_tcfd": "properties", "insurer_climate": "policies"}
+_NOUN = {"bank_tcfd": "assets", "bank_p3esg": "assets", "reit_tcfd": "properties", "insurer_climate": "policies"}
 
 
 def _live_snapshot(session: Session, org_id: str, framework: str, scenario: str, horizon: str) -> dict:
-    if framework == "bank_tcfd":
+    if framework in ("bank_tcfd", "bank_p3esg"):
         from api.routers.bank import build_disclosure_snapshot
     elif framework == "reit_tcfd":
         from api.routers.realestate import build_disclosure_snapshot
@@ -292,6 +306,21 @@ def _bank_kri(session: Session, org_id: str) -> dict:
                for h in _snapshot_history(session, org_id, "bank_tcfd")]
     return {"framework": "bank_tcfd", "supported": True, "label": "TCFD physical-risk KRIs",
             "kpis": kpis, "by_hazard": by_hazard, "history": history}
+
+
+def _p3esg_kri(session: Session, org_id: str) -> dict:
+    """Pillar 3 ESG KRIs — the same loan-book measures the EBA prudential templates scrutinise (banking-book
+    physical-risk exposure, GAR/Taxonomy, financed emissions), tagged to the Pillar 3 framework so it grades
+    against its own appetite bands and regulator framing."""
+    r = _bank_kri(session, org_id)
+    r["framework"] = "bank_p3esg"
+    r["label"] = "Pillar 3 ESG KRIs"
+    r["history"] = [{**h, } for h in [{"label": x["label"], "filing_id": x["filing_id"],
+                     "total_value": (x["payload"].get("rollup") or {}).get("total_value_eur"),
+                     "value_at_risk": (x["payload"].get("rollup") or {}).get("value_at_risk_eur"),
+                     "pct_at_risk": (x["payload"].get("rollup") or {}).get("pct_value_at_risk")}
+                    for x in _snapshot_history(session, org_id, "bank_p3esg")]]
+    return r
 
 
 def _sfdr_kri(session: Session, org_id: str) -> dict:

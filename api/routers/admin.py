@@ -347,17 +347,20 @@ class KriThresholdPatch(BaseModel):
 
 
 @router.get("/kri-appetite", summary="The KRI appetite bands — the RAG thresholds graded on each KRI")
-def get_kri_appetite(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
-    from services.governance.kri import kri as build_kri
-    fw = _KRI_FRAMEWORK.get(ctx["org"].get("type"))
-    if not fw:
+def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
+                     ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance.kri import kri as build_kri, kri_frameworks
+    fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: TCFD + Pillar 3 ESG)
+    if not fws:
         return {"supported": False, "message": "No KRI dashboard for this organisation type."}
+    fw = framework if framework in {f["framework"] for f in fws} else fws[0]["framework"]
     data = build_kri(session, ctx["org"]["org_id"], fw)      # live KRIs, already graded against current bands
     kpis = [{"key": k["key"], "label": k["label"], "fmt": k["fmt"], "value": k.get("value"),
              "amber": k.get("amber"), "red": k.get("red"), "direction": k.get("direction"),
              "status": k.get("status")}
             for k in (data.get("kpis") or []) if k.get("fmt") in _GRADEABLE_FMT and not k.get("integrated")]
-    return {"supported": True, "framework": data.get("framework", fw), "label": data.get("label"), "kpis": kpis}
+    return {"supported": True, "framework": data.get("framework", fw), "label": data.get("label"),
+            "frameworks": fws, "kpis": kpis}
 
 
 @router.patch("/kri-appetite", summary="Set the appetite band for one KRI")
