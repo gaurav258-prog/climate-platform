@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, ExternalLink, FileText, CalendarClock, Building2, CheckCircle2, Clock, Download, Upload } from 'lucide-react'
+import { ChevronRight, ExternalLink, FileText, CalendarClock, Building2, CheckCircle2, Clock, Download, Upload, Scale } from 'lucide-react'
 import { api } from '../lib/api'
+import { useResizableWidth } from '../lib/resizable'
 import { Card } from './ui'
+import FilingForm from './FilingForm'
 
 // What must this org report, to whom, how often, with links to the actual regulation + official form, the
 // data it needs, when it was last filed, and access to every prior submission. The entry point to the
@@ -36,6 +38,7 @@ const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString('en-GB
 export default function FilingRequirements({ onOpen }: { onOpen: (id: string) => void }) {
   const q = useQuery({ queryKey: ['requirements'], queryFn: () => api.get<{ requirements: Req[] }>('/v1/filings/requirements') })
   const [open, setOpen] = useState<string | null>(null)
+  const [regView, setRegView] = useState<Req | null>(null)
   const reqs = q.data?.requirements ?? []
   if (!q.isLoading && reqs.length === 0) return null
 
@@ -116,6 +119,7 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
                         </div>
                       )}
                       <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setRegView(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-sky)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-sky)] hover:bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)] transition"><Scale size={12} /> Regulation &amp; form</button>
                         {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={12} /> Official regulation</a>}
                         {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition" title={r.official_form}><ExternalLink size={12} /> Official form / template</a>}
                       </div>
@@ -143,7 +147,82 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
               )
             })}
           </div>}
+      {regView && <RegulationDrawer req={regView} onClose={() => setRegView(null)} onOpenFiling={onOpen} />}
     </Card>
+  )
+}
+
+// Split "Regulation & form" drawer — Tellumen's plain-language summary of the regulation on the left, the
+// assembled OFFICIAL form on the right (the populated Annex from the latest filing, or a prepare-to-populate
+// state if never filed). The live regulator page can't be embedded (gov sites block framing), so the official
+// regulation + template open in a new tab from here; everything else is in-app.
+function RegulationDrawer({ req: r, onClose, onOpenFiling }: { req: Req; onClose: () => void; onOpenFiling: (id: string) => void }) {
+  const { width, setWidth, startResize } = useResizableWidth('tellumen.regdrawerw', 940, 640, 1320, 'right')
+  const latest = r.last_filed?.filing_id ?? r.filings[0]?.filing_id ?? null
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(940)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
+        <div className="shrink-0 border-b border-[var(--color-line)] px-5 py-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulation &amp; official form</div>
+            <div className="text-[15px] font-semibold text-[var(--color-ink)] truncate">{r.official_name || r.label}</div>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] shrink-0"><ChevronRight size={17} className="rotate-180" /></button>
+        </div>
+
+        <div className="flex-1 overflow-hidden grid lg:grid-cols-[minmax(0,380px)_1fr]">
+          {/* left — our summary of the regulation */}
+          <div className="overflow-y-auto border-r border-[var(--color-line)] p-5 space-y-4">
+            <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)]">Tellumen summary</div>
+            {r.summary && <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{r.summary}</p>}
+            <div className="space-y-2.5">
+              <Kv k="Regulator" v={r.regulator} />
+              <Kv k="Legal basis" v={r.legal_basis} />
+              <Kv k="Frequency & deadline" v={r.due_label} />
+              <Kv k="Official form" v={r.official_form} />
+            </div>
+            {r.inputs && (
+              <div className="rounded-lg border border-[var(--color-line)] px-3.5 py-2.5">
+                <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1 flex items-center gap-1.5"><Upload size={11} /> Data required</div>
+                <div className="text-[12px] text-[var(--color-mute)]">{r.inputs}</div>
+              </div>
+            )}
+            {r.coverage && (
+              <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                <div className="flex items-center gap-2 px-3.5 py-2 border-b border-[var(--color-line)]">
+                  <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Tellumen coverage</span>
+                  <span className="mono text-[10.5px] ml-auto" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% from your data</span>
+                </div>
+                <div className="flex h-1.5">
+                  {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={11} /> Official regulation</a>}
+              {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={11} /> Official template</a>}
+            </div>
+            <p className="mono text-[9.5px] text-[var(--color-faint)] leading-relaxed">The summary is a readable digest — the linked official text is authoritative. The regulator's page can't be embedded here, so it opens in a new tab.</p>
+          </div>
+
+          {/* right — the assembled official form (populated from the latest filing) */}
+          <div className="overflow-y-auto p-5">
+            <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Your assembled form {latest ? '· latest filing' : ''}</div>
+            {latest
+              ? <FilingForm filingId={latest} />
+              : <div className="rounded-xl border border-[var(--color-line)] p-8 text-center space-y-3">
+                  <FileText size={22} className="mx-auto text-[var(--color-faint)]" />
+                  <div className="text-[13px] text-[var(--color-mute)]">No filing prepared yet, so there's no populated form to show.</div>
+                  <div className="text-[12px] text-[var(--color-faint)]">Prepare this filing from the calendar to assemble the official form from your data — or open the blank regulator template.</div>
+                  {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={12} /> Official template</a>}
+                </div>}
+            {latest && <button onClick={() => { onOpenFiling(latest); onClose() }} className="mt-3 inline-flex items-center gap-1.5 mono text-[10.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">open full filing <ChevronRight size={12} /></button>}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
