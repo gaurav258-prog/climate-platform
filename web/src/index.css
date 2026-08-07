@@ -35,9 +35,12 @@
   --color-line: #dbe2ee;
   --color-line-2: #c6d1e1;
   --color-ink: #111c2e;
-  --color-mute: #48576e;
-  --color-faint: #6a7990;
-  --color-slate: #5a6a80;
+  /* Secondary/label text — darkened for comfortable contrast on the near-white panels (was #48576e /
+     #6a7990, which read as low-contrast grey and strained on the light bg). Ordering preserved so the
+     hierarchy ink > mute > faint still reads. mute ≈9:1, faint ≈6:1 on white — both clear of WCAG AA. */
+  --color-mute: #33425b;
+  --color-faint: #4f5f79;
+  --color-slate: #44546c;
   --color-sky: #0369a1;
   --color-blue: #0284c7;
   --color-blued: #0c4a6e;
