@@ -9,7 +9,12 @@ import { Card } from './ui'
 // reporting workflow — it sits above the filing calendar/register in the cockpit.
 
 interface Filing { filing_id: string; period_label: string; status: string; submission_ref: string | null; snapshot_version: number | null; entity_name: string | null; filed_at: string | null }
-interface CovSection { section: string; source: string }
+interface CovSection { section: string; source: string; source_category?: string; lane?: string; provider?: string | null }
+// what the customer does for a section that isn't produced from their data yet — the "how to provide" hint
+const HOWTO: Record<string, string> = {
+  provided: "Provide it under “Provided & reconciled data” below — we reconcile + 4-eyes attest it",
+  report: "Enter it on the filing form when you prepare this report",
+}
 interface Coverage { sections: CovSection[]; counts: Record<string, number>; total: number; pct_computed: number }
 interface Req {
   framework: string; label: string; official_name?: string; authority?: string; legal_basis?: string
@@ -81,13 +86,20 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
                             {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} title={`${r.coverage!.counts[s]} × ${SRC[s].label}`} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
                           </div>
                           <div className="divide-y divide-[var(--color-line)]">
-                            {r.coverage.sections.map((sec, i) => (
-                              <div key={i} className="flex items-center gap-2.5 px-3.5 py-2 text-[12px]">
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: SRC[sec.source]?.color }} />
-                                <span className="text-[var(--color-mute)] flex-1 min-w-0">{sec.section}</span>
-                                <span className="mono text-[9.5px] uppercase tracking-wide shrink-0" style={{ color: SRC[sec.source]?.color }}>{SRC[sec.source]?.label}</span>
-                              </div>
-                            ))}
+                            {r.coverage.sections.map((sec, i) => {
+                              const howto = sec.lane ? HOWTO[sec.lane] : undefined
+                              return (
+                                <div key={i} className="flex items-start gap-2.5 px-3.5 py-2 text-[12px]">
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: SRC[sec.source]?.color }} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-[var(--color-mute)]">{sec.section}</div>
+                                    {/* how to provide it — only for the parts that aren't produced from your data */}
+                                    {howto && <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5">{sec.provider ? `${sec.provider} · ` : ''}{howto}</div>}
+                                  </div>
+                                  <span className="mono text-[9.5px] uppercase tracking-wide shrink-0 mt-0.5" style={{ color: SRC[sec.source]?.color }}>{SRC[sec.source]?.label}</span>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
