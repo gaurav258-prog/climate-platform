@@ -67,6 +67,12 @@ FEEDS: list[dict] = [
      "note": "EU protected-area boundaries, precomputed to an H3 lookup; flags own sites / sourcing plots in or "
              "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage. EEA data is reusable "
              "(incl. commercially) with acknowledgement — attribution shown."},
+    {"key": "osm_protected", "name": "OpenStreetMap protected areas", "category": "nature",
+     "cadence_days": 30, "invalidates_basis": True, "maturity": "partial",
+     "attribution": "© OpenStreetMap contributors (ODbL)",
+     "note": "FREE, commercially-usable (ODbL + attribution) global coverage layer for non-EU protected areas, "
+             "where the authoritative WDPA is licence-gated. Fetched per-country via Overpass. Community-sourced "
+             "(uneven coverage) — an honest screening layer, not an authoritative agency feed; labelled as such."},
     {"key": "wdpa", "name": "WDPA (World Database on Protected Areas)", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
      "attribution": "UNEP-WCMC and IUCN — Protected Planet: WDPA (licensed via IBAT)",

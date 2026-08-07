@@ -113,6 +113,11 @@ position:
 
 - **EEA Natura 2000 (EU)** — reusable, incl. commercially, under the EEA re-use policy **with acknowledgement**;
   attribution is surfaced in-product. This is our EU protected-area base.
+- **OpenStreetMap (global)** — FREE and commercially usable under **ODbL** with attribution ("© OpenStreetMap
+  contributors"); our free non-EU coverage layer where WDPA is licence-gated. Fetched per-country via the
+  Overpass API (`scripts/ingest_osm_protected.py`). Community-sourced (uneven) — an honest **screening layer**,
+  labelled as such, not an authoritative agency feed. ODbL share-alike bites only if the derived H3 database is
+  *redistributed* (it isn't). The overlap query spans it alongside Natura 2000 automatically.
 - **WDPA · WD-OECM · KBA (global)** — the **free Protected Planet download is NON-commercial only**. Commercial
   use (a for-profit product, or serving results to customers) requires a paid **IBAT licence**
   (ibat-alliance.org — UNEP-WCMC & IUCN / KBA Partnership), which is the standard channel for corporate/financial

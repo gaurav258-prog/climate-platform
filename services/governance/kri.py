@@ -166,9 +166,11 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
         if pa["cells_loaded"] > 0:
             in_pa = pa["sites"]["in_protected"] + pa["plots"]["in_protected"]
             exposed_m = round((pa["sites"]["value_in_eur"] + pa["plots"]["spend_in_eur"]) / 1e6, 1)
-            src = "Natura 2000 (© EEA)" if set(pa["datasets"]) <= {"natura2000"} else "protected areas (EEA Natura 2000 · WDPA via IBAT)"
+            _names = {"natura2000": "Natura 2000 (© EEA)", "osm": "OpenStreetMap (ODbL)", "wdpa": "WDPA",
+                      "wdoecm": "WD-OECM", "kba": "KBA"}
+            src = " · ".join(_names.get(d, d) for d in pa["datasets"]) or "protected areas"
             kpis.append(_kpi("protected_area", "In protected areas", in_pa, "num",
-                             hint=f"Own sites + sourcing plots in/near a {src} · €{exposed_m}m exposed · ESRS E4"))
+                             hint=f"Own sites + sourcing plots in/near a protected area · source: {src} · €{exposed_m}m exposed · ESRS E4"))
         label = "ESRS E1·E3·E4 nature KRIs"
 
     # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed
