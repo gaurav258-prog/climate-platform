@@ -63,20 +63,26 @@ FEEDS: list[dict] = [
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
     {"key": "natura2000", "name": "EEA Natura 2000 (protected areas)", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "partial",
+     "attribution": "© European Environment Agency (EEA) — Natura 2000 (reused under the EEA re-use policy)",
      "note": "EU protected-area boundaries, precomputed to an H3 lookup; flags own sites / sourcing plots in or "
-             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage."},
+             "near a Natura 2000 area (ESRS E4). One annual EEA release; EU coverage. EEA data is reusable "
+             "(incl. commercially) with acknowledgement — attribution shown."},
     {"key": "wdpa", "name": "WDPA (World Database on Protected Areas)", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
-     "note": "Global protected areas (Protected Planet / UNEP-WCMC) — the non-EU counterpart to Natura 2000. "
-             "Loaded per-book-country via the Protected Planet API (needs a free token); coexists with natura2000."},
+     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WDPA (licensed via IBAT)",
+     "note": "Global protected areas — the non-EU counterpart to Natura 2000. COMMERCIAL USE: the free Protected "
+             "Planet download is NON-commercial only; a paid IBAT licence (ibat-alliance.org) is required to use "
+             "WDPA in the product. IBAT delivers GeoPackage/Shapefile (→ the file loader) + an API."},
     {"key": "wdoecm", "name": "WD-OECM (other conservation measures)", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
-     "note": "Other Effective area-based Conservation Measures — companion to WDPA in the same monthly release; "
-             "widens ESRS E4 / TNFD protected-area coverage. Loaded via the same Protected Planet API."},
+     "attribution": "UNEP-WCMC and IUCN — Protected Planet: WD-OECM (licensed via IBAT)",
+     "note": "Other Effective area-based Conservation Measures — companion to WDPA; widens ESRS E4 / TNFD "
+             "coverage. Same commercial-licence position as WDPA — sourced via IBAT."},
     {"key": "kba", "name": "Key Biodiversity Areas (KBA)", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "planned",
-     "note": "Sites contributing significantly to global biodiversity (KBA Partnership). Needs a data-request "
-             "agreement (not on Protected Planet); loaded from the supplied file into the same H3 lookup."},
+     "attribution": "BirdLife International / KBA Partnership (licensed via IBAT)",
+     "note": "Sites of significance for global biodiversity (KBA Partnership). Commercially licensed via IBAT "
+             "alongside WDPA/WD-OECM; loaded from the licensed file into the same H3 lookup."},
     {"key": "reference_lei", "name": "GLEIF (LEI)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "note": "Legal-entity identifiers; changes rename entities, not risk scores."},

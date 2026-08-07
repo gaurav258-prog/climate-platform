@@ -101,10 +101,26 @@ New free-gov feeds are added to the feed registry the same way our hazard data f
    `data/reference/*.csv` with `source` + `data_vintage`, like `build_country_intensities.py`);
 3. wire `register_refresh_hook(key, fn)` for scheduled pulls; the Data Dictionary surfaces it automatically.
 
-Priority order (each flips its catalog datapoint's source/lane): **WDPA/Natura 2000 biodiversity** (moves SFDR
-PAI 7 / ESRS E4 to `tellumen/compute`) → **emission factors** (DEFRA/EPA/IPCC) → **EPC registers** (UK/IE) →
-**UNGC participants**. Commercial (evendor) datasets — ESG/emissions, carbon-tool output, controversy
-screening — connect through the Lane-2 generic provided-value ingestion, extended with named vendor profiles.
+Priority order (each flips its catalog datapoint's source/lane): **protected-area biodiversity** (ESRS E4) →
+**emission factors** (DEFRA/EPA/IPCC) → **EPC registers** (UK/IE) → **UNGC participants**. Commercial (evendor)
+datasets — ESG/emissions, carbon-tool output, controversy screening — connect through the Lane-2 generic
+provided-value ingestion, extended with named vendor profiles.
+
+### Feed licensing (important)
+
+Not every "free" dataset is free for a commercial product — each feed carries an `attribution` and its licence
+position:
+
+- **EEA Natura 2000 (EU)** — reusable, incl. commercially, under the EEA re-use policy **with acknowledgement**;
+  attribution is surfaced in-product. This is our EU protected-area base.
+- **WDPA · WD-OECM · KBA (global)** — the **free Protected Planet download is NON-commercial only**. Commercial
+  use (a for-profit product, or serving results to customers) requires a paid **IBAT licence**
+  (ibat-alliance.org — UNEP-WCMC & IUCN / KBA Partnership), which is the standard channel for corporate/financial
+  TNFD & ESRS E4 biodiversity screening and bundles all three. IBAT delivers GeoPackage/Shapefile (→ the
+  multi-format file loader `scripts/ingest_natura2000.py`) and a token API. The overlap pipeline is
+  source-agnostic, so switching from the free download to the licensed IBAT file/API is a **data + licence
+  change, not a code change**. The Protected Planet token-API loader (`scripts/ingest_wdpa_api.py`) is for
+  non-commercial evaluation only — the commercial global load runs the licensed IBAT file through the file loader.
 
 ---
 

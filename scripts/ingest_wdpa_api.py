@@ -4,6 +4,10 @@ them in `protected_h3_cell` (same lookup the app already reads), tagged by `--da
 
 Needs a free Protected Planet API token (request at https://api.protectedplanet.net/documentation).
 
+⚠️ LICENCE: the free Protected Planet API/download is NON-COMMERCIAL only. For the commercial product, WDPA /
+WD-OECM / KBA must be licensed via IBAT (ibat-alliance.org) — use the licensed IBAT export with the file
+loader `scripts/ingest_natura2000.py` instead. This API loader is for non-commercial evaluation only.
+
 Usage:
     .venv/bin/python -m scripts.ingest_wdpa_api --token $PP_TOKEN --dataset wdpa \
         --countries CIV,IND,VNM,GHA,BRA,IDN,ETH,USA,KEN,AUS,MAR,COL,ARG [--include-oecm] [--buffer-km 1.0]
