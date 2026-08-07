@@ -152,6 +152,47 @@ def _located_annex(dps: dict) -> list[dict]:
     return sections
 
 
+# ── EBA Pillar 3 ESG (ITS 2022/2453): Template 5 physical risk + GAR summary + Scope-3 for transition ─────
+def _p3esg_annex(dps: dict) -> list[dict]:
+    total = (dps.get("book.total_value_eur") or {}).get("value")
+    sections: list[dict] = []
+
+    # Template 5 — banking-book exposures to physical risk (our engine: value at risk by hazard)
+    haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
+    t5_rows = []
+    for key in ("book.total_value_eur", "book.value_at_risk_eur", "book.pct_value_at_risk"):
+        if key in dps:
+            t5_rows.append({"type": "row", "cells": [_txt(dps[key]["label"]), _cell(dps, key)]})
+    if haz_keys:
+        t5_rows.append({"type": "subheader", "label": "Of which exposed to chronic & acute climate events, by hazard"})
+        for key in haz_keys:
+            t5_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(dps[key].get("label") or key.split(".", 1)[1])), _cell(dps, key)]})
+    if t5_rows:
+        sections.append({"title": "Template 5 — Banking book · climate-change physical risk",
+                         "columns": ["Exposure metric", "Amount (€)"], "rows": t5_rows,
+                         "note": "Exposures sensitive to physical risk by geography/hazard, per ITS (EU) 2022/2453. "
+                                 "Chronic + acute events scored on the golden source; heat_acute excluded from the headline."})
+
+    # GAR (Templates 7–8) — Taxonomy eligibility summary
+    if any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
+        gar_rows = []
+        for key, label in [("taxonomy.eligible_value_eur", "Taxonomy-eligible exposures"),
+                           ("taxonomy.not_eligible_value_eur", "Not eligible"),
+                           ("taxonomy.not_assessed_value_eur", "Not assessed / no data")]:
+            gar_rows.append({"type": "row", "cells": [_txt(label), _cell(dps, key), _txt(_pct_text((dps.get(key) or {}).get("value"), total))]})
+        sections.append({"title": "Green Asset Ratio (Templates 7–8) — eligibility",
+                         "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
+                         "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR/BTAR templates."})
+
+    # Scope-3 financed emissions — input to the transition-risk templates
+    if any(k in dps for k in ("emissions.scope3", "emissions.total")):
+        em_rows = [{"type": "row", "cells": [_txt(label), _cell(dps, key)]} for key, label in [
+            ("emissions.scope3", "Scope 3 (financed) emissions"), ("emissions.total", "Total financed emissions")]]
+        sections.append({"title": "Transition risk — financed emissions (PCAF, tCO₂e)", "columns": ["Scope", "tCO₂e"],
+                         "rows": em_rows, "note": "Counterparty Scope-3 basis for the transition-risk templates (Templates 1–4)."})
+    return sections
+
+
 # ── ESRS / generic — present the reported datapoints in the standard's disclosure-requirement grouping ─────
 def _generic_annex(dps: dict, groups: list[dict]) -> list[dict]:
     sections = []
@@ -168,6 +209,8 @@ def build_annex(framework: str, dps: dict, groups: list[dict]) -> dict | None:
     datapoint; `groups` is the datapoint-list grouping (used for the generic/ESRS fallback)."""
     if framework == "sfdr_pai":
         sections = _sfdr_annex(dps)
+    elif framework == "bank_p3esg":
+        sections = _p3esg_annex(dps)
     elif framework in ("bank_tcfd", "reit_tcfd", "insurer_climate"):
         sections = _located_annex(dps)
     else:

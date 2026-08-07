@@ -134,7 +134,7 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
     return out
 
 
-_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai}
+_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai}
 
 
 # ── entry point ─────────────────────────────────────────────────────────

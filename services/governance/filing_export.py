@@ -70,7 +70,7 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
 
 def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     from services.templates.workbook import build_export_workbook
-    if framework == "bank_tcfd":
+    if framework in ("bank_tcfd", "bank_p3esg"):
         headers = ["asset_name", "sector", "country", "value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[a.get("asset_name"), a.get("sector"), a.get("country"), a.get("value_eur"),

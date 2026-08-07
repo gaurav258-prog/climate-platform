@@ -24,7 +24,7 @@ _PRIOR_JUMP_TOL = 0.40    # >40% period-over-period swing → confirm it's real
 
 def _shared_figures(framework: str, payload: dict) -> dict:
     """The canonical headline figures a filing shares with its siblings (name → euro/number)."""
-    if framework == "bank_tcfd":
+    if framework in ("bank_tcfd", "bank_p3esg"):
         r = payload.get("rollup") or {}
         em = payload.get("financed_emissions_tco2e") or {}
         out = {"total book value": r.get("total_value_eur"), "value at risk": r.get("value_at_risk_eur")}

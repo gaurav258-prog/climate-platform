@@ -97,7 +97,7 @@ def _generic_form(payload: dict) -> list[dict]:
 def build_form(framework: str, payload: dict) -> list[dict]:
     if not payload:
         return []
-    if framework in ("bank_tcfd", "reit_tcfd", "insurer_climate"):
+    if framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"):
         return _located_book_form(payload)
     if framework == "sfdr_pai":
         return _sfdr_form(payload)

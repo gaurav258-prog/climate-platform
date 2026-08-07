@@ -22,6 +22,19 @@ REFERENCE: dict[str, dict] = {
         "inputs": "Loan / exposure book: counterparty, NACE sector, collateral location, outstanding balance, "
                   "and EU-Taxonomy eligibility & alignment flags.",
     },
+    "bank_p3esg": {
+        "official_name": "Pillar 3 disclosures of ESG risks (EBA prudential templates)",
+        "authority": "National competent authority / EBA",
+        "legal_basis": "CRR (EU) 575/2013, Art. 449a · Commission Implementing Regulation (EU) 2022/2453 (ITS on ESG risk disclosures)",
+        "url": "https://eur-lex.europa.eu/eli/reg_impl/2022/2453/oj",
+        "summary": "Large institutions disclose prudential information on ESG risks — quantitative templates for "
+                   "the banking book's exposure to climate-change physical risk (by geography and sector) and "
+                   "transition risk, the Green Asset Ratio / BTAR, and mitigating actions.",
+        "official_form": "ITS 2022/2453 templates — Template 5 (physical risk), GAR (Templates 7–8), BTAR",
+        "form_url": "https://eur-lex.europa.eu/eli/reg_impl/2022/2453/oj",
+        "inputs": "Loan / exposure book: counterparty, NACE sector, collateral location & maturity, outstanding "
+                  "balance, EU-Taxonomy eligibility & alignment, and counterparty GHG (Scope 1–3) for transition metrics.",
+    },
     "reit_tcfd": {
         "official_name": "TCFD-aligned climate disclosures with EU Taxonomy Article 8 KPIs (property portfolio)",
         "authority": "National competent authority / EBA",

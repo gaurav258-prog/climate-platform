@@ -37,6 +37,7 @@ _VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
 # serves them all. SFDR/agri statements don't carry per-entity geolocation, so they stay unsupported.
 _LIST_CFG = {
     "bank_tcfd":       {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
+    "bank_p3esg":      {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
     "reit_tcfd":       {"list": "properties", "id": "property_id", "name": "property_name", "value": "property_value_eur"},
     "insurer_climate": {"list": "policies",   "id": "policy_id",   "name": "policy_name",   "value": "sum_insured_eur"},
 }

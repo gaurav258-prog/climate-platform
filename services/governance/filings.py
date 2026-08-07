@@ -35,6 +35,9 @@ FRAMEWORKS = {
     "bank_tcfd": {"label": "TCFD · EU-Taxonomy disclosure", "sectors": ("bank",),
                   "frequency": "annual", "due": (4, 30),
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
+    "bank_p3esg": {"label": "Pillar 3 ESG risk disclosures", "sectors": ("bank",),
+                   "frequency": "annual", "due": (3, 31),
+                   "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a · ITS (EU) 2022/2453"},
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
@@ -57,6 +60,7 @@ FRAMEWORKS = {
 # services/governance/filing_export.py). json is the universal record; xlsx/xbrl where a renderer exists.
 EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
+    "bank_p3esg": ("json", "xlsx"),
     "sfdr_pai":  ("json", "xlsx", "xbrl"),
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),
@@ -88,7 +92,7 @@ class FilingError(ValueError):
 # SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
 # aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
-_ENTITY_SCOPED = {"bank_tcfd", "reit_tcfd", "insurer_climate"}
+_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:
@@ -370,7 +374,7 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
     """Live coverage + headline for the confirm-data step. Honest gaps, no freeze."""
     gaps: list[str] = []
-    if framework == "bank_tcfd":
+    if framework in ("bank_tcfd", "bank_p3esg"):
         from api.routers.bank import build_disclosure_snapshot
         snap = build_disclosure_snapshot(session, org_id, basis["scenario"], basis["horizon"])
         r = snap["rollup"]

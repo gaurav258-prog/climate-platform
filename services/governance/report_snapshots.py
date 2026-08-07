@@ -71,6 +71,8 @@ _BUILDERS = {
     # ── financial-institution filings (frozen through the same WORM/hash/version machinery) ──
     "bank_tcfd": ("TCFD · EU-Taxonomy disclosure (loan book)",
                   lambda s, o, sc, hz, m, ei, vw: _bank_tcfd(s, o, sc, hz, ei, vw), ("bank",)),
+    "bank_p3esg": ("Pillar 3 ESG risk disclosures (EBA)",
+                   lambda s, o, sc, hz, m, ei, vw: _bank_tcfd(s, o, sc, hz, ei, vw), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
                  lambda s, o, sc, hz, m, ei, vw: _sfdr_pai(s, o), ("asset_manager",)),
     "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
