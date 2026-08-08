@@ -349,16 +349,38 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                              "columns": ["Exposure metric", "Amount (€)"], "rows": t5_rows,
                              "note": "Physical-risk exposure per ITS (EU) 2022/2453 (per-asset book unavailable for the sector grid)."})
 
-    # GAR (Templates 7–8) — Taxonomy eligibility summary
-    if any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
+    # GAR (Templates 6–8) — Green Asset Ratio by counterparty class, built to the ITS grid: gross carrying
+    # amount, Taxonomy-eligible + Taxonomy-aligned per counterparty, the covered-assets denominator (excl.
+    # general governments, Art. 7) and the GAR ratio on stock. Computed from the per-asset taxonomy_status.
+    if assets:
+        from services.governance.pillar3_templates import gar_grid
+        gg = gar_grid(assets)
+        gar_rows = []
+        for r in gg["rows"]:
+            note = " (excluded from covered assets)" if r["counterparty"] == "General governments" else ""
+            gar_rows.append({"type": "row", "cells": [
+                _txt(r["counterparty"] + note), _num(_eur(r["gross"])), _num(_eur(r["eligible"])), _num(_eur(r["aligned"]))]})
+        gar_rows.append({"type": "row", "cells": [
+            _txt("Covered assets (GAR denominator · excl. general governments)"),
+            _num(_eur(gg["covered_assets"])), _num(_eur(gg["eligible"])), _num(_eur(gg["aligned"]))]})
+        gar_rows.append({"type": "row", "cells": [
+            _txt("Green Asset Ratio — on stock"), _txt("—"),
+            _num(f'{gg["pct_eligible"]}% eligible' if gg["pct_eligible"] is not None else "—"),
+            _num(f'{gg["gar_stock_pct"]}% GAR' if gg["gar_stock_pct"] is not None else "—")]})
+        sections.append({"title": "Templates 6–8 — Green Asset Ratio by counterparty (ITS 2022/2453 · Del. Reg. 2021/2178)",
+                         "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
+                         "rows": gar_rows,
+                         "note": gg["basis"] + " Customer-supplied / not shown: " + " · ".join(gg["customer_columns"]) + "."})
+    elif any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
+        # fallback (no per-asset book): the flat eligibility summary
         gar_rows = []
         for key, label in [("taxonomy.eligible_value_eur", "Taxonomy-eligible exposures"),
                            ("taxonomy.not_eligible_value_eur", "Not eligible"),
                            ("taxonomy.not_assessed_value_eur", "Not assessed / no data")]:
             gar_rows.append({"type": "row", "cells": [_txt(label), _cell(dps, key), _txt(_pct_text((dps.get(key) or {}).get("value"), total))]})
-        sections.append({"title": "Green Asset Ratio (Templates 7–8) — eligibility",
+        sections.append({"title": "Green Asset Ratio (Templates 6–8) — eligibility",
                          "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
-                         "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR/BTAR templates."})
+                         "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR templates."})
 
     # Scope-3 financed emissions — only as a fallback when the per-asset book is unavailable (otherwise the
     # Template 1 grid above already carries financed emissions by NACE sector).

@@ -1,8 +1,33 @@
 """Pillar 3 Template 5 grid — the physical-risk matrix built to the ITS (EU) 2022/2453 structure.
 Verifies the NACE-section bucketing, the chronic/acute classification, and the aggregation invariants."""
 from services.governance.pillar3_templates import (
-    template5_grid, template1_grid, _section, _asset_hits, ACUTE_HAZARDS, CHRONIC_HAZARDS,
+    template5_grid, template1_grid, gar_grid, _section, _asset_hits, ACUTE_HAZARDS, CHRONIC_HAZARDS,
 )
+
+
+def test_gar_grid_excludes_government_and_computes_ratio():
+    assets = [
+        {"nace_code": "64.19", "value_eur": 100, "taxonomy_status": "aligned"},   # financial (K), aligned
+        {"nace_code": "35.11", "value_eur": 200, "taxonomy_status": "eligible"},  # non-financial, eligible only
+        {"nace_code": "C", "value_eur": 100, "taxonomy_status": "not_eligible"},  # non-financial, not eligible
+        {"nace_code": "84.11", "value_eur": 500, "taxonomy_status": "aligned"},   # general government (O) — excluded
+    ]
+    g = gar_grid(assets)
+    assert g["total_assets"] == 900
+    assert g["general_government"] == 500
+    assert g["covered_assets"] == 400                     # 900 - 500 govt
+    assert g["eligible"] == 300                           # 100 aligned + 200 eligible (govt's 500 excluded)
+    assert g["aligned"] == 100                            # only the financial one (govt aligned excluded)
+    assert g["gar_stock_pct"] == 25.0                     # 100 / 400
+    assert g["pct_eligible"] == 75.0                      # 300 / 400
+    by = {r["counterparty"]: r for r in g["rows"]}
+    assert by["Financial corporations"]["aligned"] == 100
+    assert by["General governments"]["gross"] == 500
+    # aligned is a subset of eligible on every row
+    for r in g["rows"]:
+        assert r["aligned"] <= r["eligible"] <= r["gross"]
+    # per-objective CCM/CCA split is declared customer, not fabricated
+    assert any("CCM" in c for c in g["customer_columns"])
 
 
 def _asset(nace, gross, hazards):

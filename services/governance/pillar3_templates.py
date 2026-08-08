@@ -119,6 +119,64 @@ def template1_grid(assets: list[dict]) -> dict:
     }
 
 
+# GAR counterparty classes (Template 7 row axis, mapped from NACE). General government is shown but EXCLUDED
+# from the GAR denominator per Art. 7(1) of Del. Reg. (EU) 2021/2178 (central govts, central banks and
+# supranationals are out of both numerator and denominator).
+def _gar_counterparty(sec: str) -> str:
+    if sec == "K":
+        return "Financial corporations"
+    if sec == "O":
+        return "General governments"            # excluded from covered assets
+    if sec == "?":
+        return "Households & other"              # retail / no NACE on the exposure
+    return "Non-financial corporations"
+
+
+def gar_grid(assets: list[dict]) -> dict:
+    """EBA Pillar 3 Green Asset Ratio (Templates 6–8, ITS (EU) 2022/2453 / Del. Reg. 2021/2178). Computes what
+    the book supports: gross carrying amount, Taxonomy-ELIGIBLE and Taxonomy-ALIGNED amounts by counterparty
+    class, the GAR covered-assets denominator (total EXCLUDING general governments, Art. 7), and the GAR ratio
+    on stock. Eligibility/alignment read the per-asset `taxonomy_status` our classifier already sets (aligned ⊆
+    eligible); full alignment needs the technical screening criteria + DNSH, so where the book is only classified
+    to eligibility the aligned figure is a floor. The CCM/CCA per-objective split (Template 6 columns) needs a
+    per-activity objective mapping we don't hold — declared, not fabricated."""
+    by_cls: dict[str, dict] = {}
+    for a in assets:
+        gross = a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0
+        if not gross:
+            continue
+        cls = _gar_counterparty(_section(a.get("nace_code")))
+        st = (a.get("taxonomy_status") or "").strip().lower()
+        row = by_cls.setdefault(cls, {"counterparty": cls, "gross": 0.0, "eligible": 0.0, "aligned": 0.0})
+        row["gross"] += gross
+        if st == "aligned":
+            row["aligned"] += gross
+            row["eligible"] += gross          # aligned is a subset of eligible
+        elif st == "eligible":
+            row["eligible"] += gross
+    order = ["Financial corporations", "Non-financial corporations", "Households & other", "General governments"]
+    rows = sorted(by_cls.values(), key=lambda r: order.index(r["counterparty"]) if r["counterparty"] in order else 99)
+    total = sum(r["gross"] for r in rows)
+    govt = sum(r["gross"] for r in rows if r["counterparty"] == "General governments")
+    covered = total - govt                     # GAR denominator excludes general governments (Art. 7)
+    eligible = sum(r["eligible"] for r in rows if r["counterparty"] != "General governments")
+    aligned = sum(r["aligned"] for r in rows if r["counterparty"] != "General governments")
+    _r = lambda v: round(v) if isinstance(v, float) else v
+    return {
+        "rows": [{k: _r(v) for k, v in r.items()} for r in rows],
+        "total_assets": _r(total), "covered_assets": _r(covered), "general_government": _r(govt),
+        "eligible": _r(eligible), "aligned": _r(aligned),
+        "pct_eligible": round(eligible / covered * 100, 1) if covered else None,
+        "gar_stock_pct": round(aligned / covered * 100, 1) if covered else None,
+        "customer_columns": ["CCM / CCA per-objective split (needs per-activity objective mapping)",
+                             "GAR on flow (new lending in the period)", "specialised-lending / of-which enabling / transitional"],
+        "basis": "Green Asset Ratio on stock = Taxonomy-aligned / covered assets. Covered assets EXCLUDE general "
+                 "governments (central govts, central banks, supranationals) per Art. 7(1). Eligible/aligned read "
+                 "the book's per-asset taxonomy_status (aligned ⊆ eligible); full alignment additionally needs the "
+                 "technical screening criteria + DNSH, so an eligibility-only classification makes aligned a floor.",
+    }
+
+
 def template5_grid(assets: list[dict]) -> dict:
     """EBA Pillar 3 Template 5 — banking-book physical-risk exposure by NACE sector. Returns the computable
     columns (gross carrying amount, of-which physical-risk-sensitive, chronic, acute, both) per sector + total,
