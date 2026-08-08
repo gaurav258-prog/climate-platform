@@ -169,10 +169,26 @@ def _eur(v):
 def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     total = (dps.get("book.total_value_eur") or {}).get("value")
     sections: list[dict] = []
+    assets = (payload or {}).get("assets") or []
+
+    # Template 1 — banking-book transition risk by NACE sector (ITS 2022/2453, Annex XXXIX). Computed columns:
+    # gross carrying amount + financed emissions (Scope 1–3) + of-which Scope 3; credit-quality/alignment/maturity
+    # columns are customer-supplied (declared).
+    if assets:
+        from services.governance.pillar3_templates import template1_grid
+        g1 = template1_grid(assets)
+        t1_rows = []
+        for r in g1["rows"] + [g1["total"]]:
+            lbl = "TOTAL" if r["section"] == "TOTAL" else f"{r['section']} · {r['label']}"
+            t1_rows.append({"type": "row", "cells": [
+                _txt(lbl), _num(_eur(r["gross"])), _num(f"{r['fin_emissions']:,}"), _num(f"{r['scope3']:,}")]})
+        sections.append({"title": "Template 1 — Banking book · climate-change transition risk (ITS 2022/2453, Annex XXXIX)",
+                         "columns": ["Sector (NACE)", "Gross carrying amount", "Financed emissions Scope 1–3 (tCO₂e)", "of which Scope 3 (tCO₂e)"],
+                         "rows": t1_rows,
+                         "note": g1["basis"] + " Customer-supplied columns not shown: " + " · ".join(g1["customer_columns"]) + "."})
 
     # Template 5 — banking-book physical-risk exposure, built to the ACTUAL ITS 2022/2453 grid:
     # rows = NACE section; columns = gross carrying amount + of-which physical-risk-sensitive + chronic/acute/both.
-    assets = (payload or {}).get("assets") or []
     if assets:
         from services.governance.pillar3_templates import template5_grid
         grid = template5_grid(assets)
@@ -215,8 +231,9 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                          "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
                          "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR/BTAR templates."})
 
-    # Scope-3 financed emissions — input to the transition-risk templates
-    if any(k in dps for k in ("emissions.scope3", "emissions.total")):
+    # Scope-3 financed emissions — only as a fallback when the per-asset book is unavailable (otherwise the
+    # Template 1 grid above already carries financed emissions by NACE sector).
+    if not assets and any(k in dps for k in ("emissions.scope3", "emissions.total")):
         em_rows = [{"type": "row", "cells": [_txt(label), _cell(dps, key)]} for key, label in [
             ("emissions.scope3", "Scope 3 (financed) emissions"), ("emissions.total", "Total financed emissions")]]
         sections.append({"title": "Transition risk — financed emissions (PCAF, tCO₂e)", "columns": ["Scope", "tCO₂e"],

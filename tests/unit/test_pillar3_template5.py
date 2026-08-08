@@ -1,13 +1,30 @@
 """Pillar 3 Template 5 grid — the physical-risk matrix built to the ITS (EU) 2022/2453 structure.
 Verifies the NACE-section bucketing, the chronic/acute classification, and the aggregation invariants."""
 from services.governance.pillar3_templates import (
-    template5_grid, _section, _asset_hits, ACUTE_HAZARDS, CHRONIC_HAZARDS,
+    template5_grid, template1_grid, _section, _asset_hits, ACUTE_HAZARDS, CHRONIC_HAZARDS,
 )
 
 
 def _asset(nace, gross, hazards):
     return {"nace_code": nace, "outstanding_loan_balance_eur": gross,
             "hazards": [{"hazard": h, "bucket": b} for h, b in hazards]}
+
+
+def test_template1_transition_grid_emissions_by_sector():
+    assets = [
+        {"nace_code": "35.11", "outstanding_loan_balance_eur": 200, "ghg1": 100, "ghg2": 50, "ghg3": 300},
+        {"nace_code": "C", "outstanding_loan_balance_eur": 100, "ghg1": 10, "ghg2": 5, "ghg3": 20},
+    ]
+    g = template1_grid(assets)
+    by = {r["section"]: r for r in g["rows"]}
+    # electricity: gross 200, financed = 100+50+300 = 450, of which Scope 3 = 300
+    assert by["D"]["gross"] == 200 and by["D"]["fin_emissions"] == 450 and by["D"]["scope3"] == 300
+    # total financed emissions = sum of all scopes (platform's financed-emissions basis); Scope3 subset
+    assert g["total"]["fin_emissions"] == 485 and g["total"]["scope3"] == 320
+    assert g["total"]["scope3"] <= g["total"]["fin_emissions"]
+    # alignment / credit-quality / maturity columns are declared customer-supplied, not fabricated
+    assert any("Taxonomy-aligned" in c for c in g["customer_columns"])
+    assert any("Stage 2" in c for c in g["customer_columns"])
 
 
 def test_nace_section_mapping():

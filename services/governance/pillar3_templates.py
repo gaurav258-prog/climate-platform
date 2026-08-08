@@ -83,6 +83,42 @@ def _asset_hits(asset: dict) -> tuple[bool, bool]:
     return chronic, acute
 
 
+def template1_grid(assets: list[dict]) -> dict:
+    """EBA Pillar 3 Template 1 — banking-book transition-risk exposure by NACE sector (ITS 2022/2453,
+    Annex XXXIX / Annex XL). Columns a–p verified verbatim from Annex XL. We COMPUTE the columns our golden
+    source supports: (a) gross carrying amount and (i) GHG financed emissions Scope 1+2+3 with (j) of-which
+    Scope 3 — using the SAME per-asset ghg figures the platform already sums for financed emissions (no new
+    attribution). The credit-quality (d–h), Paris-benchmark-exclusion (b), env-sustainable/aligned (c),
+    %-company-reported (k) and maturity (l–p) columns are customer/IFRS-9 data, declared and left blank."""
+    by_sector: dict[str, dict] = {}
+    for a in assets:
+        gross = a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0
+        if not gross:
+            continue
+        sec = _section(a.get("nace_code"))
+        s1, s2, s3 = (a.get("ghg1") or 0), (a.get("ghg2") or 0), (a.get("ghg3") or 0)
+        row = by_sector.setdefault(sec, {"section": sec, "label": NACE_SECTIONS.get(sec, "Unclassified"),
+                                         "gross": 0.0, "fin_emissions": 0.0, "scope3": 0.0})
+        row["gross"] += gross
+        row["fin_emissions"] += s1 + s2 + s3
+        row["scope3"] += s3
+    rows = sorted(by_sector.values(), key=lambda r: (r["section"] == "?", r["section"]))
+    total = {"section": "TOTAL", "label": "Total", "gross": sum(r["gross"] for r in rows),
+             "fin_emissions": sum(r["fin_emissions"] for r in rows), "scope3": sum(r["scope3"] for r in rows)}
+    _round = lambda r: {k: (round(v) if isinstance(v, float) else v) for k, v in r.items()}
+    return {
+        "rows": [_round(r) for r in rows], "total": _round(total),
+        "customer_columns": ["of which environmentally sustainable / Taxonomy-aligned (CCM)",
+                             "of which excluded from EU Paris-aligned Benchmarks", "Stage 2 (IFRS 9)",
+                             "non-performing exposures", "accumulated impairment",
+                             "% of emissions from company-specific reporting",
+                             "maturity buckets (≤5y / 5–10y / 10–20y / >20y / avg-weighted)"],
+        "basis": "Gross carrying amount = outstanding loan balance. Financed emissions (Scope 1+2+3) and of-which "
+                 "Scope 3 sum the per-counterparty GHG figures on the book (the platform's financed-emissions "
+                 "basis). Credit-quality, alignment, Paris-benchmark and maturity columns are customer-supplied.",
+    }
+
+
 def template5_grid(assets: list[dict]) -> dict:
     """EBA Pillar 3 Template 5 — banking-book physical-risk exposure by NACE sector. Returns the computable
     columns (gross carrying amount, of-which physical-risk-sensitive, chronic, acute, both) per sector + total,
