@@ -20,7 +20,7 @@ amount), **maturity**, per-hazard **chronic/acute exposure**, asset **geolocatio
 
 ---
 
-## 1. Bank — EBA Pillar 3 ESG risks · `bank_p3esg`  ⚠ largest build gap, mostly computable
+## 1. Bank — EBA Pillar 3 ESG risks · `bank_p3esg`  ✅ full quantitative set built (T1·T5·T6-8·T10)
 **Governing text.** Implementing Reg. **(EU) 2022/2453** — inserts **Art. 18a** into ITS (EU) 2021/637; **Annex XXXIX**
 = templates, **Annex XL** = instructions. Scope: **large listed institutions** (CRR Art. 449a); annual + semi-annual
 from 31 Dec 2022. Set = **Tables 1–3** (qual.) + **Templates 1–10** (Template 9 = BTAR, voluntary).
@@ -42,17 +42,22 @@ excluded-from-Paris-benchmark; (c) env-sustainable (CCM); (d) Stage 2; (e) NPE; 
 counterparty type × eligibility **and alignment** (CCM+CCA, of-which specialised/transitional/enabling); T8
 = same as %. First reference date 31 Dec 2023.
 
-**We render today** (`_p3esg_annex`): three flat 2-column sections — "Template 5" = value-at-risk (High+) + per-hazard
-exposed value (NOT the a–o grid); "GAR (Templates 7–8)" = eligible/not-eligible/not-assessed %; "Transition —
-financed emissions" = Scope 3 + total. `p3_transition` (Templates 1–4) is catalogued `none/none`.
+**We render today (BUILT)** — `_p3esg_annex` renders the full ITS quantitative set to the real grid structure,
+in regulatory order, computed at form-view time from the frozen snapshot's per-asset book (`pillar3_templates.py`):
+- **Template 1 (transition)** `template1_grid` — rows = NACE section; computed cols gross carrying amount +
+  financed emissions Scope 1+2+3 + of-which Scope 3 (same per-asset ghg the platform already sums). Verified
+  Meridian 1,594,585 tCO₂e / Scope3 1,030,724. Credit-quality/alignment/Paris/maturity = customer, declared.
+- **Template 5 (physical)** `template5_grid` — rows = NACE section; gross carrying amount + of-which physical-
+  risk-sensitive (H/VH) + chronic (h)/acute (i)/both (j) from the per-hazard TCFD split. Maturity + IFRS-9 = customer.
+- **Templates 6–8 (GAR)** `gar_grid` — eligible + aligned by counterparty class (fin corp K / non-fin corp /
+  households / general govt), covered-assets denominator EXCLUDING general govt (Art. 7), GAR-on-stock ratio, from
+  per-asset `taxonomy_status` (aligned⊆eligible). CCM/CCA per-objective split + GAR-on-flow + specialised/enabling/
+  transitional = customer, declared. Verified Meridian: covered €2.25bn, 49.7% eligible, 0% GAR (eligibility-classified only).
+- **Template 10** — other mitigating actions outside the Taxonomy (green bonds / specialised green lending), 5-col
+  official structure, rows customer-supplied (instrument type not on the book).
 
-**Gap & build.** Rebuild **Template 5** to the official grid — **rows = NACE sector**, **cols = gross carrying
-amount + maturity buckets + chronic (h)/acute (i)/both (j)**, *of which physical-risk-sensitive* = our High+
-engine; credit-quality cols (k–o) = **customer IFRS-9** (blank/integrated). Build **Template 1** similarly
-(NACE rows; gross carrying amount + maturity + PCAF S1/S2/S3 columns; credit-quality = customer). GAR: add
-counterparty-type rows + CCM/CCA + eligibility (computed) with **alignment = customer** (so T8 GAR% needs it).
-**Computable now:** T5 rows/maturity/chronic-acute/gross-amount; T1 rows/maturity/emissions. **Customer:**
-Stage2/NPE/impairment, alignment flags, % company-reported, EPC (Template 2).
+**Remaining (customer/graphic):** the NUTS-geography sub-breakdown of Template 5 rows, the IFRS-9 credit-quality
+columns (Stage2/NPE/impairment), alignment flags + % company-reported, and EPC (Template 2) — all customer/integrated.
 _Source: [CELEX:32022R2453](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2453) OJ L 324/1; [EBA ITS final report](https://eba.europa.eu/sites/default/files/document_library/Publications/Draft%20Technical%20Standards/2022/1026171/EBA%20draft%20ITS%20on%20Pillar%203%20disclosures%20on%20ESG%20risks.pdf)._
 
 ## 2. Bank — EU Taxonomy Art. 8 (GAR) + TCFD · `bank_tcfd`
@@ -74,15 +79,20 @@ exclusion** (drop sovereign/central-bank exposures from the denominator) — com
 Full 8-template set is large; prioritise T0 Summary + T3 stock.
 _Source: [CELEX:32021R2178](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178); [Annex VI PDF](https://ec.europa.eu/finance/docs/level-2-measures/taxonomy-regulation-delegated-act-2021-4987-annex-6_en.pdf)._
 
-## 3. REIT — EU Taxonomy Art. 8 (non-financial) + TCFD · `reit_tcfd`  ❗ correctness bug
+## 3. REIT — EU Taxonomy Art. 8 (non-financial) + TCFD · `reit_tcfd`  ✅ correctness bug FIXED
 **Governing text.** A REIT is a **non-financial undertaking** → Del. Reg. 2021/2178 **Annexes I & II**: three KPI
 templates — **Turnover / CapEx / OpEx**. Rows: **A. eligible → A.1 aligned (of-which enabling/transitional) ·
 A.2 eligible-not-aligned · B. non-eligible · Total**. Columns: activity+NACE, absolute €, proportion %, **SC (6
 objectives) · DNSH (6 objectives) · minimum safeguards (Y/N) · enabling/transitional markers · year N & N-1**.
 **Full KPIs from 1 Jan 2023.**
-**Bug.** `build_annex` routes `reit_tcfd` through `_located_annex`, which renders a **Green Asset Ratio** table —
-**GAR is credit-institutions-only.** A REIT must never file a GAR. **Fix:** route REIT to a non-financial
-Turnover/CapEx/OpEx template (eligibility computed, alignment customer), not the GAR.
+**Bug (FIXED).** `build_annex` used to route `reit_tcfd` through `_located_annex`, which rendered a **Green Asset
+Ratio** — GAR is credit-institutions-only; a REIT must never file one. **Fix (commit `5635275`):** new
+`_reit_annex` renders the three **Turnover / CapEx / OpEx KPI templates** on the Annex II row skeleton (A.1
+aligned / of-which enabling / of-which transitional / A.2 eligible-not-aligned / Total A.1+A.2 / B non-eligible /
+Total), KPI figures declared customer-supplied (financial-statement data). Plus the property book's Taxonomy-
+**eligible** activity 7.7 on an asset basis (informational, clearly NOT the KPI basis) and TCFD physical risk —
+which is surfaced as the evidence base for the Climate-Change-Adaptation objective + adaptation-DNSH. No GAR.
+Verified live on Stellar Logistics REIT.
 
 ## 4. Asset manager — SFDR PAI · `sfdr_pai`  ✅ rendered form rebuilt to Annex I
 **Governing text.** RTS **(EU) 2022/1288**, **Annex I** — the PAI statement. **Table 1** columns (verbatim, 6):
