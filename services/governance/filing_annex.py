@@ -201,6 +201,13 @@ def _located_annex(dps: dict) -> list[dict]:
                          "rows": em_rows, "note": None})
 
     # TCFD metrics & targets — physical-risk exposure by hazard
+    sections += _tcfd_physical_sections(dps)
+    return sections
+
+
+def _tcfd_physical_sections(dps: dict) -> list[dict]:
+    """TCFD 'Metrics & targets' — physical-climate-risk exposure by hazard. Shared by the bank/insurer
+    located annex and the REIT annex (a REIT's property book is scored the same way)."""
     haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
     haz_rows = []
     for key in ("book.value_at_risk_eur", "book.pct_value_at_risk", "book.total_discounted_value_eur"):
@@ -210,9 +217,72 @@ def _located_annex(dps: dict) -> list[dict]:
         haz_rows.append({"type": "subheader", "label": "Value exposed at High+ by hazard"})
         for key in haz_keys:
             haz_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(dps[key].get("label") or key.split(".", 1)[1])), _cell(dps, key)]})
-    if haz_rows:
-        sections.append({"title": "TCFD · Metrics & targets — physical climate risk",
-                         "columns": ["Metric", "Value"], "rows": haz_rows, "note": None})
+    if not haz_rows:
+        return []
+    return [{"title": "TCFD · Metrics & targets — physical climate risk",
+             "columns": ["Metric", "Value"], "rows": haz_rows, "note": None}]
+
+
+# ── REIT — EU-Taxonomy Article 8 NON-FINANCIAL KPI templates (Turnover/CapEx/OpEx) + TCFD physical ──────────
+# Correctness: a REIT is a NON-FINANCIAL undertaking. It does NOT file a Green Asset Ratio (that is credit-
+# institutions only, Del. Reg. 2021/2178 Annex V). It files the three Taxonomy KPIs — Turnover, CapEx, OpEx —
+# on the Annex II template. The KPI figures are financial-statement data (customer), so we render the exact
+# template row structure and declare them customer-supplied; the property book's eligible activity and our
+# physical-climate-risk assessment (which feeds the Climate-Change-Adaptation objective and its DNSH test) are
+# surfaced explicitly. Nothing is fabricated.
+_TAXONOMY_KPI_ROWS = [
+    ("A. Taxonomy-eligible activities", True),
+    ("A.1 Environmentally sustainable (Taxonomy-aligned)", False),
+    ("       of which enabling", False),
+    ("       of which transitional", False),
+    ("A.2 Taxonomy-eligible but not environmentally sustainable (not aligned)", False),
+    ("Total (A.1 + A.2)", False),
+    ("B. Taxonomy-non-eligible activities", True),
+    ("Total (A + B)", False),
+]
+
+
+def _reit_annex(dps: dict, payload: dict) -> list[dict]:
+    sections: list[dict] = []
+    total = (dps.get("book.total_value_eur") or {}).get("value")
+    elig = (dps.get("taxonomy.eligible_value_eur") or {}).get("value")
+
+    # The three KPI templates (Annex II). Figures are the undertaking's Turnover/CapEx/OpEx proportions —
+    # financial-statement data we do not hold — so every cell is declared customer-supplied ("—").
+    kpi_rows = []
+    for label, is_header in _TAXONOMY_KPI_ROWS:
+        if is_header:
+            kpi_rows.append({"type": "subheader", "label": label})
+        else:
+            kpi_rows.append({"type": "row", "cells": [_txt(label), _txt("—"), _txt("—"), _txt("—")]})
+    sections.append({
+        "title": "EU Taxonomy · Article 8 — Turnover / CapEx / OpEx KPIs (non-financial undertaking)",
+        "columns": ["Proportion of", "Turnover KPI", "CapEx KPI", "OpEx KPI"], "rows": kpi_rows,
+        "note": "Del. Reg. (EU) 2021/2178, Annex II. A REIT files these three KPIs — NOT a Green Asset Ratio "
+                "(the GAR is for credit institutions only). The proportions are financial-statement figures "
+                "(turnover, capital and operating expenditure) supplied by the undertaking. The eligible economic "
+                "activity for a property book is 'acquisition and ownership of buildings' (Taxonomy 7.7); alignment "
+                "additionally needs the technical screening criteria, DNSH and minimum safeguards.",
+    })
+
+    # Where OUR data plugs in: the physical-climate-risk assessment IS the evidence for the Climate-Change-
+    # Adaptation objective and its DNSH check. Surfaced on an asset (book-value) basis — informational, clearly
+    # NOT the KPI basis — so the preparer sees what we contribute without conflating the two.
+    if isinstance(elig, (int, float)) and isinstance(total, (int, float)) and total:
+        sections.append({
+            "title": "Property book — Taxonomy-eligible activity & adaptation evidence (asset basis, informational)",
+            "columns": ["Measure", "Amount", "% of book"], "rows": [
+                {"type": "row", "cells": [_txt("Property book eligible for activity 7.7 (acquisition & ownership of buildings)"),
+                                          _cell(dps, "taxonomy.eligible_value_eur"), _txt(_pct_text(elig, total))]},
+                {"type": "row", "cells": [_txt("Total property book"), _cell(dps, "book.total_value_eur"), _txt("100%")]},
+            ],
+            "note": "Asset-value basis — informational, NOT the Turnover/CapEx/OpEx KPI basis above. Our physical-"
+                    "climate-risk assessment (see TCFD section) is the evidence base for the Climate-Change-"
+                    "Adaptation substantial-contribution and the 'do no significant harm to adaptation' criterion.",
+        })
+
+    # TCFD physical-risk — the property book scored by hazard (genuinely computed by our engine).
+    sections += _tcfd_physical_sections(dps)
     return sections
 
 
@@ -319,7 +389,9 @@ def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | N
         sections = _sfdr_annex(dps)
     elif framework == "bank_p3esg":
         sections = _p3esg_annex(dps, payload or {})
-    elif framework in ("bank_tcfd", "reit_tcfd", "insurer_climate"):
+    elif framework == "reit_tcfd":
+        sections = _reit_annex(dps, payload or {})
+    elif framework in ("bank_tcfd", "insurer_climate"):
         sections = _located_annex(dps)
     else:
         sections = _generic_annex(dps, groups)

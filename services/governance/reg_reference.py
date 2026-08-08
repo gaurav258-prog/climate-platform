@@ -41,7 +41,7 @@ REFERENCE: dict[str, dict] = {
     "reit_tcfd": {
         "official_name": "TCFD-aligned climate disclosures with EU Taxonomy Article 8 KPIs (property portfolio)",
         "authority": "National competent authority / EBA",
-        "legal_basis": "Taxonomy Regulation (EU) 2020/852, Art. 8 · Disclosures Delegated Act (EU) 2021/2178 (as amended by (EU) 2022/1214) · TCFD recommendations",
+        "legal_basis": "Taxonomy Regulation (EU) 2020/852, Art. 8 · Disclosures Delegated Act (EU) 2021/2178, Annexes I–II (non-financial undertaking KPIs) · TCFD recommendations",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
         "summary": "Real-estate undertakings disclose the Taxonomy eligibility/alignment and TCFD-aligned "
                    "physical & transition climate risk of their property portfolio.",
