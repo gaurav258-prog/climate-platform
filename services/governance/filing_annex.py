@@ -382,6 +382,29 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                          "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
                          "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR templates."})
 
+    # Template 10 — other climate-change-mitigating actions NOT covered by the EU Taxonomy (green/sustainability
+    # bonds and specialised green lending). This is a qualitative template on instruments outside the Taxonomy
+    # scope, so its rows are the undertaking's own instrument register — declared customer-supplied, never faked.
+    if assets:
+        t10_cols = ["Type of financial instrument", "Type of counterparty", "Gross carrying amount",
+                    "Type of risk mitigated", "Qualitative information on the mitigating action"]
+        sections.append({
+            "title": "Template 10 — Other climate-change-mitigating actions not covered by the EU Taxonomy (ITS 2022/2453)",
+            "columns": t10_cols, "rows": [
+                {"type": "subheader", "label": "Bonds (banking book)"},
+                {"type": "row", "cells": [_txt("Green / sustainability / sustainability-linked bonds"),
+                                          _txt("—"), _txt("—"), _txt("—"), _txt("—")]},
+                {"type": "subheader", "label": "Loans (banking book)"},
+                {"type": "row", "cells": [_txt("Specialised green / sustainability-linked lending"),
+                                          _txt("—"), _txt("—"), _txt("—"), _txt("—")]},
+            ],
+            "note": "ITS (EU) 2022/2453, Template 10. Captures instruments supporting the transition that are "
+                    "NOT reflected in the Green Asset Ratio (i.e. outside the EU Taxonomy) — the undertaking's "
+                    "own register of green/sustainability bonds and specialised green lending, with the nature of "
+                    "each mitigating action. Instrument type is not held on the golden-source book, so these rows "
+                    "are completed by the preparer at filing.",
+        })
+
     # Scope-3 financed emissions — only as a fallback when the per-asset book is unavailable (otherwise the
     # Template 1 grid above already carries financed emissions by NACE sector).
     if not assets and any(k in dps for k in ("emissions.scope3", "emissions.total")):
