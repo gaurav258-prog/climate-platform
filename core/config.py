@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     FIRMS_API_KEY: str = ""
     COPERNICUS_USER: str = ""
     COPERNICUS_PASSWORD: str = ""
+    # Copernicus Data Space — Sentinel Hub (Process/Statistical API). OAuth2 client-credentials pair created
+    # in the CDSE dashboard (separate from the OData username/password above). When set, the Sentinel-1 SAR
+    # adapter computes per-H3-cell VV backscatter server-side via the Statistical API — no SNAP, no scene
+    # downloads. Empty = the adapter stays in stub/planned mode (nothing lands). See services/ingestion/adapters/sentinel1_sar.py.
+    SENTINEL_HUB_CLIENT_ID: str = ""
+    SENTINEL_HUB_CLIENT_SECRET: str = ""
 
     # Redis — Celery broker + result backend for the gridded on-demand hazard
     # jobs (durability upgrade from FastAPI BackgroundTasks; see services/tasks/).

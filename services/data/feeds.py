@@ -48,7 +48,12 @@ FEEDS: list[dict] = [
              "E2 pollution is out of filing scope."},
     {"key": "imagery", "name": "Sentinel-1/2 (SAR + optical)", "category": "hazard",
      "cadence_days": 6, "invalidates_basis": True, "maturity": "planned",
-     "note": "SAR backscatter and Sentinel-2 NDVI adapters are stub-only; not yet producing production rows."},
+     "note": "Sentinel-1 SAR flood adapter is CODE-COMPLETE via the CDSE Sentinel Hub Statistical API "
+             "(per-H3-cell terrain-corrected VV gamma0, no SNAP / no scene downloads) — it lands "
+             "sar_backscatter_db + a 7-day anomaly into the flood ML feature set and runs in the daily "
+             "ingestion pipeline. It activates on SENTINEL_HUB_CLIENT_ID/SECRET (free CDSE account); until "
+             "those land production rows the feed stays 'planned' (stub-only for dev). Sentinel-2 NDVI "
+             "adapter is still stub. When SAR lands, flood upgrades from the ERA5-runoff proxy to observed."},
     {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Tropical-cyclone tracks real (→ storm_events); Copernicus Marine sea-state not yet landed."},

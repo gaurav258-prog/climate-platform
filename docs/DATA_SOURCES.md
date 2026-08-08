@@ -47,10 +47,15 @@ agencies** (Copernicus/ECMWF, NASA, USGS, NOAA, Smithsonian). We never describe 
 
 1. **Volcanic** — hazard zones are curated per volcano; a global proximal/ashfall fallback formula is not
    decided. Out of the climate-regulatory scope, so it does not affect a CSRD/EUDR filing.
-2. **Flood** is a runoff *proxy* (GloFAS withdrawn from the CDS in 2025); a DEM/river-network flood model
-   is the documented upgrade.
-3. **Wildfire** LST enrichment (Sentinel-3 SLSTR) and **storm** sea-state (Copernicus Marine) are stubbed
-   secondary layers; the primary catalogs (FIRMS, IBTrACS) are global and live.
+2. **Flood** is a runoff *proxy* (GloFAS withdrawn from the CDS in 2025). The observed-flood upgrade —
+   **Sentinel-1 SAR** VV backscatter — is now code-complete: the adapter computes per-H3-cell terrain-
+   corrected gamma0 (dB) server-side via the **CDSE Sentinel Hub Statistical API** (no SNAP, no scene
+   downloads), lands `sar_backscatter_db` + a 7-day anomaly into the flood ML feature set, and flags
+   open-water inundation (VV ≤ −17 dB). It **activates on a free CDSE Sentinel Hub credential**
+   (`SENTINEL_HUB_CLIENT_ID`/`SECRET`); until then the feed stays `planned` (stub-only for dev) — nothing
+   is landed and the registry says so.
+3. **Wildfire** LST enrichment (Sentinel-3 SLSTR), **Sentinel-2 NDVI**, and **storm** sea-state (Copernicus
+   Marine) are stubbed secondary layers; the primary catalogs (FIRMS, IBTrACS) are global and live.
 
 ## The €-at-risk layer is scoped on purpose (not a coverage gap)
 
