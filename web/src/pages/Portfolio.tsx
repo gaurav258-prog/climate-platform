@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Download, Upload, FileSpreadsheet } from 'lucide-react'
+import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'lucide-react'
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
@@ -492,7 +493,13 @@ function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: 
       {/* movers — the assets to act on */}
       {d.movers.length > 0 && (
         <div>
-          <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Movers · act on these first ({worst?.horizon ?? end?.horizon})</div>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)]">Movers · act on these first ({worst?.horizon ?? end?.horizon})</div>
+            {/* Sense → Decide: the movers are the projection's act-by list Decisions consumes */}
+            <Link to="/decisions" className="inline-flex items-center gap-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline shrink-0">
+              Act on these in Decisions <ArrowRight size={12} />
+            </Link>
+          </div>
           <div className="space-y-1">
             {d.movers.map((m, i) => (
               <div key={i} className="flex items-center justify-between text-[12.5px] border-b border-[var(--color-line)] py-1">

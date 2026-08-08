@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, ShieldAlert, History, Check, Clock, Eye, RefreshCw, TrendingUp, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -173,6 +174,16 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
               : <span className="mono text-[10px] text-[var(--color-faint)]">awaiting a decision</span>}
         </div>
       </div>
+
+      {/* Decide → Operate / Disclose: once decided, carry the officer forward to where the action lands */}
+      {c.decision && (
+        <div className="mt-1.5 flex items-center gap-3 mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">
+          <span>next</span>
+          <Link to="/tasks" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Board task <ArrowRight size={11} /></Link>
+          {c.decision.action === 'disclose' &&
+            <Link to="/compliance" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Include in the filing <ArrowRight size={11} /></Link>}
+        </div>
+      )}
 
       {open && canAct && (
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-3 space-y-2.5">

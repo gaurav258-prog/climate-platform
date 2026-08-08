@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot,
 } from 'recharts'
-import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
@@ -114,9 +114,15 @@ export default function Analytics() {
           <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-looking analytics</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.</p>
         </div>
-        <button onClick={() => setAsTable(t => !t)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
-          {asTable ? <><LineIcon size={13} /> Charts</> : <><Table2 size={13} /> Table</>}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Assess → Decide: the projection's crossings are what Decisions acts on */}
+          <Link to="/decisions" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-sky)] px-3 py-1.5 text-[12px] text-[var(--color-sky)] hover:bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)] transition">
+            Act on this projection <ArrowRight size={13} />
+          </Link>
+          <button onClick={() => setAsTable(t => !t)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
+            {asTable ? <><LineIcon size={13} /> Charts</> : <><Table2 size={13} /> Table</>}
+          </button>
+        </div>
       </div>
 
       {/* what-if — the two parameters the user drives; everything below recomputes live */}
