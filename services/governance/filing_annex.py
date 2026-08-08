@@ -17,6 +17,11 @@ def _txt(s):
     return {"text": s}
 
 
+def _num(s):
+    """A right-aligned numeric text cell (for computed grid figures like Template 5)."""
+    return {"text": s, "num": True}
+
+
 def _cell(dps, key):
     """A value cell bound to a datapoint key — carries the merged datapoint (value + manual/pending) or a
     placeholder so the official row still appears when the snapshot has no figure for it."""
@@ -152,26 +157,52 @@ def _located_annex(dps: dict) -> list[dict]:
     return sections
 
 
+def _eur(v):
+    """Readable euro for a computed annex cell (values are already in EUR)."""
+    if not isinstance(v, (int, float)):
+        return "—"
+    n = float(v)
+    return f"€{n / 1e9:.2f}bn" if abs(n) >= 1e9 else f"€{n / 1e6:.1f}m" if abs(n) >= 1e6 else f"€{round(n / 1e3):,}k"
+
+
 # ── EBA Pillar 3 ESG (ITS 2022/2453): Template 5 physical risk + GAR summary + Scope-3 for transition ─────
-def _p3esg_annex(dps: dict) -> list[dict]:
+def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     total = (dps.get("book.total_value_eur") or {}).get("value")
     sections: list[dict] = []
 
-    # Template 5 — banking-book exposures to physical risk (our engine: value at risk by hazard)
-    haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
-    t5_rows = []
-    for key in ("book.total_value_eur", "book.value_at_risk_eur", "book.pct_value_at_risk"):
-        if key in dps:
-            t5_rows.append({"type": "row", "cells": [_txt(dps[key]["label"]), _cell(dps, key)]})
-    if haz_keys:
-        t5_rows.append({"type": "subheader", "label": "Of which exposed to chronic & acute climate events, by hazard"})
+    # Template 5 — banking-book physical-risk exposure, built to the ACTUAL ITS 2022/2453 grid:
+    # rows = NACE section; columns = gross carrying amount + of-which physical-risk-sensitive + chronic/acute/both.
+    assets = (payload or {}).get("assets") or []
+    if assets:
+        from services.governance.pillar3_templates import template5_grid
+        grid = template5_grid(assets)
+        cols = ["Sector (NACE)", "Gross carrying amount", "of which physical-risk-sensitive",
+                "of which chronic", "of which acute", "of which chronic + acute"]
+        t5_rows = []
+        for r in grid["rows"]:
+            t5_rows.append({"type": "row", "cells": [
+                _txt(f"{r['section']} · {r['label']}"), _num(_eur(r["gross"])), _num(_eur(r["sensitive"])),
+                _num(_eur(r["chronic"])), _num(_eur(r["acute"])), _num(_eur(r["both"]))]})
+        t = grid["total"]
+        t5_rows.append({"type": "row", "cells": [
+            _txt("TOTAL"), _num(_eur(t["gross"])), _num(_eur(t["sensitive"])),
+            _num(_eur(t["chronic"])), _num(_eur(t["acute"])), _num(_eur(t["both"]))]})
+        sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
+                         "columns": cols, "rows": t5_rows,
+                         "note": grid["basis"] + " Customer-supplied columns not shown: " + " · ".join(grid["customer_columns"]) + "."})
+    else:
+        # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
+        haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
+        t5_rows = []
+        for key in ("book.total_value_eur", "book.value_at_risk_eur", "book.pct_value_at_risk"):
+            if key in dps:
+                t5_rows.append({"type": "row", "cells": [_txt(dps[key]["label"]), _cell(dps, key)]})
         for key in haz_keys:
             t5_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(dps[key].get("label") or key.split(".", 1)[1])), _cell(dps, key)]})
-    if t5_rows:
-        sections.append({"title": "Template 5 — Banking book · climate-change physical risk",
-                         "columns": ["Exposure metric", "Amount (€)"], "rows": t5_rows,
-                         "note": "Exposures sensitive to physical risk by geography/hazard, per ITS (EU) 2022/2453. "
-                                 "Chronic + acute events scored on the golden source; heat_acute excluded from the headline."})
+        if t5_rows:
+            sections.append({"title": "Template 5 — Banking book · climate-change physical risk",
+                             "columns": ["Exposure metric", "Amount (€)"], "rows": t5_rows,
+                             "note": "Physical-risk exposure per ITS (EU) 2022/2453 (per-asset book unavailable for the sector grid)."})
 
     # GAR (Templates 7–8) — Taxonomy eligibility summary
     if any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
@@ -204,13 +235,14 @@ def _generic_annex(dps: dict, groups: list[dict]) -> list[dict]:
     return sections
 
 
-def build_annex(framework: str, dps: dict, groups: list[dict]) -> dict | None:
+def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | None = None) -> dict | None:
     """Assemble the official-form layout for a framework from its merged datapoints. `dps` is key -> merged
-    datapoint; `groups` is the datapoint-list grouping (used for the generic/ESRS fallback)."""
+    datapoint; `groups` is the datapoint-list grouping (used for the generic/ESRS fallback); `payload` is the
+    raw frozen snapshot, used where an official template is a computed GRID (Pillar 3 Template 5) not flat cells."""
     if framework == "sfdr_pai":
         sections = _sfdr_annex(dps)
     elif framework == "bank_p3esg":
-        sections = _p3esg_annex(dps)
+        sections = _p3esg_annex(dps, payload or {})
     elif framework in ("bank_tcfd", "reit_tcfd", "insurer_climate"):
         sections = _located_annex(dps)
     else:

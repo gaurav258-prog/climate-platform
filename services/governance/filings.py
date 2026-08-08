@@ -147,7 +147,9 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     # SAME merged datapoints, so the official form and the datapoint list stay in lock-step (overrides included).
     from services.governance.filing_annex import build_annex
     dps_by_key = {d["key"]: d for g in groups for d in g["datapoints"]}
-    annex = build_annex(r["framework"], dps_by_key, groups)
+    # the raw frozen payload is passed too — some official templates (e.g. EBA Pillar 3 Template 5) are
+    # structured GRIDS computed from the per-asset book, not flat datapoints, and are rebuilt at read time.
+    annex = build_annex(r["framework"], dps_by_key, groups, payload=r["payload"] or {})
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),

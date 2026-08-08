@@ -21,7 +21,7 @@ interface Dp {
   manual?: boolean; original_value?: number | null; override?: Override; pending?: Pending
 }
 interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp }
+interface AnnexCell { text?: string; dp?: Dp; num?: boolean }
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; rows: AnnexRow[] }
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
@@ -118,7 +118,7 @@ function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
                         {cells.map((c, ci) => {
                           const last = ci === cells.length - 1
                           if (c.dp) return <td key={ci} className="px-4 py-1.5 text-right align-top"><CellValue dp={c.dp} {...ep} /></td>
-                          return <td key={ci} className={`px-4 py-1.5 align-top ${last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
+                          return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                         })}
                       </tr>
                       {editingHere && dpCell && (
