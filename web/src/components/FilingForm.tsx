@@ -110,7 +110,8 @@ function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
                     <tr key={ri}><td colSpan={s.columns.length} className="px-4 pt-3 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.label}</td></tr>
                   )
                   const cells = r.cells ?? []
-                  const dpCell = cells.find(c => c.dp)?.dp
+                  const dpCells = cells.map(c => c.dp).filter(Boolean) as Dp[]
+                  const dpCell = dpCells.find(d => d.key === ep.edit) ?? dpCells[0]
                   const editingHere = !!dpCell && ep.edit === dpCell.key
                   return (
                     <Fragment key={ri}>

@@ -84,18 +84,20 @@ objectives) · DNSH (6 objectives) · minimum safeguards (Y/N) · enabling/trans
 **GAR is credit-institutions-only.** A REIT must never file a GAR. **Fix:** route REIT to a non-financial
 Turnover/CapEx/OpEx template (eligibility computed, alignment customer), not the GAR.
 
-## 4. Asset manager — SFDR PAI · `sfdr_pai`  ⚠ rendered-form fidelity
+## 4. Asset manager — SFDR PAI · `sfdr_pai`  ✅ rendered form rebuilt to Annex I
 **Governing text.** RTS **(EU) 2022/1288**, **Annex I** — the PAI statement. **Table 1** columns (verbatim, 6):
 *Adverse sustainability indicator · Metric · Impact [year n] · Impact [year n-1] · Explanation · Actions taken,
 and actions planned and targets set for the next reference period*. **18 rows**: 14 investee-company (1–9
 climate/environment; 10–14 social), **15–16 sovereign/supranational**, **17–18 real estate**. **Tables 2–3** =
 additional environmental (22) / social (24) menu, "choose ≥1 from each", 3-column layout.
-**We render today.** On-screen `_sfdr_annex`: **4 columns** (adds non-official `#`, `Coverage`; **merges** Metric
-+ Impact[n]; **missing** Impact[n-1], Explanation, Actions), **14 of 18 rows** (drops sovereign 15–16 & RE 17–18);
-several names paraphrased. XLSX exporter (`sfdr_pai.py`) already has all 6 columns + 18 rows.
-**Gap & build.** Fix the *rendered* Table 1 to the exact 6 columns + 18 rows; align indicator/metric wording to
-the RTS verbatim; add the **year n-1 comparative** and persist **Explanation** + **Actions**; render Tables 2–3
-as the real opt-in menu. (The XLSX proves the data exists.)
+**We render today (BUILT).** `_sfdr_annex` now renders Table 1 to the exact Annex-I structure: the **6 verbatim
+columns** above, split into the four official sections — *Climate & environment* (indicators 1–9), *Social &
+employee* (10–14), *Sovereigns & supranationals* (15–16), *Real estate* (17–18) = **18 mandatory rows**, each
+with its **verbatim RTS Metric wording**. The impact figure binds to the frozen datapoint (`indicator.<n>`);
+Impact[n-1] / Explanation / Actions bind to `indicator.<n>.prior|expl|action` so an override can populate them,
+else render "—" (completed at submission). **Tables 2–3** render as the opt-in menus driven by whatever the
+snapshot carries (`indicator.env.*` / `indicator.social.*`), with the "select ≥1 from each" note — never a
+fabricated menu. Verified: 18 mandatory rows in 4 sections, 6 columns, sovereign/RE wording exact.
 _Source: [C(2022) 1931 final Annex 1 PDF](https://ec.europa.eu/finance/docs/level-2-measures/C_2022_1931_1_EN_annexe_acte_autonome_part1_v6.pdf); [CELEX:32022R1288](https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A32022R1288)._
 
 ## 5. Agri / manufacturer — ESRS E1 / E3 / E4 · `csrd_e1` / `esrs_pack`  ✅ datapoint-faithful
