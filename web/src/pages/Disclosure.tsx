@@ -17,7 +17,7 @@ interface EudrPlot {
 }
 interface Dds {
   dds_id: string; status: string; ready: boolean; reason: string; covered_plots: number; fileable_plots: number
-  items: { commodity: string; hs_code: string; plot_count: number; countries_of_production: string[] }[]
+  items: { commodity: string; hs_code: string; trade_name: string; scientific_name: string | null; description: string; plot_count: number; countries_of_production: string[] }[]
   blockers: { plot: string; commodity: string; determination: string; reason: string }[]
   operator_completes: string[]
   reference_number?: string | null; reference_captured_at?: string | null
@@ -160,9 +160,14 @@ export default function Disclosure() {
               <div>
                 <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Statement items ({dds.fileable_plots} fileable plots)</div>
                 {dds.items.map(it => (
-                  <div key={it.commodity} className="flex items-center justify-between text-[13px] py-1.5 border-b border-[var(--color-line)]">
-                    <span>{it.commodity} <span className="mono text-[11px] text-[var(--color-faint)]">HS {it.hs_code}</span></span>
-                    <span className="text-[var(--color-mute)] text-[12px]">{it.plot_count} plots · {it.countries_of_production.join(', ') || '—'}</span>
+                  <div key={it.commodity} className="flex items-start justify-between text-[13px] py-1.5 border-b border-[var(--color-line)]">
+                    <span>
+                      {it.commodity} <span className="mono text-[11px] text-[var(--color-faint)]">HS {it.hs_code}</span>
+                      <span className="block text-[11px] text-[var(--color-faint)] italic">
+                        {it.scientific_name || <span className="not-italic">scientific name — operator supplies</span>}
+                      </span>
+                    </span>
+                    <span className="text-[var(--color-mute)] text-[12px] text-right shrink-0 pl-3">{it.plot_count} plots · {it.countries_of_production.join(', ') || '—'}</span>
                   </div>
                 ))}
                 {dds.items.length === 0 && <div className="text-[12px] text-[var(--color-faint)]">No fileable plots yet.</div>}

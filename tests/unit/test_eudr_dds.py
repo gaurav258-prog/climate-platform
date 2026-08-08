@@ -68,3 +68,30 @@ def test_not_determined_plot_is_a_blocker():
     s = _FakeSession(OP_FULL, [_plot("A", None)])
     dds = assemble_dds(s, "org")
     assert not dds["ready"] and dds["blockers"][0]["determination"] == "not_determined"
+
+
+def test_annex2_scientific_name_supplied_for_known_species():
+    # Art. 9(1)(b): cocoa is a single-species commodity — we supply the canonical scientific name, not the operator
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free", commodity="Cocoa")])
+    dds = assemble_dds(s, "org")
+    it = dds["items"][0]
+    assert it["scientific_name"] == "Theobroma cacao"
+    assert it["trade_name"] == "Cocoa" and "Cocoa" in it["description"]
+    # since the species is known, the operator is NOT asked to supply it
+    assert not any("scientific name" in c for c in dds["operator_completes"])
+
+
+def test_annex2_scientific_name_routed_to_operator_for_variable_species():
+    # wood spans many tree species → we don't guess; the operator supplies the species name
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free", commodity="Wood", hs="4407")])
+    dds = assemble_dds(s, "org")
+    assert dds["items"][0]["scientific_name"] is None
+    assert any("scientific name" in c and "Wood" in c for c in dds["operator_completes"])
+
+
+def test_annex2_production_date_range_carried_and_flagged():
+    # Art. 9(1)(d): the date/time-range column exists on every plot (operator fills it) and is flagged as a to-do
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")])
+    dds = assemble_dds(s, "org")
+    assert dds["items"][0]["plots"][0]["production_date_range"] is None
+    assert any("date or time-range of production" in c for c in dds["operator_completes"])

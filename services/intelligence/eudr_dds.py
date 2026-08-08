@@ -20,6 +20,35 @@ from sqlalchemy import text
 
 from services.intelligence.eudr import DEFORESTATION_FREE
 
+# Canonical scientific name of the EUDR-covered relevant commodity (Reg 2023/1115, Annex I). Art. 9(1)(b) /
+# Annex II require the free-text description to include the "full scientific name" where applicable — for the
+# single-species commodities this is an authoritative botanical/zoological constant, not operator data, so we
+# supply it. WOOD is deliberately absent: its relevant products span many tree species, so the species' common
+# and scientific name is per-shipment and must be supplied by the operator (surfaced in operator_completes).
+_EUDR_SPECIES: dict[str, str] = {
+    "cattle": "Bos taurus", "beef": "Bos taurus", "leather": "Bos taurus", "hides": "Bos taurus",
+    "cocoa": "Theobroma cacao",
+    "coffee": "Coffea spp. (Coffea arabica / Coffea canephora)",
+    "oil palm": "Elaeis guineensis", "palm oil": "Elaeis guineensis", "palm": "Elaeis guineensis",
+    "rubber": "Hevea brasiliensis",
+    "soya": "Glycine max", "soy": "Glycine max", "soybean": "Glycine max",
+}
+
+
+def _species_for(name: str | None) -> str | None:
+    """Best-effort canonical scientific name for a covered commodity (exact/substring match on its name).
+    Returns None when the species genuinely varies per shipment (e.g. wood) — never a guess."""
+    if not name:
+        return None
+    n = name.strip().lower()
+    if n in _EUDR_SPECIES:
+        return _EUDR_SPECIES[n]
+    for key, sci in _EUDR_SPECIES.items():
+        if key in n:
+            return sci
+    return None
+
+
 # The operator's due-diligence declaration (EUDR Art. 4/8) — the legal attestation they sign.
 DD_STATEMENT = (
     "The operator confirms that due diligence was carried out in accordance with Regulation (EU) "
@@ -62,6 +91,9 @@ def assemble_dds(session, org_id: str) -> dict:
             "plot_id": r["plot_id"], "plot_name": r["plot_name"], "country": r["country"],
             "area_ha": r["area_ha"], "geolocation": geoloc,
             "determination": r["eudr_determination"], "forest_source": r["eudr_forest_source"],
+            # Art. 9(1)(d): date or time-range of production. Not held in our golden source (operational
+            # shipment data) — carried in the structure so the column exists, filled by the operator at filing.
+            "production_date_range": None,
         }
         if r["eudr_determination"] != DEFORESTATION_FREE:
             blockers.append({
@@ -72,6 +104,11 @@ def assemble_dds(session, org_id: str) -> dict:
             continue   # only deforestation-free plots enter the fileable statement
         it = items.setdefault(r["commodity"], {
             "commodity": r["commodity"], "hs_code": r["hs_code"],
+            # Art. 9(1)(b) / Annex II: free-text description incl. trade name and, where applicable, the full
+            # scientific name. Trade name defaults to the commodity name (operator refines); scientific name is
+            # the canonical species for single-species commodities, else None → operator supplies (e.g. wood).
+            "trade_name": r["commodity"], "scientific_name": _species_for(r["commodity"]),
+            "description": f"{r['commodity']} (HS {r['hs_code']})" if r["hs_code"] else r["commodity"],
             "countries_of_production": set(), "plots": [], "plot_count": 0})
         it["plots"].append(plot_rec)
         it["plot_count"] += 1
@@ -88,6 +125,12 @@ def assemble_dds(session, org_id: str) -> dict:
     if missing_operator:
         operator_completes.append(f"operator identity: {', '.join(missing_operator)}")
     operator_completes.append("net-mass quantity (kg) per commodity")
+    # Art. 9(1)(b): scientific name where we cannot supply the species (e.g. wood — species varies per shipment)
+    needs_species = sorted({it["commodity"] for it in items.values() if not it["scientific_name"]})
+    if needs_species:
+        operator_completes.append(f"scientific name of the species for: {', '.join(needs_species)}")
+    # Art. 9(1)(d): date or time-range of production (required for certain products) — operational, not in feed
+    operator_completes.append("date or time-range of production per plot (Art. 9(1)(d), where applicable)")
     operator_completes.append("signature of the due-diligence declaration")
 
     covered = len(rows)

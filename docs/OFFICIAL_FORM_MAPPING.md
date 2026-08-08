@@ -131,7 +131,7 @@ GAR / PCAF / value-at-risk-by-hazard, and the catalog's `natcat_eal` / `sum_insu
 EAL), **cat loss by event type / geography**, and an **underwriting-integration** narrative — mapped to the IFRS S2
 metric headings. Stop reusing the bank GAR/PCAF layout.
 
-## 7. EUDR — Due Diligence Statement · `eudr_dds`  ✅ mostly faithful, two missing fields
+## 7. EUDR — Due Diligence Statement · `eudr_dds`  ✅ Annex II fields complete
 **Governing text.** Reg. **(EU) 2023/1115**, **Art. 4(2)** + **Art. 33** (TRACES/EUDR IS) + **Annex II** — DDS content:
 operator name/address + **EORI**; **HS code + description + trade name + scientific name**; **quantity (net mass,
 supplementary units)**; **country of production (+ parts)**; **geolocation of all plots** (point; **polygon >4 ha**)
@@ -139,10 +139,15 @@ supplementary units)**; **country of production (+ parts)**; **geolocation of al
 numbering: WebFetch couldn't render the annex block → confirm ordering on EUR-Lex before building.)*
 **We produce.** Geolocation (point/polygon >4 ha), country/parts, HS/commodity, area, deforestation determination +
 evidence. Correctly flagged to operator (not faked): net-mass **quantity (kg)**, missing **EORI**, **signature**.
-**Missing entirely:** **date/time range of production** and **trade name / scientific name** (Annex II) — neither
-computed nor flagged. TRACES field-name mapping self-flagged as needing schema alignment.
-**Build.** Add the two missing Annex II fields to the operator-completes list / schema; confirm Annex II ordering
-on EUR-Lex; align envelope keys to the TRACES DDS schema when sandbox credentials land.
+**BUILT (Art. 9(1)(b) & (d)).** Each statement item now carries **trade name** (defaults to the commodity, operator
+refines), **free-text description** (`commodity (HS ####)`), and the **full scientific name**: for the single-species
+covered commodities this is the authoritative species constant we supply (`_EUDR_SPECIES`: cocoa→*Theobroma cacao*,
+coffee→*Coffea* spp., oil palm→*Elaeis guineensis*, rubber→*Hevea brasiliensis*, soya→*Glycine max*, cattle→*Bos
+taurus*). **Wood** is deliberately excluded — its species varies per shipment, so scientific name routes to the
+operator (surfaced in `operator_completes`, never guessed). Every plot carries a **`production_date_range`** field
+(Art. 9(1)(d)) — null in our feed (operational shipment data), so it's flagged as an operator to-do, not faked.
+Tests: `test_eudr_dds.py` (species supplied for known; routed for wood; production-date carried + flagged).
+**Remaining (external):** align envelope keys to the TRACES DDS schema when sandbox credentials land (Tier 2).
 _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115)._
 
 ---
