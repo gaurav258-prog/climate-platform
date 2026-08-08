@@ -60,9 +60,13 @@ def water_topic(session: Session, org_id: str, threshold: int = MATERIAL) -> dic
     return {
         "topic": "E3", "title": "Water", "standard": "ESRS E3 — Water and marine resources",
         "material": material,
+        "metric_kind": "water_stress_proxy",
         "own_operations": {"sites": sites["n"], "sites_water_stressed": sites["exposed"], "asset_value_exposed_eur": float(sites["value_exposed"] or 0)},
         "upstream": {"plots": plots["n"], "plots_water_stressed": plots["exposed"], "spend_exposed_eur": float(plots["spend_exposed"] or 0), "peak_score": float(plots["peak"]) if plots["peak"] is not None else None},
         "basis": f"Worst standing water hazard (water stress / soil-water deficit) per site & plot, Copernicus/ECMWF-indexed; 'exposed' = score ≥ {threshold}.",
+        "e3_4_note": "ESRS E3-4 mandates METERED water consumption (m³) and intensity (m³ per €m net revenue). "
+                     "This is a water-STRESS exposure proxy (hazard-based site risk), NOT the metered figure — "
+                     "report metered m³ from your site meters; use this to target metering and disclose water-risk context.",
     }
 
 

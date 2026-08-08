@@ -107,8 +107,12 @@ CATALOG: dict[str, list[dict]] = {
     "esrs_pack": [
         _dp("e1_financial_effects", "ESRS E1-9 — physical-risk anticipated financial effects",
             "tellumen", "compute", provider="Tellumen E1 engine"),
-        _dp("e3_water", "ESRS E3 — water-stress exposure (own ops + upstream)",
-            "tellumen", "compute", provider="Tellumen hazard engine (water-stress / soil-water)"),
+        _dp("e3_water", "ESRS E3-4 — water-stress exposure (own ops + upstream) · PROXY",
+            "tellumen", "compute", provider="Tellumen hazard engine (water-stress / soil-water)",
+            note="ESRS E3-4 mandates METERED water consumption (m³) and intensity (m³ per €m net revenue). This "
+                 "is a water-STRESS exposure indicator (hazard-based), a proxy for E3-4 site risk — it is NOT the "
+                 "metered consumption figure. Report the metered m³ via 'e3_measured_water'; use this to prioritise "
+                 "which sites/plots to meter and to disclose the water-risk context E3-4 also asks for."),
         _dp("e4_deforestation", "ESRS E4 — deforestation determination (EUDR, satellite)",
             "tellumen", "compute", provider="Tellumen deforestation engine (Hansen Global Forest Change)"),
         _dp("e4_protected_area", "ESRS E4 — own sites / sourcing plots in or near a protected area",
@@ -117,8 +121,11 @@ CATALOG: dict[str, list[dict]] = {
                  "WDPA (via IBAT) can PROVIDE their count to reconcile/override ours — zero data cost to us."),
         _dp("e1_ghg", "ESRS E1-6 — GHG emissions (Scope 1–3) & energy",
             "evendor", "provided", provider="Your carbon-accounting tool"),
-        _dp("e3_measured_water", "ESRS E3 — measured water withdrawal / consumption (m³)",
-            "customer", "provided", provider="Your site water meters"),
+        _dp("e3_measured_water", "ESRS E3-4 — metered water consumption (m³) + intensity (m³/€m revenue)",
+            "customer", "provided", provider="Your site water meters",
+            note="The mandated E3-4 metric: total water consumption in m³ and consumption intensity per €m net "
+                 "revenue. Metered operational data — provide it here; our water-stress indicator (e3_water) is the "
+                 "risk-context proxy, not a substitute for the meter reading."),
         _dp("esrs_narrative", "ESRS — transition plan & narrative", "customer", "report", provider="You author"),
     ],
     "insurer_climate": [

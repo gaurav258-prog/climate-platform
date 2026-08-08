@@ -111,10 +111,13 @@ set + tags, **no fixed numeric grid**.
 **We render / compute.** E1-9 physical financial effects (asset value-at-risk, business interruption, COGS-at-risk,
 withheld) with the r²≥0.40 gate; E3-5 water-stress exposure €; E4-5 deforestation-free %, forest-loss ha,
 protected-area overlap. GHG (E1-5/6/7/8) = customer carbon tool; narratives = customer.
-**Gap & build.** Substance is faithful. **Two honest labels to add:** (a) **E3-4** wants *metered* water
-consumption (m³) + intensity — we produce **water-stress exposure**, a proxy, **not** metered m³; label it as
-such and route metered m³ to customer/Lane-2. (b) The only external blocker to a **validated ESEF** filing is the
-adopted **EFRAG ESRS Set 1 XBRL element map** — a drop-in `config/efrag_esrs_binding.json` the code already accepts.
+**Gap & build.** Substance is faithful. **(a) E3-4 honesty label — BUILT:** `e3_water` is relabelled **"ESRS E3-4
+— water-stress exposure · PROXY"** with a note that E3-4 mandates *metered* m³ + intensity (m³/€m revenue) and this
+hazard-based indicator is **not** the meter reading; the metered figure is the separate `e3_measured_water`
+customer datapoint ("metered water consumption (m³) + intensity"), and `water_topic` carries an `e3_4_note` +
+`metric_kind` that the EsrsPack card renders as a warning banner. Neither is presented as satisfying the other.
+**(b) Remaining external blocker** to a **validated ESEF** filing is the adopted **EFRAG ESRS Set 1 XBRL element
+map** — a drop-in `config/efrag_esrs_binding.json` the code already accepts.
 _Source: EFRAG delegated-act annexes [E1](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E1%20Delegated-act-2023-5303-annex-1_en.pdf) / [E3](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E3%20Delegated-act-2023-5303-annex-1_en.pdf) / E4; [CELEX:32023R2772](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772)._
 
 ## 6. Insurer — climate / NatCat · `insurer_climate`  ❗ builder mismatch

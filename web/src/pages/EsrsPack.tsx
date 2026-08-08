@@ -13,7 +13,7 @@ interface Topic {
   upstream?: { plots: number; plots_water_stressed: number; spend_exposed_eur: number; peak_score: number | null }
   eudr_covered_plots?: number; eudr_commodities?: number; deforestation_free?: number; non_compliant?: number
   geolocation_incomplete?: number; not_determined?: number; deforestation_free_pct_of_determined?: number | null; post_cutoff_forest_loss_ha?: number
-  basis?: string; detail_ref?: string
+  basis?: string; detail_ref?: string; metric_kind?: string; e3_4_note?: string
 }
 interface Pack {
   entity: { name: string | null; country: string | null; eori: string | null }
@@ -101,6 +101,11 @@ export default function EsrsPack() {
                 </div>
               )}
 
+              {t.e3_4_note && (
+                <p className="text-[11px] text-[var(--color-warn)] mt-3 rounded-md border border-[color-mix(in_oklab,var(--color-warn)_35%,var(--color-line))] bg-[color-mix(in_oklab,var(--color-warn)_7%,transparent)] px-2.5 py-1.5 leading-relaxed">
+                  <span className="font-semibold">Proxy — not the metered E3-4 figure.</span> {t.e3_4_note}
+                </p>
+              )}
               {t.basis && <p className="text-[11px] text-[var(--color-faint)] mt-3">{t.basis}</p>}
               {t.topic === 'E1' && (
                 <Link to="/csrd" className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline">
