@@ -363,8 +363,9 @@ def _kri_projection(session: Session, org_id: str, framework: str, kri_key: str,
         return {"points": pts, "unit": "pct" if is_pct else "eur",
                 "warn": kpi.get("amber"), "breach": kpi.get("red"),
                 "scenario": scen.replace("_", " "),
-                "note": "Value exposed at High+ across horizons under " + scen.replace("_", " ")
-                        + "; the band is the act-vs-inaction range (AR6 lo–hi)."}
+                "note": "Central estimate of value exposed at High+ across horizons under " + scen.replace("_", " ")
+                        + "; the shaded band is the CMIP6/AR6 climate-model uncertainty range (lower–upper "
+                        + "confidence bound of the hazard scores), not a best/worst policy case."}
     except Exception:  # noqa: BLE001 — a missing projection must not break the drawer
         return None
 
