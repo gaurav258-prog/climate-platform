@@ -28,6 +28,38 @@ class GenerateBody(BaseModel):
     framework: str = Field(..., min_length=1, max_length=60)
     note: Optional[str] = Field(None, max_length=500)
     confirmed: bool = False   # set by the confirm-data preflight step
+
+
+class QualitativePatch(BaseModel):
+    values: dict[str, str]    # {'table1.a': 'authored text', ...}
+
+
+@router.get("/filings/qualitative/p3esg", summary="Pillar 3 ESG qualitative tables (1-3) + authored text")
+def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.pillar3_qualitative import qualitative_structure
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return qualitative_structure(saved)
+
+
+@router.patch("/filings/qualitative/p3esg", summary="Author / save a Pillar 3 ESG qualitative disclosure row")
+def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
+                          ctx: dict = Depends(require_permission("approvals.create"))):
+    import json as _json
+    from services.governance.pillar3_qualitative import qualitative_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cur.update({k: v for k, v in body.values.items()})
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"rows": list(body.values.keys())})
+    return qualitative_structure(cur)
     entity_id: Optional[str] = None   # None = whole org; a leaf = its book; a group = consolidated subtree
 
 

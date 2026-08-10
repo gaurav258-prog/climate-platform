@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card } from './ui'
 import { hazardLabel } from '../lib/hazards'
+import { toast } from '../lib/toast'
 
 // The final form — the frozen disclosure, shown two ways over ONE set of figures:
 //   • Official form — the regulator's actual Annex / template layout (SFDR RTS Annex I Table 1, EU-Taxonomy
@@ -76,6 +77,8 @@ export default function FilingForm({ filingId }: { filingId: string }) {
       {hasAnnex && view === 'official'
         ? <AnnexView annex={d.annex!} {...editProps} />
         : <DatapointList groups={d.groups} {...editProps} />}
+
+      {d.framework === 'bank_p3esg' && view === 'official' && <P3Qualitative canEdit={canEdit} />}
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
     </div>
@@ -218,6 +221,73 @@ function OverrideEditor({ filingId, dp, onClose, onDone }: { filingId: string; d
         <button onClick={onClose} className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 text-[12px] text-[var(--color-mute)]"><X size={13} /></button>
       </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)]">This needs a second pair of eyes to approve before it lands on the form; the original stays on record.</div>
+    </div>
+  )
+}
+
+// ── Pillar 3 ESG qualitative Tables 1-3 (Annex XXXIX) — free-format narrative the institution AUTHORS in-app.
+// These forms have nothing to compute; the user types them here and they are versioned + attested with the filing.
+interface QRow { key: string; row: string; group: string; prompt: string; value: string }
+interface QTable { table: string; title: string; rows: QRow[] }
+interface QData { tables: QTable[]; total_rows: number; authored: number }
+
+function P3Qualitative({ canEdit }: { canEdit: boolean }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
+  const d = q.data
+  if (!d) return null
+  return (
+    <Card className="p-0 overflow-hidden mt-3">
+      <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[13px] text-[var(--color-ink)]">Qualitative ESG risk disclosures · Tables 1–3 (Annex XXXIX)</div>
+          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Free-format narrative · <span style={{ color: 'var(--color-sky)' }}>you author</span> · versioned + attested with the filing</div>
+        </div>
+        <div className="mono text-[10px] text-[var(--color-faint)]">{d.authored}/{d.total_rows} authored</div>
+      </div>
+      {d.tables.map(t => {
+        let lastGroup = ''
+        return (
+          <div key={t.table} className="border-b border-[var(--color-line)] last:border-0">
+            <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{t.title}</div>
+            <div className="divide-y divide-[var(--color-line-2)]">
+              {t.rows.map(r => {
+                const showGroup = r.group !== lastGroup; lastGroup = r.group
+                return (
+                  <div key={r.key}>
+                    {showGroup && <div className="px-4 pt-2.5 pb-1 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)]">{r.group}</div>}
+                    <div className="px-4 py-2">
+                      <div className="text-[12px] text-[var(--color-mute)] mb-1"><span className="mono text-[10px] text-[var(--color-faint)] mr-1.5">({r.row})</span>{r.prompt}</div>
+                      <QCell row={r} canEdit={canEdit} onSaved={() => qc.invalidateQueries({ queryKey: ['p3-qualitative'] })} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </Card>
+  )
+}
+
+function QCell({ row, canEdit, onSaved }: { row: QRow; canEdit: boolean; onSaved: () => void }) {
+  const [val, setVal] = useState(row.value)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const save = async () => {
+    if (val === row.value) return
+    setSaving(true); setSaved(false)
+    try { await api.patch('/v1/filings/qualitative/p3esg', { values: { [row.key]: val } }); setSaved(true); onSaved() }
+    catch { toast.error('Could not save this disclosure.') } finally { setSaving(false) }
+  }
+  if (!canEdit) return <div className="text-[12.5px] text-[var(--color-ink)] whitespace-pre-wrap">{val || <span className="text-[var(--color-faint)] italic">Not authored yet.</span>}</div>
+  return (
+    <div>
+      <textarea value={val} onChange={e => { setVal(e.target.value); setSaved(false) }} onBlur={save} rows={2}
+        placeholder="Author this disclosure…"
+        className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] resize-y" />
+      <div className="mono text-[9px] mt-0.5 h-3">{saving ? <span className="text-[var(--color-faint)]">saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>✓ saved</span> : null}</div>
     </div>
   )
 }
