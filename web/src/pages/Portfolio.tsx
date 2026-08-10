@@ -7,6 +7,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import AssetDrawer from '../components/AssetDrawer'
+import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
@@ -101,7 +102,6 @@ const SECTORS: Record<string, Cfg> = {
   },
 }
 
-const HORIZONS = ['current', '2030', '2050', '2100'] as const
 const SCENARIOS: [string, string][] = [['baseline', 'Today'], ['disorderly_2c', 'Disorderly 2°C']]
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
@@ -122,7 +122,7 @@ export default function Portfolio() {
   const type = profile?.org?.type ?? ''
   const cfg = SECTORS[type]
   const [scenario, setScenario] = useState('baseline')
-  const [horizon, setHorizon] = useState<string>('current')
+  const [horizon, setHorizon] = useState<string>(DEFAULT_HORIZON)
   const [open, setOpen] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   // the book is search-driven — not a full dump. filter by text (name/region/sector), hazard, and severity.
@@ -190,10 +190,8 @@ export default function Portfolio() {
               <button key={k} title={SCENARIO_HINT[k]} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
             ))}
           </div>
-          <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
-            {HORIZONS.map(h => (
-              <button key={h} onClick={() => setHorizon(h)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${horizon === h ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{h === 'current' ? 'Now' : h}</button>
-            ))}
+          <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+            <HorizonSelect value={horizon} onChange={setHorizon} />
           </div>
         </div>
       </div>

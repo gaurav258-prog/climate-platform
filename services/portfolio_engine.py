@@ -85,23 +85,53 @@ def fetch_entities_with_risk(
         ORDER BY e.primary_value_eur DESC
     """), params).mappings().all()
 
+    # Horizon can be a modelled anchor ('current'/'2030'/'2050'/'2100') OR any user-picked year — an
+    # intermediate year is interpolated between the two bracketing anchor nodes (see intelligence.horizon).
+    from services.intelligence.horizon import resolve as _resolve_horizon, labels_needed, lerp
+    from core.types import score_to_bucket
+    plan = _resolve_horizon(horizon)
     risks = session.execute(text("""
-        SELECT entity_id::text AS entity_id, hazard_type,
+        SELECT entity_id::text AS entity_id, hazard_type, time_horizon,
                physical_risk_score AS score, risk_bucket, model_version, scored_at,
                physical_risk_ci_lower AS ci_lo, physical_risk_ci_upper AS ci_hi
         FROM v_portfolio_entity_physical_risk
-        WHERE org_id = :o AND vertical = :v AND scenario = :s AND time_horizon = :h
-    """), {"o": org_id, "v": vertical, "s": scenario, "h": horizon}).mappings().all()
+        WHERE org_id = :o AND vertical = :v AND scenario = :s AND time_horizon = ANY(:hs)
+    """), {"o": org_id, "v": vertical, "s": scenario, "hs": labels_needed(plan)}).mappings().all()
 
     by_entity = defaultdict(list)
-    for r in risks:
-        by_entity[r["entity_id"]].append({
-            "hazard": r["hazard_type"], "score": round(r["score"], 1),
-            "bucket": r["risk_bucket"], "model_version": r["model_version"],
-            "scored_at": r["scored_at"],
-            "ci_lo": round(r["ci_lo"], 1) if r["ci_lo"] is not None else None,
-            "ci_hi": round(r["ci_hi"], 1) if r["ci_hi"] is not None else None,
-        })
+    if plan["kind"] == "exact":
+        for r in risks:
+            by_entity[r["entity_id"]].append({
+                "hazard": r["hazard_type"], "score": round(r["score"], 1),
+                "bucket": r["risk_bucket"], "model_version": r["model_version"],
+                "scored_at": r["scored_at"],
+                "ci_lo": round(r["ci_lo"], 1) if r["ci_lo"] is not None else None,
+                "ci_hi": round(r["ci_hi"], 1) if r["ci_hi"] is not None else None,
+            })
+    else:
+        # interpolate each (entity, hazard) linearly between the low and high anchor nodes
+        w = plan["w"]
+        pair: dict = defaultdict(dict)   # (entity, hazard) -> {label: row}
+        for r in risks:
+            pair[(r["entity_id"], r["hazard_type"])][r["time_horizon"]] = r
+        for (eid, hazard), bylbl in pair.items():
+            lo, hi = bylbl.get(plan["lo"]), bylbl.get(plan["hi"])
+            # A forward horizon shows a (entity, hazard) only if it is modelled at BOTH bracketing anchors —
+            # the same coverage rule an exact anchor applies (it needs its own node). Carrying an asset that
+            # has only the lower node into an interpolated future would fabricate coverage and can invert the
+            # trajectory (a near-term hump above both 'now' and the next anchor). Require both; then interpolate.
+            if lo is None or hi is None:
+                continue
+            sc = lerp(lo["score"], hi["score"], w)
+            by_entity[eid].append({
+                "hazard": hazard, "score": round(sc, 1),
+                "bucket": score_to_bucket(sc).value, "model_version": hi["model_version"],
+                "scored_at": hi["scored_at"],
+                "ci_lo": round(lerp(lo["ci_lo"], hi["ci_lo"], w), 1)
+                         if lo["ci_lo"] is not None and hi["ci_lo"] is not None else None,
+                "ci_hi": round(lerp(lo["ci_hi"], hi["ci_hi"], w), 1)
+                         if lo["ci_hi"] is not None and hi["ci_hi"] is not None else None,
+            })
 
     valuations = session.execute(text("""
         SELECT entity_id::text AS entity_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
