@@ -22,6 +22,12 @@ def _num(s):
     return {"text": s, "num": True}
 
 
+def _mnum(s, source):
+    """A numeric cell that also declares its source ('computed' = Tellumen engine, 'integrated' = institution
+    banking systems, 'manual' = authored). Lets the official form show, per cell, who fills each figure."""
+    return {"text": s, "num": True, "source": source}
+
+
 def _cell(dps, key):
     """A value cell bound to a datapoint key — carries the merged datapoint (value + manual/pending) or a
     placeholder so the official row still appears when the snapshot has no figure for it."""
@@ -321,6 +327,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                 _txt(lbl), _num(_eur(r["gross"])), _num(f"{r['fin_emissions']:,}"), _num(f"{r['scope3']:,}")]})
         sections.append({"title": "Template 1 — Banking book · climate-change transition risk (ITS 2022/2453, Annex XXXIX)",
                          "columns": ["Sector (NACE)", "Gross carrying amount", "Financed emissions Scope 1–3 (tCO₂e)", "of which Scope 3 (tCO₂e)"],
+                         "col_sources": ["", "computed", "computed", "computed"],
                          "rows": t1_rows,
                          "note": g1["basis"] + " Customer-supplied columns not shown: " + " · ".join(g1["customer_columns"]) + "."})
 
@@ -340,6 +347,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                     _txt(f'{r["label"]} · {r["metric"]}'), _num(_eur(r["gross"])), _num(cur), _num(tgt), _num(dist)]})
             sections.append({"title": "Template 3 — Banking book · transition risk · alignment metrics (ITS 2022/2453, Annex XL)",
                              "columns": ["Sector · IEA metric", "Gross carrying amount", "Portfolio intensity", "IEA NZE2050 2030 target", "Distance"],
+                             "col_sources": ["", "computed", "integrated", "computed", "computed"],
                              "rows": t3_rows,
                              "note": g3["formula"] + ". " + g3["source"] + " Customer/vendor input: " + g3["customer_input"]})
 
@@ -352,7 +360,8 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         else:
             t4_rows = [{"type": "row", "cells": [_txt("No counterparty matched the top-20 carbon-majors list"), _num(_eur(0))]}]
         sections.append({"title": "Template 4 — Banking book · exposures to the top-20 carbon-intensive firms (ITS 2022/2453, Annex XL)",
-                         "columns": ["Counterparty (Carbon Majors)", "Gross carrying amount"], "rows": t4_rows,
+                         "columns": ["Counterparty (Carbon Majors)", "Gross carrying amount"],
+                         "col_sources": ["", "computed"], "rows": t4_rows,
                          "note": f'Matched {g4["matched_count"]} of the {g4["list_size"]}-firm list · total exposure {_eur(g4["total_exposure"])}. ' + g4["source"]})
 
     # Template 5 — banking-book physical-risk exposure, built to the ACTUAL ITS 2022/2453 grid:
@@ -360,20 +369,29 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     if assets:
         from services.governance.pillar3_templates import template5_grid
         grid = template5_grid(assets)
-        cols = ["Sector (NACE)", "Gross carrying amount", "of which physical-risk-sensitive",
-                "of which chronic", "of which acute", "of which chronic + acute"]
-        t5_rows = []
-        for r in grid["rows"]:
-            t5_rows.append({"type": "row", "cells": [
-                _txt(f"{r['section']} · {r['label']}"), _num(_eur(r["gross"])), _num(_eur(r["sensitive"])),
-                _num(_eur(r["chronic"])), _num(_eur(r["acute"])), _num(_eur(r["both"]))]})
-        t = grid["total"]
-        t5_rows.append({"type": "row", "cells": [
-            _txt("TOTAL"), _num(_eur(t["gross"])), _num(_eur(t["sensitive"])),
-            _num(_eur(t["chronic"])), _num(_eur(t["acute"])), _num(_eur(t["both"]))]})
+        # The COMPLETE ITS Template 5 column set. Each column carries its source so the form shows, per cell,
+        # what Tellumen computes vs what the institution integrates from its banking systems.
+        cols = ["Sector (NACE)", "Gross carrying amount", "of which chronic", "of which acute",
+                "of which chronic + acute", "≤ 5y", "> 5 ≤ 10y", "> 10 ≤ 20y", "> 20y", "avg. weighted maturity",
+                "of which Stage 2", "of which non-performing", "accumulated impairment"]
+        # "" = row label · computed = Tellumen engine · integrated = institution banking systems (loan tape / IFRS-9)
+        srcs = ["", "computed", "computed", "computed", "computed", "integrated", "integrated", "integrated",
+                "integrated", "integrated", "integrated", "integrated", "integrated"]
+        _pending = _mnum("—", "integrated")  # a pending integrated cell: shown, sourced, awaiting the institution feed
+
+        def _t5row(label, r):
+            return {"type": "row", "cells": [
+                _txt(label),
+                _mnum(_eur(r["gross"]), "computed"), _mnum(_eur(r["chronic"]), "computed"),
+                _mnum(_eur(r["acute"]), "computed"), _mnum(_eur(r["both"]), "computed"),
+                dict(_pending), dict(_pending), dict(_pending), dict(_pending), dict(_pending),
+                dict(_pending), dict(_pending), dict(_pending)]}
+        t5_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in grid["rows"]]
+        t5_rows.append(_t5row("TOTAL", grid["total"]))
         sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
-                         "columns": cols, "rows": t5_rows,
-                         "note": grid["basis"] + " Customer-supplied columns not shown: " + " · ".join(grid["customer_columns"]) + "."})
+                         "columns": cols, "col_sources": srcs, "rows": t5_rows,
+                         "note": grid["basis"] + " Maturity, IFRS-9 staging and impairment columns are integrated "
+                                 "from the institution's loan tape (shown as '—' until that feed is connected)."})
     else:
         # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
         haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
@@ -418,6 +436,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                      "technical-screening-criteria + DNSH confirmation, so both are shown as pending, not zero.")
         sections.append({"title": "Templates 6–8 — Green Asset Ratio by counterparty (ITS 2022/2453 · Del. Reg. 2021/2178)",
                          "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
+                         "col_sources": ["", "computed", "computed", "integrated"],
                          "rows": gar_rows, "note": note})
     elif any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
         # fallback (no per-asset book): the flat eligibility summary
@@ -438,7 +457,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                     "Type of risk mitigated", "Qualitative information on the mitigating action"]
         sections.append({
             "title": "Template 10 — Other climate-change-mitigating actions not covered by the EU Taxonomy (ITS 2022/2453)",
-            "columns": t10_cols, "rows": [
+            "columns": t10_cols, "col_sources": ["manual", "manual", "manual", "manual", "manual"], "rows": [
                 {"type": "subheader", "label": "Bonds (banking book)"},
                 {"type": "row", "cells": [_txt("Green / sustainability / sustainability-linked bonds"),
                                           _txt("—"), _txt("—"), _txt("—"), _txt("—")]},

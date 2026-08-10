@@ -22,9 +22,9 @@ interface Dp {
   manual?: boolean; original_value?: number | null; override?: Override; pending?: Pending
 }
 interface Group { group: string; datapoints: Dp[] }
-interface AnnexCell { text?: string; dp?: Dp; num?: boolean }
+interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string }
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
-interface AnnexSection { title: string; note: string | null; columns: string[]; rows: AnnexRow[] }
+interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[] }
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
 interface Form { framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null }
 
@@ -88,6 +88,30 @@ export default function FilingForm({ filingId }: { filingId: string }) {
 type EditProps = { filingId: string; canEdit: boolean; edit: string | null; setEdit: (k: string | null) => void; onDone: () => void }
 
 // ── the regulator's official Annex / template layout ──────────────────────────────────────────────────────
+const SRC_META: Record<string, { label: string; short: string; color: string }> = {
+  computed:   { label: 'Tellumen-computed',     short: 'Tellumen', color: 'var(--color-sky)' },
+  integrated: { label: 'Integrated (bank systems)', short: 'Integrated', color: 'var(--color-warn)' },
+  manual:     { label: 'Manual (you author)',   short: 'Manual', color: 'var(--color-viz, #a78bfa)' },
+}
+function SrcDot({ source }: { source?: string }) {
+  const m = source ? SRC_META[source] : undefined
+  if (!m) return null
+  return <span className="inline-block w-[6px] h-[6px] rounded-full align-middle" style={{ background: m.color }} title={m.label} />
+}
+function SrcLegend({ sources }: { sources: string[] }) {
+  const uniq = Array.from(new Set(sources.filter(Boolean)))
+  if (!uniq.length) return null
+  return (
+    <div className="px-4 py-1.5 flex flex-wrap gap-x-4 gap-y-1 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
+      {uniq.map(s => (
+        <span key={s} className="inline-flex items-center gap-1.5 mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
+          <SrcDot source={s} />{SRC_META[s]?.label ?? s}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
   return (
     <Card className="p-0 overflow-hidden">
@@ -98,13 +122,19 @@ function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
       {annex.sections.map((s, si) => (
         <div key={si} className={si > 0 ? 'border-t border-[var(--color-line)]' : ''}>
           <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{s.title}</div>
+          {s.col_sources && <SrcLegend sources={s.col_sources} />}
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="text-left">
-                  {s.columns.map((c, ci) => (
-                    <th key={ci} className={`px-4 py-1.5 mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] font-medium ${ci >= s.columns.length - 1 ? 'text-right' : ''}`}>{c}</th>
-                  ))}
+                  {s.columns.map((c, ci) => {
+                    const src = s.col_sources?.[ci]
+                    return (
+                      <th key={ci} className={`px-4 py-1.5 mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] font-medium align-bottom ${ci >= s.columns.length - 1 ? 'text-right' : ''}`}>
+                        <div className={`flex items-center gap-1 ${ci >= s.columns.length - 1 ? 'justify-end' : ''}`}>{src && <SrcDot source={src} />}<span>{c}</span></div>
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
