@@ -10,6 +10,7 @@ import { Eyebrow, Card, Lens } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
+import { toast } from '../lib/toast'
 
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
@@ -245,17 +246,32 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
 
 // The drill behind one KRI tile — methodology, trend across filings, and the real composition (by hazard /
 // scope / scored-unscored / eligible-not), plus contextual actions. All from /kri/detail; nothing fabricated.
-interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
-interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null }[]; fmt: string }; composition?: Comp | null; actions: { analytics: boolean; provide: boolean } }
+interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy' | 'sector' | 'horizon'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
+interface Driver { name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
+interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
+interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null }[]; fmt: string }; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
 
 function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
   const nav = useNavigate()
+  const { profile } = useAuth()
+  const canSetAppetite = (profile?.permissions ?? []).includes('admin.approval_policy.manage')
   const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
   const q = useQuery({ queryKey: ['kri-detail', framework, kriKey], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}`) })
   const d = q.data
+  const [editBand, setEditBand] = useState(false)
+  const [band, setBand] = useState<{ amber?: number; red?: number; direction?: string }>({})
+  const [savingBand, setSavingBand] = useState(false)
+  const startBand = () => { const k = d?.kpi; setBand({ amber: k?.amber ?? undefined, red: k?.red ?? undefined, direction: k?.direction ?? 'higher_worse' }); setEditBand(true) }
+  const saveBand = async () => {
+    setSavingBand(true)
+    try {
+      await api.patch('/v1/admin/kri-appetite', { kri_key: kriKey, framework, amber: band.amber, red: band.red, direction: band.direction })
+      await q.refetch(); setEditBand(false); toast.success('Appetite band updated.')
+    } catch { toast.error('Could not update the appetite band.') } finally { setSavingBand(false) }
+  }
   const uf = (v: number, unit?: string) => unit === 'eur' ? eur(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
   const tf = (v: number) => d?.trend.fmt === 'eur' ? eur(v) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
-  const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible' }
+  const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible', sector: 'Concentration by NACE sector', horizon: 'Projected trajectory by horizon' }
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
@@ -292,11 +308,30 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                     <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{d.methodology ?? k.hint}</p>
                   </div>
                 )}
-                {k.status && (
-                  <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 flex items-center gap-2 text-[12px]">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RAG[k.status] }} />
-                    <span className="text-[var(--color-mute)]">{k.status === 'ok' ? 'Within appetite' : k.status === 'amber' ? 'Warning — approaching breach' : 'Outside appetite (breach)'}</span>
-                    {(k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {k.amber} · breach {k.red}</span>}
+                {(k.status || (canSetAppetite && (k.fmt === 'pct' || k.fmt === 'eur' || k.fmt === 'num'))) && (
+                  <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
+                    <div className="flex items-center gap-2">
+                      {k.status && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RAG[k.status] }} />}
+                      <span className="text-[var(--color-mute)]">{!k.status ? 'No appetite band set' : k.status === 'ok' ? 'Within appetite' : k.status === 'amber' ? 'Warning — approaching breach' : 'Outside appetite (breach)'}</span>
+                      {!editBand && (k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {k.amber} · breach {k.red}</span>}
+                      {!editBand && canSetAppetite && <button onClick={startBand} className={`mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ${(k.amber != null || k.red != null) ? 'ml-2' : 'ml-auto'}`}>{(k.amber != null || k.red != null) ? 'adjust' : 'set band'}</button>}
+                    </div>
+                    {editBand && (
+                      <div className="mt-2 pt-2 border-t border-[var(--color-line-2)] flex flex-wrap items-end gap-2">
+                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Warn ≥</div>
+                          <input type="number" value={band.amber ?? ''} onChange={e => setBand(b => ({ ...b, amber: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
+                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Breach ≥</div>
+                          <input type="number" value={band.red ?? ''} onChange={e => setBand(b => ({ ...b, red: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
+                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Direction</div>
+                          <select value={band.direction ?? 'higher_worse'} onChange={e => setBand(b => ({ ...b, direction: e.target.value }))} className="rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]">
+                            <option value="higher_worse">higher is worse</option><option value="lower_worse">lower is worse</option></select></label>
+                        <div className="flex gap-1.5 ml-auto">
+                          <button onClick={saveBand} disabled={savingBand} className="rounded-lg bg-[var(--color-sky)] text-white px-3 py-1.5 text-[12px] disabled:opacity-50">{savingBand ? 'Saving…' : 'Save'}</button>
+                          <button onClick={() => setEditBand(false)} className="rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)]">Cancel</button>
+                        </div>
+                        <p className="w-full mono text-[9.5px] text-[var(--color-faint)]">Sets your organisation's appetite band on this KRI ({k.label}) — the same control as Settings → KRI appetite, applied here in context.</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div>
@@ -321,10 +356,35 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                     <HBar data={d.composition.items.map(it => ({ label: d.composition!.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: d.composition!.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)' }))} format={n => uf(n, d.composition!.unit)} />
                   </div>
                 )}
+                {d.drivers && d.drivers.items.length > 0 && (
+                  <div>
+                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5">
+                      Top exposures behind this indicator
+                      <span className="text-[var(--color-faint)] normal-case tracking-normal">· {d.drivers.total_count} in total</span>
+                    </div>
+                    <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                      <table className="w-full text-[11.5px]">
+                        <tbody>
+                          {d.drivers.items.map((it, i) => (
+                            <tr key={i} className="border-b border-[var(--color-line-2)] last:border-0">
+                              <td className="px-3 py-1.5 text-[var(--color-ink)] truncate max-w-[180px]" title={it.name}>{it.name}</td>
+                              <td className="px-2 py-1.5 text-[var(--color-faint)] mono text-[10px] whitespace-nowrap">{[it.nace, it.country].filter(Boolean).join(' · ')}</td>
+                              <td className="px-2 py-1.5 text-right">{it.hazard && <span className="mono text-[10px]" style={{ color: sevColor(it.score ?? 0) }}>{hazardLabel(it.hazard)}{it.bucket ? ` · ${it.bucket}` : ''}</span>}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-[var(--color-ink)] whitespace-nowrap">{uf(it.value, d.drivers!.unit)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {d.actions.analytics && d.drivers.total_count > d.drivers.items.length && (
+                      <button onClick={() => nav('/portfolio')} className="mt-1.5 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">See all {d.drivers.total_count} in Portfolio →</button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {d.actions.analytics && <button onClick={() => nav('/analytics')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
                   {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
-                  <button onClick={() => nav('/admin')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>
+                  {canSetAppetite && !editBand && <button onClick={startBand} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>}
                 </div>
               </div>
             </>)

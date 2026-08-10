@@ -323,11 +323,60 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> d
         "methodology": _METHODOLOGY.get(kri_key),
         "trend": {"points": trend, "fmt": kpi.get("fmt")},
         "composition": _kri_composition(session, org_id, framework, kri_key, result),
+        "drivers": _kri_drivers(session, org_id, framework, kri_key),
         "actions": {
             "analytics": (kri_key in _EXPOSURE_KEYS or kri_key in _FORWARD_KEYS) and framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd"),
             "provide": kpi.get("kind") == "integrated",
         },
     }
+
+
+# KRIs whose most-granular drill is the individual exposures (assets) behind the number.
+_DRIVER_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "acute_share", "chronic_share",
+                "forward_share", "sector_concentration", "fin_emissions"}
+
+
+def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str) -> dict | None:
+    """The most granular view: the individual exposures (assets) that make up a KRI, largest-contribution
+    first — the actual names a risk officer would act on. Only for bank/REIT physical & concentration KRIs
+    where a per-asset book exists; never fabricated."""
+    if kri_key not in _DRIVER_KEYS or framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+        return None
+    from services.governance.reporting_settings import get_settings
+    from services.governance.pillar3_templates import _asset_hits, _section, HIGH_CLIMATE_NACE
+    s = get_settings(session, org_id)
+    snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
+    assets = (snap or {}).get("assets") or []
+    if not assets:
+        return None
+    high = lambda a: (a.get("headline_bucket") in ("H", "VH"))
+
+    def _keep(a):
+        if kri_key in ("value_at_risk", "pct_at_risk", "forward_share"):
+            return high(a)
+        if kri_key == "acute_share":
+            return _asset_hits(a)[1]
+        if kri_key == "chronic_share":
+            return _asset_hits(a)[0]
+        if kri_key == "sector_concentration":
+            return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
+        return True                                   # total_value / fin_emissions → whole book
+
+    def _weight(a):
+        if kri_key == "fin_emissions":
+            return sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3))
+        return a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
+
+    rows = [a for a in assets if _keep(a) and _weight(a) > 0]
+    rows.sort(key=_weight, reverse=True)
+    unit = "num" if kri_key == "fin_emissions" else "eur"
+    items = [{
+        "name": a.get("asset_name") or a.get("asset_id"), "sector": a.get("sector"),
+        "country": a.get("country"), "nace": a.get("nace_code"),
+        "value": round(_weight(a)), "hazard": a.get("headline_hazard"),
+        "bucket": a.get("headline_bucket"), "score": a.get("headline_score"),
+    } for a in rows[:8]]
+    return {"unit": unit, "total_count": len(rows), "items": items} if items else None
 
 
 def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str, result: dict) -> dict | None:
@@ -356,6 +405,39 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
         total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
         return {"type": "taxonomy", "unit": "eur",
                 "items": [{"label": "Eligible", "value": round(elig)}, {"label": "Not eligible", "value": round(max(0, total - elig))}]} if total else None
+    # acute / chronic peril exposure — the value-weighted hazard breakdown WITHIN that peril category
+    if kri_key in ("acute_share", "chronic_share"):
+        from services.governance.pillar3_templates import ACUTE_HAZARDS, CHRONIC_HAZARDS, _HIGH_BUCKETS
+        cats = ACUTE_HAZARDS if kri_key == "acute_share" else CHRONIC_HAZARDS
+        by_h: dict[str, float] = {}
+        for a in snap.get("assets") or []:
+            v = a.get("value_eur") or 0
+            if not v:
+                continue
+            for h in a.get("hazards") or []:
+                if h.get("hazard") in cats and h.get("bucket") in _HIGH_BUCKETS:
+                    by_h[h["hazard"]] = by_h.get(h["hazard"], 0.0) + v
+        items = sorted(({"label": k, "value": round(v)} for k, v in by_h.items()), key=lambda x: -x["value"])
+        return {"type": "hazard", "unit": "eur", "items": items} if items else None
+    # climate-sector concentration — value by NACE section (the concentration axis of Templates 1 & 5)
+    if kri_key == "sector_concentration":
+        from services.governance.pillar3_templates import concentration_split, NACE_SECTIONS, HIGH_CLIMATE_NACE
+        cs = concentration_split(snap.get("assets") or [])
+        items = sorted(
+            ({"label": f"{sec} · {NACE_SECTIONS.get(sec, 'Unclassified')}"[:34], "value": round(val)}
+             for sec, val in cs["by_sector"].items() if sec in HIGH_CLIMATE_NACE),
+            key=lambda x: -x["value"])
+        return {"type": "sector", "unit": "eur", "items": items} if items else None
+    # forward share — the projected at-risk trajectory across horizons under the warming pathway
+    if kri_key == "forward_share":
+        try:
+            from services.intelligence.forward_risk import forward_risk
+            scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
+            traj = forward_risk(session, org_id, "banking", scen).get("trajectory") or []
+            items = [{"label": t.get("horizon"), "value": t.get("at_risk_pct") or 0} for t in traj]
+            return {"type": "horizon", "unit": "pct", "items": items} if len(items) >= 2 else None
+        except Exception:  # noqa: BLE001
+            return None
     return None
 
 
