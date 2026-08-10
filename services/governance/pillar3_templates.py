@@ -177,6 +177,36 @@ def gar_grid(assets: list[dict]) -> dict:
     }
 
 
+# EBA "sectors that highly contribute to climate change" (high-climate-impact sectors) — NACE sections A–H, L.
+HIGH_CLIMATE_NACE = frozenset({"A", "B", "C", "D", "E", "F", "G", "H", "L"})
+
+
+def concentration_split(assets: list[dict]) -> dict:
+    """Decision/concentration measures over the banking book, from the SAME per-asset fields the Pillar 3
+    templates use: acute- vs chronic-peril exposure (Template 5 split), and concentration in the EBA high-
+    climate-impact NACE sectors (the axis of Templates 1 & 5), with the single most-concentrated sector.
+    Acute and chronic overlap where an exposure faces both — they are lenses on the at-risk book, not a
+    partition. Nothing new-sourced."""
+    acute_val = chronic_val = hci_val = 0.0
+    sector_val: dict[str, float] = {}
+    for a in assets:
+        v = a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
+        if not v:
+            continue
+        chronic, acute = _asset_hits(a)
+        if acute:
+            acute_val += v
+        if chronic:
+            chronic_val += v
+        sec = _section(a.get("nace_code"))
+        sector_val[sec] = sector_val.get(sec, 0.0) + v
+        if sec in HIGH_CLIMATE_NACE:
+            hci_val += v
+    top_sec, top_val = max(sector_val.items(), key=lambda kv: kv[1], default=("?", 0.0))
+    return {"acute_val": acute_val, "chronic_val": chronic_val, "high_climate_val": hci_val,
+            "top_sector": top_sec, "top_sector_val": top_val, "by_sector": sector_val}
+
+
 def template5_grid(assets: list[dict]) -> dict:
     """EBA Pillar 3 Template 5 — banking-book physical-risk exposure by NACE sector. Returns the computable
     columns (gross carrying amount, of-which physical-risk-sensitive, chronic, acute, both) per sector + total,

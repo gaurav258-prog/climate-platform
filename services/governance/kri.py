@@ -266,6 +266,8 @@ def kri_hazard(session: Session, org_id: str, framework: str, hazard: str) -> di
 _EXPOSURE_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "asset_value", "asset_at_risk",
                   "sum_insured", "eal", "cogs_at_risk", "cogs_withheld", "ingredient_spend", "value_exposed"}
 _HIST_FIELD = {"total_value": "total_value", "value_at_risk": "value_at_risk", "pct_at_risk": "pct_at_risk"}
+# forward-looking + physical-split KRIs also earn the "explore forward in Analytics" action
+_FORWARD_KEYS = {"forward_share", "acute_share", "chronic_share"}
 
 # Plain-language, factual "how it's computed" per KRI. Where a key is absent the UI falls back to the tile's
 # own hint. Written to be honest about calibration gates and integrated (client-provided) datapoints.
@@ -273,6 +275,10 @@ _METHODOLOGY = {
     "total_value": "Total euro exposure of the book in scope for this filing, summed from your uploaded book.",
     "value_at_risk": "Exposure sitting in the top two physical-risk severity bands (High + Very High), in euro. Scored per asset by Tellumen's hazard engine, then aggregated.",
     "pct_at_risk": "Value at risk as a share of total book value — how concentrated the book is in High+ physical risk.",
+    "acute_share": "Share of the book in the top two bands (High + Very High) whose driver is an ACUTE, event-driven peril — flood, storm, wildfire, frost, acute heat. This is the sudden-loss / provisioning lens of Pillar 3 Template 5; an exposure can also count as chronic.",
+    "chronic_share": "Share of the book in the top two bands whose driver is a CHRONIC, gradual peril — drought, chronic heat, coastal/sea-level, water stress. This is the long-run repricing lens of Template 5; the acute and chronic shares overlap where an exposure faces both.",
+    "forward_share": "Projected share of the book crossing into High+ at the furthest modelled horizon under a warming pathway (per your reporting-settings scenario, or Disorderly 2°C). The forward early-warning to compare against today's point-in-time share.",
+    "sector_concentration": "Share of the book in the EBA high-climate-impact sectors (NACE sections A–H and L), with the single most-concentrated sector called out. Concentration in these sectors is the axis Pillar 3 Templates 1 & 5 are organised around and a standard prudential concentration control.",
     "coverage": "Share of the book carrying a physical-risk score on the golden source. Unscored exposure is excluded from the risk figures, never assumed safe.",
     "fin_emissions": "PCAF-attributed financed emissions (Scope 1–3, tCO₂e): counterparty emissions weighted by your attribution share, with a NACE-intensity estimate filling gaps where a counterparty figure is missing.",
     "taxonomy": "EU Taxonomy Article 8 eligible share — the portion of the book in Taxonomy-eligible activities (the GAR numerator's eligibility leg), from your book's activity classification.",
@@ -318,7 +324,7 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> d
         "trend": {"points": trend, "fmt": kpi.get("fmt")},
         "composition": _kri_composition(session, org_id, framework, kri_key, result),
         "actions": {
-            "analytics": kri_key in _EXPOSURE_KEYS and framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd"),
+            "analytics": (kri_key in _EXPOSURE_KEYS or kri_key in _FORWARD_KEYS) and framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd"),
             "provide": kpi.get("kind") == "integrated",
         },
     }
@@ -383,11 +389,46 @@ def _bank_kri(session: Session, org_id: str) -> dict:
     tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
     cov = round(100 * r.get("n_scored", 0) / r.get("n_assets", 1), 1) if r.get("n_assets") else 0
 
+    # Decision / concentration KRIs computed from the same per-asset book the Pillar 3 templates use.
+    # Acute vs chronic split (Template 5), climate-sector concentration (the NACE axis of Templates 1 & 5),
+    # and the forward early-warning (projected share crossing High+). Nothing new-sourced.
+    from services.governance.pillar3_templates import concentration_split
+    cs = concentration_split(snap.get("assets") or [])
+    acute_val, chronic_val, hci_val = cs["acute_val"], cs["chronic_val"], cs["high_climate_val"]
+    top_sec, top_val = cs["top_sector"], cs["top_sector_val"]
+    _share = lambda x: round(100 * x / total, 1) if total else 0
+
+    # Forward early-warning: projected share-at-risk at the furthest horizon under a warming pathway.
+    fwd_share = fwd_note = None
+    try:
+        from services.intelligence.forward_risk import forward_risk
+        scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
+        traj = (forward_risk(session, org_id, "banking", scen).get("trajectory") or [])
+        fut = [t for t in traj if t.get("horizon") != "current"]
+        if fut:
+            pt = fut[-1]
+            fwd_share = pt.get("at_risk_pct")
+            fwd_note = f"under {scen.replace('_', ' ')} by {pt.get('horizon')}"
+    except Exception:  # noqa: BLE001 — a missing projection must not sink the whole KRI set
+        pass
+
     kpis = [
         _kpi("total_value", "Total book value", total, "eur"),
         _kpi("value_at_risk", "Value at risk (High+)", r.get("value_at_risk_eur"), "eur", tone="#fb7185",
              hint="Value of the book in the top two severity bands"),
         _kpi("pct_at_risk", "Share at risk", r.get("pct_value_at_risk"), "pct", tone="#f0a860"),
+        _kpi("acute_share", "Acute-peril exposure", _share(acute_val), "pct", tone="#fb7185",
+             hint="Share of the book High/Very-High on an ACUTE, event-driven peril (flood, storm, wildfire, "
+                  "frost, acute heat) — the sudden-loss / provisioning driver. Template 5 acute column."),
+        _kpi("chronic_share", "Chronic-peril exposure", _share(chronic_val), "pct", tone="#f0a860",
+             hint="Share High/Very-High on a CHRONIC, gradual peril (drought, chronic heat, coastal/sea-level, "
+                  "water stress) — the long-run repricing driver. Template 5 chronic column."),
+        _kpi("forward_share", "Projected share at risk", fwd_share, "pct", tone="#fb7185",
+             hint=("Share of the book projected to cross into High+ " + (fwd_note or "under a warming pathway")
+                   + " — the forward early-warning vs today's share at risk.")),
+        _kpi("sector_concentration", "Climate-sector concentration", _share(hci_val), "pct", tone="#f0a860",
+             hint=(f"Share of the book in EBA high-climate-impact sectors (NACE A–H, L). Largest single sector: "
+                   f"{top_sec} · {_share(top_val)}%. The concentration axis of Pillar 3 Templates 1 & 5.")),
         _kpi("coverage", "Book scored", cov, "pct", hint="Share of assets scored on the golden source"),
         _kpi("fin_emissions", "Financed emissions", sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")),
              "num", hint="tCO₂e · PCAF-attributed"),

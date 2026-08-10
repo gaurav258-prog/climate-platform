@@ -1,8 +1,28 @@
 """Pillar 3 Template 5 grid — the physical-risk matrix built to the ITS (EU) 2022/2453 structure.
 Verifies the NACE-section bucketing, the chronic/acute classification, and the aggregation invariants."""
 from services.governance.pillar3_templates import (
-    template5_grid, template1_grid, gar_grid, _section, _asset_hits, ACUTE_HAZARDS, CHRONIC_HAZARDS,
+    template5_grid, template1_grid, gar_grid, concentration_split, _section, _asset_hits,
+    ACUTE_HAZARDS, CHRONIC_HAZARDS, HIGH_CLIMATE_NACE,
 )
+
+
+def test_concentration_split_acute_chronic_and_sector():
+    assets = [
+        _asset("35.11", 200, [("storm", "VH")]),                 # electricity (D), acute only
+        _asset("01.11", 100, [("drought", "H")]),                # agriculture (A), chronic only
+        _asset("C", 300, [("flood", "VH"), ("drought", "H")]),   # manufacturing (C), BOTH
+        _asset("64.19", 400, [("flood", "M")]),                  # financial (K), not High+ → neither
+    ]
+    c = concentration_split(assets)
+    # acute = storm(200) + flood-both(300) = 500 ; chronic = drought(100) + both(300) = 400 (they overlap on the 300)
+    assert c["acute_val"] == 500 and c["chronic_val"] == 400
+    # high-climate-impact NACE (A–H, L): D+A+C = 600 ; financial K(400) is NOT in the high-impact set
+    assert c["high_climate_val"] == 600
+    assert "K" not in HIGH_CLIMATE_NACE
+    # most-concentrated single sector = financial K at 400
+    assert c["top_sector"] == "K" and c["top_sector_val"] == 400
+    # acute/chronic are overlapping lenses, not a partition — each ≤ total book
+    assert c["acute_val"] <= 1000 and c["chronic_val"] <= 1000
 
 
 def test_gar_grid_excludes_government_and_computes_ratio():
