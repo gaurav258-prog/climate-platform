@@ -86,6 +86,15 @@ def kri_hazard(framework: str, hazard: str, session: DbSession,
     return _kh(session, ctx["org"]["org_id"], framework, hazard)
 
 
+@router.get("/kri/drivers", summary="Individual exposures behind a KRI, optionally scoped to one segment")
+def kri_drivers(framework: str, kri: str, session: DbSession,
+                seg_type: Optional[str] = None, seg_value: Optional[str] = None,
+                ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.kri import _kri_drivers
+    return _kri_drivers(session, ctx["org"]["org_id"], framework, kri, seg_type, seg_value) \
+        or {"unit": "eur", "total_count": 0, "items": []}
+
+
 @router.get("/calendar", summary="Regulatory calendar — filing deadlines + task due-dates")
 def calendar(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_calendar import calendar as _cal

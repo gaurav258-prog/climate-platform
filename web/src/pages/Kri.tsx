@@ -11,6 +11,14 @@ import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
 import { toast } from '../lib/toast'
+import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+
+// the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
+const DRAWER_CFG: Record<string, DrawerCfg> = {
+  bank_tcfd:  { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
+  bank_p3esg: { prefix: 'bank', itemKey: 'asset', nameKey: 'asset_name', valueKey: 'value_eur', typeKey: 'asset_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
+  reit_tcfd:  { prefix: 'realestate', itemKey: 'property', nameKey: 'property_name', valueKey: 'property_value_eur', typeKey: 'property_type', valuationKey: 'valuation', auditKey: 'valuation_audit', overrideMode: 'valuation' },
+}
 
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
@@ -247,7 +255,7 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
 // The drill behind one KRI tile — methodology, trend across filings, and the real composition (by hazard /
 // scope / scored-unscored / eligible-not), plus contextual actions. All from /kri/detail; nothing fabricated.
 interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy' | 'sector' | 'horizon'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
-interface Driver { name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
+interface Driver { id?: string | null; name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
 interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
 interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null }[]; fmt: string }; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
 
@@ -271,6 +279,23 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
     else if (key === 'forward_share') p.set('scenario', 'disorderly_2c')
     return `/analytics?${p.toString()}`
   }
+  // drill state: a clicked composition bar scopes the exposures list to that segment; a clicked exposure
+  // opens the full asset drawer (the deepest level).
+  const [seg, setSeg] = useState<{ type: string; value: string; label: string } | null>(null)
+  const [assetId, setAssetId] = useState<string | null>(null)
+  const segQ = useQuery({
+    queryKey: ['kri-drivers-seg', framework, seg?.type, seg?.value],
+    enabled: !!seg,
+    queryFn: () => api.get<Drivers>(`/v1/reg-tasks/kri/drivers?framework=${framework}&kri=${encodeURIComponent(kriKey)}&seg_type=${seg!.type}&seg_value=${encodeURIComponent(seg!.value)}`),
+  })
+  // map a composition bar to a drill segment; horizon/coverage/taxonomy bars aren't asset-decomposable
+  const segFor = (type: string, item: { label: string }, i: number): { type: string; value: string; label: string } | null => {
+    if (type === 'scope') return { type: 'scope', value: String(i + 1), label: `Scope ${i + 1}` }
+    if (type === 'sector') return { type: 'sector', value: item.label.split(' · ')[0].trim(), label: item.label }
+    if (type === 'hazard') return { type: 'hazard', value: item.label, label: hazardLabel(item.label) }
+    return null
+  }
+  const drawerCfg = DRAWER_CFG[framework]
   const saveBand = async () => {
     setSavingBand(true)
     try {
@@ -359,37 +384,56 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                     </div>
                   ) : <p className="text-[12px] text-[var(--color-faint)] leading-relaxed">This metric's trend appears once you have two or more filed reports (filed history currently tracks book value, value-at-risk and share-at-risk).</p>}
                 </div>
-                {d.composition && d.composition.items.length > 0 && (
-                  <div>
-                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">{compTitle[d.composition.type] ?? 'Composition'}</div>
-                    <HBar data={d.composition.items.map(it => ({ label: d.composition!.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: d.composition!.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)' }))} format={n => uf(n, d.composition!.unit)} />
-                  </div>
-                )}
-                {d.drivers && d.drivers.items.length > 0 && (
-                  <div>
-                    <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5">
-                      Top exposures behind this indicator
-                      <span className="text-[var(--color-faint)] normal-case tracking-normal">· {d.drivers.total_count} in total</span>
+                {d.composition && d.composition.items.length > 0 && (() => {
+                  const comp = d.composition
+                  const drillable = comp.type === 'scope' || comp.type === 'sector' || comp.type === 'hazard'
+                  return (
+                    <div>
+                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5">
+                        {compTitle[comp.type] ?? 'Composition'}
+                        {drillable && <span className="text-[var(--color-faint)] normal-case tracking-normal">· click a bar to drill</span>}
+                      </div>
+                      <HBar
+                        data={comp.items.map(it => ({ label: comp.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: comp.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)' }))}
+                        format={n => uf(n, comp.unit)}
+                        {...(drillable ? { onBar: (i: number) => { const s = segFor(comp.type, comp.items[i], i); if (s) setSeg(s) } } : {})}
+                      />
                     </div>
-                    <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
-                      <table className="w-full text-[11.5px]">
-                        <tbody>
-                          {d.drivers.items.map((it, i) => (
-                            <tr key={i} className="border-b border-[var(--color-line-2)] last:border-0">
-                              <td className="px-3 py-1.5 text-[var(--color-ink)] truncate max-w-[180px]" title={it.name}>{it.name}</td>
-                              <td className="px-2 py-1.5 text-[var(--color-faint)] mono text-[10px] whitespace-nowrap">{[it.nace, it.country].filter(Boolean).join(' · ')}</td>
-                              <td className="px-2 py-1.5 text-right">{it.hazard && <span className="mono text-[10px]" style={{ color: sevColor(it.score ?? 0) }}>{hazardLabel(it.hazard)}{it.bucket ? ` · ${it.bucket}` : ''}</span>}</td>
-                              <td className="px-3 py-1.5 text-right tabular-nums text-[var(--color-ink)] whitespace-nowrap">{uf(it.value, d.drivers!.unit)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  )
+                })()}
+                {(() => {
+                  const dr = seg ? segQ.data : d.drivers
+                  if (!dr || dr.items.length === 0) return seg ? (
+                    <div className="text-[12px] text-[var(--color-faint)]"><button onClick={() => setSeg(null)} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">‹ back</button> · no exposures in this slice.</div>
+                  ) : null
+                  return (
+                    <div>
+                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5 flex-wrap">
+                        {seg
+                          ? <><button onClick={() => setSeg(null)} className="text-[var(--color-sky)] hover:underline">{k.label}</button><span className="text-[var(--color-faint)]">›</span><span className="text-[var(--color-ink)]">{seg.label}</span></>
+                          : <span>Top exposures behind this indicator</span>}
+                        <span className="text-[var(--color-faint)] normal-case tracking-normal">· {dr.total_count} in total · click a row for the asset</span>
+                      </div>
+                      <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                        <table className="w-full text-[11.5px]">
+                          <tbody>
+                            {dr.items.map((it, i) => (
+                              <tr key={i} onClick={() => it.id && drawerCfg && setAssetId(it.id)} className={`border-b border-[var(--color-line-2)] last:border-0 ${it.id && drawerCfg ? 'cursor-pointer hover:bg-[var(--color-bg-2)]' : ''}`}>
+                                <td className="px-3 py-1.5 text-[var(--color-ink)] truncate max-w-[180px]" title={it.name}>{it.name}</td>
+                                <td className="px-2 py-1.5 text-[var(--color-faint)] mono text-[10px] whitespace-nowrap">{[it.nace, it.country].filter(Boolean).join(' · ')}</td>
+                                <td className="px-2 py-1.5 text-right">{it.hazard && <span className="mono text-[10px]" style={{ color: sevColor(it.score ?? 0) }}>{hazardLabel(it.hazard)}{it.bucket ? ` · ${it.bucket}` : ''}</span>}</td>
+                                <td className="px-3 py-1.5 text-right tabular-nums text-[var(--color-ink)] whitespace-nowrap">{uf(it.value, dr.unit)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {d.actions.analytics && dr.total_count > dr.items.length && (
+                        <button onClick={() => nav('/portfolio')} className="mt-1.5 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">See all {dr.total_count} in Portfolio →</button>
+                      )}
                     </div>
-                    {d.actions.analytics && d.drivers.total_count > d.drivers.items.length && (
-                      <button onClick={() => nav('/portfolio')} className="mt-1.5 mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">See all {d.drivers.total_count} in Portfolio →</button>
-                    )}
-                  </div>
-                )}
+                  )
+                })()}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {d.actions.analytics && <button onClick={() => nav(analyticsHref(kriKey, k.label))} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
                   {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
@@ -399,6 +443,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
             </>)
           })()}
       </div>
+      {assetId && drawerCfg && <AssetDrawer cfg={drawerCfg} id={assetId} onClose={() => setAssetId(null)} onChanged={() => segQ.refetch()} />}
     </div>
   )
 }

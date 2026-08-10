@@ -336,11 +336,16 @@ _DRIVER_KEYS = {"total_value", "value_at_risk", "pct_at_risk", "acute_share", "c
                 "forward_share", "sector_concentration", "fin_emissions"}
 
 
-def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str) -> dict | None:
-    """The most granular view: the individual exposures (assets) that make up a KRI, largest-contribution
-    first — the actual names a risk officer would act on. Only for bank/REIT physical & concentration KRIs
-    where a per-asset book exists; never fabricated."""
-    if kri_key not in _DRIVER_KEYS or framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
+                 seg_type: str | None = None, seg_value: str | None = None) -> dict | None:
+    """The most granular view: the individual exposures (assets) behind a KRI, largest-contribution first —
+    the actual names a risk officer acts on, each carrying its asset id so the row opens the asset detail.
+    Without a segment, the filter follows the KRI. With a segment (from a click on a composition bar) the
+    filter narrows to that slice: seg_type 'scope' (emissions Scope 1/2/3), 'hazard' (High+ on one peril),
+    or 'sector' (one NACE section). Only for bank/REIT books; never fabricated."""
+    if framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+        return None
+    if not seg_type and kri_key not in _DRIVER_KEYS:
         return None
     from services.governance.reporting_settings import get_settings
     from services.governance.pillar3_templates import _asset_hits, _section, HIGH_CLIMATE_NACE
@@ -349,31 +354,39 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str) ->
     assets = (snap or {}).get("assets") or []
     if not assets:
         return None
+    _val = lambda a: a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
     high = lambda a: (a.get("headline_bucket") in ("H", "VH"))
 
-    def _keep(a):
-        if kri_key in ("value_at_risk", "pct_at_risk", "forward_share"):
-            return high(a)
-        if kri_key == "acute_share":
-            return _asset_hits(a)[1]
-        if kri_key == "chronic_share":
-            return _asset_hits(a)[0]
-        if kri_key == "sector_concentration":
-            return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
-        return True                                   # total_value / fin_emissions → whole book
+    if seg_type == "scope" and seg_value in ("1", "2", "3"):
+        keep = lambda a: (a.get(f"ghg{seg_value}") or 0) > 0
+        weight = lambda a: a.get(f"ghg{seg_value}") or 0
+        unit = "num"
+    elif seg_type == "hazard" and seg_value:
+        keep = lambda a: any(h.get("hazard") == seg_value and h.get("bucket") in ("H", "VH") for h in (a.get("hazards") or []))
+        weight, unit = _val, "eur"
+    elif seg_type == "sector" and seg_value:
+        keep = lambda a: _section(a.get("nace_code")) == seg_value
+        weight, unit = _val, "eur"
+    else:                                             # KRI-scoped default
+        def keep(a):
+            if kri_key in ("value_at_risk", "pct_at_risk", "forward_share"):
+                return high(a)
+            if kri_key == "acute_share":
+                return _asset_hits(a)[1]
+            if kri_key == "chronic_share":
+                return _asset_hits(a)[0]
+            if kri_key == "sector_concentration":
+                return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
+            return True                               # total_value / fin_emissions → whole book
+        weight = (lambda a: sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3))) if kri_key == "fin_emissions" else _val
+        unit = "num" if kri_key == "fin_emissions" else "eur"
 
-    def _weight(a):
-        if kri_key == "fin_emissions":
-            return sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3))
-        return a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
-
-    rows = [a for a in assets if _keep(a) and _weight(a) > 0]
-    rows.sort(key=_weight, reverse=True)
-    unit = "num" if kri_key == "fin_emissions" else "eur"
+    rows = [a for a in assets if keep(a) and weight(a) > 0]
+    rows.sort(key=weight, reverse=True)
     items = [{
-        "name": a.get("asset_name") or a.get("asset_id"), "sector": a.get("sector"),
+        "id": a.get("asset_id"), "name": a.get("asset_name") or a.get("asset_id"), "sector": a.get("sector"),
         "country": a.get("country"), "nace": a.get("nace_code"),
-        "value": round(_weight(a)), "hazard": a.get("headline_hazard"),
+        "value": round(weight(a)), "hazard": a.get("headline_hazard"),
         "bucket": a.get("headline_bucket"), "score": a.get("headline_score"),
     } for a in rows[:8]]
     return {"unit": unit, "total_count": len(rows), "items": items} if items else None
