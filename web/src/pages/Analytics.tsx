@@ -32,6 +32,9 @@ const HZ: [string, string][] = [['current', 'Now'], ['2030', '2030'], ['2050', '
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(0)}m` : `€${Math.round(n / 1e3)}k`
 const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleString('en-GB')
 const totExposed = (d?: Disc) => d ? Object.values(d.by_hazard).reduce((s, v) => s + (v.exposed_value_eur || 0), 0) : null
+// acute (event-driven) vs chronic (gradual) peril keys — mirror services/governance/pillar3_templates.py
+const ACUTE_PERILS = new Set(['flood', 'storm', 'wildfire', 'heat_acute', 'frost'])
+const CHRONIC_PERILS = new Set(['drought', 'heat_chronic', 'soil_water', 'coastal_flood', 'water_stress'])
 const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_tco2e.scope1 + d.financed_emissions_tco2e.scope2 + d.financed_emissions_tco2e.scope3 : null
 
 export default function Analytics() {
@@ -44,13 +47,28 @@ export default function Analytics() {
   const [hz, setHz] = useState(3)   // 0..3 → Now / 2030 / 2050 / 2100
   const [asTable, setAsTable] = useState(false)
   const [drill, setDrill] = useState<string | null>(null)   // hazard key for the drill-down drawer
-  // deep-link from the KRI dashboard ("explore forward →"): pre-select a pathway and open a hazard's drill
-  const [params] = useSearchParams()
+  // when arriving from a specific KRI, scope the whole view to the factors that drive THAT indicator:
+  // acute / chronic peril subset, and a context label naming the KRI we came from.
+  const [perils, setPerils] = useState<'acute' | 'chronic' | null>(null)
+  const [fromKri, setFromKri] = useState<string | null>(null)
+  // deep-link from the KRI dashboard ("explore forward →"): pre-select a pathway, scope perils, open a drill
+  const [params, setParams] = useSearchParams()
   useEffect(() => {
     const sc = params.get('scenario'); const h = params.get('hazard')
+    const pf = params.get('perils'); const fr = params.get('from')
     if (sc && SCEN.some(s => s.key === sc)) setSel(sc)
     if (h && canDrill) setDrill(h)
+    if (pf === 'acute' || pf === 'chronic') setPerils(pf)
+    if (fr) setFromKri(fr)
   }, [params, canDrill])
+  const perilSet = perils === 'acute' ? ACUTE_PERILS : perils === 'chronic' ? CHRONIC_PERILS : null
+  // value exposed at High+, scoped to the peril subset when we came from an acute/chronic KRI (else whole book)
+  const scopedExposed = (d?: Disc) => {
+    if (!d) return null
+    if (!perilSet) return totExposed(d)
+    return Object.entries(d.by_hazard || {}).reduce((s, [k, v]) => s + (perilSet.has(k) ? (v?.exposed_value_eur || 0) : 0), 0)
+  }
+  const clearFocus = () => { setPerils(null); setFromKri(null); setParams({}, { replace: true }) }
 
   // the full 4×4 grid, one query per (scenario, horizon) — SLIM (aggregates only; the per-asset array is
   // fetched on demand for drill-down), cached individually
@@ -81,19 +99,19 @@ export default function Analytics() {
   // trajectory rows for the hero line chart: value exposed at High+, one column per scenario
   const traj = HZ.map(([, lbl], hi) => {
     const row: Record<string, number | string | null> = { hz: lbl }
-    SCEN.forEach(s => { row[s.key] = totExposed(at(s.key, hi)) })
+    SCEN.forEach(s => { row[s.key] = scopedExposed(at(s.key, hi)) })
     return row
   })
 
   // headline: value at risk for the SELECTED pathway/horizon (delta vs the same pathway Now) + its sparkline;
   // taxonomy & emissions are the current book facts.
   const scen = SCEN.find(s => s.key === sel) ?? SCEN[3]
-  const sparkVar = HZ.map(([, l], hi) => ({ hz: l, v: totExposed(at(sel, hi)) ?? 0 }))
+  const sparkVar = HZ.map(([, l], hi) => ({ hz: l, v: scopedExposed(at(sel, hi)) ?? 0 }))
   const now = sparkVar[0].v, end = sparkVar[hz].v
   const taxBook = at('baseline', 0)?.taxonomy?.eligible?.value_eur ?? null   // point-in-time book fact
   const emBook = sumEm(at('baseline', 0))                                    // point-in-time book fact
   const hzLabel = HZ[hz][1]
-  const heroY = totExposed(at(sel, hz))   // the marker point on the hero (selected pathway/horizon)
+  const heroY = scopedExposed(at(sel, hz))   // the marker point on the hero (selected pathway/horizon)
   // tighten the hero y-axis to the data band (padded) so the divergence is legible
   const vals = traj.flatMap(r => SCEN.map(s => r[s.key]).filter(v => typeof v === 'number')) as number[]
   const yDomain: [number, number] = vals.length ? [Math.min(...vals) * 0.94, Math.max(...vals) * 1.04] : [0, 1]
@@ -101,18 +119,26 @@ export default function Analytics() {
   // hazard facets for the selected scenario: top hazards by exposure at the selected horizon
   const hazards = useMemo(() => {
     const bh = at(sel, hz)?.by_hazard ?? at(sel, 0)?.by_hazard ?? {}
-    return Object.entries(bh).filter(([, v]) => (v?.exposed_value_eur ?? 0) > 0)
+    return Object.entries(bh).filter(([k, v]) => (v?.exposed_value_eur ?? 0) > 0 && (!perilSet || perilSet.has(k)))
       .sort((a, b) => b[1].exposed_value_eur - a[1].exposed_value_eur).slice(0, 6).map(([k]) => k)
-  }, [results, sel, hz])
+  }, [results, sel, hz, perils])
   const hazTraj = (hazKey: string) => HZ.map(([, lbl], hi) => ({ hz: lbl, v: at(sel, hi)?.by_hazard?.[hazKey]?.exposed_value_eur ?? 0 }))
 
   return (
     <div className="fadeup space-y-6">
+      {(fromKri || perils) && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_7%,transparent)] px-3.5 py-2 text-[12.5px]">
+          <span className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-sky)]">Exploring KRI</span>
+          <span className="text-[var(--color-ink)] font-medium">{fromKri ?? 'indicator'}</span>
+          {perils && <span className="text-[var(--color-mute)]">· scoped to <b className="text-[var(--color-ink)]">{perils}</b> perils only — the hazards driving this indicator</span>}
+          <button onClick={clearFocus} className="ml-auto inline-flex items-center gap-1 mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] hover:text-[var(--color-ink)]">clear <X size={12} /></button>
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Eyebrow>{profile?.org?.name} · analytics</Eyebrow>
           <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-looking analytics</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.</p>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.{perils && ` Scoped to ${perils} perils.`}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Assess → Decide: the projection's crossings are what Decisions acts on */}

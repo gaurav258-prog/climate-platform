@@ -262,6 +262,15 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
   const [band, setBand] = useState<{ amber?: number; red?: number; direction?: string }>({})
   const [savingBand, setSavingBand] = useState(false)
   const startBand = () => { const k = d?.kpi; setBand({ amber: k?.amber ?? undefined, red: k?.red ?? undefined, direction: k?.direction ?? 'higher_worse' }); setEditBand(true) }
+  // land Analytics scoped to the factors that drive THIS indicator, not the generic page: acute/chronic KRIs
+  // scope to their peril subset; the forward KRI pre-selects the forward pathway; all carry a context label.
+  const analyticsHref = (key: string, label: string) => {
+    const p = new URLSearchParams({ from: label })
+    if (key === 'acute_share') p.set('perils', 'acute')
+    else if (key === 'chronic_share') p.set('perils', 'chronic')
+    else if (key === 'forward_share') p.set('scenario', 'disorderly_2c')
+    return `/analytics?${p.toString()}`
+  }
   const saveBand = async () => {
     setSavingBand(true)
     try {
@@ -382,7 +391,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {d.actions.analytics && <button onClick={() => nav('/analytics')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
+                  {d.actions.analytics && <button onClick={() => nav(analyticsHref(kriKey, k.label))} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
                   {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
                   {canSetAppetite && !editBand && <button onClick={startBand} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>}
                 </div>
