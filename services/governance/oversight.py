@@ -45,10 +45,24 @@ def supervisor_view(session: Session, org_id: str, org_type: str | None) -> dict
     exc = exceptions(session, org_id)
     exc_summary = exc.get("summary") or {}
     n_exceptions = exc_summary.get("open", len(exc.get("exceptions") or []))
+    # Institution-level view: the SAME finding (e.g. a completeness check) can fire on several live filings that
+    # share one book. The Control Tower keeps those per-filing (each is separately trackable); here we collapse
+    # identical findings into one row with an "affects N filings" count, so the board view isn't visually
+    # repetitive. Order is preserved (already sorted blocking-first by the monitor).
+    top: list[dict] = []
+    seen: dict[tuple, dict] = {}
+    for it in (exc.get("exceptions") or []):
+        key = (it.get("category"), it.get("message"))
+        if key in seen:
+            seen[key]["filings_affected"] += 1
+            continue
+        row = {**it, "filings_affected": 1}
+        seen[key] = row
+        top.append(row)
     return {
         "frameworks": frameworks,
         "readiness": {"passed": rd.get("passed", 0), "total": rd.get("total", 0), "checks": rd.get("checks", [])},
-        "exceptions": {"open": n_exceptions, "top": (exc.get("exceptions") or [])[:6], "summary": exc_summary},
+        "exceptions": {"open": n_exceptions, "top": top[:6], "summary": exc_summary},
         "summary": {
             "n_frameworks": len(frameworks),
             "never_filed": never_filed,

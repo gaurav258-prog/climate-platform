@@ -11,7 +11,7 @@ import { Eyebrow, Card } from '../components/ui'
 interface Filed { period_label: string; status: string }
 interface Fw { framework: string; label: string; regulator: string; due_label: string; last_filed: Filed | null; n_filings: number; coverage_pct: number | null; breaches: number | null; breach_kris: string[] }
 interface Check { key: string; label: string; ok: boolean; hint: string | null }
-interface Exc { rule?: string; message?: string; framework?: string; severity?: string }
+interface Exc { rule?: string; message?: string; framework?: string; severity?: string; filings_affected?: number }
 interface Resp {
   frameworks: Fw[]
   readiness: { passed: number; total: number; checks: Check[] }
@@ -102,10 +102,13 @@ export default function Oversight() {
                       {d.exceptions.top.map((e, i) => (
                         <button key={i} onClick={() => nav('/exceptions')} className="w-full text-left flex items-start gap-2.5 px-5 py-2.5 text-[12.5px] hover:bg-[var(--color-bg-2)] transition">
                           <AlertTriangle size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
-                          <span className="text-[var(--color-mute)]">{e.message || e.rule || 'exception'}</span>
+                          <span className="text-[var(--color-mute)]">
+                            {e.message || e.rule || 'exception'}
+                            {(e.filings_affected ?? 1) > 1 && <span className="mono text-[10.5px] text-[var(--color-faint)] ml-1.5">· affects {e.filings_affected} filings</span>}
+                          </span>
                         </button>
                       ))}
-                      {d.exceptions.open > d.exceptions.top.length && <button onClick={() => nav('/exceptions')} className="w-full text-left px-5 py-2 mono text-[10.5px] text-[var(--color-sky)] hover:underline">+ {d.exceptions.open - d.exceptions.top.length} more in the Control Tower →</button>}
+                      {d.exceptions.open > d.exceptions.top.length && <button onClick={() => nav('/exceptions')} className="w-full text-left px-5 py-2 mono text-[10.5px] text-[var(--color-sky)] hover:underline">View all {d.exceptions.open} in the Control Tower →</button>}
                     </div>}
               </Card>
             </div>
