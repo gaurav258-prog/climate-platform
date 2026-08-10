@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'lucide-react'
@@ -129,6 +129,7 @@ export default function Portfolio() {
   const [search, setSearch] = useState('')
   const [hazardF, setHazardF] = useState('')
   const [bandF, setBandF] = useState('')
+  const bookRef = useRef<HTMLDivElement>(null)
   const refreshBook = () => {
     qc.invalidateQueries({ queryKey: ['fin-portfolio'] }); qc.invalidateQueries({ queryKey: ['fin-forward'] })
     qc.invalidateQueries({ queryKey: ['fin-detail'] })
@@ -202,13 +203,16 @@ export default function Portfolio() {
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
       </div>
 
-      {/* where the risk comes from — plain-language money-by-hazard, traffic-light by severity */}
-      <HazardExposure items={items} valueKey={cfg.valueKey} />
+      {/* where the risk comes from — plain-language money-by-hazard, traffic-light by severity.
+          Clicking a hazard filters the book below to exactly those sites (the impulsive path). */}
+      <HazardExposure items={items} valueKey={cfg.valueKey} active={hazardF}
+        onPick={(h) => { setSearch(''); setBandF(''); setHazardF(prev => prev === h ? '' : h); setTimeout(() => bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }} />
 
       {/* forward-change decision signal */}
       {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
 
       {/* the book */}
+      <div ref={bookRef} className="scroll-mt-4" />
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
           <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your {cfg.noun}</div>
@@ -424,7 +428,7 @@ function EmptyBook({ cfg, onDone }: { cfg: Cfg; onDone: () => void }) {
   )
 }
 
-function HazardExposure({ items, valueKey }: { items: Asset[]; valueKey: string }) {
+function HazardExposure({ items, valueKey, onPick, active }: { items: Asset[]; valueKey: string; onPick?: (hazard: string) => void; active?: string }) {
   const m: Record<string, { eur: number; n: number; worst: number }> = {}
   for (const a of items) {
     const hz = a.headline_hazard, sc = a.headline_score
@@ -437,18 +441,23 @@ function HazardExposure({ items, valueKey }: { items: Asset[]; valueKey: string 
   if (!groups.length) return null
   return (
     <Card className="p-5">
-      <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)] mb-3">Where your risk comes from · money exposed by hazard</div>
+      <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)] mb-3">Where your risk comes from · money exposed by hazard{onPick && <span className="normal-case tracking-normal"> · click a hazard to see the sites</span>}</div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {groups.map(([hz, g]) => (
-          <div key={hz} className="rounded-lg border px-3.5 py-3" style={{ borderColor: sevColor(g.worst) + '55' }}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevColor(g.worst) }} />
-              <span className="text-[13px] text-[var(--color-ink)] leading-tight">{hazardLabel(hz)}</span>
-            </div>
-            <div className="display text-[21px] leading-none">{eur(g.eur)}</div>
-            <div className="text-[11px] text-[var(--color-mute)] mt-1"><b style={{ color: sevColor(g.worst) }}>{sevLabel(g.worst)}</b> · {g.n} asset{g.n > 1 ? 's' : ''} exposed</div>
-          </div>
-        ))}
+        {groups.map(([hz, g]) => {
+          const isActive = active === hz
+          return (
+            <button key={hz} onClick={() => onPick?.(hz)} disabled={!onPick}
+              className={`rounded-lg border px-3.5 py-3 text-left transition ${onPick ? 'cursor-pointer hover:shadow-sm' : 'cursor-default'}`}
+              style={{ borderColor: isActive ? sevColor(g.worst) : sevColor(g.worst) + '55', borderWidth: isActive ? 2 : 1, background: isActive ? sevColor(g.worst) + '12' : undefined }}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevColor(g.worst) }} />
+                <span className="text-[13px] text-[var(--color-ink)] leading-tight">{hazardLabel(hz)}</span>
+              </div>
+              <div className="display text-[21px] leading-none">{eur(g.eur)}</div>
+              <div className="text-[11px] text-[var(--color-mute)] mt-1"><b style={{ color: sevColor(g.worst) }}>{sevLabel(g.worst)}</b> · {g.n} asset{g.n > 1 ? 's' : ''} exposed{onPick && <span className="text-[var(--color-sky)]"> → {isActive ? 'showing below' : 'view sites'}</span>}</div>
+            </button>
+          )
+        })}
       </div>
       <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">Money = value of the assets whose biggest physical threat is this hazard. Colour shows how severe: <span style={{ color: '#34d399' }}>green</span> moderate · <span style={{ color: '#f0a860' }}>amber</span> high · <span style={{ color: '#fb7185' }}>red</span> severe.</div>
     </Card>
