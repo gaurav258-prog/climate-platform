@@ -77,16 +77,17 @@ CATALOG: dict[str, list[dict]] = {
             "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
             note="Tellumen computes PCAF-attributed Scope 1–3 from counterparty emissions; needs an issuer-emissions "
                  "feed (ESG vendor) or falls back to a NACE-intensity estimate. You may provide an audited PCAF figure to reconcile."),
-        _dp("p3_transition", "Template 3 — transition-risk alignment metrics (banking book)",
-            "customer", "provided",
-            note="ITS 2022/2453 prescribes a SPECIFIC metric, not a risk score: per IEA sector, the counterparty "
-                 "CO₂-INTENSITY alignment metric (e.g. gCO₂/kWh power, gCO₂/MJ shipping, tCO₂/t cement) and its "
-                 "DISTANCE to the IEA Net-Zero-by-2050 (NZE2050) 2030 sector target — distance = 100×((current−IEA2030)"
-                 "/IEA2030) in %. The binding input is counterparty physical production-intensity data (asset-level / "
-                 "counterparty-disclosed / specialist vendor e.g. TPI, Asset Resolution) — NOT computable from our "
-                 "physical-risk engine, and distinct from the carbon-PRICE transition score already in the repo (which "
-                 "does not satisfy this template). Tellumen supplies the IEA NZE2050 benchmark table + the distance "
-                 "calculation + portfolio aggregation; you provide (or we source via vendor) the counterparty intensities."),
+        _dp("p3_transition_align", "Template 3 — transition-risk alignment metrics (IEA NZE2050 distance)",
+            "customer", "provided", provider="Counterparty CO₂-intensity feed (climate-data vendor / counterparty)",
+            note="ITS 2022/2453 prescribes a SPECIFIC metric: per IEA sector, the portfolio CO₂-INTENSITY (gCO₂/kWh, "
+                 "gCO₂/MJ, tCO₂/t) and its DISTANCE to the IEA NZE2050 2030 target = 100×((current−IEA2030)/IEA2030). "
+                 "Tellumen builds the NACE→IEA crosswalk, the benchmark table + the distance/aggregation; the binding "
+                 "input — each counterparty's PHYSICAL production-intensity — is not computable from our physical-risk "
+                 "engine, so you provide it (vendor feed or counterparty disclosure). Shows 'pending' until fed."),
+        _dp("p3_transition_top20", "Template 4 — exposures to the top-20 carbon-intensive firms",
+            "tellumen", "compute", provider="Tellumen (Carbon Majors list) + your loan book",
+            note="Tellumen holds the published Carbon Majors top-20 list and matches your counterparties (by legal "
+                 "identity/LEI) to it; gross carrying amount comes from your book. No external feed needed."),
         _dp("p3_qualitative", "Templates 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
             "customer", "report", provider="You author",
             note="These are the regulator's QUALITATIVE tables — prose describing your governance of ESG risk, business "

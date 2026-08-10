@@ -324,6 +324,37 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                          "rows": t1_rows,
                          "note": g1["basis"] + " Customer-supplied columns not shown: " + " · ".join(g1["customer_columns"]) + "."})
 
+    # Template 3 — transition-risk ALIGNMENT METRICS (ITS 2022/2453, Annex XL §38–41): per IEA sector, the
+    # portfolio CO₂-intensity + its distance to the IEA NZE2050 2030 target. Gross amount + benchmark + distance
+    # computed by Tellumen; the counterparty intensity is a vendor/counterparty feed (shown 'pending' until fed).
+    if assets:
+        from services.governance.transition_alignment import template3_grid
+        g3 = template3_grid(assets)
+        if g3["rows"]:
+            t3_rows = []
+            for r in g3["rows"]:
+                cur = f'{r["current_intensity"]} {r["unit"]}' if r["current_intensity"] is not None else "pending vendor feed"
+                tgt = f'{r["iea_2030"]} {r["unit"]}' if r["iea_2030"] is not None else "pending IEA ingest"
+                dist = f'{r["distance_pct"]}%' if r["distance_pct"] is not None else "—"
+                t3_rows.append({"type": "row", "cells": [
+                    _txt(f'{r["label"]} · {r["metric"]}'), _num(_eur(r["gross"])), _num(cur), _num(tgt), _num(dist)]})
+            sections.append({"title": "Template 3 — Banking book · transition risk · alignment metrics (ITS 2022/2453, Annex XL)",
+                             "columns": ["Sector · IEA metric", "Gross carrying amount", "Portfolio intensity", "IEA NZE2050 2030 target", "Distance"],
+                             "rows": t3_rows,
+                             "note": g3["formula"] + ". " + g3["source"] + " Customer/vendor input: " + g3["customer_input"]})
+
+    # Template 4 — exposures to the top-20 carbon-intensive firms (ITS 2022/2453, Annex XL §42–44).
+    if assets:
+        from services.governance.transition_alignment import template4_top20
+        g4 = template4_top20(assets)
+        if g4["matched_count"]:
+            t4_rows = [{"type": "row", "cells": [_txt(r["firm"]), _num(_eur(r["gross"]))]} for r in g4["rows"]]
+        else:
+            t4_rows = [{"type": "row", "cells": [_txt("No counterparty matched the top-20 carbon-majors list"), _num(_eur(0))]}]
+        sections.append({"title": "Template 4 — Banking book · exposures to the top-20 carbon-intensive firms (ITS 2022/2453, Annex XL)",
+                         "columns": ["Counterparty (Carbon Majors)", "Gross carrying amount"], "rows": t4_rows,
+                         "note": f'Matched {g4["matched_count"]} of the {g4["list_size"]}-firm list · total exposure {_eur(g4["total_exposure"])}. ' + g4["source"]})
+
     # Template 5 — banking-book physical-risk exposure, built to the ACTUAL ITS 2022/2453 grid:
     # rows = NACE section; columns = gross carrying amount + of-which physical-risk-sensitive + chronic/acute/both.
     if assets:
