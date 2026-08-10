@@ -331,6 +331,40 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                          "rows": t1_rows,
                          "note": g1["basis"] + " Customer-supplied columns not shown: " + " · ".join(g1["customer_columns"]) + "."})
 
+    # Template 2 — loans collateralised by immovable property · energy efficiency of the collateral (ITS
+    # 2022/2453, Annex XXXIX + Annex XL instructions). Built to the EXACT fixed-format grid: columns (a) total +
+    # (b)-(g) EP-score kWh/m² buckets + (h)-(n) EPC labels A-G + (o) without-EPC + (p) % estimated; rows = EU /
+    # non-EU area, each split commercial / residential / repossessed / estimated. Every figure is the EPC label
+    # + EP-score + collateral-type + location of the collateral — held on the institution's collateral register /
+    # EPC feed, NOT computable from the physical-risk engine — so the whole grid is source='integrated'.
+    if assets:
+        t2_cols = ["Energy efficiency of the collateral", "Total gross carrying amount",
+                   "0–≤100", ">100–≤200", ">200–≤300", ">300–≤400", ">400–≤500", ">500",  # (b)-(g) kWh/m²
+                   "EPC A", "EPC B", "EPC C", "EPC D", "EPC E", "EPC F", "EPC G",           # (h)-(n)
+                   "Without EPC label", "of which est. (%)"]                                 # (o)-(p)
+        t2_src = [""] + ["integrated"] * (len(t2_cols) - 1)
+        _t2blank = [dict(_mnum("—", "integrated")) for _ in range(len(t2_cols) - 1)]
+
+        def _t2row(label):
+            return {"type": "row", "cells": [_txt(label)] + [dict(c) for c in _t2blank]}
+        t2_rows = []
+        for area in ("Total EU area (Union)", "Total non-EU area"):
+            t2_rows.append({"type": "subheader", "label": area})
+            t2_rows.append(_t2row("Total — all collateral"))
+            t2_rows.append(_t2row("of which · loans collateralised by commercial immovable property"))
+            t2_rows.append(_t2row("of which · loans collateralised by residential immovable property"))
+            t2_rows.append(_t2row("of which · collateral obtained by taking possession"))
+            t2_rows.append(_t2row("of which · level of energy efficiency (EP score) estimated"))
+        sections.append({"title": "Template 2 — Banking book · loans collateralised by immovable property · energy efficiency of collateral (ITS 2022/2453, Annex XXXIX)",
+                         "columns": t2_cols, "col_sources": t2_src, "rows": t2_rows,
+                         "note": "Fixed format per Annex XL. Gross carrying amount of loans collateralised by commercial / "
+                                 "residential immovable property and repossessed real estate, distributed by the collateral's "
+                                 "energy consumption (kWh/m², cols b–g) and EPC label (A–G, cols h–n), split Union / non-Union. "
+                                 "EPC labels, EP scores, collateral type and location live on the institution's collateral "
+                                 "register / EPC feed — integrated, not derived from the physical-risk engine — so every cell is "
+                                 "shown '—' until that feed is connected. Third-country collateral with no EPC-equivalent leaves "
+                                 "cols h–n blank and reports estimates in cols b–g (Annex XL §6)."})
+
     # Template 3 — transition-risk ALIGNMENT METRICS (ITS 2022/2453, Annex XL §38–41): per IEA sector, the
     # portfolio CO₂-intensity + its distance to the IEA NZE2050 2030 target. Gross amount + benchmark + distance
     # computed by Tellumen; the counterparty intensity is a vendor/counterparty feed (shown 'pending' until fed).
@@ -448,6 +482,40 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         sections.append({"title": "Green Asset Ratio (Templates 6–8) — eligibility",
                          "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
                          "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR templates."})
+
+    # Template 9 — BTAR (banking book taxonomy alignment ratio) · ITS 2022/2453, Annex XXXIX (Templates 9.1/9.2/
+    # 9.3) + Annex XL instructions. BTAR extends the GAR to counterparties NOT subject to NFRD disclosure (EU
+    # SMEs / non-financial corps + non-EU corporates): the institution "may" disclose it, and must source the
+    # alignment by collecting from counterparties bilaterally through loan origination / credit review, or by
+    # internal estimates and proxies (Annex XL §9.1). None of that is derivable from our engine — the whole grid
+    # is source='integrated' (bilateral collection / estimate), shown '—' until the institution supplies it.
+    if assets:
+        t9_cols = ["Asset / counterparty class (not subject to NFRD)", "Gross carrying amount",
+                   "Taxonomy-eligible", "Taxonomy-aligned"]
+        t9_src = ["", "integrated", "integrated", "integrated"]
+        _t9blank = lambda: [dict(_mnum("—", "integrated")) for _ in range(3)]
+        _t9row = lambda lbl: {"type": "row", "cells": [_txt(lbl)] + _t9blank()}
+        t9_rows = [
+            {"type": "subheader", "label": "9.1 — Assets for the calculation of BTAR"},
+            _t9row("1 · Total GAR assets (as row 32 of Template 7)"),
+            _t9row("2 · EU non-financial corporations (not subject to NFRD)"),
+            _t9row("4 · of which · loans collateralised by commercial immovable property"),
+            _t9row("5 · of which · building-renovation loans"),
+            _t9row("8 · Non-EU non-financial corporations (not subject to NFRD)"),
+            _t9row("12 · TOTAL BTAR ASSETS (rows 1 + 2 + 8)"),
+            {"type": "subheader", "label": "9.2 / 9.3 — BTAR %"},
+            {"type": "row", "cells": [_txt("BTAR — banking book taxonomy alignment ratio (on stock)"),
+                                      dict(_mnum("—", "integrated")), dict(_mnum("—", "integrated")),
+                                      dict(_mnum("— % BTAR", "integrated"))]},
+        ]
+        sections.append({"title": "Template 9 — BTAR · banking book taxonomy alignment ratio (ITS 2022/2453, Annex XXXIX 9.1–9.3)",
+                         "columns": t9_cols, "col_sources": t9_src, "rows": t9_rows,
+                         "note": "Voluntary extension of the GAR to counterparties outside the NFRD scope — EU SMEs / "
+                                 "non-financial corporates and non-EU corporates. Their Taxonomy alignment is not on any "
+                                 "public disclosure, so the institution collects it bilaterally through loan origination and "
+                                 "credit review, or uses internal estimates / proxies (Annex XL §9.1) — integrated, never "
+                                 "derived from the physical-risk engine. Row 1 carries over the GAR total (Template 7 row 32); "
+                                 "TOTAL BTAR = rows 1 + 2 + 8. Shown '—' until the institution supplies the BTAR inputs."})
 
     # Template 10 — other climate-change-mitigating actions NOT covered by the EU Taxonomy (green/sustainability
     # bonds and specialised green lending). This is a qualitative template on instruments outside the Taxonomy
