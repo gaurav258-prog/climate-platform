@@ -45,8 +45,10 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "sector_concentration": ("Templates 1 & 5 — NACE-sector concentration", "support"),
         "coverage":      ("Data coverage / PCAF data quality", "support"),
         "fin_emissions": ("Transition templates — financed emissions (Scope 3)", "core"),
-        "taxonomy":      ("GAR (Templates 7–8) — Taxonomy-eligible %", "core"),
-        "gar":           ("GAR (Templates 7–8) — aligned % (Green Asset Ratio)", "core"),
+        "p3_alignment":  ("Template 3 — alignment-metric distance to IEA NZE2050", "core"),
+        "p3_top20":      ("Template 4 — exposure to top-20 carbon-intensive firms", "core"),
+        "taxonomy":      ("GAR + BTAR (Templates 7–8) — Taxonomy-eligible %", "core"),
+        "gar":           ("GAR + BTAR (Templates 7–8) — aligned % (Green Asset Ratio)", "core"),
     },
     "reit_tcfd": {
         "total_value":   ("Property book value — Art. 8 denominator", "support"),

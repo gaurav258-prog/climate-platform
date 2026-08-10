@@ -114,8 +114,14 @@ def template3_grid(assets: list[dict]) -> dict:
                      "gross": round(r["gross"]), "current_intensity": cur, "iea_2030": tgt, "distance_pct": dist,
                      "coverage_pct": round(100 * r["int_w"] / r["gross"], 0) if r["gross"] else 0})
     total_gross = sum(r["gross"] for r in rows)
+    # portfolio-level alignment distance: gross-weighted mean of the sector distances that are computable
+    # (a real benchmark AND a provided intensity). None when nothing is yet computable — never fabricated.
+    dw = [(r["distance_pct"], r["gross"]) for r in rows if r["distance_pct"] is not None and r["gross"]]
+    portfolio_distance = round(sum(d * g for d, g in dw) / sum(g for _, g in dw), 1) if dw else None
+    sectors_pending = sum(1 for r in rows if r["distance_pct"] is None)
     return {
         "rows": rows, "total_gross": total_gross, "source": IEA_SOURCE,
+        "portfolio_distance": portfolio_distance, "sectors_total": len(rows), "sectors_pending": sectors_pending,
         "formula": "distance = 100 × ((portfolio intensity − IEA NZE2050 2030 target) / IEA 2030 target)",
         "customer_input": "Counterparty physical CO₂-intensity in the IEA metric unit (gCO₂/kWh, tCO₂/t, …) — "
                           "from the counterparty's disclosures or a specialist climate-data vendor (e.g. TPI, "

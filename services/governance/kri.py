@@ -279,6 +279,8 @@ _METHODOLOGY = {
     "chronic_share": "Share of the book in the top two bands whose driver is a CHRONIC, gradual peril — drought, chronic heat, coastal/sea-level, water stress. This is the long-run repricing lens of Template 5; the acute and chronic shares overlap where an exposure faces both.",
     "forward_share": "Projected share of the book crossing into High+ at the furthest modelled horizon under a warming pathway (per your reporting-settings scenario, or Disorderly 2°C). The forward early-warning to compare against today's point-in-time share.",
     "sector_concentration": "Share of the book in the EBA high-climate-impact sectors (NACE sections A–H and L), with the single most-concentrated sector called out. Concentration in these sectors is the axis Pillar 3 Templates 1 & 5 are organised around and a standard prudential concentration control.",
+    "p3_alignment": "Pillar 3 Template 3 — the gross-weighted distance of the book's counterparty CO₂-intensity to the IEA Net-Zero-by-2050 2030 pathway per sector: 100×((current intensity − IEA 2030 target)/IEA 2030 target). Tellumen holds the IEA benchmark and does the calculation; the counterparty physical intensity (gCO₂/kWh, tCO₂/t…) is a vendor/counterparty feed, so this reads '—' until that feed is provided. A TCFD-not-required, Pillar-3-specific indicator.",
+    "p3_top20": "Pillar 3 Template 4 — share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity. Policy action against top emitters can deteriorate their creditworthiness, so this is a concentrated transition-credit indicator prescribed by Pillar 3 (not TCFD).",
     "coverage": "Share of the book carrying a physical-risk score on the golden source. Unscored exposure is excluded from the risk figures, never assumed safe.",
     "fin_emissions": "PCAF-attributed financed emissions (Scope 1–3, tCO₂e): counterparty emissions weighted by your attribution share, with a NACE-intensity estimate filling gaps where a counterparty figure is missing.",
     "taxonomy": "EU Taxonomy Article 8 eligible share — the portion of the book in Taxonomy-eligible activities (the GAR numerator's eligibility leg), from your book's activity classification.",
@@ -581,12 +583,37 @@ def _bank_kri(session: Session, org_id: str) -> dict:
 
 
 def _p3esg_kri(session: Session, org_id: str) -> dict:
-    """Pillar 3 ESG KRIs — the same loan-book measures the EBA prudential templates scrutinise (banking-book
-    physical-risk exposure, GAR/Taxonomy, financed emissions), tagged to the Pillar 3 framework so it grades
-    against its own appetite bands and regulator framing."""
+    """Pillar 3 ESG KRIs — the shared banking-book core (physical risk, financed emissions, GAR/Taxonomy) PLUS
+    the indicators the EBA prudential templates prescribe that TCFD does NOT: the IEA-NZE2050 alignment-metric
+    distance (Template 3) and exposure to the top-20 carbon-intensive firms (Template 4). Tagged to the Pillar 3
+    framework so it grades against its own appetite bands and regulator framing."""
     r = _bank_kri(session, org_id)
     r["framework"] = "bank_p3esg"
     r["label"] = "Pillar 3 ESG KRIs"
+    # append the Pillar-3-only prescribed indicators, computed from the same book via the transition engine
+    try:
+        from services.governance.reporting_settings import get_settings
+        from services.governance.transition_alignment import template3_grid, template4_top20
+        s = get_settings(session, org_id)
+        snap = _live_snapshot(session, org_id, "bank_p3esg", s["scenario"], s["horizon"])
+        assets = (snap or {}).get("assets") or []
+        total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
+        g3 = template3_grid(assets)
+        g4 = template4_top20(assets)
+        align_pending = g3.get("portfolio_distance") is None
+        r["kpis"].append(_kpi(
+            "p3_alignment", "IEA alignment distance", g3.get("portfolio_distance"), "pct",
+            integrated=align_pending, integrated_note="needs intensity feed" if align_pending else None, tone="#fb7185",
+            hint="Template 3 — gross-weighted distance of the book's counterparty CO₂-intensity to the IEA NZE2050 "
+                 "2030 pathway (100×((current−IEA2030)/IEA2030)). Needs a counterparty physical-intensity feed "
+                 "(vendor/counterparty) — shows '—' until provided."))
+        r["kpis"].append(_kpi(
+            "p3_top20", "Top-20 carbon-intensive exposure", round(100 * (g4.get("total_exposure") or 0) / total, 1) if total else 0,
+            "pct", tone="#f0a860",
+            hint=f'Template 4 — share of the book lent to the world\'s 20 most carbon-intensive firms (Carbon Majors). '
+                 f'{g4.get("matched_count", 0)} of {g4.get("list_size", 20)} matched.'))
+    except Exception:  # noqa: BLE001 — a missing transition input must not sink the KRI set
+        pass
     r["history"] = [{**h, } for h in [{"label": x["label"], "filing_id": x["filing_id"],
                      "total_value": (x["payload"].get("rollup") or {}).get("total_value_eur"),
                      "value_at_risk": (x["payload"].get("rollup") or {}).get("value_at_risk_eur"),
