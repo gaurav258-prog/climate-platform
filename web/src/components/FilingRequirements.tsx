@@ -11,7 +11,7 @@ import FilingForm from './FilingForm'
 // reporting workflow — it sits above the filing calendar/register in the cockpit.
 
 interface Filing { filing_id: string; period_label: string; status: string; submission_ref: string | null; snapshot_version: number | null; entity_name: string | null; filed_at: string | null }
-interface CovSection { section: string; source: string; source_category?: string; lane?: string; provider?: string | null }
+interface CovSection { section: string; source: string; source_category?: string; lane?: string; provider?: string | null; note?: string | null; reconcilable?: boolean }
 // what the customer does for a section that isn't produced from their data yet — the "how to provide" hint
 const HOWTO: Record<string, string> = {
   provided: "Provide it under “Provided & reconciled data” below — we reconcile + 4-eyes attest it",
@@ -95,14 +95,37 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
                                 <div key={i} className="flex items-start gap-2.5 px-3.5 py-2 text-[12px]">
                                   <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: SRC[sec.source]?.color }} />
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-[var(--color-mute)]">{sec.section}</div>
-                                    {/* how to provide it — only for the parts that aren't produced from your data */}
-                                    {howto && <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5">{sec.provider ? `${sec.provider} · ` : ''}{howto}</div>}
+                                    <div className="text-[var(--color-mute)] flex flex-wrap items-center gap-x-2">
+                                      {sec.section}
+                                      {sec.provider && <span className="mono text-[9.5px] text-[var(--color-faint)]">· {sec.provider}</span>}
+                                      {sec.reconcilable && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: '#e8b24c', background: 'color-mix(in oklab, #e8b24c 12%, transparent)' }}>bring-your-own-number</span>}
+                                    </div>
+                                    {/* what this line needs / what we produce / what you add — on EVERY line */}
+                                    {(sec.note || howto) && (
+                                      <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5 leading-relaxed">
+                                        {sec.note}
+                                        {howto && <span style={{ color: SRC[sec.source]?.color }}>{sec.note ? ' — ' : ''}{howto}</span>}
+                                      </div>
+                                    )}
                                   </div>
                                   <span className="mono text-[9.5px] uppercase tracking-wide shrink-0 mt-0.5" style={{ color: SRC[sec.source]?.color }}>{SRC[sec.source]?.label}</span>
                                 </div>
                               )
                             })}
+                          </div>
+                          {/* legend — what each status means */}
+                          <div className="px-3.5 py-2.5 border-t border-[var(--color-line)] bg-[var(--color-bg-2)] grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                            {([['computed', 'Tellumen computes it from your book + our physical/nature engine — no extra input.'],
+                               ['integrated', 'A figure only you hold (alignment flags, an audited number, a vendor feed) — you provide it under “Provided & reconciled data”, we reconcile + 4-eyes attest.'],
+                               ['client', 'A qualitative narrative (governance / strategy / risk-management prose) — you write it on the filing form; there is nothing to calculate.'],
+                               ['out_of_scope', 'Not modelled by this platform (e.g. transition sector-alignment) — sourced elsewhere or built with us later.']] as [string, string][])
+                              .filter(([s]) => (r.coverage!.counts[s] ?? 0) > 0)
+                              .map(([s, txt]) => (
+                                <div key={s} className="flex items-start gap-1.5 text-[10.5px] text-[var(--color-faint)] leading-relaxed">
+                                  <span className="mono uppercase tracking-wide shrink-0" style={{ color: SRC[s].color }}>{SRC[s].label}</span>
+                                  <span>— {txt}</span>
+                                </div>
+                              ))}
                           </div>
                         </div>
                       )}

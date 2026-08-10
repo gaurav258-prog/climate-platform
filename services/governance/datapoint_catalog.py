@@ -41,34 +41,52 @@ def coverage_source(lane: str) -> str:
 CATALOG: dict[str, list[dict]] = {
     "bank_tcfd": [
         _dp("phys_risk", "Physical climate-risk exposure — value at risk by hazard, scenario × horizon",
-            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)"),
+            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)",
+            note="You supply the loan book (per-exposure geolocation + value); Tellumen scores every hazard across "
+                 "scenarios × horizons and computes value-at-risk — no extra input."),
         _dp("financed_emissions", "Financed emissions — PCAF Scope 1–3",
             "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
             note="Computed from counterparty emissions; needs an issuer-emissions feed (ESG vendor) or falls back to a NACE-intensity estimate. You can provide an audited PCAF figure to reconcile against it."),
         _dp("taxonomy_eligible", "EU Taxonomy Art. 8 — eligibility (GAR numerator)",
-            "tellumen", "compute", provider="Tellumen + your loan book"),
+            "tellumen", "compute", provider="Tellumen + your loan book",
+            note="From the NACE activity on each exposure; Tellumen classifies which are Taxonomy-eligible."),
         _dp("taxonomy_aligned", "EU Taxonomy Art. 8 — alignment: DNSH + minimum safeguards (→ Green Asset Ratio)",
             "customer", "provided", provider="Your Taxonomy alignment determination (per-exposure flags)",
-            note="The loan template already carries a minimum-safeguards field; full alignment (DNSH) is your assessment."),
+            note="Only you can attest alignment: substantial-contribution + DNSH + minimum-safeguards per exposure. The loan template already carries a minimum-safeguards field; full alignment (DNSH) is your assessment."),
         _dp("transition_risk", "Transition risk — carbon-price sensitivity / stranded assets",
-            "none", "none"),
+            "none", "none",
+            note="Not modelled by Tellumen: carbon-price / stranded-asset transition sensitivity is a transition-scenario model outside our physical-risk engine."),
         _dp("tcfd_narrative", "TCFD governance, strategy & transition-plan narrative",
             "customer", "report", provider="You author"),
     ],
     "bank_p3esg": [
         _dp("p3_physical", "Template 5 — banking-book exposures to climate physical risk (by geography & sector)",
-            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)"),
+            "tellumen", "compute", provider="Tellumen hazard engine (Copernicus/ECMWF · NASA · USGS feeds)",
+            note="You supply the loan book (per-exposure geolocation, gross carrying amount, NACE sector); Tellumen "
+                 "scores every exposure's physical hazards and builds the NACE × geography grid — no extra input."),
         _dp("p3_gar_eligible", "GAR (Templates 7–8) — Taxonomy-eligible exposures",
-            "tellumen", "compute", provider="Tellumen + your loan book"),
+            "tellumen", "compute", provider="Tellumen + your loan book",
+            note="From the NACE activity on each exposure; Tellumen classifies which are Taxonomy-eligible and computes "
+                 "the covered-assets denominator (excludes general governments, Art. 7)."),
         _dp("p3_gar_aligned", "GAR — Taxonomy-aligned share (DNSH + minimum safeguards)",
-            "customer", "provided", provider="Your Taxonomy alignment determination (per-exposure flags)"),
+            "customer", "provided", provider="Your Taxonomy alignment determination (per-exposure flags)",
+            note="Only YOU can attest alignment: substantial-contribution + DNSH + minimum-safeguards per exposure. "
+                 "The loan template already carries a minimum-safeguards field; add the DNSH/alignment flags and we "
+                 "compute the Green Asset Ratio and 4-eyes attest it. Until then the aligned share shows 'pending screening'."),
         _dp("p3_scope3", "Financed emissions (Scope 3) for the transition-risk templates",
             "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
-            note="Needs an issuer-emissions feed (ESG vendor) or a NACE-intensity estimate; an audited figure can be provided to reconcile."),
+            note="Tellumen computes PCAF-attributed Scope 1–3 from counterparty emissions; needs an issuer-emissions "
+                 "feed (ESG vendor) or falls back to a NACE-intensity estimate. You may provide an audited PCAF figure to reconcile."),
         _dp("p3_transition", "Template 1–4 — transition risk (sector alignment to decarbonisation pathways)",
-            "none", "none"),
+            "none", "none",
+            note="Not modelled by Tellumen: forward sector-alignment to a decarbonisation benchmark (e.g. IEA/NGFS "
+                 "pathway distance) is a transition-scenario model outside our physical-risk engine — sourced from a "
+                 "transition-analytics provider or built with us later."),
         _dp("p3_qualitative", "Templates 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
-            "customer", "report", provider="You author"),
+            "customer", "report", provider="You author",
+            note="These are the regulator's QUALITATIVE tables — prose describing your governance of ESG risk, business "
+                 "strategy and risk-management processes. There is no figure to compute; you write the narrative directly "
+                 "on the filing form (we version + attest it with the rest of the filing)."),
     ],
     "reit_tcfd": [
         _dp("phys_risk", "Physical climate-risk to property value + net-operating-income impact",
@@ -156,7 +174,8 @@ def coverage(framework: str) -> dict | None:
     if not dps:
         return None
     sections = [{"section": d["label"], "source": coverage_source(d["lane"]),
-                 "source_category": d["source_category"], "lane": d["lane"], "provider": d["provider"]} for d in dps]
+                 "source_category": d["source_category"], "lane": d["lane"], "provider": d["provider"],
+                 "note": d.get("note"), "reconcilable": d.get("reconcilable", False)} for d in dps]
     srcs = ("computed", "integrated", "client", "out_of_scope")
     counts = {k: sum(1 for s in sections if s["source"] == k) for k in srcs}
     total = len(sections)
