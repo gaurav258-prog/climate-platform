@@ -79,9 +79,11 @@ CATALOG: dict[str, list[dict]] = {
                  "feed (ESG vendor) or falls back to a NACE-intensity estimate. You may provide an audited PCAF figure to reconcile."),
         _dp("p3_transition", "Template 1–4 — transition risk (sector alignment to decarbonisation pathways)",
             "none", "none",
-            note="Not modelled by Tellumen: forward sector-alignment to a decarbonisation benchmark (e.g. IEA/NGFS "
-                 "pathway distance) is a transition-scenario model outside our physical-risk engine — sourced from a "
-                 "transition-analytics provider or built with us later."),
+            note="Tellumen HAS a transition model (carbon-cost using NGFS Phase-IV carbon prices + sector stranded-asset "
+                 "tiers, scored per scenario × horizon) — today it scores fund issuers, not the bank counterparty book; "
+                 "wiring it to banks is a near-term build (gives Template 4 top-20 carbon-intensive + a transition VaR). "
+                 "The precise Template 3 emission-intensity-vs-pathway alignment metric additionally needs sector "
+                 "decarbonisation pathways (NGFS/TPI) + counterparty forward trajectories."),
         _dp("p3_qualitative", "Templates 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
             "customer", "report", provider="You author",
             note="These are the regulator's QUALITATIVE tables — prose describing your governance of ESG risk, business "
