@@ -322,6 +322,7 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> d
         "regulator": result.get("regulator"),
         "methodology": _METHODOLOGY.get(kri_key),
         "trend": {"points": trend, "fmt": kpi.get("fmt")},
+        "projection": _kri_projection(session, org_id, framework, kri_key, kpi),
         "composition": _kri_composition(session, org_id, framework, kri_key, result),
         "drivers": _kri_drivers(session, org_id, framework, kri_key),
         "actions": {
@@ -329,6 +330,41 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> d
             "provide": kpi.get("kind") == "integrated",
         },
     }
+
+
+# Physical/forward KRIs get a forward trajectory chart (value across horizons under a warming pathway, with
+# an act-vs-inaction band and the appetite thresholds) — the "when do we cross appetite" decision view.
+_PROJECTION_KEYS = {"value_at_risk", "pct_at_risk", "forward_share"}
+
+
+def _kri_projection(session: Session, org_id: str, framework: str, kri_key: str, kpi: dict) -> dict | None:
+    if kri_key not in _PROJECTION_KEYS or framework not in ("bank_tcfd", "bank_p3esg", "reit_tcfd"):
+        return None
+    try:
+        from services.governance.reporting_settings import get_settings
+        from services.intelligence.forward_risk import forward_risk
+        vert = {"reit_tcfd": "realestate"}.get(framework, "banking")
+        s = get_settings(session, org_id)
+        scen = s["scenario"] if s.get("scenario") and s["scenario"] != "baseline" else "disorderly_2c"
+        fr = forward_risk(session, org_id, vert, scen)
+        book = fr.get("book_eur") or 0
+        is_pct = kri_key in ("pct_at_risk", "forward_share")
+        pts = []
+        for t in fr.get("trajectory") or []:
+            band = t.get("at_risk_band_eur") or [t.get("at_risk_eur"), t.get("at_risk_eur")]
+            to = (lambda v: round(100 * v / book, 1) if book else 0) if is_pct else (lambda v: round(v))
+            pts.append({"horizon": t.get("horizon"),
+                        "value": t.get("at_risk_pct") if is_pct else round(t.get("at_risk_eur") or 0),
+                        "lo": to(band[0]), "hi": to(band[1])})
+        if len(pts) < 2:
+            return None
+        return {"points": pts, "unit": "pct" if is_pct else "eur",
+                "warn": kpi.get("amber"), "breach": kpi.get("red"),
+                "scenario": scen.replace("_", " "),
+                "note": "Value exposed at High+ across horizons under " + scen.replace("_", " ")
+                        + "; the band is the act-vs-inaction range (AR6 lo–hi)."}
+    except Exception:  # noqa: BLE001 — a missing projection must not break the drawer
+        return None
 
 
 # KRIs whose most-granular drill is the individual exposures (assets) behind the number.

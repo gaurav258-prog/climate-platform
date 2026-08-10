@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal } from 'lucide-react'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
@@ -257,7 +257,8 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
 interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy' | 'sector' | 'horizon'; unit: 'eur' | 'num' | 'pct'; items: { label: string; value: number; score?: number }[] }
 interface Driver { id?: string | null; name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
 interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
-interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null }[]; fmt: string }; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
+interface Projection { points: { horizon: string; value: number; lo: number; hi: number }[]; unit: 'eur' | 'pct'; warn?: number | null; breach?: number | null; scenario: string; note: string }
+interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null; filing_id?: string }[]; fmt: string }; projection?: Projection | null; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
 
 function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
   const nav = useNavigate()
@@ -368,8 +369,35 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                     )}
                   </div>
                 )}
+                {d.projection && d.projection.points.length >= 2 && (() => {
+                  const pr = d.projection
+                  const pf = (v: number) => pr.unit === 'eur' ? eur(v) : `${Math.round(v)}%`
+                  return (
+                    <div>
+                      <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Projected trajectory · {pr.scenario}</div>
+                      <div className="h-44">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={pr.points} margin={{ top: 6, right: 12, bottom: 2, left: 4 }}>
+                            <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
+                            <XAxis dataKey="horizon" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
+                            <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={pf} />
+                            <Tooltip formatter={(v: number | string, n) => [pf(Number(v)), n === 'hi' ? 'if not acted on' : n === 'lo' ? 'if acted on' : 'projected']} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
+                            {pr.breach != null && <ReferenceArea y1={pr.breach} y2={100000000000} fill="var(--color-danger)" fillOpacity={0.06} />}
+                            {pr.warn != null && pr.breach != null && <ReferenceArea y1={pr.warn} y2={pr.breach} fill="#f0a860" fillOpacity={0.06} />}
+                            <Area type="monotone" dataKey="hi" stroke="none" fill="var(--color-sky)" fillOpacity={0.12} isAnimationActive={false} />
+                            <Area type="monotone" dataKey="lo" stroke="none" fill="var(--color-bg-2)" fillOpacity={1} isAnimationActive={false} />
+                            {pr.warn != null && <ReferenceLine y={pr.warn} stroke="#f0a860" strokeDasharray="5 4" strokeWidth={1} />}
+                            {pr.breach != null && <ReferenceLine y={pr.breach} stroke="var(--color-danger)" strokeDasharray="5 4" strokeWidth={1} />}
+                            <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <p className="mono text-[9px] text-[var(--color-faint)] leading-relaxed mt-1">{pr.note}{pr.breach != null && ' Dashed lines = appetite (warn / breach); the book sits where the curve crosses them.'}</p>
+                    </div>
+                  )
+                })()}
                 <div>
-                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Trend across filings</div>
+                  <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Trend across filings{d.trend.points.some(p => p.filing_id) && <span className="normal-case tracking-normal"> · click a point to open that filing</span>}</div>
                   {d.trend.points.length >= 2 ? (
                     <div className="h-40">
                       <ResponsiveContainer width="100%" height="100%">
@@ -378,7 +406,8 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                           <XAxis dataKey="label" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
                           <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={tf} />
                           <Tooltip formatter={(v) => tf(Number(v))} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
-                          <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                          <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} style={{ cursor: 'pointer' }}
+                            activeDot={{ r: 5, style: { cursor: 'pointer' }, onClick: (_e: unknown, p: { payload?: { filing_id?: string } }) => { const fid = p?.payload?.filing_id; if (fid) nav(filingLink(profile?.org?.type, fid)) } }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -387,17 +416,22 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                 {d.composition && d.composition.items.length > 0 && (() => {
                   const comp = d.composition
                   const drillable = comp.type === 'scope' || comp.type === 'sector' || comp.type === 'hazard'
+                  const isPareto = comp.type === 'sector'   // concentration → Pareto: bars + cumulative %
+                  const compTotal = comp.items.reduce((s, it) => s + it.value, 0)
+                  let cum = 0
                   return (
                     <div>
                       <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5 flex items-center gap-1.5">
                         {compTitle[comp.type] ?? 'Composition'}
-                        {drillable && <span className="text-[var(--color-faint)] normal-case tracking-normal">· click a bar to drill</span>}
+                        {isPareto && <span className="text-[var(--color-faint)] normal-case tracking-normal">· bars + cumulative %</span>}
+                        {drillable && !isPareto && <span className="text-[var(--color-faint)] normal-case tracking-normal">· click a bar to drill</span>}
                       </div>
                       <HBar
-                        data={comp.items.map(it => ({ label: comp.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: comp.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)' }))}
+                        data={comp.items.map(it => { cum += it.value; return { label: comp.type === 'hazard' ? hazardLabel(it.label) : it.label, value: it.value, color: comp.type === 'hazard' ? sevColor(it.score ?? 0) : 'var(--color-sky)', ...(isPareto && compTotal ? { sub: `Σ ${Math.round(100 * cum / compTotal)}%` } : {}) } })}
                         format={n => uf(n, comp.unit)}
                         {...(drillable ? { onBar: (i: number) => { const s = segFor(comp.type, comp.items[i], i); if (s) setSeg(s) } } : {})}
                       />
+                      {drillable && <p className="mono text-[9px] text-[var(--color-faint)] mt-1">click a bar to drill into its exposures</p>}
                     </div>
                   )
                 })()}

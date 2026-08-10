@@ -31,6 +31,23 @@ type Detail = Record<string, unknown>
 
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const BUCKET: Record<string, string> = { VH: 'severe', H: 'high', M: 'elevated', L: 'low' }
+
+// tiny CSP-safe SVG sparkline of a hazard's physical-risk score (0–100) across horizons
+function Sparkline({ points }: { points: { horizon: string; score: number }[] }) {
+  const W = 240, H = 34, pad = 3
+  const n = points.length
+  const x = (i: number) => pad + (i / Math.max(1, n - 1)) * (W - 2 * pad)
+  const y = (s: number) => pad + (1 - Math.max(0, Math.min(100, s)) / 100) * (H - 2 * pad)
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(' ')
+  const last = points[n - 1]
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <line x1={pad} y1={y(50)} x2={W - pad} y2={y(50)} stroke="var(--color-line-2)" strokeDasharray="2 3" strokeWidth={0.75} />
+      <path d={line} fill="none" stroke={sevColor(last.score)} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.score)} r={i === n - 1 ? 2.6 : 1.8} fill={sevColor(p.score)} />)}
+    </svg>
+  )
+}
 const errText = (e: unknown, fb: string) => {
   if (e instanceof ApiError) {
     const b = e.body as { message?: string; error?: { message?: string } } | string | undefined
@@ -52,6 +69,20 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
     for (const r of risksRaw) { const c = worst.get(r.hazard_type); if (!c || r.score > c.score) worst.set(r.hazard_type, r) }
     return [...worst.values()].sort((a, b) => b.score - a.score)
   })()
+  // per-hazard score TRAJECTORY across horizons (current → 2100) — the deepest physical-risk drill.
+  // risksRaw carries several rows per (hazard, horizon) (scenarios / model versions) — collapse to the worst
+  // score per horizon so the sparkline has one clean point per horizon.
+  const HZ_ORDER = ['current', '2030', '2050', '2100']
+  const hazTraj = (hz: string) => {
+    const worst = new Map<string, number>()
+    for (const r of risksRaw) {
+      if (r.hazard_type !== hz || !r.time_horizon) continue
+      const c = worst.get(r.time_horizon)
+      if (c == null || r.score > c) worst.set(r.time_horizon, r.score)
+    }
+    return HZ_ORDER.filter(h => worst.has(h)).map(h => ({ horizon: h, score: worst.get(h) as number }))
+  }
+  const [openHz, setOpenHz] = useState<string | null>(null)
   const val = (cfg.valuationKey ? d?.[cfg.valuationKey] : undefined) as Val | undefined
   const audit = (d?.[cfg.auditKey] as AuditRow[] | undefined) ?? []
   const reload = () => { q.refetch(); onChanged() }
@@ -89,16 +120,30 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
 
             {/* hazards */}
             <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Physical risk · every hazard scored</div>
+              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Physical risk · every hazard scored{risks.length > 0 && <span className="normal-case tracking-normal"> · click a hazard for its projection</span>}</div>
               <Card className="p-4">
                 {risks.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">Not scored yet.</div>
-                  : <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                      {risks.map(h => (
-                        <div key={h.hazard_type} className="flex items-center justify-between gap-3 text-[12.5px] border-b border-[var(--color-line)] py-1">
-                          <span className="text-[var(--color-mute)] truncate">{hazardLabel(h.hazard_type)}</span>
-                          <span className="mono tabular-nums shrink-0" style={{ color: sevColor(h.score) }}>{Math.round(h.score)}/100 · {BUCKET[h.risk_bucket] ?? h.risk_bucket}</span>
-                        </div>
-                      ))}
+                  : <div className="grid sm:grid-cols-2 gap-x-6 gap-y-0.5">
+                      {risks.map(h => {
+                        const traj = hazTraj(h.hazard_type)
+                        const open = openHz === h.hazard_type
+                        return (
+                          <div key={h.hazard_type} className="border-b border-[var(--color-line)]">
+                            <button onClick={() => setOpenHz(open ? null : h.hazard_type)} className={`w-full flex items-center justify-between gap-3 text-[12.5px] py-1 text-left ${traj.length >= 2 ? 'cursor-pointer group' : 'cursor-default'}`}>
+                              <span className="text-[var(--color-mute)] truncate group-hover:text-[var(--color-ink)]">{hazardLabel(h.hazard_type)}</span>
+                              <span className="mono tabular-nums shrink-0" style={{ color: sevColor(h.score) }}>{Math.round(h.score)}/100 · {BUCKET[h.risk_bucket] ?? h.risk_bucket}</span>
+                            </button>
+                            {open && traj.length >= 2 && (
+                              <div className="pb-2 pt-0.5">
+                                <Sparkline points={traj} />
+                                <div className="flex justify-between mono text-[9px] text-[var(--color-faint)] mt-0.5">
+                                  {traj.map(t => <span key={t.horizon}>{t.horizon === 'current' ? 'now' : t.horizon}·{Math.round(t.score)}</span>)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>}
               </Card>
             </div>

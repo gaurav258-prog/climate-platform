@@ -15,7 +15,10 @@ export function HBar({ data, format, height = 22, onBar }: { data: Bar[]; format
           <div className={`w-32 shrink-0 text-[11.5px] truncate text-right ${onBar ? 'text-[var(--color-mute)] group-hover:text-[var(--color-sky)]' : 'text-[var(--color-mute)]'}`}>{d.label}</div>
           <div className="flex-1 relative rounded" style={{ height, background: 'var(--color-panel-2)' }}>
             <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${Math.max(2, (Math.abs(d.value) / max) * 100)}%`, background: d.color ?? 'var(--color-sky)', opacity: 0.85 }} />
-            <div className="absolute inset-0 flex items-center px-2 text-[10.5px] mono" style={{ color: 'var(--color-ink)' }}>{format(d.value)}</div>
+            <div className="absolute inset-0 flex items-center justify-between px-2 text-[10.5px] mono" style={{ color: 'var(--color-ink)' }}>
+              <span>{format(d.value)}</span>
+              {d.sub && <span className="text-[9.5px] text-[var(--color-faint)] pl-2">{d.sub}</span>}
+            </div>
           </div>
         </Row>
       ))}
