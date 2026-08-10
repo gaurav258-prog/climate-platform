@@ -77,13 +77,16 @@ CATALOG: dict[str, list[dict]] = {
             "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
             note="Tellumen computes PCAF-attributed Scope 1–3 from counterparty emissions; needs an issuer-emissions "
                  "feed (ESG vendor) or falls back to a NACE-intensity estimate. You may provide an audited PCAF figure to reconcile."),
-        _dp("p3_transition", "Template 1–4 — transition risk (sector alignment to decarbonisation pathways)",
-            "none", "none",
-            note="Tellumen HAS a transition model (carbon-cost using NGFS Phase-IV carbon prices + sector stranded-asset "
-                 "tiers, scored per scenario × horizon) — today it scores fund issuers, not the bank counterparty book; "
-                 "wiring it to banks is a near-term build (gives Template 4 top-20 carbon-intensive + a transition VaR). "
-                 "The precise Template 3 emission-intensity-vs-pathway alignment metric additionally needs sector "
-                 "decarbonisation pathways (NGFS/TPI) + counterparty forward trajectories."),
+        _dp("p3_transition", "Template 3 — transition-risk alignment metrics (banking book)",
+            "customer", "provided",
+            note="ITS 2022/2453 prescribes a SPECIFIC metric, not a risk score: per IEA sector, the counterparty "
+                 "CO₂-INTENSITY alignment metric (e.g. gCO₂/kWh power, gCO₂/MJ shipping, tCO₂/t cement) and its "
+                 "DISTANCE to the IEA Net-Zero-by-2050 (NZE2050) 2030 sector target — distance = 100×((current−IEA2030)"
+                 "/IEA2030) in %. The binding input is counterparty physical production-intensity data (asset-level / "
+                 "counterparty-disclosed / specialist vendor e.g. TPI, Asset Resolution) — NOT computable from our "
+                 "physical-risk engine, and distinct from the carbon-PRICE transition score already in the repo (which "
+                 "does not satisfy this template). Tellumen supplies the IEA NZE2050 benchmark table + the distance "
+                 "calculation + portfolio aggregation; you provide (or we source via vendor) the counterparty intensities."),
         _dp("p3_qualitative", "Templates 1–3 — qualitative ESG risk narrative (governance, strategy, risk mgmt)",
             "customer", "report", provider="You author",
             note="These are the regulator's QUALITATIVE tables — prose describing your governance of ESG risk, business "
