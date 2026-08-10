@@ -79,6 +79,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
         : <DatapointList groups={d.groups} {...editProps} />}
 
       {d.framework === 'bank_p3esg' && view === 'official' && <P3Qualitative canEdit={canEdit} />}
+      {d.framework === 'bank_p3esg' && view === 'official' && <P3Template10 canEdit={canEdit} />}
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
     </div>
@@ -319,5 +320,71 @@ function QCell({ row, canEdit, onSaved }: { row: QRow; canEdit: boolean; onSaved
         className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] resize-y" />
       <div className="mono text-[9px] mt-0.5 h-3">{saving ? <span className="text-[var(--color-faint)]">saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>✓ saved</span> : null}</div>
     </div>
+  )
+}
+
+// ── Pillar 3 ESG Template 10 (Annex XXXIX) — the preparer-authored register of climate-mitigating instruments
+// NOT covered by the EU Taxonomy (green/sustainability bonds + specialised green lending). Every field is manual.
+interface T10Field { key: string; label: string; options: string[] | null }
+interface T10Data { fields: T10Field[]; rows: Record<string, string>[]; count: number }
+
+function P3Template10({ canEdit }: { canEdit: boolean }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['p3-template10'], queryFn: () => api.get<T10Data>('/v1/filings/structured/p3esg-template10') })
+  const [rows, setRows] = useState<Record<string, string>[] | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const d = q.data
+  const model = rows ?? d?.rows ?? []
+  if (!d) return null
+
+  const commit = async (next: Record<string, string>[]) => {
+    setRows(next); setSaved(false); setSaving(true)
+    try { await api.patch('/v1/filings/structured/p3esg-template10', { rows: next }); setSaved(true); qc.invalidateQueries({ queryKey: ['p3-template10'] }) }
+    catch { toast.error('Could not save the Template 10 register.') } finally { setSaving(false) }
+  }
+  const addRow = (kind: string) => commit([...model, { kind, instrument: '', counterparty: '', gross_eur: '', risk: '', qualitative: '' }])
+  const editRow = (i: number, key: string, val: string) => { const n = model.map((r, j) => j === i ? { ...r, [key]: val } : r); setRows(n); setSaved(false) }
+  const delRow = (i: number) => commit(model.filter((_, j) => j !== i))
+  const cols = d.fields.filter(f => f.key !== 'kind')
+
+  return (
+    <Card className="p-0 overflow-hidden mt-3">
+      <div className="px-4 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[13px] text-[var(--color-ink)]">Template 10 — other climate-mitigating actions not covered by the EU Taxonomy</div>
+          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">Green / sustainability bonds + specialised green lending · <span style={{ color: 'var(--color-viz, #a78bfa)' }}>you author</span> · versioned + attested with the filing</div>
+        </div>
+        <div className="mono text-[10px] text-[var(--color-faint)]">{model.length} instrument{model.length === 1 ? '' : 's'}</div>
+      </div>
+      {['Bond', 'Loan'].map(kind => {
+        const group = model.map((r, i) => ({ r, i })).filter(x => x.r.kind === kind)
+        return (
+          <div key={kind} className="border-b border-[var(--color-line)] last:border-0">
+            <div className="px-4 py-2 bg-[var(--color-bg-2)] flex items-center justify-between">
+              <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{kind === 'Bond' ? 'Bonds (banking book)' : 'Loans (banking book)'}</span>
+              {canEdit && <button onClick={() => addRow(kind)} className="mono text-[10px] text-[var(--color-sky)] hover:underline">+ add {kind.toLowerCase()}</button>}
+            </div>
+            {group.length === 0
+              ? <div className="px-4 py-2.5 mono text-[10px] text-[var(--color-faint)] italic">No {kind.toLowerCase()} instruments recorded.</div>
+              : group.map(({ r, i }) => (
+                <div key={i} className="px-4 py-2.5 border-t border-[var(--color-line-2)] grid gap-2" style={{ gridTemplateColumns: '1.4fr 1fr 0.8fr 1fr 1.6fr auto' }}>
+                  {cols.map(f => (
+                    <div key={f.key}>
+                      <div className="mono text-[8.5px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">{f.label}</div>
+                      {canEdit
+                        ? <input value={r[f.key] ?? ''} onChange={e => editRow(i, f.key, e.target.value)} onBlur={() => rows && commit(rows)}
+                            placeholder="—" className="w-full rounded-md border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[11.5px] text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)]" />
+                        : <div className="text-[11.5px] text-[var(--color-ink)]">{r[f.key] || <span className="text-[var(--color-faint)]">—</span>}</div>}
+                    </div>
+                  ))}
+                  {canEdit && <button onClick={() => delRow(i)} className="mono text-[10px] text-[var(--color-faint)] hover:text-[var(--color-bad,#fb7185)] self-end pb-1" title="Remove">✕</button>}
+                </div>
+              ))}
+          </div>
+        )
+      })}
+      <div className="px-4 py-1.5 mono text-[9px] h-5">{saving ? <span className="text-[var(--color-faint)]">saving…</span> : saved ? <span style={{ color: 'var(--color-good)' }}>✓ saved</span> : null}</div>
+    </Card>
   )
 }

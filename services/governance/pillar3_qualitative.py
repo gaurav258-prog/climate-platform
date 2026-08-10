@@ -58,6 +58,27 @@ TABLES = {
 }
 
 
+# Template 10 — other climate-change-mitigating actions NOT covered by the EU Taxonomy. A flexible register the
+# preparer authors (green / sustainability bonds + specialised green lending); instrument type is not on the
+# golden-source book, so every field is manual. Fixed columns per ITS 2022/2453, Annex XXXIX Template 10.
+TEMPLATE10_FIELDS = [
+    ("kind", "Instrument group", ["Bond", "Loan"]),
+    ("instrument", "Type of financial instrument", None),
+    ("counterparty", "Type of counterparty", None),
+    ("gross_eur", "Gross carrying amount (€)", None),
+    ("risk", "Type of risk mitigated", None),
+    ("qualitative", "Qualitative information on the mitigating action", None),
+]
+
+
+def template10_structure(saved: dict | None) -> dict:
+    """The Template 10 register (rows the preparer authors) + the fixed field schema. `saved` is the org-level
+    JSONB; rows live under key 'template10' as a list of {field_key: value}."""
+    rows = (saved or {}).get("template10") or []
+    return {"fields": [{"key": k, "label": lbl, "options": opts} for k, lbl, opts in TEMPLATE10_FIELDS],
+            "rows": rows, "count": len(rows)}
+
+
 def qualitative_structure(saved: dict | None) -> dict:
     """The three qualitative tables with the institution's authored text merged in. `saved` is the org-level
     JSONB dict keyed 'table1.a' → text. Returns render-ready tables + a completion count."""

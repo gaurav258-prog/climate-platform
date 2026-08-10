@@ -60,6 +60,38 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                 action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
                 detail={"rows": list(body.values.keys())})
     return qualitative_structure(cur)
+
+
+class Template10Patch(BaseModel):
+    rows: list[dict]    # [{kind, instrument, counterparty, gross_eur, risk, qualitative}, ...]
+
+
+@router.get("/filings/structured/p3esg-template10", summary="Pillar 3 ESG Template 10 register + field schema")
+def get_p3esg_template10(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.pillar3_qualitative import template10_structure
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return template10_structure(saved)
+
+
+@router.patch("/filings/structured/p3esg-template10", summary="Author / save the Pillar 3 ESG Template 10 register")
+def set_p3esg_template10(body: Template10Patch, session: DbSession,
+                         ctx: dict = Depends(require_permission("approvals.create"))):
+    import json as _json
+    from services.governance.pillar3_qualitative import template10_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cur["template10"] = body.rows
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.template10.author", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"rows": len(body.rows)})
+    return template10_structure(cur)
     entity_id: Optional[str] = None   # None = whole org; a leaf = its book; a group = consolidated subtree
 
 
