@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, FileText, ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
+import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
@@ -11,7 +11,6 @@ import FilingLineage from './FilingLineage'
 import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
 import FilingPreflight from './FilingPreflight'
-import FilingRequirements from './FilingRequirements'
 import FilingCoverage from './FilingCoverage'
 import DisclosureFlags from './DisclosureFlags'
 import ProvidedData from './ProvidedData'
@@ -88,85 +87,168 @@ export default function FilingCockpit() {
 
   if (frameworks.length === 0 && !fw.isLoading) return null   // sector with no filings wired yet — cockpit hidden
 
+  const regByFw: Record<string, string> = {}
+  frameworks.forEach(f => { regByFw[f.framework] = f.regulator })
+  const needAction = obligations.filter(o => !['submitted', 'accepted'].includes(o.filing_status)).length
+
   return (
-    <div className="space-y-6">
-      {/* ── the reporting workflow, top to bottom ──
-           1-2 · what must be filed + the regulation, links, prior reports */}
-      <FilingRequirements onOpen={setOpenId} />
-
-      {/* 3-4 · eligibility & coverage — what of the book qualifies for the disclosure, what doesn't */}
-      <FilingCoverage />
-
-      {/* Act → Report: exposures a forward-risk decision flagged for this period's disclosure */}
-      <DisclosureFlags />
-
-      {/* Lane 2 · values calculated on your/vendor side — reconciled + attested before they land in a filing */}
-      <ProvidedData />
-
-      {/* 5 · reporting basis (the regulatory parameters new filings freeze — period-end + materiality) */}
-      <FilingBasis />
-
-      {/* ── filing calendar ── */}
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
-          <CalendarClock size={15} className="text-[var(--color-sky)]" />
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Filing calendar · what's due</span>
+    <div className="space-y-5">
+      {/* ── YOUR FILINGS — the one thing most users touch: what's due and how far along it is ── */}
+      <div>
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your filings</span>
+          <div className="h-px flex-1 bg-[var(--color-line)]" />
+          <span className="mono text-[10.5px] text-[var(--color-faint)]">{needAction ? `${needAction} need action` : 'all filed'}</span>
         </div>
         {obligations.length === 0
-          ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No obligations for the current period.</div>
-          : <div className="divide-y divide-[var(--color-line)]">
+          ? <Card className="p-6 text-[13px] text-[var(--color-faint)]">No obligations for the current period.</Card>
+          : <div className="space-y-3">
               {obligations.map(o => (
-                <div key={o.obligation_id} className="px-5 py-3.5 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14px] text-[var(--color-ink)] truncate">{o.label}</div>
-                    <div className="mono text-[11px] text-[var(--color-faint)]">{o.period_label} · {o.frequency}</div>
-                  </div>
-                  <div className="text-right w-40">
-                    <div className={`mono text-[12px] ${o.overdue ? 'text-[var(--color-bad)]' : 'text-[var(--color-mute)]'}`}>due {fmtDate(o.due_date)}</div>
-                    <div className="mono text-[10.5px] text-[var(--color-faint)]">
-                      {o.filing_status === 'accepted' || o.filing_status === 'submitted' ? 'filed'
-                        : o.overdue ? `${Math.abs(o.days_to_due)}d overdue` : `${o.days_to_due}d left`}
-                    </div>
-                  </div>
-                  <div className="w-28 flex justify-end"><Chip status={o.filing_status} /></div>
-                  <div className="w-32 flex justify-end">
-                    {o.filing_id
-                      ? <button onClick={() => setOpenId(o.filing_id)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">open filing →</button>
-                      : canPrepare
-                        ? <button onClick={() => setPreflightFw(o.framework)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">prepare filing →</button>
-                        : <span className="mono text-[10.5px] text-[var(--color-faint)]">awaiting preparer</span>}
-                  </div>
-                </div>
+                <FilingCard key={o.obligation_id} o={o} regulator={regByFw[o.framework]} canPrepare={canPrepare}
+                  onOpen={() => o.filing_id && setOpenId(o.filing_id)} onPrepare={() => setPreflightFw(o.framework)} />
               ))}
             </div>}
-      </Card>
+      </div>
 
-      {/* ── filing register ── */}
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
-          <FileText size={15} className="text-[var(--color-sky)]" />
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Filing register · past & in-flight</span>
-        </div>
-        {filings.length === 0
-          ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No filings yet. Prepare one from the calendar above.</div>
-          : <div className="divide-y divide-[var(--color-line)]">
-              {filings.map(f => (
-                <button key={f.filing_id} onClick={() => setOpenId(f.filing_id)}
-                  className="w-full text-left px-5 py-3.5 flex items-center gap-4 hover:bg-[var(--color-panel)] transition">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14px] text-[var(--color-ink)] truncate flex items-center gap-2">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span>{f.scope && f.scope !== 'organisation' && <ScopeChip scope={f.scope} name={f.entity_name} />}</div>
-                    <div className="mono text-[11px] text-[var(--color-faint)]">v{f.snapshot_version ?? '—'} · prepared by {f.created_by ?? '—'} · {fmtDate(f.created_at)}{f.submission_ref ? ` · ref ${f.submission_ref}` : ''}</div>
-                  </div>
-                  <Chip status={f.status} />
-                </button>
-              ))}
-            </div>}
-      </Card>
+      {/* ── DETAILS — everything else, one click away instead of stacked open ── */}
+      <DetailsTabs filings={filings} onOpen={setOpenId} />
 
       {openId && <FilingDrawer filingId={openId} onClose={closeDrawer} onChanged={refresh} onOpen={setOpenId} />}
       {preflightFw && <FilingPreflight framework={preflightFw} onClose={() => setPreflightFw(null)}
         onGenerated={(id) => { setPreflightFw(null); refresh(); setOpenId(id) }} />}
     </div>
+  )
+}
+
+// One obligation as an action card: deadline, a compact lifecycle stepper, readiness (from validation), and the
+// single next action. Replaces the old requirements + calendar sections (which listed the same obligations twice).
+const CARD_STEPS: { key: string; label: string }[] = [
+  { key: 'draft', label: 'Draft' }, { key: 'in_review', label: 'Review' }, { key: 'approved', label: 'Approved' },
+  { key: 'attested', label: 'Attested' }, { key: 'filed', label: 'Filed' },
+]
+// which action the next button offers, by current status
+const ACTION: Record<string, string> = {
+  not_started: 'Prepare', draft: 'Continue', returned: 'Revise', in_review: 'Review',
+  approved: 'Attest', attested: 'Submit', submitted: 'Track', accepted: 'View', rejected: 'Revise', superseded: 'View',
+}
+
+function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
+  { o: Obligation; regulator?: string; canPrepare: boolean; onOpen: () => void; onPrepare: () => void }) {
+  const val = useQuery({
+    queryKey: ['filing-validation-mini', o.filing_id],
+    queryFn: () => api.get<Validation>(`/v1/filings/${o.filing_id}/validation`),
+    enabled: !!o.filing_id,
+  })
+  const v = val.data
+  const status = o.filing_status || 'not_started'
+  const filed = ['submitted', 'accepted'].includes(status)
+  // stepper progress: index of the current stage (submitted/accepted → the last "Filed" step)
+  const stageIdx = filed ? 4 : Math.max(0, CARD_STEPS.findIndex(s => s.key === (status === 'returned' ? 'draft' : status)))
+  const readyPct = v && v.checks > 0 ? Math.round(100 * (v.checks - v.blocking - v.warnings) / v.checks) : null
+  const act = ACTION[status] ?? 'Open'
+  const canGo = o.filing_id ? true : canPrepare
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-center">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <span className="text-[15px] text-[var(--color-ink)] font-medium">{o.label}</span>
+            <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{regulator ?? 'EBA'} · {o.frequency}</span>
+            {filed
+              ? <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full" style={{ color: '#34d399', background: '#34d39920' }}>filed</span>
+              : <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
+                  style={o.overdue ? { color: '#fb7185', background: '#fb718520' } : { color: '#e8b24c', background: '#e8b24c20' }}>
+                  {o.overdue ? `⚠ ${Math.abs(o.days_to_due)}d overdue · due ${fmtDate(o.due_date)}` : `due ${fmtDate(o.due_date)}`}</span>}
+          </div>
+          <CardStepper idx={stageIdx} />
+          <div className="mono text-[11px] mt-2.5 flex items-center gap-2">
+            {status === 'not_started'
+              ? <span className="text-[var(--color-faint)]">Not started</span>
+              : readyPct != null
+                ? <>
+                    <span className="inline-block h-[5px] w-[110px] rounded-full bg-[var(--color-line-2)] overflow-hidden align-middle">
+                      <span className="block h-full rounded-full" style={{ width: `${readyPct}%`, background: (v!.blocking > 0 ? '#e8b24c' : '#34d399') }} />
+                    </span>
+                    {v!.blocking > 0
+                      ? <span style={{ color: '#e8b24c' }}>{v!.blocking} to fix before review</span>
+                      : v!.warnings > 0 ? <span className="text-[var(--color-mute)]">clear · {v!.warnings} to review</span>
+                        : <span style={{ color: '#34d399' }}>all checks clear</span>}
+                  </>
+                : <span className="text-[var(--color-faint)]">{ST[status]?.label ?? status}</span>}
+          </div>
+        </div>
+        <div className="flex justify-start sm:justify-end">
+          {canGo
+            ? <button onClick={o.filing_id ? onOpen : onPrepare}
+                className="mono text-[12px] px-4 py-2.5 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition whitespace-nowrap">{act} →</button>
+            : <span className="mono text-[10.5px] text-[var(--color-faint)]">awaiting preparer</span>}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function CardStepper({ idx }: { idx: number }) {
+  return (
+    <div className="flex items-center" style={{ maxWidth: 420 }}>
+      {CARD_STEPS.map((s, i) => {
+        const done = i < idx, cur = i === idx
+        return (
+          <div key={s.key} className="flex flex-col items-center gap-1 relative flex-1">
+            {i < CARD_STEPS.length - 1 && <div className="absolute top-[5px] left-1/2 w-full h-[2px]" style={{ background: done ? '#34d399' : 'var(--color-line)' }} />}
+            <div className="w-[11px] h-[11px] rounded-full relative z-10" style={done ? { background: '#34d399', border: '2px solid #34d399' }
+              : cur ? { background: 'var(--color-panel)', border: '2px solid var(--color-sky)', boxShadow: '0 0 0 3px var(--color-sky, #5cc8ff)22' }
+              : { background: 'var(--color-line)', border: '2px solid var(--color-line)' }} />
+            <span className="mono text-[8px] uppercase tracking-wide whitespace-nowrap" style={{ color: (done || cur) ? 'var(--color-ink)' : 'var(--color-faint)' }}>{s.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Everything that isn't "act on a filing" — collapsed behind a tab strip instead of stacked open on the landing.
+function DetailsTabs({ filings, onOpen }: { filings: FilingSummary[]; onOpen: (id: string) => void }) {
+  const [tab, setTab] = useState<'coverage' | 'data' | 'basis' | 'history'>('coverage')
+  const flags = useQuery({ queryKey: ['disclosure-flags'], queryFn: () => api.get<{ flags: unknown[] }>('/v1/decisions/disclosure-flags') })
+  const nFlags = flags.data?.flags?.length ?? 0
+  const TABS: { k: typeof tab; label: string; badge?: number }[] = [
+    { k: 'coverage', label: 'Coverage' }, { k: 'data', label: 'Your data', badge: nFlags },
+    { k: 'basis', label: 'Basis' }, { k: 'history', label: 'History' },
+  ]
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex gap-1 px-2.5 py-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)] flex-wrap">
+        {TABS.map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)}
+            className={`mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${tab === t.k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+            {t.label}{!!t.badge && <span className="text-[9px] px-1.5 rounded-full" style={{ color: '#e8b24c', background: '#e8b24c22' }}>{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="p-4">
+        {tab === 'coverage' && <FilingCoverage />}
+        {tab === 'data' && <div className="space-y-4"><DisclosureFlags /><ProvidedData /></div>}
+        {tab === 'basis' && <FilingBasis />}
+        {tab === 'history' && (
+          filings.length === 0
+            ? <div className="px-1 py-5 text-[13px] text-[var(--color-faint)]">No filings yet.</div>
+            : <div className="divide-y divide-[var(--color-line)]">
+                {filings.map(f => (
+                  <button key={f.filing_id} onClick={() => onOpen(f.filing_id)}
+                    className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition rounded">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] text-[var(--color-ink)] truncate flex items-center gap-2">{f.label} <span className="text-[var(--color-faint)]">· {f.period_label}</span>{f.scope && f.scope !== 'organisation' && <ScopeChip scope={f.scope} name={f.entity_name} />}</div>
+                      <div className="mono text-[10.5px] text-[var(--color-faint)]">v{f.snapshot_version ?? '—'} · {f.created_by ?? '—'} · {fmtDate(f.created_at)}{f.submission_ref ? ` · ref ${f.submission_ref}` : ''}</div>
+                    </div>
+                    <Chip status={f.status} />
+                  </button>
+                ))}
+              </div>
+        )}
+      </div>
+    </Card>
   )
 }
 

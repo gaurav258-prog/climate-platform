@@ -18,9 +18,9 @@ interface TriggersResp {
 }
 
 const TITLE: Record<string, { title: string; blurb: string }> = {
-  bank:          { title: 'Reports & filings', blurb: 'Everything you must file, the data behind it, and the final regulatory form — prepared, reviewed and submitted from one place.' },
-  asset_manager: { title: 'Reports & filings', blurb: 'Everything you must file, the data behind it, and the final regulatory form — prepared, reviewed and submitted from one place.' },
-  reit:          { title: 'Reports & filings', blurb: 'Everything you must file, the data behind it, and the final regulatory form — prepared, reviewed and submitted from one place.' },
+  bank:          { title: 'Reports & filings', blurb: 'The filings that need you, front and centre — everything else is a click away under Details.' },
+  asset_manager: { title: 'Reports & filings', blurb: 'The filings that need you, front and centre — everything else is a click away under Details.' },
+  reit:          { title: 'Reports & filings', blurb: 'The filings that need you, front and centre — everything else is a click away under Details.' },
   insurer:       { title: 'Reports & filings', blurb: 'Your climate filings and the live parametric-cover monitoring behind them.' },
 }
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
