@@ -13,7 +13,7 @@ const SECTORS: Record<string, { prefix: string; listKey: string; bookNoun: strin
   bank:          { prefix: 'bank', listKey: 'assets', bookNoun: 'loan tape', rowNoun: 'exposure' },
   insurer:       { prefix: 'insurance', listKey: 'policies', bookNoun: 'Statement of Values', rowNoun: 'location' },
   asset_manager: { prefix: 'assetmgmt', listKey: 'holdings', bookNoun: 'holdings book', rowNoun: 'holding' },
-  reit:          { prefix: 'reit', listKey: 'properties', bookNoun: 'property schedule', rowNoun: 'property' },
+  reit:          { prefix: 'realestate', listKey: 'properties', bookNoun: 'property schedule', rowNoun: 'property' },
 }
 const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round((n || 0) / 1e3)}k`
 

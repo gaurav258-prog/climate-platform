@@ -354,19 +354,32 @@ def policies_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_sov_template.xlsx"})
 
 
-@router.post("/policies/upload", summary="Bulk-upload policies from a CSV into your property book")
+@router.post("/policies/validate", summary="Check a Statement of Values (CSV or Excel) before importing — nothing is saved")
+async def validate_policies(ctx: CurrentUser, file: UploadFile = File(...)):
+    """Dry run: report which rows are ready and which need fixing (a reason per row), writing nothing."""
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, POLICY_TEMPLATE_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
+            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+@router.post("/policies/upload", summary="Import policies from a CSV into your property book")
 async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
     """Same shape as bank.py's assets/upload and supply.py's plots/upload: lands
     in the uploader's OWN org, resolves an H3 cell per row, then processes new
     cells against the golden source via the shared
     services.scoring.on_demand.process_new_cells."""
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    from services.ingest.upload_validation import parse_table
     raw = await file.read()
     try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+        df = parse_table(raw, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
     if missing:

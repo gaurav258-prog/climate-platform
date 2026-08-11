@@ -25,7 +25,7 @@ const GROUPS: Group[] = [
     { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
     { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
-    { to: '/data', label: 'Data', icon: Database, perm: 'modules.view', sectors: ['bank'] },
+    { to: '/data', label: 'Data', icon: Database, perm: 'modules.view', sectors: FIN },
     { to: '/operations', label: 'Our sites', icon: Building2, perm: 'modules.view', sectors: AGRI },
     { to: '/sourcing', label: 'Suppliers & crops', icon: Sprout, perm: 'modules.view', sectors: AGRI },
     { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },

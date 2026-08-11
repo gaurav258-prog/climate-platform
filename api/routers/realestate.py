@@ -312,18 +312,31 @@ def properties_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_property_schedule_template.xlsx"})
 
 
-@router.post("/properties/upload", summary="Bulk-upload properties from a CSV into your portfolio")
+@router.post("/properties/validate", summary="Check a property schedule (CSV or Excel) before importing — nothing is saved")
+async def validate_properties(ctx: CurrentUser, file: UploadFile = File(...)):
+    """Dry run: report which rows are ready and which need fixing (a reason per row), writing nothing."""
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, PROPERTY_TEMPLATE_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
+            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+@router.post("/properties/upload", summary="Import properties from a CSV into your portfolio")
 async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
     """Same shape as bank.py/insurance.py/supply.py's upload endpoints: lands in
     the uploader's OWN org, resolves an H3 cell per row, then processes new
     cells against the golden source via the shared process_new_cells."""
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    from services.ingest.upload_validation import parse_table
     raw = await file.read()
     try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+        df = parse_table(raw, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     missing = [c for c in REQUIRED_PROPERTY_COLUMNS if c not in df.columns]
     if missing:

@@ -77,6 +77,44 @@ def _check_kind(kind: Optional[str], label: str, raw) -> Optional[str]:
     return None
 
 
+def _kind_from(name: str) -> str:
+    n = name.lower()
+    if "latitude" in n:
+        return "lat"
+    if "longitude" in n:
+        return "lon"
+    if n == "country":
+        return "iso2"
+    if "date" in n:
+        return "date"
+    if n.endswith("_eur") or "value_eur" in n or "insured" in n or "noi" in n:
+        return "money"
+    return "text"
+
+
+def _label_from(name: str) -> str:
+    s = name.replace("_eur", " (EUR)").replace("_pct", " (%)").replace("_", " ").strip()
+    return s[:1].upper() + s[1:] if s else s
+
+
+def enrich_specs(specs: list[dict]) -> list[dict]:
+    """Fill in a customer-facing `label` and a validation `kind` for any spec that doesn't set them, inferred
+    from the column name — so a sector's existing template field list needs no hand-annotation to be validated."""
+    out = []
+    for s in specs:
+        e = dict(s)
+        e.setdefault("label", _label_from(s["name"]))
+        e.setdefault("kind", _kind_from(s["name"]))
+        out.append(e)
+    return out
+
+
+def parse_and_validate(raw: bytes, filename: Optional[str], specs: list[dict]) -> dict:
+    """Parse a CSV/Excel upload and validate it against the (auto-enriched) column spec — the one call both the
+    dry-run check and the real import share, so what a preparer previews is exactly what gets saved."""
+    return validate_table(parse_table(raw, filename), enrich_specs(specs))
+
+
 def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
     """Validate every row against the column spec. `specs` items: {name, required, kind?, label?}.
 
