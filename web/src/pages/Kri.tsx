@@ -94,24 +94,7 @@ export default function Kri() {
         : (
         <>
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
-          {/* regulator framing — what the supervisor expects to see before you file, and how ready you are */}
-          {d.regulator && (
-            <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <ShieldCheck size={15} className="text-[var(--color-sky)]" />
-                <span className="text-[12.5px] text-[var(--color-ink)]">What your regulator expects before you file — <b>{d.regulator.authority}</b></span>
-                {d.readiness && (
-                  <span className="ml-auto mono text-[10.5px]" style={{ color: d.readiness.covered >= d.readiness.core ? 'var(--color-good)' : 'var(--color-warn)' }}>
-                    {d.readiness.covered}/{d.readiness.core} regulator datapoints covered
-                  </span>
-                )}
-              </div>
-              <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.regulator.disclosure}{d.regulator.form_url ? <> · <a href={d.regulator.form_url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">official form ↗</a></> : ''}</div>
-              {d.readiness && d.readiness.integrated.length > 0 && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">needs your input: {d.readiness.integrated.join(' · ')}</div>}
-              {d.readiness && d.readiness.gaps.length > 0 && <div className="mono text-[10px] text-[var(--color-warn)] mt-1">awaiting data: {d.readiness.gaps.join(' · ')}</div>}
-            </div>
-          )}
-          {d.scope_note && <div className="mono text-[10.5px] text-[var(--color-faint)]">{d.scope_note}</div>}
+          {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (
             <div className="flex items-center gap-2 rounded-lg px-3.5 py-2.5" style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: '1px solid color-mix(in oklab, #fb7185 30%, transparent)' }}>
               <span className="w-2 h-2 rounded-full" style={{ background: '#fb7185' }} />
@@ -161,47 +144,73 @@ export default function Kri() {
             })}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-5">
-            {d.by_hazard.length > 0 && (
-              <div>
-                <div className="flex items-center mb-2">
-                  <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Value at risk by hazard</div>
-                  {hasAnalytics && (
-                    <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="See how this exposure moves as the world warms">
-                      explore forward <ChevronRight size={11} />
-                    </button>
-                  )}
-                </div>
-                <Card className="p-4">
-                  <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={eur} onBar={i => setDrill(d.by_hazard[i].hazard)} />
-                  <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it{hasAnalytics ? ' · then project it forward in Analytics' : ''}</div>
-                </Card>
-              </div>
-            )}
-            <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Historical perspective · across filings</div>
-              <Card className="p-0 overflow-hidden">
-                {d.history.length === 0 ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No filed history yet.</div>
-                  : <div className="divide-y divide-[var(--color-line)]">
-                      {d.history.map((h, i) => (
-                        <button key={i} onClick={() => h.filing_id && nav(filingLink(profile?.org?.type, h.filing_id))}
-                          className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
-                          <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
-                          <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{eur(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>
-                          {h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{eur(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
-                          <ChevronRight size={14} className="text-[var(--color-faint)] shrink-0" />
-                        </button>
-                      ))}
-                    </div>}
-              </Card>
-            </div>
-          </div>
+          <KriReference d={d} hasAnalytics={hasAnalytics} nav={nav} setDrill={setDrill} orgType={profile?.org?.type} />
         </>
       )}
 
       {drill && <HazardDrill framework={framework} hazard={drill} hasAnalytics={hasAnalytics} onClose={() => setDrill(null)} />}
       {detail && <KriDetail framework={framework} kriKey={detail} onClose={() => setDetail(null)} />}
     </div>
+  )
+}
+
+// Reference material behind a tab strip instead of stacked open below the indicators: value-at-risk by hazard,
+// the trend across filings, and the regulator framing. Keeps the KRI grid (the hero) uncluttered.
+function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
+  { d: Resp; hasAnalytics: boolean; nav: (to: string) => void; setDrill: (h: string) => void; orgType?: string }) {
+  const tabs: { k: string; label: string }[] = [
+    ...(d.by_hazard.length > 0 ? [{ k: 'hazard', label: 'By hazard' }] : []),
+    { k: 'history', label: 'History' },
+    ...(d.regulator ? [{ k: 'reg', label: 'Regulator view' }] : []),
+  ]
+  const [tab, setTab] = useState(tabs[0].k)
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex gap-1 px-2.5 py-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)] flex-wrap">
+        {tabs.map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)}
+            className={`mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-md transition ${tab === t.k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t.label}</button>
+        ))}
+      </div>
+      <div className="p-4">
+        {tab === 'hazard' && d.by_hazard.length > 0 && (
+          <div>
+            <div className="flex items-center mb-2">
+              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Value at risk by hazard</div>
+              {hasAnalytics && <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="See how this exposure moves as the world warms">explore forward <ChevronRight size={11} /></button>}
+            </div>
+            <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={eur} onBar={i => setDrill(d.by_hazard[i].hazard)} />
+            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it{hasAnalytics ? ' · then project it forward in Analytics' : ''}</div>
+          </div>
+        )}
+        {tab === 'history' && (
+          d.history.length === 0 ? <div className="px-1 py-5 text-[13px] text-[var(--color-faint)]">No filed history yet.</div>
+          : <div className="divide-y divide-[var(--color-line)]">
+              {d.history.map((h, i) => (
+                <button key={i} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
+                  <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
+                  <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{eur(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>
+                  {h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{eur(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
+                  <ChevronRight size={14} className="text-[var(--color-faint)] shrink-0" />
+                </button>
+              ))}
+            </div>
+        )}
+        {tab === 'reg' && d.regulator && (
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <ShieldCheck size={15} className="text-[var(--color-sky)]" />
+              <span className="text-[12.5px] text-[var(--color-ink)]">What your regulator expects before you file — <b>{d.regulator.authority}</b></span>
+              {d.readiness && <span className="ml-auto mono text-[10.5px]" style={{ color: d.readiness.covered >= d.readiness.core ? 'var(--color-good)' : 'var(--color-warn)' }}>{d.readiness.covered}/{d.readiness.core} regulator datapoints covered</span>}
+            </div>
+            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.regulator.disclosure}{d.regulator.form_url ? <> · <a href={d.regulator.form_url} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">official form ↗</a></> : ''}</div>
+            {d.readiness && d.readiness.integrated.length > 0 && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">needs your input: {d.readiness.integrated.join(' · ')}</div>}
+            {d.readiness && d.readiness.gaps.length > 0 && <div className="mono text-[10px] text-[var(--color-warn)] mt-1">awaiting data: {d.readiness.gaps.join(' · ')}</div>}
+            {d.scope_note && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2 pt-2 border-t border-[var(--color-line)]">{d.scope_note}</div>}
+          </div>
+        )}
+      </div>
+    </Card>
   )
 }
 
