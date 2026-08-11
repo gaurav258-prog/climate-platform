@@ -62,6 +62,44 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
     return qualitative_structure(cur)
 
 
+class CellPatch(BaseModel):
+    key: str = Field(..., min_length=1, max_length=64)   # '<template>.<row>.<col>', e.g. 't2.3.8'
+    value: str = Field(..., max_length=64)                # the manually-entered value ('' clears it)
+
+
+@router.get("/filings/structured/p3esg-cells", summary="Manually-entered values for integrated Pillar 3 cells")
+def get_p3esg_cells(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return {"cells": saved.get("cells") or {}}
+
+
+@router.patch("/filings/structured/p3esg-cells", summary="Manually enter a value into an integrated Pillar 3 cell")
+def set_p3esg_cell(body: CellPatch, session: DbSession,
+                   ctx: dict = Depends(require_permission("approvals.create"))):
+    """A preparer enters an aggregate value into an 'integrated' (bank-fed) cell that has no connected feed yet.
+    Stored as an audited overlay on the frozen annex (the computed snapshot is never mutated), keyed by cell."""
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cells = dict(cur.get("cells") or {})
+    if body.value.strip():
+        cells[body.key] = body.value.strip()
+    else:
+        cells.pop(body.key, None)          # empty clears the manual entry (reverts to the fed '—')
+    cur["cells"] = cells
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.cell.manual_entry", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"cell": body.key, "value": body.value.strip()})
+    return {"cells": cells}
+
+
 class Template10Patch(BaseModel):
     rows: list[dict]    # [{kind, instrument, counterparty, gross_eur, risk, qualitative}, ...]
 

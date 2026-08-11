@@ -356,7 +356,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             t2_rows.append(_t2row("of which · collateral obtained by taking possession"))
             t2_rows.append(_t2row("of which · level of energy efficiency (EP score) estimated"))
         sections.append({"title": "Template 2 — Banking book · loans collateralised by immovable property · energy efficiency of collateral (ITS 2022/2453, Annex XXXIX)",
-                         "columns": t2_cols, "col_sources": t2_src, "rows": t2_rows,
+                         "key": "t2", "columns": t2_cols, "col_sources": t2_src, "rows": t2_rows,
                          "note": "Fixed format per Annex XL. Gross carrying amount of loans collateralised by commercial / "
                                  "residential immovable property and repossessed real estate, distributed by the collateral's "
                                  "energy consumption (kWh/m², cols b–g) and EPC label (A–G, cols h–n), split Union / non-Union. "
@@ -423,7 +423,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         t5_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in grid["rows"]]
         t5_rows.append(_t5row("TOTAL", grid["total"]))
         sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
-                         "columns": cols, "col_sources": srcs, "rows": t5_rows,
+                         "key": "t5", "columns": cols, "col_sources": srcs, "rows": t5_rows,
                          "note": grid["basis"] + " Maturity, IFRS-9 staging and impairment columns are integrated "
                                  "from the institution's loan tape (shown as '—' until that feed is connected)."})
     else:
@@ -509,7 +509,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                                       dict(_mnum("— % BTAR", "integrated"))]},
         ]
         sections.append({"title": "Template 9 — BTAR · banking book taxonomy alignment ratio (ITS 2022/2453, Annex XXXIX 9.1–9.3)",
-                         "columns": t9_cols, "col_sources": t9_src, "rows": t9_rows,
+                         "key": "t9", "columns": t9_cols, "col_sources": t9_src, "rows": t9_rows,
                          "note": "Voluntary extension of the GAR to counterparties outside the NFRD scope — EU SMEs / "
                                  "non-financial corporates and non-EU corporates. Their Taxonomy alignment is not on any "
                                  "public disclosure, so the institution collects it bilaterally through loan origination and "

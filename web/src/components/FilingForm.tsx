@@ -24,7 +24,7 @@ interface Dp {
 interface Group { group: string; datapoints: Dp[] }
 interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string }
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
-interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[] }
+interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string }
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
 interface Form { framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null }
 
@@ -46,6 +46,8 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['filing-form', filingId], queryFn: () => api.get<Form>(`/v1/filings/${filingId}/form`) })
+  const cellsQ = useQuery({ queryKey: ['p3-cells'], queryFn: () => api.get<{ cells: Record<string, string> }>('/v1/filings/structured/p3esg-cells'),
+    enabled: q.data?.framework === 'bank_p3esg' })
   const [edit, setEdit] = useState<string | null>(null)
   const [view, setView] = useState<'official' | 'datapoints'>('official')
   const d = q.data
@@ -75,7 +77,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
       </div>
 
       {hasAnnex && view === 'official'
-        ? <AnnexView annex={d.annex!} {...editProps} />
+        ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
         : <DatapointList groups={d.groups} {...editProps} />}
 
       {d.framework === 'bank_p3esg' && view === 'official' && <P3Qualitative canEdit={canEdit} />}
@@ -113,7 +115,29 @@ function SrcLegend({ sources }: { sources: string[] }) {
   )
 }
 
-function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
+// A bank-fed ('integrated') cell with no connected feed shows '—'; a preparer may enter an aggregate value
+// manually here (audited overlay on the frozen annex). Saved values carry a violet 'manual' dot.
+function ManualCell({ cellKey, saved, placeholder, canEdit, onSaved }:
+  { cellKey: string; saved?: string; placeholder: string; canEdit: boolean; onSaved: () => void }) {
+  const [val, setVal] = useState(saved ?? '')
+  const [busy, setBusy] = useState(false)
+  const save = async () => {
+    if ((val || '') === (saved ?? '')) return
+    setBusy(true)
+    try { await api.patch('/v1/filings/structured/p3esg-cells', { key: cellKey, value: val }); onSaved() }
+    catch { toast.error('Could not save this entry.'); setVal(saved ?? '') } finally { setBusy(false) }
+  }
+  if (!canEdit) return <span className="inline-flex items-center gap-1 justify-end w-full">
+    {saved ? <><span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />{saved}</> : <span className="text-[var(--color-faint)]">{placeholder}</span>}</span>
+  return (
+    <input value={val} onChange={e => setVal(e.target.value)} onBlur={save} disabled={busy}
+      placeholder={placeholder} title="Manual entry — no bank feed connected for this cell"
+      className="w-16 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] focus:border-solid placeholder:text-[var(--color-faint)]"
+      style={saved ? { color: 'var(--color-viz,#a78bfa)' } : undefined} />
+  )
+}
+
+function AnnexView({ annex, cells: cellVals, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void } & EditProps) {
   return (
     <Card className="p-0 overflow-hidden">
       <div className="px-4 py-3 border-b border-[var(--color-line)]">
@@ -153,6 +177,11 @@ function AnnexView({ annex, ...ep }: { annex: Annex } & EditProps) {
                         {cells.map((c, ci) => {
                           const last = ci === cells.length - 1
                           if (c.dp) return <td key={ci} className="px-4 py-1.5 text-right align-top"><CellValue dp={c.dp} {...ep} /></td>
+                          // an integrated / manual grid cell in a keyed section → preparer can enter a value by hand
+                          if (s.key && (c.source === 'integrated' || c.source === 'manual')) {
+                            const ck = `${s.key}.${ri}.${ci}`
+                            return <td key={ci} className="px-4 py-1.5 align-top text-right"><ManualCell cellKey={ck} saved={cellVals[ck]} placeholder={c.text ?? '—'} canEdit={ep.canEdit} onSaved={onCells} /></td>
+                          }
                           return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                         })}
                       </tr>
