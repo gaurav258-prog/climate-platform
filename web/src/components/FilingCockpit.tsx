@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower } from 'lucide-react'
+import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
@@ -67,10 +67,11 @@ export default function FilingCockpit() {
   const [params, setParams] = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
   const [preflightFw, setPreflightFw] = useState<string | null>(null)
-  // deep-link: /compliance?filing=<id> (or /filings?filing=) opens that filing's drawer — used by the
-  // calendar, Control Tower and KRI history to drill straight into a filing's full detail.
-  useEffect(() => { const f = params.get('filing'); if (f) setOpenId(f) }, [params])
-  const closeDrawer = () => { setOpenId(null); if (params.get('filing')) { params.delete('filing'); setParams(params, { replace: true }) } }
+  // A filing opens as a FULL-WINDOW view, driven by the ?filing=<id> URL param so the browser Back button
+  // closes it and links (Control Tower, KRI history) land straight on the full page. openId mirrors the URL.
+  useEffect(() => { setOpenId(params.get('filing')) }, [params])
+  const openFiling = (id: string) => { const p = new URLSearchParams(params); p.set('filing', id); setParams(p) }
+  const closeDrawer = () => { const p = new URLSearchParams(params); p.delete('filing'); setParams(p, { replace: true }) }
 
   const perms = profile?.permissions ?? []
   const canPrepare = perms.includes('approvals.create')
@@ -105,15 +106,15 @@ export default function FilingCockpit() {
           : <div className="space-y-3">
               {obligations.map(o => (
                 <FilingCard key={o.obligation_id} o={o} regulator={regByFw[o.framework]} canPrepare={canPrepare}
-                  onOpen={() => o.filing_id && setOpenId(o.filing_id)} onPrepare={() => setPreflightFw(o.framework)} />
+                  onOpen={() => o.filing_id && openFiling(o.filing_id)} onPrepare={() => setPreflightFw(o.framework)} />
               ))}
             </div>}
       </div>
 
       {/* ── DETAILS — everything else, one click away instead of stacked open ── */}
-      <DetailsTabs filings={filings} onOpen={setOpenId} />
+      <DetailsTabs filings={filings} onOpen={openFiling} />
 
-      {openId && <FilingDrawer filingId={openId} onClose={closeDrawer} onChanged={refresh} onOpen={setOpenId} />}
+      {openId && <FilingDrawer filingId={openId} onClose={closeDrawer} onChanged={refresh} onOpen={openFiling} />}
       {preflightFw && <FilingPreflight framework={preflightFw} onClose={() => setPreflightFw(null)}
         onGenerated={(id) => { setPreflightFw(null); refresh(); setOpenId(id) }} />}
     </div>
@@ -262,11 +263,10 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
   const reload = () => { q.refetch(); val.refetch(); qc.invalidateQueries({ queryKey: ['filings'] }); qc.invalidateQueries({ queryKey: ['obligations'] }); onChanged() }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative w-full max-w-xl h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Filing</div>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)]">
+      <div className="relative w-full max-w-6xl mx-auto min-h-full pb-16">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-[var(--color-line)] bg-[var(--color-bg)]/95 backdrop-blur">
+          <button onClick={onClose} className="inline-flex items-center gap-1.5 mono text-[11px] uppercase tracking-wide text-[var(--color-mute)] hover:text-[var(--color-ink)]"><ChevronLeft size={15} /> Back to reports</button>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
         </div>
 
