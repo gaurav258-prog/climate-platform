@@ -320,19 +320,19 @@ def clear_asset_valuation_override(asset_id: str, session: DbSession, ctx: Curre
 # template-facing name (industry-recognizable); it maps onto the existing
 # asset_value_eur DB column (a disclosed rename, not a churny migration).
 ASSET_TEMPLATE_FIELDS = [
-    {"name": "asset_name", "required": True, "description": "Free-text asset/property name.", "example": "Frankfurt Tower 1"},
-    {"name": "asset_type", "required": True, "description": "Property/collateral type.", "example": "commercial_real_estate"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees.", "example": "50.1109"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "8.6821"},
-    {"name": "appraised_value_eur", "required": True, "description": "Current appraised/collateral value.", "example": "12000000"},
-    {"name": "sector", "required": True, "description": "Sector / NACE classification.", "example": "Commercial real estate"},
-    {"name": "outstanding_loan_balance_eur", "required": False, "description": "Current outstanding principal — enables LTV.", "example": "8400000"},
-    {"name": "loan_origination_date", "required": False, "description": "YYYY-MM-DD.", "example": "2022-03-01"},
-    {"name": "region", "required": False, "description": "Free-text region/city.", "example": "Frankfurt"},
-    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "DE"},
-    {"name": "borrower_entity_id", "required": False, "description": "Borrower's LEI or other stable entity ID — "
+    {"name": "asset_name", "required": True, "label": "Asset name", "kind": "text", "description": "Free-text asset/property name.", "example": "Frankfurt Tower 1"},
+    {"name": "asset_type", "required": True, "label": "Asset type", "kind": "text", "description": "Property/collateral type.", "example": "commercial_real_estate"},
+    {"name": "latitude", "required": True, "label": "Latitude", "kind": "lat", "description": "Decimal degrees.", "example": "50.1109"},
+    {"name": "longitude", "required": True, "label": "Longitude", "kind": "lon", "description": "Decimal degrees.", "example": "8.6821"},
+    {"name": "appraised_value_eur", "required": True, "label": "Appraised value (EUR)", "kind": "money", "description": "Current appraised/collateral value.", "example": "12000000"},
+    {"name": "sector", "required": True, "label": "Sector", "kind": "text", "description": "Sector / NACE classification.", "example": "Commercial real estate"},
+    {"name": "outstanding_loan_balance_eur", "required": False, "label": "Outstanding loan balance (EUR)", "kind": "money", "description": "Current outstanding principal — enables LTV.", "example": "8400000"},
+    {"name": "loan_origination_date", "required": False, "label": "Loan origination date", "kind": "date", "description": "YYYY-MM-DD.", "example": "2022-03-01"},
+    {"name": "region", "required": False, "label": "Region", "kind": "text", "description": "Free-text region/city.", "example": "Frankfurt"},
+    {"name": "country", "required": False, "label": "Country", "kind": "iso2", "description": "ISO-2 country code.", "example": "DE"},
+    {"name": "borrower_entity_id", "required": False, "label": "Borrower ID (LEI)", "kind": "text", "description": "Borrower's LEI or other stable entity ID — "
      "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per loan.", "example": "5493001KJTIIGC8Y1R12"},
-    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
+    {"name": "minimum_safeguards_status", "required": False, "label": "Minimum-safeguards status", "kind": "text", "description": "compliant / non_compliant, from your own "
      "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check (also requires a "
      "nace_code on the loan, which today's upload doesn't yet collect — see the taxonomy_status note below).", "example": "compliant"},
 ]
@@ -347,37 +347,51 @@ def assets_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_loan_tape_template.xlsx"})
 
 
-@router.post("/assets/upload", summary="Bulk-upload assets from a CSV into your loan book")
-async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
-    """Real self-service data entry: a CSV of assets lands in the uploader's OWN
-    org (never DEMO_ORG — this always requires a real login), gets an H3 cell per
-    row, and is immediately processed against the golden source (see
-    services.scoring.on_demand.process_new_cells) exactly the way an any-address
-    lookup query would be -- no separate ingestion pipeline to keep in sync."""
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
-    raw = await file.read()
-    try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+def _report(raw: bytes, filename: Optional[str]) -> dict:
+    """Parse (CSV or Excel) + validate a loan-tape upload — the shared step behind both the pre-import check and
+    the import itself, so what you preview is exactly what gets saved."""
+    from services.ingest.upload_validation import parse_table, validate_table
+    df = parse_table(raw, filename)   # raises ValueError → clean 400 in the callers
+    return validate_table(df, ASSET_TEMPLATE_FIELDS)
 
-    missing = [c for c in REQUIRED_ASSET_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
+
+@router.post("/assets/validate", summary="Check a loan tape (CSV or Excel) before importing — nothing is saved")
+async def validate_assets(ctx: CurrentUser, file: UploadFile = File(...)):
+    """Dry run: report how many rows are ready and which need fixing (with a reason per row), without writing
+    anything. The UI shows this as the pre-import preview; the preparer then confirms the import."""
+    try:
+        rep = _report(await file.read(), file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
+            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+@router.post("/assets/upload", summary="Import a loan tape (CSV or Excel) into your loan book")
+async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Imports the rows that pass validation and reports any that didn't — nothing invalid is silently dropped.
+    Each imported asset lands in the uploader's OWN org, gets an H3 cell, and is scored against the golden source
+    the same way an any-address lookup is (services.scoring.on_demand.process_new_cells)."""
+    try:
+        rep = _report(await file.read(), file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    if rep["n_valid"] == 0:
+        raise HTTPException(status_code=400, detail="None of the rows are ready to import yet — please fix the flagged rows and try again.")
 
     org_id = ctx["org"]["org_id"]
-    # Same core the direct-integration API uses (NaN → None so the shared row parser sees real blanks).
-    rows = df.where(pd.notnull(df), None).to_dict("records")
     from services.ingest.portfolio_ingest import ingest_bank_assets
-    res = ingest_bank_assets(session, org_id, rows)
-    if res["n_ingested"] == 0:
-        raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
+    res = ingest_bank_assets(session, org_id, rep["valid_rows"])
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
                 target_type="bank_assets", target_id=None,
-                detail={"n_rows": res["n_ingested"], "n_skipped": res["n_skipped"], "filename": file.filename})
+                detail={"n_rows": res["n_ingested"], "n_invalid": rep["n_error"], "filename": file.filename})
 
-    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], **res["processing"]}
+    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], "n_invalid": rep["n_error"],
+            "errors": rep["errors"][:200], **res["processing"]}
 
 
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")
