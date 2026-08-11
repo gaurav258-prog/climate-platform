@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
+import ExpectedLossCard from '../components/ExpectedLossCard'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
@@ -208,6 +209,9 @@ export default function Portfolio() {
 
       {/* forward-change decision signal */}
       {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
+
+      {/* climate expected loss (€) — near-term decision quantity, bank only */}
+      {cfg.prefix === 'bank' && <ExpectedLossCard prefix={cfg.prefix} scenario={fwdScenario} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
 
       {/* the book */}
       <div ref={bookRef} className="scroll-mt-4" />

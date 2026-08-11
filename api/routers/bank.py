@@ -163,6 +163,12 @@ def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("di
     return forward_risk(session, org_id, "banking", scenario)
 
 
+@router.get("/expected-loss", summary="Climate expected loss (€) — annual + lifetime, maturity-matched")
+def expected_loss_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
+    from services.intelligence.expected_loss import bank_expected_loss
+    return bank_expected_loss(session, org_id, scenario)
+
+
 @router.get("/summary", summary="Command-center rollup")
 def summary(session: DbSession, org_id: OrgId,
             scenario: str = Query("baseline"), horizon: str = Query("current")):
