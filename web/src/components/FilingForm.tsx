@@ -76,12 +76,13 @@ export default function FilingForm({ filingId }: { filingId: string }) {
         </div>
       </div>
 
-      {hasAnnex && view === 'official'
-        ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
-        : <DatapointList groups={d.groups} {...editProps} />}
-
-      {d.framework === 'bank_p3esg' && view === 'official' && <P3Qualitative canEdit={canEdit} />}
-      {d.framework === 'bank_p3esg' && view === 'official' && <P3Template10 canEdit={canEdit} />}
+      {view !== 'official'
+        ? <DatapointList groups={d.groups} {...editProps} />
+        : d.framework === 'bank_p3esg'
+          ? <P3FormTabs annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+          : hasAnnex
+            ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+            : <DatapointList groups={d.groups} {...editProps} />}
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
     </div>
@@ -137,13 +138,79 @@ function ManualCell({ cellKey, saved, placeholder, canEdit, onSaved }:
   )
 }
 
-function AnnexView({ annex, cells: cellVals, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void } & EditProps) {
+// The 13 Pillar 3 forms grouped into 4 tabs by the EBA's own risk themes, so a preparer lands on the group they
+// own (qualitative author / risk team / taxonomy team) instead of scrolling one 13-form page. bank_p3esg only.
+type P3Group = 'qual' | 'trans' | 'phys' | 'tax'
+function p3Group(title: string): P3Group {
+  if (/\btable\b/i.test(title)) return 'qual'
+  const m = title.match(/template[s]?\s*(\d+)/i)
+  const n = m ? parseInt(m[1], 10) : 0
+  if (n >= 1 && n <= 4) return 'trans'
+  if (n === 5) return 'phys'
+  return 'tax'   // Templates 6–10 (GAR, BTAR, other actions)
+}
+const P3_TABS: { k: P3Group; label: string; sub: string }[] = [
+  { k: 'qual', label: 'Qualitative', sub: 'Tables 1–3' },
+  { k: 'trans', label: 'Transition risk', sub: 'Templates 1–4' },
+  { k: 'phys', label: 'Physical risk', sub: 'Template 5' },
+  { k: 'tax', label: 'Taxonomy & GAR', sub: 'Templates 6–10' },
+]
+
+function P3FormTabs({ annex, cells, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void } & EditProps) {
+  const [tab, setTab] = useState<P3Group>('qual')
+  const qual = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
+  const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
+
+  const badge = (g: P3Group): { t: string; c: string } | null => {
+    if (g === 'qual') return qual.data ? { t: `${qual.data.authored}/${qual.data.total_rows}`, c: 'var(--color-viz,#a78bfa)' } : null
+    const secs = annex.sections.filter(s => p3Group(s.title) === g)
+    const keys = secs.map(s => s.key).filter(Boolean) as string[]
+    const filled = keys.length > 0 && Object.keys(cells).some(ck => keys.some(k => ck.startsWith(k + '.')))
+    if (filled) return { t: 'in progress', c: 'var(--color-good,#34d399)' }
+    const hasIntegrated = secs.some(s => (s.col_sources ?? []).includes('integrated'))
+    if (g === 'phys') return { t: 'engine', c: 'var(--color-sky)' }
+    return hasIntegrated ? { t: 'feed pending', c: 'var(--color-warn)' } : { t: 'engine', c: 'var(--color-sky)' }
+  }
+
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="px-4 py-3 border-b border-[var(--color-line)]">
+    <div>
+      <div className="px-1 pb-2">
         <div className="text-[13px] text-[var(--color-ink)]">{annex.official_name}</div>
         <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">{[annex.official_form, annex.authority].filter(Boolean).join(' · ')}</div>
       </div>
+      {/* form-group tabs — each holds only its templates, with a readiness badge */}
+      <div className="flex gap-1.5 flex-wrap border-b border-[var(--color-line)] mb-3">
+        {P3_TABS.map(t => {
+          const b = badge(t.k); const on = tab === t.k
+          return (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={`text-left px-4 pt-2.5 pb-3 rounded-t-lg border border-b-0 transition ${on ? 'bg-[var(--color-panel)] border-[var(--color-line)] -mb-px' : 'border-transparent hover:bg-[var(--color-bg-2)]'}`}>
+              <div className="flex items-center gap-2.5 whitespace-nowrap">
+                <span className={`text-[13px] font-medium ${on ? 'text-[var(--color-ink)]' : 'text-[var(--color-mute)]'}`}>{t.label}</span>
+                {b && <span className="mono text-[8.5px] px-1.5 py-0.5 rounded-full shrink-0" style={{ color: b.c, background: 'color-mix(in oklab, ' + b.c + ' 14%, transparent)' }}>{b.t}</span>}
+              </div>
+              <div className="mono text-[8.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">{t.sub}</div>
+            </button>
+          )
+        })}
+      </div>
+      {tab === 'qual' && <P3Qualitative canEdit={ep.canEdit} />}
+      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} cells={cells} onCells={onCells} hideName {...ep} />}
+      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} cells={cells} onCells={onCells} hideName {...ep} />}
+      {tab === 'tax' && <div className="space-y-3"><AnnexView annex={sectionsOf('tax')} cells={cells} onCells={onCells} hideName {...ep} /><P3Template10 canEdit={ep.canEdit} /></div>}
+    </div>
+  )
+}
+
+function AnnexView({ annex, cells: cellVals, onCells, hideName, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void; hideName?: boolean } & EditProps) {
+  return (
+    <Card className="p-0 overflow-hidden">
+      {!hideName && (
+        <div className="px-4 py-3 border-b border-[var(--color-line)]">
+          <div className="text-[13px] text-[var(--color-ink)]">{annex.official_name}</div>
+          <div className="mono text-[9.5px] text-[var(--color-faint)] mt-0.5">{[annex.official_form, annex.authority].filter(Boolean).join(' · ')}</div>
+        </div>
+      )}
       {annex.sections.map((s, si) => (
         <div key={si} className={si > 0 ? 'border-t border-[var(--color-line)]' : ''}>
           <div className="px-4 py-2 bg-[var(--color-bg-2)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{s.title}</div>
