@@ -117,13 +117,28 @@ export default function Shell({ children }: { children: ReactNode }) {
       {/* vertical grouped sidebar — drag the right edge to resize, or collapse to an icon rail (both persisted) */}
       <aside style={{ width: asideW }} className="shrink-0 sticky top-0 h-screen flex flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)] relative">
         <div className={clsx('h-14 flex items-center border-b border-[var(--color-line)]', collapsed ? 'justify-center px-0' : 'px-5 gap-2')}>
-          <BrandMark size={24} />
-          {!collapsed && <>
+          {collapsed ? (
+            <button onClick={toggleCollapse} title="Expand menu" aria-label="Expand menu"
+              className="group relative h-full w-full flex items-center justify-center hover:bg-[var(--color-panel)] transition">
+              <BrandMark size={24} />
+              {/* on hover the logo becomes an unmistakable expand control */}
+              <span className="absolute inset-0 flex items-center justify-center bg-[var(--color-bg-2)] text-[var(--color-ink)] opacity-0 group-hover:opacity-100 transition"><PanelLeftOpen size={19} /></span>
+            </button>
+          ) : (<>
+            <BrandMark size={24} />
             <span className="display font-semibold text-[15px]">Tel<span className="text-[var(--color-sky)]">lumen</span></span>
             <span className="mono text-[9px] text-[var(--color-faint)] tracking-widest ml-1">{SECTOR_TAG[sector] ?? ''}</span>
-            <button onClick={toggleCollapse} title="Collapse sidebar" className="ml-auto text-[var(--color-faint)] hover:text-[var(--color-ink)] transition"><PanelLeftClose size={16} /></button>
-          </>}
+            <button onClick={toggleCollapse} title="Collapse menu" className="ml-auto text-[var(--color-faint)] hover:text-[var(--color-ink)] transition"><PanelLeftClose size={16} /></button>
+          </>)}
         </div>
+
+        {/* always-visible expand control at the top of the icon rail — no hunting for it */}
+        {collapsed && (
+          <button onClick={toggleCollapse} title="Expand menu" aria-label="Expand menu"
+            className="mx-auto mt-2.5 w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)] hover:border-[var(--color-sky)] transition">
+            <PanelLeftOpen size={17} />
+          </button>
+        )}
 
         <nav className={clsx('flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-5', collapsed ? 'px-2' : 'px-3')}>
           {(() => {
@@ -171,7 +186,6 @@ export default function Shell({ children }: { children: ReactNode }) {
         <div className={clsx('border-t border-[var(--color-line)] py-3 space-y-2.5', collapsed ? 'px-2' : 'px-4')}>
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
-              <button onClick={toggleCollapse} title="Expand sidebar" className="text-[var(--color-faint)] hover:text-[var(--color-ink)] transition"><PanelLeftOpen size={17} /></button>
               <button onClick={() => applyTheme(dark ? 'light' : 'dark')} title={dark ? 'Switch to light' : 'Switch to dark'} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] transition">{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
               <button onClick={logout} title="Log out" className="text-[var(--color-faint)] hover:text-[var(--color-bad)] transition"><LogOut size={16} /></button>
             </div>
