@@ -134,11 +134,15 @@ export default function Horizon() {
       DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight
       cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
       gx = W * 0.5; gy = H * 0.53
-      // size the globe to the VIEWPORT, not the (nav-narrowed) content area, so the left nav never shrinks
-      // it — it stays the exact size it was full-screen. Uniform radius → always a true circle, never squeezed.
-      Rg = Math.min(window.innerWidth * 0.34, window.innerHeight * 0.40)
+      // Size the globe to the CANVAS (the actual content area), so it scales as the sidebar expands/collapses
+      // instead of being clipped or squeezed. Uniform radius → always a true circle, centred in whatever space
+      // is available. W/H are the live canvas dimensions, kept current by the ResizeObserver below.
+      Rg = Math.min(W * 0.34, H * 0.40)
     }
     resize(); addEventListener('resize', resize)
+    // the content area changes width when the sidebar expands/collapses (no window 'resize' fires for that) —
+    // observe the canvas itself so the globe + hit-testing reflow to the new size immediately.
+    const ro = new ResizeObserver(resize); ro.observe(cv)
 
     const project = (la: number, lo: number) => {
       const lat = la * D2R, lon = lo * D2R, dl = lon - S.current.lon0, cl = Math.cos(lat), l0 = S.current.lat0
@@ -245,7 +249,7 @@ export default function Horizon() {
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp) }
+    return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); ro.disconnect(); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp) }
   }, [assets, profile])
 
   const closeSel = () => { S.current.focus = null; if (S.current.belt) { const [la, lo] = beltMean(S.current.belt); S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)) } setSel(null) }
