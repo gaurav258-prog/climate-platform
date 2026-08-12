@@ -43,11 +43,15 @@ def _clean(v) -> Optional[str]:
     return s or None
 
 
-def _check_kind(kind: Optional[str], label: str, raw) -> Optional[str]:
+def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = None) -> Optional[str]:
     """Return a plain-language problem message, or None if the value is acceptable for its kind."""
     v = _clean(raw)
     if v is None:
         return None  # emptiness is handled by the required-check upstream
+    if kind == "enum" and allowed:
+        if v.strip().upper() not in {str(a).upper() for a in allowed}:
+            return f"{label} must be one of {', '.join(str(a) for a in allowed)} (got “{v}”)"
+        return None
     if kind in ("lat", "lon"):
         try:
             f = float(v)
@@ -140,7 +144,7 @@ def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
             if s.get("required") and _clean(val) is None:
                 problems.append(f"{label} is required")
                 continue
-            msg = _check_kind(s.get("kind"), label, val)
+            msg = _check_kind(s.get("kind"), label, val, s.get("allowed"))
             if msg:
                 problems.append(msg)
         if problems:

@@ -45,7 +45,13 @@ export default function DataHub() {
       </div>
 
       <Step n={1} title="Upload your book" tone="you">
-        <UploadBook cfg={cfg} onImported={refresh} />
+        <ValidatedUpload
+          intro={<>Your {cfg.bookNoun} is the source every climate score starts from — one row per {cfg.rowNoun}. We validate every row <b className="text-[var(--color-ink)]">before</b> anything is saved.</>}
+          dropLabel={cfg.bookNoun}
+          endpoints={{ validate: `/v1/${cfg.prefix}/${cfg.listKey}/validate`, upload: `/v1/${cfg.prefix}/${cfg.listKey}/upload`, template: `/v1/${cfg.prefix}/${cfg.listKey}/template.xlsx`, templateFile: `tellumen_${cfg.listKey}_template.xlsx` }}
+          onDone={refresh}
+          renderDone={res => <>Imported <b>{Number(res.n_uploaded) || 0}</b> {cfg.rowNoun}{Number(res.n_uploaded) === 1 ? '' : 's'} — scored and ready below.</>}
+        />
       </Step>
 
       <Flow>the engine scores every {cfg.rowNoun} against verified EU &amp; US climate data</Flow>
@@ -68,6 +74,18 @@ export default function DataHub() {
 
       <Step n={3} title="Add &amp; provide data" tone="bank" flush>
         <ProvidedData />
+        {type === 'bank' && (
+          <div className="px-5 pt-2 pb-5 border-t border-[var(--color-line)] mt-2">
+            <div className="text-[13px] text-[var(--color-ink)] font-medium mb-0.5">Per-loan data by Excel</div>
+            <ValidatedUpload
+              intro={<>Bulk-provide the per-loan figures the engine can&rsquo;t derive from location — <b className="text-[var(--color-ink)]">EPC label, IFRS-9 stage, residual maturity</b> — in one file, matched to your book by asset name. Reconciled and audited like any provided figure.</>}
+              dropLabel="per-loan attributes file"
+              endpoints={{ validate: '/v1/bank/assets/attributes/validate', upload: '/v1/bank/assets/attributes/upload', template: '/v1/bank/assets/attributes/template.xlsx', templateFile: 'tellumen_loan_attributes_template.xlsx' }}
+              onDone={refresh}
+              renderDone={res => <>Matched <b>{Number(res.n_matched) || 0}</b> {Number(res.n_matched) === 1 ? 'loan' : 'loans'}{Number(res.n_unmatched) ? <> · <span style={{ color: 'var(--color-warn)' }}>{Number(res.n_unmatched)} not found in your book</span></> : ''} — saved.</>}
+            />
+          </div>
+        )}
       </Step>
 
       {/* integration lives in the technical settings area, not the everyday workflow */}
@@ -84,23 +102,26 @@ export default function DataHub() {
 }
 
 // ── the validated upload: drop → we check every row → you confirm the import ─────────────────────────────────
-function UploadBook({ cfg, onImported }: { cfg: { prefix: string; listKey: string; bookNoun: string; rowNoun: string }; onImported: () => void }) {
+interface UploadEndpoints { validate: string; upload: string; template: string; templateFile: string }
+function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone }: {
+  intro: React.ReactNode; dropLabel: string; endpoints: UploadEndpoints; onDone: () => void
+  renderDone: (res: Record<string, unknown>) => React.ReactNode
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [rep, setRep] = useState<ValRep | null>(null)
   const [phase, setPhase] = useState<'idle' | 'checking' | 'checked' | 'importing' | 'done' | 'error'>('idle')
   const [msg, setMsg] = useState<string | null>(null)
-  const [result, setResult] = useState<{ n_uploaded: number } | null>(null)
-  const base = `/v1/${cfg.prefix}/${cfg.listKey}`
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
 
   const pick = async (f: File) => {
     setFile(f); setResult(null); setMsg(null); setRep(null); setPhase('checking')
     try {
-      const v = await uploadFile<ValRep>(`${base}/validate`, f)
+      const v = await uploadFile<ValRep>(endpoints.validate, f)
       setRep(v); setPhase('checked')
     } catch (e: unknown) {
       const d = (e as { data?: { detail?: unknown } })?.data?.detail
-      setMsg(missingMsg(d) ?? 'We couldn’t read that file — please upload a CSV or Excel export of your ' + cfg.bookNoun + '.')
+      setMsg(missingMsg(d) ?? `We couldn’t read that file — please upload a CSV or Excel ${dropLabel}.`)
       setPhase('error')
     }
   }
@@ -108,10 +129,10 @@ function UploadBook({ cfg, onImported }: { cfg: { prefix: string; listKey: strin
     if (!file) return
     setPhase('importing'); setMsg(null)
     try {
-      const res = await uploadFile<{ n_uploaded: number }>(`${base}/upload`, file)
-      setResult(res); setPhase('done'); onImported()
+      const res = await uploadFile<Record<string, unknown>>(endpoints.upload, file)
+      setResult(res); setPhase('done'); onDone()
     } catch {
-      setMsg('Something went wrong importing — please try again.'); setPhase('error')
+      setMsg('Something went wrong saving — please try again.'); setPhase('error')
     }
   }
   const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
@@ -125,7 +146,7 @@ function UploadBook({ cfg, onImported }: { cfg: { prefix: string; listKey: strin
 
   return (
     <div>
-      <p className="text-[13px] text-[var(--color-mute)] mb-3">Your {cfg.bookNoun} is the source every climate score starts from — one row per {cfg.rowNoun}. We validate every row <b className="text-[var(--color-ink)]">before</b> anything is saved.</p>
+      <p className="text-[13px] text-[var(--color-mute)] mb-3">{intro}</p>
       <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) pick(f) }} />
 
       {phase !== 'done' && (
@@ -133,8 +154,8 @@ function UploadBook({ cfg, onImported }: { cfg: { prefix: string; listKey: strin
           onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
           className="rounded-xl border border-dashed border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-4 py-6 text-center cursor-pointer hover:border-[var(--color-sky)] transition">
           <Upload size={18} className="mx-auto text-[var(--color-faint)] mb-2" />
-          <div className="text-[13px] text-[var(--color-ink)]">Drop your {cfg.bookNoun} here <span className="text-[var(--color-faint)]">— CSV or Excel —</span> or <span className="text-[var(--color-sky)]">browse</span></div>
-          <button onClick={e => { e.stopPropagation(); download(`${base}/template.xlsx`, `tellumen_${cfg.listKey}_template.xlsx`) }}
+          <div className="text-[13px] text-[var(--color-ink)]">Drop your {dropLabel} here <span className="text-[var(--color-faint)]">— CSV or Excel —</span> or <span className="text-[var(--color-sky)]">browse</span></div>
+          <button onClick={e => { e.stopPropagation(); download(endpoints.template, endpoints.templateFile) }}
             className="mt-2 inline-flex items-center gap-1.5 mono text-[10.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={12} /> download the template</button>
         </div>
       )}
@@ -173,7 +194,7 @@ function UploadBook({ cfg, onImported }: { cfg: { prefix: string; listKey: strin
       {phase === 'done' && result && (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--color-line)] px-4 py-3" style={{ background: 'color-mix(in oklab,var(--color-good) 8%,transparent)' }}>
           <CheckCircle2 size={16} style={{ color: 'var(--color-good)' }} />
-          <span className="text-[13px] text-[var(--color-ink)]">Imported <b>{result.n_uploaded}</b> {cfg.rowNoun}{result.n_uploaded === 1 ? '' : 's'} — scored and ready below.</span>
+          <span className="text-[13px] text-[var(--color-ink)]">{renderDone(result)}</span>
           <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-auto">upload another file</button>
         </div>
       )}

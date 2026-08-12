@@ -394,6 +394,86 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
             "errors": rep["errors"][:200], **res["processing"]}
 
 
+# ── Per-loan regulatory attributes the engine can't derive from location — provided in bulk by Excel, matched to
+#    the book by asset name, and written to the loan's record (feeds Pillar 3 maturity/EPC/staging + expected loss).
+ATTR_TEMPLATE_FIELDS = [
+    {"name": "asset_name", "required": True, "label": "Asset name", "kind": "text", "description": "Must match an asset already in your book.", "example": "Frankfurt Tower 1"},
+    {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "money", "description": "Remaining life of the loan, in years.", "example": "7"},
+    {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
+    {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
+]
+_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage"}
+
+
+@router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
+def attributes_template_xlsx():
+    buf = build_template_workbook(ATTR_TEMPLATE_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=tellumen_loan_attributes_template.xlsx"})
+
+
+@router.post("/assets/attributes/validate", summary="Check a per-loan attributes file (CSV or Excel) before saving")
+async def validate_attributes(ctx: CurrentUser, file: UploadFile = File(...)):
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, ATTR_TEMPLATE_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
+            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+@router.post("/assets/attributes/upload", summary="Save per-loan attributes, matched to your book by asset name")
+async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Matches each row to an existing asset by name (case-insensitive) and writes the provided attributes to the
+    loan's record — the fields that pass validation only. Unmatched rows are reported, never guessed."""
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, ATTR_TEMPLATE_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    if rep["n_valid"] == 0:
+        raise HTTPException(status_code=400, detail="None of the rows are ready yet — please fix the flagged rows and try again.")
+
+    org_id = ctx["org"]["org_id"]
+    # name → entity_id for this org's loan book (lower-cased for a forgiving match)
+    idx = {r[0].strip().lower(): r[1] for r in session.execute(text(
+        "SELECT entity_name, entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking'"
+    ), {"o": org_id}).fetchall()}
+
+    matched, unmatched, updated = 0, [], 0
+    for row in rep["valid_rows"]:
+        name = str(row.get("asset_name") or "").strip()
+        eid = idx.get(name.lower())
+        if not eid:
+            unmatched.append(name)
+            continue
+        matched += 1
+        sets, params = [], {"e": eid}
+        mat = row.get("residual_maturity_years")
+        if mat not in (None, ""):
+            sets.append("residual_maturity_years = :mat"); params["mat"] = float(str(mat).replace(",", ""))
+        epc = row.get("epc_label")
+        if epc not in (None, ""):
+            sets.append("epc_label = :epc"); params["epc"] = str(epc).strip().upper()
+        stg = row.get("ifrs9_stage")
+        if stg not in (None, ""):
+            sets.append("ifrs9_stage = :stg"); params["stg"] = str(stg).strip()
+        if sets:
+            session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
+            updated += 1
+    session.commit()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.attributes.upload",
+                target_type="ext_banking", target_id=None,
+                detail={"matched": matched, "updated": updated, "unmatched": len(unmatched), "filename": file.filename})
+    return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched),
+            "unmatched": unmatched[:50], "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+
+
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")
 def disclosure_xlsx(session: DbSession, org_id: OrgId,
                      scenario: str = Query("baseline"), horizon: str = Query("current")):
