@@ -141,6 +141,10 @@ export default function Analytics() {
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.{perils && ` Scoped to ${perils} perils.`}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* one flow: this is the deep version of Portfolio's Forward view */}
+          <Link to="/portfolio?view=forward" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
+            <ChevronRight size={13} className="rotate-180" /> Your portfolio
+          </Link>
           {/* Assess → Decide: the projection's crossings are what Decisions acts on */}
           <Link to="/decisions" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-sky)] px-3 py-1.5 text-[12px] text-[var(--color-sky)] hover:bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)] transition">
             Act on this projection <ArrowRight size={13} />

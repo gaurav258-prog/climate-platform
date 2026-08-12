@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'lucide-react'
 import { api, download, upload, ApiError } from '../lib/api'
@@ -127,7 +127,9 @@ export default function Portfolio() {
   const [open, setOpen] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   // two jobs, cleanly separated: work the book (find/open assets) vs. read the forward analysis.
-  const [view, setView] = useState<'book' | 'forward'>('book')
+  // Analytics deep-links straight to the forward view via ?view=forward, so the two feel like one flow.
+  const [sp] = useSearchParams()
+  const [view, setView] = useState<'book' | 'forward'>(sp.get('view') === 'forward' ? 'forward' : 'book')
   // the book is search-driven — not a full dump. filter by text (name/region/sector), hazard, and severity.
   const [search, setSearch] = useState('')
   const [hazardF, setHazardF] = useState('')
@@ -221,6 +223,12 @@ export default function Portfolio() {
           {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
           {/* climate expected loss (€) — near-term decision quantity, bank only */}
           {cfg.prefix === 'bank' && <ExpectedLossCard prefix={cfg.prefix} scenario={fwdScenario} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
+          {/* one flow: the deeper version of this forward story lives in Analytics (bank/AM/REIT only) */}
+          {(type === 'bank' || type === 'asset_manager' || type === 'reit') && (
+            <Link to="/analytics" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-sky)] hover:underline">
+              See the full forward analytics — pathways, drivers &amp; lineage <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
       ) : (
       <div className="space-y-6">
