@@ -73,6 +73,8 @@ export default function Horizon() {
   const cvRef = useRef<HTMLCanvasElement>(null)
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
+  const leftPanelRef = useRef<HTMLDivElement>(null)   // overview rail — the globe must clear its right edge
+  const rightPanelRef = useRef<HTMLDivElement>(null)  // 'what needs you' rail — clear its left edge
   const [sel, setSel] = useState<GAsset | null>(null)
   const [beltName, setBeltName] = useState<string | null>(null)
   // start PAUSED at "today" — the year only advances when the user presses play or drags the scrubber
@@ -133,16 +135,30 @@ export default function Horizon() {
     const resize = () => {
       DPR = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight
       cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0)
-      gx = W * 0.5; gy = H * 0.53
-      // Size the globe to the CANVAS (the actual content area), so it scales as the sidebar expands/collapses
-      // instead of being clipped or squeezed. Uniform radius → always a true circle, centred in whatever space
-      // is available. W/H are the live canvas dimensions, kept current by the ResizeObserver below.
-      Rg = Math.min(W * 0.34, H * 0.40)
+      gy = H * 0.53
+      // Fit the globe into the CLEAR BAND between the two side rails, so it never slides under their text.
+      // Read the rails' live edges (their widths scale with the content area) and centre the globe in the gap;
+      // radius is the smaller of half that band and the vertical room. Uniform radius → always a true circle.
+      const desktop = window.innerWidth > 800
+      if (desktop) {
+        const cr = cv.getBoundingClientRect(), GAP = 22
+        let lE = W * 0.28, rE = W * 0.72
+        const lp = leftPanelRef.current; if (lp) { const r = lp.getBoundingClientRect(); if (r.width) lE = (r.right - cr.left) + GAP }
+        const rp = rightPanelRef.current; if (rp) { const r = rp.getBoundingClientRect(); if (r.width) rE = (r.left - cr.left) - GAP }
+        const bandW = Math.max(240, rE - lE)
+        gx = lE + bandW / 2
+        Rg = Math.min(bandW / 2, H * 0.42)
+      } else {
+        gx = W * 0.5
+        Rg = Math.min(W * 0.42, H * 0.36)   // mobile: rails are top/bottom overlays, globe fills behind
+      }
     }
     resize(); addEventListener('resize', resize)
-    // the content area changes width when the sidebar expands/collapses (no window 'resize' fires for that) —
-    // observe the canvas itself so the globe + hit-testing reflow to the new size immediately.
+    // the content area (and the side rails' widths) change when the sidebar expands/collapses — no window
+    // 'resize' fires for that — so observe the canvas AND the rails, and reflow the globe to the new band.
     const ro = new ResizeObserver(resize); ro.observe(cv)
+    if (leftPanelRef.current) ro.observe(leftPanelRef.current)
+    if (rightPanelRef.current) ro.observe(rightPanelRef.current)
 
     const project = (la: number, lo: number) => {
       const lat = la * D2R, lon = lo * D2R, dl = lon - S.current.lon0, cl = Math.cos(lat), l0 = S.current.lat0
@@ -318,7 +334,7 @@ export default function Horizon() {
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className={`absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
+      <div ref={leftPanelRef} className={`absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#0e1728]">
@@ -381,7 +397,7 @@ export default function Horizon() {
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
       {!sel && !beltName && !panel && (
-      <div className={`absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
+      <div ref={rightPanelRef} className={`absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
         <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3 max-[800px]:hidden">What needs you</div>
         {displayTasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
