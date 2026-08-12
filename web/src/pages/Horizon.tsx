@@ -285,7 +285,7 @@ export default function Horizon() {
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
   return (
-    <div data-theme="dark" className="absolute inset-0 bg-[#04060b] overflow-hidden select-none">
+    <div data-theme="dark" className="absolute inset-0 bg-[#04060b] overflow-hidden select-none [container-type:inline-size]">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
       {/* top chrome — brand lives in the nav now; this just labels the front door */}
       <div className="absolute top-7 left-8 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
@@ -318,7 +318,7 @@ export default function Horizon() {
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div className={`absolute left-8 top-[11%] w-[min(272px,32vw)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
+      <div className={`absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#0e1728]">
@@ -381,7 +381,7 @@ export default function Horizon() {
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
       {!sel && !beltName && !panel && (
-      <div className={`absolute right-8 top-[12%] w-[min(320px,42vw)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
+      <div className={`absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
         <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3 max-[800px]:hidden">What needs you</div>
         {displayTasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
