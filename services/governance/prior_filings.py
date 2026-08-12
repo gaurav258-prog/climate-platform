@@ -185,10 +185,43 @@ def delete_filing(session, filing_id: str, org_id: str) -> None:
         raise FilingError("Filing not found.")
 
 
-def trends(session, org_id: str, framework: Optional[str] = None) -> dict:
+import re as _re
+
+
+def _project(points: list[dict], horizon_years: int) -> dict:
+    """Continue a reported series forward from its LAST confirmed value, so reported→projected is continuous.
+    Rate is taken from the customer's own reported history: compound annual change when values are same-sign
+    and positive, otherwise the average annual change. Returns [] when the periods aren't plain years or
+    there are fewer than two points (nothing to extrapolate from)."""
+    yrs, vals = [], []
+    for p in points:
+        m = _re.search(r"(19|20)\d{2}", p["period"] or "")
+        if not m or p["value"] is None:
+            return {"projection": [], "method": None}
+        yrs.append(int(m.group(0))); vals.append(float(p["value"]))
+    if len(vals) < 2:
+        return {"projection": [], "method": None}
+    span = yrs[-1] - yrs[0]
+    first, last = vals[0], vals[-1]
+    if span > 0 and first > 0 and last > 0:
+        rate = (last / first) ** (1 / span) - 1
+        proj = [{"period": str(yrs[-1] + k), "value": last * (1 + rate) ** k, "projected": True}
+                for k in range(1, horizon_years + 1)]
+        method = "compound annual change from your reported history"
+    else:
+        delta = (last - first) / span if span else 0.0
+        proj = [{"period": str(yrs[-1] + k), "value": last + delta * k, "projected": True}
+                for k in range(1, horizon_years + 1)]
+        method = "average annual change from your reported history"
+    return {"projection": proj, "method": method}
+
+
+def trends(session, org_id: str, framework: Optional[str] = None, horizon_years: int = 3) -> dict:
     """All reported-figure series across confirmed filings — one series per (framework, datapoint), its value
     per period, and a flag where the stated preparation basis changed between periods (so a trend is never
-    drawn as continuous across a methodology or boundary change)."""
+    drawn as continuous across a methodology or boundary change). Each series also carries a forward
+    projection continuing from its last confirmed value."""
+    horizon_years = max(1, min(10, horizon_years))
     rows = session.execute(text("""
         SELECT g.framework, g.datapoint_key, rf.period_label,
                sum(g.value_num) AS value, max(g.unit) AS unit, max(rf.basis_note) AS basis_note
@@ -217,6 +250,10 @@ def trends(session, org_id: str, framework: Optional[str] = None) -> dict:
         for i, p in enumerate(s["points"]):
             p["basis_break"] = i > 0 and bases[i] != bases[i - 1]
         s["basis_changed"] = len({b for b in bases if b}) > 1 or any(p["basis_break"] for p in s["points"])
+        pr = _project(s["points"], horizon_years)
+        s["projection"] = pr["projection"]
+        s["proj_method"] = pr["method"]
+        s["proj_reliable"] = bool(pr["projection"]) and not s["basis_changed"]
         out.append(s)
     out.sort(key=lambda s: (-len(s["points"]), s["label"]))
     return {"series": out}

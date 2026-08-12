@@ -23,7 +23,11 @@ interface Filing {
 }
 interface Framework { key: string; label: string }
 interface TrendPoint { period: string; value: number; unit: string | null; basis_note: string | null; basis_break: boolean }
-interface Series { framework: string; datapoint_key: string; label: string; points: TrendPoint[]; basis_changed: boolean }
+interface ProjPoint { period: string; value: number; projected: boolean }
+interface Series {
+  framework: string; datapoint_key: string; label: string; points: TrendPoint[]; basis_changed: boolean
+  projection: ProjPoint[]; proj_method: string | null; proj_reliable: boolean
+}
 
 const FMT: Record<string, string> = { xbrl: 'XBRL', ixbrl: 'iXBRL', excel: 'Excel', pdf: 'PDF' }
 // compact axis/label formatter — handles EUR/tCO2e magnitudes and sub-1 ratios alike
@@ -48,10 +52,11 @@ export default function PriorFilings() {
   const [basis, setBasis] = useState('')
 
   const [seriesKey, setSeriesKey] = useState('')
+  const [horizon, setHorizon] = useState(3)   // projection years beyond the last filed value
 
   const fw = useQuery({ queryKey: ['pf-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/prior-filings/frameworks') })
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
-  const trends = useQuery({ queryKey: ['pf-trends'], queryFn: () => api.get<{ series: Series[] }>('/v1/prior-filings/trends') })
+  const trends = useQuery({ queryKey: ['pf-trends', horizon], queryFn: () => api.get<{ series: Series[] }>(`/v1/prior-filings/trends?horizon_years=${horizon}`) })
   const frameworks = fw.data?.frameworks ?? []
   if (!framework && frameworks.length) setFramework(frameworks[0].key)
 
@@ -263,30 +268,59 @@ export default function PriorFilings() {
               <div className="text-[13px] text-[var(--color-mute)]">
                 One year on file — <span className="mono text-[var(--color-ink)]">{selected.points[0].period}: {compact(selected.points[0].value)}{selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''}</span>. Import earlier years to see the trend.
               </div>
-            ) : (
+            ) : (() => {
+              const unit = selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''
+              // one dataset: reported points carry `value`, projected years carry `proj`; the last reported
+              // point also carries `proj` so the dashed line starts exactly where the solid line ends.
+              const data: Record<string, number | string | boolean>[] = [
+                ...selected.points.map(p => ({ period: p.period, value: p.value, basis_break: p.basis_break })),
+                ...selected.projection.map(p => ({ period: p.period, proj: p.value })),
+              ]
+              if (selected.projection.length) {
+                const lastP = selected.points[selected.points.length - 1]
+                const anchor = data.find(r => r.period === lastP.period)
+                if (anchor) anchor.proj = lastP.value
+              }
+              return (
               <>
+                <div className="flex items-center justify-end gap-2 mb-2">
+                  <span className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)]">Project</span>
+                  <div className="flex gap-1 p-0.5 rounded-lg border border-[var(--color-line-2)]">
+                    {[1, 3, 5].map(h => (
+                      <button key={h} onClick={() => setHorizon(h)}
+                        className={`px-2.5 py-1 rounded-md text-[11.5px] transition ${horizon === h ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>+{h}y</button>
+                    ))}
+                  </div>
+                </div>
                 <div className="h-[220px] -ml-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={selected.points} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                    <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
                       <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="period" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} axisLine={{ stroke: 'var(--color-line-2)' }} tickLine={false} />
                       <YAxis tickFormatter={compact} width={54} tick={{ fontSize: 11, fill: 'var(--color-faint)' }} axisLine={false} tickLine={false} />
                       <Tooltip
                         contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }}
                         labelStyle={{ color: 'var(--color-mute)' }}
-                        formatter={(v: number, _n, p) => [`${compact(v)}${selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''}${(p?.payload as TrendPoint)?.basis_break ? '  · basis changed' : ''}`, 'Reported']} />
-                      <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                        formatter={(v: number, name) => [`${compact(v)}${unit}`, name === 'proj' ? 'Projected' : 'Reported']} />
+                      <Line type="monotone" dataKey="value" name="value" stroke="var(--color-sky)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="proj" name="proj" stroke="var(--color-mute)" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2.5, fill: 'var(--color-mute)' }} connectNulls isAnimationActive={false} />
                       {selected.points.map((p, i) => p.basis_break && (
                         <ReferenceDot key={i} x={p.period} y={p.value} r={5} fill="var(--color-warn)" stroke="var(--color-bg-2)" strokeWidth={2} />
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                {selected.projection.length > 0 && (
+                  <div className="mt-2 text-[11.5px] text-[var(--color-faint)]">
+                    <span className="inline-block w-4 border-t-2 border-dashed border-[var(--color-mute)] align-middle mr-1.5" />
+                    Dashed = projected from your last filed value{selected.proj_method ? ` — ${selected.proj_method}` : ''}.
+                  </div>
+                )}
                 {selected.basis_changed && (
                   <div className="mt-3 flex items-start gap-2 text-[12px] text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] border border-[color-mix(in_oklab,var(--color-warn)_35%,transparent)] rounded-lg px-3 py-2">
                     <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                     <div>
-                      Preparation basis changed across these years — the marked points are not directly comparable to the prior year.
+                      Preparation basis changed across these years — the marked points are not directly comparable, and the projection should be read as indicative.
                       <div className="mt-1 text-[var(--color-mute)]">
                         {selected.points.filter(p => p.basis_break).map(p => `${p.period}: ${p.basis_note || '—'}`).join(' · ')}
                       </div>
@@ -294,7 +328,8 @@ export default function PriorFilings() {
                   </div>
                 )}
               </>
-            )}
+              )
+            })()}
           </div>
         </Card>
       )}
