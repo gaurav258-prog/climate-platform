@@ -155,9 +155,9 @@ export default function Shell({ children }: { children: ReactNode }) {
               <div key={gi}>
                 {g.label && (collapsed
                   ? <div className="flex justify-center mb-1.5" title={g.label}><span className="w-1.5 h-1.5 rounded-full" style={{ background: hue }} /></div>
-                  : <div className="px-2 mb-1.5 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: hue }} />
-                      <span className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: hue }}>
+                  : <div className="px-2 mb-2 mt-0.5 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hue }} />
+                      <span className="text-[13px] font-semibold tracking-[0.01em]" style={{ color: hue }}>
                         {n != null && <span className="tabular-nums">{n} · </span>}{g.label}
                       </span>
                     </div>
