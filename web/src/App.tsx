@@ -14,6 +14,7 @@ import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
 import Compliance from './pages/Compliance'
+import PriorFilings from './pages/PriorFilings'
 import DataHub from './pages/DataHub'
 import Analytics from './pages/Analytics'
 import Decisions from './pages/Decisions'
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/funds" element={<Funds />} />
         <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />
+        <Route path="/prior-filings" element={<PriorFilings />} />
         <Route path="/data" element={<DataHub />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/decisions" element={<Decisions />} />

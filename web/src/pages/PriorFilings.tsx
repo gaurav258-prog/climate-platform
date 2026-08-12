@@ -1,0 +1,239 @@
+import { useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X } from 'lucide-react'
+import { api, ApiError } from '../lib/api'
+import { toast } from '../lib/toast'
+import { Eyebrow, Card, SectionHead, Button } from '../components/ui'
+
+// Prior filings — bring in ESG reports already filed and accepted. Upload the submitted file itself;
+// the engine reads it into its reported lines, the preparer confirms them, and the figures are stored as
+// the organisation's reported track record for trends and follow-up questions.
+
+interface Figure {
+  figure_id: string; template_ref: string | null; datapoint_key: string | null; label: string
+  value_num: number | null; value_text: string | null; unit: string | null
+  read_method: string; confirmed: boolean
+}
+interface Filing {
+  filing_id: string; framework: string; framework_label: string; period_label: string
+  entity_name: string | null; file_format: string; original_filename: string; status: string
+  n_lines: number | null; uploaded_at: string | null; confirmed_at: string | null
+  basis_note?: string | null; figures?: Figure[]
+}
+interface Framework { key: string; label: string }
+
+const FMT: Record<string, string> = { xbrl: 'XBRL', ixbrl: 'iXBRL', excel: 'Excel', pdf: 'PDF' }
+const num = (n: number | null, unit: string | null) =>
+  n == null ? '—' : `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit === '%' ? '%' : unit ? ` ${unit}` : ''}`
+
+export default function PriorFilings() {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [framework, setFramework] = useState('')
+  const [period, setPeriod] = useState('')
+  const [entity, setEntity] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [draft, setDraft] = useState<Filing | null>(null)          // the report just read, awaiting confirm
+  const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean }>>({})
+  const [basis, setBasis] = useState('')
+
+  const fw = useQuery({ queryKey: ['pf-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/prior-filings/frameworks') })
+  const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
+  const frameworks = fw.data?.frameworks ?? []
+  if (!framework && frameworks.length) setFramework(frameworks[0].key)
+
+  const pickFile = () => fileRef.current?.click()
+
+  async function onFile(f: File) {
+    if (!period.trim()) { toast.error('Enter the reporting period first.'); return }
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', f); fd.append('framework', framework); fd.append('period_label', period.trim())
+      if (entity.trim()) fd.append('entity_name', entity.trim())
+      const d = await api.post<Filing>('/v1/prior-filings/upload', fd)
+      setDraft(d); setEdits({}); setBasis(d.basis_note ?? '')
+    } catch (e) {
+      toast.error(e instanceof ApiError ? String((e.body as { message?: string })?.message ?? 'Could not read that file.') : 'Upload failed.')
+    } finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  async function confirm() {
+    if (!draft) return
+    setBusy(true)
+    try {
+      const editList = Object.entries(edits).map(([figure_id, v]) => ({ figure_id, ...v }))
+      await api.post(`/v1/prior-filings/${draft.filing_id}/confirm`, { edits: editList, basis_note: basis.trim() || null })
+      toast.success(`${draft.framework_label} · ${draft.period_label} confirmed.`)
+      setDraft(null); setEdits({})
+      qc.invalidateQueries({ queryKey: ['pf-list'] })
+    } catch (e) {
+      toast.error(e instanceof ApiError ? String((e.body as { message?: string })?.message ?? 'Could not confirm.') : 'Confirm failed.')
+    } finally { setBusy(false) }
+  }
+
+  async function discardDraft() {
+    if (draft) { try { await api.del(`/v1/prior-filings/${draft.filing_id}`) } catch { /* noop */ } }
+    setDraft(null); setEdits({})
+  }
+
+  async function remove(f: Filing) {
+    if (!confirm2(`Remove ${f.framework_label} · ${f.period_label}?`)) return
+    try { await api.del(`/v1/prior-filings/${f.filing_id}`); qc.invalidateQueries({ queryKey: ['pf-list'] }) }
+    catch { toast.error('Could not remove the filing.') }
+  }
+
+  const kept = (draft?.figures ?? []).filter(fig => !edits[fig.figure_id]?.drop)
+  const mapped = kept.filter(fig => fig.datapoint_key).length
+
+  return (
+    <div className="fadeup space-y-6">
+      <div>
+        <Eyebrow>Reported history</Eyebrow>
+        <h1 className="display text-3xl font-semibold mt-2 mb-1">Prior filings</h1>
+        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Bring in the ESG reports you have already filed and had accepted. Upload the report you submitted — it is read into its reported lines for you to confirm, then kept as your reported record for trends and follow-up questions.</p>
+      </div>
+
+      {/* import */}
+      {!draft && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)]"><SectionHead icon={UploadCloud}>Import a filing</SectionHead></div>
+          <div className="p-5 space-y-4">
+            <div className="flex flex-wrap gap-4">
+              <label className="flex-1 min-w-[200px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Framework</div>
+                <select value={framework} onChange={e => setFramework(e.target.value)}
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]">
+                  {frameworks.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+                </select>
+              </label>
+              <label className="w-[140px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting period</div>
+                <input value={period} onChange={e => setPeriod(e.target.value)} placeholder="2023"
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
+              </label>
+              <label className="flex-1 min-w-[200px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting entity <span className="normal-case tracking-normal">(optional)</span></div>
+                <input value={entity} onChange={e => setEntity(e.target.value)} placeholder="e.g. parent entity"
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
+              </label>
+            </div>
+            <button onClick={pickFile} disabled={busy || !framework}
+              className="w-full border-[1.5px] border-dashed border-[var(--color-line-2)] rounded-xl bg-[var(--color-panel-2)] py-8 text-center hover:border-[var(--color-sky)] transition disabled:opacity-50">
+              <UploadCloud size={22} className="mx-auto text-[var(--color-sky)]" />
+              <div className="text-[14px] font-medium mt-2">{busy ? 'Reading the report…' : 'Choose the filed report'}</div>
+              <div className="text-[12.5px] text-[var(--color-faint)] mt-1">XBRL / iXBRL is read automatically · a PDF or Excel is read and confirmed before saving</div>
+            </button>
+            <input ref={fileRef} type="file" accept=".xbrl,.xml,.html,.htm,.xhtml,.xlsx,.xls,.pdf" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
+          </div>
+        </Card>
+      )}
+
+      {/* review & confirm the read report */}
+      {draft && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+            <SectionHead icon={FileCheck2} hint={`${draft.period_label} · ${FMT[draft.file_format] ?? draft.file_format}`}>{draft.framework_label}</SectionHead>
+            <button onClick={discardDraft} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]" title="Discard"><X size={17} /></button>
+          </div>
+          <div className="px-5 py-3 border-b border-[var(--color-line)] text-[12.5px] text-[var(--color-mute)]">
+            {kept.length} reported {kept.length === 1 ? 'line' : 'lines'} read · {mapped} matched to a datapoint. Adjust any value, drop any line, then confirm.
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead><tr className="text-left">
+                {['From the report', 'Datapoint', 'Value', 'Read', ''].map(h =>
+                  <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {(draft.figures ?? []).map(fig => {
+                  const dropped = edits[fig.figure_id]?.drop
+                  const ev = edits[fig.figure_id]?.value_num
+                  return (
+                    <tr key={fig.figure_id} className={`border-b border-[var(--color-line)] ${dropped ? 'opacity-40' : ''}`}>
+                      <td className="px-4 py-2.5">
+                        <div className={`text-[var(--color-ink)] ${dropped ? 'line-through' : ''}`}>{fig.label}</div>
+                        {fig.template_ref && <div className="mono text-[10px] text-[var(--color-faint)]">{fig.template_ref}</div>}
+                      </td>
+                      <td className="px-4 py-2.5 text-[12px] text-[var(--color-mute)]">{fig.datapoint_key ?? <span className="text-[var(--color-faint)]">unmatched</span>}</td>
+                      <td className="px-4 py-2.5">
+                        {fig.value_num != null || ev != null ? (
+                          <input type="number" defaultValue={fig.value_num ?? undefined} disabled={dropped}
+                            onChange={e => setEdits(p => ({ ...p, [fig.figure_id]: { ...p[fig.figure_id], value_num: e.target.value === '' ? undefined : Number(e.target.value) } }))}
+                            className="w-32 bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-md px-2 py-1 mono text-[12.5px] tabular-nums text-right outline-none focus:border-[var(--color-sky)]" />
+                        ) : <span className="mono text-[12px] text-[var(--color-mute)]">{fig.value_text ?? '—'}</span>}
+                        {fig.unit && <span className="mono text-[11px] text-[var(--color-faint)] ml-1.5">{fig.unit}</span>}
+                      </td>
+                      <td className="px-4 py-2.5"><span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[color-mix(in_oklab,var(--color-sky)_12%,transparent)] text-[var(--color-sky)]">auto</span></td>
+                      <td className="px-4 py-2.5 text-right">
+                        <button onClick={() => setEdits(p => ({ ...p, [fig.figure_id]: { ...p[fig.figure_id], drop: !dropped } }))}
+                          className="text-[var(--color-faint)] hover:text-[var(--color-bad)]" title={dropped ? 'Keep' : 'Drop line'}>
+                          {dropped ? <ChevronRight size={14} /> : <Trash2 size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-4 border-t border-[var(--color-line)] space-y-3">
+            <label className="block">
+              <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Preparation basis <span className="normal-case tracking-normal">(optional — methodology, boundary for this period)</span></div>
+              <input value={basis} onChange={e => setBasis(e.target.value)} placeholder="e.g. PCAF v2 · boundary excludes trading book"
+                className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+            </label>
+            <div className="flex items-center gap-3">
+              <Button onClick={confirm} disabled={busy}><Lock size={14} /> Confirm &amp; lock {draft.period_label}</Button>
+              <button onClick={discardDraft} className="text-[13px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Discard</button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* imported filings */}
+      <Card className="p-0 overflow-hidden">
+        <div className="px-5 py-3 border-b border-[var(--color-line)]"><SectionHead>Your filings</SectionHead></div>
+        {list.isLoading ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</div>
+          : (list.data?.filings ?? []).length === 0
+            ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">No prior filings imported yet.</div>
+            : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead><tr className="text-left">
+                    {['Period', 'Framework', 'Entity', 'Format', 'Lines', 'Status', ''].map(h =>
+                      <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {(list.data?.filings ?? []).map(f => (
+                      <tr key={f.filing_id} className="border-b border-[var(--color-line)]">
+                        <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-ink)]">{f.period_label}</td>
+                        <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.framework_label}</td>
+                        <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.entity_name ?? '—'}</td>
+                        <td className="px-4 py-2.5 mono text-[11px] text-[var(--color-faint)]">{FMT[f.file_format] ?? f.file_format}</td>
+                        <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-mute)]">{f.n_lines ?? '—'}</td>
+                        <td className="px-4 py-2.5">
+                          {f.status === 'confirmed'
+                            ? <span className="inline-flex items-center gap-1 text-[12px] text-[var(--color-good)]"><Lock size={11} /> Confirmed</span>
+                            : <span className="text-[12px] text-[var(--color-warn)]">Draft</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button onClick={() => remove(f)} className="text-[var(--color-faint)] hover:text-[var(--color-bad)]" title="Remove"><Trash2 size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+        <div className="px-5 py-3 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">
+          Reported figures are portfolio-level; trends are shown at reporting-line level.
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// native confirm() shadowed by our confirm handler above — small wrapper keeps the browser dialog available
+function confirm2(msg: string): boolean { return window.confirm(msg) }

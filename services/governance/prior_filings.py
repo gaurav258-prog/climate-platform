@@ -74,7 +74,7 @@ def list_filings(session, org_id: str, framework: Optional[str] = None) -> list[
         SELECT filing_id, framework, period_label, entity_name, file_format, original_filename,
                status, n_lines, uploaded_at, confirmed_at
         FROM reported_filing
-        WHERE org_id = :org AND (:fw IS NULL OR framework = :fw)
+        WHERE org_id = :org AND (CAST(:fw AS text) IS NULL OR framework = :fw)
         ORDER BY period_label DESC, uploaded_at DESC
     """), {"org": org_id, "fw": framework}).mappings().all()
     return [{
