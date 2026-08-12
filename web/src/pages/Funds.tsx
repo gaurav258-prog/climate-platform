@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Pencil, BadgeCheck, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
 
 // The asset-manager's SFDR front door: the manager's filing identity (LEI / legal name / contact — required
 // before any statement can be filed) and the fund list, each fund drilling to its full climate report + the
@@ -50,7 +50,7 @@ export default function Funds() {
       <SfdrNarratives />
 
       <Card className="p-0 overflow-hidden">
-        <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your funds</div>
+        <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Your funds</SectionHead>
         {q.isLoading ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</div>
           : funds.length === 0 ? <div className="p-10 text-center text-[var(--color-faint)] text-sm">No funds yet.</div>
           : <div className="divide-y divide-[var(--color-line)]">

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare, ChevronRight as Chev } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { filingLink, taskLink } from '../lib/links'
 
 // Regulatory calendar — filing deadlines and task due-dates on one month grid, with an upcoming list.
@@ -96,7 +96,7 @@ export default function Calendar() {
           return (
             <Card className="p-0 overflow-hidden self-start">
               <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2"><CalendarClock size={15} className="text-[var(--color-sky)]" /><span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{heading}</span></div>
+                <div className="flex items-center gap-2"><CalendarClock size={15} className="text-[var(--color-sky)]" /><SectionHead>{heading}</SectionHead></div>
                 {selDate && <button onClick={() => setSelDate(null)} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">upcoming ↑</button>}
               </div>
               {q.isLoading ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">loading…</div>

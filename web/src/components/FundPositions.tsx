@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, X, Factory } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card } from './ui'
+import { Card, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 
 // The fund's holdings, each drilling to the issuer's full physical footprint (per-facility scores) — the
@@ -37,7 +37,7 @@ export default function FundPositions({ fundId }: { fundId: string }) {
 
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Holdings · {positions.length} position{positions.length === 1 ? '' : 's'} · biggest physical risk first</div>
+      <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]" hint={<>{positions.length} position{positions.length === 1 ? '' : 's'} · biggest physical risk first</>}>Holdings</SectionHead>
       {q.isLoading ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">loading…</div>
         : <div className="divide-y divide-[var(--color-line)]">
             {positions.map(p => {
@@ -74,7 +74,7 @@ function IssuerDrawer({ issuerId, onClose }: { issuerId: string; onClose: () => 
       <div className="absolute inset-0 bg-black/50" />
       <div className="relative w-full max-w-lg h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Issuer</div>
+          <SectionHead>Issuer</SectionHead>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
         </div>
         {!d ? <div className="p-8 text-[13px] text-[var(--color-faint)]">loading…</div>

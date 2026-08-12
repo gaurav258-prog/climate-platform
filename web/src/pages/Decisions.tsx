@@ -5,7 +5,7 @@ import { ArrowRight, ShieldAlert, Check, Clock, RefreshCw, TrendingUp, X } from 
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
@@ -93,7 +93,7 @@ export default function Decisions() {
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
           <ShieldAlert size={15} className="text-[var(--color-bad)]" />
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Exposures crossing into High+ · worst hazard vs the score-50 line</span>
+          <SectionHead hint="worst hazard vs the score-50 line">Exposures crossing into High+</SectionHead>
         </div>
         {cq.isLoading ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">projecting the book…</div>
           : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">No exposures newly cross into High+ under this pathway by {horizon}. Nothing to act on.</div>

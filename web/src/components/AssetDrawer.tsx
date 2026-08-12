@@ -4,7 +4,7 @@ import { X, ShieldCheck, RotateCcw, Save, Clock, MapPin } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 
 // The per-asset drill for the four financial books — the depth the agri /detail/* pages already had, plus
@@ -100,7 +100,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
       <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full overflow-y-auto bg-[var(--color-bg-2)] border-l border-[var(--color-line)] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(576)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{cfg.itemKey}</div>
+          <SectionHead>{cfg.itemKey}</SectionHead>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
         </div>
 

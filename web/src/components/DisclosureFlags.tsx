@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Flag, Check, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card } from './ui'
+import { Card, SectionHead } from './ui'
 
 // Act → Report bridge: exposures an approved 'disclose' decision flagged for the next climate filing. The
 // reporting team sees, in the cockpit, what Risk wants surfaced this period, and marks each included or
@@ -26,7 +26,7 @@ export default function DisclosureFlags() {
     <Card className="p-0 overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <Flag size={15} className="text-[var(--scn-disorderly)]" />
-        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Flagged for disclosure · from forward-risk decisions</span>
+        <SectionHead hint="from forward-risk decisions">Flagged for disclosure</SectionHead>
         <span className="ml-auto mono text-[10px] text-[var(--color-faint)]">{flags.length} exposure{flags.length === 1 ? '' : 's'}</span>
       </div>
       <div className="divide-y divide-[var(--color-line)]">

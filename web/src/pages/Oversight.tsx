@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 
 // Supervisory view — the whole institution the way a regulator or board reviews it: every mandatory filing
 // with its status, coverage and KRI breaches, plus house-in-order readiness and open exceptions. Read-only,
@@ -50,7 +50,7 @@ export default function Oversight() {
           <Card className="p-0 overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
               <ShieldCheck size={15} className="text-[var(--color-sky)]" />
-              <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Mandatory filings · status · coverage · breaches</span>
+              <SectionHead hint="status · coverage · breaches">Mandatory filings</SectionHead>
             </div>
             <div className="hidden sm:grid grid-cols-[2fr_1fr_0.8fr_0.9fr_0.8fr] gap-3 px-5 py-2 border-b border-[var(--color-line)] mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
               <span>Filing · regulator</span><span>Last filed</span><span>Produced</span><span>KRI breaches</span><span>Due</span>

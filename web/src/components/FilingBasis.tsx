@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { SlidersHorizontal, Check, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 
 // The reporting-basis panel: the two regulatory parameters every new filing freezes — the reporting
 // period-end and the materiality threshold. Read for everyone; editable for reports.publish, routed through
@@ -50,7 +50,7 @@ export default function FilingBasis() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
         <div className="flex items-center gap-2">
           <SlidersHorizontal size={15} className="text-[var(--color-sky)]" />
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Reporting basis · what new filings freeze</span>
+          <SectionHead hint="what new filings freeze">Reporting basis</SectionHead>
         </div>
         {canEdit && !edit && <button onClick={() => setEdit(true)} className="mono text-[11px] text-[var(--color-sky)] hover:underline">change</button>}
         {edit && <button onClick={() => { setEdit(false); setForm({}); setMsg(null) }} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={15} /></button>}

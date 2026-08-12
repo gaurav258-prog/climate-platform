@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // The single golden model, browsable — each field, the source feed(s) it derives from, how current the
@@ -104,7 +104,7 @@ export default function DataDictionary() {
       {d?.frameworks && (
         <Card className="p-0 overflow-hidden">
           <div className="px-5 py-3 border-b border-[var(--color-line)]">
-            <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Reporting datapoints · where each comes from & how it enters Tellumen</span>
+            <SectionHead hint="where each comes from & how it enters Tellumen">Reporting datapoints</SectionHead>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
               {Object.entries(SRCC).map(([k, v]) => <span key={k} className="inline-flex items-center gap-1.5 mono text-[9.5px] text-[var(--color-faint)]"><span className="w-1.5 h-1.5 rounded-full" style={{ background: v.c }} />{v.l}</span>)}
             </div>

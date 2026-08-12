@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ExternalLink, FileText, CalendarClock, Building2, CheckCircle2, Clock, Download, Upload, Scale } from 'lucide-react'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Card } from './ui'
+import { Card, SectionHead } from './ui'
 import FilingForm from './FilingForm'
 
 // What must this org report, to whom, how often, with links to the actual regulation + official form, the
@@ -46,7 +46,7 @@ export default function FilingRequirements({ onOpen }: { onOpen: (id: string) =>
     <Card className="p-0 overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <FileText size={15} className="text-[var(--color-sky)]" />
-        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Reporting requirements · what you must file</span>
+        <SectionHead hint="what you must file">Reporting requirements</SectionHead>
       </div>
       {q.isLoading ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</div>
         : <div className="divide-y divide-[var(--color-line)]">

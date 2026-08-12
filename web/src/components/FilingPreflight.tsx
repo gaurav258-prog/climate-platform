@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, AlertTriangle, Snowflake } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 
 // The confirm-data step: before a filing is frozen, the preparer reviews the basis, the data coverage and
 // the headline figures, sees any gaps honestly, and ticks "I confirm this is the data to file". Only then
@@ -46,7 +46,7 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
       <div className="absolute inset-0 bg-black/50" />
       <Card className="relative w-full max-w-lg p-0 overflow-hidden" >
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]" onClick={e => e.stopPropagation()}>
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Confirm the data before filing</span>
+          <SectionHead>Confirm the data before filing</SectionHead>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
         </div>
         <div className="p-5 space-y-4" onClick={e => e.stopPropagation()}>

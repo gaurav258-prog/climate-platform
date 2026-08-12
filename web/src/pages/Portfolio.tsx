@@ -5,7 +5,7 @@ import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'luc
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
@@ -233,7 +233,7 @@ export default function Portfolio() {
       <div ref={bookRef} className="scroll-mt-4" />
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-line)]">
-          <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your {cfg.noun}</div>
+          <SectionHead>Your {cfg.noun}</SectionHead>
           <div className="flex items-center gap-4">
             <ImportBook cfg={cfg} onDone={refreshBook} />
             <button
@@ -461,7 +461,7 @@ function HazardExposure({ items, valueKey, onPick, active }: { items: Asset[]; v
   if (!groups.length) return null
   return (
     <Card className="p-5">
-      <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)] mb-3">Where your risk comes from · money exposed by hazard{onPick && <span className="normal-case tracking-normal"> · click a hazard to see the sites</span>}</div>
+      <SectionHead className="mb-3" hint={<>money exposed by hazard{onPick && <span className="normal-case tracking-normal"> · click a hazard to see the sites</span>}</>}>Where your risk comes from</SectionHead>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {groups.map(([hz, g]) => {
           const isActive = active === hz
@@ -492,7 +492,7 @@ function ForwardRiskCard({ d, scenarioLabel }: { d: ForwardRisk; scenarioLabel: 
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
-        <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Forward risk · decision signal · {scenarioLabel}</div>
+        <SectionHead hint={<>decision signal · {scenarioLabel}</>}>Forward risk</SectionHead>
         <div className="mono text-[10px] text-[var(--color-faint)]">biggest threat crossing into high risk</div>
       </div>
       {/* headline */}

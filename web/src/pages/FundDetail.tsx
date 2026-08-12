@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileCheck2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
 import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
@@ -119,7 +119,7 @@ export default function FundDetail() {
         <Card className="p-0 overflow-hidden">
           <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
             <div>
-              <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">SFDR PAI statement</div>
+              <SectionHead>SFDR PAI statement</SectionHead>
               <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{st.summary?.reference_period ?? st.entity?.reference_period} · {cov ? `${cov.computed}/${cov.mandatory_indicators} indicators computed` : ''}</div>
             </div>
             <div className="flex items-center gap-2">
@@ -197,7 +197,7 @@ export default function FundDetail() {
       {/* prior filings */}
       {(filings.data?.filings?.length ?? 0) > 0 && (
         <Card className="p-0 overflow-hidden">
-          <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Filing history</div>
+          <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">Filing history</SectionHead>
           <div className="divide-y divide-[var(--color-line)]">
             {filings.data!.filings.map((f, i) => (
               <div key={i} className="px-5 py-3 flex items-center gap-3 text-[12.5px]">

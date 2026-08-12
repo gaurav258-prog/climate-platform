@@ -7,7 +7,7 @@ import {
 import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
@@ -192,7 +192,7 @@ export default function Analytics() {
           {/* hero — scenario trajectories for the selected metric */}
           <Card className="p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-[var(--color-line)]">
-              <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Value exposed at High+ · by warming pathway</span>
+              <SectionHead hint="by warming pathway">Value exposed at High+</SectionHead>
               <div className="flex items-center gap-3">
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {SCEN.map(s => (
@@ -237,7 +237,7 @@ export default function Analytics() {
           {/* hazard facets — single-hue small-multiples for the selected pathway */}
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">What drives it · hazard trajectory</span>
+              <SectionHead hint="hazard trajectory">What drives it</SectionHead>
               <span className="inline-flex items-center gap-1.5 text-[11.5px] text-[var(--color-mute)]"><span className="w-2 h-2 rounded-full" style={{ background: scen.color }} />{scen.label}</span>
             </div>
             {loading ? <Card className="p-10"><Skeleton /></Card> : (

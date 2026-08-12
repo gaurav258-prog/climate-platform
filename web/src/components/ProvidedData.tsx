@@ -4,7 +4,7 @@ import { Upload, Check, Clock, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 
 // Lane 2 — provided datapoints. A value calculated on the customer's or a vendor's side (own-operations GHG
 // from a carbon tool, a Taxonomy alignment %, an audited PCAF figure) is submitted here, reconciled against
@@ -25,7 +25,7 @@ export default function ProvidedData() {
     <Card className="p-0 overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <Upload size={15} className="text-[var(--color-sky)]" />
-        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Provided &amp; reconciled data · your inputs and vendor figures</span>
+        <SectionHead hint="your inputs and vendor figures">Provided &amp; reconciled data</SectionHead>
       </div>
       <div className="divide-y divide-[var(--color-line)]">
         {frameworks.map(f => <FrameworkBlock key={f.framework} framework={f.framework} label={f.official_name || f.label}

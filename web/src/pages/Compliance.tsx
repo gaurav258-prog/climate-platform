@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 
@@ -62,7 +62,7 @@ function TriggersView() {
   const r = q.data.rollup
   return (
     <div className="space-y-4">
-      <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Parametric cover · live monitoring</div>
+      <SectionHead hint="live monitoring">Parametric cover</SectionHead>
       <div className="grid grid-cols-3 gap-3">
         <Kpi label="configured triggers" value={String(r.n_configured)} />
         <Kpi label="breached now" value={String(r.n_triggered_now)} tone={r.n_triggered_now > 0 ? '#E9744A' : undefined} />
@@ -82,7 +82,7 @@ function TriggersView() {
 function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerRow[]; breached?: boolean }) {
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="px-5 py-3 border-b border-[var(--color-line)] mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">{title}</div>
+      <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">{title}</SectionHead>
       <div className="divide-y divide-[var(--color-line)]">
         {rows.map(p => { const t = p.trigger; const [r, g, b] = col(t.current_score ?? 0); return (
           <div key={p.policy_id} className="px-5 py-3 flex items-center gap-4">

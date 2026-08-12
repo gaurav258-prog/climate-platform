@@ -6,7 +6,7 @@ import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 import FilingLineage from './FilingLineage'
 import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
@@ -97,7 +97,7 @@ export default function FilingCockpit() {
       {/* ── YOUR FILINGS — the one thing most users touch: what's due and how far along it is ── */}
       <div>
         <div className="flex items-center gap-3 mb-3 px-1">
-          <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your filings</span>
+          <SectionHead>Your filings</SectionHead>
           <div className="h-px flex-1 bg-[var(--color-line)]" />
           <span className="mono text-[10.5px] text-[var(--color-faint)]">{needAction ? `${needAction} need action` : 'all filed'}</span>
         </div>

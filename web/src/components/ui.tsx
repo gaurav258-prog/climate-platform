@@ -53,6 +53,22 @@ export function Lens({ kind, className }: { kind: keyof typeof LENS; className?:
   )
 }
 
+// The one readable section/card heading used across the platform — a blue icon + a bold ~16px title,
+// with an optional muted descriptor after a "·". Replaces the old tiny 10.5px mono-uppercase header bars,
+// which were hard to read and identify. Chart axis/column micro-labels stay small — those are captions.
+export function SectionHead({ icon: Icon, hint, children, className }: {
+  icon?: React.ComponentType<{ size?: number; className?: string }>
+  hint?: ReactNode; children: ReactNode; className?: string
+}) {
+  return (
+    <div className={clsx('flex items-center gap-2 min-w-0 flex-wrap', className)}>
+      {Icon && <Icon size={16} className="text-[var(--color-blue)] shrink-0" />}
+      <h3 className="font-semibold text-[15.5px] text-[var(--color-ink)] leading-tight m-0">{children}</h3>
+      {hint && <span className="text-[13px] text-[var(--color-mute)] hidden sm:inline">· {hint}</span>}
+    </div>
+  )
+}
+
 export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: string; tone?: 'ink' | 'good' | 'warn' | 'bad' }) {
   const c = { ink: 'text-[var(--color-ink)]', good: 'text-[var(--color-good)]', warn: 'text-[var(--color-warn)]', bad: 'text-[var(--color-bad)]' }[tone]
   return (

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ListChecks, ArrowUpRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card } from './ui'
+import { Card, SectionHead } from './ui'
 
 // Eligibility & coverage — the step between "which regulation" and "the final form": what of your book
 // actually qualifies for this disclosure, and what does not. Reads the current-basis disclosure (the golden
@@ -36,7 +36,7 @@ export default function FilingCoverage() {
     <Card className="p-0 overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
         <ListChecks size={15} className="text-[var(--color-sky)]" />
-        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Eligibility &amp; coverage · what of your book qualifies</span>
+        <SectionHead hint="what of your book qualifies">Eligibility &amp; coverage</SectionHead>
       </div>
 
       {q.isLoading ? (
