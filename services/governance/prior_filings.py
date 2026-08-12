@@ -11,10 +11,18 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from services.ingest import filing_import
+from services.governance.datapoint_catalog import catalog
 
 
 class FilingError(Exception):
     pass
+
+
+def _dp_label(framework: str, key: str) -> str:
+    for dp in (catalog(framework) or []):
+        if dp["key"] == key:
+            return dp["label"]
+    return key
 
 
 # Frameworks a customer can bring a prior filing for — professional, customer-facing labels.
@@ -175,6 +183,43 @@ def delete_filing(session, filing_id: str, org_id: str) -> None:
     session.commit()
     if not n:
         raise FilingError("Filing not found.")
+
+
+def trends(session, org_id: str, framework: Optional[str] = None) -> dict:
+    """All reported-figure series across confirmed filings — one series per (framework, datapoint), its value
+    per period, and a flag where the stated preparation basis changed between periods (so a trend is never
+    drawn as continuous across a methodology or boundary change)."""
+    rows = session.execute(text("""
+        SELECT g.framework, g.datapoint_key, rf.period_label,
+               sum(g.value_num) AS value, max(g.unit) AS unit, max(rf.basis_note) AS basis_note
+        FROM reported_figure g JOIN reported_filing rf ON rf.filing_id = g.filing_id
+        WHERE g.org_id = :org AND rf.status = 'confirmed' AND g.datapoint_key IS NOT NULL
+              AND g.value_num IS NOT NULL AND (CAST(:fw AS text) IS NULL OR g.framework = :fw)
+        GROUP BY g.framework, g.datapoint_key, rf.period_label
+        ORDER BY g.framework, g.datapoint_key, rf.period_label
+    """), {"org": org_id, "fw": framework}).mappings().all()
+
+    series: dict[tuple, dict] = {}
+    for r in rows:
+        key = (r["framework"], r["datapoint_key"])
+        s = series.setdefault(key, {
+            "framework": r["framework"], "framework_label": _LABEL.get(r["framework"], r["framework"]),
+            "datapoint_key": r["datapoint_key"], "label": _dp_label(r["framework"], r["datapoint_key"]),
+            "points": [],
+        })
+        s["points"].append({"period": r["period_label"], "value": r["value"],
+                            "unit": r["unit"], "basis_note": r["basis_note"]})
+
+    out = []
+    for s in series.values():
+        bases = [p["basis_note"] or "" for p in s["points"]]
+        # mark each point where its basis differs from the prior period's (a discontinuity)
+        for i, p in enumerate(s["points"]):
+            p["basis_break"] = i > 0 and bases[i] != bases[i - 1]
+        s["basis_changed"] = len({b for b in bases if b}) > 1 or any(p["basis_break"] for p in s["points"])
+        out.append(s)
+    out.sort(key=lambda s: (-len(s["points"]), s["label"]))
+    return {"series": out}
 
 
 def trend(session, org_id: str, framework: str, datapoint_key: str) -> dict:

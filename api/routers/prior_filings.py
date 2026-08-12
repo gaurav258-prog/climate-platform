@@ -27,6 +27,19 @@ def list_filings(session: DbSession, ctx: CurrentUser, framework: Optional[str] 
     return {"filings": PF.list_filings(session, ctx["org"]["org_id"], framework)}
 
 
+# static /trends routes must come before the /{filing_id} catch-all, or 'trends' is read as an id
+@router.get("/trends", summary="Your reported figures over time, one series per datapoint")
+def trends(session: DbSession, ctx: CurrentUser, framework: Optional[str] = None,
+           _p: dict = Depends(require_permission("reports.view"))):
+    return PF.trends(session, ctx["org"]["org_id"], framework)
+
+
+@router.get("/trend/{framework}/{datapoint_key}", summary="Your reported values for one datapoint over time")
+def trend(framework: str, datapoint_key: str, session: DbSession, ctx: CurrentUser,
+          _p: dict = Depends(require_permission("reports.view"))):
+    return PF.trend(session, ctx["org"]["org_id"], framework, datapoint_key)
+
+
 @router.get("/{filing_id}", summary="One imported filing with its reported lines")
 def get_filing(filing_id: str, session: DbSession, ctx: CurrentUser,
                _p: dict = Depends(require_permission("reports.view"))):
@@ -34,12 +47,6 @@ def get_filing(filing_id: str, session: DbSession, ctx: CurrentUser,
         return PF.get_filing(session, filing_id, ctx["org"]["org_id"])
     except PF.FilingError as e:
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
-
-
-@router.get("/trend/{framework}/{datapoint_key}", summary="Your reported values for one datapoint over time")
-def trend(framework: str, datapoint_key: str, session: DbSession, ctx: CurrentUser,
-          _p: dict = Depends(require_permission("reports.view"))):
-    return PF.trend(session, ctx["org"]["org_id"], framework, datapoint_key)
 
 
 @router.post("/upload", status_code=201, summary="Upload a filed report — read it into reported lines to confirm")

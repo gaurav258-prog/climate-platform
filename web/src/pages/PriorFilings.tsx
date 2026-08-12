@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X } from 'lucide-react'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from 'recharts'
+import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Eyebrow, Card, SectionHead, Button } from '../components/ui'
@@ -21,10 +22,19 @@ interface Filing {
   basis_note?: string | null; figures?: Figure[]
 }
 interface Framework { key: string; label: string }
+interface TrendPoint { period: string; value: number; unit: string | null; basis_note: string | null; basis_break: boolean }
+interface Series { framework: string; datapoint_key: string; label: string; points: TrendPoint[]; basis_changed: boolean }
 
 const FMT: Record<string, string> = { xbrl: 'XBRL', ixbrl: 'iXBRL', excel: 'Excel', pdf: 'PDF' }
-const num = (n: number | null, unit: string | null) =>
-  n == null ? '—' : `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit === '%' ? '%' : unit ? ` ${unit}` : ''}`
+// compact axis/label formatter — handles EUR/tCO2e magnitudes and sub-1 ratios alike
+const compact = (n: number) => {
+  const a = Math.abs(n)
+  if (a >= 1e9) return `${(n / 1e9).toFixed(2)}bn`
+  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}m`
+  if (a >= 1e3) return `${(n / 1e3).toFixed(1)}k`
+  if (a > 0 && a < 10) return n.toFixed(3).replace(/\.?0+$/, '')
+  return n.toLocaleString()
+}
 
 export default function PriorFilings() {
   const qc = useQueryClient()
@@ -37,10 +47,16 @@ export default function PriorFilings() {
   const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean }>>({})
   const [basis, setBasis] = useState('')
 
+  const [seriesKey, setSeriesKey] = useState('')
+
   const fw = useQuery({ queryKey: ['pf-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/prior-filings/frameworks') })
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
+  const trends = useQuery({ queryKey: ['pf-trends'], queryFn: () => api.get<{ series: Series[] }>('/v1/prior-filings/trends') })
   const frameworks = fw.data?.frameworks ?? []
   if (!framework && frameworks.length) setFramework(frameworks[0].key)
+
+  const series = trends.data?.series ?? []
+  const selected = useMemo(() => series.find(s => s.datapoint_key === seriesKey) ?? series[0], [series, seriesKey])
 
   const pickFile = () => fileRef.current?.click()
 
@@ -66,7 +82,7 @@ export default function PriorFilings() {
       await api.post(`/v1/prior-filings/${draft.filing_id}/confirm`, { edits: editList, basis_note: basis.trim() || null })
       toast.success(`${draft.framework_label} · ${draft.period_label} confirmed.`)
       setDraft(null); setEdits({})
-      qc.invalidateQueries({ queryKey: ['pf-list'] })
+      qc.invalidateQueries({ queryKey: ['pf-list'] }); qc.invalidateQueries({ queryKey: ['pf-trends'] })
     } catch (e) {
       toast.error(e instanceof ApiError ? String((e.body as { message?: string })?.message ?? 'Could not confirm.') : 'Confirm failed.')
     } finally { setBusy(false) }
@@ -231,6 +247,57 @@ export default function PriorFilings() {
           Reported figures are portfolio-level; trends are shown at reporting-line level.
         </div>
       </Card>
+
+      {/* reported history — a filed figure across the years you have confirmed */}
+      {series.length > 0 && selected && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)] flex flex-wrap items-center justify-between gap-3">
+            <SectionHead icon={TrendingUp} hint="your filed figures over time">Reported history</SectionHead>
+            <select value={selected.datapoint_key} onChange={e => setSeriesKey(e.target.value)}
+              className="bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none focus:border-[var(--color-sky)] max-w-[60%]">
+              {series.map(s => <option key={s.datapoint_key} value={s.datapoint_key}>{s.label}</option>)}
+            </select>
+          </div>
+          <div className="p-5">
+            {selected.points.length < 2 ? (
+              <div className="text-[13px] text-[var(--color-mute)]">
+                One year on file — <span className="mono text-[var(--color-ink)]">{selected.points[0].period}: {compact(selected.points[0].value)}{selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''}</span>. Import earlier years to see the trend.
+              </div>
+            ) : (
+              <>
+                <div className="h-[220px] -ml-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={selected.points} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+                      <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="period" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} axisLine={{ stroke: 'var(--color-line-2)' }} tickLine={false} />
+                      <YAxis tickFormatter={compact} width={54} tick={{ fontSize: 11, fill: 'var(--color-faint)' }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }}
+                        labelStyle={{ color: 'var(--color-mute)' }}
+                        formatter={(v: number, _n, p) => [`${compact(v)}${selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''}${(p?.payload as TrendPoint)?.basis_break ? '  · basis changed' : ''}`, 'Reported']} />
+                      <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
+                      {selected.points.map((p, i) => p.basis_break && (
+                        <ReferenceDot key={i} x={p.period} y={p.value} r={5} fill="var(--color-warn)" stroke="var(--color-bg-2)" strokeWidth={2} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {selected.basis_changed && (
+                  <div className="mt-3 flex items-start gap-2 text-[12px] text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] border border-[color-mix(in_oklab,var(--color-warn)_35%,transparent)] rounded-lg px-3 py-2">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      Preparation basis changed across these years — the marked points are not directly comparable to the prior year.
+                      <div className="mt-1 text-[var(--color-mute)]">
+                        {selected.points.filter(p => p.basis_break).map(p => `${p.period}: ${p.basis_note || '—'}`).join(' · ')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

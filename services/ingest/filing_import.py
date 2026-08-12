@@ -106,8 +106,11 @@ def _local(tag: str) -> str:
 
 
 def _human(concept: str) -> str:
-    # 'FinancedEmissionsScope3' → 'Financed emissions scope3'
-    s = re.sub(r"(?<!^)(?=[A-Z])", " ", concept.rsplit(":", 1)[-1]).replace("_", " ").strip()
+    # 'GreenAssetRatioEligibleStock' → 'Green Asset Ratio Eligible Stock', but keep acronym / number runs
+    # intact: 'TransitionAlignmentDistanceNZE2050' → 'Transition Alignment Distance NZE2050'.
+    name = concept.rsplit(":", 1)[-1].replace("_", " ")
+    # split at lower/number→Upper boundaries, and at Acronym→Word boundaries (UPPERWord)
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name).strip()
     return (s[:1].upper() + s[1:]) if s else concept
 
 
