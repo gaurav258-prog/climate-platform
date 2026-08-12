@@ -67,6 +67,7 @@ try:
     from api.routers import ops_console as ops_console_router
     from api.routers import ingest as ingest_router
     from api.routers import webhooks as webhooks_router
+    from api.routers import prior_filings as prior_filings_router
     ADMIN_ROUTERS_AVAILABLE = True
 except ImportError:
     ADMIN_ROUTERS_AVAILABLE = False
@@ -181,6 +182,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(portal_router.router)
     app.include_router(ingest_router.router)
     app.include_router(webhooks_router.router)
+    app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
 
 # Regulatory monitoring (CRCS) - Phase 1
