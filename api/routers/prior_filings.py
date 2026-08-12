@@ -32,6 +32,11 @@ def list_filings(session: DbSession, ctx: CurrentUser, framework: Optional[str] 
     return {"filings": PF.list_filings(session, ctx["org"]["org_id"], framework)}
 
 
+@router.get("/datapoints/{framework}", summary="Datapoints a reported line can be mapped to")
+def datapoints(framework: str, ctx: CurrentUser, _p: dict = Depends(require_permission("reports.view"))):
+    return {"datapoints": PF.datapoints(framework)}
+
+
 # static /trends routes must come before the /{filing_id} catch-all, or 'trends' is read as an id
 @router.get("/trends", summary="Your reported figures over time, with a projection from the last filed value")
 def trends(session: DbSession, ctx: CurrentUser, framework: Optional[str] = None, horizon_years: int = 3,

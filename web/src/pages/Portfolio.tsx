@@ -9,6 +9,7 @@ import { Eyebrow, Card, SectionHead } from '../components/ui'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
+import ReportedHistoryRef from '../components/ReportedHistoryRef'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
@@ -219,6 +220,8 @@ export default function Portfolio() {
 
       {view === 'forward' ? (
         <div className="space-y-6">
+          {/* ties the forward view back to what you actually filed (renders only if prior filings exist) */}
+          <ReportedHistoryRef />
           {/* forward-change decision signal */}
           {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
           {/* climate expected loss (€) — near-term decision quantity, bank only */}

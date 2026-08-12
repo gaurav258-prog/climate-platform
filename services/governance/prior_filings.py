@@ -39,6 +39,11 @@ def frameworks_for(org_type: str) -> list[dict]:
     return [{"key": f["key"], "label": f["label"]} for f in FRAMEWORKS if org_type in f["sectors"]]
 
 
+def datapoints(framework: str) -> list[dict]:
+    """The datapoints a reported line can be mapped to, for the confirm-time remap control."""
+    return [{"key": dp["key"], "label": dp["label"]} for dp in (catalog(framework) or [])]
+
+
 def create_from_upload(session, org_id: str, user_id: Optional[str], *, framework: str,
                        period_label: str, entity_name: Optional[str], filename: str, data: bytes) -> dict:
     if framework not in _LABEL:
@@ -153,7 +158,7 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
         if "value_text" in e:
             sets.append("value_text = :vt"); params["vt"] = e["value_text"]
         if "datapoint_key" in e:
-            sets.append("datapoint_key = :dk"); params["dk"] = e["datapoint_key"]
+            sets.append("datapoint_key = :dk"); params["dk"] = e["datapoint_key"] or None
         if sets:
             sets.append("read_method = 'confirmed'")
             session.execute(text(f"UPDATE reported_figure SET {', '.join(sets)} "

@@ -48,7 +48,7 @@ export default function PriorFilings() {
   const [entity, setEntity] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Filing | null>(null)          // the report just read, awaiting confirm
-  const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean }>>({})
+  const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean; datapoint_key?: string }>>({})
   const [basis, setBasis] = useState('')
 
   const [seriesKey, setSeriesKey] = useState('')
@@ -59,6 +59,8 @@ export default function PriorFilings() {
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
   const trends = useQuery({ queryKey: ['pf-trends', horizon], queryFn: () => api.get<{ series: Series[] }>(`/v1/prior-filings/trends?horizon_years=${horizon}`) })
   const detail = useQuery({ enabled: !!detailId, queryKey: ['pf-detail', detailId], queryFn: () => api.get<Filing>(`/v1/prior-filings/${detailId}`) })
+  const dps = useQuery({ enabled: !!draft, queryKey: ['pf-dps', draft?.framework], queryFn: () => api.get<{ datapoints: Framework[] }>(`/v1/prior-filings/datapoints/${draft!.framework}`) })
+  const datapointOpts = dps.data?.datapoints ?? []
   const frameworks = fw.data?.frameworks ?? []
   if (!framework && frameworks.length) setFramework(frameworks[0].key)
 
@@ -182,7 +184,15 @@ export default function PriorFilings() {
                         <div className={`text-[var(--color-ink)] ${dropped ? 'line-through' : ''}`}>{fig.label}</div>
                         {fig.template_ref && <div className="mono text-[10px] text-[var(--color-faint)]">{fig.template_ref}</div>}
                       </td>
-                      <td className="px-4 py-2.5 text-[12px] text-[var(--color-mute)]">{fig.datapoint_key ?? <span className="text-[var(--color-faint)]">unmatched</span>}</td>
+                      <td className="px-4 py-2.5">
+                        <select disabled={dropped}
+                          value={edits[fig.figure_id]?.datapoint_key ?? fig.datapoint_key ?? ''}
+                          onChange={e => setEdits(p => ({ ...p, [fig.figure_id]: { ...p[fig.figure_id], datapoint_key: e.target.value } }))}
+                          className="max-w-[220px] bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-md px-2 py-1 text-[12px] text-[var(--color-mute)] outline-none focus:border-[var(--color-sky)] disabled:opacity-50">
+                          <option value="">— unmatched —</option>
+                          {datapointOpts.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                        </select>
+                      </td>
                       <td className="px-4 py-2.5">
                         {fig.value_num != null || ev != null ? (
                           <input type="number" defaultValue={fig.value_num ?? undefined} disabled={dropped}

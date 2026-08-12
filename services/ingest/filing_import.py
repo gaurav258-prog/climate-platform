@@ -36,6 +36,27 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("p3_physical",         ("physical", "template 5", "template5", "acute", "chronic", "flood", "hazard")),
         ("p3_qualitative",      ("governance", "strategy", "risk management", "qualitative", "narrative")),
     ],
+    "bank_tcfd": [
+        ("phys_risk",         ("physical", "value at risk", "acute", "chronic", "flood", "hazard")),
+        ("taxonomy_aligned",  ("aligned", "alignment", "dnsh", "safeguard")),
+        ("taxonomy_eligible", ("gar", "green asset ratio", "taxonomy-eligible", "taxonomy eligible", "eligible")),
+        ("transition_risk",   ("transition", "carbon price", "carbon-price", "stranded")),
+        ("financed_emissions",("financed emission", "scope 3", "scope3", "pcaf", "ghg", "tco2", "emissions")),
+        ("tcfd_narrative",    ("governance", "strategy", "narrative", "transition plan")),
+    ],
+    "csrd_e1": [
+        ("e1_financial_effects", ("financial effect", "anticipated financial", "e1-9", "e1.9", "physical risk")),
+        ("e1_transition",        ("transition plan", "target", "carbon price", "e1-1", "e1-4", "decarbon")),
+        ("e1_ghg",               ("ghg", "scope 1", "scope 2", "scope 3", "emission", "energy", "e1-6", "tco2")),
+        ("e1_narrative",         ("governance", "narrative", "impact", "opportunity", "strategy", "risk management")),
+    ],
+    "sfdr_pai": [
+        ("pai_nature",     ("biodiversity", "emissions to water", "water", "hazardous waste", "nature", "pai 7", "pai 8", "pai 9")),
+        ("pai_social",     ("ungc", "oecd", "gender pay", "board gender", "social", "human rights", "pai 10", "pai 11", "pai 12", "pai 13", "pai 14")),
+        ("pai_climate",    ("ghg", "emission", "carbon footprint", "waci", "carbon intensity", "fossil", "energy", "scope", "pai 1", "pai 2", "pai 3")),
+        ("pai_additional", ("additional", "opt-in", "opt in", "table 2", "table 3", "voluntary")),
+        ("sfdr_narrative", ("narrative", "policy", "engagement", "reference standard")),
+    ],
 }
 
 
