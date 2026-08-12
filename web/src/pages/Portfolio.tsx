@@ -126,6 +126,8 @@ export default function Portfolio() {
   const [horizon, setHorizon] = useState<string>(DEFAULT_HORIZON)
   const [open, setOpen] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
+  // two jobs, cleanly separated: work the book (find/open assets) vs. read the forward analysis.
+  const [view, setView] = useState<'book' | 'forward'>('book')
   // the book is search-driven — not a full dump. filter by text (name/region/sector), hazard, and severity.
   const [search, setSearch] = useState('')
   const [hazardF, setHazardF] = useState('')
@@ -191,27 +193,41 @@ export default function Portfolio() {
               <button key={k} title={SCENARIO_HINT[k]} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
             ))}
           </div>
-          <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
-            <HorizonSelect value={horizon} onChange={setHorizon} />
-          </div>
+          {view === 'book' && (
+            <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+              <HorizonSelect value={horizon} onChange={setHorizon} />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* rollup KPIs — sector-labelled */}
+      {/* view switch — separate the two jobs so the page isn't a long scroll of both at once:
+          "Your book" = the searchable asset list you operate; "Forward view" = the trajectory + €-loss analysis. */}
+      <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)] w-fit">
+        {([['book', 'Your book'], ['forward', 'Forward view']] as const).map(([k, lbl]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`px-4 py-1.5 rounded-md text-[12.5px] transition ${view === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)] font-medium' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* rollup KPIs — sector-labelled; the headline, shown on both views */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
       </div>
 
+      {view === 'forward' ? (
+        <div className="space-y-6">
+          {/* forward-change decision signal */}
+          {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
+          {/* climate expected loss (€) — near-term decision quantity, bank only */}
+          {cfg.prefix === 'bank' && <ExpectedLossCard prefix={cfg.prefix} scenario={fwdScenario} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
+        </div>
+      ) : (
+      <div className="space-y-6">
       {/* where the risk comes from — plain-language money-by-hazard, traffic-light by severity.
           Clicking a hazard filters the book below to exactly those sites (the impulsive path). */}
       <HazardExposure items={items} valueKey={cfg.valueKey} active={hazardF}
         onPick={(h) => { setSearch(''); setBandF(''); setHazardF(prev => prev === h ? '' : h); setTimeout(() => bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }} />
-
-      {/* forward-change decision signal */}
-      {fq.data && <ForwardRiskCard d={fq.data} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
-
-      {/* climate expected loss (€) — near-term decision quantity, bank only */}
-      {cfg.prefix === 'bank' && <ExpectedLossCard prefix={cfg.prefix} scenario={fwdScenario} scenarioLabel={(SCENARIOS.find(([k]) => k === fwdScenario)?.[1]) ?? fwdScenario} />}
 
       {/* the book */}
       <div ref={bookRef} className="scroll-mt-4" />
@@ -332,6 +348,8 @@ export default function Portfolio() {
         )}
       </Card>
       {q.isError && <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the book — reload, or sign in again.</div>}
+      </div>
+      )}
 
       {detailId && <AssetDrawer cfg={cfg} id={detailId} onClose={() => setDetailId(null)} onChanged={refreshBook} />}
     </div>
