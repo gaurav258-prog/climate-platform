@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, ShieldAlert, History, Check, Clock, Eye, RefreshCw, TrendingUp, X } from 'lucide-react'
+import { ArrowRight, ShieldAlert, Check, Clock, RefreshCw, TrendingUp, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
@@ -102,31 +102,11 @@ export default function Decisions() {
             </div>}
       </Card>
 
-      {/* watchlist — from approved 'monitor' decisions */}
-      <Watchlist canAct={canAct} />
-
-      {/* audit log */}
-      {(lq.data?.decisions.length ?? 0) > 0 && (
-        <Card className="p-0 overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
-            <History size={15} className="text-[var(--color-sky)]" />
-            <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Decision log</span>
-          </div>
-          <div className="divide-y divide-[var(--color-line)]">
-            {lq.data!.decisions.map((d, i) => {
-              const m = actionMeta(d.action)
-              return (
-                <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
-                  <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? d.action}</span>
-                  <span className="mono text-[9px] uppercase tracking-wide shrink-0" style={{ color: d.status === 'approved' ? 'var(--color-good)' : d.status === 'proposed' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{d.status}</span>
-                  <span className="text-[var(--color-ink)] truncate flex-1">{d.entity_name ?? '—'}{d.rationale ? <span className="text-[var(--color-faint)]"> · {d.rationale}</span> : ''}</span>
-                  <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{scLabel(d.scenario)} · {d.horizon} · {d.by?.split('@')[0]} · {new Date(d.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      )}
+      {/* reference — what you're monitoring + the decision history, tabbed so the crossings stay the hero */}
+      <div>
+        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2 px-1">Monitoring &amp; history</div>
+        <DecisionsReference canAct={canAct} log={lq.data?.decisions ?? []} />
+      </div>
     </div>
   )
 }
@@ -217,19 +197,17 @@ function Watchlist({ canAct }: { canAct: boolean }) {
   const [busy, setBusy] = useState(false)
   const q = useQuery({ queryKey: ['decision-watchlist'], queryFn: () => api.get<{ watches: Watch[] }>('/v1/decisions/watchlist') })
   const watches = q.data?.watches ?? []
-  if (watches.length === 0) return null
   const escalated = watches.filter(w => w.status === 'escalated').length
   const recheck = async () => { setBusy(true); try { await api.post('/v1/decisions/watchlist/recheck', {}); qc.invalidateQueries({ queryKey: ['decision-watchlist'] }) } catch { /* no-op */ } finally { setBusy(false) } }
   const resolve = async (id: string) => { try { await api.post(`/v1/decisions/watchlist/${id}/resolve?status=cleared`, {}); qc.invalidateQueries({ queryKey: ['decision-watchlist'] }) } catch { /* no-op */ } }
   const dfmt = (s: string | null) => s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'
+  if (watches.length === 0) return <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">Nothing being monitored — an approved “monitor” decision adds the exposure here and re-scores it over time.</div>
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
-        <Eye size={15} className="text-[var(--color-mute)]" />
-        <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Watchlist · from monitor decisions</span>
+    <div>
+      <div className="flex items-center gap-2 px-5 py-2.5 border-b border-[var(--color-line)]">
         {escalated > 0 && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-bad)', background: 'color-mix(in oklab, var(--color-bad) 15%, transparent)' }}>{escalated} escalated</span>}
-        <span className="ml-auto mono text-[10px] text-[var(--color-faint)]">{watches.length} watched</span>
-        {canAct && <button onClick={recheck} disabled={busy} title="Re-score every watch now — escalates any that deteriorated further" className="inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-mute)] hover:text-[var(--color-ink)]"><RefreshCw size={11} className={busy ? 'animate-spin' : ''} /> re-check</button>}
+        <span className="mono text-[10px] text-[var(--color-faint)]">{watches.length} watched</span>
+        {canAct && <button onClick={recheck} disabled={busy} title="Re-score every watch now — escalates any that deteriorated further" className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-mute)] hover:text-[var(--color-ink)]"><RefreshCw size={11} className={busy ? 'animate-spin' : ''} /> re-check</button>}
       </div>
       <div className="divide-y divide-[var(--color-line)]">
         {watches.map(w => {
@@ -251,6 +229,39 @@ function Watchlist({ canAct }: { canAct: boolean }) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// The 'act' page's reference material — what you're monitoring and what's already been decided — behind a tab
+// strip, so the crossings to act on stay the clear hero (matches the Reports & filings structure).
+function DecisionsReference({ canAct, log }: { canAct: boolean; log: LogRow[] }) {
+  const [tab, setTab] = useState<'watch' | 'log'>('watch')
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex gap-1 px-2.5 py-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
+        {([['watch', 'Watchlist'], ['log', 'Decision log']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-md transition ${tab === k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>
+        ))}
+      </div>
+      {tab === 'watch' && <Watchlist canAct={canAct} />}
+      {tab === 'log' && (
+        log.length === 0 ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No decisions recorded yet.</div>
+          : <div className="divide-y divide-[var(--color-line)]">
+              {log.map((d, i) => {
+                const m = actionMeta(d.action)
+                return (
+                  <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
+                    <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? d.action}</span>
+                    <span className="mono text-[9px] uppercase tracking-wide shrink-0" style={{ color: d.status === 'approved' ? 'var(--color-good)' : d.status === 'proposed' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{d.status}</span>
+                    <span className="text-[var(--color-ink)] truncate flex-1">{d.entity_name ?? '—'}{d.rationale ? <span className="text-[var(--color-faint)]"> · {d.rationale}</span> : ''}</span>
+                    <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{scLabel(d.scenario)} · {d.horizon} · {d.by?.split('@')[0]} · {new Date(d.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                  </div>
+                )
+              })}
+            </div>
+      )}
     </Card>
   )
 }
