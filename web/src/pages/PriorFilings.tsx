@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from 'recharts'
-import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, AlertTriangle } from 'lucide-react'
-import { api, ApiError } from '../lib/api'
+import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, AlertTriangle, FileText, Download, ShieldCheck } from 'lucide-react'
+import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Eyebrow, Card, SectionHead, Button } from '../components/ui'
 
@@ -53,10 +53,12 @@ export default function PriorFilings() {
 
   const [seriesKey, setSeriesKey] = useState('')
   const [horizon, setHorizon] = useState(3)   // projection years beyond the last filed value
+  const [detailId, setDetailId] = useState<string | null>(null)   // a confirmed filing opened cell-by-cell
 
   const fw = useQuery({ queryKey: ['pf-frameworks'], queryFn: () => api.get<{ frameworks: Framework[] }>('/v1/prior-filings/frameworks') })
   const list = useQuery({ queryKey: ['pf-list'], queryFn: () => api.get<{ filings: Filing[] }>('/v1/prior-filings') })
   const trends = useQuery({ queryKey: ['pf-trends', horizon], queryFn: () => api.get<{ series: Series[] }>(`/v1/prior-filings/trends?horizon_years=${horizon}`) })
+  const detail = useQuery({ enabled: !!detailId, queryKey: ['pf-detail', detailId], queryFn: () => api.get<Filing>(`/v1/prior-filings/${detailId}`) })
   const frameworks = fw.data?.frameworks ?? []
   if (!framework && frameworks.length) setFramework(frameworks[0].key)
 
@@ -100,8 +102,11 @@ export default function PriorFilings() {
 
   async function remove(f: Filing) {
     if (!confirm2(`Remove ${f.framework_label} · ${f.period_label}?`)) return
-    try { await api.del(`/v1/prior-filings/${f.filing_id}`); qc.invalidateQueries({ queryKey: ['pf-list'] }) }
-    catch { toast.error('Could not remove the filing.') }
+    try {
+      await api.del(`/v1/prior-filings/${f.filing_id}`)
+      if (detailId === f.filing_id) setDetailId(null)
+      qc.invalidateQueries({ queryKey: ['pf-list'] }); qc.invalidateQueries({ queryKey: ['pf-trends'] })
+    } catch { toast.error('Could not remove the filing.') }
   }
 
   const kept = (draft?.figures ?? []).filter(fig => !edits[fig.figure_id]?.drop)
@@ -228,7 +233,8 @@ export default function PriorFilings() {
                   </tr></thead>
                   <tbody>
                     {(list.data?.filings ?? []).map(f => (
-                      <tr key={f.filing_id} className="border-b border-[var(--color-line)]">
+                      <tr key={f.filing_id} onClick={() => setDetailId(f.filing_id)}
+                        className={`border-b border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] transition ${detailId === f.filing_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                         <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-ink)]">{f.period_label}</td>
                         <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.framework_label}</td>
                         <td className="px-4 py-2.5 text-[var(--color-mute)]">{f.entity_name ?? '—'}</td>
@@ -239,8 +245,9 @@ export default function PriorFilings() {
                             ? <span className="inline-flex items-center gap-1 text-[12px] text-[var(--color-good)]"><Lock size={11} /> Confirmed</span>
                             : <span className="text-[12px] text-[var(--color-warn)]">Draft</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <button onClick={() => remove(f)} className="text-[var(--color-faint)] hover:text-[var(--color-bad)]" title="Remove"><Trash2 size={14} /></button>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          <button onClick={e => { e.stopPropagation(); setDetailId(f.filing_id) }} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] mr-3" title="Open"><ChevronRight size={15} /></button>
+                          <button onClick={e => { e.stopPropagation(); remove(f) }} className="text-[var(--color-faint)] hover:text-[var(--color-bad)]" title="Remove"><Trash2 size={14} /></button>
                         </td>
                       </tr>
                     ))}
@@ -252,6 +259,56 @@ export default function PriorFilings() {
           Reported figures are portfolio-level; trends are shown at reporting-line level.
         </div>
       </Card>
+
+      {/* regulator follow-up — open any filing cell-by-cell, with the original file attached */}
+      {detailId && detail.data && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+            <SectionHead icon={FileText} hint={`${detail.data.period_label} · ${FMT[detail.data.file_format] ?? detail.data.file_format}`}>{detail.data.framework_label}</SectionHead>
+            <div className="flex items-center gap-3">
+              <button onClick={() => download(`/v1/prior-filings/${detailId}/file`, detail.data!.original_filename).catch(() => toast.error('Could not download the file.'))}
+                className="inline-flex items-center gap-1.5 mono text-[11px] text-[var(--color-mute)] hover:text-[var(--color-sky)]" title="Download the report exactly as filed">
+                <Download size={13} /> Original file
+              </button>
+              <button onClick={() => setDetailId(null)} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]" title="Close"><X size={17} /></button>
+            </div>
+          </div>
+          <div className="px-5 py-3 border-b border-[var(--color-line)] flex flex-wrap gap-x-6 gap-y-1 text-[12px]">
+            <span className="text-[var(--color-mute)]">Entity: <span className="text-[var(--color-ink)]">{detail.data.entity_name ?? '—'}</span></span>
+            <span className="inline-flex items-center gap-1 text-[var(--color-good)]"><Lock size={11} /> {detail.data.status === 'confirmed' ? 'Confirmed' : 'Draft'}{detail.data.confirmed_at ? ` · ${detail.data.confirmed_at.slice(0, 10)}` : ''}</span>
+            <span className="inline-flex items-center gap-1 text-[var(--color-faint)] mono text-[10.5px]" title={`SHA-256 of the submitted file: ${detail.data.file_sha256 ?? ''}`}><ShieldCheck size={11} /> {(detail.data.file_sha256 ?? '').slice(0, 12)}…</span>
+          </div>
+          {detail.data.basis_note && (
+            <div className="px-5 py-2.5 border-b border-[var(--color-line)] text-[12px] text-[var(--color-mute)]">Preparation basis: <span className="text-[var(--color-ink)]">{detail.data.basis_note}</span></div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead><tr className="text-left">
+                {['From the report', 'Datapoint', 'Value'].map(h =>
+                  <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {(detail.data.figures ?? []).map(fig => (
+                  <tr key={fig.figure_id} className="border-b border-[var(--color-line)]">
+                    <td className="px-4 py-2.5">
+                      <div className="text-[var(--color-ink)]">{fig.label}</div>
+                      {fig.template_ref && <div className="mono text-[10px] text-[var(--color-faint)]">{fig.template_ref}</div>}
+                    </td>
+                    <td className="px-4 py-2.5 text-[12px] text-[var(--color-mute)]">{fig.datapoint_key ?? <span className="text-[var(--color-faint)]">unmatched</span>}</td>
+                    <td className="px-4 py-2.5 mono tabular-nums text-[var(--color-ink)] whitespace-nowrap">
+                      {fig.value_num != null ? compact(fig.value_num) : (fig.value_text ?? '—')}
+                      {fig.unit && fig.unit !== 'pure' && <span className="text-[var(--color-faint)] ml-1.5">{fig.unit}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-3 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">
+            The figures above are exactly as reported for {detail.data.period_label}; the original submitted file is retained for verification.
+          </div>
+        </Card>
+      )}
 
       {/* reported history — a filed figure across the years you have confirmed */}
       {series.length > 0 && selected && (

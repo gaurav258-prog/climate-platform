@@ -5,11 +5,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, require_permission
 import services.governance.prior_filings as PF
+
+# original-file media types, by stored format
+_MEDIA = {"pdf": "application/pdf", "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "xbrl": "application/xml", "ixbrl": "text/html"}
 
 router = APIRouter(prefix="/v1/prior-filings", tags=["Prior filings"])
 
@@ -47,6 +52,20 @@ def get_filing(filing_id: str, session: DbSession, ctx: CurrentUser,
         return PF.get_filing(session, filing_id, ctx["org"]["org_id"])
     except PF.FilingError as e:
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/{filing_id}/file", summary="Download the original filed report, exactly as submitted")
+def download_original(filing_id: str, session: DbSession, ctx: CurrentUser,
+                      _p: dict = Depends(require_permission("reports.view"))):
+    row = session.execute(text("""
+        SELECT original_filename, file_format, file_bytes FROM reported_filing
+        WHERE filing_id = :fid AND org_id = :org
+    """), {"fid": filing_id, "org": ctx["org"]["org_id"]}).mappings().first()
+    if not row:
+        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+    return Response(content=bytes(row["file_bytes"]),
+                    media_type=_MEDIA.get(row["file_format"], "application/octet-stream"),
+                    headers={"Content-Disposition": f'attachment; filename="{row["original_filename"]}"'})
 
 
 @router.post("/upload", status_code=201, summary="Upload a filed report — read it into reported lines to confirm")
