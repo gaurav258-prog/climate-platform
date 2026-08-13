@@ -19,7 +19,7 @@ interface Filing {
   filing_id: string; framework: string; framework_label: string; period_label: string
   entity_name: string | null; file_format: string; original_filename: string; status: string
   n_lines: number | null; uploaded_at: string | null; confirmed_at: string | null
-  basis_note?: string | null; figures?: Figure[]
+  basis_note?: string | null; file_sha256?: string | null; figures?: Figure[]
 }
 interface Framework { key: string; label: string }
 interface TrendPoint { period: string; value: number; unit: string | null; basis_note: string | null; basis_break: boolean }
@@ -368,7 +368,7 @@ export default function PriorFilings() {
                       <Tooltip
                         contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line-2)', borderRadius: 10, fontSize: 12 }}
                         labelStyle={{ color: 'var(--color-mute)' }}
-                        formatter={(v: number, name) => [`${compact(v)}${unit}`, name === 'proj' ? 'Projected' : 'Reported']} />
+                        formatter={(v, name) => [`${compact(Number(v))}${unit}`, name === 'proj' ? 'Projected' : 'Reported']} />
                       <Line type="monotone" dataKey="value" name="value" stroke="var(--color-sky)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
                       <Line type="monotone" dataKey="proj" name="proj" stroke="var(--color-mute)" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2.5, fill: 'var(--color-mute)' }} connectNulls isAnimationActive={false} />
                       {selected.points.map((p, i) => p.basis_break && (

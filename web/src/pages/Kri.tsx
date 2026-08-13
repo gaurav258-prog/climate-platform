@@ -390,7 +390,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                             <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
                             <XAxis dataKey="horizon" tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} />
                             <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={pf} />
-                            <Tooltip formatter={(v: number | string, n) => [pf(Number(v)), n === 'hi' ? 'upper (pessimistic models)' : n === 'lo' ? 'lower (optimistic models)' : 'central estimate']} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
+                            <Tooltip formatter={(v, n) => [pf(Number(v)), n === 'hi' ? 'upper (pessimistic models)' : n === 'lo' ? 'lower (optimistic models)' : 'central estimate']} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
                             {pr.breach != null && <ReferenceArea y1={pr.breach} y2={100000000000} fill="var(--color-danger)" fillOpacity={0.06} />}
                             {pr.warn != null && pr.breach != null && <ReferenceArea y1={pr.warn} y2={pr.breach} fill="#f0a860" fillOpacity={0.06} />}
                             <Area type="monotone" dataKey="hi" stroke="none" fill="var(--color-sky)" fillOpacity={0.12} isAnimationActive={false} />
@@ -416,7 +416,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                           <YAxis tick={{ fill: 'var(--color-faint)', fontSize: 10 }} axisLine={false} tickLine={false} width={46} tickFormatter={tf} />
                           <Tooltip formatter={(v) => tf(Number(v))} contentStyle={{ background: 'var(--color-panel)', border: '1px solid var(--color-line)', borderRadius: 8, fontSize: 12 }} />
                           <Line type="monotone" dataKey="value" stroke="var(--color-sky)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} style={{ cursor: 'pointer' }}
-                            activeDot={{ r: 5, style: { cursor: 'pointer' }, onClick: (_e: unknown, p: { payload?: { filing_id?: string } }) => { const fid = p?.payload?.filing_id; if (fid) nav(filingLink(profile?.org?.type, fid)) } }} />
+                            activeDot={{ r: 5, style: { cursor: 'pointer' }, onClick: (props: unknown) => { const fid = (props as { payload?: { filing_id?: string } })?.payload?.filing_id; if (fid) nav(filingLink(profile?.org?.type, fid)) } }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
