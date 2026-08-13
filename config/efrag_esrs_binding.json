@@ -1,0 +1,32 @@
+{
+  "_about": "EFRAG ESRS Set 1 XBRL taxonomy binding for Tellumen's ESRS Climate & Nature pack. To finish: replace each null in 'elements' with the concept's OFFICIAL element local-name from the adopted EFRAG ESRS Set 1 XBRL taxonomy. It binds automatically — services/intelligence/esrs_taxonomy.py get_profile('efrag_set1') reads this file; a null stays honestly 'pending', a real name flips that concept to bound. No code change needed.",
+  "_taxonomy": "EFRAG ESRS Set 1 XBRL Taxonomy (adopted). PENDING — element names not yet final (CSRD Omnibus). Namespace expected: https://xbrl.efrag.org/taxonomy/esrs/2024-12-31/esrs",
+  "_disclosure_requirement_hint": {
+    "AssetValueAtMaterialPhysicalRisk": "ESRS E1-9",
+    "BusinessInterruptionExposure": "ESRS E1-9",
+    "SourcingCOGSAtRiskPublished": "ESRS E1-9",
+    "ExposureMappedWithheld": "ESRS E1-9",
+    "SitesWaterStressed": "ESRS E3-4",
+    "AssetValueExposedToWaterStress": "ESRS E3-5",
+    "SourcingPlotsWaterStressed": "ESRS E3-4",
+    "SpendExposedToWaterStress": "ESRS E3-5",
+    "EUDRCoveredPlots": "ESRS E4-5",
+    "DeforestationFreePlots": "ESRS E4-5",
+    "NonCompliantPlots": "ESRS E4-5",
+    "PostCutoffForestLossHa": "ESRS E4-5"
+  },
+  "elements": {
+    "AssetValueAtMaterialPhysicalRisk": null,
+    "BusinessInterruptionExposure": null,
+    "SourcingCOGSAtRiskPublished": null,
+    "ExposureMappedWithheld": null,
+    "SitesWaterStressed": null,
+    "AssetValueExposedToWaterStress": null,
+    "SourcingPlotsWaterStressed": null,
+    "SpendExposedToWaterStress": null,
+    "EUDRCoveredPlots": null,
+    "DeforestationFreePlots": null,
+    "NonCompliantPlots": null,
+    "PostCutoffForestLossHa": null
+  }
+}

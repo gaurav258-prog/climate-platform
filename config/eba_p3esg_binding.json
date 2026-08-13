@@ -1,0 +1,20 @@
+{
+  "_about": "EBA Pillar 3 ESG XBRL element binding for Tellumen's bank prudential disclosure export. To finish: set 'namespace' to the official EBA taxonomy namespace and replace each 'element' null with the official EBA DPM element id/local-name. It binds automatically — services/governance/filing_export.py _load_p3_binding() reads this file; a null element stays honestly provisional, a real namespace + real elements flip the export to the official tags. No code change needed.",
+  "_taxonomy": "EBA Pillar 3 ESG XBRL taxonomy / DPM — PENDING. The EBA will develop the DPM and XBRL taxonomy for the Pillar 3 Data Hub (P3DH). The disclosure ITS was amended in June 2026 (EBA/ITS/2026/02), reference date 31 Dec 2026 (31 Dec 2027 for small & non-complex institutions). Only the machine element ids are pending — the template/column references below are verified against Commission Implementing Regulation (EU) 2022/2453 (Annex XXXIX forms + Annex XL instructions).",
+  "namespace": null,
+  "elements": {
+    "TotalBookValue":                {"its_ref": "Annex XXXIX Template 1 / Template 5 — total gross carrying amount (denominator row)",                          "unit": "EUR", "element": null},
+    "PhysicalRiskSensitiveExposure": {"its_ref": "Annex XXXIX Template 5, col 'of which exposures sensitive to impact from physical risk'",                     "unit": "EUR", "element": null},
+    "PhysicalRiskChronicExposure":   {"its_ref": "Annex XXXIX Template 5, col 'of which chronic climate change events'",                                        "unit": "EUR", "element": null},
+    "PhysicalRiskAcuteExposure":     {"its_ref": "Annex XXXIX Template 5, col 'of which acute climate change events'",                                          "unit": "EUR", "element": null},
+    "GARTotalAssets":                {"its_ref": "Annex XXXIX Template 7/8 (GAR) — total assets",                                                               "unit": "EUR", "element": null},
+    "GARCoveredAssets":              {"its_ref": "Annex XXXIX Template 7/8 (GAR) — GAR-covered assets (denominator)",                                           "unit": "EUR", "element": null},
+    "GAREligibleExposure":           {"its_ref": "Annex XXXIX Template 7/8 (GAR) — Taxonomy-eligible exposures",                                                "unit": "EUR", "element": null},
+    "GARAlignedExposure":            {"its_ref": "Annex XXXIX Template 7/8 (GAR) — Taxonomy-aligned exposures",                                                 "unit": "EUR", "element": null},
+    "GreenAssetRatioStockPct":       {"its_ref": "Annex XXXIX Template 8 — Green Asset Ratio (%), stock",                                                       "unit": "pure", "element": null},
+    "FinancedEmissionsScope1":       {"its_ref": "Annex XXXIX Template 1, col 'of which Scope 1 GHG financed emissions'",                                       "unit": "tCO2e", "element": null},
+    "FinancedEmissionsScope2":       {"its_ref": "Annex XXXIX Template 1, col 'of which Scope 2 GHG financed emissions'",                                       "unit": "tCO2e", "element": null},
+    "FinancedEmissionsScope3":       {"its_ref": "Annex XXXIX Template 1, col 'of which Scope 3 GHG financed emissions'",                                       "unit": "tCO2e", "element": null},
+    "FinancedEmissionsTotal":        {"its_ref": "Annex XXXIX Template 1 — total GHG financed emissions of the counterparty",                                   "unit": "tCO2e", "element": null}
+  }
+}

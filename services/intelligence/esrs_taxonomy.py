@@ -65,12 +65,15 @@ class TaxonomyProfile:
 
 
 def _load_efrag_map() -> dict:
-    """Load the adopted-taxonomy element map if the config file is present; else empty (pending)."""
+    """Load the adopted-taxonomy element map if the config file is present; else empty (pending).
+    A scaffold with unfilled (null/empty) values is honestly treated as pending — only real element
+    names count as bound, so dropping the template in place never falsely reports 'adopted'."""
     try:
         if _BINDING_FILE.exists():
             data = json.loads(_BINDING_FILE.read_text())
-            # accept either {"elements": {...}} or a flat {concept: name}
-            return data.get("elements", data) if isinstance(data, dict) else {}
+            raw = data.get("elements", data) if isinstance(data, dict) else {}
+            # keep only concepts with a real (non-empty string) official element name
+            return {k: v for k, v in raw.items() if isinstance(v, str) and v.strip()}
     except Exception:
         pass
     return {}

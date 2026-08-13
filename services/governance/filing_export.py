@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -183,6 +185,47 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -
 # book (the annex grids are pure functions of it), never a live re-score. Concept QNames live in Tellumen's
 # namespace; map them to the official EBA DPM taxonomy element IDs when filing to the regulator's collector.
 _P3_NS = "https://taxonomy.tellumen.eu/p3esg/2024"
+_P3_BINDING_FILE = Path(os.getenv("EBA_P3ESG_BINDING", "config/eba_p3esg_binding.json"))
+
+
+def _load_p3_binding() -> dict:
+    """Official EBA Pillar 3 ESG element map, if supplied → {namespace, elements{fact: element}}.
+    A scaffold with null elements is honestly ignored (stays provisional); only a real namespace +
+    real element names bind. Drop `config/eba_p3esg_binding.json` in when the EBA publishes the
+    Pillar-3-Data-Hub taxonomy — no code change. The ITS template/column refs in the file are already
+    verified against CIR (EU) 2022/2453; only the machine element id is pending."""
+    try:
+        if _P3_BINDING_FILE.exists():
+            data = json.loads(_P3_BINDING_FILE.read_text())
+            ns = data.get("namespace")
+            els = data.get("elements", {})
+            emap = {k: v["element"] for k, v in els.items()
+                    if isinstance(v, dict) and isinstance(v.get("element"), str) and v["element"].strip()}
+            if ns and emap:
+                return {"namespace": ns, "elements": emap}
+    except Exception:
+        pass
+    return {}
+
+
+def p3esg_binding_status() -> dict:
+    """Coverage of the EBA element binding — how many of our facts carry an official element id vs provisional."""
+    b = _load_p3_binding()
+    emap = b.get("elements", {})
+    facts = ["TotalBookValue", "PhysicalRiskSensitiveExposure", "PhysicalRiskChronicExposure",
+             "PhysicalRiskAcuteExposure", "GARTotalAssets", "GARCoveredAssets", "GAREligibleExposure",
+             "GARAlignedExposure", "GreenAssetRatioStockPct", "FinancedEmissionsScope1",
+             "FinancedEmissionsScope2", "FinancedEmissionsScope3", "FinancedEmissionsTotal"]
+    bound = [f for f in facts if f in emap]
+    return {"profile": "eba_dpm" if emap else "provisional",
+            "status": "bound" if len(bound) == len(facts) else ("partial" if bound else "pending_eba_taxonomy"),
+            "namespace": b.get("namespace") or _P3_NS,
+            "facts_total": len(facts), "facts_bound": len(bound),
+            "note": ("Bound to the supplied EBA Pillar 3 ESG element map."
+                     if bound else
+                     "Provisional Tellumen namespace — a real tagged-fact layer, NOT a validated EBA "
+                     "submission. Drop config/eba_p3esg_binding.json (EBA taxonomy pending, ITS amended "
+                     "Jun-2026, ref 31 Dec 2026 / 2027 SNCIs) to bind. Template/column refs already verified vs 2022/2453.")}
 
 
 def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
@@ -202,12 +245,17 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) 
     s2 = sum((a.get("ghg2") or 0) for a in assets)
     s3 = sum((a.get("ghg3") or 0) for a in assets)
 
+    binding = _load_p3_binding()
+    ns = binding.get("namespace") or _P3_NS
+    emap = binding.get("elements") or {}
+
     facts: list[str] = []
 
     def fact(name, unit, value, dec="2"):
         if value is None:
             return
-        facts.append(f'  <p3:{name} contextRef="d0" unitRef="{unit}" decimals="{dec}">{value}</p3:{name}>')
+        el = emap.get(name, name)  # official EBA element when bound, else our provisional local-name
+        facts.append(f'  <p3:{el} contextRef="d0" unitRef="{unit}" decimals="{dec}">{value}</p3:{el}>')
 
     # rollup + Template 5 physical risk
     fact("TotalBookValue", "uEUR", rollup.get("total_value_eur"), dec="0")
@@ -230,8 +278,10 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) 
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
         '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
-        f'            xmlns:p3="{_P3_NS}">',
+        f'            xmlns:p3="{ns}">',
         f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure (ITS 2022/2453) · {escape(str(org.get("legal_name") or org.get("name") or ""))} -->',
+        ('  <!-- Taxonomy binding: OFFICIAL EBA element map -->' if emap else
+         '  <!-- Taxonomy binding: provisional namespace (EBA Pillar 3 XBRL taxonomy pending); drop config/eba_p3esg_binding.json to bind -->'),
         '  <xbrli:context id="d0">',
         '    <xbrli:entity>',
         f'      <xbrli:identifier scheme="{_LEI_SCHEME}">{lei}</xbrli:identifier>',
