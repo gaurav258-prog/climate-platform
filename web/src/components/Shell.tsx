@@ -42,7 +42,7 @@ const GROUPS: Group[] = [
   { label: 'Disclose', color: 'var(--stage-disclose)', flow: true, items: [
     { to: '/funds', label: 'Funds', icon: Layers, perm: 'modules.view', sectors: ['asset_manager'] },
     { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
-    { to: '/prior-filings', label: 'Prior filings', icon: FileClock, perm: 'modules.view', sectors: FIN },
+    { to: '/prior-filings', label: 'Prior filings', icon: FileClock, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit', 'manufacturer'] },
     { to: '/filings', label: 'Filings', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
     { to: '/disclosure', label: 'Reports & EUDR', icon: FileText, perm: 'modules.view', sectors: AGRI },
     { to: '/csrd', label: 'Climate report (CSRD)', icon: FileText, perm: 'modules.view', sectors: AGRI },

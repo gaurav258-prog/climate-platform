@@ -28,7 +28,7 @@ def _dp_label(framework: str, key: str) -> str:
 # Frameworks a customer can bring a prior filing for — professional, customer-facing labels.
 FRAMEWORKS: list[dict] = [
     {"key": "bank_p3esg", "label": "Pillar 3 ESG risk disclosures", "sectors": ["bank"]},
-    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate", "sectors": ["bank", "asset_manager", "reit"]},
+    {"key": "csrd_e1",    "label": "CSRD / ESRS E1 — climate", "sectors": ["bank", "asset_manager", "reit", "manufacturer"]},
     {"key": "sfdr_pai",   "label": "SFDR principal adverse impacts", "sectors": ["asset_manager"]},
     {"key": "bank_tcfd",  "label": "TCFD climate disclosures", "sectors": ["bank", "asset_manager", "reit"]},
 ]
