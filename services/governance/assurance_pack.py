@@ -132,6 +132,40 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
     method_blob = methodology.encode("utf-8")
     manifest_files.insert(0, {"file": "methodology.md", "sha256": hashlib.sha256(method_blob).hexdigest(), "bytes": len(method_blob)})
 
+    # printable cover — a one-page summary an assurer can open/print to PDF (self-contained, no dependency)
+    verified = "hash verified ✓" if snap.get("hash_verified") else "hash not verified"
+    _rows = "".join(f"<tr><td>{f['file']}</td><td><code>{f['sha256'][:24]}…</code></td>"
+                    f"<td style='text-align:right'>{f['bytes']:,}</td></tr>" for f in manifest_files)
+    cover_html = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Assurance evidence pack — {entity}</title>
+<style>body{{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#12202f;max-width:760px;margin:40px auto;padding:0 26px;line-height:1.55}}
+h1{{font-size:25px;margin:0 0 2px;letter-spacing:-.01em}}.sub{{color:#5a6b80;margin:0 0 22px;font-size:15px}}
+.meta{{display:grid;grid-template-columns:180px 1fr;gap:7px 16px;font-size:13.5px;margin:18px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:16px 0}}
+.meta b{{color:#33465e;font-weight:600}}
+.gate{{background:#f2f7fc;border:1px solid #d5e3f2;border-radius:9px;padding:13px 15px;font-size:12.5px;color:#20344b;margin-top:6px}}
+h3{{margin:26px 0 4px;font-size:14px}}
+table{{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}}
+th,td{{padding:7px 9px;border-bottom:1px solid #eef1f6;text-align:left}}
+th{{color:#6a7a90;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}}
+code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
+.foot{{color:#8896a8;font-size:11px;margin-top:26px}}</style></head><body>
+<h1>Assurance evidence pack</h1>
+<p class="sub">{entity} · {snap['report_type']} v{snap['version']}</p>
+<div class="meta">
+  <b>Reporting entity</b><span>{entity}</span>
+  <b>Filing</b><span>{snap['report_type']} · version {snap['version']}</span>
+  <b>Reporting basis</b><span>scenario {basis.get('scenario')} · horizon {basis.get('horizon')} · materiality {basis.get('materiality_threshold')} · period {basis.get('reporting_period_end')}</span>
+  <b>Frozen payload hash</b><span><code>{snap.get('payload_sha256')}</code> · {verified}</span>
+  <b>Pack generated</b><span>{generated}</span>
+</div>
+<div class="gate"><b>Honesty gate.</b> A euro is a firm figure only where the hazard→yield/asset chain clears r²&nbsp;≥&nbsp;0.40; otherwise the exposure is mapped and the euro withheld. The r² floor is a fixed constant, not a per-filing setting.</div>
+<h3>Contents — every artifact hashed for tamper-evidence</h3>
+<table><thead><tr><th>File</th><th>SHA-256</th><th style="text-align:right">Bytes</th></tr></thead><tbody>{_rows}</tbody></table>
+<p class="foot">Tellumen assurance evidence pack. This cover summarises the bundle; every figure traces to the frozen snapshot and the artifacts above. Open in a browser and print to PDF for your working papers.</p>
+</body></html>"""
+    cover_blob = cover_html.encode("utf-8")
+    manifest_files.insert(0, {"file": "cover.html", "sha256": hashlib.sha256(cover_blob).hexdigest(), "bytes": len(cover_blob)})
+
     manifest = {
         "pack": "Tellumen assurance evidence pack",
         "entity": entity, "org_id": org_id,
@@ -148,6 +182,7 @@ def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tup
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("cover.html", cover_blob)
         z.writestr("manifest.json", manifest_blob)
         z.writestr("methodology.md", method_blob)
         for name, blob in blobs.items():

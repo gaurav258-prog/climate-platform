@@ -41,6 +41,16 @@ DEMO_ORG = "33333333-3333-4333-8333-333333333333"   # Terra Foods (demo)
 _bearer = HTTPBearer(auto_error=False)
 
 
+def _valid_id(v: str) -> str:
+    """A path id that isn't a UUID can never match a row — return a clean 404 rather than letting the
+    query fail on the cast (which would surface as a 500). Real navigation always passes a real id."""
+    try:
+        uuid.UUID(str(v))
+        return v
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=404, detail="not found")
+
+
 def resolve_org(
     org_id: Optional[str] = Query(None),
     credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
@@ -257,6 +267,7 @@ def sites(session: DbSession, org_id: OrgId):
 
 @router.get("/site/{site_id}", summary="One operational site — record + all hazards + adaptation actions")
 def site_detail(site_id: str, session: DbSession):
+    site_id = _valid_id(site_id)
     from services.intelligence.adaptation import actions_for
     from services.intelligence.company_sites import bi_downtime_fraction
     row = session.execute(text("""
@@ -510,6 +521,7 @@ async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = 
 
 @router.get("/plot/{plot_id}", summary="One sourcing plot — projection + provenance")
 def plot_detail(plot_id: str, session: DbSession):
+    plot_id = _valid_id(plot_id)
     p = session.execute(text("""
         SELECT p.plot_id::text AS plot_id, p.org_id::text AS org_id, p.plot_name,
                co.name AS commodity, co.eudr_covered, s.name AS supplier, p.country, p.region,
@@ -543,6 +555,7 @@ def plot_detail(plot_id: str, session: DbSession):
 
 @router.get("/commodity/{commodity_id}", summary="One commodity — analytics: exposure, plots, calibration/validation, projections, adaptation")
 def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
+    commodity_id = _valid_id(commodity_id)
     co = session.execute(text("SELECT name, eudr_covered FROM sc_commodities WHERE commodity_id=:id"),
                          {"id": commodity_id}).mappings().first()
     if not co:

@@ -51,6 +51,15 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("e1_ghg",               ("ghg", "scope 1", "scope 2", "scope 3", "emission", "energy", "e1-6", "tco2")),
         ("e1_narrative",         ("governance", "narrative", "impact", "opportunity", "strategy", "risk management")),
     ],
+    "esrs_pack": [   # ESRS Climate & Nature — E1 climate + E3 water + E4 nature
+        ("e4_protected_area",    ("protected area", "natura", "wdpa", "e4 protected", "key biodiversity")),
+        ("e4_deforestation",     ("deforestation", "forest loss", "forest-loss", "eudr", "e4 defor")),
+        ("e3_measured_water",    ("metered water", "measured water", "water consumption", "water withdrawal", "m3", "m³")),
+        ("e3_water",             ("water stress", "water-stress", "water risk", "e3-4", "e3", "water")),
+        ("e1_financial_effects", ("financial effect", "anticipated financial", "e1-9", "physical risk")),
+        ("e1_ghg",               ("ghg", "scope 1", "scope 2", "scope 3", "emission", "energy", "e1-6", "tco2")),
+        ("esrs_narrative",       ("transition plan", "narrative", "governance", "strategy", "target")),
+    ],
     "sfdr_pai": [
         ("pai_nature",     ("biodiversity", "emissions to water", "water", "hazardous waste", "nature", "pai 7", "pai 8", "pai 9")),
         ("pai_social",     ("ungc", "oecd", "gender pay", "board gender", "social", "human rights", "pai 10", "pai 11", "pai 12", "pai 13", "pai 14")),
