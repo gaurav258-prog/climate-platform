@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal } from 'lucide-react'
+import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -67,6 +67,20 @@ export default function Kri() {
   const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
   const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
   const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
+  // act on breaches from here: jump to the off-appetite indicators, and raise a remediation task on one.
+  const [onlyBreaches, setOnlyBreaches] = useState(false)
+  const [raising, setRaising] = useState<string | null>(null)
+  const canRaise = profile?.permissions?.includes('approvals.create') ?? false
+  async function raiseTask(k: Kpi) {
+    setRaising(k.key)
+    try {
+      const detail = [fmt(k), bandNote(k)].filter(Boolean).join(' · ')
+      await api.post('/v1/reg-tasks/kri/spin-task', { framework, key: k.key, label: k.label, detail })
+      toast.success(`Task raised for “${k.label}”.`)
+    } catch {
+      toast.error('Could not raise the task.')
+    } finally { setRaising(null) }
+  }
 
   return (
     <div className="fadeup space-y-5">
@@ -96,11 +110,16 @@ export default function Kri() {
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
           {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (
-            <div className="flex items-center gap-2 rounded-lg px-3.5 py-2.5" style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: '1px solid color-mix(in oklab, #fb7185 30%, transparent)' }}>
+            <button onClick={() => setOnlyBreaches(v => !v)}
+              className="w-full flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-left transition hover:brightness-110"
+              style={{ background: 'color-mix(in oklab, #fb7185 12%, transparent)', border: `1px solid color-mix(in oklab, #fb7185 ${onlyBreaches ? '60' : '30'}%, transparent)` }}
+              title={onlyBreaches ? 'Show all indicators' : 'Show only the indicators outside appetite'}>
               <span className="w-2 h-2 rounded-full" style={{ background: '#fb7185' }} />
               <span className="text-[12.5px] text-[var(--color-ink)]"><b>{d.breaches}</b> indicator{d.breaches === 1 ? '' : 's'} outside appetite</span>
+              <span className="mono text-[10px] uppercase tracking-wide" style={{ color: '#fb7185' }}>{onlyBreaches ? 'show all' : 'review these'}</span>
+              <ChevronRight size={13} style={{ color: '#fb7185' }} className={onlyBreaches ? 'rotate-90 transition' : 'transition'} />
               <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">bands set in Settings → KRI appetite</span>
-            </div>
+            </button>
           )}
           {/* provenance legend + filter — labels the dot on every KRI and lets you isolate what Tellumen
               computes vs what you/your vendor provide. Standard across every sector's dashboard. */}
@@ -121,7 +140,7 @@ export default function Kri() {
             {prov !== 'all' && <button onClick={() => setProv('all')} className="mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ml-0.5">show all</button>}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {d.kpis.filter(k => prov === 'all' || kindOf(k) === prov).map(k => {
+            {d.kpis.filter(k => (prov === 'all' || kindOf(k) === prov) && (!onlyBreaches || k.status === 'red')).map(k => {
               const rag = k.status ? RAG[k.status] : null
               const note = bandNote(k)
               const integrated = kindOf(k) === 'integrated'
@@ -139,6 +158,13 @@ export default function Kri() {
                   </div>
                   {k.reg && <div className="text-[8.5px] text-[var(--color-faint)] mt-1 truncate leading-tight" title={k.reg}>{k.reg_tier === 'core' && <span style={{ color: 'var(--color-sky)' }}>▸ </span>}{k.reg}</div>}
                   {note && <div className="mono text-[8.5px] text-[var(--color-faint)] mt-1" style={k.breached ? { color: rag! } : undefined}>{note}</div>}
+                  {k.status === 'red' && canRaise && (
+                    <button onClick={e => { e.stopPropagation(); raiseTask(k) }} disabled={raising === k.key}
+                      className="mt-2 inline-flex items-center gap-1 mono text-[9px] uppercase tracking-wide text-[var(--color-bad)] hover:underline disabled:opacity-50"
+                      title="Raise a task on the board to remediate this breach">
+                      <ListPlus size={11} /> {raising === k.key ? 'raising…' : 'raise task'}
+                    </button>
+                  )}
                 </Card>
               )
             })}
@@ -273,6 +299,8 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
   const nav = useNavigate()
   const { profile } = useAuth()
   const canSetAppetite = (profile?.permissions ?? []).includes('admin.approval_policy.manage')
+  const canRaise = (profile?.permissions ?? []).includes('approvals.create')
+  const [raising, setRaising] = useState(false)
   const { width, setWidth, startResize } = useResizableWidth('tellumen.drawerw', 460, 360, 860, 'right')
   const q = useQuery({ queryKey: ['kri-detail', framework, kriKey], queryFn: () => api.get<Detail>(`/v1/reg-tasks/kri/detail?framework=${framework}&kri=${encodeURIComponent(kriKey)}`) })
   const d = q.data
@@ -478,6 +506,18 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                   )
                 })()}
                 <div className="flex flex-wrap gap-2 pt-1">
+                  {k.status === 'red' && canRaise && (
+                    <button disabled={raising} onClick={async () => {
+                      setRaising(true)
+                      try {
+                        const detail = [fmt(k), bandNote(k)].filter(Boolean).join(' · ')
+                        await api.post('/v1/reg-tasks/kri/spin-task', { framework, key: kriKey, label: k.label, detail })
+                        toast.success(`Task raised for “${k.label}”.`)
+                      } catch { toast.error('Could not raise the task.') } finally { setRaising(false) }
+                    }} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-sky)] text-[var(--color-on-accent)] px-3 py-1.5 text-[12px] hover:brightness-110 transition disabled:opacity-50">
+                      <ListPlus size={13} /> {raising ? 'Raising…' : 'Raise task to remediate'}
+                    </button>
+                  )}
                   {d.actions.analytics && <button onClick={() => nav(analyticsHref(kriKey, k.label))} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition"><ArrowUpRight size={13} /> Explore forward in Analytics</button>}
                   {d.actions.provide && <button onClick={() => nav('/compliance')} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-slate)] hover:text-[var(--color-ink)] transition"><Upload size={13} /> Provide this figure</button>}
                   {canSetAppetite && !editBand && <button onClick={startBand} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] transition"><SlidersHorizontal size={13} /> Set appetite</button>}

@@ -118,6 +118,27 @@ def spin_task(body: SpinTask, session: DbSession, ctx: dict = Depends(require_pe
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 
 
+class KriTask(BaseModel):
+    framework: str = Field(..., max_length=60)
+    key:       str = Field(..., max_length=80)
+    label:     str = Field(..., max_length=200)
+    detail:    Optional[str] = Field(None, max_length=300)   # e.g. "53.7% · warn ≥15% · breach ≥30%"
+
+
+@router.post("/kri/spin-task", status_code=201, summary="Raise a task to remediate a KRI breach")
+def kri_spin_task(body: KriTask, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    title = f"KRI breach — {body.label}"[:300]
+    desc = (f"Indicator '{body.label}' is outside appetite"
+            + (f": {body.detail}" if body.detail else "") + ".\n"
+            + f"Framework: {body.framework}. Raised from the KRI dashboard — review and remediate.")
+    try:
+        # source_ref de-dupes: a live task for this indicator returns the existing one, no pile-up
+        return T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
+                             criticality="high", source="kri", source_ref=f"{body.framework}:{body.key}")
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
 @router.get("/board", summary="The Kanban board — tasks grouped into columns")
 def board(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return T.board(session, ctx["org"]["org_id"])
