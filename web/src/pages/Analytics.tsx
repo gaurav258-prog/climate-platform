@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
-import ReportedHistoryRef from '../components/ReportedHistoryRef'
+import FiledForwardCard from '../components/FiledForwardCard'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
@@ -155,7 +155,7 @@ export default function Analytics() {
           </button>
         </div>
       </div>
-      <ReportedHistoryRef />
+      <FiledForwardCard />
 
       {/* what-if — the two parameters the user drives; everything below recomputes live */}
       <Card className="px-5 py-4">
