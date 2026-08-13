@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft } from 'lucide-react'
+import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
@@ -497,6 +497,15 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
     <Card className="p-4 space-y-3">
       <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Next step</div>
       {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
+
+      {(f.status === 'draft' || f.status === 'returned') && (
+        <div className="flex items-center gap-2 mb-2">
+          <Button variant="ghost" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/refresh`, {}))} disabled={busy}>
+            <RefreshCw size={13} /> Refresh data
+          </Button>
+          <span className="text-[11px] text-[var(--color-faint)]">Re-freeze this draft from the current book — pulls in newly provided inputs (e.g. EPC / IFRS-9 / maturity).</span>
+        </div>
+      )}
 
       {(f.status === 'draft' || f.status === 'returned') && (canReview
         ? <div className="space-y-2">

@@ -403,6 +403,16 @@ def restate(filing_id: str, body: RestateBody, session: DbSession,
     return f
 
 
+@router.post("/filings/{filing_id}/refresh", summary="Re-freeze a draft filing's data from the current book")
+def refresh(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        f = F.refresh_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.refresh", filing_id)
+    return f
+
+
 # ── lifecycle ───────────────────────────────────────────────────────────
 
 @router.post("/filings", status_code=201, summary="Generate a draft filing (freezes the report)")

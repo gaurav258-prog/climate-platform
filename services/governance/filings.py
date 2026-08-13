@@ -484,6 +484,38 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     return get_filing(session, org_id, fid, with_payload=False)
 
 
+def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id: str) -> dict:
+    """Re-freeze a DRAFT filing's data snapshot from the current book — so newly provided inputs (e.g. per-loan
+    EPC / IFRS-9 / maturity attributes) flow into the form. Only drafts can refresh; a submitted or accepted
+    filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
+    r = session.execute(text("""
+        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id
+        FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
+    """), {"f": filing_id, "o": org_id}).mappings().first()
+    if not r:
+        raise FilingError("filing not found")
+    if r["status"] != "draft":
+        raise FilingError(f"only a draft filing can be refreshed — this one is '{r['status']}'. "
+                          f"Restate it as a new version to bring in updated data.")
+
+    entity_ids = value_weights = None
+    if r["entity_id"] is not None:
+        from services.governance import entities as _E
+        entity_ids = _E.subtree_ids(session, org_id, r["entity_id"])
+        if len(entity_ids) > 1:
+            value_weights = _E.ownership_weights(session, org_id)
+
+    snap = create_snapshot(session, org_id, r["framework"], actor_user_id,
+                           note="draft data refreshed", entity_ids=entity_ids, value_weights=value_weights)
+    session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap WHERE filing_id = :f AND org_id = :o"),
+                    {"snap": snap["snapshot_id"], "f": filing_id, "o": org_id})
+    _log_event(session, filing_id, "draft", "draft", "refresh", actor_user_id,
+               {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
+                "payload_sha256": snap["payload_sha256"], "prev_snapshot_id": r["snapshot_id"]})
+    session.commit()
+    return get_filing(session, org_id, filing_id, with_payload=False)
+
+
 def _load(session: Session, org_id: str, filing_id: str) -> dict:
     r = session.execute(text("""
         SELECT filing_id, status, framework, period_label, snapshot_id, approval_request_id
