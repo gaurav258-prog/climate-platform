@@ -14,8 +14,8 @@ _Last reviewed: 2026-08-13._
 
 | # | Item | Area | Built (ready) | Blocking | Hand Tellumen → we finish it |
 |---|------|------|---------------|----------|------------------------------|
-| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator | EFRAG adoption (Omnibus timing) | the published element-name list → we write the binding JSON |
-| 2 | EBA DPM element map | Bank Pillar 3 XBRL | well-formed XBRL, provisional namespace | none (EBA DPM is published) | the DPM element IDs → we swap the namespace |
+| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator + drop-in binding seam | EFRAG adoption (Omnibus timing) | the published element-name list → drop `config/efrag_esrs_binding.json` |
+| 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
 | 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
@@ -30,13 +30,19 @@ _Last reviewed: 2026-08-13._
 - **Owner:** EFRAG publishes it; obtaining + dropping it in is us.
 - **When it lands:** write the JSON, flip `efrag_set1` to bound, re-run `/esrs-pack.validate` (+ Arelle if installed). ~1h, no code change. **Do not invent element IDs.**
 
-## 2 · EBA DPM element map  *(us, needs published DPM)*
-- **Hook:** bank Pillar 3 XBRL export uses a provisional namespace `_P3_NS =
-  https://taxonomy.tellumen.eu/p3esg/2024` in `services/governance/filing_export.py`. Concept QNames are
-  self-describing and mappable to the official **EBA DPM** element IDs for the ITS 2022/2453 templates.
-- **Needed:** the EBA DPM element IDs for the Pillar 3 ESG templates (the DPM *is* published).
-- **Owner:** us — obtain/confirm the DPM element list, then map (optionally add a binding-config seam mirroring ESRS).
-- **When it lands:** swap the namespace / add the element IDs; re-verify the instance. **Map, don't guess.**
+## 2 · EBA Pillar 3 ESG element map  *(external artifact — EBA taxonomy pending)*
+- **Hook:** `config/eba_p3esg_binding.json` (override env `EBA_P3ESG_BINDING`), consumed by
+  `_load_p3_binding()` in `services/governance/filing_export.py`. No real map present → the export
+  emits well-formed, fully tagged XBRL under the provisional namespace `_P3_NS =
+  https://taxonomy.tellumen.eu/p3esg/2024` and self-documents that state; `p3esg_binding_status()`
+  reports `pending_eba_taxonomy`. All 13 facts are scaffolded with their **verified ITS 2022/2453
+  (Annex XXXIX/XL) template + column reference** — only the machine element id is pending.
+- **Needed:** the official EBA element ids/namespace. The EBA will develop the DPM and XBRL taxonomy
+  for the **Pillar 3 Data Hub (P3DH)**; the disclosure ITS was amended Jun-2026 (EBA/ITS/2026/02),
+  reference date 31 Dec 2026 (31 Dec 2027 for small & non-complex institutions). It is **not yet published**.
+- **Owner:** EBA publishes it; obtaining + dropping it in is us.
+- **When it lands:** set `namespace` + each `element` in the JSON, re-verify the instance. ~1h, no code
+  change (a simulated real map already flips all 13 facts to bound). **Do not invent element IDs.**
 
 ## 3 · EUDR operator registration + TRACES credentials  *(customer, then us)*
 - **Hook:** `services/intelligence/traces_client.py` — `submission_preview()` + `submit_dds()` run in
