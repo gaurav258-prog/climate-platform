@@ -98,6 +98,37 @@ def test_hazard_sets_are_disjoint_and_climate_only():
         assert peril not in ACUTE_HAZARDS and peril not in CHRONIC_HAZARDS
 
 
+def test_template5_maturity_and_ifrs9_from_provided_attrs():
+    # maturity buckets + gross-weighted average + IFRS-9 staging come from the provided per-loan attributes;
+    # a sector/loan without them must stay blank (not €0), so coverage is tracked per row.
+    assets = [
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 1000, "residual_maturity_years": 3, "ifrs9_stage": "2", "hazards": []},
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 2000, "residual_maturity_years": 12, "ifrs9_stage": "1", "hazards": []},
+        {"nace_code": "A01", "outstanding_loan_balance_eur": 500, "residual_maturity_years": 25, "ifrs9_stage": "3", "hazards": []},
+        {"nace_code": "A01", "outstanding_loan_balance_eur": 800, "hazards": []},  # no maturity / no stage
+    ]
+    g = template5_grid(assets)
+    assert g["maturity_covered"] and g["ifrs9_covered"]
+    by = {r["section"]: r for r in g["rows"]}
+    # D: 1000@3y -> ≤5y ; 2000@12y -> 10–20y ; gross-weighted avg = (1000*3+2000*12)/3000 = 9.0
+    assert by["D"]["le5"] == 1000 and by["D"]["m10_20"] == 2000 and by["D"]["avg_maturity"] == 9.0
+    assert by["D"]["stage2"] == 1000 and by["D"]["npe"] == 0
+    # A: only the 500@25y loan carries attributes -> >20y bucket; Stage 3 -> non-performing; the 800 loan is excluded
+    assert by["A"]["gt20"] == 500 and by["A"]["npe"] == 500 and by["A"]["avg_maturity"] == 25.0
+    assert by["A"]["has_maturity"] and by["A"]["has_ifrs9"]
+    # total weighted average across all loans that carry maturity
+    assert g["total"]["avg_maturity"] == round((500 * 25 + 1000 * 3 + 2000 * 12) / 3500, 1)
+    # impairment is still declared customer-supplied (never fabricated)
+    assert any("impairment" in c for c in g["customer_columns"])
+
+
+def test_template5_columns_blank_when_no_attrs_provided():
+    assets = [{"nace_code": "C", "outstanding_loan_balance_eur": 1000, "hazards": []}]
+    g = template5_grid(assets)
+    assert not g["maturity_covered"] and not g["ifrs9_covered"]
+    assert g["rows"][0]["has_maturity"] is False and g["rows"][0]["avg_maturity"] is None
+
+
 def test_grid_aggregation_and_invariants():
     assets = [
         _asset("C", 100, [("flood", "VH")]),                    # manufacturing, acute

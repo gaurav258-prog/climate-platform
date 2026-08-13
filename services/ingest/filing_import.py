@@ -38,9 +38,10 @@ _KEYWORDS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
     ],
     "bank_tcfd": [
         ("phys_risk",         ("physical", "value at risk", "acute", "chronic", "flood", "hazard")),
+        # transition BEFORE taxonomy-aligned, so "transition alignment …" maps to transition risk, not GAR
+        ("transition_risk",   ("transition", "carbon price", "carbon-price", "stranded")),
         ("taxonomy_aligned",  ("aligned", "alignment", "dnsh", "safeguard")),
         ("taxonomy_eligible", ("gar", "green asset ratio", "taxonomy-eligible", "taxonomy eligible", "eligible")),
-        ("transition_risk",   ("transition", "carbon price", "carbon-price", "stranded")),
         ("financed_emissions",("financed emission", "scope 3", "scope3", "pcaf", "ghg", "tco2", "emissions")),
         ("tcfd_narrative",    ("governance", "strategy", "narrative", "transition plan")),
     ],
@@ -262,7 +263,12 @@ def extract(framework: str, filename: str, data: bytes) -> dict:
     if catalog(framework) is None:
         raise ValueError("unknown_framework")
     fmt = detect_format(filename, data)
-    cells = _READERS[fmt](framework, data)
+    try:
+        cells = _READERS[fmt](framework, data)
+    except ValueError:
+        raise
+    except Exception:  # a corrupt/empty workbook, malformed XML, unreadable PDF → one clean error, not a 500
+        raise ValueError("unreadable")
     if not cells:
         raise ValueError("unreadable")
     n_mapped = sum(1 for c in cells if c["datapoint_key"])
