@@ -60,7 +60,7 @@ FRAMEWORKS = {
 # services/governance/filing_export.py). json is the universal record; xlsx/xbrl where a renderer exists.
 EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
-    "bank_p3esg": ("json", "xlsx"),
+    "bank_p3esg": ("json", "xlsx", "xbrl"),
     "sfdr_pai":  ("json", "xlsx", "xbrl"),
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),

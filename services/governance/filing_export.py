@@ -110,6 +110,8 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
         return sfdr_pai_xbrl(payload)
     if framework == "bank_tcfd":
         return _bank_tcfd_xbrl(session, org_id, payload, basis)
+    if framework == "bank_p3esg":
+        return _bank_p3esg_xbrl(session, org_id, payload, basis)
     raise ExportError(f"no XBRL renderer for '{framework}'")
 
 
@@ -170,6 +172,78 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -
         '  <xbrli:unit id="uEUR"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uCO2e"><xbrli:measure>tb:tCO2e</xbrli:measure></xbrli:unit>',
+        *facts,
+        '</xbrli:xbrl>',
+    ]
+    return "\n".join(lines)
+
+
+# ── Pillar 3 ESG (ITS 2022/2453) XBRL instance from the frozen bank payload ──────────────────────
+# Same faithful-serialization contract: facts are recomputed deterministically from the FROZEN per-asset
+# book (the annex grids are pure functions of it), never a live re-score. Concept QNames live in Tellumen's
+# namespace; map them to the official EBA DPM taxonomy element IDs when filing to the regulator's collector.
+_P3_NS = "https://taxonomy.tellumen.eu/p3esg/2024"
+
+
+def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
+    from xml.sax.saxutils import escape
+    from services.governance.pillar3_templates import gar_grid, template1_grid, template5_grid
+
+    org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),
+                          {"o": org_id}).mappings().first() or {}
+    lei = escape(str(org.get("lei") or "LEIUNAVAILABLE00000"))
+    period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
+    assets = payload.get("assets") or []
+    rollup = payload.get("rollup") or {}
+    gar = gar_grid(assets) if assets else {}
+    t1 = template1_grid(assets)["total"] if assets else {}
+    t5 = template5_grid(assets)["total"] if assets else {}
+    s1 = sum((a.get("ghg1") or 0) for a in assets)
+    s2 = sum((a.get("ghg2") or 0) for a in assets)
+    s3 = sum((a.get("ghg3") or 0) for a in assets)
+
+    facts: list[str] = []
+
+    def fact(name, unit, value, dec="2"):
+        if value is None:
+            return
+        facts.append(f'  <p3:{name} contextRef="d0" unitRef="{unit}" decimals="{dec}">{value}</p3:{name}>')
+
+    # rollup + Template 5 physical risk
+    fact("TotalBookValue", "uEUR", rollup.get("total_value_eur"), dec="0")
+    fact("PhysicalRiskSensitiveExposure", "uEUR", t5.get("sensitive"), dec="0")
+    fact("PhysicalRiskChronicExposure", "uEUR", t5.get("chronic"), dec="0")
+    fact("PhysicalRiskAcuteExposure", "uEUR", t5.get("acute"), dec="0")
+    # Templates 6–8 Green Asset Ratio
+    fact("GARTotalAssets", "uEUR", gar.get("total_assets"), dec="0")
+    fact("GARCoveredAssets", "uEUR", gar.get("covered_assets"), dec="0")
+    fact("GAREligibleExposure", "uEUR", gar.get("eligible"), dec="0")
+    fact("GARAlignedExposure", "uEUR", gar.get("aligned"), dec="0")
+    fact("GreenAssetRatioStockPct", "uPure", gar.get("gar_stock_pct"))
+    # Template 1 financed emissions (Scope 1–3)
+    fact("FinancedEmissionsScope1", "uCO2e", s1 or None, dec="0")
+    fact("FinancedEmissionsScope2", "uCO2e", s2 or None, dec="0")
+    fact("FinancedEmissionsScope3", "uCO2e", s3 or None, dec="0")
+    fact("FinancedEmissionsTotal", "uCO2e", t1.get("fin_emissions"), dec="0")
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
+        '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
+        f'            xmlns:p3="{_P3_NS}">',
+        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure (ITS 2022/2453) · {escape(str(org.get("legal_name") or org.get("name") or ""))} -->',
+        '  <xbrli:context id="d0">',
+        '    <xbrli:entity>',
+        f'      <xbrli:identifier scheme="{_LEI_SCHEME}">{lei}</xbrli:identifier>',
+        '    </xbrli:entity>',
+        '    <xbrli:period>',
+        f'      <xbrli:startDate>{period}-01-01</xbrli:startDate>',
+        f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
+        '    </xbrli:period>',
+        '  </xbrli:context>',
+        '  <xbrli:unit id="uEUR"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>',
+        '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
+        '  <xbrli:unit id="uCO2e"><xbrli:measure>p3:tCO2e</xbrli:measure></xbrli:unit>',
         *facts,
         '</xbrli:xbrl>',
     ]

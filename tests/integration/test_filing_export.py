@@ -74,3 +74,27 @@ def test_unavailable_format_is_refused():
             pytest.skip("no frozen bank filing")
         with pytest.raises(ExportError):
             export_filing(s, BANK_ORG, fid, "pdf")
+
+
+def _a_frozen_p3esg_filing(session):
+    return session.execute(text(
+        "SELECT filing_id::text FROM regulatory_filing WHERE org_id = :o AND framework = 'bank_p3esg' "
+        "AND snapshot_id IS NOT NULL ORDER BY created_at DESC LIMIT 1"), {"o": BANK_ORG}).scalar()
+
+
+@pytest.mark.integration
+def test_pillar3_xbrl_export_is_well_formed_with_gar_and_emissions():
+    import xml.etree.ElementTree as ET
+    with get_session() as s:
+        fid = _a_frozen_p3esg_filing(s)
+        if not fid:
+            pytest.skip("no frozen bank_p3esg filing")
+        name, media, content = export_filing(s, BANK_ORG, fid, "xbrl")
+        assert name.endswith(".xbrl") and media == "application/xml"
+        root = ET.fromstring(content)                      # well-formed
+        facts = {el.tag.rsplit("}", 1)[-1] for el in root if el.get("contextRef")}
+        # the Pillar 3 headline figures are tagged as facts (GAR grid + financed emissions + physical risk)
+        assert {"GARTotalAssets", "GAREligibleExposure", "GARAlignedExposure"} <= facts
+        assert {"FinancedEmissionsScope3", "PhysicalRiskSensitiveExposure"} <= facts
+        # every fact carries a unit reference (valid xbrli instance)
+        assert all(el.get("unitRef") for el in root if el.get("contextRef"))
