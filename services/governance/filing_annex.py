@@ -347,23 +347,54 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
 
         def _t2row(label):
             return {"type": "row", "cells": [_txt(label)] + [dict(c) for c in _t2blank]}
+
+        # EPC label (A–G) distribution from the per-loan attributes the institution provides — EPC applies to
+        # real-estate collateral, so a loan carrying an EPC label is placed by its label + area (EU vs non-EU
+        # from the collateral country). The commercial/residential split and the kWh/m² EP-score buckets aren't
+        # in the loan-tape attribute set, so those cells stay '—'.
+        _EU = {"AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
+               "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"}
+        _LABELS = ["A", "B", "C", "D", "E", "F", "G"]
+        acc = {"EU": {"total": 0.0, **{l: 0.0 for l in _LABELS}}, "nonEU": {"total": 0.0, **{l: 0.0 for l in _LABELS}}}
+        n_epc = 0
+        for a in assets:
+            epc = str(a.get("epc_label") or "").strip().upper()
+            if epc not in _LABELS:
+                continue
+            gross = a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0
+            if not gross:
+                continue
+            n_epc += 1
+            area = "EU" if (a.get("country") or "").upper() in _EU else "nonEU"
+            acc[area]["total"] += gross
+            acc[area][epc] += gross
+
+        def _t2total_row(area_key):
+            d = acc[area_key]
+            return {"type": "row", "cells": [_txt("Total — all collateral"),
+                    _mnum(_eur(round(d["total"], 2)), "integrated"),                # (a) total
+                    *[dict(_mnum("—", "integrated")) for _ in range(6)],            # (b)-(g) kWh EP-score buckets
+                    *[_mnum(_eur(round(d[l], 2)), "integrated") for l in _LABELS],  # (h)-(n) EPC A–G
+                    dict(_mnum("—", "integrated")), dict(_mnum("—", "integrated"))]}  # (o) without · (p) % est.
+
         t2_rows = []
-        for area in ("Total EU area (Union)", "Total non-EU area"):
-            t2_rows.append({"type": "subheader", "label": area})
-            t2_rows.append(_t2row("Total — all collateral"))
+        for area_key, area_label in (("EU", "Total EU area (Union)"), ("nonEU", "Total non-EU area")):
+            t2_rows.append({"type": "subheader", "label": area_label})
+            t2_rows.append(_t2total_row(area_key) if n_epc else _t2row("Total — all collateral"))
             t2_rows.append(_t2row("of which · loans collateralised by commercial immovable property"))
             t2_rows.append(_t2row("of which · loans collateralised by residential immovable property"))
             t2_rows.append(_t2row("of which · collateral obtained by taking possession"))
             t2_rows.append(_t2row("of which · level of energy efficiency (EP score) estimated"))
+        _epc_note = (f" EPC labels A–G are filled from the {n_epc} loans carrying an EPC label in the attributes you "
+                     "provided (placed by label and EU/non-EU collateral location); the commercial/residential split "
+                     "and kWh/m² EP-score buckets aren't in that attribute set, so they stay '—'." if n_epc else
+                     " EPC labels, EP scores, collateral type and location live on the institution's collateral register / "
+                     "EPC feed — shown '—' until that feed is connected.")
         sections.append({"title": "Template 2 — Banking book · loans collateralised by immovable property · energy efficiency of collateral (ITS 2022/2453, Annex XXXIX)",
                          "key": "t2", "columns": t2_cols, "col_sources": t2_src, "rows": t2_rows,
                          "note": "Fixed format per Annex XL. Gross carrying amount of loans collateralised by commercial / "
                                  "residential immovable property and repossessed real estate, distributed by the collateral's "
-                                 "energy consumption (kWh/m², cols b–g) and EPC label (A–G, cols h–n), split Union / non-Union. "
-                                 "EPC labels, EP scores, collateral type and location live on the institution's collateral "
-                                 "register / EPC feed — integrated, not derived from the physical-risk engine — so every cell is "
-                                 "shown '—' until that feed is connected. Third-country collateral with no EPC-equivalent leaves "
-                                 "cols h–n blank and reports estimates in cols b–g (Annex XL §6)."})
+                                 "energy consumption (kWh/m², cols b–g) and EPC label (A–G, cols h–n), split Union / non-Union." + _epc_note})
 
     # Template 3 — transition-risk ALIGNMENT METRICS (ITS 2022/2453, Annex XL §38–41): per IEA sector, the
     # portfolio CO₂-intensity + its distance to the IEA NZE2050 2030 target. Gross amount + benchmark + distance
@@ -414,18 +445,30 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         _pending = _mnum("—", "integrated")  # a pending integrated cell: shown, sourced, awaiting the institution feed
 
         def _t5row(label, r):
+            # maturity buckets + avg-weighted come from the provided loan-tape maturity (per sector); IFRS-9
+            # Stage-2 / non-performing from the provided staging. Cells stay '—' where the loan tape lacks them.
+            mat = (lambda v: _mnum(_eur(v), "integrated")) if r.get("has_maturity") else (lambda v: dict(_pending))
+            avg = _mnum(f"{r['avg_maturity']}y", "integrated") if r.get("has_maturity") and r.get("avg_maturity") is not None else dict(_pending)
+            ifr = (lambda v: _mnum(_eur(v), "integrated")) if r.get("has_ifrs9") else (lambda v: dict(_pending))
             return {"type": "row", "cells": [
                 _txt(label),
                 _mnum(_eur(r["gross"]), "computed"), _mnum(_eur(r["chronic"]), "computed"),
                 _mnum(_eur(r["acute"]), "computed"), _mnum(_eur(r["both"]), "computed"),
-                dict(_pending), dict(_pending), dict(_pending), dict(_pending), dict(_pending),
-                dict(_pending), dict(_pending), dict(_pending)]}
+                mat(r.get("le5", 0)), mat(r.get("m5_10", 0)), mat(r.get("m10_20", 0)), mat(r.get("gt20", 0)), avg,
+                ifr(r.get("stage2", 0)), ifr(r.get("npe", 0)), dict(_pending)]}
         t5_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in grid["rows"]]
         t5_rows.append(_t5row("TOTAL", grid["total"]))
+        _fed = []
+        if grid.get("maturity_covered"):
+            _fed.append("maturity buckets + average-weighted maturity")
+        if grid.get("ifrs9_covered"):
+            _fed.append("IFRS-9 Stage 2 / non-performing")
+        _feed_note = (" " + "; ".join(_fed).capitalize() + " are filled from the loan-tape attributes you provided."
+                      if _fed else " Maturity, IFRS-9 staging and impairment columns are integrated from the "
+                      "institution's loan tape (shown as '—' until that feed is connected).")
         sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
                          "key": "t5", "columns": cols, "col_sources": srcs, "rows": t5_rows,
-                         "note": grid["basis"] + " Maturity, IFRS-9 staging and impairment columns are integrated "
-                                 "from the institution's loan tape (shown as '—' until that feed is connected)."})
+                         "note": grid["basis"] + _feed_note})
     else:
         # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
         haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))

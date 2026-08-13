@@ -207,11 +207,18 @@ def concentration_split(assets: list[dict]) -> dict:
             "top_sector": top_sec, "top_sector_val": top_val, "by_sector": sector_val}
 
 
+def _mat_bucket(m: float) -> str:
+    return "le5" if m <= 5 else "m5_10" if m <= 10 else "m10_20" if m <= 20 else "gt20"
+
+
 def template5_grid(assets: list[dict]) -> dict:
     """EBA Pillar 3 Template 5 — banking-book physical-risk exposure by NACE sector. Returns the computable
-    columns (gross carrying amount, of-which physical-risk-sensitive, chronic, acute, both) per sector + total,
-    and names the customer-supplied columns (maturity buckets, IFRS-9 credit quality) left blank by design."""
+    columns (gross carrying amount, of-which physical-risk-sensitive, chronic, acute, both) per sector + total.
+    The maturity buckets and IFRS-9 credit-quality columns are filled from the per-loan attributes the customer
+    provides (residual_maturity_years, ifrs9_stage) where present; sectors/columns without that data stay blank."""
+    _M = ("le5", "m5_10", "m10_20", "gt20")
     by_sector: dict[str, dict] = {}
+    mat_n, ifrs9_n = 0, 0
     for a in assets:
         gross = a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0
         if not gross:
@@ -220,7 +227,10 @@ def template5_grid(assets: list[dict]) -> dict:
         chronic, acute = _asset_hits(a)
         sensitive = chronic or acute
         row = by_sector.setdefault(sec, {"section": sec, "label": NACE_SECTIONS.get(sec, "Unclassified"),
-                                         "gross": 0.0, "sensitive": 0.0, "chronic": 0.0, "acute": 0.0, "both": 0.0})
+                                         "gross": 0.0, "sensitive": 0.0, "chronic": 0.0, "acute": 0.0, "both": 0.0,
+                                         "le5": 0.0, "m5_10": 0.0, "m10_20": 0.0, "gt20": 0.0,
+                                         "_mat_x_gross": 0.0, "_mat_gross": 0.0,
+                                         "stage2": 0.0, "npe": 0.0, "_ifrs9_gross": 0.0})
         row["gross"] += gross
         if sensitive:
             row["sensitive"] += gross
@@ -230,18 +240,54 @@ def template5_grid(assets: list[dict]) -> dict:
             row["acute"] += gross
         if chronic and acute:
             row["both"] += gross
+        # maturity buckets + gross-weighted average, from the provided residual maturity
+        m = a.get("residual_maturity_years")
+        if m is not None:
+            try:
+                mv = float(m)
+                mat_n += 1
+                row[_mat_bucket(mv)] += gross
+                row["_mat_x_gross"] += gross * mv
+                row["_mat_gross"] += gross
+            except (TypeError, ValueError):
+                pass
+        # IFRS-9 staging: Stage 2 (under-performing) and Stage 3 (non-performing) from the provided stage
+        st = str(a.get("ifrs9_stage") or "").strip().lower().replace("stage", "").strip()
+        if st:
+            ifrs9_n += 1
+            row["_ifrs9_gross"] += gross
+            if st in ("2", "2 "):
+                row["stage2"] += gross
+            elif st in ("3",):
+                row["npe"] += gross
+
+    def _avg(r):
+        return round(r["_mat_x_gross"] / r["_mat_gross"], 1) if r["_mat_gross"] else None
 
     rows = sorted(by_sector.values(), key=lambda r: (r["section"] == "?", r["section"]))
-    total = {"section": "TOTAL", "label": "Total", "gross": sum(r["gross"] for r in rows),
-             "sensitive": sum(r["sensitive"] for r in rows), "chronic": sum(r["chronic"] for r in rows),
-             "acute": sum(r["acute"] for r in rows), "both": sum(r["both"] for r in rows)}
+    tot = {"section": "TOTAL", "label": "Total"}
+    for k in ("gross", "sensitive", "chronic", "acute", "both", "le5", "m5_10", "m10_20", "gt20",
+              "stage2", "npe", "_mat_x_gross", "_mat_gross", "_ifrs9_gross"):
+        tot[k] = sum(r[k] for r in rows)
+
+    def _emit(r):
+        out = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in r.items() if not k.startswith("_")}
+        out["avg_maturity"] = _avg(r)
+        out["has_maturity"] = r["_mat_gross"] > 0    # this sector has maturity data → show its bucket cells
+        out["has_ifrs9"] = r["_ifrs9_gross"] > 0     # this sector has IFRS-9 staging → show its stage cells
+        return out
+
     return {
-        "rows": [{k: (round(v, 2) if isinstance(v, float) else v) for k, v in r.items()} for r in rows],
-        "total": {k: (round(v, 2) if isinstance(v, float) else v) for k, v in total.items()},
-        # the official columns we cannot source from our feeds — declared, not silently dropped
-        "customer_columns": ["maturity buckets (≤5y / 5–10y / 10–20y / >20y / avg-weighted)",
-                             "Stage 2 (IFRS 9)", "non-performing exposures", "accumulated impairment"],
+        "rows": [_emit(r) for r in rows],
+        "total": _emit(tot),
+        "maturity_covered": mat_n > 0,   # show the maturity columns only when the loan tape carries maturity
+        "ifrs9_covered": ifrs9_n > 0,     # show the IFRS-9 columns only when staging is provided
+        # any official column still unsourced is declared, not silently dropped
+        "customer_columns": ([] if mat_n and ifrs9_n else
+                             (["Stage 2 / non-performing (IFRS 9)"] if not ifrs9_n else []) +
+                             (["maturity buckets"] if not mat_n else [])) + ["accumulated impairment"],
         "basis": "Gross carrying amount = outstanding loan balance. 'Of which physical-risk-sensitive' = "
                  "exposures in the top-two severity bands (H/VH). Chronic/acute per the institution's "
-                 "methodology (TCFD split). Maturity + IFRS-9 credit-quality columns are customer-supplied.",
+                 "methodology (TCFD split). Maturity buckets + IFRS-9 staging are filled from the loan-tape "
+                 "attributes you provide (residual maturity, IFRS-9 stage); columns without that data stay blank.",
     }

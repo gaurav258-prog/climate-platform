@@ -46,6 +46,9 @@ EXT_BANKING_COLUMNS = [
     "CAST(x.ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_emissions_scope3_tco2e",
     "CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur",
     "x.loan_origination_date",
+    # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
+    "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
+    "x.epc_label", "x.ifrs9_stage",
 ]
 
 
@@ -69,6 +72,8 @@ def _map_asset_list_row(row):
         "ghg3": row["ghg_emissions_scope3_tco2e"],
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
+        "residual_maturity_years": row.get("residual_maturity_years"),
+        "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"],
