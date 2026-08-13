@@ -72,19 +72,6 @@ try:
 except ImportError:
     ADMIN_ROUTERS_AVAILABLE = False
 
-try:
-    from api.routes import regulatory_monitoring
-except ImportError:
-    regulatory_monitoring = None
-try:
-    from api.routes import analyst_dashboard
-except ImportError:
-    analyst_dashboard = None
-try:
-    from api.routes import alerts_dashboard
-except ImportError:
-    alerts_dashboard = None
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -184,18 +171,6 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
-
-# Regulatory monitoring (CRCS) - Phase 1
-if regulatory_monitoring:
-    app.include_router(regulatory_monitoring.router)
-
-# Analyst dashboard - Internal review interface
-if analyst_dashboard:
-    app.include_router(analyst_dashboard.router)
-
-# Alert dashboard - Real-time customer alerts (Phase 2)
-if alerts_dashboard:
-    app.include_router(alerts_dashboard.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

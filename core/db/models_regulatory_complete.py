@@ -561,7 +561,7 @@ class AuditLog(Base):
     # Renamed from 'audit_log' to resolve a collision with the platform's
     # generic audit_log (core/db/models.py). This one is org/framework-scoped
     # regulatory auditing. Python references use the class, not the table name,
-    # so this rename is transparent to callers (e.g. api/routes/analyst_dashboard).
+    # so this rename is transparent to callers.
     __tablename__ = 'regulatory_audit_log'
 
     log_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
