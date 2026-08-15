@@ -62,6 +62,9 @@ ITEM_MAP = {
     "Olive oil":   "Olives",
     "Almonds":     "Almonds, in shell",
     "Wine grapes": "Grapes",
+    # Tier-B sweep (2026-08): oilseed + drought-cereal expansion.
+    "Rapeseed":    "Rape or colza seed",
+    "Sorghum":     "Sorghum",
 }
 
 # FAO numeric Area Code -> ISO-2 we store. Matching on the CODE, not the display name, is what
@@ -104,6 +107,10 @@ AREA_MAP = {
     202: "ZA",   # South Africa (rain-fed Highveld maize; added 2026-07-27 for the diversity book)
     2:   "AF",   # Afghanistan
     124: "LY",   # Libya
+    # Tier-B sweep (2026-08): rapeseed + sorghum origins.
+    33:  "CA",   # Canada (Prairie rapeseed/canola; 2021 heat-dome)
+    159: "NG",   # Nigeria (Sahel sorghum, drought-driven)
+    158: "NE",   # Niger (Sahel sorghum)
     5000: "WLD",  # World
 }
 

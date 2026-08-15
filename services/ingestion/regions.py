@@ -132,6 +132,21 @@ REGIONS: dict[str, Region] = {
     # driven; repeated droughts (1991/92, 2015/16) devastate the crop — a genuine multi-realization
     # ranged-drought signal, unlike the US Corn Belt's single 2012 event.
     "south_africa_maize": Region("south_africa_maize", "South Africa maize triangle (Highveld)", -29.0, -25.5, 24.5, 29.5),
+    # Tier-B crop-calibration sweep (2026-08) — world-staple expansion. Each region below was TESTED
+    # against 1991–2024 national yield (FAOSTAT) and honestly HELD below the r²≥0.40 out-of-sample floor:
+    # no meteorological index (SPEI/SPI/heat) was both strong and correctly signed. Kept as reusable
+    # geographic infrastructure (re-fittable if regional-yield targets or a different driver land later).
+    # Brazil soy/maize — Mato Grosso + Goiás cerrado. Tested: soy drought r=−0.25, maize r=0.32 → held (humid).
+    "brazil_soy": Region("brazil_soy", "Brazil soy/maize (Mato Grosso/cerrado)", -20.0, -7.0, -60.0, -45.0),
+    # India cane belt — Uttar Pradesh/Maharashtra. Tested: drought r=0.19 → held (heavily irrigated).
+    "india_cane": Region("india_cane", "India sugar-cane belt (UP/Maharashtra)", 15.0, 30.0, 73.0, 85.0),
+    # Indonesia palm — Sumatra/Kalimantan. Tested: drought r=0.16 → held (humid equatorial).
+    "indonesia_palm": Region("indonesia_palm", "Indonesia oil-palm (Sumatra/Kalimantan)", -6.0, 6.0, 95.0, 119.0),
+    # Canadian Prairies — SK/AB/MB canola. Tested incl. the 2021 heat-dome: drought r=0.03, heat r=0.04,
+    # r²_oos −0.13 → held (national canola yield not explained by seasonal-mean climate).
+    "canada_prairies": Region("canada_prairies", "Canada Prairies canola (SK/AB/MB)", 49.0, 60.0, -120.0, -95.0),
+    # Nigeria Sahel sorghum — Kano/Kaduna/Bauchi savanna. Tested: drought r=0.06, r²_oos −0.12 → held.
+    "nigeria_sorghum": Region("nigeria_sorghum", "Nigeria Sahel sorghum belt", 8.0, 13.0, 3.0, 14.0),
 }
 
 DEFAULT_REGION = "eu"
