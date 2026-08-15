@@ -95,14 +95,16 @@ TRANSMISSION = 0.5      # fallback transmission when a commodity carries no stoc
 #  fixed, the heat→yield coefficient is the fitted free parameter.)
 COMMODITY_PARAMS = {
     "Cocoa": {"sensitivity": 0.294, "global_share": 0.60, "stock_to_use": 26.4},
-    # Coffee (arabica) — calibrated to the 2021 event, drought AND frost (COMPOUND_HAZARDS):
-    #   drought score ≈ 80–86 (2021 SPEI −0.86) is the primary driver; the Jul-2021 FROST is now
-    #   also scored (season-minimum daily 2m temp from raw hourly ERA5 — ml/scoring/frost_climatology,
-    #   wired by scripts/wire_frost_demo.py on the same 2021 basis) and COMPOUNDS with drought on the
-    #   Brazil plot via the independent-multiplicative-damage path in _plot_yield_shock. Combined the
-    #   chain reproduces the real +44–60% 2021 move (methodology §6.3); drought alone is the lower
-    #   bound. Frost reuses the drought-fitted sensitivity (no separate frost coefficient) — it is the
-    #   COMBINED result that is validated against the event, not a standalone frost elasticity.
+    # Coffee (arabica) — HELD, € withheld (calibration_tier='indicative'; sc_model_validation
+    #   passed=False for every coffee event). The 2021 event is real but does NOT validate against
+    #   yield: tested 2026-08-16 against combined, national-arabica (USDA PSD) and sub-national
+    #   Minas/Sul-de-Minas arabica yield (IBGE PAM), across five agronomic windows, PLUS a lagged
+    #   frost-extent model. The frost signal is physically correct (frost→next-year loss, sign right,
+    #   strengthens with resolution: state r=−0.08 → Sul de Minas r=−0.23) but tops out at r²≈0.05,
+    #   ~8x below the 0.40 OOS gate — perennial yield is dominated by the biennial cycle (φ≈−0.49).
+    #   Drought + frost EXPOSURE stays live (scored on the plots via wire_frost_demo); only the € is
+    #   withheld. The sensitivity/share below are the legacy event params, kept for the (held)
+    #   compound computation and any future re-calibration — they publish nothing while tier=indicative.
     "Coffee": {"sensitivity": 0.45, "global_share": 0.35, "stock_to_use": 40.0},
 
     # The remaining six commodities were previously left at global_share=1.0
@@ -147,7 +149,12 @@ _DEFAULT_PARAMS = {"sensitivity": None, "global_share": 1.0, "stock_to_use": Non
 
 # Commodities whose impact function is calibrated to (and reproduces) a real event backtest.
 # Everything else is flagged 'indicative' so unvalidated € is never blended with validated €.
-BACKTESTED = {"Cocoa", "Coffee"}
+# This is only the FALLBACK for an origin-less book; the live tier is derived per origin from
+# v_sc_commodity_calibration (backtested iff sc_model_validation.passed). Coffee is NOT here:
+# every coffee event has passed=False (2026-08-16 — drought + frost both fail to validate against
+# arabica yield at every resolution), so coffee is held/indicative and its € withheld. Keeping it
+# here would only mislead — the runtime already holds it correctly.
+BACKTESTED = {"Cocoa"}
 
 # Commodities where real events show multiple same-season hazards on the SAME plot compound
 # rather than substitute for each other -- Coffee's July 2021 event (drought weakened the
