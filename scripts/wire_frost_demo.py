@@ -19,18 +19,24 @@ Run: .venv/bin/python scripts/wire_frost_demo.py
 import uuid
 from datetime import datetime, timezone
 
+import h3
 from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.frost import load_hourly_years, seasonal_by_year, to_h3_frame
-from ml.scoring.frost_climatology import frost_score, SCENARIO_WARMING_C, HORIZON_FRACTION
+from ml.scoring.frost_climatology import frost_score
+from ml.scoring.heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
 
 ORG = "55555555-5555-4555-8555-555555555555"  # Terra Foods (demo) -- see wire_coffee_demo.py's note
 YEAR_DIR = "data/era5_baseline/frost_hourly_years"
 REGION = "brazil_coffee"
 MODEL_VERSION = "frost-tmin-v0"
-CURRENT_YEAR = 2024
+# Score the 2021 austral-winter frost — the SAME representative-year basis wire_coffee_demo.py uses
+# for drought (2021, SPEI −0.86). Both drivers on one coherent year is what lets the COMPOUND_HAZARDS
+# path reproduce the validated July-2021 event (+48.5% vs the real +44–60%); a mismatched year (mild
+# frost against severe drought) would understate the compound risk the methodology validated.
+CURRENT_YEAR = 2021
 FROST_MONTHS = [5, 6, 7, 8, 9]
 
 
@@ -42,9 +48,11 @@ def main():
 
     # sanity check against the real record before writing anything: whichever years are on
     # disk (see fetch_era5_frost_hourly.py -- one CDS request per year; the full 1991-2024
-    # backfill may still be in progress) should show 2021 as the standout coldest -- the real
-    # event this whole pipeline exists to catch. The validation note below is scoped to the
-    # years actually loaded, not the full target range, so it never overclaims.
+    # backfill may still be in progress) should place 2021 among the COLDEST seasons -- it
+    # sits alongside 1994 and 2000, the other severe Brazil coffee frosts, which is the real
+    # signal this pipeline exists to catch (2021 is a top-tier event, not necessarily the single
+    # coldest). The validation note below is scoped to the years actually loaded, not the full
+    # target range, so it never overclaims.
     by_year = seasonal_by_year(ds, FROST_MONTHS)
     years_covered = sorted(r["year"] for r in by_year)
     year_span = f"{years_covered[0]}-{years_covered[-1]}" if len(years_covered) > 1 else str(years_covered[0])
@@ -61,17 +69,44 @@ def main():
     if df.empty:
         raise RuntimeError(f"no frost data for {CURRENT_YEAR} -- check the fetch completed for that year")
 
-    rows, scored_cells = [], set()
-    for _, cell_row in df.iterrows():
-        cell, tmin = cell_row["h3_cell"], cell_row["season_min_tmin_c"]
-        scored_cells.add(cell)
+    def frost_rows(cell, tmin):
+        out = []
         for scen in SCENARIO_WARMING_C:
             for horz in HORIZON_FRACTION:
                 sc = frost_score(tmin, scen, horz)
-                rows.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8, "hz": "frost",
-                             "scen": scen, "horz": horz, "score": sc,
-                             "bucket": score_to_bucket(sc).value, "mv": MODEL_VERSION,
-                             "dv": vintage, "now": now})
+                out.append({"id": str(uuid.uuid4()), "h3": cell, "res": 8, "hz": "frost",
+                            "scen": scen, "horz": horz, "score": sc,
+                            "bucket": score_to_bucket(sc).value, "mv": MODEL_VERSION,
+                            "dv": vintage, "now": now})
+        return out
+
+    rows, scored_cells, cell_tmin = [], set(), {}
+    for _, cell_row in df.iterrows():
+        cell, tmin = cell_row["h3_cell"], cell_row["season_min_tmin_c"]
+        scored_cells.add(cell)
+        cell_tmin[cell] = tmin
+        rows.extend(frost_rows(cell, tmin))
+
+    # Snap Brazil coffee plots onto the nearest scored frost cell (same nearest-lat/lon rule
+    # wire_coffee_demo.py uses for drought). Frost is scored over the ERA5 grid; a plot sits on its
+    # own H3 cell that need not coincide with a grid cell, so a Brazil coffee plot would otherwise
+    # carry drought but not frost and the COMPOUND_HAZARDS path could never fire. Non-Brazil coffee
+    # origins get NO frost row — frost is a Brazil-specific hazard for this book, correct not a gap.
+    scored_latlng = {c: h3.cell_to_latlng(c) for c in scored_cells}
+    with get_session() as s:
+        plots = s.execute(text("""
+            SELECT p.h3_cell, p.latitude, p.longitude FROM sc_sourcing_plots p
+            JOIN sc_commodities c ON c.commodity_id = p.commodity_id
+            WHERE c.name = 'Coffee' AND p.country = 'BR'
+        """)).mappings().all()
+    snapped = 0
+    for pl in plots:
+        if pl["h3_cell"] in scored_cells or pl["latitude"] is None:
+            continue
+        la, lo = float(pl["latitude"]), float(pl["longitude"])
+        nearest = min(scored_latlng, key=lambda c: (scored_latlng[c][0] - la) ** 2 + (scored_latlng[c][1] - lo) ** 2)
+        rows.extend(frost_rows(pl["h3_cell"], cell_tmin[nearest]))
+        snapped += 1
 
     with get_session() as s:
         s.execute(text("UPDATE canonical_scores SET valid_to=:now WHERE hazard_type='frost' AND valid_to IS NULL"), {"now": now})
@@ -100,7 +135,8 @@ def main():
                        f"scores from raw hourly ERA5, daily/seasonal minimum computed locally, not from "
                        f"that flagged product."})
 
-    print(f"wired Frost: scored {len(rows)} rows over {len(scored_cells)} Brazil cells for {CURRENT_YEAR}")
+    print(f"wired Frost: scored {len(rows)} rows over {len(scored_cells)} Brazil cells for {CURRENT_YEAR} "
+          f"(+{snapped} coffee plot(s) snapped to nearest scored cell)")
     with get_session() as s:
         for r in s.execute(text("""
             SELECT p.plot_name, ROUND(v.physical_risk_score::numeric,1) score

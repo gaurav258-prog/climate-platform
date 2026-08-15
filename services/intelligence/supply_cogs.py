@@ -95,11 +95,14 @@ TRANSMISSION = 0.5      # fallback transmission when a commodity carries no stoc
 #  fixed, the heat→yield coefficient is the fitted free parameter.)
 COMMODITY_PARAMS = {
     "Cocoa": {"sensitivity": 0.294, "global_share": 0.60, "stock_to_use": 26.4},
-    # Coffee (arabica) — calibrated to the DROUGHT share of the 2021 event:
-    #   drought score ≈ 80 (2021 SPEI −0.86) × 0.45 = yield-shock 36% × 35% Brazil share =
-    #   12.7% global supply shock (= observed −12.7%); × A(40% stocks)=0.60 / η=0.28 → +27%.
-    #   That's the drought-attributable move; the Jul-2021 FROST added the rest (to ~+60%) and
-    #   is NOT modelled (pending the CDS daily-min fix) — so coffee's € is a conservative floor.
+    # Coffee (arabica) — calibrated to the 2021 event, drought AND frost (COMPOUND_HAZARDS):
+    #   drought score ≈ 80–86 (2021 SPEI −0.86) is the primary driver; the Jul-2021 FROST is now
+    #   also scored (season-minimum daily 2m temp from raw hourly ERA5 — ml/scoring/frost_climatology,
+    #   wired by scripts/wire_frost_demo.py on the same 2021 basis) and COMPOUNDS with drought on the
+    #   Brazil plot via the independent-multiplicative-damage path in _plot_yield_shock. Combined the
+    #   chain reproduces the real +44–60% 2021 move (methodology §6.3); drought alone is the lower
+    #   bound. Frost reuses the drought-fitted sensitivity (no separate frost coefficient) — it is the
+    #   COMBINED result that is validated against the event, not a standalone frost elasticity.
     "Coffee": {"sensitivity": 0.45, "global_share": 0.35, "stock_to_use": 40.0},
 
     # The remaining six commodities were previously left at global_share=1.0
