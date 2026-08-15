@@ -11,10 +11,11 @@ requests (`/vsicurl/`), so we window-read only the pixels under one plot polygon
 ERA5. A tile can also be pre-staged into `data/forest/` (scripts/ingest_forest_baseline.py) for
 offline / faster reads; the local copy is used automatically when present.
 
-v0 scope (honest): the signal is tree-cover LOSS since the cutoff. It does not yet mask by
-`treecover2000` (was-it-forest) or distinguish deforestation from managed-plantation harvest —
-those refinements are the next slice. So the output is `loss` (evidence to review), not a final
-legal "non-compliant" verdict; the Phase-1 determination layer applies the EUDR rule on top.
+Scope: the signal is tree-cover LOSS since the cutoff, masked by `treecover2000` so loss is only
+counted on land that was forest at baseline (the `min_treecover_pct` threshold; `forest_pixels`
+records the masked footprint). It does not distinguish deforestation from managed-plantation
+harvest — so the output is `loss` (evidence to review), not a final legal "non-compliant" verdict;
+the Phase-1 determination layer applies the EUDR rule on top.
 """
 from __future__ import annotations
 

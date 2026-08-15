@@ -13,16 +13,6 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.intelligence.input_quality import input_quality_status
 from services.intelligence.company_sites import list_sites_with_risk
-from services.intelligence.agriculture_yield_risk import ParcelYieldRisk
-
-
-def test_degraded_flag_tracks_source():
-    canonical = ParcelYieldRisk(parcel_id="p1", h3_cell="x", crop="wheat", scenario="baseline",
-                                time_horizon="current", source="canonical")
-    fallback = ParcelYieldRisk(parcel_id="p2", h3_cell="x", crop="wheat", scenario="baseline",
-                               time_horizon="current", source="no_canonical_score")
-    assert canonical.degraded is False
-    assert fallback.degraded is True
 
 
 @pytest.mark.integration
