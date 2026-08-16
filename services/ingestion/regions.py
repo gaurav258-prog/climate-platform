@@ -147,6 +147,12 @@ REGIONS: dict[str, Region] = {
     "canada_prairies": Region("canada_prairies", "Canada Prairies canola (SK/AB/MB)", 49.0, 60.0, -120.0, -95.0),
     # Nigeria Sahel sorghum — Kano/Kaduna/Bauchi savanna. Tested: drought r=0.06, r²_oos −0.12 → held.
     "nigeria_sorghum": Region("nigeria_sorghum", "Nigeria Sahel sorghum belt", 8.0, 13.0, 3.0, 14.0),
+    # Sub-national ranged sweep (2026-08): the DROUGHT-PRONE Brazilian soy belt — Rio Grande do Sul,
+    # rainfed, hit by every La Niña drought (2004/05, 2011/12, 2021/22, 2022/23). Going sub-national
+    # WORKED as a method — RS soy vs state yield gives drought r=0.60 (vs r≈0.1 national/cerrado), driver
+    # clearly drought, no biennial — but it still HELD: r²_oos=0.10, well below the 0.40 gate (a couple of
+    # drought years drive the raw correlation; it doesn't generalise out-of-sample). Kept as infra + evidence.
+    "brazil_rs": Region("brazil_rs", "Rio Grande do Sul soy (rainfed, drought-prone)", -34.0, -27.0, -58.0, -49.0),
 }
 
 DEFAULT_REGION = "eu"
