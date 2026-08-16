@@ -31,7 +31,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from ml.features.crop_cycle import decompose
-from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
+from ml.features.drought import baseline_nc, compute_indices, load_monthly, seasonal_by_year
 
 NC_TEMPLATE = "data/era5_baseline/{region}_1991_2024_monthly.nc"
 
@@ -74,7 +74,7 @@ def main() -> int:
           f"phi={dec['phi']} alternate_bearing={dec['alternate_bearing']}")
 
     # 2. candidate hazard indices per year for this region+season
-    ds = load_monthly(NC_TEMPLATE.format(region=args.region))
+    ds = load_monthly(baseline_nc(args.region))
     idx = compute_indices(ds)
     seasonal = {r["year"]: r for r in seasonal_by_year(idx, months)}
 

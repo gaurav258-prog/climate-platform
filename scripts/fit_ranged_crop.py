@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from ml.features.crop_fit import fit_climate_on_score
-from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
+from ml.features.drought import baseline_nc, compute_indices, load_monthly, seasonal_by_year
 from ml.features import soil_moisture as smf
 from ml.scoring.drought_climatology import drought_score
 from ml.scoring.heat_climatology import heat_anomaly_score
@@ -37,7 +37,7 @@ FIT_VERSION = "ranged-fit-v0.1"
 
 
 def _drought_scores(region: str, scale: int, months: list[int]) -> dict[int, float]:
-    ds = load_monthly(NC_TEMPLATE.format(region=region))
+    ds = load_monthly(baseline_nc(region))
     seasonal = seasonal_by_year(compute_indices(ds, scale=scale), months)
     return {r["year"]: drought_score(r["spei"]) for r in seasonal if r.get("spei") is not None}
 
@@ -48,7 +48,7 @@ def _heat_scores(region: str, months: list[int]) -> dict[int, float]:
     monthly normal) by the interannual σ of that seasonal anomaly, then map Φ(z)×100 — so a season
     one σ hotter than normal reads ~84. The right driver for crops killed by heat during flowering
     (US Corn Belt maize), where SPEI-drought explains ~nothing."""
-    ds = load_monthly(NC_TEMPLATE.format(region=region))
+    ds = load_monthly(baseline_nc(region))
     seasonal = seasonal_by_year(compute_indices(ds), months)
     anoms = {r["year"]: r["temp_anom_c"] for r in seasonal
              if r.get("temp_anom_c") is not None and not math.isnan(r["temp_anom_c"])}
@@ -65,7 +65,7 @@ def _heat_scores(region: str, months: list[int]) -> dict[int, float]:
 def _soil_water_scores(region: str, months: list[int]) -> dict[int, float]:
     """Per-year root-zone water-stress score from the soil-moisture anomaly — the better driver
     for dryland cereals (SPEI misses the deep antecedent soil water grain-fill draws on)."""
-    smz = smf.anomaly(smf.load_root_zone(SM_TEMPLATE.format(region=region)))
+    smz = smf.anomaly(smf.load_root_zone(baseline_nc(region, 'soilmoisture')))
     return {r["year"]: soil_water_score(r["sm_z"]) for r in smf.seasonal_by_year(smz, months)
             if r.get("sm_z") is not None}
 

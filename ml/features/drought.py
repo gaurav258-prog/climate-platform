@@ -14,10 +14,33 @@ documented refinement. Consumes the monthly NetCDF from scripts/fetch_era5_basel
 """
 from __future__ import annotations
 
+import glob
+import os
+import re
+
 import numpy as np
 import xarray as xr
 
 WMO_BASELINE = ("1991", "2020")  # WMO standard normal
+
+
+def baseline_nc(region: str, kind: str = "monthly") -> str:
+    """Path to a region's ERA5 baseline, preferring the WIDEST year span available.
+
+    Baselines are named `<region>_<y0>_<y1>_<kind>.nc`. A longer series (e.g. 1961–2024 vs the
+    legacy 1991–2024) carries more drought/heat events, which is what an honest out-of-sample fit
+    needs — so when both exist we pick the longer one automatically, no caller change. Falls back to
+    the legacy 1991–2024 name when nothing matches (keeps existing behaviour if a region has one file).
+    """
+    cands = glob.glob(f"data/era5_baseline/{region}_*_{kind}.nc")
+    if not cands:
+        return f"data/era5_baseline/{region}_1991_2024_{kind}.nc"
+
+    def _span(p: str) -> int:
+        m = re.search(r"_(\d{4})_(\d{4})_", os.path.basename(p))
+        return (int(m.group(2)) - int(m.group(1))) if m else 0
+
+    return max(cands, key=_span)
 
 
 def load_monthly(nc_path: str) -> xr.Dataset:
