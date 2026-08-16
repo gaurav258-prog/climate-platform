@@ -1,0 +1,71 @@
+{
+  "region_key": "brazil_coffee",
+  "label": "Brazil coffee belt (Sul de Minas)",
+  "commodity": "Coffee",
+  "country": "BR",
+  "bbox": [
+    -23.0,
+    -20.5,
+    -47.0,
+    -44.5
+  ],
+  "threshold_c": 2.0,
+  "months": [
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "years_covered": [
+    1991,
+    2024
+  ],
+  "n_years": 32,
+  "series": {
+    "1991": 0.0,
+    "1992": 0.0,
+    "1993": 0.0,
+    "1994": 0.596,
+    "1995": 0.0,
+    "1996": 0.0,
+    "1997": 0.0202,
+    "1998": 0.0,
+    "1999": 0.0,
+    "2000": 0.1313,
+    "2001": 0.0,
+    "2002": 0.0101,
+    "2003": 0.0,
+    "2004": 0.0,
+    "2005": 0.0,
+    "2006": 0.0,
+    "2007": 0.0505,
+    "2008": 0.0,
+    "2009": 0.0101,
+    "2010": 0.0,
+    "2011": 0.0606,
+    "2012": 0.0,
+    "2013": 0.0,
+    "2014": 0.0,
+    "2015": 0.0,
+    "2016": 0.101,
+    "2017": 0.0,
+    "2018": 0.0101,
+    "2019": 0.0707,
+    "2020": 0.0404,
+    "2021": 0.4444,
+    "2024": 0.0303
+  },
+  "latest_year": 2024,
+  "latest_extent": 0.0303,
+  "latest_band": "normal",
+  "worst_year": 1994,
+  "worst_extent": 0.596,
+  "severe_years": [
+    1994,
+    2021
+  ],
+  "years_since_last_severe": 3,
+  "source": "Copernicus ERA5-Land raw-hourly, daily/seasonal minimum computed locally; frozen-area fraction of the sub-region (season-min 2m temp \u2264 2\u00b0C).",
+  "note": "Regional frost HAZARD severity (extent), not a calibrated euro \u2014 the frost\u2192yield link does not clear the r\u00b2\u22650.40 publish gate at any resolution (see analyze_coffee_frost_extent.py)."
+}

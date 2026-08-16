@@ -158,6 +158,22 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
         _kpi("ghg_emissions", "GHG emissions (Scope 1-3)", None, "num", integrated=True, integrated_note="carbon tool",
              hint="ESRS E1-6 GHG accounting is integrated from your carbon-accounting tool — Tellumen computes the physical/nature ESRS, not the emissions inventory."),
     ]
+    # Separate regional frost-severity indicator (E1 physical hazard) — standalone, shown only where the
+    # org sources from a region we hold frost data for. A HAZARD-extent number, NOT a euro (coffee € stays
+    # held); kept distinct from the per-plot score and from the COGS figures above.
+    from services.intelligence.frost_severity import org_frost_severity
+    for fr in org_frost_severity(session, org_id):
+        band = fr.get("latest_band", "unknown")
+        tone = {"severe": "#fb7185", "elevated": "#f0a860", "normal": "#4ade80"}.get(band)
+        severe = fr.get("severe_years") or []
+        kpis.append(_kpi(
+            "frost_severity", f"Frost severity · {fr['label']}",
+            round((fr.get("latest_extent") or 0) * 100, 1), "pct", tone=tone,
+            hint=(f"Winter {fr['latest_year']}: {fr['latest_extent']:.0%} of the belt below "
+                  f"{fr['threshold_c']:.0f}°C ({band}). Worst on record {fr['worst_year']} "
+                  f"({fr['worst_extent']:.0%}); {len(severe)} severe frost(s) in {fr['n_years']} yrs"
+                  + (f", last {severe[-1]}" if severe else "")
+                  + ". Regional frost HAZARD severity from ERA5 — a separate signal, not the (held) coffee €.")))
     label = "ESRS E1 climate KRIs"
     # The full nature pack (esrs_pack) also carries E3 Water and E4 Biodiversity — real values from the same
     # engine (E3 = hazard-exposure derived; E4 = EUDR deforestation determinations), NOT measured water use.
@@ -298,6 +314,12 @@ _METHODOLOGY = {
     "deforestation_free_pct": "Share of determined sourcing plots that are deforestation-free against the 2020 EUDR cutoff, from per-plot satellite forest-loss determinations.",
     "non_compliant": "Sourcing plots with post-2020 forest loss — non-compliant under EUDR.",
     "protected_area": "Own sites / sourcing plots in or within 1 km of a protected area, computed from the loaded protected-area datasets.",
+    "frost_severity": "Regional frost severity — the fraction of the sourcing belt whose winter minimum "
+                      "temperature fell to a crop-damaging level (≤2°C at 2m screen height), from Copernicus "
+                      "ERA5 raw-hourly data. A SEPARATE physical-hazard extent metric, not a euro: the "
+                      "frost→yield link does not clear the r²≥0.40 calibration gate at any resolution, so this "
+                      "reports how severe the frost season was — with the worst year and severe-frost frequency "
+                      "on record for context — rather than a financial figure.",
     "pai_emissions": "SFDR PAI 1 — total financed GHG emissions (Scope 1–3, tCO₂e) across the fund's value-weighted holdings.",
     "carbon_footprint": "SFDR PAI 2 — financed emissions per €M invested.",
     "waci": "SFDR PAI 3 — weighted-average carbon intensity (tCO₂e per €M investee revenue).",
