@@ -38,6 +38,24 @@ from typing import Optional
 MIN_YEARS = 12
 # |phi| at or above this is a real alternate-bearing signal rather than noise.
 PHI_ALTERNATE_BEARING = 0.20
+
+# Alternate bearing is a BIOLOGY of perennial fruit/nut trees & vines (a heavy crop drains the
+# tree, the next is light). ANNUAL crops (cereals, oilseeds, pulses, cane) cannot alternate-bear:
+# any measured phi on them is spurious autocorrelation, and removing it as a "cycle" strips real
+# climate variance (found 2026-08-16: it suppressed Brazil soy's drought signal, r²_oos 0.12→0.37).
+# So de-cycling is applied ONLY to crops on this list; everything else is simple-detrended (phi=0).
+ALTERNATE_BEARING_CROPS = (
+    "olive", "almond", "pistachio", "apple", "pear", "avocado", "mango", "cherry", "apricot",
+    "plum", "walnut", "pecan", "citrus", "orange", "mandarin", "lemon", "lime", "grape", "wine",
+    "coffee", "arabica", "cocoa",   # perennial tree crops; cocoa phi≈0 so this is neutral for it
+)
+
+
+def is_alternate_bearing(commodity: str) -> bool:
+    """Whether a crop can biologically alternate-bear (→ its cycle should be decomposed out).
+    Annual crops (wheat, maize, soy, barley, sunflower, sorghum, cane…) return False → detrend only."""
+    c = (commodity or "").lower()
+    return any(k in c for k in ALTERNATE_BEARING_CROPS)
 # Half-width of the centered trend window. The FULL window is 2*K+1 points with half weights
 # at the ends — the classical "2xk" moving average, which cancels a period-2 cycle EXACTLY.
 # K=3 (a 7-year span) keeps recent target years like 2022 inside a full symmetric window while
@@ -88,7 +106,7 @@ def _centered_trend(values: list[float], k: int = TREND_K):
     return trend, full
 
 
-def decompose(series: dict, target_year: Optional[int] = None) -> dict:
+def decompose(series: dict, target_year: Optional[int] = None, allow_cycle: bool = True) -> dict:
     """series: {year: production_tonnes} (gaps allowed; non-positive values dropped).
 
     Returns {phi, alternate_bearing, n_years, years: {year: {...}}, target: {...}} where each
@@ -124,6 +142,10 @@ def decompose(series: dict, target_year: Optional[int] = None) -> dict:
         num += dev[i - 1] * dev[i]
         den += dev[i - 1] ** 2
     phi = (num / den) if den > 0 else 0.0
+    # Annual crops cannot alternate-bear: force phi=0 so climate_pct is the simple detrended
+    # deviation (no spurious cycle removed). Only genuine perennials keep their measured cycle.
+    if not allow_cycle:
+        phi = 0.0
     alternate = phi <= -PHI_ALTERNATE_BEARING
 
     out = {}

@@ -21,6 +21,7 @@ import sys
 from sqlalchemy import text
 
 from core.db.session import get_session
+from ml.features.crop_cycle import is_alternate_bearing
 from ml.features.crop_fit import fit_climate_on_score
 from ml.features.drought import baseline_nc, compute_indices, load_monthly, seasonal_by_year
 from ml.features import soil_moisture as smf
@@ -102,7 +103,7 @@ def main() -> int:
         """), {"c": args.commodity, "o": args.origin, "src": args.source}).fetchall()
         production = {int(y): float(p) for y, p in rows}
 
-        fit = fit_climate_on_score(production, scores, args.driver)
+        fit = fit_climate_on_score(production, scores, args.driver, allow_cycle=is_alternate_bearing(args.commodity))
         if fit is None:
             print("too few usable, non-edge years overlap — no fit")
             return 1

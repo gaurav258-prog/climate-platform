@@ -54,14 +54,16 @@ class CropFit:
 
 def fit_climate_on_score(production: dict[int, float],
                          score_by_year: dict[int, float],
-                         driver: str) -> Optional[CropFit]:
-    """OLS of cycle-decomposed climate anomaly on a per-year hazard score.
+                         driver: str, allow_cycle: bool = True) -> Optional[CropFit]:
+    """OLS of the climate anomaly on a per-year hazard score.
 
     production   : {year: production_tonnes} for the origin.
     score_by_year: {year: 0-100 hazard score} for the SAME driver, region and season.
+    allow_cycle  : de-cycle the series (True) — correct ONLY for alternate-bearing perennials;
+                   annual crops must pass False so a spurious cycle isn't removed (see crop_cycle).
     Returns None if too few usable, non-edge years overlap (a fit on a handful of points is
     exactly the over-fitting this whole effort exists to avoid)."""
-    d = decompose(production)
+    d = decompose(production, allow_cycle=allow_cycle)
     pts = []
     for year, score in score_by_year.items():
         t = d["years"].get(year)

@@ -30,7 +30,7 @@ import sys
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.features.crop_cycle import decompose
+from ml.features.crop_cycle import decompose, is_alternate_bearing
 from ml.features.drought import baseline_nc, compute_indices, load_monthly, seasonal_by_year
 
 NC_TEMPLATE = "data/era5_baseline/{region}_1991_2024_monthly.nc"
@@ -69,7 +69,7 @@ def main() -> int:
     if len(series) < 12:
         print(f"only {len(series)} usable years — cannot identify a driver")
         return 1
-    dec = decompose(series)
+    dec = decompose(series, allow_cycle=is_alternate_bearing(args.commodity))
     print(f"{args.commodity}/{args.origin}: {dec['n_years']} yrs {dec['span']}, "
           f"phi={dec['phi']} alternate_bearing={dec['alternate_bearing']}")
 
