@@ -153,6 +153,18 @@ REGIONS: dict[str, Region] = {
     # clearly drought, no biennial — but it still HELD: r²_oos=0.10, well below the 0.40 gate (a couple of
     # drought years drive the raw correlation; it doesn't generalise out-of-sample). Kept as infra + evidence.
     "brazil_rs": Region("brazil_rs", "Rio Grande do Sul soy (rainfed, drought-prone)", -34.0, -27.0, -58.0, -49.0),
+    # Rainfed semi-arid cereal-origin sweep (2026-08-16): widen the WINNING Maghreb crop-class
+    # (rainfed, drought-limited winter cereal) to new geographies in the same profile.
+    # Rainfed-cereal origin sweep (2026-08): widen the winning class (Maghreb wheat/barley). All 3 TESTED
+    # and HELD below the r²≥0.40 gate — the Maghreb stays uniquely strong even within its own crop-class.
+    # Rainfed N Iraq — Nineveh + Kurdistan foothills. Barley IQ cleared driver-ID (drought r=0.54) but
+    # r²_oos=0.07 (a few drought years carry it, doesn't generalise); Wheat IQ r²_oos=0.03. Held.
+    "iraq_wheat": Region("iraq_wheat", "Rainfed N Iraq wheat (Nineveh/Kurdistan)", 34.5, 37.5, 41.0, 45.0),
+    # SA Western Cape winter-rainfall wheat (Swartland/Overberg) — distinct from Highveld maize. Cleared
+    # driver-ID (drought r=0.55) but r²_oos=0.08 → held.
+    "sa_wcape_wheat": Region("sa_wcape_wheat", "SA Western Cape winter wheat (Swartland/Overberg)", -34.5, -32.0, 18.0, 21.0),
+    # Chile Mediterranean central valley — irrigated, weak drought signal (r≈0.14), r²_oos=−0.10 → held.
+    "chile_central": Region("chile_central", "Chile central valley wheat (Mediterranean)", -37.0, -33.0, -72.5, -70.0),
 }
 
 DEFAULT_REGION = "eu"

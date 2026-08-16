@@ -102,6 +102,8 @@ AREA_MAP = {
     41:  "CN",   # China, mainland (NOT 351 aggregate)
     40:  "CL",   # Chile
     102: "IR",   # Iran (Islamic Republic of)
+    103: "IQ",   # Iraq (rainfed N Iraq wheat/barley; added 2026-08-16 for the semi-arid cereal sweep).
+                 # NB: FAO area code for Iraq is 103, verified against the bulk CSV — NOT 102 (that is Iran).
     108: "KZ",   # Kazakhstan (northern spring-wheat steppe; added 2026-07-20 for the rain-fed book)
     10:  "AU",   # Australia
     202: "ZA",   # South Africa (rain-fed Highveld maize; added 2026-07-27 for the diversity book)
