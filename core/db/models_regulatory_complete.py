@@ -240,6 +240,27 @@ class OrgRegulationVersionPreference(Base):
     version = relationship('RegulationVersion', back_populates='org_preferences', foreign_keys=[active_version_id])
 
 
+class AnalyticsSavedView(Base):
+    """A user-defined 'custom view' over the forward-looking exposure analytics — a saved parameter set
+    (scope × measure × scenario × horizon × group-by). It stores ONLY PARAMETERS, never numbers: every
+    figure is recomputed live from the golden source, so a saved view can never carry a stale or invented
+    value, and is always exploratory (never a frozen/filed figure). Private by default; is_shared exposes it
+    read-only to the rest of the org; only the creator can edit or delete it."""
+    __tablename__ = 'analytics_saved_view'
+
+    view_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), nullable=False)   # users.user_id (no FK: a view outlives user cleanup)
+    name = Column(String(120), nullable=False)
+    config = Column(JSONB, nullable=False)   # {scope, measure, scenario, horizon, groupBy, threshold, chart}
+    is_shared = Column(Boolean, nullable=False, server_default='false')
+    is_pinned = Column(Boolean, nullable=False, server_default='false')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (Index('idx_analytics_view_org', 'org_id'),)
+
+
 # ============================================================================
 # REGULATORY CHANGE DETECTION (CRCS)
 # ============================================================================

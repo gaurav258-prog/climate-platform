@@ -7,6 +7,7 @@ import {
 import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Download, X, ChevronRight, ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
 import FiledForwardCard from '../components/FiledForwardCard'
+import AnalyticsViews from '../components/AnalyticsViews'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
@@ -281,6 +282,9 @@ export default function Analytics() {
           </div>
         </>
       )}
+
+      {/* bounded self-service: build & save your own cut of the same golden-source book */}
+      <AnalyticsViews prefix={prefix} orgName={profile?.org?.name} />
 
       {drill && canDrill && <DrillDrawer prefix={prefix} hazard={drill} scenario={sel} horizonKey={HZ[hz][0]}
         scenarioLabel={scen.label} horizonLabel={hzLabel} onClose={() => setDrill(null)} />}
