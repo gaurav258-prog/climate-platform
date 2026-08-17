@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BookOpen, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
@@ -7,8 +8,11 @@ import { DOCS, DOC_CATEGORIES, type DocArticle } from '../content/docs'
 export default function Docs() {
   const { profile } = useAuth()
   const sector = profile?.org?.type ?? ''
+  const [params] = useSearchParams()
   const [q, setQ] = useState('')
-  const [slug, setSlug] = useState<string>('welcome')
+  // deep-link support: ?doc=<slug> opens that article straight away (e.g. from Support's guide cards)
+  const [slug, setSlug] = useState<string>(() => params.get('doc') ?? 'welcome')
+  useEffect(() => { const d = params.get('doc'); if (d) setSlug(d) }, [params])
 
   // Sector-aware: hide articles gated to a different sector.
   const visible = useMemo(() => DOCS.filter(d => !d.sectors || d.sectors.includes(sector)), [sector])

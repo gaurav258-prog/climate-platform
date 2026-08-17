@@ -215,7 +215,7 @@ function DocSearch({ guides, mode, onFile }: { guides: typeof DOCS; mode: 'brows
       )}
       <div className="space-y-2">
         {hits.slice(0, 12).map(d => (
-          <button key={d.slug} onClick={() => nav('/docs')} className="w-full text-left rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3.5 hover:border-[var(--color-line-2)] transition group">
+          <button key={d.slug} onClick={() => nav(`/docs?doc=${d.slug}`)} className="w-full text-left rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3.5 hover:border-[var(--color-line-2)] transition group">
             <div className="flex items-center gap-2">
               <BookOpen size={14} className="text-[var(--color-faint)] shrink-0" />
               <span className="text-[13.5px] text-[var(--color-ink)] font-medium">{d.title}</span>
