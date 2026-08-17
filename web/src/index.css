@@ -161,3 +161,12 @@ select {
 /* live-earth fallback: slow drifting glow */
 @keyframes drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(-2%,1.5%,0) scale(1.05)} 100%{transform:translate3d(0,0,0) scale(1)} }
 .drift { animation: drift 26s ease-in-out infinite; }
+
+/* Global reduced-motion guard — for users who ask for it, collapse every non-opacity
+   animation/transition so the cockpit's live pulses and hover lifts go still. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; scroll-behavior: auto !important;
+  }
+}

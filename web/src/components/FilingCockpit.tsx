@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw } from 'lucide-react'
+import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { frameworkLabel } from '../lib/hazards'
@@ -90,14 +90,22 @@ export default function FilingCockpit() {
 
   const regByFw: Record<string, string> = {}
   frameworks.forEach(f => { regByFw[f.framework] = f.regulator })
-  const needAction = obligations.filter(o => !['submitted', 'accepted'].includes(o.filing_status)).length
+  const filedC = (o: Obligation) => ['submitted', 'accepted'].includes(o.filing_status)
+  const needAction = obligations.filter(o => !filedC(o)).length
+  const overdueCount = obligations.filter(o => o.overdue && !filedC(o)).length
+  const filedCount = obligations.filter(filedC).length
+  // the single most-pressing thing: the soonest deadline still needing action
+  const nextDue = obligations.filter(o => !filedC(o)).sort((a, b) => a.days_to_due - b.days_to_due)[0]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* ── COCKPIT HERO — the reporting posture at a glance: what's live, what's pressing, where you stand ── */}
+      <CockpitHero total={obligations.length} needAction={needAction} overdue={overdueCount} filed={filedCount} nextDue={nextDue} />
+
       {/* ── YOUR FILINGS — the one thing most users touch: what's due and how far along it is ── */}
       <div>
         <div className="flex items-center gap-3 mb-3 px-1">
-          <SectionHead>Your filings</SectionHead>
+          <SectionHead icon={FileText}>Your filings</SectionHead>
           <div className="h-px flex-1 bg-[var(--color-line)]" />
           <span className="mono text-[10.5px] text-[var(--color-faint)]">{needAction ? `${needAction} need action` : 'all filed'}</span>
         </div>
@@ -117,6 +125,60 @@ export default function FilingCockpit() {
       {openId && <FilingDrawer filingId={openId} onClose={closeDrawer} onChanged={refresh} onOpen={openFiling} />}
       {preflightFw && <FilingPreflight framework={preflightFw} onClose={() => setPreflightFw(null)}
         onGenerated={(id) => { setPreflightFw(null); refresh(); setOpenId(id) }} />}
+    </div>
+  )
+}
+
+// The hero: a calm, wide status band that answers "how are my filings doing?" before any detail. An ambient
+// disclose-hued glow, a Fraunces headline, and four live counters (due · to action · overdue · filed).
+function CockpitHero({ total, needAction, overdue, filed, nextDue }:
+  { total: number; needAction: number; overdue: number; filed: number; nextDue?: Obligation }) {
+  const allClear = needAction === 0 && total > 0
+  const dueLine = nextDue
+    ? nextDue.overdue
+      ? `${Math.abs(nextDue.days_to_due)} days overdue`
+      : nextDue.days_to_due === 0 ? 'due today' : `in ${nextDue.days_to_due} days`
+    : '—'
+  const tiles: { label: string; value: string | number; tone: string; icon: React.ComponentType<{ size?: number }>; pulse?: boolean }[] = [
+    { label: 'Due this period', value: total, tone: 'var(--color-sky)', icon: CalendarClock },
+    { label: 'Need action', value: needAction, tone: needAction ? 'var(--color-warn)' : 'var(--color-good)', icon: ListChecks },
+    { label: 'Overdue', value: overdue, tone: overdue ? 'var(--color-bad)' : 'var(--color-faint)', icon: Flame, pulse: overdue > 0 },
+    { label: 'Filed', value: filed, tone: 'var(--color-good)', icon: CheckCircle2 },
+  ]
+  return (
+    <div className="relative overflow-hidden rounded-[18px] border border-[var(--color-line)]"
+      style={{ background: 'linear-gradient(135deg, var(--color-panel-2) 0%, var(--color-panel) 46%, var(--color-bg-2) 100%)' }}>
+      {/* ambient glows — disclose teal top-right, brand blue bottom-left */}
+      <div aria-hidden className="pointer-events-none absolute -top-28 -right-16 h-72 w-72 rounded-full drift"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--stage-disclose, #0f7a5f) 42%, transparent), transparent 68%)' }} />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-10 h-72 w-72 rounded-full"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--color-blue) 24%, transparent), transparent 70%)' }} />
+      <div className="relative px-6 py-6 grid gap-6 lg:grid-cols-[1.1fr_1.4fr] items-center">
+        <div>
+          <p className="mono text-[11px] uppercase tracking-[0.22em] m-0" style={{ color: 'var(--stage-disclose, var(--color-blue))' }}>Disclose · Reporting cockpit</p>
+          <h2 className="display text-[27px] leading-[1.12] font-semibold mt-2 mb-2 text-[var(--color-ink)]" style={{ textWrap: 'balance' } as React.CSSProperties}>
+            {allClear ? 'Every filing is on track.' : overdue > 0 ? 'A filing needs you now.' : 'On top of every deadline.'}
+          </h2>
+          <p className="text-[13px] text-[var(--color-mute)] max-w-md leading-relaxed">
+            Prepare, review with four eyes, attest and submit — each number frozen and hash-verified behind the filing.
+            {nextDue && <> Next up: <span className="text-[var(--color-ink)]">{nextDue.label}</span> · <span style={{ color: nextDue.overdue ? 'var(--color-bad)' : 'var(--color-warn)' }}>{dueLine}</span>.</>}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {tiles.map(t => (
+            <div key={t.label} className="rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="relative inline-flex items-center justify-center h-6 w-6 rounded-lg" style={{ background: `color-mix(in oklab, ${t.tone} 16%, transparent)`, color: t.tone }}>
+                  {t.pulse && <span className="absolute inline-flex h-full w-full rounded-lg animate-ping" style={{ background: t.tone, opacity: 0.35 }} />}
+                  <t.icon size={13} />
+                </span>
+                <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] leading-tight">{t.label}</span>
+              </div>
+              <div className="display text-[30px] leading-none font-semibold tabular-nums" style={{ color: t.tone }}>{t.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -149,40 +211,54 @@ function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
   const act = ACTION[status] ?? 'Open'
   const canGo = o.filing_id ? true : canPrepare
 
+  // one accent hue per card, keyed to urgency — drives the medallion, the ring and the hover glow
+  const urgency = filed ? 'var(--color-good)' : o.overdue ? 'var(--color-bad)' : 'var(--color-warn)'
+  const ringTone = v && v.blocking > 0 ? 'var(--color-warn)' : 'var(--color-good)'
+
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-center">
-        <div className="min-w-0">
+    <Card className="group relative p-0 overflow-hidden transition-all duration-300 hover:-translate-y-[2px] hover:border-[var(--color-sky)]"
+      style={{ boxShadow: 'none' }}
+      onClick={undefined}>
+      {/* hover glow, tinted by urgency — fades in only on hover */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{ boxShadow: `inset 0 1px 0 0 color-mix(in oklab, ${urgency} 40%, transparent), 0 12px 44px -20px color-mix(in oklab, var(--color-blue) 60%, transparent)` }} />
+      <div className="relative px-5 py-4 flex items-center gap-4">
+        {/* framework medallion */}
+        <div className="hidden sm:flex h-11 w-11 rounded-xl items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105"
+          style={{ background: `color-mix(in oklab, ${urgency} 15%, transparent)`, color: urgency }}>
+          {filed ? <CheckCircle2 size={19} /> : <FileText size={19} />}
+        </div>
+
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <span className="text-[15px] text-[var(--color-ink)] font-medium">{o.label}</span>
             <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{regulator ?? 'EBA'} · {o.frequency}</span>
             {filed
-              ? <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full" style={{ color: '#34d399', background: '#34d39920' }}>filed</span>
-              : <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full whitespace-nowrap"
-                  style={o.overdue ? { color: '#fb7185', background: '#fb718520' } : { color: '#e8b24c', background: '#e8b24c20' }}>
-                  {o.overdue ? `⚠ ${Math.abs(o.days_to_due)}d overdue · due ${fmtDate(o.due_date)}` : `due ${fmtDate(o.due_date)}`}</span>}
+              ? <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full" style={{ color: 'var(--color-good)', background: 'color-mix(in oklab, var(--color-good) 16%, transparent)' }}>filed</span>
+              : <span className="mono text-[9.5px] uppercase px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1"
+                  style={o.overdue ? { color: 'var(--color-bad)', background: 'color-mix(in oklab, var(--color-bad) 16%, transparent)' } : { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 16%, transparent)' }}>
+                  {o.overdue && <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: 'var(--color-bad)' }} />}
+                  {o.overdue ? `${Math.abs(o.days_to_due)}d overdue · due ${fmtDate(o.due_date)}` : `due ${fmtDate(o.due_date)}`}</span>}
           </div>
           <CardStepper idx={stageIdx} />
           <div className="mono text-[11px] mt-2.5 flex items-center gap-2">
             {status === 'not_started'
               ? <span className="text-[var(--color-faint)]">Not started</span>
               : readyPct != null
-                ? <>
-                    <span className="inline-block h-[5px] w-[110px] rounded-full bg-[var(--color-line-2)] overflow-hidden align-middle">
-                      <span className="block h-full rounded-full" style={{ width: `${readyPct}%`, background: (v!.blocking > 0 ? '#e8b24c' : '#34d399') }} />
-                    </span>
-                    {v!.blocking > 0
-                      ? <span style={{ color: '#e8b24c' }}>{v!.blocking} to fix before review</span>
-                      : v!.warnings > 0 ? <span className="text-[var(--color-mute)]">clear · {v!.warnings} to review</span>
-                        : <span style={{ color: '#34d399' }}>all checks clear</span>}
-                  </>
+                ? (v!.blocking > 0
+                    ? <span style={{ color: 'var(--color-warn)' }}>{v!.blocking} to fix before review</span>
+                    : v!.warnings > 0 ? <span className="text-[var(--color-mute)]">clear · {v!.warnings} to review</span>
+                      : <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--color-good)' }}><Check size={12} /> all checks clear</span>)
                 : <span className="text-[var(--color-faint)]">{ST[status]?.label ?? status}</span>}
           </div>
         </div>
-        <div className="flex justify-start sm:justify-end">
+
+        <div className="flex items-center gap-3 shrink-0">
+          {readyPct != null && <ReadyRing pct={readyPct} tone={ringTone} />}
           {canGo
             ? <button onClick={o.filing_id ? onOpen : onPrepare}
-                className="mono text-[12px] px-4 py-2.5 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition whitespace-nowrap">{act} →</button>
+                className="group/btn inline-flex items-center gap-1.5 mono text-[12px] font-medium px-4 py-2.5 rounded-lg text-[var(--color-on-accent)] bg-[var(--color-sky)] hover:bg-[var(--color-blue)] transition whitespace-nowrap">
+                {act} <ArrowRight size={13} className="transition-transform group-hover/btn:translate-x-0.5" /></button>
             : <span className="mono text-[10.5px] text-[var(--color-faint)]">awaiting preparer</span>}
         </div>
       </div>
@@ -190,17 +266,38 @@ function FilingCard({ o, regulator, canPrepare, onOpen, onPrepare }:
   )
 }
 
+// A small circular readiness gauge — the % of validation checks already clear, at a glance.
+function ReadyRing({ pct, tone }: { pct: number; tone: string }) {
+  const r = 15.5, c = 2 * Math.PI * r
+  return (
+    <svg width="42" height="42" viewBox="0 0 42 42" className="hidden sm:block shrink-0" role="img" aria-label={`${pct}% ready`}>
+      <circle cx="21" cy="21" r={r} fill="none" stroke="var(--color-line-2)" strokeWidth="3.5" />
+      <circle cx="21" cy="21" r={r} fill="none" stroke={tone} strokeWidth="3.5" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 21 21)"
+        style={{ transition: 'stroke-dashoffset .7s cubic-bezier(.2,.8,.2,1)' }} />
+      <text x="21" y="21" textAnchor="middle" dominantBaseline="central" className="mono"
+        style={{ fontSize: 10.5, fontWeight: 600, fill: 'var(--color-ink)' }}>{pct}</text>
+    </svg>
+  )
+}
+
 function CardStepper({ idx }: { idx: number }) {
   return (
-    <div className="flex items-center" style={{ maxWidth: 420 }}>
+    <div className="flex items-center" style={{ maxWidth: 440 }}>
       {CARD_STEPS.map((s, i) => {
         const done = i < idx, cur = i === idx
         return (
-          <div key={s.key} className="flex flex-col items-center gap-1 relative flex-1">
-            {i < CARD_STEPS.length - 1 && <div className="absolute top-[5px] left-1/2 w-full h-[2px]" style={{ background: done ? '#34d399' : 'var(--color-line)' }} />}
-            <div className="w-[11px] h-[11px] rounded-full relative z-10" style={done ? { background: '#34d399', border: '2px solid #34d399' }
-              : cur ? { background: 'var(--color-panel)', border: '2px solid var(--color-sky)', boxShadow: '0 0 0 3px var(--color-sky, #5cc8ff)22' }
-              : { background: 'var(--color-line)', border: '2px solid var(--color-line)' }} />
+          <div key={s.key} className="flex flex-col items-center gap-1.5 relative flex-1">
+            {i < CARD_STEPS.length - 1 && <div className="absolute top-[6px] left-1/2 w-full h-[2px] rounded-full" style={{ background: done ? 'var(--color-sky)' : 'var(--color-line)' }} />}
+            <span className="relative z-10 flex items-center justify-center" style={{ width: 13, height: 13 }}>
+              {cur && <span className="absolute inline-flex h-full w-full rounded-full animate-ping" style={{ background: 'var(--color-sky)', opacity: 0.55 }} />}
+              <span className="rounded-full flex items-center justify-center"
+                style={done ? { width: 13, height: 13, background: 'var(--color-sky)' }
+                  : cur ? { width: 13, height: 13, background: 'var(--color-panel)', border: '2px solid var(--color-sky)', boxShadow: '0 0 0 3px color-mix(in oklab, var(--color-sky) 22%, transparent)' }
+                    : { width: 11, height: 11, background: 'var(--color-line)' }}>
+                {done && <Check size={8} strokeWidth={3.5} style={{ color: 'var(--color-on-accent)' }} />}
+              </span>
+            </span>
             <span className="mono text-[8px] uppercase tracking-wide whitespace-nowrap" style={{ color: (done || cur) ? 'var(--color-ink)' : 'var(--color-faint)' }}>{s.label}</span>
           </div>
         )
@@ -450,18 +547,25 @@ function StageRail({ status }: { status: string }) {
   const idx = STAGES.indexOf(status as typeof STAGES[number])
   return (
     <div className="flex items-center">
-      {STAGES.map((s, i) => (
-        <div key={s} className="flex items-center flex-1 last:flex-none">
-          <div className="flex flex-col items-center gap-1">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] mono"
-              style={{ background: i <= idx ? ST[s].fg : 'var(--color-panel-2)', color: i <= idx ? '#08111f' : 'var(--color-faint)' }}>
-              {i < idx ? '✓' : i + 1}
+      {STAGES.map((s, i) => {
+        const done = i < idx, cur = i === idx
+        return (
+          <div key={s} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="relative flex items-center justify-center">
+                {cur && <span className="absolute inline-flex h-6 w-6 rounded-full animate-ping" style={{ background: ST[s].fg, opacity: 0.4 }} />}
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] mono relative z-10"
+                  style={{ background: i <= idx ? ST[s].fg : 'var(--color-panel-2)', color: i <= idx ? 'var(--color-on-accent)' : 'var(--color-faint)',
+                    boxShadow: cur ? `0 0 0 3px color-mix(in oklab, ${ST[s].fg} 22%, transparent)` : 'none' }}>
+                  {done ? <Check size={12} strokeWidth={3} /> : i + 1}
+                </span>
+              </span>
+              <span className="text-[9px] mono uppercase tracking-wide" style={{ color: i <= idx ? ST[s].fg : 'var(--color-faint)' }}>{ST[s].label}</span>
             </div>
-            <span className="text-[9px] mono uppercase tracking-wide" style={{ color: i <= idx ? ST[s].fg : 'var(--color-faint)' }}>{ST[s].label}</span>
+            {i < STAGES.length - 1 && <div className="flex-1 h-0.5 mx-1 mb-4 rounded" style={{ background: i < idx ? ST[STAGES[i + 1]].fg : 'var(--color-panel-2)' }} />}
           </div>
-          {i < STAGES.length - 1 && <div className="flex-1 h-0.5 mx-1 mb-4 rounded" style={{ background: i < idx ? ST[STAGES[i + 1]].fg : 'var(--color-panel-2)' }} />}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

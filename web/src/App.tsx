@@ -93,7 +93,7 @@ export default function App() {
         <Route path="/foundation" element={<DataFoundation />} />
         <Route path="/support" element={<Support />} />
         <Route path="/docs" element={<Docs />} />
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

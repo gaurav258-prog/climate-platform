@@ -103,8 +103,10 @@ export default function LiveEarthHero({ children, height = '78vh', showBadge = t
         <div className="absolute inset-0" style={{ background: 'radial-gradient(38% 30% at 62% 40%, rgba(120,180,255,0.10) 0%, rgba(4,7,15,0) 70%)' }} />
       </div>
 
-      {/* legibility gradient */}
+      {/* legibility gradient — top/bottom scrim */}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,7,15,0.55) 0%, rgba(4,7,15,0.10) 34%, rgba(4,7,15,0.30) 66%, rgba(4,7,15,0.90) 100%)' }} />
+      {/* centred radial scrim — sits behind the title so light/blue text stays legible over bright cloud frames */}
+      <div className="absolute inset-0" style={{ background: 'radial-gradient(58% 52% at 50% 50%, rgba(4,7,15,0.62) 0%, rgba(4,7,15,0.34) 46%, rgba(4,7,15,0) 78%)' }} />
 
       {showBadge && (
         <div className="group absolute left-4 top-4 z-20">
@@ -116,7 +118,8 @@ export default function LiveEarthHero({ children, height = '78vh', showBadge = t
         </div>
       )}
 
-      <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-6">{children}</div>
+      <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-6"
+        style={{ textShadow: '0 2px 28px rgba(0,0,0,0.72), 0 1px 5px rgba(0,0,0,0.68)' }}>{children}</div>
     </section>
   )
 }

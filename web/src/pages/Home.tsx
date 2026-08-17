@@ -5,7 +5,6 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
-import LiveEarthHero from '../components/LiveEarthHero'
 
 interface Task { key: string; title: string; detail: string; severity: 'action' | 'warning' | 'info' | 'good'; cta_label: string; cta_href: string }
 interface TasksResp { tasks: Task[]; all_clear: boolean }
@@ -109,16 +108,13 @@ export default function Home() {
 
   return (
     <div className="fadeup space-y-7">
-      {/* live Earth-from-space hero */}
-      <LiveEarthHero height="46vh">
-        <div className="display text-[clamp(34px,5.5vw,60px)] font-semibold italic leading-none text-[#F4EFE6]">
-          Tel<span className="text-[var(--color-sky)]">lumen</span>
-        </div>
-        <div className="mono mt-3 text-[11px] uppercase tracking-[0.28em] text-[var(--color-blue)]">Light on the Earth</div>
-        <p className="display italic mt-5 max-w-2xl text-[clamp(18px,2.6vw,30px)] font-light leading-tight text-[#F4EFE6]">
+      {/* brand masthead — the live-Earth video now runs on the Data foundation page */}
+      <div className="pt-1">
+        <h1 className="display text-[clamp(26px,3.6vw,40px)] font-semibold italic leading-tight">
           See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
-        </p>
-      </LiveEarthHero>
+        </h1>
+        <p className="mono mt-2 text-[11px] uppercase tracking-[0.28em] text-[var(--color-blue)]">Tellumen · Light on the Earth</p>
+      </div>
 
       {/* role-shaped task feed — the cockpit leads with what needs YOU now, not just state */}
       <TaskFeed />

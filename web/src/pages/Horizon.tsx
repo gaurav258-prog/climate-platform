@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Wallet, ShieldCheck, Flame, AlertTriangle } from 'lucide-react'
+import type { ComponentType } from 'react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
 import { hazardLabel } from '../lib/hazards'
@@ -36,11 +37,18 @@ function scoreAt(a: GAsset, y: number): number {
 function col(l: number): [number, number, number] { return l < 28 ? [207, 232, 255] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59] }
 function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l < 75 ? 'high' : 'severe' }
 
-function KpiCard({ label, value, tint, onClick }: { label: string; value: string; tint?: string; onClick: () => void }) {
+function KpiCard({ label, value, tint, icon: Icon, onClick }: { label: string; value: string; tint?: string; icon?: ComponentType<{ size?: number; className?: string }>; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="text-left rounded-lg border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3 py-2.5 hover:border-[var(--color-sky)] transition">
-      <div className="display text-[19px] leading-none" style={{ color: tint || '#F4EFE6' }}>{value}</div>
-      <div className="mono text-[9px] tracking-[0.1em] uppercase text-[var(--color-faint)] mt-1.5">{label}</div>
+    <button onClick={onClick} style={{ ['--tint' as string]: tint || 'var(--color-sky)' }}
+      className="group relative overflow-hidden text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3 py-3 transition hover:border-[color:var(--tint)] hover:-translate-y-px">
+      {/* accent wash blooms from the corner on hover */}
+      <span aria-hidden className="pointer-events-none absolute -top-6 -right-6 h-16 w-16 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--tint) 40%, transparent), transparent 70%)' }} />
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="display text-[22px] leading-none tabular-nums" style={{ color: tint || '#F4EFE6' }}>{value}</div>
+        {Icon && <span style={{ color: tint || 'var(--color-faint)' }}><Icon size={13} className="shrink-0 mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity" /></span>}
+      </div>
+      <div className="relative mono text-[9px] tracking-[0.1em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
     </button>
   )
 }
@@ -76,6 +84,8 @@ export default function Horizon() {
   const leftPanelRef = useRef<HTMLDivElement>(null)   // overview rail — the globe must clear its right edge
   const rightPanelRef = useRef<HTMLDivElement>(null)  // 'what needs you' rail — clear its left edge
   const [sel, setSel] = useState<GAsset | null>(null)
+  // hover tooltip over a globe risk-dot — name, region, live score at the current year (canvas-local x/y)
+  const [hoverTip, setHoverTip] = useState<{ name: string; region: string; score: number; x: number; y: number } | null>(null)
   const [beltName, setBeltName] = useState<string | null>(null)
   // start PAUSED at "today" — the year only advances when the user presses play or drags the scrubber
   const [playing, setPlaying] = useState(false)
@@ -182,11 +192,15 @@ export default function Horizon() {
     const onDown = (e: PointerEvent) => { if (S.current.focus) return; S.current.drag = true; S.current.moved = false; const [x, y] = rel(e); S.current.px = x; S.current.py = y; cv.setPointerCapture(e.pointerId) }
     const onMove = (e: PointerEvent) => {
       const [x, y] = rel(e)
-      if (S.current.drag) { const dx = x - S.current.px, dy = y - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = x; S.current.py = y; return }
-      cv.style.cursor = (hit(x, y) || hitRegion(x, y)) ? 'pointer' : 'grab'
+      if (S.current.drag) { setHoverTip(null); const dx = x - S.current.px, dy = y - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = x; S.current.py = y; return }
+      const ha = S.current.focus ? null : hit(x, y)
+      cv.style.cursor = (ha || hitRegion(x, y)) ? 'pointer' : 'grab'
+      if (ha) setHoverTip({ name: ha.name, region: ha.region, score: Math.round(scoreAt(ha, S.current.year)), x, y })
+      else setHoverTip(null)
     }
+    const onLeave = () => setHoverTip(null)
     const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e); const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp)
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointerleave', onLeave)
 
     const drawCaption = () => {
       const b = H - 18, MONO = 'ui-monospace,Menlo,monospace', SERIF = 'Georgia,serif'
@@ -265,7 +279,7 @@ export default function Horizon() {
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); ro.disconnect(); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp) }
+    return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); ro.disconnect(); cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp); cv.removeEventListener('pointerleave', onLeave) }
   }, [assets, profile])
 
   const closeSel = () => { S.current.focus = null; if (S.current.belt) { const [la, lo] = beltMean(S.current.belt); S.current.tLon = lo * D2R; S.current.tLat = Math.max(-1.1, Math.min(1.1, la * D2R)) } setSel(null) }
@@ -303,6 +317,16 @@ export default function Horizon() {
   return (
     <div data-theme="dark" className="absolute inset-0 bg-[#04060b] overflow-hidden select-none [container-type:inline-size]">
       <canvas ref={cvRef} className="absolute inset-0 w-full h-full cursor-grab" />
+      {/* hover tooltip — a dot's name, region & live score at the current year; click still opens the full panel */}
+      {hoverTip && !sel && !panel && (() => { const [r, g, b] = col(hoverTip.score); return (
+        <div className="pointer-events-none absolute z-40 rounded-lg border border-[var(--color-line-2)] bg-[#0b121ef2] backdrop-blur px-3 py-2 shadow-[0_8px_30px_-8px_rgba(0,0,0,0.7)]"
+          style={{ left: hoverTip.x + 16, top: hoverTip.y + 16, maxWidth: 210, transform: hoverTip.x > 620 ? 'translateX(-100%) translateX(-32px)' : undefined }}>
+          <div className="text-[13px] text-[#F4EFE6] leading-tight truncate">{hoverTip.name}</div>
+          <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5 truncate">{hoverTip.region}</div>
+          <div className="mono text-[11px] mt-1 flex items-center gap-1.5" style={{ color: `rgb(${r},${g},${b})` }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: `rgb(${r},${g},${b})` }} />{hoverTip.score}/100 · {stateName(hoverTip.score)}
+          </div>
+        </div>) })()}
       {/* top chrome — brand lives in the nav now; this just labels the front door */}
       <div className="absolute top-7 left-8 pointer-events-none transition-opacity" style={{ opacity: beltName || sel ? 0.1 : 1 }}>
         <span className="mono text-[10px] tracking-[0.26em] text-[var(--color-faint)] uppercase">Horizon · {profile?.org?.name}</span>
@@ -334,7 +358,7 @@ export default function Horizon() {
 
       {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
       {!sel && !beltName && !panel && (
-      <div ref={leftPanelRef} className={`absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
+      <div ref={leftPanelRef} className={`fadeup absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#0e1728]">
@@ -377,12 +401,12 @@ export default function Horizon() {
         )}
         {kpis && (
           <div className="grid grid-cols-2 gap-2">
-            <KpiCard label="book value" value={fmtEur(kpis.book_value_eur)} onClick={() => openKpi('book')} />
-            <KpiCard label="elevated by 2050" value={`${kpis.n_elevated}/${kpis.n_assets}`} tint="#E9744A" onClick={() => openKpi('elevated')} />
-            <KpiCard label="filing readiness" value={`${kpis.readiness.passed}/${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} onClick={() => openKpi('readiness')} />
+            <KpiCard label="book value" value={fmtEur(kpis.book_value_eur)} icon={Wallet} onClick={() => openKpi('book')} />
+            <KpiCard label="elevated by 2050" value={`${kpis.n_elevated}/${kpis.n_assets}`} tint="#E9744A" icon={Flame} onClick={() => openKpi('elevated')} />
+            <KpiCard label="filing readiness" value={`${kpis.readiness.passed}/${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} icon={ShieldCheck} onClick={() => openKpi('readiness')} />
             {kpis.volume_at_risk_eur_today != null
-              ? <KpiCard label="€ at risk today" value={fmtEur(kpis.volume_at_risk_eur_today)} tint="#E8B24C" onClick={() => openKpi('elevated')} />
-              : <KpiCard label={noun} value={String(kpis.n_assets)} onClick={() => openKpi('book')} />}
+              ? <KpiCard label="€ at risk today" value={fmtEur(kpis.volume_at_risk_eur_today)} tint="#E8B24C" icon={AlertTriangle} onClick={() => openKpi('elevated')} />
+              : <KpiCard label={noun} value={String(kpis.n_assets)} icon={Wallet} onClick={() => openKpi('book')} />}
           </div>
         )}
         {!kpis && (
@@ -397,7 +421,7 @@ export default function Horizon() {
 
       {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
       {!sel && !beltName && !panel && (
-      <div ref={rightPanelRef} className={`absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
+      <div ref={rightPanelRef} className={`fadeup absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
         <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3 max-[800px]:hidden">What needs you</div>
         {displayTasks.length === 0 && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">

@@ -6,6 +6,7 @@ import { api, upload as uploadFile, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
+import LiveEarthHero from '../components/LiveEarthHero'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -38,6 +39,15 @@ export default function DataHub() {
 
   return (
     <div className="fadeup space-y-4 max-w-4xl">
+      {/* live Earth-from-space banner — the data workspace's front door */}
+      <LiveEarthHero height="32vh">
+        <div className="display text-[clamp(24px,4vw,42px)] font-semibold italic leading-none text-[#F4EFE6]">
+          Tel<span className="text-[var(--color-sky)]">lumen</span>
+        </div>
+        <p className="display italic mt-4 text-[clamp(15px,2.2vw,24px)] font-light leading-tight text-[#F4EFE6]">
+          See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
+        </p>
+      </LiveEarthHero>
       <div>
         <Eyebrow>{profile?.org?.name} · data</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Data</h1>
