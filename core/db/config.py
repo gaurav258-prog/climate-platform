@@ -11,12 +11,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Database URL from environment or default
-# Note: Uses postgresql+psycopg:// dialect for psycopg3 driver
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://climate_app:climate_app@localhost:5432/climate_platform"
-)
+# Database URL — SINGLE SOURCE OF TRUTH. The request path (core.db.session) reads settings.DATABASE_URL
+# (from .env), so this engine — used by init_db()/create_all and the schedulers — MUST resolve to the same
+# database, or tables get created in a database nobody reads. Previously this defaulted to a separate
+# `climate_platform` DB, which meant create_all silently provisioned tables the app never queried.
+# Note: Uses postgresql+psycopg:// dialect for psycopg3 driver.
+from core.config import settings  # noqa: E402
+DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
 # Create engine with connection pooling
 engine = create_engine(
@@ -60,8 +61,11 @@ def get_db() -> Session:
 
 
 def init_db():
-    """Initialize database (create tables)"""
+    """Initialize database (create any missing tables — checkfirst, never alters existing ones)."""
     from core.db.models import Base
+    # Import the full model modules so EVERY table is registered on Base.metadata before create_all —
+    # otherwise a model defined in a not-yet-imported module is silently skipped.
+    import core.db.models_regulatory_complete  # noqa: F401
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized")
 
