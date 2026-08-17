@@ -86,10 +86,11 @@ def fetch_entities_with_risk(
     """), params).mappings().all()
 
     # Horizon can be a modelled anchor ('current'/'2030'/'2050'/'2100') OR any user-picked year — an
-    # intermediate year is interpolated between the two bracketing anchor nodes (see intelligence.horizon).
+    # intermediate year is blended between the two bracketing anchor nodes ALONG THE WARMING CURVE for this
+    # scenario (global-warming-level weighting, not calendar-linear — see intelligence.horizon / intelligence.gwl).
     from services.intelligence.horizon import resolve as _resolve_horizon, labels_needed, lerp
     from core.types import score_to_bucket
-    plan = _resolve_horizon(horizon)
+    plan = _resolve_horizon(horizon, scenario)
     risks = session.execute(text("""
         SELECT entity_id::text AS entity_id, hazard_type, time_horizon,
                physical_risk_score AS score, risk_bucket, model_version, scored_at,

@@ -29,14 +29,20 @@ def label_year(label: str) -> int:
     return _LABEL_YEAR.get(label, NOW_YEAR)
 
 
-def resolve(horizon: str | int | None) -> dict:
+def resolve(horizon: str | int | None, scenario: str | None = None) -> dict:
     """Map a requested horizon to a fetch plan.
 
     Returns either
       {'kind': 'exact',  'label': <anchor label>, 'year': int, 'interpolated': False}
     or
-      {'kind': 'interp', 'lo': <label>, 'hi': <label>, 'w': float, 'year': int, 'interpolated': True}
+      {'kind': 'interp', 'lo': <label>, 'hi': <label>, 'w': float, 'year': int, 'interpolated': True,
+       'w_basis': 'gwl'|'time'}
     where the interpolated value = lo + (hi - lo) * w. Unknown / empty input falls back to 'current'.
+
+    The blend weight `w` is taken ALONG THE WARMING CURVE (global-warming-level, GWL) for the given
+    scenario when one is available — warming is non-linear in time and the hazard response is ~linear in
+    warming, so a GWL-weighted blend is the physically-correct value at year Y, not a calendar-linear one.
+    Falls back to the calendar fraction (w_basis='time') for baseline / when the GWL curve isn't built.
     """
     if horizon in ANCHOR_LABELS:
         return {"kind": "exact", "label": horizon, "year": label_year(horizon), "interpolated": False}
@@ -56,7 +62,14 @@ def resolve(horizon: str | int | None) -> dict:
                 return {"kind": "exact", "label": ll, "year": ly, "interpolated": False}
             if y == uy:
                 return {"kind": "exact", "label": ul, "year": uy, "interpolated": False}
-            return {"kind": "interp", "lo": ll, "hi": ul, "w": (y - ly) / (uy - ly), "year": y, "interpolated": True}
+            w, basis = (y - ly) / (uy - ly), "time"
+            if scenario is not None:
+                from services.intelligence.gwl import weight as _gwl_w
+                gw = _gwl_w(scenario, ly, uy, y)
+                if gw is not None:
+                    w, basis = gw, "gwl"
+            return {"kind": "interp", "lo": ll, "hi": ul, "w": w, "year": y,
+                    "interpolated": True, "w_basis": basis}
     return {"kind": "exact", "label": "current", "year": NOW_YEAR, "interpolated": False}
 
 

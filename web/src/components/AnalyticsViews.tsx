@@ -24,18 +24,6 @@ const ANCHORS = [
   { key: 'current', year: 2025, label: 'Now' }, { key: '2030', year: 2030, label: '2030' },
   { key: '2050', year: 2050, label: '2050' }, { key: '2100', year: 2100, label: '2100' },
 ] as const
-function bracket(year: number): { lo: string; hi: string; f: number } {
-  const y = Math.max(2025, Math.min(2100, year))
-  for (let i = 0; i < ANCHORS.length - 1; i++) {
-    const a = ANCHORS[i], b = ANCHORS[i + 1]
-    if (y >= a.year && y <= b.year) {
-      if (y === a.year) return { lo: a.key, hi: a.key, f: 0 }
-      if (y === b.year) return { lo: b.key, hi: b.key, f: 0 }
-      return { lo: a.key, hi: b.key, f: (y - a.year) / (b.year - a.year) }
-    }
-  }
-  return { lo: '2100', hi: '2100', f: 0 }
-}
 // per-sector book shape — the disclosure returns the per-asset array under a different key/field per vertical
 const BOOK: Record<string, { key: string; name: string; value: string; sector: string; sectorLabel: string }> = {
   bank:       { key: 'assets',     name: 'asset_name',    value: 'value_eur',          sector: 'sector',        sectorLabel: 'Sector' },
@@ -71,35 +59,31 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
     { k: 'region', label: 'Region' }, { k: 'country', label: 'Country' }, { k: 'severity', label: 'Severity band' },
   ]
 
-  // the authoritative book at the bracketing anchor horizon(s) — the SAME endpoint the drill-down uses. When
-  // the chosen year is not a modelled anchor we fetch BOTH neighbours and interpolate the aggregates.
-  const br = bracket(cfg.horizon)
-  const keys = br.lo === br.hi ? [br.lo] : [br.lo, br.hi]
-  const results = useQueries({
-    queries: keys.map(k => ({
-      queryKey: ['analytics-book', prefix, cfg.scenario, k],
-      queryFn: () => api.get<Record<string, unknown>>(`/v1/${prefix}/disclosure?scenario=${cfg.scenario}&horizon=${k}`),
-      staleTime: 5 * 60 * 1000,
-    })),
-  })
-  const loading = results.some(r => r.isLoading)
-  const interpolated = br.f > 0
-  const itemsFrom = (data?: Record<string, unknown>): Item[] => {
-    const raw = (data?.[bk.key] as Record<string, unknown>[] | undefined) ?? []
+  // The authoritative book at the requested year — the SAME endpoint the drill-down uses. The ENGINE does
+  // the horizon work: a non-anchor year is blended per-asset between the bracketing modelled nodes ALONG the
+  // scenario's warming curve (GWL-weighted, not calendar-linear) and re-bucketed server-side, so every cut
+  // here is consistent with the rest of the platform and defensible. `interpolated` is true off the anchors.
+  const interpolated = !ANCHORS.some(a => a.year === cfg.horizon)
+  const q = useQueries({ queries: [{
+    queryKey: ['analytics-book', prefix, cfg.scenario, cfg.horizon],
+    queryFn: () => api.get<Record<string, unknown>>(`/v1/${prefix}/disclosure?scenario=${cfg.scenario}&horizon=${cfg.horizon}`),
+    staleTime: 5 * 60 * 1000,
+  }] })[0]
+  const loading = q.isLoading
+  const items = useMemo(() => {
+    const raw = (q.data?.[bk.key] as Record<string, unknown>[] | undefined) ?? []
     return raw.map(a => ({
       name: (a[bk.name] as string) ?? '—', value: (a[bk.value] as number) ?? 0,
       sector: (a[bk.sector] as string) ?? '—', region: (a.region as string) ?? '—', country: (a.country as string) ?? '—',
       hazards: Array.isArray(a.hazards) ? (a.hazards as Hz[]) : [], bucket: (a.headline_bucket as string) ?? null,
-    }))
-  }
-  const loItems = useMemo(() => itemsFrom(results[0]?.data), [results[0]?.data, bk])
-  const hiItems = useMemo(() => br.lo === br.hi ? loItems : itemsFrom(results[1]?.data), [results[1]?.data, loItems, br.lo, br.hi, bk])
+    })) as Item[]
+  }, [q.data, bk])
 
   const dimVal = (i: Item, dim: string) => dim === 'sector' ? i.sector : dim === 'region' ? i.region : dim === 'country' ? i.country : '—'
   const scopeValues = useMemo(() => {
     if (!cfg.scope?.dim) return []
-    return [...new Set(loItems.map(i => dimVal(i, cfg.scope!.dim)).filter(v => v && v !== '—'))].sort()
-  }, [loItems, cfg.scope?.dim])
+    return [...new Set(items.map(i => dimVal(i, cfg.scope!.dim)).filter(v => v && v !== '—'))].sort()
+  }, [items, cfg.scope?.dim])
 
   // ── the computation: aggregate the authoritative book into the chosen groups ────────────────────────────
   const aggregate = (items: Item[]): { groups: Map<string, Grp>; total: number } => {
@@ -125,29 +109,13 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
   }
 
   const result = useMemo(() => {
-    const lo = aggregate(loItems)
-    const total = lo.total
-    let merged: Map<string, Grp>
-    if (!interpolated) { merged = lo.groups }
-    else {
-      const hi = aggregate(hiItems), f = br.f
-      merged = new Map()
-      for (const k of new Set([...lo.groups.keys(), ...hi.groups.keys()])) {
-        const a = lo.groups.get(k), b = hi.groups.get(k)
-        merged.set(k, {
-          value: (a?.value ?? 0) + ((b?.value ?? 0) - (a?.value ?? 0)) * f,
-          count: (a?.count ?? 0) + ((b?.count ?? 0) - (a?.count ?? 0)) * f,
-          color: a?.color ?? b?.color,
-        })
-      }
-    }
-    const measured = [...merged.entries()].map(([k, v]) => ({
+    const { groups, total } = aggregate(items)
+    return [...groups.entries()].map(([k, v]) => ({
       key: k, label: cfg.groupBy === 'hazard' ? hazardLabel(k) : cfg.groupBy === 'severity' ? (BUCKET[k]?.label ?? k) : k,
       raw: cfg.measure === 'count' ? v.count : cfg.measure === 'pct' ? (total ? v.value / total * 100 : 0) : v.value,
       color: v.color,
     })).sort((a, b) => b.raw - a.raw)
-    return measured
-  }, [loItems, hiItems, cfg, interpolated, br.f])
+  }, [items, cfg])
 
   const shown = result.slice(0, 12)
   const hidden = result.length - shown.length
