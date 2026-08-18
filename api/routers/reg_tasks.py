@@ -69,7 +69,21 @@ def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("r
 @router.get("/kri", summary="Key Regulatory Indicator dashboard for a framework")
 def kri(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri as _kri
-    return _kri(session, ctx["org"]["org_id"], framework)
+    data = _kri(session, ctx["org"]["org_id"], framework)
+    # detection lag: record what we observe now so breach onset is a real, persisted timestamp (best-effort)
+    try:
+        from services.governance import kri_monitor
+        kri_monitor.observe(session, ctx["org"]["org_id"], framework, data)
+    except Exception:
+        pass
+    return data
+
+
+@router.get("/kri/detection-lag", summary="How long each KRI sat in breach before it was acted on")
+def kri_detection_lag(session: DbSession, framework: Optional[str] = None,
+                      ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance import kri_monitor
+    return kri_monitor.detection_lag(session, ctx["org"]["org_id"], framework)
 
 
 @router.get("/kri/detail", summary="Drill behind one KRI — methodology, trend & composition")
@@ -133,10 +147,17 @@ def kri_spin_task(body: KriTask, session: DbSession, ctx: dict = Depends(require
             + f"Framework: {body.framework}. Raised from the KRI dashboard — review and remediate.")
     try:
         # source_ref de-dupes: a live task for this indicator returns the existing one, no pile-up
-        return T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
+        task = T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
                              criticality="high", source="kri", source_ref=f"{body.framework}:{body.key}")
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    # raising the remediation task IS the human acknowledgement — stamp the open breach episode for detection lag
+    try:
+        from services.governance import kri_monitor
+        kri_monitor.acknowledge(session, ctx["org"]["org_id"], body.framework, body.key, ctx["user"]["id"])
+    except Exception:
+        pass
+    return task
 
 
 @router.get("/board", summary="The Kanban board — tasks grouped into columns")

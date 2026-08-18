@@ -42,6 +42,7 @@ KNOWN_EVENTS = [
     {"type": "filing.status_changed",  "label": "A filing moved through its lifecycle (draft → review → approved → attested → submitted → accepted)"},
     {"type": "filing.frozen",          "label": "A disclosure was frozen to an immutable snapshot (generate / refresh / restate)"},
     {"type": "disclosure.flag_raised", "label": "An exposure was flagged for the next climate filing"},
+    {"type": "kri.breached",           "label": "A key risk indicator crossed its appetite band (new breach)"},
     {"type": "risk.decision.approved", "label": "A forward-risk decision was approved (reprice / engage / disclose / …)"},
     {"type": "risk.watch.deteriorated","label": "A monitored exposure deteriorated further on re-check"},
     {"type": "test.ping",              "label": "A manual test event"},

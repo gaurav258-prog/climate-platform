@@ -8,6 +8,7 @@ import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
 import { Eyebrow, Card, Lens, ExportButton } from '../components/ui'
 import { downloadCsv } from '../lib/export'
+import DetectionLag from '../components/DetectionLag'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
@@ -139,6 +140,8 @@ export default function Kri() {
               <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">bands set in Settings → KRI appetite</span>
             </button>
           )}
+          {/* detection lag — how long each breach sat before it was actioned (hidden until an episode exists) */}
+          <DetectionLag framework={framework} />
           {/* provenance legend + filter — labels the dot on every KRI and lets you isolate what Tellumen
               computes vs what you/your vendor provide. Standard across every sector's dashboard. */}
           <div className="flex items-center gap-2 flex-wrap">

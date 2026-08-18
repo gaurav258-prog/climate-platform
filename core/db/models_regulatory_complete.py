@@ -25,7 +25,7 @@ from decimal import Decimal
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, Date, DateTime,
     ForeignKey, Integer, Numeric, PrimaryKeyConstraint, Index,
-    String, Text, UniqueConstraint, func, DECIMAL, JSON
+    String, Text, UniqueConstraint, func, DECIMAL, JSON, text
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -259,6 +259,43 @@ class AnalyticsSavedView(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (Index('idx_analytics_view_org', 'org_id'),)
+
+
+class KriBreachEpisode(Base):
+    """One BREACH RUN of a key risk indicator — the append-only spine for detection lag.
+
+    A KRI is graded live against its appetite band, but 'how long was it in breach before anyone acted?'
+    needs a persisted history of WHEN the breach began. This table is that history: services.governance.
+    kri_monitor.observe() opens an episode the first time a KRI is seen out of appetite (onset_at), keeps
+    the worst value seen (peak_value) while it stays breached, stamps acknowledged_at the moment a human
+    raises a remediation task, and closes it (cleared_at) when the KRI returns within appetite. At most one
+    OPEN episode per (org, framework, kri) is enforced at the database. Detection/response lag is then a pure
+    timestamp subtraction over real observations — never a guess."""
+    __tablename__ = 'kri_breach_episode'
+
+    episode_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    framework = Column(String(60), nullable=False)
+    kri_key = Column(String(80), nullable=False)
+    label = Column(String(200))
+    severity = Column(String(10), nullable=False)       # worst grade seen this run: 'amber' | 'red'
+    direction = Column(String(20))                      # higher_worse | lower_worse (which way is bad)
+    onset_value = Column(Numeric)                       # the value when first observed in breach
+    peak_value = Column(Numeric)                        # the worst value seen during the run
+    threshold = Column(Numeric)                         # the band edge it crossed
+    onset_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())  # last eval still in breach
+    acknowledged_at = Column(DateTime(timezone=True))   # first human action (remediation task raised)
+    acknowledged_by = Column(UUID(as_uuid=True))
+    cleared_at = Column(DateTime(timezone=True))        # returned within appetite (NULL = still open)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index('idx_kri_episode_lookup', 'org_id', 'framework', 'kri_key'),
+        # at most one OPEN episode per indicator — the invariant the monitor relies on
+        Index('uq_kri_episode_open', 'org_id', 'framework', 'kri_key', unique=True,
+              postgresql_where=text('cleared_at IS NULL')),
+    )
 
 
 # ============================================================================
