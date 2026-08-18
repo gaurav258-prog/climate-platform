@@ -4,6 +4,7 @@ import { Eyebrow, Card, Stat } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { Radar, Upload, Boxes, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
+import SeasonalArrears from '../components/SeasonalArrears'
 
 interface Scores { total_current_scores: number; hazards: { hazard_type: string; cells: number }[] }
 const AGRI_HAZARDS = ['drought', 'heat_acute', 'soil_water']
@@ -39,6 +40,9 @@ export default function DataFoundation() {
           and one auditable score per plot comes out. This page is that chain, scoped to agriculture.
         </p>
       </div>
+
+      {/* seasonal-arrears overlay — harvest carry-over vs genuine deterioration (renders once arrears are uploaded) */}
+      <SeasonalArrears />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">

@@ -8,6 +8,7 @@ import { Eyebrow, Card } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
 import LiveEarthHero from '../components/LiveEarthHero'
 import GlRecon from '../components/GlRecon'
+import SeasonalArrears from '../components/SeasonalArrears'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -57,6 +58,8 @@ export default function DataHub() {
 
       {/* general-ledger reconciliation — tie the reported book total back to the ledger (gate 4) */}
       <GlRecon />
+      {/* seasonal-arrears overlay — harvest carry-over vs genuine deterioration (renders once arrears are uploaded) */}
+      <SeasonalArrears />
 
       <Step n={1} title="Upload your book" tone="you">
         <ValidatedUpload

@@ -358,6 +358,32 @@ class GlBalance(Base):
     __table_args__ = (Index('idx_gl_balance_org_batch', 'org_id', 'batch_id'),)
 
 
+class LoanArrears(Base):
+    """Per-loan arrears for the agricultural book — the input to the seasonal-arrears overlay.
+
+    Agricultural income is seasonal, so a post-harvest carry-over past-due is NOT the same signal as genuine
+    deterioration; treating it as default over-states the risk. This holds the customer-provided days-past-due
+    (with the loan's crop & region), and services.governance.seasonal_arrears classifies each past-due loan as
+    'seasonal carry-over' or 'genuine' against a documented crop calendar. It is an explainable MANAGEMENT
+    OVERLAY the accountable person can defend — not a replacement for IFRS-9 staging."""
+    __tablename__ = 'loan_arrears'
+
+    arrears_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    batch_id = Column(UUID(as_uuid=True), nullable=False)
+    loan_ref = Column(String(80), nullable=False)
+    borrower_name = Column(String(200))
+    crop = Column(String(60))
+    region = Column(String(120))
+    exposure_eur = Column(Numeric)
+    days_past_due = Column(Integer, nullable=False)
+    as_of_date = Column(Date)
+    uploaded_by = Column(UUID(as_uuid=True))
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index('idx_loan_arrears_org_batch', 'org_id', 'batch_id'),)
+
+
 # ============================================================================
 # REGULATORY CHANGE DETECTION (CRCS)
 # ============================================================================
