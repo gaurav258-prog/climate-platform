@@ -9,6 +9,7 @@ import { useResizableWidth } from '../lib/resizable'
 import { Eyebrow, Card, Lens, ExportButton } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
+import RegNotifications from '../components/RegNotifications'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
@@ -142,6 +143,8 @@ export default function Kri() {
           )}
           {/* detection lag — how long each breach sat before it was actioned (hidden until an episode exists) */}
           <DetectionLag framework={framework} />
+          {/* regulatory-notification clock — flag a breach as notifiable, run its statutory window, record it */}
+          <RegNotifications framework={framework} />
           {/* provenance legend + filter — labels the dot on every KRI and lets you isolate what Tellumen
               computes vs what you/your vendor provide. Standard across every sector's dashboard. */}
           <div className="flex items-center gap-2 flex-wrap">

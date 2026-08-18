@@ -298,6 +298,44 @@ class KriBreachEpisode(Base):
     )
 
 
+class NotifiableEvent(Base):
+    """A regulatory-NOTIFICATION obligation with a statutory clock — the 'notify the regulator within N hours'
+    workflow that a calendar cadence can't hold. A human flags a breach/incident as notifiable; this records
+    when it arose, the window, and therefore when it is DUE, tracks it to overdue, and captures the record of
+    what was actually sent (reference, to whom, when). Deliberately not auto-fired for every appetite breach:
+    which events are notifiable is a jurisdiction-specific compliance judgement, so raising one is an explicit
+    act, and the mechanism (clock, overdue, evidence) is what the platform owns."""
+    __tablename__ = 'notifiable_event'
+
+    event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    source_type = Column(String(30), nullable=False)   # 'kri_breach' | 'exception' | 'incident' | 'manual'
+    source_ref = Column(String(160))                   # e.g. 'bank_tcfd:pct_at_risk' — for de-dupe
+    title = Column(String(240), nullable=False)
+    category = Column(String(40))                      # 'material_breach' | 'incident' | 'other'
+    severity = Column(String(10))
+    authority = Column(String(120))                    # who must be notified (regulator label)
+    arose_at = Column(DateTime(timezone=True), nullable=False)     # when the underlying event arose (e.g. onset)
+    window_hours = Column(Integer, nullable=False)
+    due_at = Column(DateTime(timezone=True), nullable=False)       # arose_at + window
+    status = Column(String(12), nullable=False, server_default='open')  # open | notified | dismissed
+    notified_at = Column(DateTime(timezone=True))
+    notified_ref = Column(String(160))                 # the regulator's ack / submission reference
+    notified_to = Column(String(200))
+    notified_by = Column(UUID(as_uuid=True))
+    assignee_user_id = Column(UUID(as_uuid=True))
+    dismiss_reason = Column(Text)
+    created_by = Column(UUID(as_uuid=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index('idx_notifiable_org_status', 'org_id', 'status'),
+        Index('uq_notifiable_open_source', 'org_id', 'source_type', 'source_ref', unique=True,
+              postgresql_where=text("status = 'open'")),
+    )
+
+
 # ============================================================================
 # REGULATORY CHANGE DETECTION (CRCS)
 # ============================================================================
