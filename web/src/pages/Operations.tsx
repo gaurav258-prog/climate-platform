@@ -2,7 +2,9 @@ import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import { useAuth } from '../lib/auth'
+import { Eyebrow, Card, Stat, Button, ExportButton } from '../components/ui'
+import { downloadCsv } from '../lib/export'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 
@@ -25,6 +27,7 @@ const TypeIcon = ({ t }: { t: string }) => {
 }
 
 export default function Operations() {
+  const { profile } = useAuth()
   const q = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites') })
   const [form, setForm] = useState({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
   const [busy, setBusy] = useState(false)
@@ -77,15 +80,30 @@ export default function Operations() {
   const t = q.data?.totals
   const highN = t?.n_elevated ?? sites.filter(s => (s.hazard_score ?? 0) >= 40).length
 
+  const exportSites = () => downloadCsv('tellumen-operational-sites',
+    [{ key: 'name', label: 'Site' }, { key: 'type', label: 'Type' }, { key: 'country', label: 'Country' },
+     { key: 'lat', label: 'Lat' }, { key: 'lon', label: 'Lon' }, { key: 'value', label: 'Asset value (EUR)' },
+     { key: 'throughput', label: 'Throughput (EUR)' }, { key: 'bi', label: 'BI exposure (EUR)' },
+     { key: 'hazard', label: 'Worst hazard' }, { key: 'score', label: 'Score' }, { key: 'bucket', label: 'Severity' }],
+    sites.map(s => ({
+      name: s.name, type: typeLabel(s.site_type), country: s.country ?? '', lat: s.lat ?? '', lon: s.lon ?? '',
+      value: s.value_eur ?? '', throughput: s.throughput_eur ?? '', bi: s.bi_at_risk_eur ?? '',
+      hazard: s.top_hazard ? hazardLabel(s.top_hazard) : '', score: s.hazard_score ?? '', bucket: s.bucket ? bucketLabel(s.bucket) : '',
+    })),
+    { title: 'Operational sites', org: profile?.org?.name })
+
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · your operations</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Operations</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same
-          live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Eyebrow>Agriculture · your operations</Eyebrow>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">Operations</h1>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
+            Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same
+            live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds.
+          </p>
+        </div>
+        {sites.length > 0 && <ExportButton onExport={exportSites} className="mt-1 shrink-0" />}
       </div>
 
       <div className="grid sm:grid-cols-4 gap-4">

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Upload, Sprout } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, Stat, StatusPill, Button } from '../components/ui'
+import { useAuth } from '../lib/auth'
+import { Eyebrow, Card, Stat, StatusPill, Button, ExportButton } from '../components/ui'
+import { downloadCsv } from '../lib/export'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 
@@ -19,6 +21,7 @@ const hz = (s: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'v
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
 
 export default function Sourcing() {
+  const { profile } = useAuth()
   const q = useQuery({ queryKey: ['portfolio'], queryFn: () => api.get<Portfolio>('/v1/supply/portfolio') })
   const cq = useQuery({ queryKey: ['commodities'], queryFn: () => api.get<{ commodities: Commodity[] }>('/v1/supply/commodities') })
 
@@ -90,13 +93,26 @@ export default function Sourcing() {
 
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · your book</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Sourcing book</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Every plot you source from — geolocated, scored on live hazard, and (where EUDR-covered) checked against
-          satellite forest-loss. Add plots one at a time, or bulk-upload your whole procurement book.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Eyebrow>Agriculture · your book</Eyebrow>
+          <h1 className="display text-3xl font-semibold mt-2 mb-1">Sourcing book</h1>
+          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
+            Every plot you source from — geolocated, scored on live hazard, and (where EUDR-covered) checked against
+            satellite forest-loss. Add plots one at a time, or bulk-upload your whole procurement book.
+          </p>
+        </div>
+        {plots.length > 0 && <ExportButton className="mt-1 shrink-0" onExport={() => downloadCsv('tellumen-sourcing-plots',
+          [{ key: 'name', label: 'Plot' }, { key: 'commodity', label: 'Commodity' }, { key: 'region', label: 'Region' },
+           { key: 'country', label: 'Country' }, { key: 'lat', label: 'Lat' }, { key: 'lon', label: 'Lon' },
+           { key: 'spend', label: 'Annual spend (EUR)' }, { key: 'hazard', label: 'Worst hazard' }, { key: 'score', label: 'Score' },
+           { key: 'eudr', label: 'EUDR covered' }, { key: 'determination', label: 'EUDR determination' }],
+          plots.map(p => ({
+            name: p.plot_name, commodity: p.commodity, region: p.region ?? '', country: p.country ?? '', lat: p.lat, lon: p.lon,
+            spend: p.spend_eur ?? '', hazard: p.top_hazard ? hazardLabel(p.top_hazard) : '', score: p.hazard_score ?? '',
+            eudr: p.eudr_covered ? 'yes' : 'no', determination: p.eudr_determination ?? '',
+          })),
+          { title: 'Sourcing book', org: profile?.org?.name })} />}
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
