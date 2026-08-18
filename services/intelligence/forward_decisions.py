@@ -199,6 +199,15 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
             VALUES (:o, CAST(:e AS uuid), :n, :s, :h, CAST(:d AS uuid), :u)
             ON CONFLICT (org_id, entity_id) WHERE status = 'open' DO NOTHING
         """), {"o": org_id, "e": entity_id, "n": entity_name, "s": scenario, "h": horizon, "d": did, "u": actor})
+        # connect/push: a raised disclosure flag is a real, discrete moment the reporting team's tooling wants
+        try:
+            from services.integrations.webhooks import emit_event
+            emit_event(session, org_id, "disclosure.flag_raised", {
+                "decision_id": str(did), "entity_id": entity_id, "entity_name": entity_name,
+                "scenario": scenario, "horizon": horizon,
+            })
+        except Exception:
+            pass
     if pb.get("webhook"):
         try:
             from services.integrations.webhooks import emit_event

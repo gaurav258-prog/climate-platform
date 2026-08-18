@@ -22,7 +22,7 @@ frameworks that apply to the org's sector, so the calendar is never stale.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -348,6 +348,23 @@ def _log_event(session: Session, filing_id: str, from_status: str | None, to_sta
         VALUES (:f, :fs, :ts, :a, :u, CAST(:d AS jsonb))
     """), {"f": filing_id, "fs": from_status, "ts": to_status, "a": action,
            "u": actor_user_id, "d": json.dumps(detail or {}, default=str)})
+    # Export & Connect (connect/push): every lifecycle transition flows through here, so this one hook fans
+    # ALL of them out to the org's registered webhooks — best-effort and off-thread, so a receiver can never
+    # break or slow a filing transition. filing.frozen additionally fires on the freeze actions.
+    try:
+        row = session.execute(text(
+            "SELECT org_id::text AS org, framework FROM regulatory_filing WHERE filing_id = :f"),
+            {"f": filing_id}).mappings().first()
+        if row and row["org"]:
+            from services.integrations.webhooks import emit_event
+            base = {"filing_id": str(filing_id), "framework": row["framework"], "from": from_status,
+                    "to": to_status, "action": action,
+                    "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            emit_event(session, row["org"], "filing.status_changed", base)
+            if action in ("generate", "refresh", "restate"):
+                emit_event(session, row["org"], "filing.frozen", base)
+    except Exception:  # never let a webhook concern touch the transition
+        pass
 
 
 # ── lifecycle operations ────────────────────────────────────────────────
