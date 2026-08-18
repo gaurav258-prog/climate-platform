@@ -96,6 +96,24 @@ def observe(session: Session, org_id: str, framework: Optional[str] = None, resu
     return {"opened": opened, "updated": updated, "cleared": cleared}
 
 
+def sweep(session: Session) -> dict:
+    """Evaluate EVERY tenant's KRIs and reconcile breach episodes — the interval sweep that makes breach
+    onset independent of who happens to open the dashboard, and drives the kri.breached webhook on its own.
+    Idempotent and cheap (one open episode per indicator); safe to run hourly. Returns rollup counts."""
+    orgs = session.execute(text("SELECT org_id::text AS org FROM organizations WHERE type <> 'platform'")).mappings().all()
+    roll = {"orgs": 0, "opened": 0, "updated": 0, "cleared": 0}
+    for o in orgs:
+        try:
+            r = observe(session, o["org"], None)   # observe() fans across the org's KRI frameworks itself
+        except Exception:
+            continue
+        if r["opened"] or r["updated"] or r["cleared"]:
+            roll["orgs"] += 1
+        for k in ("opened", "updated", "cleared"):
+            roll[k] += r[k]
+    return roll
+
+
 def acknowledge(session: Session, org_id: str, framework: str, kri_key: str, user_id: Optional[str]) -> None:
     """First human action on an open breach → stamp acknowledged_at once (idempotent)."""
     session.execute(text("""

@@ -28,7 +28,7 @@ celery_app = Celery(
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
     include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
-             "services.tasks.decision_tasks"],
+             "services.tasks.decision_tasks", "services.tasks.kri_tasks"],
 )
 
 celery_app.conf.update(
@@ -71,5 +71,11 @@ celery_app.conf.beat_schedule = {
     "recheck-decision-watchlist": {
         "task": "decisions.recheck_watchlist",
         "schedule": crontab(hour=6, minute=30),   # once a day, early
+    },
+    # Observe every tenant's KRIs hourly so a breach's ONSET is recorded independently of dashboard visits —
+    # the basis of an honest detection lag, and the trigger for the kri.breached webhook.
+    "kri-observe-sweep": {
+        "task": "kri.observe_sweep",
+        "schedule": crontab(minute=0),   # top of every hour
     },
 }
