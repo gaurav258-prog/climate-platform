@@ -384,6 +384,27 @@ class LoanArrears(Base):
     __table_args__ = (Index('idx_loan_arrears_org_batch', 'org_id', 'batch_id'),)
 
 
+class CommodityPriceIndex(Base):
+    """Observed authoritative commodity / farm-input price indices (FAO Food Price Index, World Bank 'Pink
+    Sheet', USDA) — reference market data, not a Tellumen forecast. Loaded via the same ingest path from the
+    published agency series. Feeds the book-weighted price-pressure view: a rising index on a commodity the
+    buyer sources is input-cost pressure on the bill of materials. One value per (source, commodity, month)."""
+    __tablename__ = 'commodity_price_index'
+
+    price_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source = Column(String(60), nullable=False)        # 'FAO_FPI' | 'WorldBank_PinkSheet' | 'USDA' | 'sample'
+    commodity = Column(String(60), nullable=False)     # normalised lower-case
+    period_ym = Column(String(7), nullable=False)      # 'YYYY-MM'
+    index_value = Column(Numeric, nullable=False)
+    unit = Column(String(40))                          # e.g. 'index 2014-16=100' | 'USD/tonne'
+    ingested_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('source', 'commodity', 'period_ym', name='uq_price_source_commodity_period'),
+        Index('idx_price_commodity_period', 'commodity', 'period_ym'),
+    )
+
+
 # ============================================================================
 # REGULATORY CHANGE DETECTION (CRCS)
 # ============================================================================

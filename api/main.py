@@ -63,6 +63,7 @@ try:
     from api.routers import notifications as notifications_router
     from api.routers import gl as gl_router
     from api.routers import arrears as arrears_router
+    from api.routers import prices as prices_router
     from api.routers import export_api as export_api_router
     from api.routers import provided as provided_router
     from api.routers import transmission as transmission_router
@@ -171,6 +172,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(notifications_router.router)
     app.include_router(gl_router.router)
     app.include_router(arrears_router.router)
+    app.include_router(prices_router.router)
     app.include_router(export_api_router.router)
     app.include_router(provided_router.router)
     app.include_router(transmission_router.router)

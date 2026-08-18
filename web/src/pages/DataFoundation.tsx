@@ -5,6 +5,7 @@ import { hazardLabel } from '../lib/hazards'
 import { Radar, Upload, Boxes, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
 import LiveEarthHero from '../components/LiveEarthHero'
 import SeasonalArrears from '../components/SeasonalArrears'
+import PricePressure from '../components/PricePressure'
 
 interface Scores { total_current_scores: number; hazards: { hazard_type: string; cells: number }[] }
 const AGRI_HAZARDS = ['drought', 'heat_acute', 'soil_water']
@@ -43,6 +44,8 @@ export default function DataFoundation() {
 
       {/* seasonal-arrears overlay — harvest carry-over vs genuine deterioration (renders once arrears are uploaded) */}
       <SeasonalArrears />
+      {/* commodity price pressure — observed agency indices weighted by sourcing spend */}
+      <PricePressure />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">
