@@ -336,6 +336,28 @@ class NotifiableEvent(Base):
     )
 
 
+class GlBalance(Base):
+    """A general-ledger control-account balance, as provided by the customer's finance system — the missing
+    half of gate 4 'reconcile to the ledger'. The platform already ties a reported figure to its golden
+    source; this lets it also tie the reported book TOTAL back to the GL, so a variance surfaces here rather
+    than in an examination. Uploaded in dated batches (one CSV = one batch); reconciliation uses the latest
+    batch. `control_for` tags which reported line an account backs (e.g. 'book')."""
+    __tablename__ = 'gl_balance'
+
+    gl_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
+    batch_id = Column(UUID(as_uuid=True), nullable=False)
+    account_code = Column(String(60), nullable=False)
+    account_name = Column(String(200))
+    balance_eur = Column(Numeric, nullable=False)
+    control_for = Column(String(40))                   # which reported line this account backs, e.g. 'book'
+    as_of_date = Column(Date)
+    uploaded_by = Column(UUID(as_uuid=True))
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index('idx_gl_balance_org_batch', 'org_id', 'batch_id'),)
+
+
 # ============================================================================
 # REGULATORY CHANGE DETECTION (CRCS)
 # ============================================================================
