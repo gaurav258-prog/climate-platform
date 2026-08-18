@@ -8,6 +8,7 @@ import { ArrowUpRight, ArrowDownRight, Minus, LineChart as LineIcon, Table2, Dow
 import { api } from '../lib/api'
 import FiledForwardCard from '../components/FiledForwardCard'
 import AnalyticsViews from '../components/AnalyticsViews'
+import { downloadCsv } from '../lib/export'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
@@ -392,15 +393,12 @@ function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payl
   )
 }
 
-// download the value-at-risk scenario × horizon grid as CSV
+// download the value-at-risk scenario × horizon grid as CSV — via the shared, provenance-stamped exporter
 function exportCsv(traj: Record<string, number | string | null>[]) {
-  const head = ['Horizon', ...SCEN.map(s => s.label)]
-  const rows = traj.map(r => [r.hz, ...SCEN.map(s => { const v = r[s.key]; return typeof v === 'number' ? Math.round(v) : '' })])
-  const csv = [head, ...rows].map(r => r.join(',')).join('\n')
-  const blob = new Blob([`# Value exposed at High+ (EUR) — projected scenario x horizon\n${csv}\n`], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = 'analytics-value-at-risk.csv'; a.click()
-  URL.revokeObjectURL(url)
+  downloadCsv('analytics-value-at-risk',
+    [{ key: 'hz', label: 'Horizon' }, ...SCEN.map(s => ({ key: s.key, label: s.label }))],
+    traj.map(r => { const o: Record<string, unknown> = { hz: r.hz }; SCEN.forEach(s => { const v = r[s.key]; o[s.key] = typeof v === 'number' ? Math.round(v) : '' }); return o }),
+    { title: 'Value exposed at High+ (EUR) — projected scenario × horizon' })
 }
 
 function FacetTip({ active, payload, label }: { active?: boolean; payload?: readonly any[]; label?: any }) {

@@ -3,6 +3,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
 import { Save, Trash2, Share2, Download, BarChart3, Plus, Star, Info } from 'lucide-react'
 import { api } from '../lib/api'
+import { downloadCsv } from '../lib/export'
 import { toast } from '../lib/toast'
 import { Card, SectionHead } from './ui'
 import { hazardLabel } from '../lib/hazards'
@@ -145,13 +146,11 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
   }
   const savedViews = views.data?.views ?? []
 
-  const exportCsv = () => {
-    const head = `${groupBys.find(g => g.k === cfg.groupBy)!.label},${measureLabel}\n`
-    const body = result.map(r => `"${r.label}",${cfg.measure === 'value' ? Math.round(r.raw) : cfg.measure === 'pct' ? r.raw.toFixed(2) : Math.round(r.raw)}`).join('\n')
-    const basis = `# ${orgName ?? ''} · custom view · ${scen.label} · ${cfg.horizon}${interpolated ? ' (INTERPOLATED — not a modelled horizon)' : ''} · ${measureLabel} by ${cfg.groupBy} · EXPLORATORY (not a filed figure)\n`
-    const url = URL.createObjectURL(new Blob([basis + head + body], { type: 'text/csv' }))
-    const a = document.createElement('a'); a.href = url; a.download = 'tellumen-custom-view.csv'; a.click(); URL.revokeObjectURL(url)
-  }
+  const exportCsv = () => downloadCsv('tellumen-custom-view',
+    [{ key: 'label', label: groupBys.find(g => g.k === cfg.groupBy)!.label }, { key: 'value', label: measureLabel }],
+    result.map(r => ({ label: r.label, value: cfg.measure === 'value' ? Math.round(r.raw) : cfg.measure === 'pct' ? r.raw.toFixed(2) : Math.round(r.raw) })),
+    { title: 'Custom view', org: orgName, exploratory: true,
+      basis: { pathway: scen.label, horizon: `${cfg.horizon}${interpolated ? ' (interpolated)' : ''}`, view: `${measureLabel} by ${cfg.groupBy}` } })
 
   const Seg = <T extends string>({ value, opts, onChange }: { value: T; opts: { k: T; label: string }[]; onChange: (v: T) => void }) => (
     <div className="inline-flex rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-0.5">

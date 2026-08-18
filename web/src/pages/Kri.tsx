@@ -6,7 +6,8 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Eyebrow, Card, Lens } from '../components/ui'
+import { Eyebrow, Card, Lens, ExportButton } from '../components/ui'
+import { downloadCsv } from '../lib/export'
 import { HBar } from '../components/Charts'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
@@ -82,6 +83,20 @@ export default function Kri() {
     } finally { setRaising(null) }
   }
 
+  // export every indicator as CSV — value, appetite status/band, its regulatory datapoint, and the source
+  // (computed vs a provided figure) — so the KRI set drops straight into the customer's own risk tooling.
+  const exportKri = () => {
+    if (!d?.kpis?.length) return
+    downloadCsv(`tellumen-kri-${framework}`,
+      [{ key: 'label', label: 'Indicator' }, { key: 'value', label: 'Value' }, { key: 'status', label: 'Appetite status' },
+       { key: 'band', label: 'Appetite band' }, { key: 'datapoint', label: 'Regulatory datapoint' }, { key: 'source', label: 'Source' }],
+      d.kpis.map(k => ({
+        label: k.label, value: fmt(k), status: k.status ?? '', band: bandNote(k) ?? '',
+        datapoint: [k.reg, k.reg_tier].filter(Boolean).join(' '), source: k.kind ?? (k.integrated ? 'integrated' : 'computed'),
+      })),
+      { title: `KRI dashboard · ${d.label ?? framework}`, org: profile?.org?.name, basis: { framework: d.label ?? framework } })
+  }
+
   return (
     <div className="fadeup space-y-5">
       <div className="flex items-start justify-between gap-4">
@@ -90,7 +105,10 @@ export default function Kri() {
           <h1 className="display text-3xl font-semibold mt-2 mb-1">KRI dashboard</h1>
           <p className="text-[var(--color-mute)] text-sm max-w-2xl">A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings.</p>
         </div>
-        <Lens kind="governance" className="mt-1 shrink-0" />
+        <div className="flex items-center gap-2 mt-1 shrink-0">
+          {d?.supported && !!d.kpis?.length && <ExportButton onExport={exportKri} />}
+          <Lens kind="governance" />
+        </div>
       </div>
 
       {/* framework picker — shown when the org reports on more than one (e.g. a bank: TCFD + Pillar 3 ESG) */}

@@ -1,5 +1,17 @@
 import { type ReactNode } from 'react'
+import { Download } from 'lucide-react'
 import clsx from 'clsx'
+
+// The one consistent "export what I'm looking at" control — wired to lib/export downloadCsv on every view,
+// so extract-to-your-own-tool is a standard affordance across all sectors, not an ad-hoc per-page button.
+export function ExportButton({ onExport, label = 'CSV', className }: { onExport: () => void; label?: string; className?: string }) {
+  return (
+    <button onClick={onExport} title="Download this view as CSV"
+      className={clsx('inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition', className)}>
+      <Download size={13} /> {label}
+    </button>
+  )
+}
 
 export function BrandMark({ size = 28 }: { size?: number }) {
   return (
