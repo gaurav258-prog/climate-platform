@@ -60,6 +60,7 @@ try:
     from api.routers import reg_tasks as reg_tasks_router
     from api.routers import decisions as decisions_router
     from api.routers import analytics as analytics_router
+    from api.routers import export_api as export_api_router
     from api.routers import provided as provided_router
     from api.routers import transmission as transmission_router
     from api.routers import reg_changes as reg_changes_router
@@ -164,6 +165,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(reg_tasks_router.router)
     app.include_router(decisions_router.router)
     app.include_router(analytics_router.router)
+    app.include_router(export_api_router.router)
     app.include_router(provided_router.router)
     app.include_router(transmission_router.router)
     app.include_router(reg_changes_router.router)
