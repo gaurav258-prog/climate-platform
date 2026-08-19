@@ -11,8 +11,9 @@ signal, no customer_id -- so they get their own table rather than overloading th
 customer-scoped one.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = 'f1a2b3c4d5e6'
 down_revision: Union[str, None] = 'e5f6a7b8c9d0'

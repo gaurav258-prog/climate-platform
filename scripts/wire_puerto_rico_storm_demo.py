@@ -18,10 +18,10 @@ not added to BACKTESTED, same as Guatemala.
 
 Idempotent. Run: .venv/bin/python scripts/wire_puerto_rico_storm_demo.py
 """
+import uuid
 from datetime import datetime, timezone
 
 import h3
-import uuid
 from sqlalchemy import text
 
 from core.db.session import get_session

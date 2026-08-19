@@ -17,13 +17,13 @@ until the EU DEM one-time load is complete (separate data task).
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import date, datetime, timezone
 
 import pandas as pd
 
 from core.db.models import MLFeatureFlood
 from core.db.session import get_session
+
 from .base import BaseFeatureExtractor
 
 logger = logging.getLogger(__name__)

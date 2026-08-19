@@ -10,8 +10,8 @@ coastline is coarse — both make this a SCREENING layer, honest about its resol
 Run:  .venv/bin/python -m scripts.build_coastal_exposure
 """
 from __future__ import annotations
+
 import json
-import math
 import os
 import sys
 import time
@@ -20,7 +20,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 import h3
-from shapely.geometry import shape, Point
+from shapely.geometry import Point, shape
 from shapely.ops import unary_union
 from sqlalchemy import text
 

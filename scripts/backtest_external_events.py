@@ -18,11 +18,11 @@ import warnings
 from datetime import date, timedelta
 
 warnings.filterwarnings("ignore")
+import h3
 import numpy as np
 import pandas as pd
 import xarray as xr
-import h3
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 # Events the model never saw. fetch_area / flood_bbox are [N, W, S, E].
 EVENTS = [
@@ -46,7 +46,12 @@ H3_RES = 8
 
 def fetch(ev):
     """One CDS request: 8-day window of the 3 vars over the event area."""
-    import cdsapi, tempfile, zipfile, os, shutil
+    import os
+    import shutil
+    import tempfile
+    import zipfile
+
+    import cdsapi
     days = [(ev["peak"] - timedelta(days=k)) for k in range(8)]
     c = cdsapi.Client(quiet=True)
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False); tmp.close()
@@ -111,7 +116,7 @@ def main():
         print("could not load flood model"); sys.exit(1)
     feats = ["precipitation_7d_mm", "soil_saturation_index", "glofas_discharge_m3s"]
 
-    print(f"\n=== Out-of-event backtest — flood model on events it NEVER trained on ===\n")
+    print("\n=== Out-of-event backtest — flood model on events it NEVER trained on ===\n")
     pooled_y, pooled_s = [], []
     for ev in EVENTS:
         print(f"• {ev['name']} (peak {ev['peak']}) — fetching ERA5 …", flush=True)
@@ -131,12 +136,12 @@ def main():
 
     if pooled_y:
         py, ps = np.array(pooled_y), np.array(pooled_s)
-        print(f"=== POOLED across held-out events ===")
+        print("=== POOLED across held-out events ===")
         print(f"   ROC-AUC={roc_auc_score(py, ps):.3f}  Avg-Precision={average_precision_score(py, ps):.3f}"
               f"  base rate={py.mean():.3f}")
-        print(f"\n   This is the model scoring floods OUTSIDE its training event —")
-        print(f"   the first real test of generalisation. Labels are documented-corridor")
-        print(f"   approximations; treat magnitudes as indicative, direction as the signal.\n")
+        print("\n   This is the model scoring floods OUTSIDE its training event —")
+        print("   the first real test of generalisation. Labels are documented-corridor")
+        print("   approximations; treat magnitudes as indicative, direction as the signal.\n")
 
 
 if __name__ == "__main__":

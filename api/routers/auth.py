@@ -21,8 +21,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
-from api.deps import CustomerId, DbSession
 from api.auth import create_api_key, list_api_keys, revoke_api_key, validate_api_key
+from api.deps import CustomerId, DbSession
 from core.config import settings
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])

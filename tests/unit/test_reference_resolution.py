@@ -1,11 +1,14 @@
 """Reference-resolution guard clauses — these must reject malformed input BEFORE
 any network call, so a bad ISIN is a cheap 'None', never a GLEIF round-trip or a
 fabricated issuer. Pure (no network, no DB)."""
-from services.reference import gleif
 from ml.regulatory.sfdr_pai import (
-    COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR, DEFAULT_COUNTRY_INTENSITY,
-    MANDATORY_PAI_INDICATORS, _real_estate_indicators, _sovereign_indicators,
+    COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR,
+    DEFAULT_COUNTRY_INTENSITY,
+    MANDATORY_PAI_INDICATORS,
+    _real_estate_indicators,
+    _sovereign_indicators,
 )
+from services.reference import gleif
 
 
 def test_resolve_isin_rejects_malformed_without_network():

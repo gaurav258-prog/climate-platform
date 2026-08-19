@@ -24,16 +24,25 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, require_permission
 from api.services.rbac import write_audit
-from services.intelligence.supply_cogs import (
-    apply_commodity_override, clear_commodity_override, project_org_supply, IMPACT_VERSION,
+from services.intelligence.company_sites import (
+    SITE_TYPES,
+    SiteLocationError,
+    add_site,
+    list_sites_with_risk,
+    site_hazards,
 )
-from services.scoring.on_demand import schedule_scoring
-from services.intelligence.geometry import validate_plot_geometry
+from services.intelligence.csrd_e1 import build_e1_report
 from services.intelligence.eudr import determine_plot
 from services.intelligence.eudr_dds import assemble_dds
-from services.intelligence.company_sites import add_site, list_sites_with_risk, site_hazards, SiteLocationError, SITE_TYPES
+from services.intelligence.geometry import validate_plot_geometry
+from services.intelligence.supply_cogs import (
+    IMPACT_VERSION,
+    apply_commodity_override,
+    clear_commodity_override,
+    project_org_supply,
+)
+from services.scoring.on_demand import schedule_scoring
 from services.templates.workbook import build_export_workbook, build_template_workbook
-from services.intelligence.csrd_e1 import build_e1_report
 
 router = APIRouter(prefix="/v1/supply", tags=["Agriculture / Supply chain"])
 
@@ -163,7 +172,9 @@ def hex_hazard(session: DbSession, org_id: OrgId, res: int = Query(4, ge=2, le=9
     `res` is the H3 resolution to draw at (the UI raises it as you zoom in). Cells are the plots'
     own cells at that resolution plus their 1-ring of neighbours, so the grid reads as a patch
     around the book rather than a full-planet tiling."""
-    from api.routers.lookup import _compute_overall  # local import: dodge a circular import at module load
+    from api.routers.lookup import (
+        _compute_overall,  # local import: dodge a circular import at module load
+    )
 
     plots = session.execute(text("""
         SELECT p.h3_cell, CAST(p.latitude AS FLOAT) lat, CAST(p.longitude AS FLOAT) lon,
@@ -352,7 +363,8 @@ class PlotCreate(BaseModel):
 
 @router.post("/plots", summary="Add one sourcing plot (by address or coordinates) → geocode + score")
 def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
-    from services.intelligence.company_sites import resolve_location, SiteLocationError as LocErr
+    from services.intelligence.company_sites import SiteLocationError as LocErr
+    from services.intelligence.company_sites import resolve_location
     org_id = ctx["org"]["org_id"]
     commodity_id = session.execute(text("SELECT commodity_id::text FROM sc_commodities WHERE name=:n"),
                                    {"n": body.commodity}).scalar()
@@ -582,9 +594,9 @@ def commodity_detail(commodity_id: str, session: DbSession, org_id: OrgId):
         """), {"o": org_id, "c": commodity_id, "h": driver}).mappings().all()]
 
     # the calibration / validation record for this crop (every regression we ran, published or held)
-    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     from ml.confidence_grade import grade as _grade
     from services.intelligence.adaptation import actions_for
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     fits = []
     for f in session.execute(text("""
         SELECT f.origin, f.hazard_driver, CAST(f.r2 AS FLOAT) r2, CAST(f.r2_oos AS FLOAT) r2_oos,
@@ -666,7 +678,8 @@ def disclosure(session: DbSession, org_id: OrgId,
             "climate_viable": (hs is not None and hs < 60), "scored": hs is not None,
         })
     covered = [e for e in eudr if e["eudr_covered"]]
-    det = lambda status: sum(1 for e in covered if e["eudr_determination"] == status)
+    def det(status):
+        return sum(1 for e in covered if e["eudr_determination"] == status)
     eudr_summary = {
         "covered_plots": len(covered),
         # Computed by us from Hansen forest-loss (None until /eudr/determine has been run).
@@ -862,8 +875,8 @@ def taxonomy_binding(session: DbSession, org_id: OrgId, profile: str = Query("pr
 
 @router.get("/taxonomy-adaptation", summary="EU Taxonomy — climate-adaptation substantial-contribution evidence (CRVA)")
 def taxonomy_adaptation(session: DbSession, org_id: OrgId):
-    from services.intelligence.taxonomy_adaptation import adaptation_kpi
     from services.governance.reporting_settings import get_settings
+    from services.intelligence.taxonomy_adaptation import adaptation_kpi
     return adaptation_kpi(session, org_id, threshold=get_settings(session, org_id)["materiality_threshold"])
 
 
@@ -1012,7 +1025,7 @@ def validation(session: DbSession):
 
 @router.get("/models", summary="Agriculture hazard models + impact-fn + per-commodity calibration")
 def models(session: DbSession, org_id: OrgId):
-    from services.intelligence.supply_cogs import COMMODITY_PARAMS, BACKTESTED, CROP_SENSITIVITY
+    from services.intelligence.supply_cogs import BACKTESTED, COMMODITY_PARAMS, CROP_SENSITIVITY
     # ag hazard models (climatology-based) from the registry
     hz = session.execute(text("""
         SELECT hazard_type, model_version, algorithm, training_data_vintage, validation_note, is_active
@@ -1042,8 +1055,8 @@ def models(session: DbSession, org_id: OrgId):
     # at/above the floor publishes a band ('ranged'); a weaker one is shown as tested-but-held.
     # This is the honest counterpart to the single-event backtests on /validation — it says
     # exactly what we tried and how well it worked, including the crops we withhold.
-    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     from ml.confidence_grade import grade as _grade
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
     fits = session.execute(text("""
         SELECT co.name AS commodity, f.origin, f.hazard_driver,
                CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos,

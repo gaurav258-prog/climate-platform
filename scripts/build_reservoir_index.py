@@ -8,7 +8,9 @@ reservoirs in early summer mean water is there; depleted reservoirs mean restric
 decimals use a comma; FECHA is MM/DD/YY. Reads embalses_iso.csv (mdb-export of the one table).
 """
 from __future__ import annotations
-import csv, sys
+
+import csv
+import sys
 from collections import defaultdict
 
 SRC = "data/reservoirs/embalses.csv"

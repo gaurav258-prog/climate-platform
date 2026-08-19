@@ -2,8 +2,8 @@
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 import services.governance.provided_data as P
+from core.db.session import get_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

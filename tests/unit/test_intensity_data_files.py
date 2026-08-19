@@ -3,8 +3,8 @@ hardcoded), and the sovereign figures must be the real OWID-derived values."""
 import csv
 from pathlib import Path
 
-from services.reference import emissions_estimation
 from ml.regulatory import sfdr_pai
+from services.reference import emissions_estimation
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 NACE_CSV = ROOT / "data" / "reference" / "nace_emission_intensity.csv"

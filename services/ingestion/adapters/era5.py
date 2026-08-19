@@ -15,7 +15,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta, timezone
 from typing import Optional
 
 import xarray as xr
@@ -24,8 +24,9 @@ from core.config import settings
 from core.db.models import SatelliteObservation
 from core.netcdf_utils import xarray_to_h3_dataframe
 from core.types import HazardType
-from ..regions import get_region, DEFAULT_REGION
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from ..regions import DEFAULT_REGION, get_region
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 

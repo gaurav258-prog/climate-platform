@@ -233,8 +233,8 @@ def comment(session: Session, org_id: str, task_id: str, actor: str, body: str,
 
 def _notify_mentions(session: Session, org_id: str, task_id: str, actor: str, body: str, targets: set[str]) -> None:
     """Record each mention and queue an email ping to the mentioned colleague (delivered best-effort)."""
-    from services.notifications import mailer
     from core.config import settings
+    from services.notifications import mailer
     who = session.execute(text("""
         SELECT u.full_name AS actor, t.title AS task_title FROM regulatory_task t
         LEFT JOIN users u ON u.user_id = CAST(:a AS uuid)

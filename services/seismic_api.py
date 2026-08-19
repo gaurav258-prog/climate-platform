@@ -9,14 +9,14 @@ Endpoints:
 - WebSocket /seismic/events/live — Real-time event stream
 - POST /seismic/parametric-triggers — Design parametric insurance contracts
 """
-from fastapi import FastAPI, WebSocket, Query, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-import json
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Optional
+
 import numpy as np
+from fastapi import FastAPI, HTTPException, Query, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Climate Intelligence Platform — Seismic Module",
@@ -76,19 +76,19 @@ async def load_data():
         with open('data/expanded_seismic_ground_truth_with_targets.json') as f:
             data = json.load(f)
             RECENT_EVENTS = data['events'][:20]  # Most recent 20
-    except:
+    except Exception:
         RECENT_EVENTS = []
 
     try:
         with open('canonical_scores/seismic_scores_20260625_200648.json') as f:
             CANONICAL_SCORES = json.load(f)
-    except:
+    except Exception:
         CANONICAL_SCORES = {}
 
     try:
         with open('aftershock_forecasts/demo_event_001_forecast.json') as f:
             AFTERSHOCK_FORECASTS['demo_event_001'] = json.load(f)
-    except:
+    except Exception:
         AFTERSHOCK_FORECASTS = {}
 
 
@@ -140,7 +140,7 @@ async def get_events(
                         'max_mmi': e.get('max_mmi', ''),
                         'sources': e.get('sources', [])
                     })
-        except:
+        except Exception:
             pass
 
     return {

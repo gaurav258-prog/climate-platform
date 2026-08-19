@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.scoring.heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
+from ml.scoring.heat_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C
 
 MODEL_VERSION = "soil-water-aridity-global-v1"
 BOX = 0.7

@@ -1,10 +1,9 @@
 """KRI appetite thresholds — grading a KRI against per-org RAG bands. Requires PostgreSQL."""
 import pytest
-from sqlalchemy import text
 
 from core.db.session import get_session
-from services.governance.kri import kri
 from services.governance import kri_thresholds as KT
+from services.governance.kri import kri
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

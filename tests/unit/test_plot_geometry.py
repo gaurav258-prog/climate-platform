@@ -8,7 +8,10 @@ import json
 import pytest
 
 from services.intelligence.geometry import (
-    build_plot_geom, geodesic_area_ha, validate_plot_geometry, EUDR_POINT_MAX_HA,
+    EUDR_POINT_MAX_HA,
+    build_plot_geom,
+    geodesic_area_ha,
+    validate_plot_geometry,
 )
 
 # A ~1.9 ha square near Ashanti (small enough that a point would also be EUDR-valid).

@@ -21,8 +21,9 @@ h3_cell here is the h3 cell of each ERA5 grid POINT's centre, not an
 independently-modelled value for every res-8 cell in between.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = 'b3c4d5e6f7a8'
 down_revision: Union[str, None] = 'a2b3c4d5e6f7'

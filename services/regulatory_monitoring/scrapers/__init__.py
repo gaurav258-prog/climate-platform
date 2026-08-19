@@ -10,8 +10,8 @@ Each scraper monitors a specific regulatory source:
 """
 
 from .eur_lex_scraper import EurLexScraper
-from .sec_scraper import SECScraper
 from .fca_scraper import FCAScraper
 from .news_aggregator import NewsAggregator
+from .sec_scraper import SECScraper
 
 __all__ = ['EurLexScraper', 'SECScraper', 'FCAScraper', 'NewsAggregator']

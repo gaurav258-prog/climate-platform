@@ -11,8 +11,8 @@ Run the worker + beat alongside the API:
 """
 from __future__ import annotations
 
-from services.tasks.celery_app import celery_app
 from services.notifications import mailer
+from services.tasks.celery_app import celery_app
 
 
 @celery_app.task(name="emails.drain_outbox")

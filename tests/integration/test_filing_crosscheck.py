@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.governance.filing_crosscheck import cross_report_findings, _shared_figures
+from services.governance.filing_crosscheck import _shared_figures, cross_report_findings
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

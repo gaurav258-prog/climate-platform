@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text
 
-from ml.scoring.transition_risk import MODEL_VERSION, CARBON_PRICE_EUR, transition_score
+from ml.scoring.transition_risk import CARBON_PRICE_EUR, MODEL_VERSION, transition_score
 
 # Same scenario × horizon grid the physical side uses.
 SCENARIOS = list(CARBON_PRICE_EUR.keys())

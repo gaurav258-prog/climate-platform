@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api.deps import DbSession, require_permission
-from services.calc_settings import get_calc_settings, upsert_calc_settings
+from services.calc_settings import get_calc_settings
 
 router = APIRouter(prefix="/v1/calc-settings", tags=["Calc settings"])
 

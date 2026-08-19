@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-from .heat_climatology import warming_delta, precip_drying_spei, PRECIP_FRAC_TO_SPEI
+from .heat_climatology import PRECIP_FRAC_TO_SPEI, precip_drying_spei, warming_delta
 
 DRYING_PER_C = 0.12   # SPEI units of extra drought per °C warming (modest, v0)
 

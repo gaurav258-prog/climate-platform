@@ -5,11 +5,16 @@ warms faster than the mean, more so toward the poles. These tests pin the physic
 properties of that correction — not exact coefficients (those are tunable), but the invariants a
 regulated reviewer would insist on.
 """
-from ml.scoring.heat_climatology import (
-    warming_amplification, warming_delta, LAND_BASE, AMP_MAX, precip_drying_spei,
-)
 from ml.scoring.drought_climatology import drought_score
-from ml.scoring.heat_climatology import heat_score, heat_anomaly_score
+from ml.scoring.heat_climatology import (
+    AMP_MAX,
+    LAND_BASE,
+    heat_anomaly_score,
+    heat_score,
+    precip_drying_spei,
+    warming_amplification,
+    warming_delta,
+)
 
 
 def test_heat_anomaly_score_mirrors_drought_score():

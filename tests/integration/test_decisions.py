@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 import services.intelligence.forward_decisions as D
+from core.db.session import get_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 
@@ -58,14 +58,16 @@ def test_four_eyes_policy_is_configurable():
             pytest.skip("no crossings")
         c = rows[0]
         maker = _actor(s)
-        _pol = lambda req, thr: s.execute(text("""
-            INSERT INTO approval_policy (org_id, action_key, requires_approval, threshold_eur)
-            VALUES (:o,'risk.decision',:r,:t)
-            ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
-            DO UPDATE SET requires_approval=:r, threshold_eur=:t"""), {"o": BANK_ORG, "r": req, "t": thr})
-        propose = lambda: D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
-                                   scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="t",
-                                   value_eur=c["value_eur"])
+        def _pol(req, thr):
+            return s.execute(text("""
+                    INSERT INTO approval_policy (org_id, action_key, requires_approval, threshold_eur)
+                    VALUES (:o,'risk.decision',:r,:t)
+                    ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
+                    DO UPDATE SET requires_approval=:r, threshold_eur=:t"""), {"o": BANK_ORG, "r": req, "t": thr})
+        def propose():
+            return D.decide(s, BANK_ORG, maker, entity_id=c["entity_id"], entity_name=c["entity_name"],
+                                           scenario="hot_house_3_5c", horizon="2100", action="engage", rationale="t",
+                                           value_eur=c["value_eur"])
         _pol(False, None); a = propose()
         assert a["status"] == "approved" and a["task_id"]                      # off → applied directly
         _pol(True, (c["value_eur"] or 0) + 1e9); b = propose()

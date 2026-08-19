@@ -28,7 +28,8 @@ import httpx
 from core.config import settings
 from core.db.models import SatelliteObservation
 from core.types import HazardType
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 

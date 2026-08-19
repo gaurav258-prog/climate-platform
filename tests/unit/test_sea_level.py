@@ -1,5 +1,5 @@
 """Sea-level-rise coastal-flood model — freeboard screening + honest band, zero inland."""
-from ml.scoring.sea_level import coastal_flood_score, slr_projection, SlrProjection, COAST_KM
+from ml.scoring.sea_level import COAST_KM, SlrProjection, coastal_flood_score, slr_projection
 
 
 def test_inland_asset_has_zero_coastal_risk():

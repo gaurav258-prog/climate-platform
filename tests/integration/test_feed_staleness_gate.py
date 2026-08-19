@@ -16,7 +16,7 @@ from services.data.feeds import basis_freshness_at, overdue_basis_feeds
 def test_overdue_basis_feed_is_detected_then_clears_on_refresh():
     # pick a basis-driving feed with a short cadence to make it easy to age past
     with get_session() as s:
-        before = {f["key"] for f in overdue_basis_feeds(s)}
+        {f["key"] for f in overdue_basis_feeds(s)}
         # clean slate: a pre-existing FRESH flood refresh (real op or a prior run) would mask the
         # staleness we're about to simulate, since overdue is judged on the MOST RECENT refresh.
         # feed_refresh_log is an operational log (not WORM), so clearing recent flood rows is safe.

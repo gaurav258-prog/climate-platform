@@ -10,11 +10,10 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+import h3
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-import h3
 
 from core.config import settings
 

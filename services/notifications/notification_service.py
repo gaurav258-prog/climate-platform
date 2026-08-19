@@ -4,10 +4,10 @@ Sends alerts via email, dashboard, and Slack
 """
 
 import logging
-from typing import Dict, List, Optional
 from datetime import datetime
+from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ class NotificationService:
 
         if provider == 'sendgrid':
             try:
-                import sendgrid
-                from sendgrid.helpers.mail import Mail
+                import sendgrid  # noqa: F401  — availability probe; ImportError below disables email
+                from sendgrid.helpers.mail import Mail  # noqa: F401
                 return SendGridProvider(self.config.get('sendgrid_api_key'))
             except ImportError:
                 logger.warning("SendGrid not installed, email disabled")
@@ -41,7 +41,7 @@ class NotificationService:
 
         elif provider == 'ses':
             try:
-                import boto3
+                import boto3  # noqa: F401  — availability probe; ImportError below disables email
                 return SESProvider(
                     self.config.get('aws_access_key'),
                     self.config.get('aws_secret_key'),
@@ -66,7 +66,7 @@ class NotificationService:
         logger.info(f"Sending alert {alert_id} to org {org_id} via {channel}")
 
         try:
-            from core.db.models_regulatory_complete import RegulatoryAlert, Organization
+            from core.db.models_regulatory_complete import Organization, RegulatoryAlert
 
             # Get alert details
             alert = self.db.query(RegulatoryAlert).filter_by(alert_id=alert_id).first()
@@ -150,8 +150,9 @@ class NotificationService:
         logger.info(f"Creating dashboard alert for {org.name}")
 
         try:
-            from core.db.models_regulatory_complete import DashboardNotification
             from uuid import uuid4
+
+            from core.db.models_regulatory_complete import DashboardNotification
 
             notification = DashboardNotification(
                 notification_id=uuid4(),
@@ -356,7 +357,7 @@ class SendGridProvider:
             return {'status': 'error', 'message': 'SendGrid not configured'}
 
         try:
-            from sendgrid.helpers.mail import Mail, Email, To, Content
+            from sendgrid.helpers.mail import Email, Mail, To
 
             message = Mail(
                 from_email=Email('alerts@climate-platform.com', 'Climate Intelligence Platform'),

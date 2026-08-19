@@ -3,10 +3,10 @@ Document Analyzer
 Performs diff analysis on regulatory documents
 """
 
-import logging
-from typing import Dict, List, Tuple
 import difflib
+import logging
 from datetime import datetime
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 

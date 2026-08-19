@@ -16,12 +16,11 @@ import warnings
 from datetime import datetime, timezone
 
 warnings.filterwarnings("ignore")
-import pandas as pd
 from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.features.flood_era5 import FEATURE_COLS, fetch_era5, compute_features
+from ml.features.flood_era5 import FEATURE_COLS, compute_features, fetch_era5
 
 # event catalog (date + area) — reuse the trainer's
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))

@@ -9,8 +9,8 @@ typical coldest night of the frost season). Replaces the Brazil-only region file
 Revision ID: frost_baseline_202608
 Revises: soil_moisture_baseline_202608
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "frost_baseline_202608"
 down_revision = "soil_moisture_baseline_202608"

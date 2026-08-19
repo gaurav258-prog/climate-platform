@@ -16,8 +16,9 @@ Unlike volcanic, no separate curated hazard-zone table is needed: IBTrACS carrie
 radius of maximum winds (RMW) directly on each track observation when available.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = 'e5f6a7b8c9d0'
 down_revision: Union[str, None] = 'd3e4f5a6b7c8'

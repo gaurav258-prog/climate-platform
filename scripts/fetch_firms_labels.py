@@ -9,8 +9,8 @@ Writes data/firms_burned_cells.json: {event_name: {"cells": [...h3...], "n": det
 Uses VIIRS_SNPP_SP archive (2012-2026). Area API caps day range at 5, so we tile
 three 5-day windows across peak-7 .. peak+8.
 """
-import io
 import csv
+import io
 import json
 import os
 import sys

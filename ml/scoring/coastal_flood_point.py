@@ -20,8 +20,14 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.scoring.sea_level import (coastal_flood_score, coastal_flood_stress, slr_projection,
-                                  SlrProjection, SEA_LEVEL_VERSION, COAST_KM)
+from ml.scoring.sea_level import (
+    COAST_KM,
+    SEA_LEVEL_VERSION,
+    SlrProjection,
+    coastal_flood_score,
+    coastal_flood_stress,
+    slr_projection,
+)
 
 COASTLINE_CACHE = "data/coastline/ne_10m_coastline.geojson"   # fine coastline — resolves estuaries/deltas
 COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson"

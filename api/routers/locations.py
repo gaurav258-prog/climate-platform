@@ -11,14 +11,15 @@ DELETE /v1/locations/{id}  — deactivate (soft-delete, never hard-delete)
 from __future__ import annotations
 
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
 from api.deps import CustomerId, DbSession
 from api.schemas.locations import (
-    LocationListResponse, LocationRegisterRequest, LocationResponse,
+    LocationListResponse,
+    LocationRegisterRequest,
+    LocationResponse,
 )
 from core.h3_utils import latlng_to_cell
 

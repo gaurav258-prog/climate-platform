@@ -8,9 +8,10 @@ PGA-magnitude relationships, building vulnerability profiles).
 Output: expanded_seismic_ground_truth.json (100 total events)
 """
 import json
-import numpy as np
 import logging
 from datetime import datetime, timedelta
+
+import numpy as np
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,13 +74,13 @@ def generate_synthetic_events(n_events=75):
         # Building damage scales with magnitude, depth, building quality
         # Shallow + high magnitude = more damage
         depth_factor = 1.0 - (depth / 150)  # Normalized by ~max depth
-        mag_factor = (magnitude - 4.5) / 4.0  # Normalized by ~max usable magnitude
+        (magnitude - 4.5) / 4.0  # Normalized by ~max usable magnitude
 
         collapsed_base = (10 ** (magnitude - 1)) * depth_factor
         collapsed = int(collapsed_base * np.random.uniform(0.5, 2.0))
         collapsed = np.clip(collapsed, 0, 1000000)
 
-        damaged = int(collapsed * np.random.uniform(3, 10))
+        int(collapsed * np.random.uniform(3, 10))
 
         # Economic loss: power-law with magnitude
         economic_loss = (10 ** (magnitude * 1.5 - 4)) * 1e6 * np.random.lognormal(0, 0.8)
@@ -182,7 +183,7 @@ def main():
 
     logger.info("")
     logger.info("=" * 70)
-    logger.info(f"  Augmentation Complete: 100 total events (25 real + 75 synthetic)")
+    logger.info("  Augmentation Complete: 100 total events (25 real + 75 synthetic)")
     logger.info("=" * 70)
     logger.info("")
 

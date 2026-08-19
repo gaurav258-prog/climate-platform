@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 import services.governance.prior_filings as PF
 import services.governance.tasks as T
+from core.db.session import get_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 _IX = ('<html xmlns:ix="http://www.xbrl.org/2013/inlineXBRL"><body>'

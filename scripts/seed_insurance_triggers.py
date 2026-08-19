@@ -15,8 +15,8 @@ ml/scoring/parametric_trigger.py against the same canonical_scores every other i
 """
 from sqlalchemy import text
 
-from core.db.session import get_session
 from api.routers.insurance import _policies_with_risk
+from core.db.session import get_session
 
 
 def main() -> None:

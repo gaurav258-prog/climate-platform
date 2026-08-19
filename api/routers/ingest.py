@@ -8,8 +8,6 @@ Two audiences, two auth models, one router:
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 

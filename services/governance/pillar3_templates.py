@@ -105,7 +105,8 @@ def template1_grid(assets: list[dict]) -> dict:
     rows = sorted(by_sector.values(), key=lambda r: (r["section"] == "?", r["section"]))
     total = {"section": "TOTAL", "label": "Total", "gross": sum(r["gross"] for r in rows),
              "fin_emissions": sum(r["fin_emissions"] for r in rows), "scope3": sum(r["scope3"] for r in rows)}
-    _round = lambda r: {k: (round(v) if isinstance(v, float) else v) for k, v in r.items()}
+    def _round(r):
+        return {k: (round(v) if isinstance(v, float) else v) for k, v in r.items()}
     return {
         "rows": [_round(r) for r in rows], "total": _round(total),
         "customer_columns": ["of which environmentally sustainable / Taxonomy-aligned (CCM)",
@@ -161,7 +162,8 @@ def gar_grid(assets: list[dict]) -> dict:
     covered = total - govt                     # GAR denominator excludes general governments (Art. 7)
     eligible = sum(r["eligible"] for r in rows if r["counterparty"] != "General governments")
     aligned = sum(r["aligned"] for r in rows if r["counterparty"] != "General governments")
-    _r = lambda v: round(v) if isinstance(v, float) else v
+    def _r(v):
+        return round(v) if isinstance(v, float) else v
     return {
         "rows": [{k: _r(v) for k, v in r.items()} for r in rows],
         "total_assets": _r(total), "covered_assets": _r(covered), "general_government": _r(govt),

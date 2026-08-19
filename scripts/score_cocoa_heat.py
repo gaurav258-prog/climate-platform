@@ -18,7 +18,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.drought import load_monthly
-from ml.scoring.heat_climatology import heat_score, SCENARIO_WARMING_C, HORIZON_FRACTION
+from ml.scoring.heat_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C, heat_score
 
 NC = "data/era5_baseline/west_africa_cocoa_1991_2024_monthly.nc"
 MODEL_VERSION = "heat-climatology-v1-seasonal"

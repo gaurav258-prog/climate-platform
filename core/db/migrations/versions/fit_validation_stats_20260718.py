@@ -7,8 +7,8 @@ Grade keys on the HONEST numbers instead:
 Both are computed at fit time (ml/features/crop_fit) and stored so the grade is a pure function
 of persisted, auditable fields.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "fit_validation_stats_20260718"
 down_revision = "soil_water_hazard_vocab_20260718"

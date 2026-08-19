@@ -201,6 +201,7 @@ def _label_flood(cells: set[str], event_start: date, event_end: date,
     flood_occurred = false (explicit negative labels).
     """
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     start_dt = datetime.combine(event_start, datetime.min.time()).replace(tzinfo=timezone.utc)
@@ -244,6 +245,7 @@ def _label_flood(cells: set[str], event_start: date, event_end: date,
 def _label_wildfire(cells: set[str], event_start: date, event_end: date,
                     label_source: str, dry_run: bool) -> int:
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     start_dt = datetime.combine(event_start, datetime.min.time()).replace(tzinfo=timezone.utc)

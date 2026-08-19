@@ -92,9 +92,8 @@ def run_damage_assessment(
     Main entry point. Called by monitor_seismic.py after a M≥5.0 event.
     Returns None if insufficient Sentinel-1 data is available.
     """
-    import h3 as h3lib
+
     from core.db.session import get_session
-    from sqlalchemy import text
 
     logger.info(
         f"[SAR-damage] starting assessment for {event_id} "
@@ -340,8 +339,9 @@ def _z_to_prob(z_score: float) -> float:
 
 def _write_to_db(result: DamageAssessmentResult):
     """Persist damage assessment to database."""
-    from core.db.session import get_session
     from sqlalchemy import text
+
+    from core.db.session import get_session
 
     records = [
         {

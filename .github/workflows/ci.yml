@@ -27,7 +27,10 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        # Unit tests import the scoring/geo modules (scikit-learn, rasterio,
+        # netCDF4, …), so the full runtime extras must be present at collection
+        # time — [dev] alone only brings the test tooling.
+        run: pip install -e ".[all,dev]"
 
       - name: Run unit tests
         run: pytest tests/unit/ -m "not integration" -q --tb=short
@@ -92,7 +95,8 @@ jobs:
         run: pip install ruff
 
       - name: Run ruff
-        run: ruff check . --select E,F,W,I --ignore E501
+        # Rule selection + ignores live in pyproject.toml [tool.ruff.lint]
+        run: ruff check .
 
   # ── Docker build + push (main branch only) ─────────────────────────────
   build-push:

@@ -12,7 +12,6 @@ the documented burned area, and runs leave-one-event-out. Cached to
 data/multievent_wildfire.parquet.
 """
 import os
-import sys
 import warnings
 from datetime import date, timedelta
 
@@ -21,7 +20,7 @@ import h3
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 CACHE = "data/multievent_wildfire_fuel.parquet"
 # Added the missing physics — FUEL: vegetation density (leaf-area-index, high+low veg)
@@ -51,7 +50,11 @@ EVENTS = [
 
 
 def fetch(ev):
-    import cdsapi, tempfile, zipfile, shutil
+    import shutil
+    import tempfile
+    import zipfile
+
+    import cdsapi
     days = [ev["peak"] - timedelta(days=k) for k in range(WINDOW)]
     c = cdsapi.Client(quiet=True)
     tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False); tmp.close()

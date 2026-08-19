@@ -14,6 +14,7 @@ one event, and quoting the wrong one fits a calibration to a fiction. Aggregate 
 site, on a stated convention.
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = "sc_prices_20260716"

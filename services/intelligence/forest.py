@@ -21,13 +21,12 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Optional
 
-import numpy as np
 import rasterio
 from rasterio.mask import mask as rio_mask
-from shapely.geometry import mapping, shape
+from shapely.geometry import mapping
 from shapely.geometry.base import BaseGeometry
 
 # Pin the dataset version — provenance requires an exact, citable source.

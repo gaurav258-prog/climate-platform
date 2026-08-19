@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 
 
 def supervisor_view(session: Session, org_id: str, org_type: str | None) -> dict:
+    from services.governance.datapoint_catalog import coverage
+    from services.governance.exception_monitor import exceptions
     from services.governance.filings import reporting_requirements
     from services.governance.kri import kri, kri_frameworks
-    from services.governance.datapoint_catalog import coverage
     from services.governance.readiness import org_readiness
-    from services.governance.exception_monitor import exceptions
 
     reqs = reporting_requirements(session, org_id, org_type)
     kfw = {f["framework"] for f in kri_frameworks(org_type)}

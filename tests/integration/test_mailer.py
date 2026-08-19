@@ -4,10 +4,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
-from core import config
-from services.notifications import mailer
 import services.governance.tasks as T
+from core import config
+from core.db.session import get_session
+from services.notifications import mailer
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

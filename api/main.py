@@ -18,28 +18,27 @@ Auth: X-Customer-Id header (Sprint 7 shim) → JWT/API-key auth (Sprint 8)
 """
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
-from core.db.config import engine, get_db, check_db_connection, init_db
-from core.db.models_regulatory_complete import Base
+from core.db.config import check_db_connection, init_db
 
 # Core routers (scores/locations/packages/auth) — must not be coupled to optional
 # features. Each optional router is imported separately so a missing optional
 # dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
 try:
-    from api.routers import auth, locations, packages, scores, lookup
-    from api.routers import platform as platform_router
+    from api.routers import assetmgmt as assetmgmt_router
+    from api.routers import auth, locations, lookup, packages, scores
     from api.routers import bank as bank_router
     from api.routers import bank_submissions as bank_submissions_router
-    from api.routers import supply as supply_router
-    from api.routers import insurance as insurance_router
-    from api.routers import realestate as realestate_router
-    from api.routers import assetmgmt as assetmgmt_router
-    from api.routers import funds as funds_router
     from api.routers import calc_settings as calc_settings_router
+    from api.routers import funds as funds_router
+    from api.routers import insurance as insurance_router
+    from api.routers import platform as platform_router
+    from api.routers import realestate as realestate_router
+    from api.routers import supply as supply_router
     ROUTERS_AVAILABLE = True
 except ImportError:
     ROUTERS_AVAILABLE = False
@@ -55,25 +54,25 @@ except ImportError:
 
 try:
     from api.routers import admin as admin_router
-    from api.routers import approvals as approvals_router
-    from api.routers import filings as filings_router
-    from api.routers import reg_tasks as reg_tasks_router
-    from api.routers import decisions as decisions_router
     from api.routers import analytics as analytics_router
-    from api.routers import notifications as notifications_router
-    from api.routers import gl as gl_router
+    from api.routers import approvals as approvals_router
     from api.routers import arrears as arrears_router
-    from api.routers import prices as prices_router
+    from api.routers import decisions as decisions_router
     from api.routers import export_api as export_api_router
-    from api.routers import provided as provided_router
-    from api.routers import transmission as transmission_router
-    from api.routers import reg_changes as reg_changes_router
-    from api.routers import meta as meta_router
-    from api.routers import portal as portal_router
-    from api.routers import ops_console as ops_console_router
+    from api.routers import filings as filings_router
+    from api.routers import gl as gl_router
     from api.routers import ingest as ingest_router
-    from api.routers import webhooks as webhooks_router
+    from api.routers import meta as meta_router
+    from api.routers import notifications as notifications_router
+    from api.routers import ops_console as ops_console_router
+    from api.routers import portal as portal_router
+    from api.routers import prices as prices_router
     from api.routers import prior_filings as prior_filings_router
+    from api.routers import provided as provided_router
+    from api.routers import reg_changes as reg_changes_router
+    from api.routers import reg_tasks as reg_tasks_router
+    from api.routers import transmission as transmission_router
+    from api.routers import webhooks as webhooks_router
     ADMIN_ROUTERS_AVAILABLE = True
 except ImportError:
     ADMIN_ROUTERS_AVAILABLE = False
@@ -283,6 +282,7 @@ def health() -> dict:
     """Liveness + a real DB probe. 'ok' when the database answers, 'degraded'
     only when it genuinely doesn't (the probe uses text(), not a raw string)."""
     from sqlalchemy import text as _text
+
     from core.db.session import get_session
     try:
         with get_session() as s:

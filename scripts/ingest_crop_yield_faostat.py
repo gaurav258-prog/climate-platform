@@ -183,8 +183,8 @@ def main() -> int:
         out.append({
             "c": c, "geo": geo, "yr": yr,
             "prod": prod, "area": v.get("area"), "yld": yld, "yoy": yoy,
-            "note": f"FAOSTAT QCL, FAO CALENDAR year (not a split crop season); "
-                    f"yield derived = production/area",
+            "note": "FAOSTAT QCL, FAO CALENDAR year (not a split crop season); "
+                    "yield derived = production/area",
         })
 
     counts: dict = {}

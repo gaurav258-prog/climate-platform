@@ -23,9 +23,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import (
-    average_precision_score, classification_report, roc_auc_score
-)
+from sklearn.metrics import average_precision_score, classification_report, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sqlalchemy import text
 
@@ -150,6 +148,7 @@ def train(
     """
     import pickle
     import tempfile
+
     import mlflow
     import mlflow.xgboost
 
@@ -251,6 +250,7 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
                     features: list[str], data_vintage: date) -> None:
     """Write model metadata to canonical model_registry table."""
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     with get_session() as session:

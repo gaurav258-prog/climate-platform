@@ -11,7 +11,7 @@ import numpy as np
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.features.drought import load_monthly, compute_indices, seasonal_by_year
+from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
 
 NC = "data/era5_baseline/west_africa_cocoa_1991_2024_monthly.nc"
 # cocoa main-crop development / harvest window in West Africa (annual perennial stress)

@@ -5,7 +5,8 @@ Monitors UK Financial Conduct Authority climate rules
 
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List
+
 import requests
 from bs4 import BeautifulSoup
 

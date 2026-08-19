@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from pyproj import Geod
-from shapely.geometry import shape, mapping
+from shapely.geometry import mapping, shape
 from shapely.geometry.base import BaseGeometry
 
 _GEOD = Geod(ellps="WGS84")

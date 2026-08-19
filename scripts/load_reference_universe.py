@@ -40,7 +40,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.reference import gleif
 from services.reference.footprint import seed_hq_footprint
-from services.reference.resolver import resolve_isin, link_isin_to_record
+from services.reference.resolver import link_isin_to_record, resolve_isin
 
 logging.basicConfig(level=logging.WARNING, format="%(message)s")
 log = logging.getLogger("universe")

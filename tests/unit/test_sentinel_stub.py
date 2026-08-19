@@ -2,8 +2,6 @@
 Tests for Sentinel-1 SAR and Sentinel-3 SLSTR stub modes.
 No CDSE credentials required — stub mode reads from fixture CSVs.
 """
-import os
-import pytest
 
 from core.types import HazardType
 
@@ -37,6 +35,7 @@ def test_sentinel1_no_credentials_returns_empty(monkeypatch):
     monkeypatch.setattr("core.config.settings.COPERNICUS_USER", "")
     monkeypatch.setattr("core.config.settings.COPERNICUS_PASSWORD", "")
     from importlib import reload
+
     import services.ingestion.adapters.sentinel1_sar as m
     reload(m)
     adapter = m.Sentinel1SARAdapter()
@@ -47,7 +46,7 @@ def test_sentinel1_no_credentials_returns_empty(monkeypatch):
 # ── Sentinel-1 flood closure: classification + CDSE Statistical API contract ─────────────────────────────
 
 def test_flood_quality_classification():
-    from services.ingestion.adapters.sentinel1_sar import flood_quality, OPEN_WATER_DB
+    from services.ingestion.adapters.sentinel1_sar import OPEN_WATER_DB, flood_quality
     assert flood_quality(-6.0) == (0, None)                     # dry land → clean
     flag, note = flood_quality(-20.0)                           # open water → flagged
     assert flag == 1 and note and "open-water" in note
@@ -56,6 +55,7 @@ def test_flood_quality_classification():
 
 def test_cell_geojson_is_valid_closed_polygon():
     import h3
+
     from services.ingestion.adapters.sentinel1_sar import _cell_geojson
     cell = h3.latlng_to_cell(51.5, -0.12, 8)
     g = _cell_geojson(cell)
@@ -67,6 +67,7 @@ def test_cell_geojson_is_valid_closed_polygon():
 
 def test_statistics_body_matches_cdse_contract():
     import h3
+
     from services.ingestion.adapters.sentinel1_sar import Sentinel1SARAdapter
     body = Sentinel1SARAdapter()._statistics_body(h3.latlng_to_cell(45.4, 12.3, 8))
     assert body["input"]["data"][0]["type"] == "sentinel-1-grd"
@@ -78,7 +79,7 @@ def test_statistics_body_matches_cdse_contract():
 
 def test_stub_observations_carry_open_water_flag(monkeypatch):
     monkeypatch.setenv("SENTINEL1_STUB", "true")
-    from services.ingestion.adapters.sentinel1_sar import Sentinel1SARAdapter, OPEN_WATER_DB
+    from services.ingestion.adapters.sentinel1_sar import OPEN_WATER_DB, Sentinel1SARAdapter
     obs = Sentinel1SARAdapter().to_observations([{"stub": True}])
     assert obs and any(o.quality_flag == 1 for o in obs)        # fixture includes an open-water reading
     for o in obs:

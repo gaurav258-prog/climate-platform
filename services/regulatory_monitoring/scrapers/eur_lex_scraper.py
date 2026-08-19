@@ -5,11 +5,12 @@ Primary source for: TCFD, EU Taxonomy, EBA/ECB, FCA alignment
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import Dict, List, Optional
+
 import requests
 from bs4 import BeautifulSoup
-import re
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,13 @@
 """One-off smoke test: confirm an authenticated ERA5-Land download completes for the
 West-Africa cocoa belt. Small request (2 vars, 1 day, 1 time). Not part of the pipeline."""
-import time, tempfile, logging
+import logging
+import tempfile
+import time
+
+import cdsapi
 import numpy as np
 import xarray as xr
-import cdsapi
+
 from core.config import settings
 from services.ingestion.regions import get_region
 

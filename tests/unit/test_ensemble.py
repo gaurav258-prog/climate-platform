@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ml.scoring.ensemble import EnsembleResult, EnsembleScorer
+from ml.scoring.ensemble import EnsembleScorer
 
 
 @pytest.fixture()

@@ -11,15 +11,9 @@ defensible. No auth (aggregate read), mirroring platform.py.
 """
 from __future__ import annotations
 
-import io
-import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
-
 from typing import Annotated, Optional
 
-import h3
-import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -31,10 +25,15 @@ from api.services.rbac import write_audit
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
-    clear_valuation_override as engine_clear_override,
-    fetch_entities_with_risk, get_entity_org, get_entity_with_risk,
 )
-from services.scoring.on_demand import process_new_cells
+from services.portfolio_engine import (
+    clear_valuation_override as engine_clear_override,
+)
+from services.portfolio_engine import (
+    fetch_entities_with_risk,
+    get_entity_org,
+    get_entity_with_risk,
+)
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_BANKING_COLUMNS = [

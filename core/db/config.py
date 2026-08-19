@@ -3,11 +3,12 @@ Database configuration and connection pooling
 PostgreSQL with SQLAlchemy
 """
 
-import os
-from sqlalchemy import create_engine, event, Engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
 import logging
+import os
+
+from sqlalchemy import Engine, create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 # `climate_platform` DB, which meant create_all silently provisioned tables the app never queried.
 # Note: Uses postgresql+psycopg:// dialect for psycopg3 driver.
 from core.config import settings  # noqa: E402
+
 DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
 # Create engine with connection pooling
@@ -62,10 +64,10 @@ def get_db() -> Session:
 
 def init_db():
     """Initialize database (create any missing tables — checkfirst, never alters existing ones)."""
-    from core.db.models import Base
     # Import the full model modules so EVERY table is registered on Base.metadata before create_all —
     # otherwise a model defined in a not-yet-imported module is silently skipped.
     import core.db.models_regulatory_complete  # noqa: F401
+    from core.db.models import Base
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized")
 

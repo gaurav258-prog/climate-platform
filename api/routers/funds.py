@@ -20,22 +20,26 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from api.deps import DbSession
+from ml.regulatory.sfdr_pai import entity_pai_statement, sfdr_pai_statement, sfdr_pai_statement_xlsx
+from ml.regulatory.sfdr_periodic import periodic_report
+from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
+from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
+from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
+from ml.regulatory.voluntary_pai import validate_keys
 from services.asset_manager_engine import (
-    fund_descendant_ids, issuer_physical_scores, issuer_transition_scores,
     fund_positions_with_risk,
+    issuer_physical_scores,
+    issuer_transition_scores,
 )
 from services.fund_disclosure import fund_climate_summary
-from ml.regulatory.sfdr_pai import sfdr_pai_statement, sfdr_pai_statement_xlsx, entity_pai_statement
-from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
-from services.sfdr_batch import create_batch, run_batch, batch_status
-from services.reference.vendor_ingest import ingest_vendor_extract, PROFILES as _VENDOR_PROFILES
-from ml.regulatory.sfdr_periodic import periodic_report
-from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG, catalog as voluntary_catalog, validate_keys
 from services.reference import gleif
 from services.reference.emissions_estimation import estimate_emissions
 from services.reference.footprint import seed_hq_footprint
-from services.reference.fx import to_eur, FxError
-from services.reference.resolver import resolve_isin, _ASSET_CLASSES
+from services.reference.fx import FxError, to_eur
+from services.reference.resolver import _ASSET_CLASSES, resolve_isin
+from services.reference.vendor_ingest import PROFILES as _VENDOR_PROFILES
+from services.reference.vendor_ingest import ingest_vendor_extract
+from services.sfdr_batch import batch_status, create_batch, run_batch
 
 router = APIRouter(prefix="/v1", tags=["Asset Management — Funds"])
 

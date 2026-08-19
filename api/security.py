@@ -16,7 +16,6 @@ import jwt
 
 from core.config import settings
 
-
 # ── Passwords ──────────────────────────────────────────────────────────
 
 def hash_password(plaintext: str) -> str:

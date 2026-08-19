@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from sqlalchemy import text
 
 from api.deps import CustomerId, DbSession, Pagination
@@ -255,8 +255,9 @@ def get_compound_events(
     session:     DbSession,
     customer_id: CustomerId,
 ):
-    from ml.scoring.compound import summarise_compound_events
     from datetime import date
+
+    from ml.scoring.compound import summarise_compound_events
 
     events = summarise_compound_events(session, date.today())
 

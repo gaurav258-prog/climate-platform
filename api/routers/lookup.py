@@ -68,11 +68,17 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 
 from api.deps import DbSession
-from api.schemas.lookup import HazardLookupResult, HeatStatus, LookupResponse, OverallRisk, PollResponse
+from api.schemas.lookup import (
+    HazardLookupResult,
+    HeatStatus,
+    LookupResponse,
+    OverallRisk,
+    PollResponse,
+)
 from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
-from services.scoring.on_demand import SYNC_ON_DEMAND_SCORERS, GRIDDED_ON_DEMAND_SCORERS
+from services.scoring.on_demand import GRIDDED_ON_DEMAND_SCORERS, SYNC_ON_DEMAND_SCORERS
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 

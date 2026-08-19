@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from services.intelligence.company_sites import list_sites_with_risk
 from services.intelligence.adaptation import actions_for
+from services.intelligence.company_sites import list_sites_with_risk
 from services.intelligence.hazard_scope import CLIMATE
 
 MATERIAL = 40
@@ -35,7 +35,8 @@ def adaptation_kpi(session: Session, org_id: str, threshold: int = MATERIAL) -> 
     exposed_value = sum((s.get("value_eur") or 0) for s in exposed)
     exposed_hazards = sorted({s["top_hazard"] for s in exposed if s.get("top_hazard")})
 
-    pct = lambda part, whole: round(100.0 * part / whole, 1) if whole else None
+    def pct(part, whole):
+        return round(100.0 * part / whole, 1) if whole else None
     return {
         "objective": "Climate change adaptation (EU Taxonomy Objective 2)",
         # A CRVA is a present-state assessment — say so explicitly rather than sit silently at

@@ -8,6 +8,7 @@ band. Append-only, standing lane.
 
 Run (after scripts.build_coastal_exposure):  .venv/bin/python -m scripts.score_coastal_flood
 """
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -15,10 +16,13 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-import json
-
-from ml.scoring.sea_level import (coastal_flood_score, coastal_flood_stress, slr_projection,
-                                  SlrProjection, SEA_LEVEL_VERSION)
+from ml.scoring.sea_level import (
+    SEA_LEVEL_VERSION,
+    SlrProjection,
+    coastal_flood_score,
+    coastal_flood_stress,
+    slr_projection,
+)
 
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["current", "2030", "2050", "2100"]

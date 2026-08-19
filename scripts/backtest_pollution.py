@@ -41,8 +41,8 @@ from sqlalchemy import text
 from core.config import settings
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.features.pollution_cams import fetch_cams_reanalysis, compute_features
-from ml.scoring.pollution_aqi import pollution_score, POLLUTION_MODEL_VERSION
+from ml.features.pollution_cams import compute_features, fetch_cams_reanalysis
+from ml.scoring.pollution_aqi import POLLUTION_MODEL_VERSION, pollution_score
 
 MODEL_VERSION = POLLUTION_MODEL_VERSION
 OPENAQ_API_KEY = settings.OPENAQ_API_KEY
@@ -143,10 +143,10 @@ def delhi_check():
 
     print(f"\n  REAL ANCHOR (CPCB, PIB press release, The Wire): AQI={DELHI_CPCB_AQI} "
           f"('Severe', GRAP Stage IV invoked 08:00 18-Nov-2024 — construction halted,")
-    print(f"  truck bans, schools closed citywide).")
+    print("  truck bans, schools closed citywide).")
     print(f"  Economic context: India-wide air pollution cost estimated at "
           f"${DELHI_INDIA_COST_LOW_USD/1e9:.0f}-{DELHI_INDIA_COST_HIGH_USD/1e9:.0f}bn/year (~3% of GDP);")
-    print(f"  Delhi specifically ~6% of GDP/year.")
+    print("  Delhi specifically ~6% of GDP/year.")
 
     ground_truth = None
     for sensor_id in (30, 12234787, 34):  # every Delhi PM2.5 sensor checked
@@ -154,10 +154,10 @@ def delhi_check():
         if ground_truth:
             break
     if ground_truth is None:
-        print(f"\n  OpenAQ ground-truth: DISCLOSED GAP, not silently skipped. Every Delhi CPCB/DPCC")
-        print(f"  PM2.5 sensor checked (5 stations) has a real, confirmed coverage hole spanning")
-        print(f"  exactly this window (data ends ~Feb 2018, resumes ~Feb 2025) — same 'absence isn't")
-        print(f"  zero' honesty as seismic's insufficient_data. CPCB's own AQI=494 IS the real anchor.")
+        print("\n  OpenAQ ground-truth: DISCLOSED GAP, not silently skipped. Every Delhi CPCB/DPCC")
+        print("  PM2.5 sensor checked (5 stations) has a real, confirmed coverage hole spanning")
+        print("  exactly this window (data ends ~Feb 2018, resumes ~Feb 2025) — same 'absence isn't")
+        print("  zero' honesty as seismic's insufficient_data. CPCB's own AQI=494 IS the real anchor.")
     else:
         print(f"\n  OpenAQ ground-truth PM2.5: {ground_truth}µg/m³")
 
@@ -182,13 +182,13 @@ def california_check():
     ground_truth = _openaq_daily_pm25(SF_OPENAQ_SENSOR, SF_DATE)
     print(f"\n  REAL GROUND TRUTH (OpenAQ, SF AirNow station, sensor {SF_OPENAQ_SENSOR}): "
           f"{ground_truth}µg/m³ daily avg PM2.5 (peak day)")
-    print(f"  (full week for context: 11.7 -> 27.2 -> 129.5 (peak) -> 150.9 -> 93.7 µg/m³, "
-          f"8-12 Sept 2020)")
-    print(f"  Economic context: $%.0f-%.0fbn/yr short-term PM2.5 health-cost estimates (peer-reviewed)."
+    print("  (full week for context: 11.7 -> 27.2 -> 129.5 (peak) -> 150.9 -> 93.7 µg/m³, "
+          "8-12 Sept 2020)")
+    print("  Economic context: $%.0f-%.0fbn/yr short-term PM2.5 health-cost estimates (peer-reviewed)."
           % (CA_HEALTH_COST_LOW_USD/1e9, CA_HEALTH_COST_HIGH_USD/1e9))
-    print(f"  Cross-links to the EXISTING wildfire hazard — a real fire event driving both a")
-    print(f"  wildfire score and a pollution spike simultaneously (same generalization role coffee")
-    print(f"  played for cocoa's heat mechanism).")
+    print("  Cross-links to the EXISTING wildfire hazard — a real fire event driving both a")
+    print("  wildfire score and a pollution spike simultaneously (same generalization role coffee")
+    print("  played for cocoa's heat mechanism).")
 
     if ground_truth:
         ratio = result["pm25_ugm3"] / ground_truth
@@ -210,7 +210,7 @@ def discrimination_check():
     if clean:
         print(f"  rural Swiss Alps (same day, 10-Sep-2020): pollution score {clean['score']} "
               f"({score_to_bucket(clean['score']).value}), PM2.5={clean['pm25_ugm3']}µg/m³")
-        print(f"  VERDICT: correct if this scores far below San Francisco's smoke-day reading.")
+        print("  VERDICT: correct if this scores far below San Francisco's smoke-day reading.")
     else:
         print("  no CAMS data returned for the reference point")
 

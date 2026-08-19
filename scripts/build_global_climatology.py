@@ -23,7 +23,6 @@ Usage:  python scripts/build_global_climatology.py
 from __future__ import annotations
 
 import os
-import shutil
 import time
 import zipfile
 from datetime import datetime, timezone

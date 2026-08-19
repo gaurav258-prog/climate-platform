@@ -18,8 +18,8 @@ published AS A RANGE, with the r² stated.
                      else 'indicative'. The tier stays DERIVED, never a typeable column — you
                      still cannot write your way to a published euro.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "ranged_tier_20260718"
 down_revision = "measured_basis_20260717"

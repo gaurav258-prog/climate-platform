@@ -318,7 +318,7 @@ def get_decision_playbook(session: DbSession, ctx: dict = Depends(require_permis
 @router.patch("/decision-playbook", summary="Set the automations for one decision action")
 def set_decision_playbook(body: PlaybookPatch, session: DbSession,
                           ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
-    from services.intelligence.forward_decisions import set_playbook, DecisionError
+    from services.intelligence.forward_decisions import DecisionError, set_playbook
     patch = {k: v for k, v in body.model_dump().items() if k != "action" and v is not None}
     try:
         row = set_playbook(session, ctx["org"]["org_id"], ctx["user"]["id"], body.action, patch)
@@ -349,7 +349,8 @@ class KriThresholdPatch(BaseModel):
 @router.get("/kri-appetite", summary="The KRI appetite bands — the RAG thresholds graded on each KRI")
 def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
                      ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
-    from services.governance.kri import kri as build_kri, kri_frameworks
+    from services.governance.kri import kri as build_kri
+    from services.governance.kri import kri_frameworks
     fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: TCFD + Pillar 3 ESG)
     if not fws:
         return {"supported": False, "message": "No KRI dashboard for this organisation type."}

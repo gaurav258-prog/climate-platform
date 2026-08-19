@@ -454,7 +454,9 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
     # Reporting-period end — a REAL forward date (the org's reporting basis). Bucket by proximity so the
     # CSRD/ESRS filing shows up as overdue / this week / upcoming rather than as a date-less item.
     try:
-        from datetime import date, datetime as _dt
+        from datetime import date
+        from datetime import datetime as _dt
+
         from services.governance.reporting_settings import get_settings
         pe = get_settings(session, org_id).get("reporting_period_end")
         if pe:

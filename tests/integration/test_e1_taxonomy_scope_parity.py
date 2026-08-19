@@ -10,8 +10,8 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence.hazard_scope import CLIMATE
 from services.intelligence import csrd_e1, taxonomy_adaptation
+from services.intelligence.hazard_scope import CLIMATE
 
 
 def test_reports_share_one_climate_scope():

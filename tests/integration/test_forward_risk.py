@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence.forward_risk import forward_risk, HORIZONS
+from services.intelligence.forward_risk import HORIZONS, forward_risk
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

@@ -9,7 +9,7 @@ Run time: ~15–20 minutes (API rate limit ~1 req/s, paginated by year).
 """
 import logging
 import sys
-from datetime import datetime, date, timedelta, timezone
+from datetime import date, datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,11 +18,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from services.ingestion.adapters.emsc import EMSCAdapter
-from core.db.models import SeismicEvent, SatelliteObservation
-from core.db.session import get_session
-from core.types import HazardType
 import h3
+
+from core.db.models import SeismicEvent
+from core.db.session import get_session
+from services.ingestion.adapters.emsc import EMSCAdapter
+
 
 def backfill_year(year: int) -> tuple[int, int]:
     """

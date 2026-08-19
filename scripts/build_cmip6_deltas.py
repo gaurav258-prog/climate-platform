@@ -19,11 +19,17 @@ Output: data/cmip6/cmip6_deltas.csv (compact, committed). Run (needs gcsfs; minu
     .venv/bin/python -m scripts.build_cmip6_deltas
 """
 from __future__ import annotations
-import warnings; warnings.filterwarnings("ignore")
-import os, sys, csv
+
+import warnings
+
+warnings.filterwarnings("ignore")
+import csv
+import os
+import sys
+
+import gcsfs
 import numpy as np
 import pandas as pd
-import gcsfs
 import xarray as xr
 
 from services.ingestion.regions import REGIONS

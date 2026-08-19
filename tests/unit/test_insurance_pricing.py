@@ -13,8 +13,11 @@ import pytest
 
 from services.intelligence.asset_risk_projection import Asset, CanonicalScoreRow, project
 from services.intelligence.insurance_pricing import (
-    InsuredLocation, PricingParams,
-    annual_loss_probability, price_portfolio, portfolio_summary,
+    InsuredLocation,
+    PricingParams,
+    annual_loss_probability,
+    portfolio_summary,
+    price_portfolio,
 )
 
 

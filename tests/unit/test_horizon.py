@@ -1,5 +1,5 @@
 """User-selectable horizon resolver + interpolation (services.intelligence.horizon)."""
-from services.intelligence.horizon import resolve, labels_needed, lerp, ANCHOR_LABELS
+from services.intelligence.horizon import ANCHOR_LABELS, labels_needed, lerp, resolve
 
 
 def test_anchor_labels_resolve_exact():

@@ -9,7 +9,6 @@ import math
 
 from ml.features.crop_fit import fit_climate_on_score
 
-
 # Scattered, NON-periodic scores — a periodic score sequence would alias with the
 # alternate-bearing cycle that decompose() removes, and part of the injected signal would be
 # eaten as "cycle". Real crop years are not periodic in their drought, so this is the honest case.

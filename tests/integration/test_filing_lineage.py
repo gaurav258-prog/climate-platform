@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
+from services.data.feeds import HAZARD_FEEDS
 from services.governance.filing_lineage import cell_lineage, cell_upstream, reported_hazards
-from services.data.feeds import feeds_for_hazard, HAZARD_FEEDS
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

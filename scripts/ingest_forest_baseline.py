@@ -31,8 +31,9 @@ def _tiles_for_points(points: list[tuple[float, float]]) -> set[str]:
 
 
 def _points_from_db() -> list[tuple[float, float]]:
-    from core.db.session import get_session
     from sqlalchemy import text
+
+    from core.db.session import get_session
     with get_session() as s:
         rows = s.execute(text("SELECT longitude, latitude FROM sc_sourcing_plots "
                               "WHERE longitude IS NOT NULL AND latitude IS NOT NULL")).fetchall()

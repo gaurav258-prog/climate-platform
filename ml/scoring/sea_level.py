@@ -21,6 +21,7 @@ assets sit in the coastal-inundation danger zone and how SLR worsens it — NOT 
 surge model, and it models the HAZARD, not sea-wall defences (conservative; disclosed).
 """
 from __future__ import annotations
+
 import math
 from typing import NamedTuple, Optional, Tuple
 

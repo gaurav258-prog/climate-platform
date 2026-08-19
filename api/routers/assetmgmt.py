@@ -15,7 +15,6 @@ functions three verticals now share.
 """
 from __future__ import annotations
 
-import io
 import uuid
 from collections import defaultdict
 from typing import Annotated, Optional
@@ -35,8 +34,14 @@ from ml.scoring.valuation_discount import monte_carlo_var
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
+)
+from services.portfolio_engine import (
     clear_valuation_override as engine_clear_override,
-    fetch_entities_with_risk, get_entity_org, get_entity_with_risk,
+)
+from services.portfolio_engine import (
+    fetch_entities_with_risk,
+    get_entity_org,
+    get_entity_with_risk,
 )
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook

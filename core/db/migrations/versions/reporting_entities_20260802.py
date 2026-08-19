@@ -9,8 +9,8 @@ unassigned asset belongs to the whole org (the implicit "All entities" scope).
 Revision ID: reporting_entities_202608
 Revises: frost_baseline_202608
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "reporting_entities_202608"

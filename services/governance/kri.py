@@ -56,7 +56,7 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
                 "message": "No KRI dashboard for this framework yet."}
     # grade every KPI against the org's appetite bands → green / amber / red (a monitored control, not a number)
     if result.get("supported") and result.get("kpis"):
-        from services.governance import kri_thresholds, kri_regmap
+        from services.governance import kri_regmap, kri_thresholds
         kri_thresholds.apply(session, org_id, result["framework"], result["kpis"])
         result["breaches"] = sum(1 for k in result["kpis"] if k.get("breached"))
         # regulator framing: name the supervisor/disclosure, tag each KRI with the datapoint it feeds, and
@@ -129,9 +129,9 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
     build_e1_report (own operations + upstream sourcing), NOT GHG. GHG accounting (Scope 1/2/3) and energy are
     deliberately out of scope here — the platform computes the physical / nature ESRS and integrates GHG from
     the customer's carbon-accounting tool — so we never surface a fabricated emissions number."""
-    from services.intelligence.csrd_e1 import build_e1_report
     from api.routers.supply import _plots_with_hazard
     from services.governance.reporting_settings import get_settings
+    from services.intelligence.csrd_e1 import build_e1_report
     s = get_settings(session, org_id)
     e1 = build_e1_report(session, org_id, s["scenario"], s["horizon"])
     oo = e1.get("own_operations", {}) or {}
@@ -408,25 +408,31 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
         return None
     if not seg_type and kri_key not in _DRIVER_KEYS:
         return None
+    from services.governance.pillar3_templates import HIGH_CLIMATE_NACE, _asset_hits, _section
     from services.governance.reporting_settings import get_settings
-    from services.governance.pillar3_templates import _asset_hits, _section, HIGH_CLIMATE_NACE
     s = get_settings(session, org_id)
     snap = _live_snapshot(session, org_id, framework, s["scenario"], s["horizon"])
     assets = (snap or {}).get("assets") or []
     if not assets:
         return None
-    _val = lambda a: a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
-    high = lambda a: (a.get("headline_bucket") in ("H", "VH"))
+    def _val(a):
+        return a.get("value_eur") or a.get("outstanding_loan_balance_eur") or 0
+    def high(a):
+        return (a.get("headline_bucket") in ("H", "VH"))
 
     if seg_type == "scope" and seg_value in ("1", "2", "3"):
-        keep = lambda a: (a.get(f"ghg{seg_value}") or 0) > 0
-        weight = lambda a: a.get(f"ghg{seg_value}") or 0
+        def keep(a):
+            return (a.get(f"ghg{seg_value}") or 0) > 0
+        def weight(a):
+            return a.get(f"ghg{seg_value}") or 0
         unit = "num"
     elif seg_type == "hazard" and seg_value:
-        keep = lambda a: any(h.get("hazard") == seg_value and h.get("bucket") in ("H", "VH") for h in (a.get("hazards") or []))
+        def keep(a):
+            return any(h.get("hazard") == seg_value and h.get("bucket") in ("H", "VH") for h in (a.get("hazards") or []))
         weight, unit = _val, "eur"
     elif seg_type == "sector" and seg_value:
-        keep = lambda a: _section(a.get("nace_code")) == seg_value
+        def keep(a):
+            return _section(a.get("nace_code")) == seg_value
         weight, unit = _val, "eur"
     else:                                             # KRI-scoped default
         def keep(a):
@@ -481,7 +487,11 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
                 "items": [{"label": "Eligible", "value": round(elig)}, {"label": "Not eligible", "value": round(max(0, total - elig))}]} if total else None
     # acute / chronic peril exposure — the value-weighted hazard breakdown WITHIN that peril category
     if kri_key in ("acute_share", "chronic_share"):
-        from services.governance.pillar3_templates import ACUTE_HAZARDS, CHRONIC_HAZARDS, _HIGH_BUCKETS
+        from services.governance.pillar3_templates import (
+            _HIGH_BUCKETS,
+            ACUTE_HAZARDS,
+            CHRONIC_HAZARDS,
+        )
         cats = ACUTE_HAZARDS if kri_key == "acute_share" else CHRONIC_HAZARDS
         by_h: dict[str, float] = {}
         for a in snap.get("assets") or []:
@@ -495,7 +505,11 @@ def _kri_composition(session: Session, org_id: str, framework: str, kri_key: str
         return {"type": "hazard", "unit": "eur", "items": items} if items else None
     # climate-sector concentration — value by NACE section (the concentration axis of Templates 1 & 5)
     if kri_key == "sector_concentration":
-        from services.governance.pillar3_templates import concentration_split, NACE_SECTIONS, HIGH_CLIMATE_NACE
+        from services.governance.pillar3_templates import (
+            HIGH_CLIMATE_NACE,
+            NACE_SECTIONS,
+            concentration_split,
+        )
         cs = concentration_split(snap.get("assets") or [])
         items = sorted(
             ({"label": f"{sec} · {NACE_SECTIONS.get(sec, 'Unclassified')}"[:34], "value": round(val)}
@@ -552,7 +566,8 @@ def _bank_kri(session: Session, org_id: str) -> dict:
     cs = concentration_split(snap.get("assets") or [])
     acute_val, chronic_val, hci_val = cs["acute_val"], cs["chronic_val"], cs["high_climate_val"]
     top_sec, top_val = cs["top_sector"], cs["top_sector_val"]
-    _share = lambda x: round(100 * x / total, 1) if total else 0
+    def _share(x):
+        return round(100 * x / total, 1) if total else 0
 
     # Forward early-warning: projected share-at-risk at the furthest horizon under a warming pathway.
     fwd_share = fwd_note = None

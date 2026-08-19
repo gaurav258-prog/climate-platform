@@ -23,8 +23,8 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.features.drought import load_monthly, compute_indices
-from ml.scoring.drought_climatology import drought_score, SCENARIO_WARMING_C, HORIZON_FRACTION
+from ml.features.drought import compute_indices, load_monthly
+from ml.scoring.drought_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C, drought_score
 
 ORG = "55555555-5555-4555-8555-555555555555"
 NC = "data/era5_baseline/brazil_coffee_1991_2024_monthly.nc"

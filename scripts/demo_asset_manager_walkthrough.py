@@ -18,10 +18,10 @@ so you can see exactly where a real book lands.
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from api.main import app
 from core.db.session import get_session
-from sqlalchemy import text
 
 ORG = "44444444-4444-4444-8444-444444444444"       # Nordkap (demo org)
 FUND_NAME = "Meridian European Sustainable Leaders (SFDR Art. 8)"

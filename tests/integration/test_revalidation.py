@@ -8,7 +8,9 @@ import pytest
 
 from core.db.session import get_session
 from services.intelligence.revalidation import (
-    overdue_calibrations, revalidation_status, REVALIDATION_HORIZON_YEARS,
+    REVALIDATION_HORIZON_YEARS,
+    overdue_calibrations,
+    revalidation_status,
 )
 
 

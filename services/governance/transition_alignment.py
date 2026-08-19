@@ -25,7 +25,7 @@ counterparties by name/identity; gross carrying amount comes from the book.
 """
 from __future__ import annotations
 
-from services.governance.pillar3_templates import _section, NACE_SECTIONS  # noqa: F401
+from services.governance.pillar3_templates import NACE_SECTIONS, _section  # noqa: F401
 
 
 # NACE section/division → IEA Template-3 sector. The ITS lists (Annex XL): power generation, oil & gas, coal,

@@ -16,7 +16,6 @@ from sqlalchemy import text
 
 from core.db.session import engine
 
-
 CELL = "88_ws4b_testcell_x"   # synthetic; no real plot/asset uses it
 
 

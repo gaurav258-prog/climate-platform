@@ -26,8 +26,8 @@ standing claim. Across 440 real crop-years a world supply shock explains r^2 = 0
 contemporaneous price move; the product no longer forecasts price, so the price columns are
 history, not a claim.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "validation_volume_claim_20260717"
 down_revision = "amp_curve_flag_20260716"

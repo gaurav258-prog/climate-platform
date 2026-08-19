@@ -27,7 +27,9 @@ from typing import Iterable, Optional
 
 from core.types import score_to_bucket
 from services.intelligence.asset_risk_projection import (
-    Asset, CanonicalScoreRow, project,
+    Asset,
+    CanonicalScoreRow,
+    project,
 )
 
 

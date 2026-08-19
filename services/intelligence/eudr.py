@@ -24,8 +24,8 @@ from typing import Optional
 
 from shapely.geometry import Point
 
-from services.intelligence.forest import forest_loss_since, EUDR_CUTOFF_YEAR
-from services.intelligence.geometry import build_plot_geom, EUDR_POINT_MAX_HA
+from services.intelligence.forest import EUDR_CUTOFF_YEAR, forest_loss_since
+from services.intelligence.geometry import EUDR_POINT_MAX_HA, build_plot_geom
 
 NOT_COVERED = "not_covered"
 DEFORESTATION_FREE = "deforestation_free"

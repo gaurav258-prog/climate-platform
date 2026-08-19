@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Generator
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import settings
 

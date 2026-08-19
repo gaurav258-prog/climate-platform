@@ -17,8 +17,9 @@ import numpy as np
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.features.drought import load_monthly, compute_indices, seasonal_by_year
-from ml.features.frost import load_hourly_years, seasonal_by_year as frost_seasonal_by_year
+from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
+from ml.features.frost import load_hourly_years
+from ml.features.frost import seasonal_by_year as frost_seasonal_by_year
 
 NC = "data/era5_baseline/brazil_coffee_1991_2024_monthly.nc"
 FROST_YEAR_DIR = "data/era5_baseline/frost_hourly_years"

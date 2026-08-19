@@ -5,13 +5,14 @@ separate from Tellumen's modelled figures and from Lane-2 provided values)."""
 from __future__ import annotations
 
 import hashlib
+import re as _re
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from services.ingest import filing_import
 from services.governance.datapoint_catalog import catalog
+from services.ingest import filing_import
 
 
 class FilingError(Exception):
@@ -189,9 +190,6 @@ def delete_filing(session, filing_id: str, org_id: str) -> None:
     session.commit()
     if not n:
         raise FilingError("Filing not found.")
-
-
-import re as _re
 
 
 def _project(points: list[dict], horizon_years: int) -> dict:

@@ -6,18 +6,22 @@ uses; thin/degenerate data falls back to the placeholder with a recorded reason;
 annualization from the prediction window is explicit and correct.
 """
 
-import math
+
+from datetime import datetime, timezone
 
 import pytest
 
-from services.intelligence.insurance_pricing import (
-    InsuredLocation, PlaceholderLossCurve, price_portfolio,
-)
 from services.intelligence.asset_risk_projection import CanonicalScoreRow
-from services.intelligence.loss_curve_calibration import (
-    Observation, fit_loss_curve, CalibratedLossCurve,
+from services.intelligence.insurance_pricing import (
+    InsuredLocation,
+    PlaceholderLossCurve,
+    price_portfolio,
 )
-from datetime import datetime, timezone
+from services.intelligence.loss_curve_calibration import (
+    CalibratedLossCurve,
+    Observation,
+    fit_loss_curve,
+)
 
 
 def _synthetic(n_per_score=40, window_days=365):
@@ -57,7 +61,7 @@ def test_calibrated_probability_tracks_empirical_rate():
 
 def test_short_window_annualizes_upward():
     # 7-day window with a 10% per-window rate annualizes to ~1-(0.9)^(365/7)
-    obs = [Observation(80.0, i < 10, lead_days=7) for i in range(100)] + \
+    [Observation(80.0, i < 10, lead_days=7) for i in range(100)] + \
           [Observation(80.0, False, lead_days=7) for _ in range(0)]
     curve = fit_loss_curve(
         [Observation(float(s), (s >= 80 and i < 10), lead_days=7)

@@ -1,6 +1,10 @@
 """Pillar 3 transition Templates 3 & 4 (ITS 2022/2453, Annex XL) — the IEA-alignment distance + top-20 match."""
 from services.governance.transition_alignment import (
-    _iea_sector, template3_grid, template4_top20, IEA_NZE2050, CARBON_MAJORS_TOP20,
+    CARBON_MAJORS_TOP20,
+    IEA_NZE2050,
+    _iea_sector,
+    template3_grid,
+    template4_top20,
 )
 
 

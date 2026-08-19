@@ -35,11 +35,10 @@ Namespace strategy:
 from __future__ import annotations
 
 import re
-import uuid
-from datetime import date, datetime, timezone
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from typing import Optional
 from xml.dom import minidom
-import xml.etree.ElementTree as ET
 
 # ── Namespace URIs ─────────────────────────────────────────────────────
 NS = {
@@ -129,7 +128,7 @@ def build_xbrl(
     """
     period_start = csrd_package.get("period_start", "")
     period_end   = csrd_package.get("period_end", "")
-    customer_id  = csrd_package.get("customer_id", "")
+    csrd_package.get("customer_id", "")
     horizons     = csrd_package.get("horizons_covered", ["current"])
 
     # ── Root element ──────────────────────────────────────────────

@@ -12,8 +12,8 @@ import uuid
 
 from sqlalchemy import text
 
-from core.db.session import SessionLocal
 from api.security import hash_password
+from core.db.session import SessionLocal
 
 PLATFORM_ORG = "99999999-9999-4999-8999-999999999999"
 

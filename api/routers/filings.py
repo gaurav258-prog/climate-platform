@@ -36,8 +36,9 @@ class QualitativePatch(BaseModel):
 
 @router.get("/filings/qualitative/p3esg", summary="Pillar 3 ESG qualitative tables (1-3) + authored text")
 def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.pillar3_qualitative import qualitative_structure
     import json as _json
+
+    from services.governance.pillar3_qualitative import qualitative_structure
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
     saved = (_json.loads(row) if isinstance(row, str) else row) or {}
@@ -48,6 +49,7 @@ def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permis
 def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
                           ctx: dict = Depends(require_permission("approvals.create"))):
     import json as _json
+
     from services.governance.pillar3_qualitative import qualitative_structure
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
@@ -106,8 +108,9 @@ class Template10Patch(BaseModel):
 
 @router.get("/filings/structured/p3esg-template10", summary="Pillar 3 ESG Template 10 register + field schema")
 def get_p3esg_template10(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.pillar3_qualitative import template10_structure
     import json as _json
+
+    from services.governance.pillar3_qualitative import template10_structure
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
     saved = (_json.loads(row) if isinstance(row, str) else row) or {}
@@ -118,6 +121,7 @@ def get_p3esg_template10(session: DbSession, ctx: dict = Depends(require_permiss
 def set_p3esg_template10(body: Template10Patch, session: DbSession,
                          ctx: dict = Depends(require_permission("approvals.create"))):
     import json as _json
+
     from services.governance.pillar3_qualitative import template10_structure
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
@@ -130,7 +134,6 @@ def set_p3esg_template10(body: Template10Patch, session: DbSession,
                 action="p3esg.template10.author", target_type="organization", target_id=ctx["org"]["org_id"],
                 detail={"rows": len(body.rows)})
     return template10_structure(cur)
-    entity_id: Optional[str] = None   # None = whole org; a leaf = its book; a group = consolidated subtree
 
 
 class BasisPatch(BaseModel):
@@ -316,7 +319,9 @@ def get_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
 def export_filing(filing_id: str, format: str, session: DbSession,
                   ctx: dict = Depends(require_permission("reports.view"))):
     from fastapi.responses import StreamingResponse
-    from services.governance.filing_export import export_filing as _export, ExportError
+
+    from services.governance.filing_export import ExportError
+    from services.governance.filing_export import export_filing as _export
     try:
         filename, media_type, content = _export(session, ctx["org"]["org_id"], filing_id, format)
     except ExportError as e:
@@ -327,11 +332,13 @@ def export_filing(filing_id: str, format: str, session: DbSession,
 
 @router.get("/filings/{filing_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a filing")
 def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from fastapi.responses import StreamingResponse
     import io
-    from sqlalchemy import text
-    from services.governance.assurance_pack import build_assurance_pack
+
+    from fastapi.responses import StreamingResponse
     from services.governance.audit import write_audit
+    from sqlalchemy import text
+
+    from services.governance.assurance_pack import build_assurance_pack
     org_id = ctx["org"]["org_id"]
     sid = session.execute(text("SELECT snapshot_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
                           {"f": filing_id, "o": org_id}).scalar()

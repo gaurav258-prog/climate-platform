@@ -16,9 +16,6 @@ the ingestion watcher. Appends one row per day to forecast_verification.
 
 Usage:  python scripts/verify_venezuela_aftershocks.py
 """
-import io
-import csv
-import sys
 import warnings
 from datetime import datetime, timedelta, timezone
 

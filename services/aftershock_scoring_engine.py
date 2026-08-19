@@ -7,10 +7,11 @@ Forecasts aftershock probability windows (24h, 72h, 7d) using ETAS models.
 Implements CSEP standards for aftershock forecasting.
 """
 import json
-import numpy as np
-import joblib
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
+
+import joblib
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -133,7 +134,7 @@ def run_aftershock_forecast(mainshock_event):
     logger.info("=" * 70)
     logger.info("")
 
-    logger.info(f"[AFTERSHOCK] Mainshock detected:")
+    logger.info("[AFTERSHOCK] Mainshock detected:")
     logger.info(f"  Event ID: {mainshock_event['event_id']}")
     logger.info(f"  Magnitude: {mainshock_event['magnitude']}")
     logger.info(f"  Location: ({mainshock_event['lat']}, {mainshock_event['lon']})")

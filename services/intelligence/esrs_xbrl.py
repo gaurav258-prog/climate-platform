@@ -18,7 +18,11 @@ from xml.dom.minidom import parseString
 from sqlalchemy.orm import Session
 
 from services.intelligence.esrs_nature import build_esrs_pack
-from services.intelligence.esrs_taxonomy import CONCEPTS, PROVISIONAL_NS, binding_status, get_profile
+from services.intelligence.esrs_taxonomy import (
+    CONCEPTS,
+    binding_status,
+    get_profile,
+)
 
 # scheme URIs for the entity identifier
 LEI_SCHEME = "http://standards.iso.org/iso/17442"
@@ -303,11 +307,13 @@ def validate_document(xml: str, profile_key: str = "provisional") -> dict:
     # 4. every fact complete + references resolve + concept known
     if is_ixbrl:
         fact_nodes = dom.getElementsByTagName("ix:nonFraction")
-        local = lambda n: n.getAttribute("name").split(":")[-1]
+        def local(n):
+            return n.getAttribute("name").split(":")[-1]
     else:
         fact_nodes = [n for n in dom.getElementsByTagName("*")
                       if n.getAttribute("contextRef") and n.tagName not in ("xbrli:context", "xbrli:unit")]
-        local = lambda n: n.tagName.split(":")[-1]
+        def local(n):
+            return n.tagName.split(":")[-1]
     bad = 0
     for n in fact_nodes:
         cref, uref, dec = n.getAttribute("contextRef"), n.getAttribute("unitRef"), n.getAttribute("decimals")

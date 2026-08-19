@@ -5,8 +5,6 @@ dated event feed, so a compliance officer sees the whole runway at a glance and 
 """
 from __future__ import annotations
 
-from datetime import date
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 

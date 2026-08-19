@@ -27,11 +27,11 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.features.drought import compute_indices, load_monthly
 from ml.features import soil_moisture as smf
+from ml.features.drought import compute_indices, load_monthly
 from ml.scoring.drought_climatology import drought_score
+from ml.scoring.heat_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C
 from ml.scoring.soil_water_climatology import soil_water_score
-from ml.scoring.heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
 
 CURRENT_YEAR = 2024
 NC_TEMPLATE = "data/era5_baseline/{region}_1991_2024_monthly.nc"

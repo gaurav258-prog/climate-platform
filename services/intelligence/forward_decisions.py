@@ -167,8 +167,8 @@ def _run_playbook(session: Session, org_id: str, actor: str, did, action: str, *
                            source="decision", source_ref=f"decision:{did}")
     if pb.get("notify") and task and task.get("assignee_email"):
         try:
-            from services.notifications import mailer
             from core.config import settings
+            from services.notifications import mailer
             link = f"{settings.APP_BASE_URL}/tasks?task={task['task_id']}"
             oid = mailer.queue_email(session, org_id=org_id, to_email=task["assignee_email"],
                                      subject=f"{label} · {entity_name or 'exposure'} — forward-risk decision",

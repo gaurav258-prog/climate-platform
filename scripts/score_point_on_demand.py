@@ -42,7 +42,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.scoring.seismic_physics import ipe_mmi, mmi_to_risk
-from ml.scoring.storm_physics import track_point_score, default_rmax_km
+from ml.scoring.storm_physics import default_rmax_km, track_point_score
 
 MODEL_VERSION = "seismic-gmpe-ipe-v1"
 STORM_MODEL_VERSION = "storm-rankine-vortex-ibtracs-v1"

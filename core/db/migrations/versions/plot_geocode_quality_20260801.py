@@ -7,8 +7,8 @@ rows are backfilled to the honest 'unknown' state, not a fabricated high confide
 Revision ID: plot_geocode_quality_20260801
 Revises: seismic_provenance_20260801
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "plot_geocode_quality_20260801"
 down_revision = "seismic_provenance_20260801"

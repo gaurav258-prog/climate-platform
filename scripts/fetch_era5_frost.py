@@ -6,8 +6,15 @@ statistics dataset (daily_minimum). Small vs the hourly archive.
 Usage: .venv/bin/python scripts/fetch_era5_frost.py brazil_coffee 1991 2024 [months]
        .venv/bin/python scripts/fetch_era5_frost.py smoke        # 1-month format test
 """
-import logging, os, shutil, sys, time, zipfile
+import logging
+import os
+import shutil
+import sys
+import time
+import zipfile
+
 import cdsapi
+
 from core.config import settings
 from services.ingestion.regions import get_region
 

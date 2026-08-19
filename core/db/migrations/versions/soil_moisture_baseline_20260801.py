@@ -8,8 +8,8 @@ temp/precip baseline unlocks drought/heat anywhere. Replaces the region-tiled .n
 Revision ID: soil_moisture_baseline_202608
 Revises: plot_geocode_quality_20260801
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "soil_moisture_baseline_202608"
 down_revision = "plot_geocode_quality_20260801"

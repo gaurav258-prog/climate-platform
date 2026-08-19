@@ -43,8 +43,8 @@ def _git_sha() -> str | None:
 
 def _engine_versions(session: Session) -> dict:
     """The model/data/code versions in force at freeze — so the exact computation is identifiable."""
-    from services.intelligence.supply_cogs import IMPACT_VERSION, RANGED_PUBLISH_FLOOR
     from services.data.feeds import FEEDS, basis_freshness_at
+    from services.intelligence.supply_cogs import IMPACT_VERSION, RANGED_PUBLISH_FLOOR
     fit_versions = sorted(v for v in session.execute(
         text("SELECT DISTINCT fit_version FROM sc_commodity_fit WHERE fit_version IS NOT NULL")
     ).scalars().all())

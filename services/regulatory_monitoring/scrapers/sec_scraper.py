@@ -5,7 +5,8 @@ Monitors US SEC climate disclosure rules and 10-K filings
 
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 import requests
 from bs4 import BeautifulSoup
 

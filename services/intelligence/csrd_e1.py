@@ -18,13 +18,14 @@ from sqlalchemy.orm import Session
 
 from services.intelligence.adaptation import actions_for
 from services.intelligence.company_sites import bi_downtime_fraction, list_sites_with_risk
-from services.intelligence.supply_cogs import project_org_supply
 
 # ESRS E1 splits physical risk into ACUTE (event-driven) and CHRONIC (gradual). Seismic/pollution are
 # not climate hazards → excluded from the E1 climate report (covered under other risk lenses). The
 # climate-hazard scope lives in one shared module so E1 and the Taxonomy adaptation report can't
 # diverge on whether an asset is materially exposed (audit T8).
 from services.intelligence.hazard_scope import ACUTE, CHRONIC, CLIMATE
+from services.intelligence.supply_cogs import project_org_supply
+
 MATERIAL_THRESHOLD = 40  # a hazard is "material" for a location once its score reaches elevated
 
 _LABELS = {"drought": "Drought", "soil_water": "Soil-water deficit", "heat_chronic": "Chronic heat",

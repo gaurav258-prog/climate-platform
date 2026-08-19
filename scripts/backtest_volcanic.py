@@ -115,7 +115,7 @@ def agriculture_check():
 
     print(f"  Alotenango plot: volcanic hazard score {hazard_score}, spend €{spend/1e6:.1f}m")
     print(f"\n  (a) LIVE MODEL (borrows Brazil's global_share={BRAZIL_GLOBAL_SHARE} -- what the")
-    print(f"      product shows today, since Coffee is one shared commodity):")
+    print("      product shows today, since Coffee is one shared commodity):")
     print(f"      yield-shock {live.yield_shock_pct}% -> world crop {live.global_shock_pct}%")
     print(f"\n  (b) ORIGIN-SPECIFIC (Guatemala's real world coffee share={GUATEMALA_GLOBAL_SHARE}, "
           f"the fairer comparison):")
@@ -123,19 +123,19 @@ def agriculture_check():
           f"{origin_specific.global_shock_pct}%")
 
     print(f"\n  REAL ANCHOR (Anacafé): ~{FUEGO_ANACAFE_PCT_NATIONAL_PRODUCTION}% of Guatemala's NATIONAL")
-    print(f"  coffee production lost -- a country-wide average diluted across origins far from")
-    print(f"  Fuego, not a local Antigua-only figure. Local yield-shock at plots actually near")
-    print(f"  Fuego should be HIGHER than the national average (same dilution logic as cocoa's")
-    print(f"  world-share discussion in the methodology doc).")
+    print("  coffee production lost -- a country-wide average diluted across origins far from")
+    print("  Fuego, not a local Antigua-only figure. Local yield-shock at plots actually near")
+    print("  Fuego should be HIGHER than the national average (same dilution logic as cocoa's")
+    print("  world-share discussion in the methodology doc).")
     print(f"\n  REAL ANCHOR (MAGA): ~${FUEGO_MAGA_LOSS_USD/1e6:.1f}m total agricultural loss across")
     print(f"  {FUEGO_MAGA_HA:,} ha (corn/vegetables/fruit dominant, coffee a minor share of this --")
-    print(f"  not a coffee-only figure, cross-check on ORDER OF MAGNITUDE only).")
+    print("  not a coffee-only figure, cross-check on ORDER OF MAGNITUDE only).")
 
     print(f"\n  VERDICT: model-(b)'s local yield-shock ({origin_specific.yield_shock_pct}%) is the")
-    print(f"  right kind of number to compare against a LOCAL Antigua-region loss estimate, which")
-    print(f"  we do not have (Anacafé's 0.9% is national). Order-of-magnitude only, NOT a precise")
-    print(f"  match -- disclosed, not claimed. This is why Guatemala's plot stays 'indicative',")
-    print(f"  not added as a second BACKTESTED origin under Coffee.")
+    print("  right kind of number to compare against a LOCAL Antigua-region loss estimate, which")
+    print("  we do not have (Anacafé's 0.9% is national). Order-of-magnitude only, NOT a precise")
+    print("  match -- disclosed, not claimed. This is why Guatemala's plot stays 'indicative',")
+    print("  not added as a second BACKTESTED origin under Coffee.")
 
 
 def taal_secondary_check():

@@ -22,6 +22,7 @@ it is that the forward number now comes from the LOCAL, model-derived climate si
 model-disagreement band, instead of a single global multiplier.
 """
 from __future__ import annotations
+
 from typing import NamedTuple, Optional, Tuple
 
 from ml.scoring.cmip6 import Cmip6Delta

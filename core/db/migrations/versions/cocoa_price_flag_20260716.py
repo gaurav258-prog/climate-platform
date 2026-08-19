@@ -26,6 +26,7 @@ stated convention, with the question surfaced to a human rather than resolved by
 Recorded on the evidence row so it travels with the claim.
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = "cocoa_price_flag_20260716"

@@ -13,10 +13,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ml.training.drought_model import FEATURE_COLS, LABEL_COL, train_on_dataframe
 from ml.scoring.engine import (
-    HAZARD_FEATURE_TABLES, HAZARD_FEATURE_COLS, _rule_based_fallback,
+    HAZARD_FEATURE_COLS,
+    HAZARD_FEATURE_TABLES,
+    _rule_based_fallback,
 )
+from ml.training.drought_model import FEATURE_COLS, LABEL_COL, train_on_dataframe
 
 
 def _synthetic_drought(n=1500, seed=42):

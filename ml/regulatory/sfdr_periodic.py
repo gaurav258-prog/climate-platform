@@ -17,10 +17,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text
 
-from services.asset_manager_engine import fund_descendant_ids
-from services.fund_disclosure import fund_pai
 # reuse the same honest Taxonomy roll-up the PAI statement uses
 from ml.regulatory.sfdr_pai import _taxonomy_rollup
+from services.asset_manager_engine import fund_descendant_ids
+from services.fund_disclosure import fund_pai
 
 
 def _section(title, status, value=None, input_required=None, note=None):

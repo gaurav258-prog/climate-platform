@@ -202,7 +202,7 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     # Filing approval: a filing.approve request clearing (or being sent back) drives the filing lifecycle.
     # 4-eyes is already enforced above (checker ≠ maker), so an approved filing is one a second pair of eyes signed.
     elif row["request_type"] == "filing.approve":
-        from services.governance.filings import mark_approved, mark_returned, FilingError
+        from services.governance.filings import FilingError, mark_approved, mark_returned
         fid = (row["payload"] or {}).get("filing_id")
         try:
             if body.decision == "approved":

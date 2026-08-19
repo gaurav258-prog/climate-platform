@@ -24,9 +24,9 @@ import uuid
 import h3
 from sqlalchemy import text
 
+from api.security import hash_password
 from core.db.session import get_session
 from services.ingestion.regions import get_region
-from api.security import hash_password
 
 ORG = "55555555-5555-4555-8555-555555555555"
 

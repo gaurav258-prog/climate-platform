@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from ml.regulatory.sfdr_pai import sfdr_pai_statement
-from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl, TPAI_NS, XBRLI_NS
+from ml.regulatory.sfdr_xbrl import TPAI_NS, XBRLI_NS, sfdr_pai_xbrl
 
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 

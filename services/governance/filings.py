@@ -27,7 +27,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.governance.report_snapshots import create_snapshot, get_snapshot, _BUILDERS
+from services.governance.report_snapshots import _BUILDERS, create_snapshot, get_snapshot
 
 # framework (== report_snapshots report_type) -> filing metadata.
 # `due` is (month, day) in the year AFTER period_end — the statutory filing deadline.
@@ -160,8 +160,8 @@ def reporting_requirements(session: Session, org_id: str, org_type: str) -> list
     """Every mandatory reporting obligation for the org: what the regulation is (name, authority, summary,
     official link + form), how often + to which regulator + by when, what data to supply, when it was last
     filed, and the full list of prior filings (for access to previously submitted reports)."""
-    from services.governance.reg_reference import reference
     from services.governance.filing_coverage import coverage as _coverage
+    from services.governance.reg_reference import reference
     out = []
     for f in available_frameworks(org_type):
         fk = f["framework"]
@@ -567,7 +567,7 @@ def submit_for_review(session: Session, org_id: str, filing_id: str, actor_user_
     cur = _load(session, org_id, filing_id)
     if cur["status"] not in ("draft", "returned"):
         raise FilingError(f"cannot submit a filing that is '{cur['status']}' for review")
-    from services.governance.filing_validation import validate_filing, blocking_messages
+    from services.governance.filing_validation import blocking_messages, validate_filing
     vr = validate_filing(session, org_id, filing_id)
     if not vr["passed"]:
         raise FilingError("cannot submit for approval — resolve the blocking validation issue(s): "

@@ -35,7 +35,6 @@ from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.drought_point import (
     DROUGHT_MODEL_VERSION,
-    CLIMATOLOGY_BOX_DEG,
     ERA5_LAND_LAG_DAYS,
     _nearest_climatology,
     compute_features,

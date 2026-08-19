@@ -4,17 +4,20 @@ Runs daily at 02:00 UTC to detect regulatory changes for all customers
 """
 
 import logging
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from core.db.config import SessionLocal
 from core.db.models_regulatory_complete import (
-    Organization, RegulatoryFramework, RegulatoryChange, RegulatoryAlert
+    Organization,
+    RegulatoryAlert,
+    RegulatoryFramework,
 )
+from services.intelligence.benchmarking import CompetitiveBenchmarking
 from services.regulatory_monitoring import RegulatoryChangeDetector
 from services.regulatory_monitoring.analysis import ImpactAnalyzer
-from services.intelligence.benchmarking import CompetitiveBenchmarking
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +70,7 @@ class RegulatoryScheduler:
 
             # Log summary
             logger.info("=" * 80)
-            logger.info(f"DAILY SCAN COMPLETE")
+            logger.info("DAILY SCAN COMPLETE")
             logger.info(f"  Organizations scanned: {len(organizations)}")
             logger.info(f"  Total alerts generated: {total_alerts}")
             logger.info(f"  New changes detected: {total_changes}")
@@ -159,7 +162,7 @@ class RegulatoryScheduler:
                 ).first()
 
                 if existing_alert:
-                    logger.debug(f"    (duplicate alert, skipping)")
+                    logger.debug("    (duplicate alert, skipping)")
                     return {
                         'is_duplicate': True,
                         'alert_id': str(existing_alert.alert_id)
@@ -267,7 +270,7 @@ class RegulatoryScheduler:
         """
 
         change_source = change.get('change_source', '').lower()
-        framework = change.get('framework_id')
+        change.get('framework_id')
 
         # Simple geographic heuristic
         if 'eu' in change_source and asset.country not in ['DE', 'FR', 'NL', 'IT', 'ES', 'AT', 'BE', 'SE', 'DK', 'FI', 'IE', 'LU', 'PL', 'PT', 'CZ', 'GR', 'HU', 'RO', 'SK', 'SI', 'BG', 'HR', 'LT', 'LV', 'EE', 'MT', 'CY']:

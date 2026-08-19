@@ -355,7 +355,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         _EU = {"AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
                "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"}
         _LABELS = ["A", "B", "C", "D", "E", "F", "G"]
-        acc = {"EU": {"total": 0.0, **{l: 0.0 for l in _LABELS}}, "nonEU": {"total": 0.0, **{l: 0.0 for l in _LABELS}}}
+        acc = {"EU": {"total": 0.0, **{lbl: 0.0 for lbl in _LABELS}}, "nonEU": {"total": 0.0, **{lbl: 0.0 for lbl in _LABELS}}}
         n_epc = 0
         for a in assets:
             epc = str(a.get("epc_label") or "").strip().upper()
@@ -374,7 +374,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             return {"type": "row", "cells": [_txt("Total — all collateral"),
                     _mnum(_eur(round(d["total"], 2)), "integrated"),                # (a) total
                     *[dict(_mnum("—", "integrated")) for _ in range(6)],            # (b)-(g) kWh EP-score buckets
-                    *[_mnum(_eur(round(d[l], 2)), "integrated") for l in _LABELS],  # (h)-(n) EPC A–G
+                    *[_mnum(_eur(round(d[lbl], 2)), "integrated") for lbl in _LABELS],  # (h)-(n) EPC A–G
                     dict(_mnum("—", "integrated")), dict(_mnum("—", "integrated"))]}  # (o) without · (p) % est.
 
         t2_rows = []
@@ -493,7 +493,8 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         # figure is a floor, not a determined zero — show it as pending the technical screening, not a bare €0
         # that reads as "broken". A real aligned figure (any position screened) renders as the euro amount.
         align_pending = gg["aligned"] == 0 and gg["eligible"] > 0
-        _aligned_cell = lambda v: _txt("pending screening") if align_pending else _num(_eur(v))
+        def _aligned_cell(v):
+            return _txt("pending screening") if align_pending else _num(_eur(v))
         gar_rows = []
         for r in gg["rows"]:
             note = " (excluded from covered assets)" if r["counterparty"] == "General governments" else ""
@@ -536,8 +537,10 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         t9_cols = ["Asset / counterparty class (not subject to NFRD)", "Gross carrying amount",
                    "Taxonomy-eligible", "Taxonomy-aligned"]
         t9_src = ["", "integrated", "integrated", "integrated"]
-        _t9blank = lambda: [dict(_mnum("—", "integrated")) for _ in range(3)]
-        _t9row = lambda lbl: {"type": "row", "cells": [_txt(lbl)] + _t9blank()}
+        def _t9blank():
+            return [dict(_mnum("—", "integrated")) for _ in range(3)]
+        def _t9row(lbl):
+            return {"type": "row", "cells": [_txt(lbl)] + _t9blank()}
         t9_rows = [
             {"type": "subheader", "label": "9.1 — Assets for the calculation of BTAR"},
             _t9row("1 · Total GAR assets (as row 32 of Template 7)"),

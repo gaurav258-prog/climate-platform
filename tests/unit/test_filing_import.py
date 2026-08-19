@@ -6,7 +6,7 @@ import io
 import openpyxl
 import pytest
 
-from services.ingest.filing_import import extract, match_datapoint, parse_number, detect_format
+from services.ingest.filing_import import detect_format, extract, match_datapoint, parse_number
 
 
 def test_parse_number_units_and_separators():

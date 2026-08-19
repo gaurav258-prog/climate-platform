@@ -9,12 +9,18 @@ to exactly one canonical value, and anything unknown must fail loudly.
 import pytest
 
 from core.types import (
-    HazardType, RiskScenario, RiskBucket, TimeHorizon,
-    HAZARD_VALUES, SCENARIO_VALUES, TIME_HORIZON_VALUES,
-    normalize_hazard, normalize_scenario, normalize_time_horizon,
+    HAZARD_VALUES,
+    SCENARIO_VALUES,
+    TIME_HORIZON_VALUES,
+    HazardType,
+    RiskBucket,
+    RiskScenario,
+    TimeHorizon,
+    normalize_hazard,
+    normalize_scenario,
+    normalize_time_horizon,
     score_to_bucket,
 )
-
 
 # ── Canonical values round-trip ──────────────────────────────────────────────
 

@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import DbSession, require_permission
 import services.governance.tasks as T
+from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/reg-tasks", tags=["Regulatory tasks"])
 

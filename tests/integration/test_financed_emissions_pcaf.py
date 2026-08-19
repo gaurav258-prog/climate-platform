@@ -161,8 +161,9 @@ def test_evic_attribution_capped_and_positive():
 def test_yoy_skips_incomparable_methods():
     """Regression (audit #2): a prior-year value of a different method (e.g. PAI 1
     un-attributed vs financed) must NOT produce a bogus change — no fabricated move."""
-    from ml.regulatory.sfdr_pai import _attach_prior_year
     from unittest.mock import MagicMock
+
+    from ml.regulatory.sfdr_pai import _attach_prior_year
     session = MagicMock()
     session.execute.return_value.mappings.return_value.first.return_value = {
         "reference_year": 2022,

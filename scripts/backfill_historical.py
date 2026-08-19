@@ -10,7 +10,6 @@ Run time: ~60-90 minutes (CDS queue + download, each ~25-30s).
 Progress is logged so you can leave it running.
 """
 import logging
-import sys
 from datetime import date, timedelta
 
 logging.basicConfig(

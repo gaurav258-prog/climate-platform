@@ -27,7 +27,6 @@ belt.
 from __future__ import annotations
 
 import glob
-from typing import Optional
 
 import numpy as np
 import xarray as xr

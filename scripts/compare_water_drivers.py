@@ -11,15 +11,15 @@ moisture wins only if it explains MORE — never assumed. Also tries drought+SM 
 from __future__ import annotations
 
 import argparse
-import math
 import sys
 
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.features.crop_cycle import decompose
-from ml.features.drought import compute_indices, load_monthly, seasonal_by_year as spei_seasonal
 from ml.features import soil_moisture as sm
+from ml.features.crop_cycle import decompose
+from ml.features.drought import compute_indices, load_monthly
+from ml.features.drought import seasonal_by_year as spei_seasonal
 
 
 def _ols(X, y):

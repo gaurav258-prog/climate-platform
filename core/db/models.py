@@ -8,9 +8,19 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime,
-    ForeignKey, Integer, Numeric, PrimaryKeyConstraint, Index,
-    SmallInteger, String, Text, UniqueConstraint, func, DECIMAL
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    PrimaryKeyConstraint,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship

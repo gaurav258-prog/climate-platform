@@ -1,6 +1,8 @@
 """Near-term climate expected-loss math (services.intelligence.expected_loss)."""
 from services.intelligence.expected_loss import (
-    annual_expected_loss, lifetime_expected_loss, score_at_year,
+    annual_expected_loss,
+    lifetime_expected_loss,
+    score_at_year,
 )
 
 

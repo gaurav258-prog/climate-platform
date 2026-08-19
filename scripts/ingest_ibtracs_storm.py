@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import io
 from datetime import datetime, timezone
 
 import h3

@@ -3,7 +3,9 @@ scope emissions aren't disclosed. These lock in that the estimate is exactly
 sector-intensity × revenue, that it degrades safely without inputs, and that
 scope 3 is never estimated."""
 from services.reference.emissions_estimation import (
-    DEFAULT_INTENSITY, _INTENSITIES, estimate_emissions,
+    _INTENSITIES,
+    DEFAULT_INTENSITY,
+    estimate_emissions,
 )
 
 

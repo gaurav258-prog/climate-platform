@@ -25,8 +25,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from core.db.models import Base
 import core.db.models_regulatory_complete  # noqa: F401  (registers bank tables)
+from core.db.models import Base
 
 revision: str = "d9e3f4a5b6c7"
 # Bank tables must exist BEFORE c8d2's v_bank_asset_physical_risk view (which

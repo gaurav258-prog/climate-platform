@@ -10,9 +10,9 @@ import pytest
 
 rasterio = pytest.importorskip("rasterio")
 from rasterio.transform import from_origin
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Point, Polygon
 
-from services.intelligence.forest import forest_loss_since, tile_id, GFC_VERSION
+from services.intelligence.forest import GFC_VERSION, forest_loss_since, tile_id
 
 # Test location in the Ghana cocoa belt → Hansen tile "10N_010W".
 WEST, NORTH, PX = -1.65, 6.75, 0.00025

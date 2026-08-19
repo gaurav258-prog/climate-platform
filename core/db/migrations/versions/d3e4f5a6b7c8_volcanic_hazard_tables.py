@@ -19,8 +19,9 @@ include 'volcanic', re-importing the current HAZARD_VALUES from core.types
 so the DB and Python enum stay the single source of truth.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 from core.types import HAZARD_VALUES
 

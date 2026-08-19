@@ -28,13 +28,12 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import text
 
-from services.asset_manager_engine import fund_descendant_ids
-from services.fund_disclosure import fund_pai, fund_esg_pai
 from ml.regulatory.voluntary_pai import compute_voluntary_pai
+from services.asset_manager_engine import fund_descendant_ids
+from services.fund_disclosure import fund_esg_pai, fund_pai
 
 # ── The mandatory PAI indicators (SFDR RTS Annex I, Table 1 — investee companies) ──
 # Each: number, area, metric (as worded by the RTS), unit. Value/coverage/source

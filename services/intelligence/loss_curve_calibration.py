@@ -31,7 +31,9 @@ from sklearn.isotonic import IsotonicRegression
 
 from core.types import normalize_hazard
 from services.intelligence.insurance_pricing import (
-    LossCurve, PlaceholderLossCurve, PricingParams,
+    LossCurve,
+    PlaceholderLossCurve,
+    PricingParams,
 )
 
 ANNUAL_DAYS = 365.25

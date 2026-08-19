@@ -26,7 +26,9 @@ from typing import Optional
 from sqlalchemy import text
 
 from services.asset_manager_engine import (
-    fund_descendant_ids, issuer_physical_scores, issuer_transition_scores,
+    fund_descendant_ids,
+    issuer_physical_scores,
+    issuer_transition_scores,
 )
 
 # NACE divisions whose revenue is fossil-fuel-derived (SFDR PAI 4). Extraction of

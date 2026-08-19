@@ -27,7 +27,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.scoring.cmip6 import cmip6_delta_latlon
-from ml.scoring.physical_projection import project, SENSITIVITY, PROJECTION_VERSION
+from ml.scoring.physical_projection import PROJECTION_VERSION, SENSITIVITY, project
 
 HAZARDS = list(SENSITIVITY)                       # flood, storm, wildfire
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]

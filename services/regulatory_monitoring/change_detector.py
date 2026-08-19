@@ -6,9 +6,13 @@ Monitors regulatory sources and identifies changes
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
+
 from core.db.models_regulatory_complete import (
-    RegulatoryChange, RegulatoryFramework, RegulationVersion
+    RegulationVersion,
+    RegulatoryChange,
+    RegulatoryFramework,
 )
 
 logger = logging.getLogger(__name__)
@@ -184,7 +188,7 @@ class RegulatoryChangeDetector:
         3. If deadline too close (< 4 weeks), release immediately after testing
         """
         release_buffer = timedelta(days=7)
-        min_customer_time = timedelta(weeks=4)
+        timedelta(weeks=4)
 
         target_release = regulatory_deadline - release_buffer
 

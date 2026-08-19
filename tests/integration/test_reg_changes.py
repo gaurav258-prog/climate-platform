@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 import services.governance.reg_changes as C
+from core.db.session import get_session
 
 ORG_A = "11111111-1111-4111-8111-111111111111"   # Meridian
 ORG_B = "55555555-5555-4555-8555-555555555555"   # Nordkap

@@ -54,7 +54,7 @@ def main():
             # 2) group parent (idempotent: skip if a group already exists)
             gid = s.execute(text("SELECT entity_id FROM reporting_entities WHERE org_id=:o AND kind='group' LIMIT 1"), {"o": org}).scalar()
             if gid:
-                print(f"  group already present; skip hierarchy")
+                print("  group already present; skip hierarchy")
                 continue
             gid = str(uuid.uuid4())
             s.execute(text("INSERT INTO reporting_entities (entity_id, org_id, name, kind, ownership_pct, consolidation_method) VALUES (:e,:o,:n,'group',100,'full')"),

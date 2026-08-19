@@ -9,7 +9,6 @@ Output: ~6,000–8,000 satellite_observations rows with hazard_type='seismic'
 """
 import logging
 import sys
-from datetime import datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,8 +17,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from services.ingestion.adapters.seismic_hazard import SeismicHazardAdapter
 from core.db.session import get_session
+from services.ingestion.adapters.seismic_hazard import SeismicHazardAdapter
+
 
 def main():
     logger.info("")

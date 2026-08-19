@@ -14,6 +14,7 @@ pathway, current is 0) — those fall back to the parametric model, as does any 
 built delta table. Returns None in those cases so the caller keeps its parametric path.
 """
 from __future__ import annotations
+
 import csv
 import os
 from functools import lru_cache

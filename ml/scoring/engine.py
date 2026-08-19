@@ -35,12 +35,12 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import text
 
 from core.config import settings
 from core.db.session import get_session
+
 from .compound import CompoundDetector
 from .ensemble import EnsembleScorer
 
@@ -344,12 +344,11 @@ def run(
     # data_vintage = the vintage of the INPUT data (the scored date), not when the
     # run happened — that is what regulatory traceability needs.
     data_vintage = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    errors: list[str] = []
 
     # Stamp the real model version into canonical_scores, not the literal "latest".
     model_version = _resolve_model_version(hazard_type, model_version)
 
-    logger.info(f"[Engine] ── Scoring run ──────────────────────────")
+    logger.info("[Engine] ── Scoring run ──────────────────────────")
     logger.info(f"[Engine]   hazard      : {hazard_type}")
     logger.info(f"[Engine]   date        : {target_date}")
     logger.info(f"[Engine]   scenario    : {scenario}")

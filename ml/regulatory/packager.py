@@ -24,10 +24,10 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from core.db.session import get_session
-from . import ecb, csrd
+
+from . import csrd, ecb
 
 logger = logging.getLogger(__name__)
 

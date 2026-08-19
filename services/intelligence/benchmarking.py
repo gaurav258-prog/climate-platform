@@ -4,8 +4,8 @@ Analyzes what peer banks are doing with regulatory changes
 """
 
 import logging
-from typing import Dict, List
-from datetime import datetime, timedelta
+from typing import Dict
+
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,8 @@ class CompetitiveBenchmarking:
 
         try:
             from core.db.models_regulatory_complete import (
-                Organization, RegulationVersion, RegulatoryAlert
+                Organization,
+                RegulatoryAlert,
             )
 
             # Get this org
@@ -107,9 +108,7 @@ class CompetitiveBenchmarking:
         logger.info(f"Getting framework adoption for {framework_id}")
 
         try:
-            from core.db.models_regulatory_complete import (
-                Organization, RegulatoryAlert
-            )
+            from core.db.models_regulatory_complete import Organization, RegulatoryAlert
 
             # Count orgs with alerts for this framework
             affected_orgs = self.db.query(Organization).join(

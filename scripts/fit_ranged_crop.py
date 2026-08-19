@@ -21,14 +21,13 @@ import sys
 from sqlalchemy import text
 
 from core.db.session import get_session
+from ml.features import soil_moisture as smf
 from ml.features.crop_cycle import is_alternate_bearing
 from ml.features.crop_fit import fit_climate_on_score
 from ml.features.drought import baseline_nc, compute_indices, load_monthly, seasonal_by_year
-from ml.features import soil_moisture as smf
 from ml.scoring.drought_climatology import drought_score
 from ml.scoring.heat_climatology import heat_anomaly_score
 from ml.scoring.soil_water_climatology import soil_water_score
-
 from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
 
 MIN_R2 = RANGED_PUBLISH_FLOOR   # single source of truth — the publish floor (audit T10)

@@ -6,8 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.deps import DbSession, require_permission
 import services.governance.reg_changes as C
+from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/reg-changes", tags=["Regulatory changes"])
 

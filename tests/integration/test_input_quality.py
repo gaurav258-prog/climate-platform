@@ -11,8 +11,8 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.intelligence.input_quality import input_quality_status
 from services.intelligence.company_sites import list_sites_with_risk
+from services.intelligence.input_quality import input_quality_status
 
 
 @pytest.mark.integration

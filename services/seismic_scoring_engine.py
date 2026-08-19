@@ -12,10 +12,11 @@ Workflow:
 5. Write canonical_scores with audit trail (version, timestamp, source)
 """
 import json
-import numpy as np
-import joblib
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
+
+import joblib
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class SeismicScoringEngine:
             else:
                 # Compute aggregate risk from nearby events
                 max_mag = max((e['magnitude'] for e in nearby_events), default=4.5)
-                mean_dist = np.mean([self._distance(cell_lat, cell_lon, e['lat'], e['lon'])
+                np.mean([self._distance(cell_lat, cell_lon, e['lat'], e['lon'])
                                     for e in nearby_events])
 
                 # Features for ML models
@@ -184,7 +185,7 @@ def run_daily_scoring():
                     'depth': e['depth_km'],
                     'time': origin
                 })
-        except: pass
+        except Exception: pass
 
     logger.info(f"[SCORING] {len(events)} events in last 7 days")
     logger.info("")
@@ -217,7 +218,7 @@ def run_daily_scoring():
     logger.info("")
 
     logger.info("=" * 70)
-    logger.info(f"✅ DAILY SCORING COMPLETE")
+    logger.info("✅ DAILY SCORING COMPLETE")
     logger.info(f"   {len(scores)} H3 cells scored")
     logger.info(f"   Output: {filename}")
     logger.info("=" * 70)

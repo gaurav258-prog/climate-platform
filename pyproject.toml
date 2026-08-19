@@ -86,3 +86,25 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
+# The gate enforces the rules that catch real problems — undefined names,
+# unused/duplicate imports, import ordering and placement, bare excepts,
+# ambiguous names — across pycodestyle (E/W), Pyflakes (F) and isort (I).
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",         # line length — long, aligned SQL/reg-template strings read better whole
+    "E701", "E702", # compound statements — the codebase's deliberate SQL-builder idiom
+                    #   (`sets.append(...); params[k] = v`), used consistently throughout
+]
+
+[tool.ruff.lint.per-file-ignores]
+# E402 (import-not-at-top) is expected where imports deliberately follow setup:
+#   - one-off scripts set sys.path before importing the package
+#   - Alembic's env.py imports after reading config
+#   - the API entrypoint imports optional routers after the app is constructed
+#   - a couple of tests import after a skip/availability guard
+"scripts/*" = ["E402"]
+"core/db/migrations/env.py" = ["E402"]
+"api/main.py" = ["E402"]
+"tests/*" = ["E402"]

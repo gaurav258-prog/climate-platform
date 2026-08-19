@@ -10,6 +10,7 @@ Revises: a7b8c9d0e1f2
 Create Date: 2026-07-02
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = "b8c9d0e1f2a3"

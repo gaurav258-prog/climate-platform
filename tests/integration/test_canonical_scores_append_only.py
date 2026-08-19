@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import InternalError, OperationalError, DatabaseError
+from sqlalchemy.exc import DatabaseError, InternalError, OperationalError
 
 from core.db.session import get_session
 

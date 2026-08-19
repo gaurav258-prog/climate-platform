@@ -95,7 +95,8 @@ def book(session: DbSession, ctx: IngestOrg,
 @router.get("/kri", summary="Key-risk-indicator set for a framework (all sectors)")
 def kri(session: DbSession, ctx: IngestOrg,
         framework: str = Query(None, description="A framework key from /metadata; defaults to the tenant's first.")):
-    from services.governance.kri import kri as _kri, kri_frameworks
+    from services.governance.kri import kri as _kri
+    from services.governance.kri import kri_frameworks
     fw = framework or (kri_frameworks(ctx["org_type"])[:1] or [{}])[0].get("framework")
     if not fw:
         raise HTTPException(400, {"error": "no_framework", "message": "No KRI framework available for this tenant."})

@@ -49,8 +49,8 @@ def _read_polygons(src: Path, workdir: Path):
         root = workdir
 
     def poly_layer(path: Path):
-        layers = [l[0] for l in pyogrio.list_layers(path)]
-        return next((l for l in layers if "poly" in l.lower()), layers[0])
+        layers = [layer[0] for layer in pyogrio.list_layers(path)]
+        return next((layer for layer in layers if "poly" in layer.lower()), layers[0])
 
     frames = []
     containers = list(root.rglob("*.gpkg")) + [d for d in root.rglob("*.gdb")] if root.is_dir() else []

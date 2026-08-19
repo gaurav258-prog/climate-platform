@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.deps import DbSession, require_permission
 import services.governance.seasonal_arrears as A
+from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/arrears", tags=["Seasonal-arrears overlay"])
 

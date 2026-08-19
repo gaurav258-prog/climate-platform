@@ -36,6 +36,7 @@ Model now predicts +119.4% vs the real +115.8% (3.1% error), where it previously
 Cocoa's euro falls accordingly. That is the point.
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = "cocoa_refit_20260716"

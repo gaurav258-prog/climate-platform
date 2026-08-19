@@ -36,6 +36,7 @@ Two independent shortfalls remain on cocoa, both now recorded:
   2. A(s) itself is unvalidated, and (1) is its input.
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = "amp_curve_flag_20260716"

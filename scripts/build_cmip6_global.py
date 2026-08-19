@@ -18,11 +18,16 @@ Read by ml.scoring.cmip6.cmip6_delta_latlon(lat, lon, scenario, horizon).
 Run (needs gcsfs; ~15-40 min, network):  .venv/bin/python -m scripts.build_cmip6_global
 """
 from __future__ import annotations
-import warnings; warnings.filterwarnings("ignore")
-import os, sys
+
+import warnings
+
+warnings.filterwarnings("ignore")
+import os
+import sys
+
+import gcsfs
 import numpy as np
 import pandas as pd
-import gcsfs
 import xarray as xr
 
 CATALOG = "https://storage.googleapis.com/cmip6/pangeo-cmip6.csv"

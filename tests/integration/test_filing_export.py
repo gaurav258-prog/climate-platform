@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.governance.filing_export import export_filing, ExportError
+from services.governance.filing_export import ExportError, export_filing
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

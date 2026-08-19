@@ -21,10 +21,10 @@ current shared-commodity model actually produces.
 
 Idempotent. Run: .venv/bin/python scripts/wire_guatemala_volcanic_demo.py
 """
+import uuid
 from datetime import datetime, timezone
 
 import h3
-import uuid
 from sqlalchemy import text
 
 from core.db.session import get_session

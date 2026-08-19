@@ -7,11 +7,10 @@ runs in one uncommitted session and rolls back.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import text
 
+from api.routers.bank import build_disclosure_snapshot
 from core.db.session import get_session
 from services.governance import entities as E
-from api.routers.bank import build_disclosure_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.sfdr_batch import create_batch, run_batch, batch_status
+from services.sfdr_batch import batch_status, create_batch, run_batch
 
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 

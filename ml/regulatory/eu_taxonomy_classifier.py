@@ -38,7 +38,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-
 # Only mapped where a specific Annex I section genuinely, directly covers the
 # NACE activity -- no forced matches. Checked against the 7 demo sectors'
 # real NACE codes; extend this table as real NACE codes are encountered.

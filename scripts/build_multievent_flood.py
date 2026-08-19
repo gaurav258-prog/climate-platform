@@ -16,18 +16,19 @@ Fetched data is cached to data/multievent_flood.parquet so re-runs skip CDS.
 Run:  python scripts/build_multievent_flood.py
 """
 import os
-import sys
 import warnings
 from datetime import date
 
 warnings.filterwarnings("ignore")
+import os as _os
+import sys as _sys
+
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 
-import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-from backtest_external_events import fetch, features
+from backtest_external_events import features, fetch
 
 CACHE = "data/multievent_flood.parquet"
 
@@ -102,8 +103,8 @@ def leave_one_event_out(data):
     py, ps = np.array(pooled_y), np.array(pooled_s)
     print(f"\n  POOLED LOEO  ROC-AUC={roc_auc_score(py, ps):.3f}  "
           f"Avg-Precision={average_precision_score(py, ps):.3f}  base={py.mean():.3f}")
-    print(f"\n  This is forecasting skill: each event scored by a model trained only on")
-    print(f"  the OTHERS. AUC≈0.5 = no skill; meaningfully >0.5 = the model generalises.\n")
+    print("\n  This is forecasting skill: each event scored by a model trained only on")
+    print("  the OTHERS. AUC≈0.5 = no skill; meaningfully >0.5 = the model generalises.\n")
 
 
 if __name__ == "__main__":

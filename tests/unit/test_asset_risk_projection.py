@@ -8,10 +8,10 @@ stored value.
 
 from datetime import datetime, timezone
 
-import pytest
-
 from services.intelligence.asset_risk_projection import (
-    Asset, CanonicalScoreRow, project,
+    Asset,
+    CanonicalScoreRow,
+    project,
 )
 
 

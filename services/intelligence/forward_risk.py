@@ -14,7 +14,6 @@ the same `v_portfolio_entity_physical_risk` the rest of the financial engine use
 the portfolio engine's convention.
 """
 from __future__ import annotations
-from typing import Optional
 
 from sqlalchemy import text
 

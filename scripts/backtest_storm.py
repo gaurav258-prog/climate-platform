@@ -107,15 +107,15 @@ def agriculture_check():
 
     print(f"\n  REAL ANCHOR (Puerto Rico Dept. of Agriculture): ~${PR_DA_TOTAL_LOSS_USD/1e6:.0f}m total")
     print(f"  agricultural loss, ~{PR_DA_PCT_CROP_VALUE}% of the island's total crop value destroyed —")
-    print(f"  economy-wide (banana/plantain hit hardest), NOT a coffee-specific dollar figure.")
+    print("  economy-wide (banana/plantain hit hardest), NOT a coffee-specific dollar figure.")
     print(f"  Separately, {PR_COFFEE_TREES_DESTROYED/1e6:.0f} million coffee trees were destroyed — a real,")
-    print(f"  sourced quantity, but not convertible to a clean %-of-national-production anchor the")
-    print(f"  way Anacafé's Guatemala figure was. This anchor is WEAKER than Guatemala's — disclosed,")
-    print(f"  not smoothed over.")
+    print("  sourced quantity, but not convertible to a clean %-of-national-production anchor the")
+    print("  way Anacafé's Guatemala figure was. This anchor is WEAKER than Guatemala's — disclosed,")
+    print("  not smoothed over.")
 
-    print(f"\n  VERDICT: directionally right (real storm proximity -> real elevated local yield-shock),")
-    print(f"  but with a less precise anchor than Guatemala's volcanic backtest. Puerto Rico coffee")
-    print(f"  stays 'indicative', not added to BACKTESTED.")
+    print("\n  VERDICT: directionally right (real storm proximity -> real elevated local yield-shock),")
+    print("  but with a less precise anchor than Guatemala's volcanic backtest. Puerto Rico coffee")
+    print("  stays 'indicative', not added to BACKTESTED.")
 
 
 def main():

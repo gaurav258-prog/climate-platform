@@ -20,9 +20,10 @@ import math
 from sqlalchemy import text
 
 from core.db.session import get_session
-from ml.features.crop_cycle import decompose
-from ml.features.drought import compute_indices, load_monthly, seasonal_by_year as spei_seasonal
 from ml.features import soil_moisture as smf
+from ml.features.crop_cycle import decompose
+from ml.features.drought import compute_indices, load_monthly
+from ml.features.drought import seasonal_by_year as spei_seasonal
 from ml.scoring.drought_climatology import drought_score
 from ml.scoring.soil_water_climatology import soil_water_score
 
@@ -83,7 +84,7 @@ def report(commodity, origin, region, driver, season, source, scale=6):
     print(f"\n{commodity}/{origin}  driver={driver}  n={n}  ({pts[0][2]}-{pts[-1][2]})")
     print(f"  in-sample r2 = {r2:.3f}   LOO-CV r2 = {loo_r2:.3f}   (in-sample RMSE {rmse:.1f}pp, LOO {loo_rmse:.1f}pp)")
     print(f"  band coverage: 68% band caught {in68}/{n} = {in68/n*100:.0f}%   95% band {in95}/{n} = {in95/n*100:.0f}%")
-    print(f"  worst observed years (actual climate drop vs model call):")
+    print("  worst observed years (actual climate drop vs model call):")
     for x, y, yr in sorted(pts, key=lambda p: p[1])[:4]:
         pred = a + b*x
         print(f"    {yr}: score {x:4.1f}  actual {y:+6.1f}%  model {pred:+6.1f}%")

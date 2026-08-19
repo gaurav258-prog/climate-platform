@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession, require_permission
 import services.governance.prior_filings as PF
+from api.deps import CurrentUser, DbSession, require_permission
 
 # original-file media types, by stored format
 _MEDIA = {"pdf": "application/pdf", "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

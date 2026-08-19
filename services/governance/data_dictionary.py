@@ -16,8 +16,8 @@ _HAZARD_CONSUMERS = ["TCFD", "SFDR", "CSRD/ESRS", "EUDR"]
 
 
 def data_dictionary(session: Session) -> dict:
-    from services.data.feeds import HAZARD_FEEDS, feeds_for_hazard
     from core.types import HazardType
+    from services.data.feeds import HAZARD_FEEDS, feeds_for_hazard
 
     # latest golden-source vintage per hazard (how current the data behind each field is)
     vintages = {r[0]: r[1] for r in session.execute(text("""

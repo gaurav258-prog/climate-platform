@@ -5,10 +5,10 @@ handing a raw -19.4% year to a drought coefficient when ~14pp of it was the bien
 """
 from __future__ import annotations
 
-import math
-
 from ml.features.crop_cycle import (
-    MIN_YEARS, climate_attributable_pct, decompose,
+    MIN_YEARS,
+    climate_attributable_pct,
+    decompose,
 )
 
 

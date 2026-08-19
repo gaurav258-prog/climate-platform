@@ -230,6 +230,7 @@ def p3esg_binding_status() -> dict:
 
 def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
     from xml.sax.saxutils import escape
+
     from services.governance.pillar3_templates import gar_grid, template1_grid, template5_grid
 
     org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),

@@ -15,10 +15,9 @@ not need this — the migration seeds a labelled fallback set.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import urllib.request
-import json
-from datetime import date
 
 from sqlalchemy import text
 

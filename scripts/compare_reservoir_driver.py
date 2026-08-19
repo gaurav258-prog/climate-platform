@@ -12,11 +12,15 @@ reported too, because in-sample r2 on ~25-37 points overstates.
         --source "FAOSTAT QCL bulk" --basins Duero --season 6,7,8,9 --region spain_beet
 """
 from __future__ import annotations
-import argparse, csv, sys
+
+import argparse
+import csv
+import sys
 from collections import defaultdict
 from statistics import mean, pstdev
 
 from sqlalchemy import text
+
 from core.db.session import get_session
 from ml.features.crop_cycle import decompose
 

@@ -41,7 +41,6 @@ _VIEWS = [
 def _mk(cols, table, alias, key, extra_join, where, with_ci, bank_source=False):
     ci = _CI_COLS if with_ci else ""
     src = ",\n           'canonical_scores'::text AS risk_source" if bank_source else ""
-    join_valid = "" if (extra_join or where) else "AND cs.valid_to IS NULL"
     # bank/realestate put valid_to in the JOIN or WHERE explicitly; keep the standing/valid_to on JOIN
     join = (f"JOIN canonical_scores cs ON cs.h3_cell::text = {alias}.h3_cell::text "
             f"AND cs.valid_to IS NULL {extra_join}")

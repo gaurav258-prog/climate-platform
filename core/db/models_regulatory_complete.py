@@ -20,14 +20,24 @@ from core.db.models_regulatory_complete import *
 
 import uuid
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime,
-    ForeignKey, Integer, Numeric, PrimaryKeyConstraint, Index,
-    String, Text, UniqueConstraint, func, DECIMAL, JSON, text
+    DECIMAL,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 # Single source of truth: the bank-vertical tables share the platform's

@@ -17,7 +17,6 @@ as every other hazard-projected book here.
 """
 from __future__ import annotations
 
-import io
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone

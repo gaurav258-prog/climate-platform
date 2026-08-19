@@ -26,8 +26,8 @@ from typing import Optional
 from sqlalchemy import text
 
 from ml.scoring.valuation_discount import collateral_haircut_pct
-from services.intelligence.insurance_pricing import annual_loss_probability, PricingParams
-from services.intelligence.horizon import NOW_YEAR, lerp, label_year
+from services.intelligence.horizon import NOW_YEAR, label_year, lerp
+from services.intelligence.insurance_pricing import PricingParams, annual_loss_probability
 
 EL_VERSION = "el-v1.0"
 DEFAULT_TENOR_YEARS = 5          # disclosed assumption used only when residual maturity is not fed

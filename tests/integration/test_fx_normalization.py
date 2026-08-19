@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from api.main import app
 from core.db.session import get_session
-from services.reference.fx import to_eur, FxError
+from services.reference.fx import FxError, to_eur
 
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 

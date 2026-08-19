@@ -1,6 +1,6 @@
 """Physically-grounded flood/storm/wildfire projection — documented sensitivities + honest band."""
 from ml.scoring.cmip6 import Cmip6Delta
-from ml.scoring.physical_projection import project, SENSITIVITY
+from ml.scoring.physical_projection import SENSITIVITY, project
 
 
 def _d(dtas=2.0, dpr=-0.1, n=4, dtas_std=0.5, dpr_std=0.05):

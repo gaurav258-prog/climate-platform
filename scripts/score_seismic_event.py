@@ -25,7 +25,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.scoring.seismic_physics import ipe_mmi, mmi_to_risk, aftershock_forecast
+from ml.scoring.seismic_physics import aftershock_forecast, ipe_mmi, mmi_to_risk
 
 MODEL_VERSION = "seismic-gmpe-ipe-v1"
 INFLUENCE_KM = 400.0  # beyond this an event's MMI is negligible

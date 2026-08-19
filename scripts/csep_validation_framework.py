@@ -11,11 +11,11 @@ Implements standard statistical tests for earthquake forecasting models:
 Reference: Zechar et al., 2010; Schorlemmer et al., 2007
 """
 import json
-import numpy as np
-import math
-from datetime import datetime, timedelta
-from scipy import stats
 import logging
+import math
+
+import numpy as np
+from scipy import stats
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class CSEPValidator:
 
         Test statistic: -2 * log(L_baseline / L_forecast) ~ chi2(k)
         """
-        n_obs = len(self.observed)
+        len(self.observed)
 
         # Simplified: check if forecast predicts right order of magnitude
         predicted_count = len(self.forecast)
@@ -275,5 +275,4 @@ def main():
     return results, summary
 
 if __name__ == "__main__":
-    import sys
     results, summary = main()

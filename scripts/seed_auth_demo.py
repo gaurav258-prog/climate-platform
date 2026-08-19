@@ -20,8 +20,8 @@ Run:  .venv/bin/python scripts/seed_auth_demo.py
 """
 from sqlalchemy import text
 
-from core.db.session import get_session
 from api.security import hash_password
+from core.db.session import get_session
 
 MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"

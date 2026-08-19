@@ -10,8 +10,8 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.reference.vendor_ingest import ingest_vendor_extract
 from services.fund_disclosure import fund_pai
+from services.reference.vendor_ingest import ingest_vendor_extract
 
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 

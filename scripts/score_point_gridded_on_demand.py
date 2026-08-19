@@ -45,12 +45,13 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
-from ml.features.flood_era5 import FEATURE_COLS, fetch_era5, compute_features
-from ml.features.pollution_cams import fetch_cams_forecast, compute_features as compute_pollution_features
-from ml.features.wildfire_era5 import (FEATURE_COLS as WILDFIRE_FEATURE_COLS,
-                                        fetch_era5 as fetch_era5_wildfire,
-                                        compute_features as compute_wildfire_features)
-from ml.scoring.pollution_aqi import pollution_score, POLLUTION_MODEL_VERSION
+from ml.features.flood_era5 import FEATURE_COLS, compute_features, fetch_era5
+from ml.features.pollution_cams import compute_features as compute_pollution_features
+from ml.features.pollution_cams import fetch_cams_forecast
+from ml.features.wildfire_era5 import FEATURE_COLS as WILDFIRE_FEATURE_COLS
+from ml.features.wildfire_era5 import compute_features as compute_wildfire_features
+from ml.features.wildfire_era5 import fetch_era5 as fetch_era5_wildfire
+from ml.scoring.pollution_aqi import POLLUTION_MODEL_VERSION, pollution_score
 
 logger = logging.getLogger(__name__)
 

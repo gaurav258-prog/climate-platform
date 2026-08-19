@@ -15,8 +15,6 @@ Agreement is judged against the champion's OWN residual scale (RMSE), not an arb
 """
 from __future__ import annotations
 
-from typing import Optional
-
 CHALLENGER_VERSION = "challenger-isotonic-v1"
 _MIN_YEARS = 12            # same floor as the champion fit — a handful of points challenges nothing
 _TOL_FLOOR_PP = 3.0        # never call agreement tighter than 3 percentage points

@@ -14,7 +14,6 @@ Then leave-one-event-out, isolating each fix:
 compared against the bbox-label baselines (0.444 / 0.421).
 """
 import json
-import sys
 import warnings
 
 warnings.filterwarnings("ignore")

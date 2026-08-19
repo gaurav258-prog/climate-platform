@@ -26,7 +26,7 @@ from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.features.frost import load_hourly_years, seasonal_by_year, to_h3_frame
 from ml.scoring.frost_climatology import frost_score
-from ml.scoring.heat_climatology import SCENARIO_WARMING_C, HORIZON_FRACTION
+from ml.scoring.heat_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C
 
 ORG = "55555555-5555-4555-8555-555555555555"  # Terra Foods (demo) -- see wire_coffee_demo.py's note
 YEAR_DIR = "data/era5_baseline/frost_hourly_years"

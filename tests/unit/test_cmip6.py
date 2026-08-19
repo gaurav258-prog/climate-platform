@@ -7,7 +7,7 @@ skip rather than fail.
 """
 import pytest
 
-from ml.scoring.cmip6 import cmip6_delta, has_coverage, SCENARIO_TO_SSP, HORIZON_TO_PERIOD
+from ml.scoring.cmip6 import HORIZON_TO_PERIOD, SCENARIO_TO_SSP, cmip6_delta, has_coverage
 from ml.scoring.drought_climatology import drought_score
 
 
@@ -30,7 +30,7 @@ def test_override_replaces_parametric_in_scorer():
     # Supplying CMIP6 deltas must change the forward score vs the parametric default, and a drier
     # (more negative precip) delta must not score LOWER than a wetter one at the same warming.
     spei = -0.3
-    base = drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=-4)
+    drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=-4)
     dry = drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=-4, warming_c=3.9, precip_frac=-0.33)
     wet = drought_score(spei, "hot_house_3_5c", "2100", lat=38, lon=-4, warming_c=3.9, precip_frac=+0.06)
     assert dry >= wet

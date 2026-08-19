@@ -118,6 +118,7 @@ def train_on_dataframe(
 def load_labeled_features() -> pd.DataFrame:
     """Load labeled rows from ml_features_drought."""
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     cols = ",\n            ".join(f"CAST({c} AS FLOAT) AS {c}" for c in FEATURE_COLS)
@@ -143,6 +144,7 @@ def train(register: bool = True, mlflow_uri: Optional[str] = None) -> TrainResul
     import os
     import pickle
     import tempfile
+
     import mlflow
 
     df = load_labeled_features()
@@ -172,6 +174,7 @@ def train(register: bool = True, mlflow_uri: Optional[str] = None) -> TrainResul
 
 def _register_model(result: TrainResult, mlflow_run_id: str, data_vintage: date) -> None:
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     with get_session() as session:

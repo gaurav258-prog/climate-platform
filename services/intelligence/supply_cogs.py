@@ -786,6 +786,7 @@ def get_commodity_overrides(session, org_id: str) -> dict:
 def apply_commodity_override(session, org_id: str, commodity_id: str, override_p50_eur: float,
                               user_id: str, reason: Optional[str]) -> dict:
     from datetime import datetime, timezone
+
     from sqlalchemy import text
     now = datetime.now(timezone.utc)
     session.execute(text("""
@@ -817,7 +818,6 @@ def project_org_supply(session, org_id: str, *, scenario="baseline", time_horizo
 
     # group rows → commodity → plots → hazards
     by_commodity: dict[str, dict] = {}
-    plots: dict[str, dict] = {}
     for r in rows:
         c = by_commodity.setdefault(r["commodity"], {
             "name": r["commodity"], "eudr_covered": r["eudr_covered"],

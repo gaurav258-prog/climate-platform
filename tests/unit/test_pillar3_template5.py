@@ -1,8 +1,15 @@
 """Pillar 3 Template 5 grid — the physical-risk matrix built to the ITS (EU) 2022/2453 structure.
 Verifies the NACE-section bucketing, the chronic/acute classification, and the aggregation invariants."""
 from services.governance.pillar3_templates import (
-    template5_grid, template1_grid, gar_grid, concentration_split, _section, _asset_hits,
-    ACUTE_HAZARDS, CHRONIC_HAZARDS, HIGH_CLIMATE_NACE,
+    ACUTE_HAZARDS,
+    CHRONIC_HAZARDS,
+    HIGH_CLIMATE_NACE,
+    _asset_hits,
+    _section,
+    concentration_split,
+    gar_grid,
+    template1_grid,
+    template5_grid,
 )
 
 

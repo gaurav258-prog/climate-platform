@@ -10,12 +10,12 @@ from __future__ import annotations
 import logging
 import threading
 
-from services.tasks.hazard_tasks import HAZARD_TASKS
-from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from ml.features.heat_chronic_point import score_heat_chronic_point
-from ml.scoring.water_stress_point import score_water_stress_point
-from ml.scoring.frost_point import score_frost_point
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
+from ml.scoring.frost_point import score_frost_point
+from ml.scoring.water_stress_point import score_water_stress_point
+from scripts.score_point_on_demand import score_seismic_point, score_storm_point
+from services.tasks.hazard_tasks import HAZARD_TASKS
 
 # Hazards scored synchronously, in-request (cheap: read a global baseline, no external fetch).
 # soil_water + frost were globally scored by batch jobs but were absent here, so a NEWLY-uploaded
@@ -42,7 +42,9 @@ def process_new_cells(cell_coords: dict) -> dict:
     many rows/cells at once, unlike a single lookup.
     """
     import uuid
+
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     cells = list(cell_coords.keys())

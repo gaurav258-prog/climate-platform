@@ -71,7 +71,8 @@ inside the deductible costs nothing to insure).
 from __future__ import annotations
 
 from core.types import score_to_bucket
-from ml.scoring.damage_function import HALF_DAMAGE_SCORE, mean_damage_ratio as _core_mdr, vulnerability_factor  # noqa: F401
+from ml.scoring.damage_function import HALF_DAMAGE_SCORE, vulnerability_factor  # noqa: F401
+from ml.scoring.damage_function import mean_damage_ratio as _core_mdr
 
 EXPENSE_RATIO = 0.25
 PROFIT_MARGIN = 0.05

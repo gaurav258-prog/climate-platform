@@ -22,14 +22,16 @@ Usage:  python scripts/backtest_hazard.py flood
 """
 import sys
 import warnings
+
 import numpy as np
 import pandas as pd
+from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import GroupKFold, train_test_split
-from sklearn.metrics import roc_auc_score, average_precision_score
 
 warnings.filterwarnings("ignore")
 
 from sqlalchemy import text
+
 from core.db.session import get_session
 from ml.scoring.ensemble import EnsembleScorer
 
@@ -106,8 +108,8 @@ def main():
     print(f"\n  baseline Avg-Prec (random guess) = {base_rate:.4f}")
     print(f"  spatial recall@{n_pos} (top-{n_pos} cells capture this share of real events) = {r_at_n:.2f}")
     print(f"\n  ⚠ Still ONE event ({n_days} days). Spatial CV tests generalisation to")
-    print(f"    unseen LOCATIONS, not to a future EVENT. Forecasting skill is UNTESTED")
-    print(f"    until multiple independent labeled events exist.\n")
+    print("    unseen LOCATIONS, not to a future EVENT. Forecasting skill is UNTESTED")
+    print("    until multiple independent labeled events exist.\n")
 
 
 if __name__ == "__main__":

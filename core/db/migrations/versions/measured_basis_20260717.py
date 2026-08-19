@@ -16,8 +16,8 @@ grapes -- a caveat worth stating plainly, not just a conversion factor.
 So: a `measured_basis` column, populated per crop, surfaced wherever the number shows. No number
 changes; the label stops implying something it does not measure.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "measured_basis_20260717"
 down_revision = "validation_volume_claim_20260717"

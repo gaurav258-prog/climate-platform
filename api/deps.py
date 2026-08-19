@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Generator, Optional
 
-from fastapi import Depends, Header, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 

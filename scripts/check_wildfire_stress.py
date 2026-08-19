@@ -16,10 +16,13 @@ Needs the ERA5 baselines (re-fetchable: fetch_era5_baseline.py {bordeaux_wine,sp
     .venv/bin/python -m scripts.check_wildfire_stress
 """
 from __future__ import annotations
-import warnings; warnings.filterwarnings("ignore")
+
+import warnings
+
+warnings.filterwarnings("ignore")
 import sys
 
-from ml.features.drought import load_monthly, compute_indices, seasonal_by_year
+from ml.features.drought import compute_indices, load_monthly, seasonal_by_year
 from ml.scoring.drought_climatology import drought_score
 
 FIRE_BELTS = [

@@ -7,8 +7,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.deps import DbSession, require_permission
 import services.intelligence.forward_decisions as D
+from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/decisions", tags=["Forward-risk decisions"])
 
