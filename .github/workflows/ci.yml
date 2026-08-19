@@ -73,8 +73,12 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run Alembic migrations
-        run: alembic upgrade head
+      - name: Build schema (create_all — the app's real startup path)
+        # The running app builds its schema via init_db() → Base.metadata.create_all
+        # (see core/db/config.py, called from the FastAPI lifespan). We build the
+        # integration DB the same way so CI validates exactly the schema the product
+        # ships — not the separate Alembic chain, which has drifted from the models.
+        run: python -c "from core.db.config import init_db; init_db()"
 
       - name: Run integration tests
         run: pytest tests/unit/ -m "integration" -q --tb=short
