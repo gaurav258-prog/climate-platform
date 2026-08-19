@@ -176,27 +176,75 @@ def _sfdr_annex(dps: dict) -> list[dict]:
 
 
 # ── EU-Taxonomy Article 8 (GAR summary) + PCAF financed emissions + TCFD physical-risk metrics ─────────────
-def _located_annex(dps: dict) -> list[dict]:
-    total = (dps.get("book.total_value_eur") or {}).get("value")
-    sections: list[dict] = []
+def _gar_grid_section(assets: list[dict]) -> dict | None:
+    """The full Green Asset Ratio grid (Templates 6–8, ITS 2022/2453 · Del. Reg. 2021/2178) by counterparty
+    class — gross carrying amount, Taxonomy-eligible + Taxonomy-aligned, the covered-assets denominator (excl.
+    general governments, Art. 7) and the GAR ratio on stock, computed from the per-asset `taxonomy_status`.
+    Shared by the bank TCFD and Pillar-3 annexes so both render the same official grid, not a flat summary.
+    Returns None where there is no per-asset book to compute it from."""
+    if not assets:
+        return None
+    from services.governance.pillar3_templates import gar_grid
+    gg = gar_grid(assets)
+    # When the book is classified only to eligibility (nothing carries an 'aligned' status), the aligned figure
+    # is a floor, not a determined zero — show it as pending the technical screening, not a bare €0.
+    align_pending = gg["aligned"] == 0 and gg["eligible"] > 0
 
-    # EU-Taxonomy Art. 8 — Green Asset Ratio summary template
-    if any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
-        gar_rows = []
-        for key, label in [("taxonomy.eligible_value_eur", "Taxonomy-eligible exposures"),
-                           ("taxonomy.not_eligible_value_eur", "Not eligible"),
-                           ("taxonomy.not_assessed_value_eur", "Not assessed / no data")]:
-            d = dps.get(key)
-            gar_rows.append({"type": "row", "cells": [
-                _txt(label), _cell(dps, key), _txt(_pct_text((d or {}).get("value"), total)),
-            ]})
-        gar_rows.append({"type": "row", "cells": [_txt("Total covered assets"), _cell(dps, "book.total_value_eur"), _txt("100%")]})
-        sections.append({
-            "title": "EU Taxonomy · Article 8 — Green Asset Ratio (summary)",
+    def _aligned_cell(v):
+        return _txt("pending screening") if align_pending else _num(_eur(v))
+    gar_rows = []
+    for r in gg["rows"]:
+        note = " (excluded from covered assets)" if r["counterparty"] == "General governments" else ""
+        gar_rows.append({"type": "row", "cells": [
+            _txt(r["counterparty"] + note), _num(_eur(r["gross"])), _num(_eur(r["eligible"])), _aligned_cell(r["aligned"])]})
+    gar_rows.append({"type": "row", "cells": [
+        _txt("Covered assets (GAR denominator · excl. general governments)"),
+        _num(_eur(gg["covered_assets"])), _num(_eur(gg["eligible"])), _aligned_cell(gg["aligned"])]})
+    gar_rows.append({"type": "row", "cells": [
+        _txt("Green Asset Ratio — on stock"), _txt("—"),
+        _num(f'{gg["pct_eligible"]}% eligible' if gg["pct_eligible"] is not None else "—"),
+        _txt("pending screening") if align_pending else
+        _num(f'{gg["gar_stock_pct"]}% GAR' if gg["gar_stock_pct"] is not None else "—")]})
+    note = gg["basis"] + " Customer-supplied / not shown: " + " · ".join(gg["customer_columns"]) + "."
+    if align_pending:
+        note += (" This book is classified to Taxonomy ELIGIBILITY; the aligned figure and GAR await the "
+                 "technical-screening-criteria + DNSH confirmation, so both are shown as pending, not zero.")
+    return {"title": "Templates 6–8 — Green Asset Ratio by counterparty (ITS 2022/2453 · Del. Reg. 2021/2178)",
+            "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
+            "col_sources": ["", "computed", "computed", "integrated"],
+            "rows": gar_rows, "note": note}
+
+
+def _gar_flat_summary_section(dps: dict, total) -> dict | None:
+    """Fallback GAR section when there is no per-asset book — the flat eligibility summary."""
+    if not any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
+        return None
+    gar_rows = []
+    for key, label in [("taxonomy.eligible_value_eur", "Taxonomy-eligible exposures"),
+                       ("taxonomy.not_eligible_value_eur", "Not eligible"),
+                       ("taxonomy.not_assessed_value_eur", "Not assessed / no data")]:
+        d = dps.get(key)
+        gar_rows.append({"type": "row", "cells": [
+            _txt(label), _cell(dps, key), _txt(_pct_text((d or {}).get("value"), total))]})
+    gar_rows.append({"type": "row", "cells": [_txt("Total covered assets"), _cell(dps, "book.total_value_eur"), _txt("100%")]})
+    return {"title": "EU Taxonomy · Article 8 — Green Asset Ratio (summary)",
             "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
             "note": "Eligibility KPI per Disclosures Delegated Act (EU) 2021/2178. Alignment (DNSH + minimum "
-                    "safeguards) is disclosed in the full GAR templates.",
-        })
+                    "safeguards) additionally needs the technical screening criteria (per-asset book unavailable "
+                    "for the full counterparty grid)."}
+
+
+def _located_annex(dps: dict, payload: dict | None = None) -> list[dict]:
+    total = (dps.get("book.total_value_eur") or {}).get("value")
+    assets = (payload or {}).get("assets") or []
+    sections: list[dict] = []
+
+    # EU-Taxonomy Art. 8 — Green Asset Ratio. With a per-asset book, render the FULL Templates 6–8 grid by
+    # counterparty class (same grid as Pillar 3); only where no per-asset book is available fall back to the
+    # flat eligibility summary.
+    gar_section = _gar_grid_section(assets) or _gar_flat_summary_section(dps, total)
+    if gar_section:
+        sections.append(gar_section)
 
     # PCAF financed emissions
     if any(k in dps for k in ("emissions.scope1", "emissions.total")):
@@ -289,6 +337,95 @@ def _reit_annex(dps: dict, payload: dict) -> list[dict]:
 
     # TCFD physical-risk — the property book scored by hazard (genuinely computed by our engine).
     sections += _tcfd_physical_sections(dps)
+    return sections
+
+
+# ── Insurer — NatCat / underwriting climate exposure (EIOPA · IFRS S2) ─────────────────────────────────────
+# Correctness: an insurer's climate filing is about its UNDERWRITING book, not a bank's loan book. It does NOT
+# file a Green Asset Ratio or PCAF financed-emissions on assets (that is the bank located annex); it discloses
+# natural-catastrophe exposure — sum insured at risk by peril and geography, and expected annual loss (EAL) /
+# NatCat loss ratio by severity band. Every figure is the frozen NatCat-engine snapshot (rollup + by_hazard +
+# per-policy), rendered computed; a book without priced policies renders "—", never a fabricated loss.
+_INS_BUCKET_LABEL = {"VH": "Very high", "H": "High", "M": "Medium", "L": "Low", "none": "Not scored"}
+_INS_BUCKET_ORDER = ["VH", "H", "M", "L", "none"]
+
+
+def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
+    sections: list[dict] = []
+    rollup = (payload or {}).get("rollup") or {}
+    by_hazard = (payload or {}).get("by_hazard") or {}
+    policies = (payload or {}).get("policies") or []
+    total_si = rollup.get("total_sum_insured_eur")
+    by_bucket = rollup.get("by_bucket") or {}
+    si_at_risk = sum((by_bucket.get(b, {}) or {}).get("sum_insured_eur", 0) for b in ("VH", "H"))
+
+    # 1 — Underwriting NatCat exposure summary (the headline EIOPA / IFRS S2 figures).
+    summ_rows = [
+        {"type": "row", "cells": [_txt("Total sum insured (underwriting book)"), _mnum(_eur(total_si), "computed")]},
+        {"type": "row", "cells": [_txt("Sum insured at risk (High + Very high)"), _mnum(_eur(si_at_risk), "computed"),
+                                  _txt(_pct_text(si_at_risk, total_si))]},
+        {"type": "row", "cells": [_txt("Expected annual loss (NatCat)"), _mnum(_eur(rollup.get("total_expected_annual_loss_eur")), "computed"), _txt("")]},
+        {"type": "row", "cells": [_txt("Gross written premium"), _mnum(_eur(rollup.get("total_gross_premium_eur")), "computed"), _txt("")]},
+        {"type": "row", "cells": [_txt("Modelled NatCat loss ratio"),
+                                  _num(f"{rollup['portfolio_loss_ratio_pct']}%" if rollup.get("portfolio_loss_ratio_pct") is not None else "—"), _txt("")]},
+    ]
+    sections.append({
+        "title": "NatCat underwriting exposure — summary (EIOPA · IFRS S2)",
+        "columns": ["Metric", "Amount", "% of sum insured"], "rows": summ_rows,
+        "note": "Expected annual loss = probability-weighted scenario loss across the book (mean-damage-ratio × "
+                "per-peril occurrence frequency); loss ratio = modelled claims ÷ gross written premium. Computed by "
+                "the Tellumen NatCat engine from the frozen snapshot.",
+    })
+
+    # 2 — Sum insured at risk by peril (High+), the per-event-type nat-cat table.
+    haz_rows = []
+    for hz in sorted(by_hazard, key=lambda h: -((by_hazard[h] or {}).get("exposed_value_eur") or 0)):
+        h = by_hazard[hz] or {}
+        haz_rows.append({"type": "row", "cells": [
+            _txt(_pretty_hazard(hz)), _mnum(_eur(h.get("exposed_value_eur")), "computed"),
+            _num(str(h.get("n_exposed", 0))), _num(f"{h.get('max_score', 0)}")]})
+    if haz_rows:
+        sections.append({
+            "title": "Sum insured at risk by peril (High+) — per event type",
+            "columns": ["Peril", "Sum insured exposed", "Policies exposed", "Max hazard score"],
+            "col_sources": ["", "computed", "computed", "computed"], "rows": haz_rows,
+            "note": "Sum insured on policies whose peril score is High or Very high, by peril. The 'event type' axis "
+                    "of the EIOPA NatCat template (windstorm, flood, earthquake, wildfire, …).",
+        })
+
+    # 3 — Exposure & expected annual loss by severity band.
+    band_rows = []
+    for b in _INS_BUCKET_ORDER:
+        v = by_bucket.get(b)
+        if not v:
+            continue
+        band_rows.append({"type": "row", "cells": [
+            _txt(_INS_BUCKET_LABEL[b]), _num(str(v.get("count", 0))),
+            _mnum(_eur(v.get("sum_insured_eur")), "computed"), _mnum(_eur(v.get("eal_eur")), "computed")]})
+    if band_rows:
+        sections.append({
+            "title": "Exposure & expected annual loss by risk band",
+            "columns": ["Risk band", "Policies", "Sum insured", "Expected annual loss"],
+            "col_sources": ["", "computed", "computed", "computed"], "rows": band_rows, "note": None})
+
+    # 4 — Sum insured at risk by geography (High+), aggregated from the frozen policy list.
+    geo: dict = {}
+    for p in policies:
+        if (p.get("headline_bucket") or "") in ("H", "VH"):
+            region = p.get("region") or "Unspecified"
+            g = geo.setdefault(region, {"si": 0.0, "n": 0})
+            g["si"] += p.get("sum_insured_eur") or 0
+            g["n"] += 1
+    if geo:
+        geo_rows = [{"type": "row", "cells": [_txt(region), _mnum(_eur(v["si"]), "computed"), _num(str(v["n"]))]}
+                    for region, v in sorted(geo.items(), key=lambda kv: -kv[1]["si"])]
+        sections.append({
+            "title": "Sum insured at risk by geography (High+)",
+            "columns": ["Region", "Sum insured exposed", "Policies exposed"],
+            "col_sources": ["", "computed", "computed"], "rows": geo_rows,
+            "note": "Geographic concentration of NatCat exposure — sum insured on High+ policies aggregated by the "
+                    "policy's region."})
+
     return sections
 
 
@@ -486,46 +623,9 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     # GAR (Templates 6–8) — Green Asset Ratio by counterparty class, built to the ITS grid: gross carrying
     # amount, Taxonomy-eligible + Taxonomy-aligned per counterparty, the covered-assets denominator (excl.
     # general governments, Art. 7) and the GAR ratio on stock. Computed from the per-asset taxonomy_status.
-    if assets:
-        from services.governance.pillar3_templates import gar_grid
-        gg = gar_grid(assets)
-        # When the book is classified only to eligibility (no positions carry an 'aligned' status), the aligned
-        # figure is a floor, not a determined zero — show it as pending the technical screening, not a bare €0
-        # that reads as "broken". A real aligned figure (any position screened) renders as the euro amount.
-        align_pending = gg["aligned"] == 0 and gg["eligible"] > 0
-        def _aligned_cell(v):
-            return _txt("pending screening") if align_pending else _num(_eur(v))
-        gar_rows = []
-        for r in gg["rows"]:
-            note = " (excluded from covered assets)" if r["counterparty"] == "General governments" else ""
-            gar_rows.append({"type": "row", "cells": [
-                _txt(r["counterparty"] + note), _num(_eur(r["gross"])), _num(_eur(r["eligible"])), _aligned_cell(r["aligned"])]})
-        gar_rows.append({"type": "row", "cells": [
-            _txt("Covered assets (GAR denominator · excl. general governments)"),
-            _num(_eur(gg["covered_assets"])), _num(_eur(gg["eligible"])), _aligned_cell(gg["aligned"])]})
-        gar_rows.append({"type": "row", "cells": [
-            _txt("Green Asset Ratio — on stock"), _txt("—"),
-            _num(f'{gg["pct_eligible"]}% eligible' if gg["pct_eligible"] is not None else "—"),
-            _txt("pending screening") if align_pending else
-            _num(f'{gg["gar_stock_pct"]}% GAR' if gg["gar_stock_pct"] is not None else "—")]})
-        note = gg["basis"] + " Customer-supplied / not shown: " + " · ".join(gg["customer_columns"]) + "."
-        if align_pending:
-            note += (" This book is classified to Taxonomy ELIGIBILITY; the aligned figure and GAR await the "
-                     "technical-screening-criteria + DNSH confirmation, so both are shown as pending, not zero.")
-        sections.append({"title": "Templates 6–8 — Green Asset Ratio by counterparty (ITS 2022/2453 · Del. Reg. 2021/2178)",
-                         "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
-                         "col_sources": ["", "computed", "computed", "integrated"],
-                         "rows": gar_rows, "note": note})
-    elif any(k in dps for k in ("taxonomy.eligible_value_eur", "taxonomy.not_eligible_value_eur")):
-        # fallback (no per-asset book): the flat eligibility summary
-        gar_rows = []
-        for key, label in [("taxonomy.eligible_value_eur", "Taxonomy-eligible exposures"),
-                           ("taxonomy.not_eligible_value_eur", "Not eligible"),
-                           ("taxonomy.not_assessed_value_eur", "Not assessed / no data")]:
-            gar_rows.append({"type": "row", "cells": [_txt(label), _cell(dps, key), _txt(_pct_text((dps.get(key) or {}).get("value"), total))]})
-        sections.append({"title": "Green Asset Ratio (Templates 6–8) — eligibility",
-                         "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
-                         "note": "Eligibility numerator; alignment (DNSH + minimum safeguards) is disclosed in the full GAR templates."})
+    gar_section = _gar_grid_section(assets) or _gar_flat_summary_section(dps, total)
+    if gar_section:
+        sections.append(gar_section)
 
     # Template 9 — BTAR (banking book taxonomy alignment ratio) · ITS 2022/2453, Annex XXXIX (Templates 9.1/9.2/
     # 9.3) + Annex XL instructions. BTAR extends the GAR to counterparties NOT subject to NFRD disclosure (EU
@@ -599,8 +699,10 @@ def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | N
         sections = _p3esg_annex(dps, payload or {})
     elif framework == "reit_tcfd":
         sections = _reit_annex(dps, payload or {})
-    elif framework in ("bank_tcfd", "insurer_climate"):
-        sections = _located_annex(dps)
+    elif framework == "insurer_climate":
+        sections = _insurer_annex(dps, payload or {})
+    elif framework == "bank_tcfd":
+        sections = _located_annex(dps, payload or {})
     else:
         sections = _generic_annex(dps, groups)
     if not sections:
