@@ -70,13 +70,17 @@ contribution / DNSH / of-which use-of-proceeds / transitional / enabling**. **Nu
 exposures; denominator = covered assets excluding sovereigns / central banks / supranationals (Art. 7).** Full
 GAR from 1 Jan 2024. *(T3/T4 finest SC/DNSH sub-column labels unverified-to-the-cell.)*
 
-**We render today** (`_located_annex`): one flat table — eligible / not-eligible / not-assessed / total covered,
-% of covered. No objective axis, no stock/flow, no SC/DNSH, no Turnover-vs-CapEx, none of the 8 templates.
+**We render today** (`_located_annex`): **T0 Summary of KPIs** (computed — total, covered assets excl. general
+governments per Art. 7, eligible, aligned/GAR-on-stock), the **Templates 6–8 GAR grid by counterparty class**
+(gross / eligible / aligned, Art. 7 exclusion), and **T3 GAR-stock by environmental objective** (the official
+six-objective axis, with Climate-Change-Adaptation eligibility computed — the one objective this platform
+assesses — and the other five objectives, the per-objective mapping, the Turnover-vs-CapEx weighting, and
+alignment declared customer-supplied).
 
-**Gap & build.** Build the GAR as **T3 stock by environmental objective** with Turnover/CapEx KPI columns:
-eligibility (computed) + alignment (customer) + of-which enabling/transitional (customer). Add the **Art. 7
-exclusion** (drop sovereign/central-bank exposures from the denominator) — computable if the book flags them.
-Full 8-template set is large; prioritise T0 Summary + T3 stock.
+**Remaining gap.** Templates 1–2 (assets/sector detail), T4 (GAR on **flow**), T5 (off-balance-sheet), and the
+per-cell SC/DNSH/of-which-enabling/transitional sub-columns — all either large or customer-data-gated (alignment
+needs TSC + DNSH + per-activity objective mapping the institution supplies). The computed spine (T0 + counterparty
+GAR + T3 objective eligibility) is in place; the rest is honestly declared, not fabricated.
 _Source: [CELEX:32021R2178](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178); [Annex VI PDF](https://ec.europa.eu/finance/docs/level-2-measures/taxonomy-regulation-delegated-act-2021-4987-annex-6_en.pdf)._
 
 ## 3. REIT — EU Taxonomy Art. 8 (non-financial) + TCFD · `reit_tcfd`  ✅ correctness bug FIXED

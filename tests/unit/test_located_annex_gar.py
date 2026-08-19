@@ -50,3 +50,21 @@ def test_gar_grid_shared_helper_matches_between_bank_and_p3esg():
     p3 = _gar(_p3esg_annex({}, {"assets": _ASSETS}))
     direct = _gar_grid_section(_ASSETS)
     assert bank["rows"] == p3["rows"] == direct["rows"]
+
+
+def test_bank_taxonomy_renders_annexvi_t0_and_objective_axis():
+    from services.governance.filing_annex import _located_annex
+    secs = _located_annex({}, {"assets": _ASSETS})
+    titles = " ".join(s["title"] for s in secs)
+    assert "Template 0 — Summary of KPIs" in titles
+    assert "by environmental objective" in titles
+    t3 = next(s for s in secs if "by environmental objective" in s["title"])
+    labels = [r["cells"][0]["text"] for r in t3["rows"]]
+    # all six official objectives, in order
+    assert labels[0] == "Climate change mitigation" and labels[1] == "Climate change adaptation"
+    assert len(labels) == 6
+    # the adaptation objective (the one we assess) carries a computed eligible amount, not a dash
+    cca = t3["rows"][1]["cells"]
+    assert cca[1]["text"] != "—"
+    # a non-assessed objective is honestly declared "—"
+    assert t3["rows"][0]["cells"][1]["text"] == "—"
