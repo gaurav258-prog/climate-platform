@@ -136,3 +136,64 @@ def monte_carlo_var(holdings: list[dict], org_id: str, scenario: str, horizon: s
         "n_sims": n_sims,
         "relative_uncertainty_band": relative_uncertainty,
     }
+
+
+def value_loss_band(assets: list[dict], severity_model: str = "universal") -> dict:
+    """Portfolio expected value-loss (Σ value × continuous haircut) as a RANGE, not a point.
+
+    The per-cell physical score already carries a confidence interval (ci_lo/ci_hi on each hazard); the point
+    €-loss is `value × haircut(headline_score)`. This propagates that same interval through the SAME continuous
+    haircut function — `value × haircut(ci_lo)` … `value × haircut(ci_hi)` — and aggregates, so every financial
+    disclosure can report a range around its headline euro instead of a bare point.
+
+    Honest by construction: an OVERRIDDEN asset contributes its fixed, human-set loss with no band; an asset
+    with NO modelled CI contributes its point loss to low and high alike (no fabricated width) and is excluded
+    from the coverage figure. This surfaces the MODELLED uncertainty already in the data — it does NOT make the
+    damage schedule fitted (that remains a disclosed relative schedule).
+    """
+    point = low = high = 0.0
+    banded_value = at_risk_value = 0.0
+    for a in assets:
+        value = (a.get("value_eur") or a.get("property_value_eur")
+                 or a.get("position_value_eur") or a.get("primary_value_eur") or 0)
+        if not value:
+            continue
+        val = a.get("valuation") or {}
+        score = a.get("headline_score")
+        hazard = a.get("headline_hazard")
+        bucket = a.get("headline_bucket")
+        if score is None and not bucket:
+            continue  # unscored — no modelled loss, no band
+        at_risk_value += value
+        sm = val.get("severity_model") or severity_model
+        # An overridden valuation is a fixed human decision — carry it with no band.
+        if val.get("is_overridden"):
+            loss = value * (val.get("effective_discount_pct") or 0) / 100.0
+            point += loss
+            low += loss
+            high += loss
+            continue
+        attrs = {"construction_type": a.get("construction_type"), "year_built": a.get("year_built"),
+                 "number_of_stories": a.get("number_of_stories")}
+        mean_hc = collateral_haircut_pct(score, bucket, hazard, sm, attrs)
+        point += value * mean_hc / 100.0
+        ci = next((h for h in (a.get("hazards") or []) if h.get("hazard") == hazard), None)
+        if ci and ci.get("ci_lo") is not None and ci.get("ci_hi") is not None:
+            lo_hc = collateral_haircut_pct(ci["ci_lo"], bucket, hazard, sm, attrs)
+            hi_hc = collateral_haircut_pct(ci["ci_hi"], bucket, hazard, sm, attrs)
+            low += value * min(lo_hc, hi_hc) / 100.0     # ci ordered on score → haircut too; guard anyway
+            high += value * max(lo_hc, hi_hc) / 100.0
+            banded_value += value
+        else:
+            low += value * mean_hc / 100.0
+            high += value * mean_hc / 100.0
+    return {
+        "expected_value_loss_eur": round(point),
+        "loss_low_eur": round(low),
+        "loss_high_eur": round(high),
+        "band_pct": round(100 * (high - low) / point, 1) if point else None,
+        "ci_coverage_pct": round(100 * banded_value / at_risk_value, 1) if at_risk_value else 0,
+        "method": "per-cell score confidence interval propagated through the continuous haircut; overrides "
+                  "carried fixed (no band); assets without a modelled CI contribute their point estimate only",
+        "damage_function_version": DAMAGE_FUNCTION_VERSION,
+    }

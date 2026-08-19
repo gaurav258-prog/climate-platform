@@ -33,6 +33,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
+from ml.scoring.cat_accumulation import catastrophe_accumulation
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
@@ -140,7 +141,7 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
     return [_map_policy_row(r) for r in rows]
 
 
-def _rollup(policies):
+def _rollup(policies, org_id=None, scenario=None, horizon=None):
     total = sum(p["sum_insured_eur"] or 0 for p in policies)
     priced = [p for p in policies if p["pricing"]]
     total_eal = sum(p["pricing"]["expected_annual_loss_eur"] for p in priced)
@@ -161,6 +162,9 @@ def _rollup(policies):
         "portfolio_loss_ratio_pct": round(100 * total_eal / total_premium, 1) if total_premium else 0,
         "by_bucket": {k: {"count": v["count"], "sum_insured_eur": round(v["sum_insured_eur"]),
                            "eal_eur": round(v["eal_eur"])} for k, v in by_bucket.items()},
+        # Portfolio catastrophe accumulation — AEP/OEP exceedance & PML (the tail the summed EALs hide).
+        "catastrophe": (catastrophe_accumulation(policies, org_id, scenario, horizon)
+                        if org_id and scenario and horizon else None),
         "top_policies": sorted(
             [p for p in policies if p["headline_score"] is not None],
             key=lambda p: -p["headline_score"])[:8],
@@ -187,7 +191,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     for h in hazards.values():
         h["exposed_value_eur"] = round(h["exposed_value_eur"])
         h["max_score"] = round(h["max_score"], 1)
-    return {"rollup": _rollup(policies), "policies": policies, "by_hazard": hazards}
+    return {"rollup": _rollup(policies, org_id, scenario, horizon), "policies": policies, "by_hazard": hazards}
 
 
 @router.get("/portfolio", summary="Property book projected onto the golden source")
@@ -196,7 +200,7 @@ def portfolio(session: DbSession, org_id: OrgId,
     return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
     policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(policies), "policies": policies}
+            "rollup": _rollup(policies, org_id, scenario, horizon), "policies": policies}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -213,7 +217,7 @@ def summary(session: DbSession, org_id: OrgId,
     ), {"o": org_id}).mappings().first()
     return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
     policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies)}
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies, org_id, scenario, horizon)}
 
 
 @router.get("/triggers", summary="Parametric trigger monitoring — live payout status across the book")

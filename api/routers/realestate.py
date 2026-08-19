@@ -30,7 +30,9 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.realestate_impact import noi_impact
+from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
+from services.intelligence.resilience_capex import resilience_capex_plan
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
 )
@@ -133,6 +135,8 @@ def _rollup(properties):
         "total_value_eur": round(total),
         "total_annual_noi_eur": round(total_noi),
         "total_discounted_value_eur": round(total_discounted),
+        "expected_value_loss_band": value_loss_band(properties),
+        "resilience_capex": resilience_capex_plan(properties),
         "total_expected_insurance_premium_eur": round(total_premium),
         "portfolio_noi_impact_pct": round(100 * total_premium / total_noi, 2) if total_noi else 0,
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in by_bucket.items()},

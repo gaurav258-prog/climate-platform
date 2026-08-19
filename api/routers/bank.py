@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
+from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
@@ -34,6 +35,7 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
+from services.scoring.loan_transition import loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_BANKING_COLUMNS = [
@@ -144,6 +146,7 @@ def _rollup(assets):
         "pct_value_at_risk": round(100 * var / total, 1) if total else 0,
         "n_high": len(at_risk),
         "total_discounted_value_eur": round(total_discounted),
+        "expected_value_loss_band": value_loss_band(assets),
         "n_overridden": sum(1 for a in assets if a["valuation"]["is_overridden"]),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value"])} for k, v in by_bucket.items()},
         "top_assets": sorted(
@@ -158,7 +161,8 @@ def portfolio(session: DbSession, org_id: OrgId,
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(assets), "assets": assets}
+            "rollup": _rollup(assets), "assets": assets,
+            "transition": loan_transition_overlay(assets, scenario, horizon)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -229,6 +233,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     return {
         "rollup": _rollup(assets),
         "assets": assets,
+        "transition": loan_transition_overlay(assets, scenario, horizon),
         **_hazard_rollup(assets),
     }
 
