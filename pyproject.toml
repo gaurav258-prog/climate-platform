@@ -43,6 +43,13 @@ api = [
     # Auth — user login (bcrypt) + JWT session tokens
     "bcrypt>=4.1",
     "PyJWT>=2.8",
+    # Excel upload parsing (loan tapes / SOV / filing workbooks) + validated uploads
+    "openpyxl>=3.1",
+    # Multipart form parsing — required by FastAPI for the file-upload endpoints
+    "python-multipart>=0.0.9",
+    # Background workers — Celery task queue + Redis broker/result backend
+    "celery>=5.3",
+    "redis>=5.0",
 ]
 # Satellite ingestion workers — needs GDAL, HDF5, NetCDF
 ingest = [
