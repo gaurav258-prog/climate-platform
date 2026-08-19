@@ -71,7 +71,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        # Same full extras as the unit job — pytest collects all of tests/unit/
+        # (to select the integration-marked ones), so every import dep must be present.
+        run: pip install -e ".[all,dev]"
 
       - name: Build schema (create_all — the app's real startup path)
         # The running app builds its schema via init_db() → Base.metadata.create_all
