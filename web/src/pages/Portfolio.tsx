@@ -36,6 +36,7 @@ interface Asset {
 }
 type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
+interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -218,6 +219,10 @@ export default function Portfolio() {
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
       </div>
 
+      {/* modelled uncertainty — the expected value loss as a RANGE, from the per-cell score confidence
+          interval propagated through the same haircut (bank & REIT; nothing invented). */}
+      <ValueLossBand band={r?.expected_value_loss_band as LossBand | undefined} />
+
       {view === 'forward' ? (
         <div className="space-y-6">
           {/* ties the forward view back to what you actually filed (renders only if prior filings exist) */}
@@ -375,6 +380,23 @@ function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?
         {label}{hint && <span className="text-[var(--color-faint)] normal-case tracking-normal"> ⓘ</span>}
       </div>
     </Card>
+  )
+}
+
+function ValueLossBand({ band }: { band?: LossBand }) {
+  if (!band || !band.expected_value_loss_eur) return null
+  const halfPct = band.band_pct != null ? (band.band_pct / 2).toFixed(1) : null
+  return (
+    <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Expected value loss</span>
+      <span className="text-[14px] font-semibold text-[var(--color-ink)] tabular-nums">{eur(band.expected_value_loss_eur)}</span>
+      <span className="text-[12.5px] text-[var(--color-mute)]">
+        modelled range <span className="tabular-nums text-[var(--color-ink)]">{eur(band.loss_low_eur)} – {eur(band.loss_high_eur)}</span>{halfPct && <> (±{halfPct}%)</>}
+      </span>
+      <span className="mono text-[10px] text-[var(--color-faint)] ml-auto" title="Share of at-risk value whose per-cell physical score carries a modelled confidence interval">
+        {band.ci_coverage_pct}% of at-risk value has a confidence interval
+      </span>
+    </div>
   )
 }
 

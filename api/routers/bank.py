@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
+from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
@@ -144,6 +145,7 @@ def _rollup(assets):
         "pct_value_at_risk": round(100 * var / total, 1) if total else 0,
         "n_high": len(at_risk),
         "total_discounted_value_eur": round(total_discounted),
+        "expected_value_loss_band": value_loss_band(assets),
         "n_overridden": sum(1 for a in assets if a["valuation"]["is_overridden"]),
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value"])} for k, v in by_bucket.items()},
         "top_assets": sorted(
