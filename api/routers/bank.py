@@ -35,6 +35,7 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
+from services.scoring.loan_transition import loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_BANKING_COLUMNS = [
@@ -160,7 +161,8 @@ def portfolio(session: DbSession, org_id: OrgId,
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(assets), "assets": assets}
+            "rollup": _rollup(assets), "assets": assets,
+            "transition": loan_transition_overlay(assets, scenario, horizon)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -231,6 +233,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     return {
         "rollup": _rollup(assets),
         "assets": assets,
+        "transition": loan_transition_overlay(assets, scenario, horizon),
         **_hazard_rollup(assets),
     }
 

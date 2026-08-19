@@ -38,6 +38,7 @@ type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
 interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
 interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
+interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -226,6 +227,9 @@ export default function Portfolio() {
 
       {/* catastrophe accumulation — the correlated tail (AEP/OEP/PML) the summed EALs hide (insurer). */}
       <CatAccumulation cat={r?.catastrophe as Cat | undefined} />
+
+      {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
+      <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
       {view === 'forward' ? (
         <div className="space-y-6">
@@ -434,6 +438,55 @@ function CatAccumulation({ cat }: { cat?: Cat }) {
       </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         Common-shock Monte-Carlo over peril·region zones — a single event hits every policy in its footprint. Mean {cat.mean_reconciles ? 'reconciles to' : 'vs'} the summed expected annual loss ({eur(cat.sum_independent_eal_eur)}); the tail is the accumulation. Correlation assumed, not a fitted vendor cat model.
+      </div>
+    </Card>
+  )
+}
+
+const NACE_SECTION_LABEL: Record<string, string> = {
+  '05': 'Coal mining', '06': 'Oil & gas extraction', '19': 'Refining', '35': 'Power & gas utilities',
+  '24': 'Basic metals (steel)', '23': 'Cement & minerals', '29': 'Motor vehicles', '49': 'Land transport',
+  '51': 'Air transport', '62': 'IT services',
+}
+
+function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: string }) {
+  if (!t || !t.available) return null
+  const tco2e = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}Mt` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}kt` : `${Math.round(n)}t`
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Transition risk · loan book</span>
+        <span className="text-[12px] text-[var(--color-mute)]">the low-carbon shift on your counterparties ({scenarioLabel})</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#8E6FC7' }}>{eur(t.transition_expected_loss_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Transition expected loss · {t.transition_el_pct_of_outstanding}%</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{tco2e(t.financed_emissions_tco2e)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Financed emissions (Scope 1+2)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{t.exposure_weighted_transition_score ?? '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Weighted transition score</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-mute)]">{t.emissions_reported_pct}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Emissions reported{t.n_emissions_estimated ? ` · ${t.n_emissions_estimated} estimated` : ''}</div>
+        </div>
+      </div>
+      {t.by_sector?.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {t.by_sector.slice(0, 4).map(s => (
+            <span key={s.nace_section} className="mono text-[10.5px] px-2 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)]">
+              {NACE_SECTION_LABEL[s.nace_section] || `NACE ${s.nace_section}`} · {eur(s.transition_el_eur)}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        Transition EL = outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers). Financed emissions are counterparty Scope 1+2, reported or NACE-estimated; a rigorous PCAF attribution additionally needs counterparty EVIC (you provide). Disclosed relative tiers, not a fitted PD model.
       </div>
     </Card>
   )
