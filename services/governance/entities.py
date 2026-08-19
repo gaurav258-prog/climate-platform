@@ -134,13 +134,27 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
 
 def ownership_weights(session: Session, org_id: str) -> dict[str, float]:
     """entity_id -> the fraction of its book that consolidates upward, from the ownership path to the root.
-    Full/equity lines weight 1.0 at this level; a proportional line weights ownership_pct/100. (Equity-method
-    nuances beyond scope — treated as full here, flagged in the model, not silently mis-stated.)"""
+
+    - full consolidation (a controlled subsidiary): weight 1.0 — the whole book flows up.
+    - proportional consolidation (a joint operation): weight ownership_pct/100.
+    - equity method (an associate): governed by the `equity_consolidation` interpretation switch —
+      'economic_share' (default) = ownership_pct/100 (the parent's economic climate exposure); 'excluded'
+      = 0.0 (strict IFRS — an associate's assets are not line-by-line consolidated); 'full' = 1.0.
+
+    Previously equity-method lines were treated as full (1.0), which overstates a partly-owned associate."""
+    from services.calc_settings import get_calc_settings
+    equity_mode = get_calc_settings(session, org_id).get("equity_consolidation", "economic_share")
     rows = session.execute(text("""
         SELECT entity_id::text, ownership_pct::float, consolidation_method
         FROM reporting_entities WHERE org_id = :o
     """), {"o": org_id}).all()
     out: dict[str, float] = {}
     for eid, pct, method in rows:
-        out[eid] = (pct / 100.0) if method == "proportional" else 1.0
+        share = (pct or 0.0) / 100.0
+        if method == "proportional":
+            out[eid] = share
+        elif method == "equity":
+            out[eid] = {"economic_share": share, "excluded": 0.0, "full": 1.0}.get(equity_mode, share)
+        else:  # full consolidation (or unset) — the whole book
+            out[eid] = 1.0
     return out

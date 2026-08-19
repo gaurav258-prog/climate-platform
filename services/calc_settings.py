@@ -70,6 +70,14 @@ INTERPRETATION_SCHEMA: dict = {
                        "reference (EU Climate-ADAPT / IPCC AR6 WGII central) / optimistic.",
         "sectors": ["reit"],
     },
+    "equity_consolidation": {
+        "default": "economic_share", "kind": "enum", "allowed": ["economic_share", "excluded", "full"],
+        "label": "Equity-method consolidation treatment",
+        "description": "How an equity-method associate's climate risk consolidates upward. 'economic_share' = "
+                       "the parent's ownership share of the associate's book (the economic-exposure view); "
+                       "'excluded' = not in the consolidated book (strict IFRS — an associate's assets aren't "
+                       "line-by-line consolidated); 'full' = the whole book (only correct for a controlled sub).",
+    },
 }
 
 DEFAULTS = {**_TYPED_DEFAULTS, **{k: v["default"] for k, v in INTERPRETATION_SCHEMA.items()}}
