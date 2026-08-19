@@ -41,14 +41,16 @@ def _git_sha() -> str | None:
         return None
 
 
-def _engine_versions(session: Session) -> dict:
-    """The model/data/code versions in force at freeze — so the exact computation is identifiable."""
+def _engine_versions(session: Session, org_id: str | None = None) -> dict:
+    """The model/data/code versions in force at freeze — so the exact computation is identifiable.
+    Includes the org's resolved INTERPRETATION settings (which regulatory interpretation produced the filing),
+    so a regulator can see, on the frozen record, e.g. that the PML used a 1-in-200 return period."""
     from services.data.feeds import FEEDS, basis_freshness_at
     from services.intelligence.supply_cogs import IMPACT_VERSION, RANGED_PUBLISH_FLOOR
     fit_versions = sorted(v for v in session.execute(
         text("SELECT DISTINCT fit_version FROM sc_commodity_fit WHERE fit_version IS NOT NULL")
     ).scalars().all())
-    return {
+    versions = {
         "impact_version": IMPACT_VERSION,
         "ranged_floor": RANGED_PUBLISH_FLOOR,
         "ranged_gate_metric": "r2_oos",          # gate is out-of-sample r² (audit F2)
@@ -57,6 +59,10 @@ def _engine_versions(session: Session) -> dict:
         "feed_freshness_at_freeze": basis_freshness_at(session),   # audit T4: how current the golden source was
         "code_version": _git_sha(),
     }
+    if org_id is not None:
+        from services.calc_settings import get_calc_settings
+        versions["interpretation_settings"] = get_calc_settings(session, org_id)
+    return versions
 
 # report_type -> (human label, builder, applicable org-type sectors). The builder takes
 # (session, org_id, scenario, horizon, material); FIN builders ignore the extra basis args.
@@ -135,7 +141,7 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
              "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
     payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
                                         entity_ids, value_weights)
-    versions = _engine_versions(session)
+    versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
 
     version = (session.execute(text(
