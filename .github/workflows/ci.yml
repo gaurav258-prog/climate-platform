@@ -57,7 +57,9 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://platform:devpassword@localhost:5433/climate
+      # psycopg v3 driver (postgresql+psycopg://) — matches pyproject/.env; the
+      # bare postgresql:// scheme would route SQLAlchemy to psycopg2, which isn't installed.
+      DATABASE_URL: postgresql+psycopg://platform:devpassword@localhost:5433/climate
 
     steps:
       - uses: actions/checkout@v4
