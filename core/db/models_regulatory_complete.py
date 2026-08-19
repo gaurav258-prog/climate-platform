@@ -469,6 +469,31 @@ class RegulatoryChange(Base):
     details = relationship('RegulatoryChangeDetail', back_populates='change', cascade='all, delete-orphan')
 
 
+class RegulatoryDocumentSnapshot(Base):
+    """Last-seen scraped document per (framework, source) — the baseline change detection diffs against.
+
+    The change detector scrapes each framework's authoritative source (EUR-Lex, SEC, FCA) on a schedule.
+    To tell a genuine change from a re-fetch of the same document, it needs the PREVIOUS observation to
+    compare with: this table holds it. On first sight of a (framework, source) a snapshot is recorded and
+    NO change is raised (we just started watching); on a later run whose content hash differs, the stored
+    text is diffed against the new text and the snapshot is advanced. Never fabricated — a snapshot exists
+    only where a real document was actually fetched."""
+    __tablename__ = 'regulatory_document_snapshots'
+
+    snapshot_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id', ondelete='CASCADE'), nullable=False)
+    source_name = Column(String(60), nullable=False)   # 'EUR-Lex', 'SEC', 'FCA', …
+    title = Column(String(500))
+    url = Column(String(1000))
+    published_date = Column(String(60))                # as reported by the source (free-form)
+    content = Column(Text)                              # the scraped text we diff against
+    content_hash = Column(String(64), nullable=False)  # sha256(title + content) — the change signal
+    scraped_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('framework_id', 'source_name'),)
+
+
 class RegulatoryChangeDetail(Base):
     __tablename__ = 'regulatory_change_details'
 

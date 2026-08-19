@@ -1,4 +1,6 @@
-"""Notification Services (Email, Dashboard, Slack)"""
-from .notification_service import NotificationService
+"""Notification services.
 
-__all__ = ['NotificationService']
+The live email path is `mailer.py` — a durable `email_outbox` queue with SMTP delivery and a
+drain worker (used by the Celery email tasks and the @mention path). Event/webhook push is handled
+by `services.integrations.webhooks`. Import those modules directly.
+"""
