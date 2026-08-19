@@ -23,11 +23,21 @@ interface Dds {
   reference_number?: string | null; reference_captured_at?: string | null
 }
 
+interface Resourcing {
+  available: boolean; reallocation_cap_pct: number; total_current_cogs_at_risk_eur: number
+  total_avoidable_eur: number; avoidable_pct_of_current: number; n_opportunities: number
+  opportunities: { commodity: string; avoidable_eur: number; avoidable_pct: number; shift_spend_eur: number
+    from_origin: string; from_yield_shock_pct: number; to_origin: string; to_yield_shock_pct: number }[]
+  single_origin_commodities: { commodity: string; origin: string }[]
+}
+
 const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
+const eurk = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 export default function Disclosure() {
   const qc = useQueryClient()
   const disc = useQuery({ queryKey: ['disclosure'], queryFn: () => api.get<Disc>('/v1/supply/disclosure') })
+  const rs = useQuery({ queryKey: ['resourcing'], queryFn: () => api.get<Resourcing>('/v1/supply/resourcing') })
   const [dds, setDds] = useState<Dds | null>(null)
 
   const determine = useMutation({
@@ -76,6 +86,9 @@ export default function Disclosure() {
         <Stat big={s.covered_plots ?? 0} label="EUDR-covered plots" />
         <Stat big={s.deforestation_free ?? 0} label="deforestation-free" tone="good" />
       </div>
+
+      {/* re-sourcing / origin substitution — cut COGS-at-risk by shifting to a lower-risk origin you already source */}
+      <ResourcingCard rs={rs.data} />
 
       {/* chart + eudr run */}
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-4">
@@ -252,3 +265,44 @@ function Mini({ n, label, tone }: { n: number; label: string; tone: 'good' | 'ba
 }
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>
 const Empty = ({ children }: { children: React.ReactNode }) => <div className="h-full grid place-items-center text-[var(--color-faint)] text-[12px]">{children}</div>
+
+function ResourcingCard({ rs }: { rs?: Resourcing }) {
+  if (!rs || !rs.available || (rs.n_opportunities === 0 && rs.single_origin_commodities.length === 0)) return null
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <div className="text-[13px] font-semibold">Re-sourcing opportunities</div>
+        <span className="text-[12px] text-[var(--color-mute)]">cut COGS-at-risk by shifting to a lower-risk origin you already source</span>
+        {rs.total_avoidable_eur > 0 && (
+          <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>
+            up to {eurk(rs.total_avoidable_eur)} avoidable ({rs.avoidable_pct_of_current}%) · ≤{rs.reallocation_cap_pct}% reallocation
+          </span>
+        )}
+      </div>
+      {rs.opportunities.length > 0 ? (
+        <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
+          {rs.opportunities.map(o => (
+            <div key={o.commodity} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px]">
+              <span className="font-semibold text-[var(--color-ink)] w-24">{o.commodity}</span>
+              <span className="text-[var(--color-mute)]">
+                shift {eurk(o.shift_spend_eur)} from <b className="text-[var(--color-ink)]">{o.from_origin}</b> ({o.from_yield_shock_pct}% shock) → <b className="text-[var(--color-ink)]">{o.to_origin}</b> ({o.to_yield_shock_pct}%)
+              </span>
+              <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>avoid {eurk(o.avoidable_eur)} ({o.avoidable_pct}%)</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[12.5px] text-[var(--color-mute)] py-2">No in-book reallocation available — the opportunities below need a genuinely new origin.</div>
+      )}
+      {rs.single_origin_commodities.length > 0 && (
+        <div className="mt-3 text-[11.5px] text-[var(--color-faint)]">
+          <span className="mono uppercase tracking-wide text-[10px]">Single-origin — diversification needs a new supplier region:</span>{' '}
+          {rs.single_origin_commodities.map(c => `${c.commodity} (${c.origin})`).join(' · ')}
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        Reallocates a bounded share (≤{rs.reallocation_cap_pct}%) of each commodity's spend from its highest- to its lowest-risk EXISTING origin; avoided COGS-at-risk = shift × the yield-shock gap. Only origins you already source — a single-origin commodity is flagged, never given a fabricated alternative.
+      </div>
+    </Card>
+  )
+}

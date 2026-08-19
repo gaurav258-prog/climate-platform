@@ -93,6 +93,13 @@ def _eudr_summary(session, org_id):
     return {"by_status": d, "covered_commodities": list(covered)}
 
 
+@router.get("/resourcing", summary="Re-sourcing opportunities — cut COGS-at-risk by shifting to a lower-risk origin")
+def resourcing(session: DbSession, org_id: OrgId,
+               scenario: str = Query("baseline"), horizon: str = Query("current")):
+    from services.intelligence.resourcing import resourcing_opportunities
+    return resourcing_opportunities(session, org_id, scenario=scenario, time_horizon=horizon)
+
+
 @router.get("/summary", summary="Procurement book → COGS-at-risk rollup")
 def summary(session: DbSession, org_id: OrgId,
             scenario: str = Query("baseline"), horizon: str = Query("current")):
