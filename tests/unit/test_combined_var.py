@@ -44,3 +44,12 @@ def test_no_scored_positions_is_unavailable():
     assert combined_climate_var([], "o", "s", "h")["available"] is False
     unscored = [{"position_value_eur": 100, "headline_score": None, "headline_bucket": None, "nace_code": "35"}]
     assert combined_climate_var(unscored, "o", "s", "h")["available"] is False
+
+
+def test_dependence_mode_orders_additive_ge_independent_ge_max():
+    book = [_holding(100_000_000, 70, "05.10"), _holding(50_000_000, 60, "35.11")]
+    add = combined_climate_var(book, "o", "disorderly_2c", "2050", dependence="additive")
+    ind = combined_climate_var(book, "o", "disorderly_2c", "2050", dependence="independent")
+    mx = combined_climate_var(book, "o", "disorderly_2c", "2050", dependence="max")
+    assert add["combined_expected_eur"] >= ind["combined_expected_eur"] >= mx["combined_expected_eur"]
+    assert add["dependence"] == "additive"

@@ -118,7 +118,7 @@ def _properties_with_risk(session, org_id, scenario, horizon, severity_model="un
     return [_map_property_row(r) for r in rows]
 
 
-def _rollup(properties):
+def _rollup(properties, adaptation_scenario="reference"):
     total = sum(p["property_value_eur"] or 0 for p in properties)
     total_noi = sum(p["annual_noi_eur"] or 0 for p in properties)
     impacted = [p for p in properties if p["noi_impact"]]
@@ -136,7 +136,7 @@ def _rollup(properties):
         "total_annual_noi_eur": round(total_noi),
         "total_discounted_value_eur": round(total_discounted),
         "expected_value_loss_band": value_loss_band(properties),
-        "resilience_capex": resilience_capex_plan(properties),
+        "resilience_capex": resilience_capex_plan(properties, scenario=adaptation_scenario),
         "total_expected_insurance_premium_eur": round(total_premium),
         "portfolio_noi_impact_pct": round(100 * total_premium / total_noi, 2) if total_noi else 0,
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in by_bucket.items()},
@@ -149,10 +149,11 @@ def _rollup(properties):
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    _st = get_calc_settings(session, org_id)
+    severity_model = _st["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(properties), "properties": properties}
+            "rollup": _rollup(properties, _st["adaptation_scenario"]), "properties": properties}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -167,16 +168,18 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    _st = get_calc_settings(session, org_id)
+    severity_model = _st["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties)}
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties, _st["adaptation_scenario"])}
 
 
 def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     """The single source of truth for a REIT TCFD / EU-Taxonomy physical-risk disclosure — live callers
     (GET /disclosure) and frozen callers (filing snapshots) both go through this so the numbers can't drift.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    _st = get_calc_settings(session, org_id)
+    severity_model = _st["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model,
                                        entity_ids=entity_ids, value_weights=value_weights)
     hazards: dict = {}
@@ -197,7 +200,7 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
         tax[p["taxonomy_status"]]["count"] += 1
         tax[p["taxonomy_status"]]["value_eur"] += p["property_value_eur"] or 0
     return {
-        "rollup": _rollup(properties), "properties": properties,
+        "rollup": _rollup(properties, _st["adaptation_scenario"]), "properties": properties,
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
     }
@@ -249,7 +252,8 @@ def property_detail(property_id: str, session: DbSession):
     org_id = get_entity_org(session, property_id)
     if not org_id:
         return {"error": "property not found"}
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    _st = get_calc_settings(session, org_id)
+    severity_model = _st["severity_model"]
     row = get_entity_with_risk(session, property_id, "baseline", "current", severity_model,
                                 ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
                                 extra_calc=_realestate_extra)
@@ -413,7 +417,8 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
 @router.get("/portfolio.xlsx", summary="Portfolio & NOI impact book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    severity_model = get_calc_settings(session, org_id)["severity_model"]
+    _st = get_calc_settings(session, org_id)
+    severity_model = _st["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model)
     headers = ["property_name", "property_type", "region", "country", "property_value_eur", "annual_noi_eur",
                "headline_hazard", "headline_score", "risk_bucket", "discounted_value_eur",

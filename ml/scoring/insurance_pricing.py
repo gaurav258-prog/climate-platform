@@ -103,7 +103,8 @@ def mean_damage_ratio(risk_score: float, hazard: str | None = None, attrs: dict 
 
 def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: float = 0.0,
                   hazard: str | None = None, return_period_model: str = "fixed",
-                  attrs: dict | None = None) -> dict:
+                  attrs: dict | None = None, expense_ratio: float = EXPENSE_RATIO,
+                  profit_margin: float = PROFIT_MARGIN) -> dict:
     """Returns {mdr, scenario_loss_eur, retained_loss_eur, net_scenario_loss_eur,
     annual_occurrence_prob, expected_annual_loss_eur, pure_premium_eur,
     gross_premium_eur, rate_on_line_pct, risk_bucket} — the full "score ->
@@ -127,7 +128,10 @@ def price_policy(risk_score: float, sum_insured_eur: float, deductible_pct: floa
         return_period = RETURN_PERIOD_YEARS.get(bucket, RETURN_PERIOD_YEARS["L"])
     annual_prob = 1.0 / return_period
     eal = net_scenario_loss * annual_prob
-    gross_premium = eal / (1.0 - EXPENSE_RATIO - PROFIT_MARGIN)
+    # loadings are institution interpretation switches (services/calc_settings.py); guard against a
+    # degenerate 100% load. Default reproduces the shipped 0.25 / 0.05.
+    loaded = max(0.05, 1.0 - (expense_ratio or 0.0) - (profit_margin or 0.0))
+    gross_premium = eal / loaded
     return {
         "mdr": round(mdr, 4),
         "scenario_loss_eur": round(scenario_loss, 2),

@@ -35,8 +35,14 @@ _DEFAULT_EFFECTIVENESS = 0.30
 # reference tiers (property-resilience literature ranges), disclosed like the damage-schedule tiers.
 RESILIENCE_CAPEX_PCT = {"VH": 4.0, "H": 2.5, "M": 1.0, "L": 0.3}
 
+# The adaptation-effectiveness scenario is an institution interpretation switch: how much of the modelled
+# physical loss a retrofit is assumed to avoid, relative to the reference (EU Climate-ADAPT / IPCC AR6 WGII
+# central) case. Effectiveness is capped at 0.85 so even 'optimistic' never claims a full elimination of loss.
+_SCENARIO_FACTOR = {"conservative": 0.7, "reference": 1.0, "optimistic": 1.3}
+_EFFECTIVENESS_CAP = 0.85
 
-def _property_resilience(prop: dict, severity_model: str) -> dict | None:
+
+def _property_resilience(prop: dict, severity_model: str, scenario: str = "reference") -> dict | None:
     value = prop.get("property_value_eur") or prop.get("value_eur") or 0
     score = prop.get("headline_score")
     bucket = prop.get("headline_bucket")
@@ -48,7 +54,8 @@ def _property_resilience(prop: dict, severity_model: str) -> dict | None:
     sm = (prop.get("valuation") or {}).get("severity_model") or severity_model
     haircut = collateral_haircut_pct(score, bucket, hazard, sm, attrs) / 100.0
     physical_loss = value * haircut
-    effectiveness = ADAPTATION_EFFECTIVENESS.get(hazard, _DEFAULT_EFFECTIVENESS)
+    effectiveness = min(_EFFECTIVENESS_CAP,
+                        ADAPTATION_EFFECTIVENESS.get(hazard, _DEFAULT_EFFECTIVENESS) * _SCENARIO_FACTOR.get(scenario, 1.0))
     avoided = physical_loss * effectiveness
     capex = value * RESILIENCE_CAPEX_PCT.get(bucket, 0.3) / 100.0
     bcr = round(avoided / capex, 2) if capex else None
@@ -65,10 +72,12 @@ def _property_resilience(prop: dict, severity_model: str) -> dict | None:
     }
 
 
-def resilience_capex_plan(properties: list[dict], severity_model: str = "universal") -> dict:
-    """properties: the REIT property book. Returns the portfolio adaptation plan — total resilience capex,
+def resilience_capex_plan(properties: list[dict], severity_model: str = "universal",
+                          scenario: str = "reference") -> dict:
+    """properties: the REIT property book. scenario: the adaptation-effectiveness interpretation switch
+    (conservative | reference | optimistic). Returns the portfolio adaptation plan — total resilience capex,
     avoided loss, benefit-cost ratio, EU-Taxonomy adaptation-aligned capex, and the per-property detail."""
-    rows = [r for r in (_property_resilience(p, severity_model) for p in properties) if r]
+    rows = [r for r in (_property_resilience(p, severity_model, scenario) for p in properties) if r]
     if not rows:
         return {"available": False, "reason": "no_scored_properties"}
 
@@ -89,6 +98,7 @@ def resilience_capex_plan(properties: list[dict], severity_model: str = "univers
     rows.sort(key=lambda r: -(r["benefit_cost_ratio"] or 0))
     return {
         "available": True,
+        "adaptation_scenario": scenario,
         "n_properties": len(rows),
         "total_resilience_capex_eur": round(total_capex),
         "total_avoided_loss_eur": round(total_avoided),

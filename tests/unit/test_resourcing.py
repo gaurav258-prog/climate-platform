@@ -41,3 +41,12 @@ def test_reallocation_is_capped_not_the_whole_book():
 
 def test_empty_is_none():
     assert evaluate_commodity("X", [])["kind"] == "none"
+
+
+def test_reallocation_cap_is_configurable():
+    origins = [_o("GH", 20.0, 50_000_000), _o("CI", 10.0, 50_000_000)]
+    at30 = evaluate_commodity("Cocoa", origins, cap=0.30)
+    at60 = evaluate_commodity("Cocoa", origins, cap=0.60)
+    # a higher cap shifts more spend → avoids more (bounded by the worst origin's spend)
+    assert at60["shift_spend_eur"] > at30["shift_spend_eur"]
+    assert at60["avoidable_eur"] > at30["avoidable_eur"]

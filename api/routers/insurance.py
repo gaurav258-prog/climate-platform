@@ -75,7 +75,7 @@ EXT_INSURANCE_COLUMNS = [
 ]
 
 
-def _insurance_extra(trigger_by_policy, return_period_model):
+def _insurance_extra(trigger_by_policy, return_period_model, expense_ratio=None, profit_margin=None):
     """extra_calc hook: layers insurance's own pricing/trigger calc on top of the
     shared fetch/join/headline logic (real estate's NOI impact is the same
     pattern). hz is the FULL unfiltered hazard list (heat_acute included) --
@@ -87,9 +87,10 @@ def _insurance_extra(trigger_by_policy, return_period_model):
         # 2020 reinforced-concrete one at the same score price differently (matches the collateral path).
         attrs = {"construction_type": row.get("construction_type"), "year_built": row.get("year_built"),
                  "number_of_stories": row.get("number_of_stories")}
+        _pk = {} if expense_ratio is None else {"expense_ratio": expense_ratio, "profit_margin": profit_margin}
         pricing = price_policy(headline["score"], row["primary_value_eur"], row.get("deductible_pct") or 0.0,
                                 hazard=headline["hazard"], return_period_model=return_period_model,
-                                attrs=attrs) if headline else None
+                                attrs=attrs, **_pk) if headline else None
         cfg = trigger_by_policy.get(row["entity_id"])
         trigger = None
         if cfg:
@@ -119,7 +120,7 @@ def _map_policy_row(row):
 
 
 def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed",
-                        entity_ids=None, value_weights=None):
+                        entity_ids=None, value_weights=None, expense_ratio=None, profit_margin=None):
     """All of an org's policies (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)
     -- the fetch/join/headline logic itself lives there, shared with banking,
@@ -136,12 +137,13 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
 
     rows = fetch_entities_with_risk(session, org_id, "insurance", scenario, horizon,
                                      ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
-                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model),
+                                     extra_calc=_insurance_extra(trigger_by_policy, return_period_model,
+                                                                 expense_ratio, profit_margin),
                                      entity_ids=entity_ids, value_weights=value_weights)
     return [_map_policy_row(r) for r in rows]
 
 
-def _rollup(policies, org_id=None, scenario=None, horizon=None):
+def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_period=250):
     total = sum(p["sum_insured_eur"] or 0 for p in policies)
     priced = [p for p in policies if p["pricing"]]
     total_eal = sum(p["pricing"]["expected_annual_loss_eur"] for p in priced)
@@ -163,7 +165,8 @@ def _rollup(policies, org_id=None, scenario=None, horizon=None):
         "by_bucket": {k: {"count": v["count"], "sum_insured_eur": round(v["sum_insured_eur"]),
                            "eal_eur": round(v["eal_eur"])} for k, v in by_bucket.items()},
         # Portfolio catastrophe accumulation — AEP/OEP exceedance & PML (the tail the summed EALs hide).
-        "catastrophe": (catastrophe_accumulation(policies, org_id, scenario, horizon)
+        "catastrophe": (catastrophe_accumulation(policies, org_id, scenario, horizon,
+                                                 pml_return_period=pml_return_period)
                         if org_id and scenario and horizon else None),
         "top_policies": sorted(
             [p for p in policies if p["headline_score"] is not None],
@@ -175,9 +178,11 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
     loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
     policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
-                                   entity_ids=entity_ids, value_weights=value_weights)
+                                   entity_ids=entity_ids, value_weights=value_weights,
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     hazards: dict = {}
     for p in policies:
         for hz in p["hazards"]:
@@ -191,16 +196,18 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     for h in hazards.values():
         h["exposed_value_eur"] = round(h["exposed_value_eur"])
         h["max_score"] = round(h["max_score"], 1)
-    return {"rollup": _rollup(policies, org_id, scenario, horizon), "policies": policies, "by_hazard": hazards}
+    return {"rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies, "by_hazard": hazards}
 
 
 @router.get("/portfolio", summary="Property book projected onto the golden source")
 def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": _rollup(policies, org_id, scenario, horizon), "policies": policies}
+            "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -215,9 +222,11 @@ def summary(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
-    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies, org_id, scenario, horizon)}
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])}
 
 
 @router.get("/triggers", summary="Parametric trigger monitoring — live payout status across the book")
@@ -230,8 +239,10 @@ def triggers(session: DbSession, org_id: OrgId,
     org = session.execute(text(
         "SELECT name, type, country FROM organizations WHERE org_id = :o"
     ), {"o": org_id}).mappings().first()
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     configured = [p for p in policies if p["trigger"]]
     triggered_now = [p for p in configured if p["trigger"]["is_triggered"]]
     return {
@@ -255,7 +266,8 @@ def policy_detail(policy_id: str, session: DbSession):
     org_id = get_entity_org(session, policy_id)
     if not org_id:
         return {"error": "policy not found"}
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
     trigger_row = session.execute(text("""
         SELECT policy_id::text AS policy_id, hazard_type, CAST(attachment_score AS FLOAT) AS attachment_score,
                CAST(exhaustion_score AS FLOAT) AS exhaustion_score, updated_by::text AS updated_by, updated_at
@@ -457,8 +469,10 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
 @router.get("/portfolio.xlsx", summary="Loss-curve pricing book (Excel)")
 def portfolio_xlsx(session: DbSession, org_id: OrgId,
                     scenario: str = Query("baseline"), horizon: str = Query("current")):
-    return_period_model = get_calc_settings(session, org_id)["insurance_return_period_model"]
-    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model)
+    _st = get_calc_settings(session, org_id)
+    return_period_model = _st["insurance_return_period_model"]
+    policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     headers = ["policy_name", "region", "country", "sum_insured_eur", "construction_type", "year_built",
                "headline_hazard", "headline_score", "risk_bucket", "mdr", "scenario_loss_eur",
                "expected_annual_loss_eur", "gross_premium_eur", "rate_on_line_pct"]
