@@ -50,6 +50,8 @@ api = [
     # Regulatory-source scrapers (change-detection subsystem): HTTP + HTML parsing
     "requests>=2.31",
     "beautifulsoup4>=4.12",
+    # Prior-filings PDF parsing (decompose past filings to template cells)
+    "pdfplumber>=0.11",
     # Background workers — Celery task queue + Redis broker/result backend
     "celery>=5.3",
     "redis>=5.0",

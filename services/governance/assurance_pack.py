@@ -53,6 +53,113 @@ entity's other tools and combined into the wider CSRD statement. See the disclos
 """
 
 
+# ── Data-lineage graph (self-contained HTML) ────────────────────────────────────────────────────────────────
+_FEED_SOURCE = {
+    "climate_reanalysis": "Copernicus / ECMWF ERA5", "fire_thermal": "NASA FIRMS", "storms_ocean": "NOAA / IBTrACS",
+    "deforestation": "Hansen Global Forest Change", "flood": "JRC GloFAS / ERA5 runoff", "geophysical": "USGS",
+    "natura2000": "EEA Natura 2000", "wdpa": "WDPA (IBAT)", "osm_protected": "OpenStreetMap", "kba": "KBA",
+    "reference_lei": "GLEIF", "reference_assets": "Asset register", "imagery": "Sentinel-2", "atmosphere": "CAMS",
+    "wdoecm": "WD-OECM",
+}
+_MATURITY_TONE = {"live": "#137a4b", "on_demand": "#1f6fb0", "proxy": "#b5731a", "partial": "#b5731a",
+                  "estimated": "#b5731a", "planned": "#8896a8", "untracked": "#8896a8", "overdue": "#c2410c",
+                  "fresh": "#137a4b"}
+
+
+def _pill(text: str, tone: str) -> str:
+    return (f"<span style='display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;"
+            f"background:{tone}1a;color:{tone};font-weight:600'>{text}</span>")
+
+
+def _lineage_html(entity: str, snap: dict, basis: dict, ev: dict) -> str:
+    """A self-contained data-lineage graph: authoritative feeds → golden source → engine → frozen snapshot →
+    filing. Built entirely from the snapshot's own engine_versions/basis — no external assets, no dependency."""
+    maturity = (ev.get("feed_maturity") or {})
+    freshness = (ev.get("feed_freshness_at_freeze") or {})
+    feed_rows = ""
+    for feed in sorted(maturity):
+        src = _FEED_SOURCE.get(feed, feed)
+        m = maturity.get(feed, "—")
+        fr = freshness.get(feed)
+        feed_rows += (f"<tr><td>{src}</td><td style='color:#5a6b80'>{feed}</td>"
+                      f"<td>{_pill(m, _MATURITY_TONE.get(m, '#5a6b80'))}</td>"
+                      f"<td>{_pill(fr, _MATURITY_TONE.get(fr, '#8896a8')) if fr else '—'}</td></tr>")
+    verified = "hash verified ✓" if snap.get("hash_verified") else "hash not verified"
+    stages = [
+        ("Authoritative feeds", "Copernicus/ECMWF · NASA · USGS · NOAA · GLEIF — direct satellite &amp; agency data"),
+        ("Golden source (H3)", "Each site/plot geolocated to a ~0.7&nbsp;km² H3 cell; append-only per-cell scores"),
+        ("Engine", f"impact {ev.get('impact_version','—')} · fits {', '.join(ev.get('fit_versions') or []) or '—'} · "
+                   f"code {ev.get('code_version','—')} · r² floor {ev.get('ranged_floor','—')}"),
+        ("Frozen snapshot", f"{snap['report_type']} v{snap['version']} · sha256 {(snap.get('payload_sha256') or '')[:16]}… · {verified}"),
+        ("Filing", f"{snap['report_type']} · basis {basis.get('scenario')}/{basis.get('horizon')} · period {basis.get('reporting_period_end')}"),
+    ]
+    chain = ""
+    for i, (name, desc) in enumerate(stages):
+        arrow = "<div style='color:#9fb0c4;font-size:20px;align-self:center'>&#8595;</div>" if i else ""
+        chain += (arrow + f"<div style='border:1px solid #d5e3f2;border-left:4px solid #2f6fb0;border-radius:9px;"
+                  f"padding:11px 15px;background:#f7fafd'><div style='font-weight:700;font-size:13.5px;color:#12314f'>"
+                  f"{name}</div><div style='font-size:12px;color:#4a5b70;margin-top:2px'>{desc}</div></div>")
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Data lineage — {entity}</title>
+<style>body{{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#12202f;max-width:760px;margin:40px auto;padding:0 26px;line-height:1.5}}
+h1{{font-size:23px;margin:0 0 2px}}.sub{{color:#5a6b80;margin:0 0 22px;font-size:14.5px}}
+.chain{{display:flex;flex-direction:column;gap:8px;margin:18px 0 30px}}
+table{{width:100%;border-collapse:collapse;font-size:12px}}th,td{{padding:6px 9px;border-bottom:1px solid #eef1f6;text-align:left}}
+th{{color:#6a7a90;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}}
+.foot{{color:#8896a8;font-size:11px;margin-top:24px}}</style></head><body>
+<h1>Data lineage</h1><p class="sub">{entity} · {snap['report_type']} v{snap['version']} — source to filing</p>
+<div class="chain">{chain}</div>
+<h3 style="font-size:14px;margin:0 0 4px">Feed provenance &amp; freshness at freeze</h3>
+<table><thead><tr><th>Authoritative source</th><th>Feed</th><th>Maturity</th><th>Freshness at freeze</th></tr></thead>
+<tbody>{feed_rows or '<tr><td colspan=4 style="color:#8896a8">No feed maturity recorded on this snapshot.</td></tr>'}</tbody></table>
+<p class="foot">Every stage is recorded on the frozen snapshot itself (engine_versions); this graph reads that record, it does not re-derive it. Maturity: live &lt; on-demand &lt; proxy/partial/estimated &lt; planned.</p>
+</body></html>"""
+
+
+# ── Minimal dependency-free PDF (single page, Helvetica) ─────────────────────────────────────────────────────
+def _pdf_escape(s: str) -> str:
+    return s.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+
+
+def _render_cover_pdf(title: str, lines: list[tuple[str, str]]) -> bytes:
+    """Render a one-page A4 cover PDF from (text, kind) lines — kind ∈ {title, head, normal, mono}. A tiny,
+    correct PDF/1.4 writer (catalog → pages → page → 2 fonts → content stream) so the pack ships a real .pdf
+    the assurer can drop into working papers, with no third-party PDF dependency."""
+    H = 842
+    x, y = 56, H - 64
+    style = {"title": ("F2", 18, 26), "head": ("F2", 11, 20), "normal": ("F1", 9.5, 15), "mono": ("F3", 9, 14)}
+    parts = ["BT"]
+    for line_text, kind in [(title, "title"), *lines]:
+        font, size, gap = style.get(kind, style["normal"])
+        y -= gap
+        parts += [f"/{font} {size} Tf", f"1 0 0 1 {x} {y:.0f} Tm", f"({_pdf_escape(line_text)}) Tj"]
+    parts.append("ET")
+    content = ("\n".join(parts)).encode("latin-1", "replace")
+
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+        b"/Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>",
+        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream",
+    ]
+    buf = b"%PDF-1.4\n"
+    offsets = []
+    for i, body in enumerate(objs, start=1):
+        offsets.append(len(buf))
+        buf += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_at = len(buf)
+    buf += f"xref\n0 {len(objs) + 1}\n".encode()
+    buf += b"0000000000 65535 f \n"
+    for off in offsets:
+        buf += f"{off:010d} 00000 n \n".encode()
+    buf += (f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF").encode()
+    return buf
+
+
 def build_assurance_pack(session: Session, org_id: str, snapshot_id: str) -> tuple[str, bytes] | None:
     """Return (filename, zip_bytes) for the assurance pack around a snapshot, or None if not found."""
     snap = get_snapshot(session, org_id, snapshot_id)
@@ -166,6 +273,32 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
     cover_blob = cover_html.encode("utf-8")
     manifest_files.insert(0, {"file": "cover.html", "sha256": hashlib.sha256(cover_blob).hexdigest(), "bytes": len(cover_blob)})
 
+    # data-lineage graph — the source→filing chain + feed provenance, self-contained HTML
+    lineage_blob = _lineage_html(entity, snap, basis, snap.get("engine_versions") or {}).encode("utf-8")
+    manifest_files.insert(1, {"file": "lineage.html", "sha256": hashlib.sha256(lineage_blob).hexdigest(), "bytes": len(lineage_blob)})
+
+    # rendered PDF cover — a real one-page .pdf (no print-to-PDF step), dependency-free writer
+    _pdf_lines: list[tuple[str, str]] = [
+        (f"{entity}  ·  {snap['report_type']} v{snap['version']}", "head"),
+        ("", "normal"),
+        (f"Reporting basis: scenario {basis.get('scenario')} · horizon {basis.get('horizon')}", "normal"),
+        (f"Materiality {basis.get('materiality_threshold')} · period {basis.get('reporting_period_end')}", "normal"),
+        (f"Pack generated {generated} (UTC)", "normal"),
+        ("", "normal"),
+        ("Frozen payload hash (SHA-256):", "head"),
+        ((snap.get("payload_sha256") or "—"), "mono"),
+        (verified, "normal"),
+        ("", "normal"),
+        ("Honesty gate", "head"),
+        ("A euro is a firm figure only where the hazard->yield/asset chain clears", "normal"),
+        ("r2 >= 0.40; otherwise exposure is mapped and the euro withheld. The r2", "normal"),
+        ("floor is a fixed constant, not a per-filing setting.", "normal"),
+        ("", "normal"),
+        ("Contents (each artifact hashed for tamper-evidence):", "head"),
+    ] + [(f"- {f['file']}  ({f['bytes']:,} bytes)", "mono") for f in manifest_files]
+    cover_pdf_blob = _render_cover_pdf("Assurance evidence pack", _pdf_lines)
+    manifest_files.insert(2, {"file": "cover.pdf", "sha256": hashlib.sha256(cover_pdf_blob).hexdigest(), "bytes": len(cover_pdf_blob)})
+
     manifest = {
         "pack": "Tellumen assurance evidence pack",
         "entity": entity, "org_id": org_id,
@@ -182,7 +315,9 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("cover.pdf", cover_pdf_blob)
         z.writestr("cover.html", cover_blob)
+        z.writestr("lineage.html", lineage_blob)
         z.writestr("manifest.json", manifest_blob)
         z.writestr("methodology.md", method_blob)
         for name, blob in blobs.items():
