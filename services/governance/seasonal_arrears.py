@@ -103,7 +103,8 @@ def assessment(session: Session, org_id: str, as_of_month: Optional[int] = None)
         is_seasonal = bool(win) and (month in win) and dpd <= SEASONAL_MAX_DPD
         exp = r["exposure_eur"] or 0
         if is_seasonal:
-            seasonal_eur += exp; seasonal_n += 1
+            seasonal_eur += exp
+            seasonal_n += 1
             reason = f"{r['crop']} carry-over — month {month} in harvest window, {dpd}d ≤ {SEASONAL_MAX_DPD}d cap"
         else:
             genuine_eur += exp

@@ -80,10 +80,18 @@ def patch_view(view_id: str, body: ViewPatch, session: DbSession,
     if not owned:
         raise HTTPException(404, {"error": "not_found", "message": "View not found, or not yours to edit."})
     sets, p = [], {"v": view_id}
-    if body.name is not None:      sets.append("name = :n");                 p["n"] = body.name.strip()
-    if body.config is not None:    sets.append("config = CAST(:c AS jsonb)"); p["c"] = json.dumps(body.config)
-    if body.is_shared is not None: sets.append("is_shared = :sh");           p["sh"] = body.is_shared
-    if body.is_pinned is not None: sets.append("is_pinned = :pin");          p["pin"] = body.is_pinned
+    if body.name is not None:
+        sets.append("name = :n")
+        p["n"] = body.name.strip()
+    if body.config is not None:
+        sets.append("config = CAST(:c AS jsonb)")
+        p["c"] = json.dumps(body.config)
+    if body.is_shared is not None:
+        sets.append("is_shared = :sh")
+        p["sh"] = body.is_shared
+    if body.is_pinned is not None:
+        sets.append("is_pinned = :pin")
+        p["pin"] = body.is_pinned
     if sets:
         sets.append("updated_at = now()")
         session.execute(text(f"UPDATE analytics_saved_view SET {', '.join(sets)} WHERE view_id = CAST(:v AS uuid)"), p)
