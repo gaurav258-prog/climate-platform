@@ -37,6 +37,7 @@ interface Asset {
 type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
 interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
+interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -223,6 +224,9 @@ export default function Portfolio() {
           interval propagated through the same haircut (bank & REIT; nothing invented). */}
       <ValueLossBand band={r?.expected_value_loss_band as LossBand | undefined} />
 
+      {/* catastrophe accumulation — the correlated tail (AEP/OEP/PML) the summed EALs hide (insurer). */}
+      <CatAccumulation cat={r?.catastrophe as Cat | undefined} />
+
       {view === 'forward' ? (
         <div className="space-y-6">
           {/* ties the forward view back to what you actually filed (renders only if prior filings exist) */}
@@ -397,6 +401,41 @@ function ValueLossBand({ band }: { band?: LossBand }) {
         {band.ci_coverage_pct}% of at-risk value has a confidence interval
       </span>
     </div>
+  )
+}
+
+function CatAccumulation({ cat }: { cat?: Cat }) {
+  if (!cat || !cat.available) return null
+  const rp = (m: Record<string, number>, k: string) => eur(m[k])
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Catastrophe accumulation</span>
+        <span className="text-[12px] text-[var(--color-mute)]">the correlated tail your summed expected losses hide</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{cat.n_zones} peril·region zones</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{eur(cat.pml_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">PML · 1-in-{cat.pml_return_period} single event</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{rp(cat.aep_eur, 'rp_100')}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">1-in-100 year (aggregate)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{rp(cat.aep_eur, 'rp_250')}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">1-in-250 year (aggregate)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-mute)]">{eur(cat.mean_annual_loss_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">mean annual loss{cat.tail_to_mean_multiple ? ` · tail ${cat.tail_to_mean_multiple}×` : ''}</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        Common-shock Monte-Carlo over peril·region zones — a single event hits every policy in its footprint. Mean {cat.mean_reconciles ? 'reconciles to' : 'vs'} the summed expected annual loss ({eur(cat.sum_independent_eal_eur)}); the tail is the accumulation. Correlation assumed, not a fitted vendor cat model.
+      </div>
+    </Card>
   )
 }
 
