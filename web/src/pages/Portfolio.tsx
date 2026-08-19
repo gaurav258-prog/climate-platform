@@ -40,6 +40,7 @@ interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss
 interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
 interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
+interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -234,6 +235,9 @@ export default function Portfolio() {
 
       {/* combined physical + transition climate VaR — one loss distribution over both drivers (asset mgmt). */}
       <CombinedVarCard c={r?.combined_climate_var as CombinedVar | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
+
+      {/* resilience & adaptation capex — spend vs avoided loss + Taxonomy-aligned capex (REIT). */}
+      <ResilienceCard rc={r?.resilience_capex as Resilience | undefined} />
 
       {view === 'forward' ? (
         <div className="space-y-6">
@@ -525,6 +529,54 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
       </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         One Monte-Carlo per holding over both drivers — physical (continuous haircut, sampled around the per-cell confidence interval) and transition (sector stranded-asset fraction under the scenario's NGFS carbon price). Combined as 1−(1−physical)(1−transition), so a holding is never lost twice. Disclosed relative tiers, not a fitted model.
+      </div>
+    </Card>
+  )
+}
+
+const HAZARD_LABEL: Record<string, string> = {
+  flood: 'Flooding', coastal_flood: 'Coastal flood', storm: 'Storms', wildfire: 'Wildfire', seismic: 'Earthquake',
+  heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
+}
+
+function ResilienceCard({ rc }: { rc?: Resilience }) {
+  if (!rc || !rc.available) return null
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Resilience &amp; adaptation capex</span>
+        <span className="text-[12px] text-[var(--color-mute)]">what to spend, what loss it avoids</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{rc.n_worth_retrofit}/{rc.n_properties} properties worth retrofitting</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(rc.total_resilience_capex_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Resilience capex</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: 'var(--color-good)' }}>{eur(rc.total_avoided_loss_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Loss avoided</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: rc.portfolio_benefit_cost_ratio && rc.portfolio_benefit_cost_ratio >= 1 ? 'var(--color-good)' : 'var(--color-ink)' }}>{rc.portfolio_benefit_cost_ratio ?? '—'}×</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Benefit-cost ratio</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(rc.taxonomy_adaptation_aligned_capex_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Taxonomy adaptation capex</div>
+        </div>
+      </div>
+      {rc.by_hazard?.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {rc.by_hazard.slice(0, 4).map(h => (
+            <span key={h.hazard} className="mono text-[10.5px] px-2 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)]">
+              {HAZARD_LABEL[h.hazard] || h.hazard} · spend {eur(h.resilience_capex_eur)} → avoid {eur(h.avoided_loss_eur)}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        Avoided loss = modelled physical loss × a disclosed per-hazard adaptation effectiveness (EU Climate-ADAPT / IPCC AR6 WGII ranges); capex = a disclosed reference fraction of value by severity. Disclosed relative tiers, not a per-property quote. The retrofit is EU-Taxonomy climate-adaptation-aligned capex (Objective 2).
       </div>
     </Card>
   )
