@@ -15,12 +15,15 @@ dependencies = [
     # Database
     "sqlalchemy>=2.0",
     "alembic>=1.13",
-    "psycopg2-binary>=2.9",
+    "psycopg[binary]>=3.1",  # psycopg3 — matches requirements.txt + .env (postgresql+psycopg://)
     # Core numerics
     "numpy>=1.26",
     "pandas>=2.2",
     # H3 geospatial indexing
     "h3>=4.0",
+    # Plot geometry — EUDR polygon boundaries: GeoJSON parse + geodesic area (no PostGIS)
+    "shapely>=2.0",
+    "pyproj>=3.6",
     # Config
     "python-dotenv>=1.0",
     "pydantic-settings>=2.2",
@@ -37,6 +40,16 @@ api = [
     "lightgbm>=4.0",
     "scikit-learn>=1.4",
     "mlflow>=2.11",
+    # Auth — user login (bcrypt) + JWT session tokens
+    "bcrypt>=4.1",
+    "PyJWT>=2.8",
+    # Excel upload parsing (loan tapes / SOV / filing workbooks) + validated uploads
+    "openpyxl>=3.1",
+    # Multipart form parsing — required by FastAPI for the file-upload endpoints
+    "python-multipart>=0.0.9",
+    # Background workers — Celery task queue + Redis broker/result backend
+    "celery>=5.3",
+    "redis>=5.0",
 ]
 # Satellite ingestion workers — needs GDAL, HDF5, NetCDF
 ingest = [
@@ -46,6 +59,10 @@ ingest = [
     "cdsapi>=0.7",
     "netCDF4>=1.6",
     "httpx>=0.27",
+    # raw CMIP6 delta-change projections (Pangeo zarr archive on Google Cloud)
+    "gcsfs>=2024.2",
+    "zarr>=2.17",
+    "fsspec>=2024.2",
 ]
 # ML training — everything above + SHAP
 train = [
@@ -76,3 +93,25 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
+# The gate enforces the rules that catch real problems — undefined names,
+# unused/duplicate imports, import ordering and placement, bare excepts,
+# ambiguous names — across pycodestyle (E/W), Pyflakes (F) and isort (I).
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",         # line length — long, aligned SQL/reg-template strings read better whole
+    "E701", "E702", # compound statements — the codebase's deliberate SQL-builder idiom
+                    #   (`sets.append(...); params[k] = v`), used consistently throughout
+]
+
+[tool.ruff.lint.per-file-ignores]
+# E402 (import-not-at-top) is expected where imports deliberately follow setup:
+#   - one-off scripts set sys.path before importing the package
+#   - Alembic's env.py imports after reading config
+#   - the API entrypoint imports optional routers after the app is constructed
+#   - a couple of tests import after a skip/availability guard
+"scripts/*" = ["E402"]
+"core/db/migrations/env.py" = ["E402"]
+"api/main.py" = ["E402"]
+"tests/*" = ["E402"]

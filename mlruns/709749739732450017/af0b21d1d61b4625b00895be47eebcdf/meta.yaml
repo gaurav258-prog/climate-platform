@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/gauravsachdeva/Downloads/climate-platform/mlruns/709749739732450017/af0b21d1d61b4625b00895be47eebcdf/artifacts
+end_time: 1782562262567
+entry_point_name: ''
+experiment_id: '709749739732450017'
+lifecycle_stage: active
+run_id: af0b21d1d61b4625b00895be47eebcdf
+run_name: wildfire-v202606271210
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1782562253666
+status: 3
+tags: []
+user_id: gauravsachdeva

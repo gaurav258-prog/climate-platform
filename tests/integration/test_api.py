@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
+from core.config import settings
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -21,12 +22,24 @@ client = TestClient(app, raise_server_exceptions=False)
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 CUSTOMER_ID = str(uuid.uuid4())
+# Anonymous key minting is gated behind KEY_BOOTSTRAP_SECRET (a deliberate
+# production-safe default). Enable it for the test session and present the secret.
+_BOOT_SECRET = "test-bootstrap-secret"
+BOOT_HEADERS = {"X-Bootstrap-Secret": _BOOT_SECRET}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _enable_bootstrap():
+    prev = settings.KEY_BOOTSTRAP_SECRET
+    settings.KEY_BOOTSTRAP_SECRET = _BOOT_SECRET
+    yield
+    settings.KEY_BOOTSTRAP_SECRET = prev
 
 
 @pytest.fixture(scope="module")
 def api_key() -> str:
     """Bootstrap a real API key for CUSTOMER_ID — used by all auth'd tests."""
-    resp = client.post("/v1/auth/keys", json={
+    resp = client.post("/v1/auth/keys", headers=BOOT_HEADERS, json={
         "name":        "test-key",
         "customer_id": CUSTOMER_ID,
     })
@@ -54,7 +67,7 @@ def test_health():
 class TestAuth:
     def test_bootstrap_creates_key(self):
         cust = str(uuid.uuid4())
-        resp = client.post("/v1/auth/keys", json={"name": "k1", "customer_id": cust})
+        resp = client.post("/v1/auth/keys", headers=BOOT_HEADERS, json={"name": "k1", "customer_id": cust})
         assert resp.status_code == 201
         data = resp.json()
         assert data["raw_key"].startswith("cp_live_")
@@ -63,11 +76,11 @@ class TestAuth:
         assert "raw_key" in data
 
     def test_bootstrap_missing_customer_id_returns_422(self):
-        resp = client.post("/v1/auth/keys", json={"name": "k"})
+        resp = client.post("/v1/auth/keys", headers=BOOT_HEADERS, json={"name": "k"})
         assert resp.status_code == 422
 
     def test_bootstrap_invalid_customer_id_returns_422(self):
-        resp = client.post("/v1/auth/keys", json={
+        resp = client.post("/v1/auth/keys", headers=BOOT_HEADERS, json={
             "name": "k", "customer_id": "not-a-uuid"
         })
         assert resp.status_code == 422
@@ -87,7 +100,7 @@ class TestAuth:
 
     def test_revoke_key(self):
         cust = str(uuid.uuid4())
-        create = client.post("/v1/auth/keys", json={"name": "temp", "customer_id": cust})
+        create = client.post("/v1/auth/keys", headers=BOOT_HEADERS, json={"name": "temp", "customer_id": cust})
         raw    = create.json()["raw_key"]
         key_id = create.json()["key_id"]
 
@@ -293,7 +306,10 @@ class TestPackages:
                               headers=auth,
                               json={"checker_user_id": "alice-01"})
         assert approve.status_code == 422
-        assert approve.json()["detail"]["error"] == "maker_checker_violation"
+        # App-wide error envelope is {"error": <detail>} (custom HTTPException handler
+        # in api/main.py), so a dict detail surfaces under ["error"], not FastAPI's
+        # default ["detail"].
+        assert approve.json()["error"]["error"] == "maker_checker_violation"
 
     def test_approve_package(self, auth):
         create = client.post("/v1/packages", headers=auth, json={

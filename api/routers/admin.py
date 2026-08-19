@@ -1,0 +1,547 @@
+"""
+Admin endpoints — user management, role/permission matrix, audit trail.
+
+Every endpoint is guarded by a specific permission; every mutation writes an
+access_audit_log row. All data is scoped to the caller's organization.
+"""
+from __future__ import annotations
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+
+from api.deps import DbSession, Pagination, require_permission
+from api.security import hash_password
+from api.services.rbac import write_audit
+
+router = APIRouter(prefix="/v1/admin", tags=["Admin"])
+
+
+# ── Users ──────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email:     str = Field(..., min_length=3, max_length=255)
+    full_name: str = Field(..., min_length=1, max_length=255)
+    password:  str = Field(..., min_length=6, max_length=200)
+    role_ids:  list[str] = Field(default_factory=list)
+
+
+class UserPatch(BaseModel):
+    full_name: Optional[str] = None
+    status:    Optional[str] = Field(None, pattern="^(active|disabled)$")
+    password:  Optional[str] = Field(None, min_length=6, max_length=200)
+    role_ids:  Optional[list[str]] = None
+
+
+def _list_users(session, org_id: str) -> list[dict]:
+    rows = session.execute(text("""
+        SELECT u.user_id, u.email, u.full_name, u.status, u.last_login_at, u.created_at,
+               COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+        FROM   users u
+        LEFT   JOIN user_roles ur ON ur.user_id = u.user_id
+        LEFT   JOIN roles r       ON r.role_id = ur.role_id
+        WHERE  u.org_id = :o
+        GROUP  BY u.user_id
+        ORDER  BY u.created_at
+    """), {"o": org_id}).mappings().all()
+    return [{
+        "id": str(r["user_id"]), "email": r["email"], "full_name": r["full_name"],
+        "status": r["status"],
+        "last_login_at": r["last_login_at"].isoformat() if r["last_login_at"] else None,
+        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        "roles": list(r["roles"]),
+    } for r in rows]
+
+
+def _valid_role_ids(session, org_id: str, role_ids: list[str]) -> list[str]:
+    if not role_ids:
+        return []
+    rows = session.execute(text("""
+        SELECT role_id FROM roles WHERE org_id = :o AND role_id = ANY(:ids)
+    """), {"o": org_id, "ids": role_ids}).scalars().all()
+    return [str(x) for x in rows]
+
+
+@router.get("/users", summary="List users in your organization")
+def list_users(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    return _list_users(session, ctx["org"]["org_id"])
+
+
+@router.post("/users", status_code=201, summary="Create a user")
+def create_user(body: UserCreate, session: DbSession,
+                ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    exists = session.execute(text(
+        "SELECT 1 FROM users WHERE org_id = :o AND lower(email) = lower(:e)"
+    ), {"o": org_id, "e": body.email}).first()
+    if exists:
+        raise HTTPException(409, {"error": "email_taken", "message": "A user with that email already exists."})
+
+    role_ids = _valid_role_ids(session, org_id, body.role_ids)
+    primary_role = session.execute(text(
+        "SELECT name FROM roles WHERE role_id = :r"
+    ), {"r": role_ids[0]}).scalar() if role_ids else "viewer"
+
+    uid = session.execute(text("""
+        INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status, created_at)
+        VALUES (gen_random_uuid(), :o, :e, :r, :fn, :hp, 'active', now())
+        RETURNING user_id
+    """), {"o": org_id, "e": body.email, "r": primary_role, "fn": body.full_name,
+           "hp": hash_password(body.password)}).scalar()
+
+    for rid in role_ids:
+        session.execute(text(
+            "INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (:u, :r, :by) ON CONFLICT DO NOTHING"
+        ), {"u": str(uid), "r": rid, "by": ctx["user"]["id"]})
+
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="user.create",
+                target_type="user", target_id=str(uid),
+                detail={"email": body.email, "roles": role_ids})
+    return {"id": str(uid), "email": body.email}
+
+
+@router.patch("/users/{user_id}", summary="Update a user")
+def patch_user(user_id: str, body: UserPatch, session: DbSession,
+               ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    before = session.execute(text(
+        "SELECT full_name, status FROM users WHERE user_id = :u AND org_id = :o"
+    ), {"u": user_id, "o": org_id}).mappings().first()
+    if not before:
+        raise HTTPException(404, {"error": "not_found", "message": "User not found in your organization."})
+
+    if body.full_name is not None:
+        session.execute(text("UPDATE users SET full_name = :v WHERE user_id = :u"),
+                        {"v": body.full_name, "u": user_id})
+    if body.status is not None:
+        session.execute(text("UPDATE users SET status = :v WHERE user_id = :u"),
+                        {"v": body.status, "u": user_id})
+    if body.password:
+        session.execute(text("UPDATE users SET hashed_password = :v WHERE user_id = :u"),
+                        {"v": hash_password(body.password), "u": user_id})
+    if body.role_ids is not None:
+        role_ids = _valid_role_ids(session, org_id, body.role_ids)
+        session.execute(text("DELETE FROM user_roles WHERE user_id = :u"), {"u": user_id})
+        for rid in role_ids:
+            session.execute(text(
+                "INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (:u, :r, :by)"
+            ), {"u": user_id, "r": rid, "by": ctx["user"]["id"]})
+
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="user.update",
+                target_type="user", target_id=user_id,
+                detail={"before": dict(before),
+                        "changed": body.model_dump(exclude_none=True, exclude={"password"})})
+    return {"id": user_id, "updated": True}
+
+
+# ── Roles & permission matrix ──────────────────────────────────────────
+
+class RolePermsPatch(BaseModel):
+    permission_codes: list[str]
+
+
+@router.get("/roles", summary="Roles in your organization with their permissions")
+def list_roles(session: DbSession, ctx: dict = Depends(require_permission("admin.roles.manage"))):
+    rows = session.execute(text("""
+        SELECT r.role_id, r.name, r.description, r.is_system,
+               COALESCE(array_agg(p.code) FILTER (WHERE p.code IS NOT NULL), '{}') AS perms
+        FROM   roles r
+        LEFT   JOIN role_permissions rp ON rp.role_id = r.role_id
+        LEFT   JOIN permissions p       ON p.permission_id = rp.permission_id
+        WHERE  r.org_id = :o
+        GROUP  BY r.role_id
+        ORDER  BY r.name
+    """), {"o": ctx["org"]["org_id"]}).mappings().all()
+    return [{"id": str(r["role_id"]), "name": r["name"], "description": r["description"],
+             "is_system": r["is_system"], "permissions": list(r["perms"])} for r in rows]
+
+
+@router.get("/permissions", summary="Full permissions catalog")
+def list_permissions(session: DbSession, ctx: dict = Depends(require_permission("admin.roles.manage"))):
+    rows = session.execute(text(
+        "SELECT code, description FROM permissions ORDER BY code"
+    )).mappings().all()
+    return [{"code": r["code"], "description": r["description"]} for r in rows]
+
+
+@router.patch("/roles/{role_id}/permissions", summary="Replace a role's permissions")
+def set_role_permissions(role_id: str, body: RolePermsPatch, session: DbSession,
+                         ctx: dict = Depends(require_permission("admin.roles.manage"))):
+    org_id = ctx["org"]["org_id"]
+    role = session.execute(text(
+        "SELECT name FROM roles WHERE role_id = :r AND org_id = :o"
+    ), {"r": role_id, "o": org_id}).scalar()
+    if not role:
+        raise HTTPException(404, {"error": "not_found", "message": "Role not found in your organization."})
+
+    session.execute(text("DELETE FROM role_permissions WHERE role_id = :r"), {"r": role_id})
+    for code in body.permission_codes:
+        session.execute(text("""
+            INSERT INTO role_permissions (role_id, permission_id)
+            SELECT :r, permission_id FROM permissions WHERE code = :c
+            ON CONFLICT DO NOTHING
+        """), {"r": role_id, "c": code})
+
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="role_permission.update",
+                target_type="role", target_id=role_id,
+                detail={"role": role, "permissions": body.permission_codes})
+    return {"id": role_id, "permissions": body.permission_codes}
+
+
+# ── Audit trail ────────────────────────────────────────────────────────
+
+@router.get("/audit", summary="Access & change audit trail")
+def audit(session: DbSession, page: Pagination,
+          actor: Optional[str] = Query(None), action: Optional[str] = Query(None),
+          ctx: dict = Depends(require_permission("admin.audit.view"))):
+    rows = session.execute(text("""
+        SELECT a.audit_id, a.action, a.target_type, a.target_id, a.detail, a.created_at,
+               u.email AS actor_email, u.full_name AS actor_name
+        FROM   access_audit_log a
+        LEFT   JOIN users u ON u.user_id = a.actor_user_id
+        WHERE  a.org_id = :o
+          AND  (CAST(:actor AS text) IS NULL OR u.email ILIKE '%' || :actor || '%')
+          AND  (CAST(:action AS text) IS NULL OR a.action = :action)
+        ORDER  BY a.created_at DESC
+        LIMIT :lim OFFSET :off
+    """), {"o": ctx["org"]["org_id"], "actor": actor, "action": action,
+           "lim": page["limit"], "off": page["offset"]}).mappings().all()
+    return [{
+        "id": str(r["audit_id"]), "action": r["action"],
+        "target_type": r["target_type"], "target_id": r["target_id"],
+        "detail": r["detail"],
+        "actor_email": r["actor_email"], "actor_name": r["actor_name"],
+        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+    } for r in rows]
+
+
+# ── Approval matrix ────────────────────────────────────────────────────
+
+_POLICY_LABELS = {
+    "supply.site.update": "Edit an operational site",
+    "supply.site.delete": "Delete an operational site",
+    "supply.plot.update": "Edit a sourcing plot",
+    "supply.plot.delete": "Delete a sourcing plot",
+    # calc/reporting config changes drive what a filing shows — governable with 4-eyes (audit T6)
+    "config.reporting_settings": "Change the reporting basis (scenario / horizon / materiality / period)",
+    "config.calc_settings": "Change a calculation method (VaR / severity / return-period)",
+    "risk.decision": "Act on a forward-risk exposure (reprice / engage / disclose)",
+}
+# actions that support a value THRESHOLD (only decisions above the line need a second approval)
+_POLICY_THRESHOLD_ACTIONS = {"risk.decision"}
+
+
+class PolicyPatch(BaseModel):
+    action_key:        str = Field(..., min_length=1, max_length=80)
+    requires_approval: bool
+    material_fields:   Optional[list[str]] = None
+    threshold_eur:     Optional[float] = None   # only for actions in _POLICY_THRESHOLD_ACTIONS
+
+
+@router.get("/approval-policy", summary="The approval matrix — which actions need 4-eyes (org rules over platform defaults)")
+def get_approval_policy(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    org_id = ctx["org"]["org_id"]
+    rows = session.execute(text("""
+        SELECT DISTINCT ON (action_key) action_key, requires_approval, material_fields, threshold_eur,
+               (org_id IS NOT NULL) AS org_override
+        FROM   approval_policy
+        WHERE  org_id = :o OR org_id IS NULL
+        ORDER  BY action_key, org_id NULLS LAST
+    """), {"o": org_id}).mappings().all()
+    return [{
+        "action_key": r["action_key"], "label": _POLICY_LABELS.get(r["action_key"], r["action_key"]),
+        "requires_approval": bool(r["requires_approval"]),
+        "material_fields": list(r["material_fields"] or []),
+        "supports_threshold": r["action_key"] in _POLICY_THRESHOLD_ACTIONS,
+        "threshold_eur": float(r["threshold_eur"]) if r["threshold_eur"] is not None else None,
+        "org_override": bool(r["org_override"]),
+    } for r in rows]
+
+
+@router.patch("/approval-policy", summary="Set your org's rule for an action (overrides the platform default)")
+def set_approval_policy(body: PolicyPatch, session: DbSession,
+                        ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    import json
+    org_id = ctx["org"]["org_id"]
+    if body.action_key not in _POLICY_LABELS:
+        raise HTTPException(422, {"error": "unknown_action", "message": f"Unknown action: {body.action_key}"})
+    mats = body.material_fields if body.material_fields is not None else []
+    thr = body.threshold_eur if body.action_key in _POLICY_THRESHOLD_ACTIONS else None
+    session.execute(text("""
+        INSERT INTO approval_policy (org_id, action_key, requires_approval, material_fields, threshold_eur, updated_by, updated_at)
+        VALUES (:o, :a, :req, CAST(:m AS jsonb), :thr, :u, now())
+        ON CONFLICT (org_id, action_key) WHERE org_id IS NOT NULL
+        DO UPDATE SET requires_approval = EXCLUDED.requires_approval,
+                      material_fields = EXCLUDED.material_fields, threshold_eur = EXCLUDED.threshold_eur,
+                      updated_by = EXCLUDED.updated_by, updated_at = now()
+    """), {"o": org_id, "a": body.action_key, "req": body.requires_approval, "m": json.dumps(mats),
+           "thr": thr, "u": ctx["user"]["id"]})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval_policy.update",
+                target_type="approval_policy", target_id=body.action_key,
+                detail={"requires_approval": body.requires_approval, "material_fields": mats, "threshold_eur": thr})
+    return {"action_key": body.action_key, "requires_approval": body.requires_approval,
+            "material_fields": mats, "threshold_eur": thr, "org_override": True}
+
+
+# ── Decision playbook: which decision → which automated downstream actions (on approval) ──────────────────
+_DECISION_LABELS = {"reprice": "Reprice", "engage": "Engage", "disclose": "Disclose",
+                    "monitor": "Monitor", "accept": "Accept"}
+
+
+class PlaybookPatch(BaseModel):
+    action:           str
+    spin_task:        Optional[bool] = None
+    assignee_user_id: Optional[str] = None
+    due_days:         Optional[int] = None
+    notify:           Optional[bool] = None
+    flag_disclosure:  Optional[bool] = None
+    watchlist:        Optional[bool] = None
+    webhook:          Optional[bool] = None
+
+
+@router.get("/decision-playbook", summary="The decision playbook — automations that fire when a decision is approved")
+def get_decision_playbook(session: DbSession, ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.intelligence.forward_decisions import playbook
+    pb = playbook(session, ctx["org"]["org_id"])
+    members = session.execute(text("""
+        SELECT user_id::text AS user_id, email, full_name FROM users WHERE org_id = :o AND status = 'active' ORDER BY email
+    """), {"o": ctx["org"]["org_id"]}).mappings().all()
+    order = ["reprice", "engage", "disclose", "monitor", "accept"]
+    return {
+        "members": [{"user_id": m["user_id"], "email": m["email"], "name": m["full_name"]} for m in members],
+        "playbook": [{"action": a, "label": _DECISION_LABELS[a], **pb.get(a, {})} for a in order if a in pb],
+    }
+
+
+@router.patch("/decision-playbook", summary="Set the automations for one decision action")
+def set_decision_playbook(body: PlaybookPatch, session: DbSession,
+                          ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.intelligence.forward_decisions import DecisionError, set_playbook
+    patch = {k: v for k, v in body.model_dump().items() if k != "action" and v is not None}
+    try:
+        row = set_playbook(session, ctx["org"]["org_id"], ctx["user"]["id"], body.action, patch)
+    except DecisionError as e:
+        raise HTTPException(422, {"error": "bad_request", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="decision_playbook.update",
+                target_type="decision_playbook", target_id=body.action, detail=patch)
+    return {"action": body.action, **row}
+
+
+# ── KRI appetite: per-org RAG bands on each Key Regulatory Indicator ──────
+
+# org type → the KRI framework it reports on (mirrors web/src/pages/Kri.tsx)
+_KRI_FRAMEWORK = {"bank": "bank_tcfd", "asset_manager": "sfdr_pai", "reit": "reit_tcfd",
+                  "insurer": "insurer_climate", "manufacturer": "esrs_pack"}
+# KRIs whose value is a numeric that can be graded against a band
+_GRADEABLE_FMT = {"eur", "pct", "num", "ha", "dec"}
+
+
+class KriThresholdPatch(BaseModel):
+    kri_key:   str
+    framework: Optional[str] = None                 # defaults to the org's own framework
+    amber:     Optional[float] = None
+    red:       Optional[float] = None
+    direction: Optional[str] = None                 # higher_worse | lower_worse
+
+
+@router.get("/kri-appetite", summary="The KRI appetite bands — the RAG thresholds graded on each KRI")
+def get_kri_appetite(session: DbSession, framework: Optional[str] = None,
+                     ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance.kri import kri as build_kri
+    from services.governance.kri import kri_frameworks
+    fws = kri_frameworks(ctx["org"].get("type"))           # an org may report on several (bank: TCFD + Pillar 3 ESG)
+    if not fws:
+        return {"supported": False, "message": "No KRI dashboard for this organisation type."}
+    fw = framework if framework in {f["framework"] for f in fws} else fws[0]["framework"]
+    data = build_kri(session, ctx["org"]["org_id"], fw)      # live KRIs, already graded against current bands
+    kpis = [{"key": k["key"], "label": k["label"], "fmt": k["fmt"], "value": k.get("value"),
+             "amber": k.get("amber"), "red": k.get("red"), "direction": k.get("direction"),
+             "status": k.get("status")}
+            for k in (data.get("kpis") or []) if k.get("fmt") in _GRADEABLE_FMT and not k.get("integrated")]
+    return {"supported": True, "framework": data.get("framework", fw), "label": data.get("label"),
+            "frameworks": fws, "kpis": kpis}
+
+
+@router.patch("/kri-appetite", summary="Set the appetite band for one KRI")
+def set_kri_appetite(body: KriThresholdPatch, session: DbSession,
+                     ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance import kri_thresholds
+    fw = body.framework or _KRI_FRAMEWORK.get(ctx["org"].get("type"))
+    if not fw:
+        raise HTTPException(422, {"error": "bad_request", "message": "No KRI framework for this organisation type."})
+    patch = {k: v for k, v in body.model_dump().items() if k not in ("kri_key", "framework") and v is not None}
+    row = kri_thresholds.set_threshold(session, ctx["org"]["org_id"], ctx["user"]["id"], fw, body.kri_key, patch)
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="kri_appetite.update",
+                target_type="kri_threshold", target_id=f"{fw}:{body.kri_key}", detail=patch)
+    return {"framework": fw, "kri_key": body.kri_key, **row}
+
+
+# ── Control center: the customer-admin cockpit (identity + data health + governance) ──────
+
+class OrgPatch(BaseModel):
+    legal_name:          Optional[str] = Field(None, max_length=300)
+    lei:                 Optional[str] = Field(None, max_length=20)
+    eori:                Optional[str] = Field(None, max_length=30)
+    filing_contact_email: Optional[str] = Field(None, max_length=255)
+    operator_address:    Optional[str] = Field(None, max_length=500)
+
+
+@router.get("/control-center", summary="Admin cockpit — org identity, data-readiness, governance & access at a glance")
+def control_center(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    org = session.execute(text("""
+        SELECT name, legal_name, type, country, lei, eori, filing_contact_email, operator_address
+        FROM organizations WHERE org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    sites = session.execute(text("""
+        SELECT count(*) n,
+               count(*) FILTER (WHERE v.physical_risk_score IS NOT NULL) scored,
+               count(*) FILTER (WHERE v.physical_risk_score >= 40) elevated,
+               COALESCE(SUM(s.annual_value_eur),0) value_eur
+        FROM sc_company_sites s
+        LEFT JOIN LATERAL (
+            SELECT physical_risk_score FROM v_sc_site_physical_risk v
+            WHERE v.site_id = s.site_id AND v.scenario='baseline' AND v.time_horizon='current'
+            ORDER BY physical_risk_score DESC NULLS LAST LIMIT 1) v ON true
+        WHERE s.org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    plots = session.execute(text("""
+        SELECT count(*) n,
+               count(*) FILTER (WHERE p.plot_geometry IS NULL AND p.plot_area_ha > 4) needs_polygon,
+               count(*) FILTER (WHERE co.eudr_covered) eudr_covered,
+               count(*) FILTER (WHERE co.eudr_covered AND p.eudr_determination IS NOT NULL) eudr_determined
+        FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        WHERE p.org_id = :o
+    """), {"o": org_id}).mappings().first()
+
+    users = session.execute(text("""
+        SELECT count(*) n, count(*) FILTER (WHERE status='active') active,
+               count(*) FILTER (WHERE last_login_at IS NOT NULL) ever_logged_in
+        FROM users WHERE org_id = :o
+    """), {"o": org_id}).mappings().first()
+    # is there a checker distinct from makers? (someone with approvals.decide)
+    n_approvers = session.execute(text("""
+        SELECT count(DISTINCT u.user_id) FROM users u
+        JOIN user_roles ur ON ur.user_id=u.user_id JOIN role_permissions rp ON rp.role_id=ur.role_id
+        JOIN permissions p ON p.permission_id=rp.permission_id
+        WHERE u.org_id=:o AND u.status='active' AND p.code='approvals.decide'
+    """), {"o": org_id}).scalar()
+    pending = session.execute(text("SELECT count(*) FROM approval_requests WHERE org_id=:o AND status='pending'"), {"o": org_id}).scalar()
+    audit_30d = session.execute(text("SELECT count(*) FROM access_audit_log WHERE org_id=:o AND created_at > now() - interval '30 days'"), {"o": org_id}).scalar()
+    entitlements = session.execute(text("SELECT offering_id FROM org_entitlements WHERE org_id=:o ORDER BY offering_id"), {"o": org_id}).scalars().all()
+
+    # readiness checklist — the "is my house in order" signal (each item pass/fail + a hint).
+    # Canonical, sector-aware computation shared with the Horizon front-door KPI so both agree.
+    from services.governance.readiness import org_readiness
+    readiness = org_readiness(session, org_id, org["type"] if org else None)
+    return {
+        "organization": {
+            "name": org["name"] if org else None, "legal_name": org["legal_name"] if org else None,
+            "type": org["type"] if org else None, "country": org["country"] if org else None,
+            "lei": org["lei"] if org else None, "eori": org["eori"] if org else None,
+            "filing_contact_email": org["filing_contact_email"] if org else None,
+            "operator_address": org["operator_address"] if org else None,
+        },
+        "readiness": readiness,
+        "data": {
+            "sites": {"total": sites["n"], "scored": sites["scored"], "elevated": sites["elevated"], "value_eur": float(sites["value_eur"] or 0)},
+            "plots": {"total": plots["n"], "eudr_covered": plots["eudr_covered"], "eudr_determined": plots["eudr_determined"], "needs_polygon": plots["needs_polygon"]},
+        },
+        "governance": {"pending_approvals": pending, "audit_events_30d": audit_30d, "second_approver": (n_approvers or 0) >= 2},
+        "access": {"users": users["n"], "active": users["active"], "ever_logged_in": users["ever_logged_in"]},
+        "entitlements": list(entitlements),
+    }
+
+
+class ReportingSettingsPatch(BaseModel):
+    reporting_period_end:  Optional[str] = Field(None, description="YYYY-MM-DD")
+    scenario:              Optional[str] = Field(None, max_length=40)
+    horizon:               Optional[str] = Field(None, max_length=40)
+    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
+
+
+@router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, materiality)")
+def get_reporting_settings(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, ctx["org"]["org_id"])
+
+
+@router.patch("/reporting-settings", summary="Set the org's reporting basis (audited; 4-eyes if the matrix requires it)")
+def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
+                           ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    # the r²≥0.40 publish gate is intentionally NOT settable here — it's an honesty constant, not a knob.
+    # Governed through the same audit + 4-eyes machinery as location edits (audit T6). Direct-apply by
+    # default; needs a second approver only if the org toggles 'config.reporting_settings' in the matrix.
+    from services.governance.config_governance import submit_or_apply_config
+    out = submit_or_apply_config(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
+                                 request_type="config.reporting_settings", updates=changes)
+    if out["status"] == "pending_approval":
+        return out
+    return out["result"]
+
+
+@router.get("/data-feeds", summary="Golden-source feed freshness (is the data under a filing current?)")
+def data_feeds(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.data.feeds import feed_freshness
+    return {"feeds": feed_freshness(session)}
+
+
+@router.post("/data-feeds/{feed_key}/refresh", summary="Manual 'refresh now' override (audited; feeds also refresh automatically on a schedule)")
+def refresh_feed(feed_key: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    # Feeds refresh automatically (Celery beat → feeds.refresh_due); this is the operator override that
+    # runs the same refresh immediately (its adapter hook), recording refreshed OR failed honestly.
+    from services.data.feeds import refresh_one
+    try:
+        res = refresh_one(session, feed_key, actor_user_id=ctx["user"]["id"])
+    except ValueError as e:
+        raise HTTPException(422, {"error": "unknown_feed", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="data_feed.refresh", target_type="data_feed", target_id=feed_key,
+                detail={"invalidates_basis": res["invalidates_basis"]})
+    return res
+
+
+@router.get("/registry/search", summary="Search the global LEI registry (GLEIF) to auto-fill reporting identity")
+def registry_search(q: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    """Look an entity up in GLEIF (the authoritative, regulator-recognised LEI registry we already ingest)
+    by legal name or a pasted LEI, and return candidates the operator can pick to auto-fill legal name +
+    LEI + registered address. EORI and the filing-contact email are NOT in GLEIF (customs / internal), so
+    they stay manual — we never invent them."""
+    from services.reference import gleif
+    if len((q or "").strip()) < 2:
+        return {"query": q, "results": []}
+    try:
+        recs = gleif.search_entities(q, limit=8)
+    except gleif.GleifError as e:
+        raise HTTPException(502, {"error": "registry_unreachable",
+                                  "message": f"The LEI registry (GLEIF) could not be reached: {e}"})
+    return {"query": q, "source": "GLEIF", "results": [
+        {"lei": r.lei, "legal_name": r.name, "country": r.country, "jurisdiction": r.jurisdiction,
+         "status": r.entity_status, "address": gleif.registered_address(r)}
+        for r in recs]}
+
+
+@router.patch("/organization", summary="Edit the org's reporting identity (audited)")
+def patch_organization(body: OrgPatch, session: DbSession,
+                       ctx: dict = Depends(require_permission("admin.users.manage"))):
+    org_id = ctx["org"]["org_id"]
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    cols = {"legal_name", "lei", "eori", "filing_contact_email", "operator_address"}
+    sets, params = [], {"o": org_id}
+    for k, v in changes.items():
+        if k in cols:
+            sets.append(f"{k} = :{k}"); params[k] = v
+    session.execute(text(f"UPDATE organizations SET {', '.join(sets)}, updated_at = now() WHERE org_id = :o"), params)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="organization.update",
+                target_type="organization", target_id=org_id, detail={"changes": changes})
+    return {"ok": True, "changes": changes}

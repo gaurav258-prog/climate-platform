@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 def cmd_create(args) -> None:
-    from ml.regulatory.packager import create_package, PackagerError
+    from ml.regulatory.packager import PackagerError, create_package
 
     period_start = date.fromisoformat(args.period_start)
     period_end   = date.fromisoformat(args.period_end)
@@ -72,7 +72,7 @@ def cmd_create(args) -> None:
         sys.exit(1)
 
     print("\n" + "=" * 60)
-    print(f"  DRAFT PACKAGE CREATED")
+    print("  DRAFT PACKAGE CREATED")
     print("=" * 60)
     print(f"  package_id  : {result['package_id']}")
     print(f"  framework   : {result['framework']}")
@@ -93,8 +93,10 @@ def cmd_create(args) -> None:
 
 def cmd_approve(args) -> None:
     from ml.regulatory.packager import (
-        approve_package, MakerCheckerViolation,
-        PackageAlreadyReleased, PackagerError
+        MakerCheckerViolation,
+        PackageAlreadyReleased,
+        PackagerError,
+        approve_package,
     )
 
     try:
@@ -113,7 +115,7 @@ def cmd_approve(args) -> None:
         sys.exit(1)
 
     print("\n" + "=" * 60)
-    print(f"  PACKAGE RELEASED ✓")
+    print("  PACKAGE RELEASED ✓")
     print("=" * 60)
     print(f"  package_id  : {result['package_id']}")
     print(f"  framework   : {result['framework']}")
@@ -140,7 +142,7 @@ def cmd_get(args) -> None:
     print("=" * 60)
     for k, v in pkg.items():
         if k == "package_data":
-            print(f"  package_data: [use --full to view, --xbrl to export]")
+            print("  package_data: [use --full to view, --xbrl to export]")
         else:
             print(f"  {k}: {v}")
 

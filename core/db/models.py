@@ -8,9 +8,19 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime,
-    ForeignKey, Integer, Numeric, PrimaryKeyConstraint, Index,
-    SmallInteger, String, Text, UniqueConstraint, func, DECIMAL
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    PrimaryKeyConstraint,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -34,6 +44,11 @@ class ModelRegistry(Base):
     training_data_vintage = Column(Date, nullable=False)
     training_cell_count = Column(Integer)
     validation_auc = Column(Numeric(4, 3))
+    # Average Precision is the honest metric for rare-event models — ROC-AUC is
+    # misleading at very low base rates. validation_note carries the caveat
+    # (e.g. single-event / proxy labels / forecasting untested).
+    validation_avg_precision = Column(Numeric(6, 5))
+    validation_note = Column(Text)
     is_active = Column(Boolean, nullable=False, default=False)
     activated_at = Column(DateTime(timezone=True))
     activated_by = Column(String(255))
@@ -172,6 +187,36 @@ class MLFeatureWildfire(Base):
     days_since_last_rain = Column(Integer)
     # Labels
     fire_occurred = Column(Boolean)
+    label_source = Column(String(100))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class MLFeatureDrought(Base):
+    """Feature store for the drought model. Completes the declared-but-missing
+    drought hazard substrate (Tier 2), mirroring flood/heat/wildfire."""
+    __tablename__ = "ml_features_drought"
+    __table_args__ = (
+        PrimaryKeyConstraint("feature_id", "observed_at"),
+    )
+
+    feature_id = Column(UUID(as_uuid=True), nullable=False, default=uuid.uuid4)
+    h3_cell = Column(String(20), nullable=False)
+    observed_at = Column(DateTime(timezone=True), nullable=False)
+    # Standardised drought indices
+    spi_3month = Column(Numeric)               # Standardized Precipitation Index
+    spei_3month = Column(Numeric)              # SPI adjusted for evapotranspiration
+    soil_moisture_percentile = Column(Numeric)
+    precipitation_deficit_mm = Column(Numeric)
+    evapotranspiration_mm = Column(Numeric)
+    # Vegetation stress
+    ndvi_index = Column(Numeric)
+    ndvi_anomaly_vs_baseline = Column(Numeric)
+    # Atmospheric
+    era5_temp_anomaly_c = Column(Numeric)
+    days_since_significant_rain = Column(Integer)
+    reservoir_storage_pct = Column(Numeric)
+    # Label (populated by Outcome Feedback Service)
+    drought_occurred = Column(Boolean)
     label_source = Column(String(100))
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 

@@ -9,11 +9,12 @@ Sources:
 
 Output: expanded_seismic_ground_truth.json (25 real + 50-75 new = ~100 events)
 """
-import logging
 import json
-import requests
-from datetime import datetime, timedelta
+import logging
 import sys
+from datetime import datetime
+
+import requests
 
 logging.basicConfig(
     level=logging.INFO,
@@ -129,7 +130,7 @@ def convert_usgs_to_ground_truth(features):
                 "magnitude_mw": round(magnitude, 2),
                 "magnitude_local": None,
                 "mag_type": props.get('magType', 'M'),
-                "location": f"USGS recorded event",
+                "location": "USGS recorded event",
                 "latitude": round(lat, 4),
                 "longitude": round(lon, 4),
                 "depth_km": round(depth, 1),
@@ -186,7 +187,7 @@ def convert_ingv_to_ground_truth(ingv_events):
                 "magnitude_mw": round(magnitude, 2),
                 "magnitude_local": None,
                 "mag_type": evt.get('magnitude', {}).get('magnitude_type', 'M'),
-                "location": f"INGV recorded - Italy/Mediterranean",
+                "location": "INGV recorded - Italy/Mediterranean",
                 "latitude": round(lat, 4),
                 "longitude": round(lon, 4),
                 "depth_km": round(depth, 1),
@@ -289,7 +290,7 @@ def main():
     logger.info("")
     logger.info("=" * 70)
     logger.info(f"  Expansion Complete: {len(all_events)} total real events")
-    logger.info(f"  Ready for model retraining (2a & 2b)")
+    logger.info("  Ready for model retraining (2a & 2b)")
     logger.info("=" * 70)
     logger.info("")
 

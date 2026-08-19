@@ -180,9 +180,10 @@ def _write_alert(
 ):
     """Write alert to alert_events table for the Operations view."""
     try:
-        from core.db.session import get_session
-        from sqlalchemy import text
         import h3
+        from sqlalchemy import text
+
+        from core.db.session import get_session
 
         h3_cell = h3.latlng_to_cell(lat, lon, 8)
 

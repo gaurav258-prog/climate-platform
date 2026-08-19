@@ -9,7 +9,9 @@ import httpx
 from core.config import settings
 from core.db.models import SatelliteObservation
 from core.types import HazardType
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from ..regions import DEFAULT_REGION, get_region
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +20,8 @@ FIRMS_CSV_URL = (
     "/{api_key}/VIIRS_SNPP_NRT/{area}/{days}"
 )
 
-# EU bounding box for area query
-EU_AREA = "W=-10,S=35,E=30,N=72"
+# EU bounding box for area query (back-compat)
+EU_AREA = get_region("eu").firms
 
 # VIIRS confidence below this = flagged but not discarded
 CONFIDENCE_THRESHOLD = 50
@@ -37,10 +39,16 @@ class NASAFIRMSAdapter(BaseAdapter):
     Requires FIRMS_API_KEY in .env (free, instant registration).
     """
 
-    source_provider = "nasa_firms_viirs"
-
-    def __init__(self, days: int = 1):
+    def __init__(self, days: int = 1, region: str = DEFAULT_REGION, hazard_type: HazardType = HazardType.WILDFIRE):
         self.days = days
+        self.region = get_region(region)
+        # FIRMS/VIIRS is a generic thermal-anomaly detector, not fire-specific at the
+        # sensor level — pointing it at a volcano-region bbox with hazard_type=VOLCANIC
+        # gives a live thermal-unrest signal without a new satellite integration.
+        self.hazard_type = hazard_type
+        self.source_provider = (
+            "nasa_firms_viirs" if hazard_type == HazardType.WILDFIRE else "nasa_firms_viirs_volcanic"
+        )
 
     def fetch(self) -> list[dict]:
         if not settings.FIRMS_API_KEY:
@@ -49,7 +57,7 @@ class NASAFIRMSAdapter(BaseAdapter):
 
         url = FIRMS_CSV_URL.format(
             api_key=settings.FIRMS_API_KEY,
-            area=EU_AREA,
+            area=self.region.firms,
             days=self.days,
         )
         response = httpx.get(url, timeout=60)
@@ -83,7 +91,7 @@ class NASAFIRMSAdapter(BaseAdapter):
                     h3_cell=h3.latlng_to_cell(lat, lon, settings.H3_RESOLUTION),
                     h3_resolution=settings.H3_RESOLUTION,
                     source_provider=self.source_provider,
-                    hazard_type=HazardType.WILDFIRE.value,
+                    hazard_type=self.hazard_type.value,
                     observed_at=observed_at,
                     raw_value=frp,
                     raw_unit="MW",

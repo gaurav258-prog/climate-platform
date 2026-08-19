@@ -77,8 +77,11 @@ def main():
 
     from core.config import settings
     from ml.training.flood_model import (
-        train, score_cells, load_labeled_features, _build_pipeline,
-        FEATURE_COLS
+        FEATURE_COLS,
+        _build_pipeline,
+        load_labeled_features,
+        score_cells,
+        train,
     )
 
     logger.info("=" * 60)
@@ -102,8 +105,6 @@ def main():
         sys.exit(1)
 
     # Re-load pipeline for inference (re-fit on full labeled dataset)
-    import numpy as np
-    import pandas as pd
     train_df, _ = load_labeled_features(train_end, test_start)
     active_features = [c for c in FEATURE_COLS if c in train_df.columns]
     pipe = _build_pipeline()
@@ -147,7 +148,7 @@ def main():
     logger.info(f"  Model ROC-AUC (event days test):  {result.roc_auc:.4f}")
     logger.info(f"  Model Avg Precision:              {result.avg_precision:.4f}")
     logger.info("")
-    logger.info(f"  ── Rhine / Ahr precursor recall ──────────────────────")
+    logger.info("  ── Rhine / Ahr precursor recall ──────────────────────")
     logger.info(f"  Precursor date scored:     {precursor_date}")
     logger.info(f"  Ahr valley cells matched:  {n_ahr} / {len(ahr_cells)}")
     logger.info(f"  Cells scored MEDIUM+:      {n_ahr_at_risk} / {n_ahr}")
@@ -157,7 +158,7 @@ def main():
     logger.info(f"  Result:                    {'✓ PASS' if recall_pass else '✗ FAIL'}")
 
     logger.info("")
-    logger.info(f"  ── Gironde specificity (no false flood alarms) ───────")
+    logger.info("  ── Gironde specificity (no false flood alarms) ───────")
     logger.info(f"  Gironde fire cells matched: {n_gironde} / {len(gironde_cells)}")
     logger.info(f"  Cells scored LOW (correct): {n_gironde_low} / {n_gironde}")
     logger.info(f"  Specificity:               {specificity:.1%}")

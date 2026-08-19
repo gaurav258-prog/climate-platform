@@ -1,0 +1,86 @@
+{
+  "bank_info": {
+    "bank_id": "BANK_001",
+    "bank_name": "Example Bank AG",
+    "country": "Germany",
+    "headquarters": "Frankfurt am Main",
+    "year_founded": 1850,
+    "total_assets_eur_b": 250,
+    "employees": 8500,
+    "regulated_by": "BaFin"
+  },
+  "reporting_requirements": {
+    "tcfd": {
+      "required": true,
+      "mandatory_since": 2025,
+      "scope": "Full disclosure",
+      "currency": "EUR"
+    },
+    "eu_taxonomy": {
+      "required": true,
+      "mandatory_since": 2024,
+      "scope": "Alignment assessment",
+      "reporting_level": "Institutional"
+    },
+    "sec_climate": {
+      "required": false,
+      "mandatory_since": null,
+      "applicable_to": "US-listed banks only",
+      "note": "Not applicable for European bank"
+    },
+    "csrd": {
+      "required": false,
+      "mandatory_since": 2025,
+      "scope": "Large enterprises > 500 employees",
+      "note": "May apply if deemed large enterprise"
+    }
+  },
+  "portfolio_breakdown": {
+    "total_assets_eur_m": 10200,
+    "asset_categories": {
+      "energy": 2850,
+      "real_estate": 5600,
+      "agriculture": 600,
+      "manufacturing": 1150
+    },
+    "geographic_exposure": {
+      "europe": 7500,
+      "north_america": 1800,
+      "asia_pacific": 900
+    }
+  },
+  "emissions_profile": {
+    "scope_1_tco2e": 125000,
+    "scope_2_tco2e": 245000,
+    "scope_3_tco2e": 3500000,
+    "total_tco2e": 3870000,
+    "per_asset_million_tco2e": 379.4,
+    "data_year": 2023,
+    "assurance_level": "Third-party verified"
+  },
+  "climate_targets": {
+    "science_based_target": "Net-zero by 2050",
+    "intermediate_target_2030": "30% reduction Scope 1+2",
+    "portfolio_alignment": "1.5°C warming",
+    "exclusions": [
+      "Thermal coal production",
+      "Oil sands",
+      "Arctic drilling"
+    ]
+  },
+  "governance": {
+    "board_oversight": "Risk Committee",
+    "climate_team_size": 25,
+    "cfo_responsibilities": "Climate risk in capital allocation",
+    "disclosure_frequency": "Annual"
+  },
+  "scenario_assumptions": {
+    "probability_distribution": {
+      "15c_scenario": 0.35,
+      "2c_scenario": 0.40,
+      "4c_scenario": 0.25
+    },
+    "time_horizon": 2050,
+    "methodology": "TCFD framework"
+  }
+}

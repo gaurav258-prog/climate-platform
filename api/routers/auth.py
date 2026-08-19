@@ -6,10 +6,10 @@ GET    /v1/auth/keys          — list keys for authenticated customer
 DELETE /v1/auth/keys/{key_id} — revoke a key
 
 Bootstrap:
-  The first key is created by passing `customer_id` in the request body with
-  no Authorization header. Subsequent keys require a valid Bearer token.
-  In production, the bootstrap endpoint should be rate-limited and tied to
-  a registration / onboarding flow.
+  The first key is minted by presenting the operator secret as an
+  X-Bootstrap-Secret header plus `customer_id` in the body. Bootstrap is
+  DISABLED unless KEY_BOOTSTRAP_SECRET is set (production-safe default).
+  Subsequent keys require a valid Bearer token.
 """
 from __future__ import annotations
 
@@ -17,12 +17,13 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
-from api.deps import CustomerId, DbSession
 from api.auth import create_api_key, list_api_keys, revoke_api_key, validate_api_key
+from api.deps import CustomerId, DbSession
+from core.config import settings
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
 
@@ -75,8 +76,8 @@ class RevokeResponse(BaseModel):
     summary="Create API key",
     description=(
         "Creates a new API key. "
-        "**First-time bootstrap**: no Authorization header required — pass `customer_id` "
-        "in the request body. "
+        "**First-time bootstrap**: present `X-Bootstrap-Secret` (the operator secret) "
+        "and `customer_id` in the body. Disabled unless the operator has configured it. "
         "**Additional keys**: include `Authorization: Bearer <existing_key>` — "
         "`customer_id` in body is ignored. "
         "The `raw_key` field is returned **exactly once** — store it securely."
@@ -86,6 +87,7 @@ def create_key(
     body:        KeyCreateRequest,
     session:     DbSession,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    x_bootstrap_secret: Optional[str] = Header(None),
 ):
     # Resolve customer_id: from auth token if present, else from body (bootstrap)
     if credentials and credentials.credentials:
@@ -97,6 +99,16 @@ def create_key(
             })
         resolved_customer_id = auth_result["customer_id"]
     else:
+        # SECURITY: the no-auth bootstrap path is gated behind the operator secret
+        # KEY_BOOTSTRAP_SECRET. Empty (default) => anonymous minting is disabled
+        # entirely; otherwise the caller must present it as X-Bootstrap-Secret.
+        # This closes the hole where anyone could mint a live key for any customer.
+        if not settings.KEY_BOOTSTRAP_SECRET or x_bootstrap_secret != settings.KEY_BOOTSTRAP_SECRET:
+            raise HTTPException(status_code=403, detail={
+                "error":   "bootstrap_disabled",
+                "message": "Anonymous key creation is disabled. Authenticate with an existing "
+                           "key, or present a valid X-Bootstrap-Secret if onboarding is enabled.",
+            })
         # Bootstrap: customer_id must be in body and be a valid UUID
         if not body.customer_id:
             raise HTTPException(status_code=422, detail={

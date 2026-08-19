@@ -21,7 +21,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta, timezone
 from typing import Optional
 
 import numpy as np
@@ -31,7 +31,8 @@ from core.config import settings
 from core.db.models import SatelliteObservation
 from core.netcdf_utils import xarray_to_h3_dataframe
 from core.types import HazardType
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 

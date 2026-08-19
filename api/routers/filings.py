@@ -1,0 +1,480 @@
+"""Reporting cockpit — the regulatory filing register, lifecycle and obligations calendar.
+
+The lifecycle maps onto existing permissions and machinery:
+  - prepare / submit-for-review   → approvals.create (the maker)
+  - approve                       → done through /v1/approvals/{id}/decide (approvals.decide, checker ≠ maker)
+  - attest / submit / accept      → reports.publish (the accountable person)
+  - view                         → reports.view
+
+Nothing here re-freezes a report: generate wraps report_snapshots.create_snapshot, so the frozen bytes are
+the same immutable, hashed, versioned record the assurance pack already verifies.
+"""
+from __future__ import annotations
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+
+from api.deps import DbSession, require_permission
+from api.services.rbac import write_audit
+from services.governance import filings as F
+
+router = APIRouter(prefix="/v1", tags=["Reporting cockpit"])
+
+
+class GenerateBody(BaseModel):
+    framework: str = Field(..., min_length=1, max_length=60)
+    note: Optional[str] = Field(None, max_length=500)
+    confirmed: bool = False   # set by the confirm-data preflight step
+
+
+class QualitativePatch(BaseModel):
+    values: dict[str, str]    # {'table1.a': 'authored text', ...}
+
+
+@router.get("/filings/qualitative/p3esg", summary="Pillar 3 ESG qualitative tables (1-3) + authored text")
+def get_p3esg_qualitative(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    import json as _json
+
+    from services.governance.pillar3_qualitative import qualitative_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return qualitative_structure(saved)
+
+
+@router.patch("/filings/qualitative/p3esg", summary="Author / save a Pillar 3 ESG qualitative disclosure row")
+def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
+                          ctx: dict = Depends(require_permission("approvals.create"))):
+    import json as _json
+
+    from services.governance.pillar3_qualitative import qualitative_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cur.update({k: v for k, v in body.values.items()})
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.qualitative.author", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"rows": list(body.values.keys())})
+    return qualitative_structure(cur)
+
+
+class CellPatch(BaseModel):
+    key: str = Field(..., min_length=1, max_length=64)   # '<template>.<row>.<col>', e.g. 't2.3.8'
+    value: str = Field(..., max_length=64)                # the manually-entered value ('' clears it)
+
+
+@router.get("/filings/structured/p3esg-cells", summary="Manually-entered values for integrated Pillar 3 cells")
+def get_p3esg_cells(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return {"cells": saved.get("cells") or {}}
+
+
+@router.patch("/filings/structured/p3esg-cells", summary="Manually enter a value into an integrated Pillar 3 cell")
+def set_p3esg_cell(body: CellPatch, session: DbSession,
+                   ctx: dict = Depends(require_permission("approvals.create"))):
+    """A preparer enters an aggregate value into an 'integrated' (bank-fed) cell that has no connected feed yet.
+    Stored as an audited overlay on the frozen annex (the computed snapshot is never mutated), keyed by cell."""
+    import json as _json
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cells = dict(cur.get("cells") or {})
+    if body.value.strip():
+        cells[body.key] = body.value.strip()
+    else:
+        cells.pop(body.key, None)          # empty clears the manual entry (reverts to the fed '—')
+    cur["cells"] = cells
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.cell.manual_entry", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"cell": body.key, "value": body.value.strip()})
+    return {"cells": cells}
+
+
+class Template10Patch(BaseModel):
+    rows: list[dict]    # [{kind, instrument, counterparty, gross_eur, risk, qualitative}, ...]
+
+
+@router.get("/filings/structured/p3esg-template10", summary="Pillar 3 ESG Template 10 register + field schema")
+def get_p3esg_template10(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    import json as _json
+
+    from services.governance.pillar3_qualitative import template10_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    saved = (_json.loads(row) if isinstance(row, str) else row) or {}
+    return template10_structure(saved)
+
+
+@router.patch("/filings/structured/p3esg-template10", summary="Author / save the Pillar 3 ESG Template 10 register")
+def set_p3esg_template10(body: Template10Patch, session: DbSession,
+                         ctx: dict = Depends(require_permission("approvals.create"))):
+    import json as _json
+
+    from services.governance.pillar3_qualitative import template10_structure
+    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": ctx["org"]["org_id"]}).scalar()
+    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
+    cur["template10"] = body.rows
+    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
+                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    session.commit()
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action="p3esg.template10.author", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"rows": len(body.rows)})
+    return template10_structure(cur)
+
+
+class BasisPatch(BaseModel):
+    scenario: Optional[str] = None
+    horizon: Optional[str] = None
+    materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
+    reporting_period_end: Optional[str] = None
+
+
+class AttestBody(BaseModel):
+    attestor_name: str = Field(..., min_length=1, max_length=200)
+    statement: str = Field(..., min_length=1, max_length=2000)
+
+
+class SubmitBody(BaseModel):
+    submission_ref: Optional[str] = Field(None, max_length=200)
+
+
+class AcceptBody(BaseModel):
+    ack_ref: Optional[str] = Field(None, max_length=200)
+
+
+class RestateBody(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+
+def _audit(session, ctx, action, filing_id, detail=None):
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                action=action, target_type="filing", target_id=str(filing_id), detail=detail or {})
+
+
+# ── read surfaces ───────────────────────────────────────────────────────
+
+@router.get("/obligations", summary="Regulatory filing calendar — what's due, by when")
+def obligations(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"obligations": F.list_obligations(session, ctx["org"]["org_id"], ctx["org"]["type"])}
+
+
+@router.get("/filings/frameworks", summary="Frameworks this organisation can file")
+def frameworks(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"frameworks": F.available_frameworks(ctx["org"]["type"])}
+
+
+@router.get("/filings/requirements", summary="Every mandatory reporting requirement — regulation, cadence, links, last filed")
+def reporting_requirements(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"requirements": F.reporting_requirements(session, ctx["org"]["org_id"], ctx["org"]["type"])}
+
+
+@router.get("/filings/entities", summary="The reporting-entity hierarchy — file per entity or consolidate a group")
+def filing_entities(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance import entities as E
+    return {"entities": E.entity_tree(session, ctx["org"]["org_id"])}
+
+
+class EntityCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    kind: str = Field("legal_entity", max_length=40)
+    parent_entity_id: Optional[str] = None
+    ownership_pct: float = Field(100.0, ge=0, le=100)
+    consolidation_method: str = Field("full", max_length=20)
+
+
+class EntityPatch(BaseModel):
+    name: Optional[str] = Field(None, max_length=200)
+    kind: Optional[str] = Field(None, max_length=40)
+    parent_entity_id: Optional[str] = None
+    set_parent: bool = False   # apply parent_entity_id (True lets you move a node to the top with null)
+    ownership_pct: Optional[float] = Field(None, ge=0, le=100)
+    consolidation_method: Optional[str] = Field(None, max_length=20)
+
+
+@router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
+def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    try:
+        e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
+                            parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
+                            consolidation_method=body.consolidation_method)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
+                target_type="reporting_entity", target_id=e["entity_id"], detail={"name": body.name, "kind": body.kind})
+    return e
+
+
+@router.patch("/filings/entities/{entity_id}", summary="Edit a reporting entity (name / parent / ownership / method)")
+def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    kwargs: dict = {}
+    if body.name is not None: kwargs["name"] = body.name
+    if body.kind is not None: kwargs["kind"] = body.kind
+    if body.ownership_pct is not None: kwargs["ownership_pct"] = body.ownership_pct
+    if body.consolidation_method is not None: kwargs["consolidation_method"] = body.consolidation_method
+    if body.set_parent: kwargs["parent_entity_id"] = body.parent_entity_id
+    try:
+        e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.update",
+                target_type="reporting_entity", target_id=entity_id, detail=kwargs)
+    return e
+
+
+@router.delete("/filings/entities/{entity_id}", summary="Remove a reporting entity (its book falls back to whole-org)")
+def delete_entity(entity_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.governance import entities as E
+    try:
+        E.delete_entity(session, ctx["org"]["org_id"], entity_id)
+    except E.EntityError as ex:
+        raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.delete",
+                target_type="reporting_entity", target_id=entity_id, detail={})
+    return {"ok": True}
+
+
+@router.get("/filings/{filing_id}/form", summary="The final form — the frozen disclosure as labelled datapoints")
+def filing_form(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    v = F.form_view(session, ctx["org"]["org_id"], filing_id)
+    if not v:
+        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+    return v
+
+
+class CellOverride(BaseModel):
+    datapoint_key: str = Field(..., min_length=1, max_length=120)
+    value: float
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/filings/{filing_id}/overrides", status_code=201, summary="Propose a manual override of one form cell (needs 4-eyes)")
+def propose_override(filing_id: str, body: CellOverride, session: DbSession,
+                     ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance import filing_overrides as O
+    try:
+        r = O.propose(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
+                      datapoint_key=body.datapoint_key, value=body.value, reason=body.reason)
+    except O.OverrideError as e:
+        raise HTTPException(409, {"error": "override_error", "message": str(e)})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="filing.cell_override.propose",
+                target_type="regulatory_filing", target_id=filing_id,
+                detail={"datapoint_key": body.datapoint_key, "to": body.value, "reason": body.reason})
+    return r
+
+
+@router.get("/filings", summary="The filing register — every filing, newest first")
+def list_filings(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    return {"filings": F.list_filings(session, ctx["org"]["org_id"])}
+
+
+@router.get("/filings/reporting-basis", summary="The org's reporting basis (scenario / horizon / materiality / period)")
+def get_basis(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, ctx["org"]["org_id"])
+
+
+@router.patch("/filings/reporting-basis", summary="Set the reporting basis (audited; 4-eyes if the matrix requires it)")
+def set_basis(body: BasisPatch, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.governance.config_governance import submit_or_apply_config
+    changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not changes:
+        raise HTTPException(422, {"error": "no_changes", "message": "Nothing to change."})
+    return submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
+                                  request_type="config.reporting_settings", updates=changes)
+
+
+@router.get("/filings/preflight", summary="Confirm-data step: coverage, headline & gaps before freezing a filing")
+def preflight(framework: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    try:
+        return F.preflight(session, ctx["org"]["org_id"], ctx["org"]["type"], framework)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+
+
+@router.get("/filings/{filing_id}", summary="One filing — status, full history, and the frozen report")
+def get_filing(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    f = F.get_filing(session, ctx["org"]["org_id"], filing_id)
+    if not f:
+        raise HTTPException(404, {"error": "not_found", "message": "Filing not found."})
+    return f
+
+
+@router.get("/filings/{filing_id}/export", summary="Download the filing rendered from its FROZEN snapshot")
+def export_filing(filing_id: str, format: str, session: DbSession,
+                  ctx: dict = Depends(require_permission("reports.view"))):
+    from fastapi.responses import StreamingResponse
+
+    from services.governance.filing_export import ExportError
+    from services.governance.filing_export import export_filing as _export
+    try:
+        filename, media_type, content = _export(session, ctx["org"]["org_id"], filing_id, format)
+    except ExportError as e:
+        raise HTTPException(404 if "not found" in str(e) else 409, {"error": "export_error", "message": str(e)})
+    return StreamingResponse(iter([content]), media_type=media_type,
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/filings/{filing_id}/assurance-pack", summary="Auditor-ready evidence bundle (ZIP) for a filing")
+def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    import io
+
+    from fastapi.responses import StreamingResponse
+    from services.governance.audit import write_audit
+    from sqlalchemy import text
+
+    from services.governance.assurance_pack import build_assurance_pack
+    org_id = ctx["org"]["org_id"]
+    sid = session.execute(text("SELECT snapshot_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),
+                          {"f": filing_id, "o": org_id}).scalar()
+    if not sid:
+        raise HTTPException(409, {"error": "no_snapshot", "message": "This filing has no frozen snapshot yet — prepare it first."})
+    out = build_assurance_pack(session, org_id, sid)
+    if not out:
+        raise HTTPException(404, {"error": "not_found", "message": "No such snapshot for this organization."})
+    fname, data = out
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.assurance_pack.export",
+                target_type="regulatory_filing", target_id=filing_id, detail={"file": fname})
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/filings/{filing_id}/validation", summary="Run the pre-submission validation checklist")
+def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_validation import validate_filing
+    try:
+        return validate_filing(session, ctx["org"]["org_id"], filing_id)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/filings/{filing_id}/lineage/hazards", summary="The hazard cells a filing reports (trace entry points)")
+def lineage_hazards(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import reported_hazards
+    try:
+        return {"hazards": reported_hazards(session, ctx["org"]["org_id"], filing_id)}
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/filings/{filing_id}/lineage", summary="Forward trace: a reported cell → assets → golden source → feeds")
+def lineage(filing_id: str, hazard: str, session: DbSession,
+            ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import cell_lineage
+    try:
+        return cell_lineage(session, ctx["org"]["org_id"], filing_id, hazard)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.get("/lineage/cell/{h3_cell}", summary="Reverse trace: a granular cell → every holding & filing that reuses it")
+def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_lineage import cell_upstream
+    return cell_upstream(session, ctx["org"]["org_id"], h3_cell)
+
+
+@router.get("/filings/{filing_id}/variance", summary="Decompose how the numbers moved vs the prior filing")
+def variance(filing_id: str, session: DbSession, vs: Optional[str] = None,
+             ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filing_variance import variance as _variance
+    try:
+        return _variance(session, ctx["org"]["org_id"], filing_id, vs_filing_id=vs)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+@router.post("/filings/{filing_id}/restate", status_code=201,
+             summary="Restate a filed filing — freeze a new draft and supersede the old")
+def restate(filing_id: str, body: RestateBody, session: DbSession,
+            ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        f = F.restate_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.restate", filing_id, {"reason": body.reason, "new_filing_id": f["filing_id"]})
+    return f
+
+
+@router.post("/filings/{filing_id}/refresh", summary="Re-freeze a draft filing's data from the current book")
+def refresh(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        f = F.refresh_filing(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.refresh", filing_id)
+    return f
+
+
+# ── lifecycle ───────────────────────────────────────────────────────────
+
+@router.post("/filings", status_code=201, summary="Generate a draft filing (freezes the report)")
+def generate(body: GenerateBody, session: DbSession,
+             ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
+                              body.framework, ctx["user"]["id"], note=body.note, confirmed=body.confirmed,
+                              entity_id=body.entity_id)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id})
+    return f
+
+
+@router.post("/filings/{filing_id}/submit-for-review", summary="Submit a draft for 4-eyes approval (maker)")
+def submit_for_review(filing_id: str, session: DbSession,
+                      ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        f = F.submit_for_review(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"])
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.submit_for_review", filing_id)
+    return f
+
+
+@router.post("/filings/{filing_id}/attest", summary="Attest the filing — named accountable sign-off")
+def attest(filing_id: str, body: AttestBody, session: DbSession,
+           ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        f = F.attest(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
+                     body.attestor_name, body.statement)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": body.attestor_name})
+    return f
+
+
+@router.post("/filings/{filing_id}/submit", summary="Transmit the filing to the regulator")
+def submit(filing_id: str, body: SubmitBody, session: DbSession,
+           ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        f = F.submit(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.submission_ref)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.submit", filing_id, {"submission_ref": body.submission_ref})
+    return f
+
+
+@router.post("/filings/{filing_id}/accept", summary="Record the regulator's acknowledgement")
+def accept(filing_id: str, body: AcceptBody, session: DbSession,
+           ctx: dict = Depends(require_permission("reports.publish"))):
+    try:
+        f = F.accept(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.ack_ref)
+    except F.FilingError as e:
+        raise HTTPException(409, {"error": "filing_error", "message": str(e)})
+    _audit(session, ctx, "filing.accept", filing_id, {"ack_ref": body.ack_ref})
+    return f

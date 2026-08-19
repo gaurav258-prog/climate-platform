@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState } from 'react'
 import { Zap, TrendingUp, Shield, DollarSign, BarChart3, AlertCircle } from 'lucide-react'
 
@@ -62,7 +63,7 @@ export default function AppleParametricPage() {
   ]
 
   return (
-    <div className="w-full bg-white">
+    <div className="w-full h-screen overflow-y-auto bg-white">
       {/* Hero Section */}
       <section className="relative h-96 flex items-center justify-center overflow-hidden pt-12">
         <div className="absolute inset-0 opacity-20"
@@ -153,7 +154,7 @@ export default function AppleParametricPage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <TrendingUp size={16} className="text-green-600" />
+                      <div><SimpleIcon type="trend" /></div>
                       <span className="text-sm font-light text-green-700">ROI: {contract.roi}</span>
                     </div>
                     <span className="text-sm font-light text-gray-500">Click to edit →</span>

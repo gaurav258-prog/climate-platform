@@ -23,9 +23,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import (
-    average_precision_score, classification_report, roc_auc_score
-)
+from sklearn.metrics import average_precision_score, classification_report, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sqlalchemy import text
 
@@ -150,6 +148,7 @@ def train(
     """
     import pickle
     import tempfile
+
     import mlflow
     import mlflow.xgboost
 
@@ -251,6 +250,7 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
                     features: list[str], data_vintage: date) -> None:
     """Write model metadata to canonical model_registry table."""
     from sqlalchemy import text
+
     from core.db.session import get_session
 
     with get_session() as session:
@@ -258,11 +258,12 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
             INSERT INTO model_registry
                 (model_id, model_version, hazard_type, algorithm,
                  training_data_vintage, training_cell_count,
-                 validation_auc, is_active, created_at)
+                 validation_auc, validation_avg_precision, validation_note,
+                 is_active, created_at)
             VALUES
                 (:model_id, :version, 'flood', 'xgboost',
                  :vintage, :n_train,
-                 :auc, false, now())
+                 :auc, :ap, :note, false, now())
             ON CONFLICT (model_version) DO NOTHING
         """), {
             "model_id": str(uuid.uuid4()),
@@ -270,6 +271,10 @@ def _register_model(result: TrainResult, mlflow_run_id: str,
             "vintage": data_vintage,
             "n_train": result.n_train,
             "auc": round(result.roc_auc, 3) if not np.isnan(result.roc_auc) else None,
+            "ap": round(result.avg_precision, 5) if not np.isnan(result.avg_precision) else None,
+            "note": ("ROC-AUC overstates rare-event skill; Average Precision is the "
+                     "honest metric. Validated on training holdout (random split) — "
+                     "run scripts/backtest_hazard.py flood for the spatial backtest."),
         })
 
     logger.info(f"Registered model {result.model_version} in model_registry")

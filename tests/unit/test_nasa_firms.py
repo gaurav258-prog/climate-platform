@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from core.types import HazardType
-from services.ingestion.adapters.nasa_firms import NASAFIRMSAdapter, CONFIDENCE_THRESHOLD
+from services.ingestion.adapters.nasa_firms import NASAFIRMSAdapter
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 

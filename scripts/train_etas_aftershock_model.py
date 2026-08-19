@@ -9,14 +9,15 @@ Target: aftershock_probability (0-1 within window), expected_aftershock_magnitud
 
 Validation: K-fold, time-series split
 """
-import logging
 import json
+import logging
+import sys
+
+import joblib
 import numpy as np
 import xgboost as xgb
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
-import joblib
-import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -144,7 +145,7 @@ def main():
 
     logger.info("")
     logger.info("=" * 70)
-    logger.info(f"  Phase 2b: ETAS Aftershock Model Training Complete")
+    logger.info("  Phase 2b: ETAS Aftershock Model Training Complete")
     logger.info(f"  24h Model R²: {score_24h:.4f}")
     logger.info(f"  72h Model R²: {score_72h:.4f}")
     logger.info(f"  7d Model R²: {score_7d:.4f}")

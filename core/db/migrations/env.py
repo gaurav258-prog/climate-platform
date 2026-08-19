@@ -2,11 +2,14 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool
 
 load_dotenv()
 
+# Import the regulatory (bank-vertical) models so their tables register on the
+# shared Base.metadata — without this import Alembic cannot see them.
+import core.db.models_regulatory_complete  # noqa: F401
 from core.db.models import Base
 
 config = context.config

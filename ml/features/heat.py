@@ -23,6 +23,7 @@ import pandas as pd
 
 from core.db.models import MLFeatureHeat
 from core.db.session import get_session
+
 from .base import BaseFeatureExtractor
 
 logger = logging.getLogger(__name__)

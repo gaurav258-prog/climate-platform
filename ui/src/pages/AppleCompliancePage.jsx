@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState } from 'react'
 import { CheckCircle, FileText, Shield, Zap, TrendingUp, Lock } from 'lucide-react'
 
@@ -73,7 +74,7 @@ export default function AppleCompliancePage() {
   ]
 
   return (
-    <div className="w-full bg-white">
+    <div className="w-full h-screen overflow-y-auto bg-white">
       {/* Hero Section */}
       <section className="relative h-96 flex items-center justify-center overflow-hidden pt-12">
         <div className="absolute inset-0 opacity-20"
@@ -158,7 +159,7 @@ export default function AppleCompliancePage() {
                   <div className="space-y-3">
                     {pkg.features.map((feature, i) => (
                       <div key={i} className="flex items-start gap-3">
-                        <CheckCircle size={16} className={`text-${pkg.color}-600 flex-shrink-0 mt-0.5`} />
+                        <div><SimpleIcon type="check" /></div>
                         <span className="text-sm text-gray-700 font-light">{feature}</span>
                       </div>
                     ))}
@@ -238,7 +239,7 @@ export default function AppleCompliancePage() {
                 <div className="space-y-3">
                   {selectedPackage.features.map((feature, i) => (
                     <div key={i} className="flex items-center gap-3 p-2">
-                      <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
+                      <div><SimpleIcon type="check" /></div>
                       <span className="text-gray-700 font-light">{feature}</span>
                     </div>
                   ))}

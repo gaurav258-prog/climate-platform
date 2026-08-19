@@ -10,15 +10,15 @@ Target: damage_probability, risk_score
 
 Validation: K-fold cross-validation, SHAP feature importance
 """
-import logging
 import json
+import logging
+import sys
+
+import joblib
 import numpy as np
 import xgboost as xgb
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
-import joblib
-import sys
-from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,7 +101,6 @@ def train_model(X, y):
     model.fit(X_scaled, y)
 
     # Evaluate using cross-validation (better for small datasets)
-    from sklearn.model_selection import cross_val_score
     n_splits = min(5, len(X))  # Adaptive fold count
     scores = cross_val_score(model, X_scaled, y, cv=n_splits, scoring='r2')
     mean_score = scores.mean()
@@ -147,7 +146,7 @@ def main():
 
     logger.info("")
     logger.info("=" * 70)
-    logger.info(f"  Phase 2a: Seismic Risk Model Training Complete")
+    logger.info("  Phase 2a: Seismic Risk Model Training Complete")
     logger.info(f"  Damage Model R²: {damage_score:.4f}")
     logger.info(f"  Risk Score Model R²: {risk_score:.4f}")
     logger.info("=" * 70)

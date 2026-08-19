@@ -1,0 +1,55 @@
+Field,Value
+board_committee_name,Risk Committee
+board_reporting_frequency,Quarterly
+board_meeting_cadence,4 times per year
+board_members_climate_oversight,8
+cfo_role,"Oversees integration of climate risk into financial planning and capital allocation. Ensures climate risk is reflected in asset valuation and impairment assessments. Manages climate-related disclosures and financial reporting."
+cfo_key_responsibilities,"Financial impact assessment, Capital allocation decisions, Disclosure management, Asset valuation"
+cro_role,"Leads enterprise climate risk identification and assessment. Integrates climate risk into credit risk, operational risk, and market risk frameworks. Develops climate risk policies and monitoring standards."
+cro_key_responsibilities,"Risk framework development, Portfolio monitoring, Scenario analysis, Regulatory compliance"
+chief_sustainability_officer,Yes
+sustainability_officer_role,"Coordinates climate strategy implementation, Stakeholder engagement, Science-based targets, ESG reporting"
+climate_team_size,25
+climate_team_structure,"Risk professionals, Data analysts, Sustainability specialists, Strategy advisors"
+climate_team_reports_to,Chief Risk Officer
+compensation_climate_percentage,15
+compensation_tied_to,"Meeting GHG reduction targets, Portfolio diversification milestones, Scenario analysis completion, TCFD disclosure quality"
+risk_management_process,"Annual Climate Risk Assessment, Quarterly Risk Monitoring, Annual Scenario Planning, Stress Testing"
+risk_identification_frequency,Annual with Quarterly Updates
+risk_committee_escalation_threshold_percent,5
+risk_limits_fossil_fuel_max_percent,30
+risk_limits_high_transition_risk_percent,30
+capital_expenditure_approval_threshold_EUR_M,50
+capex_climate_approval_authority,Board for >EUR 50M decisions
+climate_capex_2025_2030_EUR_M,400
+adaptation_investment_budget_annual_EUR_M,20
+disclosure_frequency,Annual TCFD + Quarterly Updates
+stakeholder_communication_cadence,"Annual reports, Quarterly updates, Investor meetings, Regulatory submissions"
+science_based_targets_commitment,Yes
+science_based_targets_validation,SBTi-validated
+sbt_scope_1_2030_percent,-50
+sbt_scope_2_2030_percent,-50
+sbt_scope_1_2050_target,Net-zero
+sbt_scope_2_2050_target,Net-zero
+sbt_scope_3_2030_percent,-25
+interim_milestone_2025_emissions_reduction_percent,15
+interim_milestone_2025_green_assets_percent,30
+interim_milestone_2030_emissions_reduction_percent,50
+interim_milestone_2030_green_assets_percent,40
+interim_milestone_2040_emissions_reduction_percent,85
+interim_milestone_2040_green_assets_percent,70
+portfolio_green_assets_target_2030_percent,40
+fossil_fuel_divestment_target_2030_percent,20
+fossil_fuel_divestment_target_2035_percent,5
+renewable_energy_investment_target_EUR_M,600
+policy_monitoring_team,Yes
+policy_monitoring_frequency,Continuous
+regulatory_engagement,Yes
+third_party_assurance,Yes
+assurance_frequency,Annual
+assurance_scope,TCFD disclosure + GHG emissions Scope 1&2
+climate_risk_integration_areas,"Strategic planning, Capital budgeting, Risk appetite, M&A decisions, Credit assessments"
+board_training_frequency,Annual
+scenario_analysis_frequency,Annual
+stress_testing_frequency,Annual
+climate_risk_culture_initiatives,"Board training, Employee engagement, Supplier engagement, Customer communication"

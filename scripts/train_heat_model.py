@@ -55,7 +55,7 @@ def main() -> None:
     print(f"  Train rows:    {result.n_train:,}")
     print(f"  Test rows:     {result.n_test:,}")
     if result.feature_importance:
-        print(f"\n  Feature importance (XGBoost):")
+        print("\n  Feature importance (XGBoost):")
         for feat, imp in sorted(result.feature_importance.items(),
                                 key=lambda x: x[1], reverse=True):
             bar = "█" * int(imp * 30)

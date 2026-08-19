@@ -11,7 +11,6 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from core.db.session import get_session
 from ml.regulatory.packager import (
     MakerCheckerViolation,
     PackageAlreadyReleased,
@@ -20,7 +19,6 @@ from ml.regulatory.packager import (
     get_package,
 )
 from ml.scoring.engine import _regulatory_fingerprint
-
 
 # ── Regulatory fingerprint tests (pure, no DB) ────────────────────────
 

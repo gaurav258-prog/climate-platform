@@ -2,12 +2,35 @@ import { useEffect, useRef, useMemo } from 'react'
 import maplibregl from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { H3HexagonLayer } from '@deck.gl/geo-layers'
+import { ScatterplotLayer } from '@deck.gl/layers'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { scoreToColor, INITIAL_VIEW_STATE, HAZARD_VIEWS } from '../mockData'
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+// CARTO Positron as RASTER tiles — same clean light look, but plain image
+// requests per viewport tile, which load far more reliably than vector tiles.
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    basemap: {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+      ],
+      tileSize: 256,
+      attribution: '© CARTO, © OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+}
 
-export default function RiskMap({ scores, onCellClick, hazard }) {
+// Bucket → RGB, matching RiskAtom so an asset reads the same colour on the map.
+const BUCKET_RGB = {
+  L: [26, 138, 74], M: [181, 106, 0], H: [194, 65, 12], VH: [200, 30, 30],
+}
+
+export default function RiskMap({ scores, onCellClick, hazard, viewOverride, assets, onAssetClick }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlayRef = useRef(null)
@@ -28,17 +51,32 @@ export default function RiskMap({ scores, onCellClick, hazard }) {
     onClick: ({ object }) => object && onCellClick(object),
   }), [scores, onCellClick])
 
+  // Optional bank-asset layer — same drill-through target as the portfolio table.
+  const assetLayer = useMemo(() => assets?.length ? new ScatterplotLayer({
+    id: 'bank-assets',
+    data: assets,
+    getPosition: d => [d.lon, d.lat],
+    getFillColor: d => BUCKET_RGB[d.headline_bucket] || [120, 120, 130],
+    radiusUnits: 'pixels', getRadius: 5, radiusMinPixels: 4, radiusMaxPixels: 10,
+    stroked: true, getLineColor: [255, 255, 255], lineWidthMinPixels: 1.5,
+    pickable: true, autoHighlight: true, highlightColor: [0, 113, 227, 140],
+    onClick: ({ object }) => object && onAssetClick?.(object),
+  }) : null, [assets, onAssetClick])
+
   // Mount the map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
+    // Start already centred on the data if we have it — avoids a fly-to that the
+    // tile-loading nudge below would otherwise cancel.
+    const iv = viewOverride || INITIAL_VIEW_STATE
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: MAP_STYLE,
-      center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
-      zoom: INITIAL_VIEW_STATE.zoom,
-      pitch: INITIAL_VIEW_STATE.pitch,
-      bearing: INITIAL_VIEW_STATE.bearing,
+      center: [iv.longitude, iv.latitude],
+      zoom: iv.zoom ?? INITIAL_VIEW_STATE.zoom,
+      pitch: iv.pitch ?? 0,
+      bearing: iv.bearing ?? 0,
       antialias: true,
     })
 
@@ -48,7 +86,18 @@ export default function RiskMap({ scores, onCellClick, hazard }) {
     mapRef.current = map
     overlayRef.current = overlay
 
+    // Ensure the basemap fetches tiles even if the container settled its size
+    // after the map was created (e.g. flex layout / nav transition). A tiny
+    // camera nudge forces the source to (re)evaluate visible tiles reliably.
+    const kick = () => map.resize()
+    map.on('load', () => requestAnimationFrame(() => requestAnimationFrame(kick)))
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(containerRef.current)
+    const t = setTimeout(kick, 400)
+
     return () => {
+      clearTimeout(t)
+      ro.disconnect()
       overlay.finalize()
       map.remove()
       mapRef.current = null
@@ -56,25 +105,25 @@ export default function RiskMap({ scores, onCellClick, hazard }) {
     }
   }, [])
 
-  // Update layers whenever scores change
+  // Update layers whenever scores or assets change
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: [h3Layer] })
-  }, [h3Layer])
+    overlayRef.current?.setProps({ layers: [h3Layer, assetLayer].filter(Boolean) })
+  }, [h3Layer, assetLayer])
 
-  // Fly to hazard region when switching
+  // Fly to the data's actual region (override) or the hazard's default view
   useEffect(() => {
-    if (!mapRef.current || !hazard) return
-    const view = HAZARD_VIEWS[hazard]
+    if (!mapRef.current) return
+    const view = viewOverride || HAZARD_VIEWS[hazard]
     if (!view) return
     mapRef.current.flyTo({
       center: [view.longitude, view.latitude],
-      zoom: view.zoom,
-      pitch: view.pitch,
-      bearing: view.bearing,
+      zoom: view.zoom ?? 5,
+      pitch: view.pitch ?? 30,
+      bearing: view.bearing ?? 0,
       duration: 1400,
       essential: true,
     })
-  }, [hazard])
+  }, [hazard, viewOverride])
 
   return (
     <div

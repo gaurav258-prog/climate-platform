@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/gauravsachdeva/Downloads/climate-platform/mlruns/421761708788976004/b3818e0eb1cb453a876d6dc93848ee0d/artifacts
+end_time: 1782561580204
+entry_point_name: ''
+experiment_id: '421761708788976004'
+lifecycle_stage: active
+run_id: b3818e0eb1cb453a876d6dc93848ee0d
+run_name: flood-v202606271159
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1782561573268
+status: 3
+tags: []
+user_id: gauravsachdeva

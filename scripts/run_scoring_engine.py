@@ -20,7 +20,6 @@ Usage:
 """
 import argparse
 import logging
-import sys
 from datetime import date, timedelta
 
 logging.basicConfig(

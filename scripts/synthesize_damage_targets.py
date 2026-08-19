@@ -7,9 +7,9 @@ then estimate damage for 36 USGS events using that relationship.
 Output: expanded_seismic_ground_truth_with_targets.json (61 events, all with damage targets)
 """
 import json
-import numpy as np
 import logging
-from scipy.optimize import curve_fit
+
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -97,7 +97,6 @@ with open('data/expanded_seismic_ground_truth_with_targets.json', 'w') as f:
 
 logger.info("=" * 70)
 logger.info("✅ Dataset ready for training")
-logger.info(f"   File: data/expanded_seismic_ground_truth_with_targets.json")
+logger.info("   File: data/expanded_seismic_ground_truth_with_targets.json")
 logger.info(f"   Events: {len(all_events)} (25 observed + 36 synthesized)")
 logger.info("=" * 70)
-EOF

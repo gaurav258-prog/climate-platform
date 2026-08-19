@@ -1,3 +1,4 @@
+import SimpleIcon from '../components/SimpleIcon'
 import { useState, useMemo } from 'react'
 import { latLngToCell } from 'h3-js'
 import { Shield, CheckCircle, Clock, Radio, Users, Zap, AlertTriangle, ChevronRight } from 'lucide-react'
@@ -13,7 +14,7 @@ const PRIORITY_STYLES = {
 const STATUS_STYLES = {
   pending:    { icon: <Clock       size={10} strokeWidth={1.5} />, color: 'text-slate-500',   label: 'Pending' },
   dispatched: { icon: <Radio       size={10} strokeWidth={1.5} />, color: 'text-amber-400',   label: 'Dispatched' },
-  complete:   { icon: <CheckCircle size={10} strokeWidth={1.5} />, color: 'text-emerald-500', label: 'Complete' },
+  complete:   { icon: <div><SimpleIcon type="check" /></div>, color: 'text-emerald-500', label: 'Complete' },
 }
 
 const CATEGORY_ICONS = {
@@ -21,7 +22,7 @@ const CATEGORY_ICONS = {
   Shelter:    <Users      size={11} strokeWidth={1.5} />,
   Alert:      <Radio      size={11} strokeWidth={1.5} />,
   Medical:    <Zap        size={11} strokeWidth={1.5} />,
-  Transport:  <AlertTriangle size={11} strokeWidth={1.5} />,
+  Transport:  <div><SimpleIcon type="alert" /></div>,
   Evacuation: <ChevronRight  size={11} strokeWidth={1.5} />,
   Regulation: <Shield     size={11} strokeWidth={1.5} />,
   Support:    <Users      size={11} strokeWidth={1.5} />,

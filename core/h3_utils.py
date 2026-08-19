@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from typing import Optional
 
 import h3
+
 from core.config import settings
 
 

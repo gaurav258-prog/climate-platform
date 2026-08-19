@@ -35,12 +35,12 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import text
 
 from core.config import settings
 from core.db.session import get_session
+
 from .compound import CompoundDetector
 from .ensemble import EnsembleScorer
 
@@ -54,6 +54,7 @@ HAZARD_FEATURE_TABLES = {
     "flood":     "ml_features_flood",
     "wildfire":  "ml_features_wildfire",
     "heat_acute": "ml_features_heat",
+    "drought":   "ml_features_drought",
 }
 
 HAZARD_FEATURE_COLS = {
@@ -77,6 +78,15 @@ HAZARD_FEATURE_COLS = {
         "days_above_35c_ytd",
         "urban_heat_island_factor",
     ],
+    "drought": [
+        "spi_3month",
+        "spei_3month",
+        "soil_moisture_percentile",
+        "precipitation_deficit_mm",
+        "ndvi_anomaly_vs_baseline",
+        "era5_temp_anomaly_c",
+        "days_since_significant_rain",
+    ],
 }
 
 
@@ -93,10 +103,12 @@ class ScoringRunResult:
 
 
 def _score_to_bucket(score: float) -> str:
-    for lo, hi, label in BUCKET_BREAKS:
-        if lo <= score < hi:
-            return label
-    return "VERY_HIGH"
+    # Canonical buckets L/M/H/VH (core.types) — must match the vocabulary and the
+    # canonical_scores.risk_bucket VARCHAR(5) column. The old LOW/MEDIUM/HIGH/
+    # VERY_HIGH labels violated both (and were never written because scoring had
+    # never successfully reached the INSERT).
+    from core.types import score_to_bucket
+    return score_to_bucket(score).value
 
 
 def _regulatory_fingerprint(
@@ -242,22 +254,56 @@ def _retire_previous_scores(
     hazard_type: str,
     scenario: str,
     retired_at: datetime,
+    score_lane: str = "standing",
 ) -> int:
-    """Set valid_to on all current scores for these cells (append-only pattern)."""
+    """Set valid_to on the current scores for these cells IN THIS LANE (append-only pattern).
+
+    score_lane is part of the key on purpose. We run two semantically different scores through
+    the same hazard_type: a STANDING climatology (drives portfolio numbers, calibrations and
+    backtests) and a NOWCAST live reading (drives the public lookup / parametric triggers).
+    They must never retire each other — a 30-second live-weather reading once retired cocoa's
+    calibrated seasonal heat climatology (74.2 -> 0.0, "not hot today"), silently invalidating
+    the crop's backtest. See migration score_lane_20260715.
+    """
     result = session.execute(text("""
         UPDATE canonical_scores
         SET    valid_to = :retired_at
         WHERE  h3_cell     = ANY(:cells)
         AND    hazard_type = :hazard
         AND    scenario    = :scenario
+        AND    score_lane  = :lane
         AND    valid_to    IS NULL
     """), {
         "retired_at": retired_at,
         "cells":      h3_cells,
         "hazard":     hazard_type,
         "scenario":   scenario,
+        "lane":       score_lane,
     })
     return result.rowcount
+
+
+def _resolve_model_version(hazard_type: str, requested: str) -> str:
+    """
+    Resolve 'latest' to the real registered model_version for this hazard so the
+    golden source records WHICH model produced each score (regulatory
+    traceability). Prefers the active model, else the most recently trained.
+    Returns `requested` unchanged if it is already concrete or nothing is
+    registered.
+    """
+    if requested and requested != "latest":
+        return requested
+    try:
+        with get_session() as s:
+            row = s.execute(text("""
+                SELECT model_version FROM model_registry
+                WHERE hazard_type = :h
+                ORDER BY is_active DESC, created_at DESC
+                LIMIT 1
+            """), {"h": hazard_type}).first()
+        return row[0] if row else requested
+    except Exception:
+        return requested
 
 
 def run(
@@ -267,6 +313,7 @@ def run(
     time_horizon: str = "current",
     model_version: str = "latest",
     dry_run: bool = False,
+    score_lane: str = "standing",
 ) -> ScoringRunResult:
     """
     Main entry point. Scores all H3 cells that have feature data for target_date.
@@ -274,6 +321,11 @@ def run(
     Parameters
     ----------
     hazard_type   : "flood" | "wildfire" | "heat_acute"
+    score_lane    : "standing" (default) — a climatological/structural score that drives
+                    portfolio numbers, calibrations and backtests; or "nowcast" — today's
+                    live reading, for the public lookup / parametric triggers. Lanes retire
+                    only within themselves, so a nowcast can never overwrite the calibrated
+                    climatology a crop's backtest rests on (see score_lane_20260715).
     target_date   : date to score (defaults to yesterday)
     scenario      : NGFS scenario label (default: "baseline")
     time_horizon  : "current" | "2030" | "2050" | "2100"
@@ -289,9 +341,14 @@ def run(
 
     target_date = target_date or (date.today() - timedelta(days=1))
     scored_at   = datetime.now(timezone.utc)
-    errors: list[str] = []
+    # data_vintage = the vintage of the INPUT data (the scored date), not when the
+    # run happened — that is what regulatory traceability needs.
+    data_vintage = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    logger.info(f"[Engine] ── Scoring run ──────────────────────────")
+    # Stamp the real model version into canonical_scores, not the literal "latest".
+    model_version = _resolve_model_version(hazard_type, model_version)
+
+    logger.info("[Engine] ── Scoring run ──────────────────────────")
     logger.info(f"[Engine]   hazard      : {hazard_type}")
     logger.info(f"[Engine]   date        : {target_date}")
     logger.info(f"[Engine]   scenario    : {scenario}")
@@ -382,6 +439,7 @@ def run(
 
         records.append({
             "score_id":               str(uuid.uuid4()),
+            "score_lane":             score_lane,
             "h3_cell":                h3_cell,
             "h3_resolution":          settings.H3_RESOLUTION,
             "hazard_type":            hazard_type,
@@ -390,7 +448,7 @@ def run(
             "risk_score":             round(score, 2),
             "risk_bucket":            _score_to_bucket(score),
             "model_version":          actual_model_version,
-            "data_vintage":           scored_at,
+            "data_vintage":           data_vintage,
             "scored_at":              scored_at,
             "valid_from":             scored_at,
             "valid_to":               None,
@@ -419,11 +477,12 @@ def run(
 
     # ── 7. Write to DB (append-only) ─────────────────────────────
     with get_session() as session:
-        # Retire previous current scores
+        # Retire previous current scores — IN THIS LANE ONLY, so a nowcast can never
+        # retire a standing climatology (or vice versa). See score_lane_20260715.
         retired = _retire_previous_scores(
-            session, h3_cells, hazard_type, scenario, scored_at
+            session, h3_cells, hazard_type, scenario, scored_at, score_lane=score_lane
         )
-        logger.info(f"[Engine] Retired {retired} previous scores")
+        logger.info(f"[Engine] Retired {retired} previous scores (lane={score_lane})")
 
         # Insert new scores
         session.execute(text("""
@@ -433,14 +492,14 @@ def run(
                 data_vintage, shap_factors, scored_at, valid_from, valid_to,
                 score_ci_lower, score_ci_upper,
                 score_velocity_6h, score_velocity_24h, score_velocity_48h,
-                ensemble_scores, compound_flag, regulatory_fingerprint
+                ensemble_scores, compound_flag, regulatory_fingerprint, score_lane
             ) VALUES (
                 :score_id, :h3_cell, :h3_resolution, :hazard_type, :scenario,
                 :time_horizon, :risk_score, :risk_bucket, :model_version,
-                :data_vintage, :shap_factors::jsonb, :scored_at, :valid_from, :valid_to,
+                :data_vintage, CAST(:shap_factors AS jsonb), :scored_at, :valid_from, :valid_to,
                 :score_ci_lower, :score_ci_upper,
                 :score_velocity_6h, :score_velocity_24h, :score_velocity_48h,
-                :ensemble_scores::jsonb, :compound_flag, :regulatory_fingerprint
+                CAST(:ensemble_scores AS jsonb), :compound_flag, :regulatory_fingerprint, :score_lane
             )
         """), records)
 
@@ -473,6 +532,19 @@ def _rule_based_fallback(df: pd.DataFrame, hazard_type: str) -> pd.DataFrame:
         p_norm = (p / p.max()).clip(0, 1) if p.max() > 0 else p
         r_norm = (r / r.max()).clip(0, 1) if r.max() > 0 else r
         raw = (0.5 * p_norm + 0.3 * r_norm + 0.2 * s) * 70  # cap at 70 (not VERY_HIGH)
+    elif hazard_type == "drought":
+        # Drought stress rises as SPI/SPEI fall, soil dries, deficit and dry-spell
+        # grow. Each signal mapped to 0–1 "stress", then weighted.
+        spi = df.get("spi_3month", pd.Series(0, index=df.index)).fillna(0)
+        spei = df.get("spei_3month", pd.Series(0, index=df.index)).fillna(0)
+        soil = df.get("soil_moisture_percentile", pd.Series(50, index=df.index)).fillna(50)
+        days = df.get("days_since_significant_rain", pd.Series(0, index=df.index)).fillna(0)
+        spi_stress = (-spi / 2.0).clip(0, 1)        # SPI -2 → full stress
+        spei_stress = (-spei / 2.0).clip(0, 1)
+        soil_stress = (1 - soil / 100.0).clip(0, 1)  # low percentile → dry
+        days_stress = (days / days.max()).clip(0, 1) if days.max() > 0 else days * 0
+        raw = (0.3 * spi_stress + 0.3 * spei_stress
+               + 0.25 * soil_stress + 0.15 * days_stress) * 70
     else:
         raw = pd.Series(20.0, index=df.index)  # default LOW
 

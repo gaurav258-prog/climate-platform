@@ -12,8 +12,9 @@ The satellite_observations table (existing) stores raw EMSC observations and
 static ESHM20 PGA values via the SEISMIC hazard_type — no schema change needed there.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = 'a1b2c3d4e5f6'
 down_revision: Union[str, None] = '2ad712e08c57'

@@ -28,11 +28,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-import numpy as np
-
 from core.db.models import SatelliteObservation
 from core.types import HazardType
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,8 @@ class SeismicHazardAdapter(BaseAdapter):
             lon = -30.0
             while lon <= 45.0:
                 pga = self._pga_for_point(lat, lon)
-                records.append({"lat": lat, "lon": lon, "pga_g": pga})
+                records.append({"lat": lat, "lon": lon, "pga_g": pga,
+                                "provenance": "eshm20_zone_approx"})
                 lon += LON_STEP
             lat += LAT_STEP
         logger.info(f"[SeismicHazard] generated {len(records)} zone grid points")
@@ -144,7 +144,8 @@ class SeismicHazardAdapter(BaseAdapter):
                         if 0 <= row < data.shape[0] and 0 <= col < data.shape[1]:
                             val = float(data[row, col])
                             if val != nodata and val > 0:
-                                records.append({"lat": lat, "lon": lon, "pga_g": val})
+                                records.append({"lat": lat, "lon": lon, "pga_g": val,
+                                                "provenance": "eshm20_raster"})
                     except Exception:
                         pass
                     lon += LON_STEP
@@ -175,16 +176,25 @@ class SeismicHazardAdapter(BaseAdapter):
                 else:
                     zone = "low"
 
+                # Provenance must distinguish a genuine ESHM20 model raster value from our coarse
+                # zone approximation, so an auditor can tell them apart in satellite_observations
+                # (audit T13). The approximation carries source_provider='eshm20_zone_approx'.
+                prov = rec.get("provenance", "eshm20_zone_approx")
+                is_raster = prov == "eshm20_raster"
+                source = "eshm20_pga" if is_raster else "eshm20_zone_approx"
+                src_note = ("ESHM20 raster" if is_raster
+                            else "ESHM20 zone approximation (fallback, not the published raster)")
+
                 obs = SatelliteObservation(
                     h3_cell=cell,
                     h3_resolution=H3_RESOLUTION,
-                    source_provider=self.source_provider,
+                    source_provider=source,
                     hazard_type=HazardType.SEISMIC.value,
                     observed_at=ESHM20_RELEASE,
                     raw_value=pga,
                     raw_unit="g_475yr",
-                    quality_flag=0,
-                    quality_notes=f"PGA={pga:.3f}g @ 475yr RP | zone={zone} | ESHM20",
+                    quality_flag=0 if is_raster else 1,   # the approximation is a lower-quality input
+                    quality_notes=f"PGA={pga:.3f}g @ 475yr RP | zone={zone} | {src_note}",
                     adapter_version=ADAPTER_VERSION,
                 )
                 observations.append(obs)

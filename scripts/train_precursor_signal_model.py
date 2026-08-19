@@ -9,14 +9,15 @@ Target: risk_elevation_probability (0-1), elevated_risk_window_days
 
 Validation: K-fold cross-validation
 """
-import logging
 import json
+import logging
+import sys
+
+import joblib
 import numpy as np
 import xgboost as xgb
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
-import joblib
-import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,7 +48,7 @@ def prepare_precursor_features(events):
     for event in events:
         try:
             magnitude = event.get('magnitude_mw', 0)
-            depth = event.get('depth_km', 0)
+            event.get('depth_km', 0)
             location = event.get('location', '')
 
             # Estimate region
@@ -151,7 +152,7 @@ def main():
 
     logger.info("")
     logger.info("=" * 70)
-    logger.info(f"  Phase 2c: Precursor Signal Model Training Complete")
+    logger.info("  Phase 2c: Precursor Signal Model Training Complete")
     logger.info(f"  Risk Elevation Model R²: {score_risk:.4f}")
     logger.info(f"  Window Duration Model R²: {score_window:.4f}")
     logger.info("=" * 70)

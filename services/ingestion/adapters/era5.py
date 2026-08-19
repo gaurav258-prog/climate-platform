@@ -15,7 +15,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta, timezone
 from typing import Optional
 
 import xarray as xr
@@ -24,7 +24,9 @@ from core.config import settings
 from core.db.models import SatelliteObservation
 from core.netcdf_utils import xarray_to_h3_dataframe
 from core.types import HazardType
-from .base import BaseAdapter, ADAPTER_VERSION
+
+from ..regions import DEFAULT_REGION, get_region
+from .base import ADAPTER_VERSION, BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +70,16 @@ ERA5_VARIABLES = {
     },
 }
 
-EU_AREA = [72, -10, 35, 30]  # [N, W, S, E] — CDS order
+EU_AREA = get_region("eu").cds_area  # [N, W, S, E] — CDS order (back-compat)
 
 
 class ERA5Adapter(BaseAdapter):
     source_provider = "era5_land"
 
-    def __init__(self, target_date: Optional[date] = None):
+    def __init__(self, target_date: Optional[date] = None, region: str = DEFAULT_REGION):
         # ERA5 lags ~5 days; default to 7 days ago to be safe
         self.target_date = target_date or (date.today() - timedelta(days=7))
+        self.region = get_region(region)
 
     def fetch(self) -> list[dict]:
         if not settings.CDSAPI_KEY:
@@ -90,7 +93,7 @@ class ERA5Adapter(BaseAdapter):
         # Fetch all 6 variables in ONE CDS request → one queue wait instead of six.
         # CDS returns a single multi-variable NetCDF (or ZIP containing it).
         all_cds_vars = list(ERA5_VARIABLES.keys())
-        logger.info(f"[ERA5] fetching {len(all_cds_vars)} variables for {d} (batch)")
+        logger.info(f"[ERA5] fetching {len(all_cds_vars)} variables for {d} over {self.region.label} (batch)")
 
         tmp = tempfile.NamedTemporaryFile(suffix=".nc", delete=False)
         tmp.close()
@@ -104,7 +107,7 @@ class ERA5Adapter(BaseAdapter):
                     "month": f"{d.month:02d}",
                     "day": [f"{d.day:02d}"],
                     "time": ["00:00", "06:00", "12:00", "18:00"],
-                    "area": EU_AREA,
+                    "area": self.region.cds_area,
                     "format": "netcdf",
                 },
                 tmp.name,

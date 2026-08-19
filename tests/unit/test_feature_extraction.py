@@ -7,12 +7,10 @@ import math
 from datetime import datetime, timezone
 
 import pandas as pd
-import pytest
 
 from ml.features.flood import FloodFeatureExtractor
 from ml.features.heat import HeatFeatureExtractor
 from ml.features.wildfire import (
-    WildfireFeatureExtractor,
     _days_since_last_rain,
     relative_humidity,
     wind_speed,

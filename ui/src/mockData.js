@@ -126,6 +126,12 @@ export const HAZARD_VIEWS = {
   flood:    { longitude: 6.95,  latitude: 50.52, zoom: 8.5, pitch: 35, bearing: 0 },
   wildfire: { longitude: -0.55, latitude: 44.55, zoom: 8.0, pitch: 35, bearing: -15 },
   heat:     { longitude: 9.20,  latitude: 48.90, zoom: 7.5, pitch: 30, bearing: 0 },
+  // Guatemala volcanic highlands (Fuego) — the primary volcanic-hazard backtest geography.
+  volcanic: { longitude: -90.88, latitude: 14.47, zoom: 9.5, pitch: 40, bearing: 0 },
+  // Puerto Rico — the storm-hazard backtest geography (Hurricane Maria, Sept 2017).
+  storm: { longitude: -66.5, latitude: 18.2, zoom: 8.3, pitch: 35, bearing: 0 },
+  // Delhi — the primary pollution-hazard backtest geography (Nov 2024 smog crisis).
+  pollution: { longitude: 77.21, latitude: 28.61, zoom: 9.5, pitch: 35, bearing: 0 },
 }
 
 export const INITIAL_VIEW_STATE = HAZARD_VIEWS.flood

@@ -12,3 +12,30 @@ data/storage/
 *.nc
 *.grib2
 mlflow.db
+
+# fetched climate data (large, reproducible via scripts/fetch_era5_baseline.py)
+data/era5_baseline/
+data/era5_climatology_baseline/
+data/era5_soil_moisture_baseline/
+data/era5_frost_baseline/
+
+# local tooling state, not project source
+.claude-flow/
+data/faostat/
+data/usda_psd/
+data/worldbank/
+
+# MITECO reservoir raw dumps — large; keep only the compact distilled index in git
+data/reservoirs/*.mdb
+data/reservoirs/*.zip
+data/reservoirs/embalses.csv
+data/reservoirs/embalses_iso.csv
+
+# Hansen forest tiles (large, reproducible via scripts/ingest_forest_baseline.py)
+data/forest/
+
+# Large geospatial source files (preprocessed into protected_h3_cell)
+data/natura2000/
+data/wdpa/
+data/wdoecm/
+data/kba/

@@ -1,0 +1,255 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronRight, ExternalLink, FileText, CalendarClock, Building2, CheckCircle2, Clock, Download, Upload, Scale } from 'lucide-react'
+import { api } from '../lib/api'
+import { useResizableWidth } from '../lib/resizable'
+import { Card, SectionHead } from './ui'
+import FilingForm from './FilingForm'
+
+// What must this org report, to whom, how often, with links to the actual regulation + official form, the
+// data it needs, when it was last filed, and access to every prior submission. The entry point to the
+// reporting workflow — it sits above the filing calendar/register in the cockpit.
+
+interface Filing { filing_id: string; period_label: string; status: string; submission_ref: string | null; snapshot_version: number | null; entity_name: string | null; filed_at: string | null }
+interface CovSection { section: string; source: string; source_category?: string; lane?: string; provider?: string | null; note?: string | null; reconcilable?: boolean }
+// what the customer does for a section that isn't produced from their data yet — the "how to provide" hint
+const HOWTO: Record<string, string> = {
+  provided: "Provide it under “Provided & reconciled data” below — we reconcile + 4-eyes attest it",
+  report: "Enter it on the filing form when you prepare this report",
+}
+interface Coverage { sections: CovSection[]; counts: Record<string, number>; total: number; pct_computed: number }
+interface Req {
+  framework: string; label: string; official_name?: string; authority?: string; legal_basis?: string
+  regulator: string; due_label: string; url?: string; summary?: string; official_form?: string; form_url?: string; inputs?: string
+  entity_scoped: boolean; n_filings: number; last_filed: Filing | null; filings: Filing[]; coverage?: Coverage | null
+}
+
+const ST: Record<string, string> = { draft: '#94a3b8', in_review: '#e8b24c', returned: '#e8b24c', approved: '#5cc8ff', attested: '#a78bfa', submitted: '#2dd4bf', accepted: '#34d399', rejected: '#fb7185', superseded: '#64748b' }
+// how a filing section is sourced — the honest coverage vocabulary
+const SRC: Record<string, { label: string; color: string }> = {
+  computed:     { label: 'Produced from your data', color: 'var(--color-good)' },
+  integrated:   { label: 'Needs your input / feed', color: '#e8b24c' },
+  client:       { label: 'You author', color: 'var(--color-sky)' },
+  out_of_scope: { label: 'Not covered', color: 'var(--color-faint)' },
+}
+const SRC_ORDER = ['computed', 'integrated', 'client', 'out_of_scope']
+const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+
+export default function FilingRequirements({ onOpen }: { onOpen: (id: string) => void }) {
+  const q = useQuery({ queryKey: ['requirements'], queryFn: () => api.get<{ requirements: Req[] }>('/v1/filings/requirements') })
+  const [open, setOpen] = useState<string | null>(null)
+  const [regView, setRegView] = useState<Req | null>(null)
+  const reqs = q.data?.requirements ?? []
+  if (!q.isLoading && reqs.length === 0) return null
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
+        <FileText size={15} className="text-[var(--color-sky)]" />
+        <SectionHead hint="what you must file">Reporting requirements</SectionHead>
+      </div>
+      {q.isLoading ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">loading…</div>
+        : <div className="divide-y divide-[var(--color-line)]">
+            {reqs.map(r => {
+              const isOpen = open === r.framework
+              return (
+                <div key={r.framework}>
+                  <button onClick={() => setOpen(isOpen ? null : r.framework)} className="w-full text-left px-5 py-3.5 flex items-center gap-4 hover:bg-[var(--color-bg-2)] transition">
+                    <ChevronRight size={15} className={`shrink-0 text-[var(--color-faint)] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[14px] text-[var(--color-ink)] truncate">{r.official_name || r.label} <span className="mono text-[10px] text-[var(--color-bad)] uppercase tracking-wide ml-1">mandatory</span></div>
+                      <div className="mono text-[11px] text-[var(--color-faint)] truncate flex items-center gap-1"><Building2 size={11} /> {r.regulator} · <CalendarClock size={11} /> {r.due_label}</div>
+                    </div>
+                    {r.coverage && (
+                      <div className="hidden md:flex flex-col items-end shrink-0 w-32" title={`Tellumen produces ${r.coverage.pct_computed}% of this filing from your data`}>
+                        <div className="mono text-[11px]" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% <span className="text-[var(--color-faint)]">from your data</span></div>
+                        <div className="flex w-28 h-1.5 rounded-full overflow-hidden mt-1 bg-[var(--color-line)]">
+                          {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-right shrink-0 w-40">
+                      {r.last_filed
+                        ? <div className="mono text-[11px]" style={{ color: ST[r.last_filed.status] ?? 'var(--color-mute)' }}><span className="inline-flex items-center gap-1"><CheckCircle2 size={11} /> last filed {r.last_filed.period_label}</span></div>
+                        : <div className="mono text-[11px] text-[var(--color-warn)]">never filed</div>}
+                      <div className="mono text-[9.5px] text-[var(--color-faint)]">{r.n_filings} prior report{r.n_filings === 1 ? '' : 's'}</div>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-5 pb-5 pt-1 bg-[var(--color-bg-2)] space-y-4">
+                      {r.summary && <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed max-w-3xl">{r.summary}</p>}
+                      {/* honest coverage — how much of this filing we produce from your data, section by section */}
+                      {r.coverage && (
+                        <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                          <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-[var(--color-line)]">
+                            <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Tellumen coverage of this filing</span>
+                            <span className="mono text-[11px] ml-auto" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% produced from your data</span>
+                          </div>
+                          <div className="flex h-2 bg-[var(--color-line)]">
+                            {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} title={`${r.coverage!.counts[s]} × ${SRC[s].label}`} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                          </div>
+                          <div className="divide-y divide-[var(--color-line)]">
+                            {r.coverage.sections.map((sec, i) => {
+                              const howto = sec.lane ? HOWTO[sec.lane] : undefined
+                              return (
+                                <div key={i} className="flex items-start gap-2.5 px-3.5 py-2 text-[12px]">
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: SRC[sec.source]?.color }} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-[var(--color-mute)] flex flex-wrap items-center gap-x-2">
+                                      {sec.section}
+                                      {sec.provider && <span className="mono text-[9.5px] text-[var(--color-faint)]">· {sec.provider}</span>}
+                                      {sec.reconcilable && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: '#e8b24c', background: 'color-mix(in oklab, #e8b24c 12%, transparent)' }}>bring-your-own-number</span>}
+                                    </div>
+                                    {/* what this line needs / what we produce / what you add — on EVERY line */}
+                                    {(sec.note || howto) && (
+                                      <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5 leading-relaxed">
+                                        {sec.note}
+                                        {howto && <span style={{ color: SRC[sec.source]?.color }}>{sec.note ? ' — ' : ''}{howto}</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="mono text-[9.5px] uppercase tracking-wide shrink-0 mt-0.5" style={{ color: SRC[sec.source]?.color }}>{SRC[sec.source]?.label}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* legend — what each status means */}
+                          <div className="px-3.5 py-2.5 border-t border-[var(--color-line)] bg-[var(--color-bg-2)] grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                            {([['computed', 'Tellumen computes it from your book + our physical/nature engine — no extra input.'],
+                               ['integrated', 'A figure only you hold (alignment flags, an audited number, a vendor feed) — you provide it under “Provided & reconciled data”, we reconcile + 4-eyes attest.'],
+                               ['client', 'A qualitative narrative (governance / strategy / risk-management prose) — you write it on the filing form; there is nothing to calculate.'],
+                               ['out_of_scope', 'Not modelled by this platform (e.g. transition sector-alignment) — sourced elsewhere or built with us later.']] as [string, string][])
+                              .filter(([s]) => (r.coverage!.counts[s] ?? 0) > 0)
+                              .map(([s, txt]) => (
+                                <div key={s} className="flex items-start gap-1.5 text-[10.5px] text-[var(--color-faint)] leading-relaxed">
+                                  <span className="mono uppercase tracking-wide shrink-0" style={{ color: SRC[s].color }}>{SRC[s].label}</span>
+                                  <span>— {txt}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[12px]">
+                        <Kv k="Legal basis" v={r.legal_basis} />
+                        <Kv k="Regulator" v={r.regulator} />
+                        <Kv k="Frequency & deadline" v={r.due_label} />
+                        <Kv k="Filing scope" v={r.entity_scoped ? 'Whole org · per entity · consolidated' : 'Whole organisation'} />
+                      </div>
+                      {r.inputs && (
+                        <div className="rounded-lg border border-[var(--color-line)] px-3.5 py-2.5">
+                          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1 flex items-center gap-1.5"><Upload size={11} /> Data required</div>
+                          <div className="text-[12px] text-[var(--color-mute)]">{r.inputs}</div>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setRegView(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-sky)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-sky)] hover:bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)] transition"><Scale size={12} /> Regulation &amp; form</button>
+                        {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={12} /> Official regulation</a>}
+                        {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition" title={r.official_form}><ExternalLink size={12} /> Official form / template</a>}
+                      </div>
+
+                      {/* prior submissions — access previously filed reports */}
+                      <div>
+                        <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Previously filed reports</div>
+                        {r.filings.length === 0
+                          ? <div className="text-[12px] text-[var(--color-faint)]">Nothing filed yet — prepare one from the calendar below.</div>
+                          : <div className="rounded-lg border border-[var(--color-line)] divide-y divide-[var(--color-line)] overflow-hidden">
+                              {r.filings.map(f => (
+                                <div key={f.filing_id} className="flex items-center gap-3 px-3 py-2 text-[12px]">
+                                  <Clock size={12} className="text-[var(--color-faint)] shrink-0" />
+                                  <button onClick={() => onOpen(f.filing_id)} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{f.period_label}{f.entity_name ? ` · ${f.entity_name}` : ''}{f.snapshot_version ? ` · v${f.snapshot_version}` : ''}</button>
+                                  <span className="mono text-[10px]" style={{ color: ST[f.status] ?? 'var(--color-faint)' }}>{f.status.replace(/_/g, ' ')}</span>
+                                  <span className="mono text-[10px] text-[var(--color-faint)]">{fmtDate(f.filed_at)}{f.submission_ref ? ` · ${f.submission_ref}` : ''}</span>
+                                  <button onClick={() => onOpen(f.filing_id)} title="Open filing" className="ml-auto text-[var(--color-faint)] hover:text-[var(--color-sky)]"><Download size={13} /></button>
+                                </div>
+                              ))}
+                            </div>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>}
+      {regView && <RegulationDrawer req={regView} onClose={() => setRegView(null)} onOpenFiling={onOpen} />}
+    </Card>
+  )
+}
+
+// Split "Regulation & form" drawer — Tellumen's plain-language summary of the regulation on the left, the
+// assembled OFFICIAL form on the right (the populated Annex from the latest filing, or a prepare-to-populate
+// state if never filed). The live regulator page can't be embedded (gov sites block framing), so the official
+// regulation + template open in a new tab from here; everything else is in-app.
+function RegulationDrawer({ req: r, onClose, onOpenFiling }: { req: Req; onClose: () => void; onOpenFiling: (id: string) => void }) {
+  const { width, setWidth, startResize } = useResizableWidth('tellumen.regdrawerw', 940, 640, 1320, 'right')
+  const latest = r.last_filed?.filing_id ?? r.filings[0]?.filing_id ?? null
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div style={{ width, maxWidth: '96vw' }} className="relative w-full h-full bg-[var(--color-bg-2)] border-l border-[var(--color-line)] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div onMouseDown={startResize} onTouchStart={startResize} onDoubleClick={() => setWidth(940)} title="Drag to resize · double-click to reset" className="absolute top-0 left-0 h-full w-1.5 cursor-col-resize hover:bg-[color-mix(in_oklab,var(--color-sky)_45%,transparent)] active:bg-[var(--color-sky)] transition z-30" />
+        <div className="shrink-0 border-b border-[var(--color-line)] px-5 py-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Regulation &amp; official form</div>
+            <div className="text-[15px] font-semibold text-[var(--color-ink)] truncate">{r.official_name || r.label}</div>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)] shrink-0"><ChevronRight size={17} className="rotate-180" /></button>
+        </div>
+
+        <div className="flex-1 overflow-hidden grid lg:grid-cols-[minmax(0,380px)_1fr]">
+          {/* left — our summary of the regulation */}
+          <div className="overflow-y-auto border-r border-[var(--color-line)] p-5 space-y-4">
+            <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)]">Tellumen summary</div>
+            {r.summary && <p className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{r.summary}</p>}
+            <div className="space-y-2.5">
+              <Kv k="Regulator" v={r.regulator} />
+              <Kv k="Legal basis" v={r.legal_basis} />
+              <Kv k="Frequency & deadline" v={r.due_label} />
+              <Kv k="Official form" v={r.official_form} />
+            </div>
+            {r.inputs && (
+              <div className="rounded-lg border border-[var(--color-line)] px-3.5 py-2.5">
+                <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1 flex items-center gap-1.5"><Upload size={11} /> Data required</div>
+                <div className="text-[12px] text-[var(--color-mute)]">{r.inputs}</div>
+              </div>
+            )}
+            {r.coverage && (
+              <div className="rounded-lg border border-[var(--color-line)] overflow-hidden">
+                <div className="flex items-center gap-2 px-3.5 py-2 border-b border-[var(--color-line)]">
+                  <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Tellumen coverage</span>
+                  <span className="mono text-[10.5px] ml-auto" style={{ color: 'var(--color-good)' }}>{r.coverage.pct_computed}% from your data</span>
+                </div>
+                <div className="flex h-1.5">
+                  {SRC_ORDER.map(s => r.coverage!.counts[s] > 0 && <div key={s} style={{ width: `${100 * r.coverage!.counts[s] / r.coverage!.total}%`, background: SRC[s].color }} />)}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={11} /> Official regulation</a>}
+              {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={11} /> Official template</a>}
+            </div>
+            <p className="mono text-[9.5px] text-[var(--color-faint)] leading-relaxed">The summary is a readable digest — the linked official text is authoritative. The regulator's page can't be embedded here, so it opens in a new tab.</p>
+          </div>
+
+          {/* right — the assembled official form (populated from the latest filing) */}
+          <div className="overflow-y-auto p-5">
+            <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Your assembled form {latest ? '· latest filing' : ''}</div>
+            {latest
+              ? <FilingForm filingId={latest} />
+              : <div className="rounded-xl border border-[var(--color-line)] p-8 text-center space-y-3">
+                  <FileText size={22} className="mx-auto text-[var(--color-faint)]" />
+                  <div className="text-[13px] text-[var(--color-mute)]">No filing prepared yet, so there's no populated form to show.</div>
+                  <div className="text-[12px] text-[var(--color-faint)]">Prepare this filing from the calendar to assemble the official form from your data — or open the blank regulator template.</div>
+                  {r.form_url && <a href={r.form_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><ExternalLink size={12} /> Official template</a>}
+                </div>}
+            {latest && <button onClick={() => { onOpenFiling(latest); onClose() }} className="mt-3 inline-flex items-center gap-1.5 mono text-[10.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">open full filing <ChevronRight size={12} /></button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Kv({ k, v }: { k: string; v?: string | null }) {
+  if (!v) return null
+  return <div className="flex flex-col"><span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{k}</span><span className="text-[var(--color-mute)]">{v}</span></div>
+}

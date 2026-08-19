@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { latLngToCell } from 'h3-js'
 import { FileText, CheckCircle, Clock, Download, ChevronRight, AlertTriangle } from 'lucide-react'
+import SimpleIcon from '../components/SimpleIcon'
 import { MOCK_ASSETS, formatEur } from '../mockAssets'
 import { generateMockScores } from '../mockData'
 
@@ -12,7 +13,7 @@ const FRAMEWORKS = ['CSRD', 'ECB', 'EIOPA', 'MAS E-12']
 
 const STATUS_STYLES = {
   DRAFT:    { icon: <Clock size={11} strokeWidth={1.5} />,       color: 'text-amber-400',   label: 'Draft' },
-  RELEASED: { icon: <CheckCircle size={11} strokeWidth={1.5} />, color: 'text-emerald-500', label: 'Released' },
+  RELEASED: { icon: <div><SimpleIcon type="check" /></div>, color: 'text-emerald-500', label: 'Released' },
 }
 
 function useAssetScores(scores) {
@@ -116,7 +117,7 @@ function PackageBuilder({ assets }) {
 
         {error && (
           <div className="flex items-center gap-2 text-[11px] text-amber-400 mb-3">
-            <AlertTriangle size={11} strokeWidth={1.5} />
+            <div><SimpleIcon type="alert" /></div>
             {error}
           </div>
         )}
@@ -272,7 +273,7 @@ export default function CompliancePage({ scores }) {
       {/* Right — package builder */}
       <div className="w-72 shrink-0 flex flex-col overflow-y-auto p-4 gap-2">
         <div className="flex items-center gap-2 mb-1">
-          <FileText size={13} strokeWidth={1.5} className="text-slate-500" />
+          <div><SimpleIcon type="file" /></div>
           <span className="text-[10px] text-slate-500 uppercase tracking-widest">Regulatory Packages</span>
         </div>
         <PackageBuilder assets={assets} />

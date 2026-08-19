@@ -22,7 +22,6 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-
 # ── Key generation ─────────────────────────────────────────────────────
 
 def generate_key() -> tuple[str, str, str]:
