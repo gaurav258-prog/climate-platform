@@ -292,6 +292,95 @@ def _reit_annex(dps: dict, payload: dict) -> list[dict]:
     return sections
 
 
+# ── Insurer — NatCat / underwriting climate exposure (EIOPA · IFRS S2) ─────────────────────────────────────
+# Correctness: an insurer's climate filing is about its UNDERWRITING book, not a bank's loan book. It does NOT
+# file a Green Asset Ratio or PCAF financed-emissions on assets (that is the bank located annex); it discloses
+# natural-catastrophe exposure — sum insured at risk by peril and geography, and expected annual loss (EAL) /
+# NatCat loss ratio by severity band. Every figure is the frozen NatCat-engine snapshot (rollup + by_hazard +
+# per-policy), rendered computed; a book without priced policies renders "—", never a fabricated loss.
+_INS_BUCKET_LABEL = {"VH": "Very high", "H": "High", "M": "Medium", "L": "Low", "none": "Not scored"}
+_INS_BUCKET_ORDER = ["VH", "H", "M", "L", "none"]
+
+
+def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
+    sections: list[dict] = []
+    rollup = (payload or {}).get("rollup") or {}
+    by_hazard = (payload or {}).get("by_hazard") or {}
+    policies = (payload or {}).get("policies") or []
+    total_si = rollup.get("total_sum_insured_eur")
+    by_bucket = rollup.get("by_bucket") or {}
+    si_at_risk = sum((by_bucket.get(b, {}) or {}).get("sum_insured_eur", 0) for b in ("VH", "H"))
+
+    # 1 — Underwriting NatCat exposure summary (the headline EIOPA / IFRS S2 figures).
+    summ_rows = [
+        {"type": "row", "cells": [_txt("Total sum insured (underwriting book)"), _mnum(_eur(total_si), "computed")]},
+        {"type": "row", "cells": [_txt("Sum insured at risk (High + Very high)"), _mnum(_eur(si_at_risk), "computed"),
+                                  _txt(_pct_text(si_at_risk, total_si))]},
+        {"type": "row", "cells": [_txt("Expected annual loss (NatCat)"), _mnum(_eur(rollup.get("total_expected_annual_loss_eur")), "computed"), _txt("")]},
+        {"type": "row", "cells": [_txt("Gross written premium"), _mnum(_eur(rollup.get("total_gross_premium_eur")), "computed"), _txt("")]},
+        {"type": "row", "cells": [_txt("Modelled NatCat loss ratio"),
+                                  _num(f"{rollup['portfolio_loss_ratio_pct']}%" if rollup.get("portfolio_loss_ratio_pct") is not None else "—"), _txt("")]},
+    ]
+    sections.append({
+        "title": "NatCat underwriting exposure — summary (EIOPA · IFRS S2)",
+        "columns": ["Metric", "Amount", "% of sum insured"], "rows": summ_rows,
+        "note": "Expected annual loss = probability-weighted scenario loss across the book (mean-damage-ratio × "
+                "per-peril occurrence frequency); loss ratio = modelled claims ÷ gross written premium. Computed by "
+                "the Tellumen NatCat engine from the frozen snapshot.",
+    })
+
+    # 2 — Sum insured at risk by peril (High+), the per-event-type nat-cat table.
+    haz_rows = []
+    for hz in sorted(by_hazard, key=lambda h: -((by_hazard[h] or {}).get("exposed_value_eur") or 0)):
+        h = by_hazard[hz] or {}
+        haz_rows.append({"type": "row", "cells": [
+            _txt(_pretty_hazard(hz)), _mnum(_eur(h.get("exposed_value_eur")), "computed"),
+            _num(str(h.get("n_exposed", 0))), _num(f"{h.get('max_score', 0)}")]})
+    if haz_rows:
+        sections.append({
+            "title": "Sum insured at risk by peril (High+) — per event type",
+            "columns": ["Peril", "Sum insured exposed", "Policies exposed", "Max hazard score"],
+            "col_sources": ["", "computed", "computed", "computed"], "rows": haz_rows,
+            "note": "Sum insured on policies whose peril score is High or Very high, by peril. The 'event type' axis "
+                    "of the EIOPA NatCat template (windstorm, flood, earthquake, wildfire, …).",
+        })
+
+    # 3 — Exposure & expected annual loss by severity band.
+    band_rows = []
+    for b in _INS_BUCKET_ORDER:
+        v = by_bucket.get(b)
+        if not v:
+            continue
+        band_rows.append({"type": "row", "cells": [
+            _txt(_INS_BUCKET_LABEL[b]), _num(str(v.get("count", 0))),
+            _mnum(_eur(v.get("sum_insured_eur")), "computed"), _mnum(_eur(v.get("eal_eur")), "computed")]})
+    if band_rows:
+        sections.append({
+            "title": "Exposure & expected annual loss by risk band",
+            "columns": ["Risk band", "Policies", "Sum insured", "Expected annual loss"],
+            "col_sources": ["", "computed", "computed", "computed"], "rows": band_rows, "note": None})
+
+    # 4 — Sum insured at risk by geography (High+), aggregated from the frozen policy list.
+    geo: dict = {}
+    for p in policies:
+        if (p.get("headline_bucket") or "") in ("H", "VH"):
+            region = p.get("region") or "Unspecified"
+            g = geo.setdefault(region, {"si": 0.0, "n": 0})
+            g["si"] += p.get("sum_insured_eur") or 0
+            g["n"] += 1
+    if geo:
+        geo_rows = [{"type": "row", "cells": [_txt(region), _mnum(_eur(v["si"]), "computed"), _num(str(v["n"]))]}
+                    for region, v in sorted(geo.items(), key=lambda kv: -kv[1]["si"])]
+        sections.append({
+            "title": "Sum insured at risk by geography (High+)",
+            "columns": ["Region", "Sum insured exposed", "Policies exposed"],
+            "col_sources": ["", "computed", "computed"], "rows": geo_rows,
+            "note": "Geographic concentration of NatCat exposure — sum insured on High+ policies aggregated by the "
+                    "policy's region."})
+
+    return sections
+
+
 def _eur(v):
     """Readable euro for a computed annex cell (values are already in EUR)."""
     if not isinstance(v, (int, float)):
@@ -599,7 +688,9 @@ def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | N
         sections = _p3esg_annex(dps, payload or {})
     elif framework == "reit_tcfd":
         sections = _reit_annex(dps, payload or {})
-    elif framework in ("bank_tcfd", "insurer_climate"):
+    elif framework == "insurer_climate":
+        sections = _insurer_annex(dps, payload or {})
+    elif framework == "bank_tcfd":
         sections = _located_annex(dps)
     else:
         sections = _generic_annex(dps, groups)
