@@ -39,6 +39,7 @@ type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Rec
 interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
 interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
 interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
+interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -230,6 +231,9 @@ export default function Portfolio() {
 
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
+
+      {/* combined physical + transition climate VaR — one loss distribution over both drivers (asset mgmt). */}
+      <CombinedVarCard c={r?.combined_climate_var as CombinedVar | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
       {view === 'forward' ? (
         <div className="space-y-6">
@@ -487,6 +491,40 @@ function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: s
       )}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         Transition EL = outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers). Financed emissions are counterparty Scope 1+2, reported or NACE-estimated; a rigorous PCAF attribution additionally needs counterparty EVIC (you provide). Disclosed relative tiers, not a fitted PD model.
+      </div>
+    </Card>
+  )
+}
+
+function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel: string }) {
+  if (!c || !c.available) return null
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Combined climate VaR</span>
+        <span className="text-[12px] text-[var(--color-mute)]">physical + transition in one loss distribution ({scenarioLabel})</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{c.n_with_transition}/{c.n_positions} positions carry a transition tier</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{eur(c.combined_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Combined expected · {c.combined_pct_of_book}%</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-blue)]">{eur(c.physical_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">— of which physical</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#8E6FC7' }}>{eur(c.transition_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">— of which transition</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(c.var99_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">99th-percentile VaR</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        One Monte-Carlo per holding over both drivers — physical (continuous haircut, sampled around the per-cell confidence interval) and transition (sector stranded-asset fraction under the scenario's NGFS carbon price). Combined as 1−(1−physical)(1−transition), so a holding is never lost twice. Disclosed relative tiers, not a fitted model.
       </div>
     </Card>
   )

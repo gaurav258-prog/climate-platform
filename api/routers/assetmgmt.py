@@ -43,6 +43,7 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
+from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -134,6 +135,9 @@ def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=
         scored = [{"position_value_eur": h["position_value_eur"], "bucket": h["headline_bucket"],
                    "hazard": h["headline_hazard"]} for h in holdings if h["headline_bucket"]]
         rollup["monte_carlo_var"] = monte_carlo_var(scored, org_id, scenario, horizon, severity_model)
+    # Combined physical + transition climate VaR (one distribution over both drivers, with decomposition).
+    if org_id and scenario and horizon:
+        rollup["combined_climate_var"] = combined_climate_var(holdings, org_id, scenario, horizon)
     return rollup
 
 
