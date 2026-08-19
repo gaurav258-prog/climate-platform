@@ -109,7 +109,8 @@ def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="univ
     return [_map_holding_row(r) for r in rows]
 
 
-def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=None, severity_model="universal"):
+def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=None, severity_model="universal",
+            dependence="independent"):
     total = sum(h["position_value_eur"] or 0 for h in holdings)
     total_var = sum((h["position_value_eur"] or 0) - h["climate_var"]["discounted_value_eur"] for h in holdings)
     n_flagged = sum(1 for h in holdings if h["flagged"])
@@ -137,7 +138,8 @@ def _rollup(holdings, var_method="haircut", org_id=None, scenario=None, horizon=
         rollup["monte_carlo_var"] = monte_carlo_var(scored, org_id, scenario, horizon, severity_model)
     # Combined physical + transition climate VaR (one distribution over both drivers, with decomposition).
     if org_id and scenario and horizon:
-        rollup["combined_climate_var"] = combined_climate_var(holdings, org_id, scenario, horizon)
+        rollup["combined_climate_var"] = combined_climate_var(holdings, org_id, scenario, horizon,
+                                                              dependence=dependence)
     return rollup
 
 
@@ -146,7 +148,8 @@ def portfolio(session: DbSession, org_id: OrgId,
               scenario: str = Query("baseline"), horizon: str = Query("current")):
     settings = get_calc_settings(session, org_id)
     holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
-    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"])
+    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
+                     dependence=settings["climate_var_dependence"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": rollup, "holdings": holdings}
 
@@ -165,7 +168,8 @@ def summary(session: DbSession, org_id: OrgId,
     ), {"o": org_id}).mappings().first()
     settings = get_calc_settings(session, org_id)
     holdings = _holdings_with_risk(session, org_id, scenario, horizon, settings["severity_model"])
-    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"])
+    rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
+                     dependence=settings["climate_var_dependence"])
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": rollup}
 
 

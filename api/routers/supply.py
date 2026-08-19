@@ -96,8 +96,10 @@ def _eudr_summary(session, org_id):
 @router.get("/resourcing", summary="Re-sourcing opportunities — cut COGS-at-risk by shifting to a lower-risk origin")
 def resourcing(session: DbSession, org_id: OrgId,
                scenario: str = Query("baseline"), horizon: str = Query("current")):
+    from services.calc_settings import get_calc_settings
     from services.intelligence.resourcing import resourcing_opportunities
-    return resourcing_opportunities(session, org_id, scenario=scenario, time_horizon=horizon)
+    cap = get_calc_settings(session, org_id)["resourcing_reallocation_cap_pct"] / 100.0
+    return resourcing_opportunities(session, org_id, scenario=scenario, time_horizon=horizon, realloc_cap=cap)
 
 
 @router.get("/summary", summary="Procurement book → COGS-at-risk rollup")

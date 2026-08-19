@@ -20,16 +20,23 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-RETURN_PERIODS = [10, 50, 100, 250]
-_PML_RETURN_PERIOD = 250
+_BASE_RETURN_PERIODS = [10, 50, 100, 250]
+_DEFAULT_PML_RETURN_PERIOD = 250
 _DEFAULT_SIMS = 30000
 
 
 def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, horizon: str,
-                             n_years: int = _DEFAULT_SIMS) -> dict:
+                             n_years: int = _DEFAULT_SIMS,
+                             pml_return_period: int = _DEFAULT_PML_RETURN_PERIOD) -> dict:
     """policies: the priced insurance book (each with pricing.net_scenario_loss_eur /
     .annual_occurrence_prob / .expected_annual_loss_eur, plus headline_hazard and region). Returns the
-    AEP/OEP exceedance losses, the PML, and the reconciliation of the simulated mean to the EAL sum."""
+    AEP/OEP exceedance losses, the PML, and the reconciliation of the simulated mean to the EAL sum.
+
+    pml_return_period: the return period the PML is read at — an institution interpretation switch. Solvency II
+    SCR is 1-in-200 (99.5% VaR); rating agencies commonly use 1-in-250. The chosen period is always included in
+    the reported AEP/OEP curves so the ladder shows it."""
+    # the reported return-period ladder always includes the chosen PML period
+    return_periods = sorted(set(_BASE_RETURN_PERIODS) | {pml_return_period})
     import hashlib
 
     import numpy as np
@@ -84,11 +91,11 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
         "sum_independent_eal_eur": round(sum_eal),
         # the simulated mean should sit within Monte-Carlo error of the independent EAL sum
         "mean_reconciles": bool(abs(mean_annual - sum_eal) <= 0.05 * sum_eal) if sum_eal else True,
-        "aep_eur": {f"rp_{t}": round(rp(annual, t)) for t in RETURN_PERIODS},
-        "oep_eur": {f"rp_{t}": round(rp(occ_max, t)) for t in RETURN_PERIODS},
-        "pml_eur": round(rp(occ_max, _PML_RETURN_PERIOD)),
-        "pml_return_period": _PML_RETURN_PERIOD,
-        "tail_to_mean_multiple": round(rp(annual, 250) / mean_annual, 1) if mean_annual else None,
+        "aep_eur": {f"rp_{t}": round(rp(annual, t)) for t in return_periods},
+        "oep_eur": {f"rp_{t}": round(rp(occ_max, t)) for t in return_periods},
+        "pml_eur": round(rp(occ_max, pml_return_period)),
+        "pml_return_period": pml_return_period,
+        "tail_to_mean_multiple": round(rp(annual, pml_return_period) / mean_annual, 1) if mean_annual else None,
         "method": ("common-shock Monte-Carlo: a (peril, region) zone event fires at the zone's occurrence "
                    "rate; policies realise their scenario loss conditional on that shared event, preserving "
                    "each policy's marginal EAL. Correlation perfect within a zone, independent across zones. "

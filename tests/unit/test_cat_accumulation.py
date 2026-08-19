@@ -50,6 +50,18 @@ def test_correlation_fattens_the_tail():
     assert rc["tail_to_mean_multiple"] > rd["tail_to_mean_multiple"]
 
 
+def test_pml_return_period_is_configurable():
+    # a spread of zones so the OEP curve isn't saturated → the PML read point actually matters
+    book = _book([("flood", f"R{i}") for i in range(12)] + [("storm", f"S{i}") for i in range(12)])
+    r250 = catastrophe_accumulation(book, "org1", "baseline", "current", pml_return_period=250)
+    r200 = catastrophe_accumulation(book, "org1", "baseline", "current", pml_return_period=200)
+    assert r250["pml_return_period"] == 250 and r200["pml_return_period"] == 200
+    # the chosen period is always present in the reported ladders (Solvency II 1-in-200)
+    assert "rp_200" in r200["aep_eur"] and "rp_200" in r200["oep_eur"]
+    # a longer return period can never give a SMALLER PML (monotone tail)
+    assert r250["pml_eur"] >= r200["pml_eur"]
+
+
 def test_no_priced_policies_is_unavailable():
     assert catastrophe_accumulation([], "o", "s", "h")["available"] is False
     unpriced = [{"headline_hazard": "flood", "region": "A", "pricing": None}]

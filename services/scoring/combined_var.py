@@ -19,10 +19,32 @@ from __future__ import annotations
 _DEFAULT_SIMS = 10000
 
 
+def _combine(physical, transition, dependence: str):
+    """Combine a physical and a transition loss fraction on one holding (scalars or numpy arrays).
+    'independent' = 1−(1−p)(1−t) (they hit different states); 'additive' = min(1, p+t) (conservative stack);
+    'max' = the larger driver only. An institution interpretation switch."""
+    if dependence == "additive":
+        try:
+            import numpy as np
+            return np.minimum(1.0, physical + transition)
+        except Exception:
+            return min(1.0, physical + transition)
+    if dependence == "max":
+        try:
+            import numpy as np
+            return np.maximum(physical, transition)
+        except Exception:
+            return max(physical, transition)
+    # default: independent
+    return 1.0 - (1.0 - physical) * (1.0 - transition)
+
+
 def combined_climate_var(holdings: list[dict], org_id: str, scenario: str, horizon: str,
-                         n_sims: int = _DEFAULT_SIMS) -> dict:
+                         n_sims: int = _DEFAULT_SIMS, dependence: str = "independent") -> dict:
     """holdings: the asset-manager book (each with position_value_eur, headline_score/bucket/hazard, hazards
-    with ci_lo/ci_hi, nace_code). Returns the combined physical+transition climate VaR with decomposition."""
+    with ci_lo/ci_hi, nace_code). dependence: how physical & transition losses combine on a holding
+    (independent | additive | max) — an institution interpretation switch. Returns the combined
+    physical+transition climate VaR with decomposition."""
     import hashlib
 
     import numpy as np
@@ -55,7 +77,7 @@ def combined_climate_var(holdings: list[dict], org_id: str, scenario: str, horiz
 
         phys_expected += value * phys
         trans_expected += value * trans
-        combined_mean = 1.0 - (1.0 - phys) * (1.0 - trans)
+        combined_mean = _combine(phys, trans, dependence)
         combined_expected += value * combined_mean
 
         # physical draw around the per-cell CI band (or a relative spread if no CI)
@@ -77,13 +99,14 @@ def combined_climate_var(holdings: list[dict], org_id: str, scenario: str, horiz
         else:
             tdraw = np.zeros(n_sims)
 
-        losses += value * (1.0 - (1.0 - pdraw) * (1.0 - tdraw))
+        losses += value * _combine(pdraw, tdraw, dependence)
 
     p50, p95, p99 = (float(x) for x in np.percentile(losses, [50, 95, 99]))
     return {
         "available": True,
         "scenario": scenario, "horizon": horizon,
         "n_positions": len(priced), "n_with_transition": n_transition, "n_sims": n_sims,
+        "dependence": dependence,
         "median_loss_eur": round(p50),
         "var95_eur": round(p95),
         "var99_eur": round(p99),

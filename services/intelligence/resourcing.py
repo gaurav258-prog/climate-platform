@@ -35,7 +35,7 @@ def _name(code: str | None) -> str:
     return _ORIGIN_NAME.get((code or "").upper(), code or "—")
 
 
-def evaluate_commodity(commodity: str, origins: list[dict]) -> dict:
+def evaluate_commodity(commodity: str, origins: list[dict], cap: float = REALLOC_CAP) -> dict:
     """Pure reallocation math for one commodity. origins: [{origin, name, yield_shock_pct, spend_eur}] already
     filtered to scored, positive-spend origins. Returns one of:
       {kind: 'none'}                              → nothing sourced / unusable
@@ -54,7 +54,7 @@ def evaluate_commodity(commodity: str, origins: list[dict]) -> dict:
     best, worst = ordered[0], ordered[-1]
     if worst["yield_shock_pct"] <= best["yield_shock_pct"]:
         return {"kind": "concentrated", "commodity": commodity, "current_cogs_at_risk_eur": round(current_car)}
-    shift = min(worst["spend_eur"], REALLOC_CAP * total_spend)
+    shift = min(worst["spend_eur"], cap * total_spend)
     avoidable = shift * (worst["yield_shock_pct"] - best["yield_shock_pct"]) / 100.0
     return {
         "kind": "opportunity", "commodity": commodity,
@@ -70,7 +70,7 @@ def evaluate_commodity(commodity: str, origins: list[dict]) -> dict:
 
 
 def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "baseline",
-                             time_horizon: str = "current") -> dict:
+                             time_horizon: str = "current", realloc_cap: float = REALLOC_CAP) -> dict:
     """Per-commodity origin-substitution opportunities + a book rollup. Reallocates spend among the origins the
     buyer already sources, from the highest-risk to the lowest-risk, capped at REALLOC_CAP."""
     res = project_org_supply(session, org_id, scenario=scenario, time_horizon=time_horizon)
@@ -94,7 +94,7 @@ def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "
                     "spend_eur": round(spend_by.get((c.commodity, o.get("origin")), 0.0))}
                    for o in c.origins
                    if o.get("yield_shock_pct") is not None and spend_by.get((c.commodity, o.get("origin")), 0.0) > 0]
-        ev = evaluate_commodity(c.commodity, origins)
+        ev = evaluate_commodity(c.commodity, origins, cap=realloc_cap)
         if ev["kind"] == "none":
             continue
         total_current += ev.get("current_cogs_at_risk_eur", 0) if ev["kind"] != "single" else ev["cogs_at_risk_eur"]
@@ -108,7 +108,7 @@ def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "
     return {
         "available": bool(opportunities or single_origin),
         "scenario": scenario, "time_horizon": time_horizon,
-        "reallocation_cap_pct": round(REALLOC_CAP * 100),
+        "reallocation_cap_pct": round(realloc_cap * 100),
         "total_current_cogs_at_risk_eur": round(total_current),
         "total_avoidable_eur": round(total_avoidable),
         "avoidable_pct_of_current": round(100 * total_avoidable / total_current, 1) if total_current else 0,
@@ -119,5 +119,5 @@ def resourcing_opportunities(session: Session, org_id: str, *, scenario: str = "
                    "its lowest-risk EXISTING origin; the avoided COGS-at-risk is shift × the yield-shock gap. "
                    "Only origins the buyer already sources are used — a single-origin commodity needs a "
                    "genuinely new origin, and is listed as such, never given a fabricated alternative.").format(
-                       cap=round(REALLOC_CAP * 100)),
+                       cap=round(realloc_cap * 100)),
     }

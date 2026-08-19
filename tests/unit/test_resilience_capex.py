@@ -53,3 +53,14 @@ def test_empty_or_unscored_is_unavailable():
     assert resilience_capex_plan([])["available"] is False
     unscored = [{"property_value_eur": 100, "headline_score": None, "headline_bucket": None}]
     assert resilience_capex_plan(unscored)["available"] is False
+
+
+def test_adaptation_scenario_scales_avoided_loss():
+    book = [_prop(100_000_000, 80, "flood", "VH")]
+    cons = resilience_capex_plan(book, scenario="conservative")
+    ref = resilience_capex_plan(book, scenario="reference")
+    opt = resilience_capex_plan(book, scenario="optimistic")
+    assert cons["total_avoided_loss_eur"] < ref["total_avoided_loss_eur"] < opt["total_avoided_loss_eur"]
+    # capex is unchanged by the effectiveness scenario (only the avoided side moves)
+    assert cons["total_resilience_capex_eur"] == ref["total_resilience_capex_eur"] == opt["total_resilience_capex_eur"]
+    assert ref["adaptation_scenario"] == "reference"
