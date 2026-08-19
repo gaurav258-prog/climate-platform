@@ -38,6 +38,7 @@ export default function Admin() {
     perms.includes('admin.users.manage') && 'Entities',
     perms.includes('admin.approval_policy.manage') && 'Approval matrix',
     perms.includes('admin.approval_policy.manage') && 'KRI appetite',
+    perms.includes('admin.roles.manage') && 'Methodology',
     perms.includes('admin.users.manage') && 'Integrations',
   ].filter(Boolean) as string[]
   const [tab, setTab] = useState(tabs[0] ?? 'Overview')
@@ -63,12 +64,71 @@ export default function Admin() {
       {tab === 'Entities' && <AdminEntities />}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
+      {tab === 'Methodology' && <Methodology />}
       {tab === 'Integrations' && <Integrations />}
     </div>
   )
 }
 
 interface Token { token_id: string; name: string; token_prefix: string; is_active: boolean; created_by_email: string | null; created_at: string | null; last_used_at: string | null }
+
+interface SwitchSpec { key: string; label: string; description: string; default: string | number; kind: string; allowed?: (string | number)[] | null; min?: number | null; max?: number | null }
+
+function Methodology() {
+  const cat = useQuery({ queryKey: ['calc-catalog'], queryFn: () => api.get<{ interpretation: SwitchSpec[] }>('/v1/calc-settings/catalog') })
+  const cur = useQuery({ queryKey: ['calc-settings'], queryFn: () => api.get<Record<string, unknown>>('/v1/calc-settings') })
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const save = async (key: string, value: string | number) => {
+    setBusy(key)
+    try {
+      const res = await api.patch<{ status: string }>('/v1/calc-settings', { interpretation: { [key]: value } })
+      toast.success(res.status === 'pending' ? 'Change submitted for 4-eyes approval.' : 'Interpretation updated.')
+      cur.refetch()
+    } catch { toast.error('Could not apply the change — check the value.') } finally { setBusy(null) }
+  }
+
+  const specs = cat.data?.interpretation ?? []
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1"><Gauge size={16} className="text-[var(--color-sky)]" />
+        <h2 className="display text-xl font-semibold">Methodology &amp; interpretation</h2></div>
+      <p className="text-[12.5px] text-[var(--color-mute)] max-w-2xl mb-4">
+        Where a regulation leaves a choice to your institution (e.g. the catastrophe PML return period — Solvency II 1-in-200 vs a rating-agency 1-in-250), set it here. Every default reproduces the standard figure; changes are audited (4-eyes if your approval matrix requires it) and stamped onto every frozen filing so a regulator sees which interpretation produced each number.
+      </p>
+      {specs.length === 0 ? (
+        <div className="text-[12.5px] text-[var(--color-faint)]">No interpretation switches apply to this sector.</div>
+      ) : (
+        <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
+          {specs.map(s => {
+            const value = (cur.data?.[s.key] ?? s.default) as string | number
+            const isEnum = s.kind === 'enum' || (Array.isArray(s.allowed) && s.allowed.length > 0)
+            return (
+              <div key={s.key} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-[var(--color-ink)]">{s.label}</div>
+                  <div className="text-[11.5px] text-[var(--color-mute)]">{s.description}</div>
+                </div>
+                {isEnum ? (
+                  <select value={String(value)} disabled={busy === s.key}
+                    onChange={e => save(s.key, s.kind === 'int' ? Number(e.target.value) : e.target.value)}
+                    className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">
+                    {(s.allowed ?? []).map(a => <option key={String(a)} value={String(a)}>{String(a)}{a === s.default ? ' (default)' : ''}</option>)}
+                  </select>
+                ) : (
+                  <input type="number" defaultValue={Number(value)} min={s.min ?? undefined} max={s.max ?? undefined}
+                    step={s.kind === 'float' ? 0.01 : 1} disabled={busy === s.key}
+                    onBlur={e => { const v = Number(e.target.value); if (v !== Number(value)) save(s.key, v) }}
+                    className="w-28 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] tabular-nums" />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
+}
 
 function Integrations() {
   const { profile } = useAuth()
