@@ -3,6 +3,7 @@ Regulatory Change Detection Engine
 Monitors regulatory sources and identifies changes
 """
 
+import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -10,12 +11,33 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from core.db.models_regulatory_complete import (
-    RegulationVersion,
     RegulatoryChange,
+    RegulatoryDocumentSnapshot,
     RegulatoryFramework,
 )
 
+# Analyzers are stdlib-only (difflib) — safe to import eagerly. The scrapers pull in requests/bs4
+# (network dependencies), so they are imported lazily inside _build_scrapers() to keep this module —
+# which the daily scheduler imports — loadable even where those optional deps are absent.
+from .analysis.document_analyzer import DocumentAnalyzer
+from .analysis.impact_analyzer import ImpactAnalyzer
+
 logger = logging.getLogger(__name__)
+
+
+def _doc_signature(doc: Dict) -> str:
+    """Stable content hash for a scraped document — the change signal."""
+    basis = f"{doc.get('title', '')}\n{doc.get('content', '')}"
+    return hashlib.sha256(basis.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _pick_latest(docs: List[Dict]) -> Optional[Dict]:
+    """Choose the most relevant scraped doc for a source — the first non-empty one
+    (scrapers already return newest-first)."""
+    for d in docs:
+        if d and (d.get("title") or d.get("content")):
+            return d
+    return None
 
 
 class RegulatoryChangeDetector:
@@ -34,6 +56,26 @@ class RegulatoryChangeDetector:
     def __init__(self, db: Session):
         self.db = db
         self.logger = logging.getLogger(__name__)
+        self._analyzer = DocumentAnalyzer()
+        self._impact = ImpactAnalyzer()
+        self._scrapers = None  # lazily built on first fetch (see _build_scrapers)
+
+    def _build_scrapers(self) -> Optional[dict]:
+        """Instantiate the network scrapers on first use. Returns None (with a logged warning) if
+        their optional dependencies (requests/bs4) are not installed — detection then finds no
+        documents rather than crashing the scheduler."""
+        if self._scrapers is not None:
+            return self._scrapers
+        try:
+            from .scrapers.eur_lex_scraper import EurLexScraper
+            from .scrapers.fca_scraper import FCAScraper
+            from .scrapers.sec_scraper import SECScraper
+            self._scrapers = {"eurlex": EurLexScraper(), "sec": SECScraper(), "fca": FCAScraper()}
+        except ImportError as e:
+            self.logger.warning(f"Regulatory scrapers unavailable (missing optional dep: {e}); "
+                                "change detection will find no documents this run.")
+            self._scrapers = {}
+        return self._scrapers
 
     def detect_changes(self, framework_id: str) -> List[Dict]:
         """
@@ -75,78 +117,143 @@ class RegulatoryChangeDetector:
             self.logger.error(f"Change detection failed: {e}", exc_info=True)
             return []
 
+    def _scrapers_for(self, framework) -> List:
+        """Map a framework to the scraper calls that cover its authoritative source(s).
+
+        Each entry is (source_name, callable→List[Dict]). Keyed off the framework name so a
+        newly-added framework routes to the right regulator; unrecognised frameworks fall back to
+        EUR-Lex recent documents (the broadest EU source)."""
+        scrapers = self._build_scrapers()
+        if not scrapers:
+            return []
+        eurlex, sec, fca = scrapers["eurlex"], scrapers["sec"], scrapers["fca"]
+        name = (framework.framework_name or "").lower()
+        calls: List = []
+        if "taxonomy" in name:
+            calls.append(("EUR-Lex", eurlex.scrape_taxonomy_updates))
+        if "csrd" in name or "sustainability reporting" in name:
+            calls.append(("EUR-Lex", eurlex.scrape_csrd_updates))
+        if "eba" in name or "ecb" in name or "pillar 3" in name or "pillar3" in name:
+            calls.append(("EUR-Lex", eurlex.scrape_eba_guidelines))
+        if "sec" in name or "tcfd" in name:
+            calls.append(("SEC", sec.scrape_climate_rules))
+        if "fca" in name or "tcfd" in name:
+            calls.append(("FCA", fca.scrape_climate_rules))
+        if not calls:
+            calls.append(("EUR-Lex", eurlex.scrape_recent_documents))
+        return calls
+
     def _fetch_from_sources(self, framework) -> Dict:
         """
-        Fetch latest documents from regulatory sources
+        Fetch latest documents from the real regulatory-source scrapers for this framework.
 
-        Sources per framework:
-        - TCFD: TCFD website, SEC filings
-        - EU Taxonomy: EUR-Lex, EFRAG, EU Commission
-        - SEC: SEC.gov, Federal Register
-        - Basel III: BIS, national banking regulators
-        - EBA/ECB: EUR-Lex, EBA website, ECB website
-        - FCA: FCA handbook, regulatory notices
+        Returns {source_name: doc_dict} for every source that returned a usable document. A source
+        that errors or returns nothing (e.g. no network) is skipped — never replaced with a fake
+        document, so a downstream "no change" is the honest truth, not a masked failure.
         """
-        sources = {
-            "TCFD": {"url": "https://www.tcfdhub.org", "type": "website"},
-            "EU Taxonomy": {"url": "https://eur-lex.europa.eu", "type": "official"},
-            "SEC": {"url": "https://www.sec.gov/cgi-bin", "type": "official"},
-            "EBA/ECB": {"url": "https://eur-lex.europa.eu", "type": "official"},
-            "FCA": {"url": "https://www.fca.org.uk/news", "type": "news"},
-            "Basel III": {"url": "https://www.bis.org", "type": "official"},
-        }
-
-        docs = {}
-        for source_name, source_config in sources.items():
+        docs: Dict[str, Dict] = {}
+        for source_name, call in self._scrapers_for(framework):
             try:
-                # TODO: Implement actual scrapers in ./scrapers/
-                # For now, return mock data
-                docs[source_name] = self._get_mock_document(framework.framework_name)
+                latest = _pick_latest(call() or [])
+                if latest:
+                    docs[source_name] = latest
             except Exception as e:
                 self.logger.error(f"Failed to fetch from {source_name}: {e}")
-
         return docs
 
-    def _compare_versions(self, framework, source_name: str, new_doc: str) -> Optional[Dict]:
+    def _compare_versions(self, framework, source_name: str, new_doc: Dict) -> Optional[Dict]:
         """
-        Compare new document with latest stored version
-        Returns change details if differences found
+        Diff the freshly-scraped document against the last-seen snapshot for (framework, source).
+
+        First observation of a source records a baseline snapshot and raises NO change (we just
+        started watching). A later observation whose content hash differs is diffed with the
+        DocumentAnalyzer, classified for platform impact, and returned as a change; the snapshot is
+        then advanced. Identical content returns None.
         """
-        # Get current version
-        current_version = self.db.query(RegulationVersion).filter_by(
-            framework_id=framework.framework_id,
-            is_current=True
+        new_hash = _doc_signature(new_doc)
+        snap = self.db.query(RegulatoryDocumentSnapshot).filter_by(
+            framework_id=framework.framework_id, source_name=source_name
         ).first()
 
-        if not current_version:
-            self.logger.warning(f"No current version for {framework.framework_name}")
+        # First time we see this source — establish the baseline, emit nothing.
+        if not snap:
+            self.db.add(RegulatoryDocumentSnapshot(
+                framework_id=framework.framework_id, source_name=source_name,
+                title=(new_doc.get("title") or "")[:500], url=(new_doc.get("url") or "")[:1000],
+                published_date=(str(new_doc.get("published_date") or ""))[:60],
+                content=new_doc.get("content") or "", content_hash=new_hash,
+            ))
+            self.db.commit()
+            self.logger.info(f"Baseline snapshot recorded for {framework.framework_name} · {source_name}")
             return None
 
-        # TODO: Implement document diff analysis in ./analysis/document_analyzer.py
-        # For now, return None (no changes detected)
+        # Unchanged since last run.
+        if snap.content_hash == new_hash:
+            return None
 
-        return None
+        # Genuine change — diff old vs new, classify, and advance the snapshot.
+        diff = self._analyzer.compare_documents(
+            snap.content or "", new_doc.get("content") or "",
+            old_version=snap.published_date or snap.scraped_at.isoformat() if snap.scraped_at else "prior",
+            new_version=str(new_doc.get("published_date") or "current"),
+        )
+        severity = self._analyzer.calculate_change_severity(diff)
+        key_changes = self._analyzer.extract_key_changes(diff)
+        classification = self.classify_change({"description": " ".join(key_changes) or (new_doc.get("title") or "")})
+
+        change = {
+            "old_version": (snap.published_date or "prior")[:50],
+            "new_version": str(new_doc.get("published_date") or "current")[:50],
+            "source": source_name,
+            "title": new_doc.get("title"),
+            "url": new_doc.get("url"),
+            "severity": severity,
+            "similarity_score": diff.get("similarity_score"),
+            "key_changes": key_changes,
+            "affected_tables": classification["affected_tables"],
+            "affected_modules": classification["affected_modules"],
+            "affected_outputs": classification["affected_outputs"],
+            "is_new_module": classification["is_new_module"],
+            "dev_hours": classification["effort_hours"],
+        }
+        reg_deadline = (
+            datetime.combine(framework.mandatory_effective_date, datetime.min.time())
+            if framework.mandatory_effective_date else datetime.now() + timedelta(days=180)
+        )
+        change["customer_deadline"] = self.calculate_customer_deadline(
+            reg_deadline, classification["effort_hours"],
+        ).date()
+
+        # Advance the baseline so the change fires once, not every run.
+        snap.title = (new_doc.get("title") or "")[:500]
+        snap.url = (new_doc.get("url") or "")[:1000]
+        snap.published_date = (str(new_doc.get("published_date") or ""))[:60]
+        snap.content = new_doc.get("content") or ""
+        snap.content_hash = new_hash
+        self.db.commit()
+        return change
 
     def classify_change(self, change: Dict) -> Dict:
         """
-        Classify change impact:
+        Classify change impact via the ImpactAnalyzer (keyword→component mapping):
         - Data model change: affects bank_assets, emissions, etc.
         - Processing logic change: affects calculation engine
         - Output format change: affects reporting structure
         - New module: entirely new reporting requirement
         """
-        classification = {
-            "affects_data_model": False,
-            "affects_processing": False,
-            "affects_output": False,
-            "is_new_module": False,
-            "effort_hours": 0
+        description = change.get("description") or change.get("title") or ""
+        impact = self._impact.analyze_impact(description)
+        breakdown = impact.get("breakdown", {})
+        return {
+            "affects_data_model": breakdown.get("data_model_changes", False),
+            "affects_processing": breakdown.get("processing_changes", False),
+            "affects_output": breakdown.get("output_changes", False),
+            "is_new_module": self._impact.determine_if_module(impact),
+            "effort_hours": impact.get("estimated_effort_hours", 8),
+            "affected_tables": impact.get("affected_tables", []),
+            "affected_modules": impact.get("affected_modules", []),
+            "affected_outputs": impact.get("affected_outputs", []),
         }
-
-        # TODO: Implement classification logic
-        # This will analyze what parts of the system change
-
-        return classification
 
     def estimate_effort(self, change: Dict) -> int:
         """
@@ -183,14 +290,16 @@ class RegulatoryChangeDetector:
         Calculate when to release to customers
 
         Logic:
-        1. Assume 4-6 weeks minimum for customer implementation
-        2. Add 7 days buffer for customer testing
-        3. If deadline too close (< 4 weeks), release immediately after testing
+        1. Reserve a minimum window for customer implementation (4 weeks).
+        2. Add a 7-day buffer for customer testing.
+        3. If the regulatory deadline is too close to honour that window, release as soon as
+           development + testing completes.
         """
         release_buffer = timedelta(days=7)
-        timedelta(weeks=4)
+        customer_implementation_window = timedelta(weeks=4)
 
-        target_release = regulatory_deadline - release_buffer
+        # The latest we can hand it to customers and still leave them time to implement + test.
+        target_release = regulatory_deadline - customer_implementation_window - release_buffer
 
         # If not enough time, release immediately after dev+test
         dev_days = dev_effort_hours / 8  # 8 hour day
@@ -234,10 +343,6 @@ class RegulatoryChangeDetector:
         self.db.commit()
 
         return change
-
-    def _get_mock_document(self, framework_name: str) -> str:
-        """Mock document for testing - remove once real scrapers implemented"""
-        return f"Mock document for {framework_name}"
 
 
 # Daily monitoring job
