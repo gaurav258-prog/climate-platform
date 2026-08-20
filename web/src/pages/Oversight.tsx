@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 
 // Supervisory view — the whole institution the way a regulator or board reviews it: every mandatory filing
 // with its status, coverage and KRI breaches, plus house-in-order readiness and open exceptions. Read-only,
@@ -39,15 +39,18 @@ export default function Oversight() {
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the supervisory view.</div>
         : (
         <>
-          {/* lead with the answer: one-line posture verdict + the headline numbers */}
-          <HeroStrip>
-            <HeroMetric value={s!.n_frameworks} label="Mandatory filings" />
-            <HeroMetric value={s!.never_filed} label="Never filed" tone={s!.never_filed > 0 ? '#E8853C' : undefined} />
-            <HeroMetric value={s!.total_breaches} label="KRI breaches" tone={s!.total_breaches > 0 ? '#D23B3B' : '#4FA46E'} />
-            <HeroMetric value={s!.open_exceptions} label="Open exceptions" tone={s!.open_exceptions > 0 ? '#E8853C' : '#4FA46E'} />
-            <HeroMetric value={`${s!.readiness_pct}%`} label="Readiness" tone={s!.readiness_pct >= 100 ? '#4FA46E' : '#E8853C'} />
-          </HeroStrip>
-          <p className="text-[13.5px] text-[var(--color-mute)] -mt-2">{verdict}</p>
+          {/* the rich cockpit hero — narrative + live posture tiles */}
+          <HeroBanner
+            eyebrow="Supervisory overview"
+            title={s!.total_breaches + s!.open_exceptions + s!.never_filed > 0 ? 'A few things need your attention.' : 'The house is in order.'}
+            lead={verdict}
+            stat={[
+              { label: 'Mandatory filings', value: s!.n_frameworks, icon: ShieldCheck, tone: 'var(--color-sky)' },
+              { label: 'Never filed', value: s!.never_filed, icon: Clock, tone: s!.never_filed > 0 ? '#E8853C' : 'var(--color-good)' },
+              { label: 'KRI breaches', value: s!.total_breaches, icon: AlertTriangle, tone: s!.total_breaches > 0 ? '#D23B3B' : '#4FA46E', pulse: s!.total_breaches > 0 },
+              { label: 'Open exceptions', value: s!.open_exceptions, icon: AlertTriangle, tone: s!.open_exceptions > 0 ? '#E8853C' : '#4FA46E' },
+              { label: 'Readiness', value: `${s!.readiness_pct}%`, icon: CheckCircle2, tone: s!.readiness_pct >= 100 ? '#4FA46E' : '#E8853C' },
+            ]} />
 
           {/* per-filing rollup */}
           <Card className="p-0 overflow-hidden">

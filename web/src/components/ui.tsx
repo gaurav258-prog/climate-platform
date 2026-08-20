@@ -142,6 +142,56 @@ export function PlainLead({ children, className }: { children: ReactNode; classN
   return <p className={clsx('text-[13px] leading-relaxed text-[var(--color-mute)] max-w-3xl', className)}>{children}</p>
 }
 
+// The RICH hero — the "cockpit" banner (generalised from the filing cockpit): a gradient card with ambient
+// stage-coloured glows, a narrative headline on the left, and a grid of icon'd status tiles (count-up) on the
+// right. This is what makes a page feel designed rather than a plain white stat row — use it as the lead on
+// operational pages. `title` should be a short narrative line ("1 filing needs you", "Your book vs a warming
+// world"); `stat` tiles carry the numbers. The glows read the page's --stage hue automatically.
+export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
+  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode
+  stat?: { label: string; value: string | number; tone?: string; icon?: React.ComponentType<{ size?: number }>; pulse?: boolean }[]
+  className?: string
+}) {
+  const cols = stat.length <= 2 ? 'grid-cols-2' : stat.length === 3 ? 'grid-cols-3'
+    : stat.length === 5 ? 'grid-cols-2 sm:grid-cols-5' : stat.length >= 6 ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'
+  return (
+    <div className={clsx('relative overflow-hidden rounded-[18px] border border-[var(--color-line)]', className)}
+      style={{ background: 'linear-gradient(135deg, var(--color-panel-2) 0%, var(--color-panel) 46%, var(--color-bg-2) 100%)' }}>
+      <div aria-hidden className="pointer-events-none absolute -top-28 -right-16 h-72 w-72 rounded-full drift"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--stage, var(--color-blue)) 40%, transparent), transparent 68%)' }} />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-10 h-72 w-72 rounded-full"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--color-blue) 22%, transparent), transparent 70%)' }} />
+      <div className={clsx('relative px-6 py-6 grid gap-6 items-center', stat.length ? 'lg:grid-cols-[1.05fr_1.45fr]' : '')}>
+        <div>
+          {eyebrow && <p className="mono text-[11px] uppercase tracking-[0.22em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{eyebrow}</p>}
+          <h2 className="display text-[26px] leading-[1.12] font-semibold mt-2 mb-2 text-[var(--color-ink)]" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h2>
+          {lead && <p className="text-[13px] text-[var(--color-mute)] max-w-md leading-relaxed">{lead}</p>}
+        </div>
+        {stat.length > 0 && (
+          <div className={clsx('grid gap-3', cols)}>
+            {stat.map((t, i) => (
+              <div key={i} className="rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  {t.icon && (
+                    <span className="relative inline-flex items-center justify-center h-6 w-6 rounded-lg" style={{ background: `color-mix(in oklab, ${t.tone || 'var(--color-sky)'} 16%, transparent)`, color: t.tone || 'var(--color-sky)' }}>
+                      {t.pulse && <span className="absolute inline-flex h-full w-full rounded-lg animate-ping" style={{ background: t.tone || 'var(--color-sky)', opacity: 0.35 }} />}
+                      <t.icon size={13} />
+                    </span>
+                  )}
+                  <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] leading-tight">{t.label}</span>
+                </div>
+                <div className="display text-[28px] leading-none font-semibold tabular-nums" style={{ color: t.tone || 'var(--color-ink)' }}>
+                  {typeof t.value === 'string' ? <CountUpText>{t.value}</CountUpText> : <CountUp value={t.value} />}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // The three oversight lenses over the same book. Each surface declares which lens it is, so the
 // Control / Governance / Insight frame is legible to users:
 //   Control    — "did we get it right?"     blocks a filing until every check clears   (Control Tower)
