@@ -43,22 +43,42 @@ function PerilCard({ p }: { p: Peril }) {
             <span className="mono text-[10px] text-[var(--color-faint)]">{p.label}</span>
           </div>
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">
-            {num(p.n_cells_scored)} scored cells · {num(p.n_events_observed)} observed events · {p.observed_window_years}-yr window · near field {p.near_field_km}km
+            {num(p.n_cells_scored)} scored locations · {num(p.n_events_observed)} real events · last {p.observed_window_years} years · counted within {p.near_field_km}km
           </div>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 mono text-[11px] font-semibold"
-          style={{ background: ok ? '#7BBF8F22' : '#E8B24C22', color: ok ? '#4FA46E' : '#C68A1E' }}>
+          style={{ background: ok ? '#7BBF8F22' : '#E8B24C22', color: ok ? '#4FA46E' : '#C68A1E' }}
+          title={ok ? 'The score lines up with the real record.' : 'The score and the real record do not line up — worth a look.'}>
           {ok ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}{ok ? 'Consistent' : 'Review'}
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div><div className="display text-[22px] font-semibold tabular-nums" style={{ color: (p.spearman ?? 0) >= 0.5 ? '#4FA46E' : (p.spearman ?? 0) >= 0.3 ? '#C68A1E' : '#D23B3B' }}>{p.spearman?.toFixed(2) ?? '—'}</div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">Spearman ρ (score↔events)</div></div>
-        <div><div className="display text-[22px] font-semibold tabular-nums text-[var(--color-ink)]">{p.auc?.toFixed(2) ?? '—'}</div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">AUC (any event)</div></div>
-        <div><div className="display text-[22px] font-semibold tabular-nums text-[var(--color-ink)]">{p.monotonic ? 'Yes' : 'No'}</div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">Monotonic by band</div></div>
+      <p className="text-[12px] text-[var(--color-mute)] mb-3 leading-relaxed max-w-3xl">
+        <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">What this checks</span> &nbsp;Over the last {p.observed_window_years} years, did the places we scored high for {p.peril} actually take more real {p.peril === 'seismic' ? 'earthquakes' : 'storms'}? We hold a full catalogue of these, so we can check the score against every one.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div>
+          <div className="display text-[22px] font-semibold tabular-nums" style={{ color: (p.spearman ?? 0) >= 0.5 ? '#4FA46E' : (p.spearman ?? 0) >= 0.3 ? '#C68A1E' : '#D23B3B' }}>{p.spearman?.toFixed(2) ?? '—'}</div>
+          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">Spearman ρ · rank agreement</div>
+          <div className="text-[11px] text-[var(--color-mute)] mt-1 leading-snug">Do higher-scored places actually get more real events? <span className="text-[var(--color-ink)]">1.0</span> = perfect order, <span className="text-[var(--color-ink)]">0</span> = no link.</div>
+        </div>
+        <div>
+          <div className="display text-[22px] font-semibold tabular-nums text-[var(--color-ink)]">{p.auc?.toFixed(2) ?? '—'}</div>
+          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">AUC · hit vs quiet</div>
+          <div className="text-[11px] text-[var(--color-mute)] mt-1 leading-snug">Take one place that was hit and one that wasn't — how often did we score the hit one higher? <span className="text-[var(--color-ink)]">0.5</span> = coin-toss.</div>
+        </div>
+        <div>
+          <div className="display text-[22px] font-semibold tabular-nums text-[var(--color-ink)]">{p.monotonic ? 'Yes' : 'No'}</div>
+          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">Steps down cleanly?</div>
+          <div className="text-[11px] text-[var(--color-mute)] mt-1 leading-snug">Does each lower score band (VH→H→M→L) really see fewer real events, with no reversals?</div>
+        </div>
       </div>
 
       {/* mean observed events by score band — click a band to inspect representative cells */}
+      <div className="text-[11.5px] text-[var(--color-mute)] mb-2 leading-snug">
+        <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">How to read ↓</span> &nbsp;Each bar is the <span className="text-[var(--color-ink)]">average number of real events per location</span> in that score band. If the score works, the top band (VH) is longest and each band below is shorter. Click any band to see example locations behind it.
+      </div>
       <div className="space-y-1.5">
         {p.bands.map(b => {
           const open = openBand === b.band
@@ -127,27 +147,33 @@ function EconomicCard({ e }: { e: Economic }) {
         <div>
           <span className="display text-lg font-semibold text-[var(--color-ink)]">Economic impact · agriculture</span>
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">
-            hazard score vs ~31 yrs of real crop yield · out-of-sample r² · covers {e.hazards_covered.join(', ')}
+            hazard score vs 31 years of real crop yield · covers {e.hazards_covered.join(', ')}
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 mono text-[11px] font-semibold" style={{ background: '#7BBF8F22', color: '#4FA46E' }}>
-          <CheckCircle2 size={13} />{e.n_pass}/{e.n_fits} clear r²≥{gate.toFixed(2)}
+        <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 mono text-[11px] font-semibold" style={{ background: '#7BBF8F22', color: '#4FA46E' }}
+          title={`${e.n_pass} of ${e.n_fits} crop-regions predict real yield well enough to publish a euro.`}>
+          <CheckCircle2 size={13} />{e.n_pass}/{e.n_fits} clear the bar
         </span>
       </div>
-      <p className="text-[12px] text-[var(--color-mute)] max-w-3xl mb-3">
-        The stronger test, where we hold real impact: yield is <em>not</em> an input to the score, so this measures genuine out-of-sample skill — not the in-sample faithfulness the catalogue test measures. A crop euro is published only above the r²≥{gate.toFixed(2)} bar; the rest are held.
+      <p className="text-[12px] text-[var(--color-mute)] max-w-3xl mb-3 leading-relaxed">
+        <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">What this checks</span> &nbsp;For each crop region we lined up the hazard score against <span className="text-[var(--color-ink)]">31 years of actual harvest yields</span> and asked: how much of the good-and-bad years does the score explain? Because yield is never fed into the score, a place it lands can't be luck — it's real predictive skill.
       </p>
 
-      <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Clears the bar · published</div>
+      <div className="text-[11.5px] text-[var(--color-mute)] mb-2 leading-snug">
+        <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">How to read ↓</span> &nbsp;Each bar is <span className="text-[var(--color-ink)]">r²</span> — 0 to 1, how much of the real yield swings the score explains. The faint line is our <span className="text-[var(--color-ink)]">r²≥{gate.toFixed(2)}</span> bar: clear it and we publish a euro figure for that crop; fall short and we hold the number back rather than guess.
+      </div>
+
+      <div className="mono text-[9px] uppercase tracking-wide mb-1" style={{ color: '#4FA46E' }}>Clears the bar · we publish a € · {pass.length}</div>
       {pass.map(f => <Row key={f.region + f.hazard_driver} f={f} />)}
       {held.length > 0 && <>
-        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-3 mb-1">Held below the bar · not published ({held.length})</div>
+        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-3 mb-1">Below the bar · number held back · {held.length}</div>
         {held.slice(0, 6).map(f => <Row key={f.region + f.hazard_driver} f={f} />)}
         {held.length > 6 && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">+{held.length - 6} more held</div>}
       </>}
 
       {e.events.length > 0 && <>
-        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-4 mb-1.5">Named production-shock events · observed vs modelled</div>
+        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-4 mb-1">Real disasters · did the model match what happened?</div>
+        <p className="text-[11px] text-[var(--color-mute)] mb-1.5 leading-snug">We replayed named crop disasters and compared the model's predicted production loss to the loss that was actually recorded. “pass” = within tolerance; “held” = no clean figure to check against.</p>
         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
           {e.events.map((ev, i) => (
             <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5 text-[12px]">
