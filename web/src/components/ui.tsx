@@ -95,6 +95,53 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <p className="mono text-[11px] uppercase tracking-[0.2em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{children}</p>
 }
 
+// ── The "great page" kit ─────────────────────────────────────────────────────────────────────
+// Standard page header — stage-coloured eyebrow, a large balanced title, one plain-language lede, and an
+// optional actions slot (filters/export/toggles) on the right. Use on every page so headers read the same.
+export function PageHeader({ eyebrow, title, lead, actions, children }: {
+  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode; actions?: ReactNode; children?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+        <h1 className="display text-[30px] leading-tight font-semibold text-[var(--color-ink)] mt-2 mb-1" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h1>
+        {lead && <p className="text-[14.5px] leading-relaxed text-[var(--color-mute)] max-w-2xl">{lead}</p>}
+        {children}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
+    </div>
+  )
+}
+
+// A big headline metric — the "lead with the answer" hero number, count-up animated. Pass a preformatted
+// string ("€648.1m", "70%") or a raw number. Optional tone colour and a small sub-line.
+export function HeroMetric({ value, label, tone, sub, className }: {
+  value: string | number; label: ReactNode; tone?: string; sub?: ReactNode; className?: string
+}) {
+  return (
+    <div className={clsx('min-w-0', className)}>
+      <div className="display text-[32px] leading-none font-semibold tabular-nums" style={tone ? { color: tone } : undefined}>
+        {typeof value === 'string' ? <CountUpText>{value}</CountUpText> : <CountUp value={value} />}
+      </div>
+      <div className="text-[12.5px] text-[var(--color-mute)] mt-2">{label}</div>
+      {sub && <div className="text-[11.5px] text-[var(--color-faint)] mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
+// A hero summary strip — a row of HeroMetrics on one elevated card, evenly divided. The "answer first" band
+// that leads most pages. Children are HeroMetric (or anything); they lay out as equal columns on ≥sm.
+export function HeroStrip({ children, className, style }: { children: ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <Card className={clsx('p-5 sm:p-6 grid gap-x-6 gap-y-5 sm:grid-flow-col sm:auto-cols-fr', className)} style={style}>{children}</Card>
+}
+
+// A one-line plain-language explainer under a section head — the "what this is / how to read it" line that
+// keeps a data-dense surface legible. Kept deliberately short.
+export function PlainLead({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={clsx('text-[13px] leading-relaxed text-[var(--color-mute)] max-w-3xl', className)}>{children}</p>
+}
+
 // The three oversight lenses over the same book. Each surface declares which lens it is, so the
 // Control / Governance / Insight frame is legible to users:
 //   Control    — "did we get it right?"     blocks a filing until every check clears   (Control Tower)
