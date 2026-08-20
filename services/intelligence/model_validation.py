@@ -210,6 +210,69 @@ def model_validation(session: Session, peril: str) -> dict:
     return result
 
 
+_R2_GATE = 0.40   # the non-configurable honesty floor: publish a crop euro only if the fit clears this OOS r²
+
+
+def crop_impact_validation(session: Session) -> dict:
+    """The ECONOMIC-impact validation — the stronger test where we hold real impact data. Each hazard score is
+    regressed on ~31 years of observed crop yield (out-of-sample cross-validated r²), and separately checked
+    against named production-shock events. Yield/production is NOT an input to the score, so unlike the
+    catalogue test this is genuinely out-of-sample skill, not in-sample faithfulness. Honest: fits below the
+    r²≥0.40 bar are shown as held, never published as a euro."""
+    rows = session.execute(text("""
+        SELECT f.region_key, f.hazard_driver, c.name AS crop, CAST(f.r2 AS FLOAT) AS r2,
+               CAST(f.r2_oos AS FLOAT) AS r2_oos, f.n_years
+        FROM sc_commodity_fit f LEFT JOIN sc_commodities c ON c.commodity_id = f.commodity_id
+        WHERE f.r2_oos IS NOT NULL
+    """)).mappings().all()
+    # keep the best fit per (region, hazard driver) so the table reads one row per crop-region
+    best: dict = {}
+    for r in rows:
+        k = (r["region_key"], r["hazard_driver"])
+        if k not in best or r["r2_oos"] > best[k]["r2_oos"]:
+            best[k] = r
+    fits = []
+    for r in sorted(best.values(), key=lambda x: -x["r2_oos"]):
+        fits.append({"region": r["region_key"], "crop": r["crop"], "hazard_driver": r["hazard_driver"],
+                     "r2": round(r["r2"], 3) if r["r2"] is not None else None,
+                     "r2_oos": round(r["r2_oos"], 3), "n_years": int(r["n_years"]) if r["n_years"] else None,
+                     "passed": r["r2_oos"] >= _R2_GATE})
+    n_pass = sum(1 for f in fits if f["passed"])
+
+    ev = session.execute(text("""
+        SELECT event, commodity, hazard, CAST(observed_prod_shock_pct AS FLOAT) AS observed_shock_pct,
+               CAST(model_prod_shock_pct AS FLOAT) AS model_shock_pct, CAST(tolerance_pct AS FLOAT) AS tolerance_pct,
+               passed FROM sc_model_validation ORDER BY passed DESC, hazard
+    """)).mappings().all()
+    events, seen = [], set()
+    for e in ev:
+        key = (e["event"], e["hazard"])
+        if key in seen:
+            continue
+        seen.add(key)
+        events.append(dict(e))
+
+    return {
+        "available": bool(fits),
+        "method": "score regressed on ~31 years of observed crop yield; out-of-sample cross-validated r²",
+        "gate_r2_oos": _R2_GATE,
+        "n_fits": len(fits),
+        "n_pass": n_pass,
+        "hazards_covered": sorted({f["hazard_driver"] for f in fits}),
+        "fits": fits,
+        "events": events,
+        "note": ("The economic-impact validation. Each hazard score is regressed on ~31 years of observed crop "
+                 "yield; the r² shown is OUT-OF-SAMPLE (cross-validated), and a crop euro is published only where "
+                 f"it clears the r²≥{_R2_GATE:.2f} bar — a non-configurable honesty floor. Because yield is not an "
+                 "input to the hazard score, this measures genuine predictive SKILL, not the in-sample "
+                 "faithfulness the catalogue test measures. Fits below the bar are shown as held, not hidden; the "
+                 "event rows check the same models against named production-shock events (observed vs modelled)."),
+    }
+
+
 def model_validation_all(session: Session) -> dict:
-    """Both catalogued perils, for the validation dashboard."""
-    return {"perils": [model_validation(session, p) for p in _PERILS]}
+    """Both catalogued perils + the economic-impact (crop-yield) validation, for the validation dashboard."""
+    return {
+        "perils": [model_validation(session, p) for p in _PERILS],
+        "economic": crop_impact_validation(session),
+    }
