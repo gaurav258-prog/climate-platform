@@ -78,17 +78,19 @@ export default function DataFoundation() {
         </div>
       </Card>
 
+      <div data-theme="dark">
       <Card className="p-5 flex flex-wrap items-center justify-between gap-4"
         style={{ background: 'linear-gradient(180deg,#0e2338,var(--color-panel))', borderColor: 'var(--color-blued)' }}>
         <div>
           <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-sky)]">Live golden source for agriculture</div>
-          <div className="display text-3xl font-semibold mt-1">{q.isLoading ? '…' : agriScores.toLocaleString()} <span className="text-base text-[var(--color-mute)] font-normal">current scores</span></div>
+          <div className="display text-3xl font-semibold mt-1 text-[var(--color-ink)]">{q.isLoading ? '…' : agriScores.toLocaleString()} <span className="text-base text-[var(--color-mute)] font-normal">current scores</span></div>
         </div>
         <div className="text-right">
           <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">hazards scored on real data</div>
-          <div className="text-[15px]">{liveHazards.join(' · ') || (q.isLoading ? 'loading…' : '—')}</div>
+          <div className="text-[15px] text-[var(--color-ink)]">{liveHazards.join(' · ') || (q.isLoading ? 'loading…' : '—')}</div>
         </div>
       </Card>
+      </div>
 
       <div className="grid sm:grid-cols-4 gap-4">
         <Stat big="51.4M" label="satellite observations" />

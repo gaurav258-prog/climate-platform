@@ -76,6 +76,7 @@ export default function UnderwritingReview() {
 
       {d && d.available && (
         <>
+          <div data-theme="dark">
           <Card className="p-5" style={{ borderColor: 'var(--color-blued)', background: 'linear-gradient(180deg,#0e2338,var(--color-panel))' }}>
             <div className="flex items-center gap-2 mb-1"><History size={15} className="text-[var(--color-sky)]" />
               <span className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-sky)]">Observed loss experience · this book</span></div>
@@ -87,6 +88,7 @@ export default function UnderwritingReview() {
               <Stat n={`${d.frequency.n_validatable}`} label="frequency-validatable" />
             </div>
           </Card>
+          </div>
 
           {/* Frequency validation */}
           <Card className="p-5">
