@@ -1,7 +1,16 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck, History, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
+import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+
+// the insurer policy detail is the same drawer Portfolio opens (/v1/insurance/policy/{id}) — reused here so a
+// most-exposed policy or an under-priced flag drills straight into the full per-policy record.
+const INSURER_CFG: DrawerCfg = {
+  prefix: 'insurance', itemKey: 'policy', nameKey: 'policy_name', valueKey: 'sum_insured_eur',
+  typeKey: 'policy_type', auditKey: 'audit', overrideMode: 'trigger',
+}
 
 // Underwriting review — the insurance product line on top of Realized Exposure. For the carrier's own book:
 // the real events that have already crossed each policy (observed loss experience), plus — for perils we hold
@@ -27,7 +36,7 @@ interface Review {
     n_validatable: number; n_under_priced: number; n_conservative: number
     n_priced_against_uncatalogued_peril: number
     catalogue_windows: { storm_years: number | null; seismic_years: number | null }
-    under_priced: (Freq & { policy_name: string; region: string; sum_insured_eur: number | null })[]
+    under_priced: (Freq & { policy_id: string; policy_name: string; region: string; sum_insured_eur: number | null })[]
   }
   most_exposed: Policy[]; note?: string
 }
@@ -46,6 +55,7 @@ function Stat({ n, label, tone }: { n: string; label: string; tone?: string }) {
 export default function UnderwritingReview() {
   const q = useQuery({ queryKey: ['underwriting-review'], queryFn: () => api.get<Review>('/v1/realized-exposure/underwriting-review') })
   const d = q.data
+  const [drawerId, setDrawerId] = useState<string | null>(null)
 
   return (
     <div className="fadeup space-y-6">
@@ -94,8 +104,9 @@ export default function UnderwritingReview() {
             {d.frequency.under_priced.length > 0 ? (
               <div className="mt-4 divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                 {d.frequency.under_priced.map((f, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px]">
-                    <span className="font-semibold text-[var(--color-ink)]">{f.policy_name}</span>
+                  <div key={i} onClick={() => f.policy_id && setDrawerId(f.policy_id)}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[12.5px] cursor-pointer hover:bg-[var(--color-panel-2)] -mx-2 px-2 rounded">
+                    <span className="font-semibold text-[var(--color-ink)] underline decoration-dotted decoration-[var(--color-line-2)] underline-offset-2">{f.policy_name}</span>
                     <span className="mono text-[10.5px] text-[var(--color-faint)]">{f.region}</span>
                     <span className="flex-1 min-w-0" />
                     <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">
@@ -121,9 +132,10 @@ export default function UnderwritingReview() {
               ? <div className="text-[12.5px] text-[var(--color-mute)]">No catalogued storm or earthquake has crossed any located policy.</div>
               : <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                   {d.most_exposed.map((p) => (
-                    <div key={p.policy_id} className="py-2.5">
+                    <div key={p.policy_id} onClick={() => setDrawerId(p.policy_id)}
+                      className="py-2.5 cursor-pointer hover:bg-[var(--color-panel-2)] -mx-2 px-2 rounded">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
-                        <span className="font-semibold text-[var(--color-ink)]">{p.policy_name}</span>
+                        <span className="font-semibold text-[var(--color-ink)] underline decoration-dotted decoration-[var(--color-line-2)] underline-offset-2">{p.policy_name}</span>
                         <span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)]">{p.headline_hazard}</span>
                         <span className="flex-1 min-w-0" />
                         <span className="mono text-[11px] text-[var(--color-ink)] tabular-nums">{p.n_observed_events} event{p.n_observed_events === 1 ? '' : 's'}</span>
@@ -144,6 +156,8 @@ export default function UnderwritingReview() {
           <div className="mono text-[9.5px] text-[var(--color-faint)]">{d.note}</div>
         </>
       )}
+
+      {drawerId && <AssetDrawer cfg={INSURER_CFG} id={drawerId} onClose={() => setDrawerId(null)} onChanged={() => q.refetch()} />}
     </div>
   )
 }

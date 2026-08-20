@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FlaskConical, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
@@ -8,7 +9,8 @@ import { Eyebrow, Card } from '../components/ui'
 // events? Reports a per-band table + a Spearman discrimination metric + an honest verdict. In-sample
 // consistency (faithfulness), not out-of-sample prediction — stated plainly, and weak results shown as weak.
 
-interface Band { band: string; n_cells: number; mean_events: number | null; pct_with_event: number | null }
+interface Sample { h3_cell: string; lat: number; lon: number; score: number; observed_events: number }
+interface Band { band: string; n_cells: number; mean_events: number | null; pct_with_event: number | null; samples: Sample[] }
 interface Peril {
   available: boolean; peril: string; label: string; near_field_km: number
   n_cells_scored: number; n_events_observed: number; observed_window_years: number
@@ -21,6 +23,7 @@ const BAND_COLOR: Record<string, string> = { VH: '#D23B3B', H: '#E8744A', M: '#E
 const num = (n: number) => n.toLocaleString('en-US')
 
 function PerilCard({ p }: { p: Peril }) {
+  const [openBand, setOpenBand] = useState<string | null>(null)
   if (!p.available) return null
   const maxMean = Math.max(...p.bands.map(b => b.mean_events ?? 0), 0.01)
   const ok = p.passed
@@ -48,19 +51,41 @@ function PerilCard({ p }: { p: Peril }) {
         <div><div className="display text-[22px] font-semibold tabular-nums text-[var(--color-ink)]">{p.monotonic ? 'Yes' : 'No'}</div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-0.5">Monotonic by band</div></div>
       </div>
 
-      {/* mean observed events by score band */}
+      {/* mean observed events by score band — click a band to inspect representative cells */}
       <div className="space-y-1.5">
-        {p.bands.map(b => (
-          <div key={b.band} className="flex items-center gap-2 text-[12px]">
-            <span className="mono w-6 font-semibold" style={{ color: BAND_COLOR[b.band] }}>{b.band}</span>
-            <div className="flex-1 h-4 rounded bg-[var(--color-panel-2)] overflow-hidden">
-              <div className="h-full rounded" style={{ width: `${Math.max(1.5, 100 * (b.mean_events ?? 0) / maxMean)}%`, background: BAND_COLOR[b.band], opacity: 0.85 }} />
+        {p.bands.map(b => {
+          const open = openBand === b.band
+          return (
+            <div key={b.band}>
+              <div onClick={() => b.n_cells && setOpenBand(open ? null : b.band)}
+                className={`flex items-center gap-2 text-[12px] ${b.n_cells ? 'cursor-pointer' : ''}`}>
+                <span className="mono w-6 font-semibold" style={{ color: BAND_COLOR[b.band] }}>{b.band}</span>
+                <div className="flex-1 h-4 rounded bg-[var(--color-panel-2)] overflow-hidden">
+                  <div className="h-full rounded" style={{ width: `${Math.max(1.5, 100 * (b.mean_events ?? 0) / maxMean)}%`, background: BAND_COLOR[b.band], opacity: 0.85 }} />
+                </div>
+                <span className="mono text-[10.5px] text-[var(--color-mute)] tabular-nums w-40 text-right">
+                  {b.mean_events ?? '—'} events/cell · {b.pct_with_event ?? '—'}% hit · {num(b.n_cells)} cells
+                </span>
+              </div>
+              {open && b.samples?.length > 0 && (
+                <div className="pl-8 pr-1 py-1.5 space-y-0.5">
+                  <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Representative cells (most-active first; quiet cells shown too)</div>
+                  {b.samples.map(s => (
+                    <div key={s.h3_cell} className="flex items-center gap-2 text-[11px] tabular-nums">
+                      <span className="mono text-[var(--color-faint)]">{s.lat.toFixed(2)}, {s.lon.toFixed(2)}</span>
+                      <span className="mono text-[9.5px] text-[var(--color-faint)]">H3 {s.h3_cell.slice(0, 8)}…</span>
+                      <span className="flex-1" />
+                      <span className="mono text-[var(--color-mute)]">score {s.score}</span>
+                      <span className="mono px-1.5 py-0.5 rounded" style={{ background: s.observed_events > 0 ? '#7BBF8F22' : '#E8B24C22', color: s.observed_events > 0 ? '#4FA46E' : '#C68A1E' }}>
+                        {s.observed_events} observed
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <span className="mono text-[10.5px] text-[var(--color-mute)] tabular-nums w-40 text-right">
-              {b.mean_events ?? '—'} events/cell · {b.pct_with_event ?? '—'}% hit · {num(b.n_cells)} cells
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="text-[12px] mt-3.5" style={{ color: ok ? 'var(--color-mute)' : '#C68A1E' }}>{p.verdict}</p>

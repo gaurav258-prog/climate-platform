@@ -103,7 +103,14 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
     assets = _located_assets(session, org_id, vertical)
     if not assets:
         return {"available": False, "reason": "no_located_assets"}
+    by_id = {a["id"]: a for a in assets}
     la0, la1, lo0, lo1 = _bbox(assets, margin_deg=2.5)
+
+    def _asset_rows(hit: dict) -> list[dict]:
+        # the individual assets an event crossed — the drill-down behind n_assets, closest first
+        rows = [{"id": aid, "name": by_id[aid]["name"], "value_eur": round(by_id[aid]["value"] or 0),
+                 "closest_km": round(dist, 1)} for aid, dist in hit.items() if aid in by_id]
+        return sorted(rows, key=lambda r: r["closest_km"])[:25]
 
     # ── Storms (IBTrACS tracks) — a storm affects an asset if any track point is within the wind-field radius.
     storm_pts = session.execute(text("""
@@ -135,7 +142,7 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
                 "severity": _SSHS_LABEL.get(st["category"], "Storm"),
                 "max_wind_kt": round(st["max_wind_kt"]) if st["max_wind_kt"] else None,
                 "n_assets": len(st["assets"]), "value_exposed_eur": round(exposed),
-                "closest_km": round(st["closest_km"], 1)}
+                "closest_km": round(st["closest_km"], 1), "assets": _asset_rows(st["assets"])}
     storm_events = [_storm_out(sid, st) for sid, st in storms.items()]
 
     # ── Earthquakes (USGS) — a significant quake affects an asset within the felt radius.
@@ -159,7 +166,7 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
                                  "year": q["origin_time"].year if q["origin_time"] else None,
                                  "severity": f'Magnitude {q["mag"]:.1f}', "magnitude": q["mag"],
                                  "n_assets": len(hit), "value_exposed_eur": round(exposed),
-                                 "closest_km": round(min(hit.values()), 1)})
+                                 "closest_km": round(min(hit.values()), 1), "assets": _asset_rows(hit)})
 
     events = storm_events + quake_events
     if not events:

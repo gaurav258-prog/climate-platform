@@ -140,8 +140,9 @@ def underwriting_review(session: Session, org_id: str, storm_radius_km: float = 
             "n_priced_against_uncatalogued_peril": n_priced_uncatalogued,
             "catalogue_windows": {"storm_years": storm_window, "seismic_years": quake_window},
             "under_priced": [
-                {"policy_name": r["policy_name"], "region": r["region"], "sum_insured_eur": r["sum_insured_eur"],
-                 **r["frequency"]} for r in sorted(under, key=lambda r: -(r["frequency"]["observed_vs_modelled_ratio"] or 0))
+                {"policy_id": r["policy_id"], "policy_name": r["policy_name"], "region": r["region"],
+                 "sum_insured_eur": r["sum_insured_eur"], **r["frequency"]}
+                for r in sorted(under, key=lambda r: -(r["frequency"]["observed_vs_modelled_ratio"] or 0))
             ],
         },
         "most_exposed": most_exposed,

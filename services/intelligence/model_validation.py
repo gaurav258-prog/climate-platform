@@ -98,17 +98,19 @@ def _auc(scores: np.ndarray, pos: np.ndarray) -> float | None:
     return float((ranks[pos].sum() - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg))
 
 
-def _load_cells(session: Session, peril: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _load_cells(session: Session, peril: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
     rows = session.execute(text("""
         SELECT h3_cell, CAST(risk_score AS FLOAT) AS score FROM canonical_scores
         WHERE hazard_type = :h AND valid_to IS NULL AND scenario = 'baseline' AND time_horizon = 'current'
     """), {"h": peril}).all()
     import h3
     lat = np.empty(len(rows)); lon = np.empty(len(rows)); score = np.empty(len(rows))
+    cells = []
     for i, (cell, sc) in enumerate(rows):
         la, lo = h3.cell_to_latlng(cell)
         lat[i], lon[i], score[i] = la, lo, sc
-    return lat, lon, score
+        cells.append(cell)
+    return lat, lon, score, cells
 
 
 def _load_events(session: Session, peril: str) -> tuple[np.ndarray, np.ndarray, int]:
@@ -136,7 +138,7 @@ def model_validation(session: Session, peril: str) -> dict:
         return _CACHE[peril]
 
     radius = _PERILS[peril]["near_field_km"]
-    cell_lat, cell_lon, score = _load_cells(session, peril)
+    cell_lat, cell_lon, score, cells = _load_cells(session, peril)
     ev_lat, ev_lon, window = _load_events(session, peril)
     if len(cell_lat) == 0 or len(ev_lat) == 0:
         return {"available": False, "reason": "no_data"}
@@ -145,13 +147,27 @@ def model_validation(session: Session, peril: str) -> dict:
     has_event = counts > 0
     n_cells = len(cell_lat)
 
+    def _sample(idxs: np.ndarray, k: int = 6) -> list[dict]:
+        # representative cells for a band's drill-down: the most-active first, then a couple of quiet ones so
+        # the honest misses (high score, no observed event) are visible too. Deterministic (sorted, no rng).
+        order = idxs[np.argsort(-counts[idxs], kind="mergesort")]
+        pick = list(order[:k])
+        quiet = [i for i in order[::-1] if counts[i] == 0][:2]
+        for q in quiet:
+            if q not in pick:
+                pick.append(q)
+        return [{"h3_cell": cells[i], "lat": round(float(cell_lat[i]), 4), "lon": round(float(cell_lon[i]), 4),
+                 "score": round(float(score[i]), 1), "observed_events": int(counts[i])} for i in pick]
+
     bands = []
     for name, lo, hi in _BANDS:
         m = (score >= lo) & (score < hi)
+        idxs = np.where(m)[0]
         nb = int(m.sum())
         bands.append({"band": name, "n_cells": nb,
                       "mean_events": round(float(counts[m].mean()), 2) if nb else None,
-                      "pct_with_event": round(100.0 * float(has_event[m].mean()), 1) if nb else None})
+                      "pct_with_event": round(100.0 * float(has_event[m].mean()), 1) if nb else None,
+                      "samples": _sample(idxs) if nb else []})
 
     spearman = _spearman(score, counts)
     auc = _auc(score, has_event)
