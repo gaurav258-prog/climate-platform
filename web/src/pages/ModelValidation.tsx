@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FlaskConical, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { FlaskConical, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
 
@@ -166,49 +166,119 @@ function EconomicCard({ e }: { e: Economic }) {
   )
 }
 
+// One beat of the validation story. Numbered, and — where there's evidence below — clickable to drill straight
+// into it (which then drills further: band → cells, fit → r², event → observed vs modelled).
+function StoryRow({ n, title, tag, accent, drill, chips, children }: {
+  n: string; title: string; tag?: string; accent?: string; drill?: () => void; chips?: ReactNode; children: ReactNode
+}) {
+  const a = accent || 'var(--color-sky)'
+  return (
+    <div onClick={drill}
+      className={`group relative flex gap-3.5 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3.5 ${drill ? 'cursor-pointer lift' : ''}`}>
+      <div className="shrink-0 mono text-[12px] font-semibold tabular-nums w-7 h-7 grid place-items-center rounded-lg"
+        style={{ color: a, background: `color-mix(in oklab, ${a} 13%, transparent)` }}>{n}</div>
+      <div className="min-w-0 flex-1">
+        {tag && <div className="mono text-[8.5px] uppercase tracking-[0.16em] mb-0.5" style={{ color: accent || 'var(--color-faint)' }}>{tag}</div>}
+        <div className="display text-[15px] font-semibold text-[var(--color-ink)] leading-snug">{title}</div>
+        <p className="text-[12px] text-[var(--color-mute)] mt-0.5 leading-relaxed max-w-2xl">{children}</p>
+        {chips && <div className="flex flex-wrap gap-1.5 mt-2">{chips}</div>}
+      </div>
+      {drill && (
+        <span className="shrink-0 self-center inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] group-hover:text-[var(--color-sky)] transition">
+          drill <ChevronRight size={14} />
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function ModelValidation() {
   const q = useQuery({ queryKey: ['model-validation'], queryFn: () => api.get<Resp>('/v1/realized-exposure/model-validation') })
   const d = q.data
   const note = d?.perils?.[0]?.note
+  const [flash, setFlash] = useState<string | null>(null)
+  // scroll by element id (queried at click time) rather than a React ref — robust against ref-timing.
+  const drillTo = (id: string, key: string) => {
+    // this app's scroll container honours 'auto' but no-ops on 'smooth' scrollIntoView, so use 'auto'
+    document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' })
+    setFlash(key); window.setTimeout(() => setFlash(cur => (cur === key ? null : cur)), 1600)
+  }
+  const flashStyle = (key: string) => ({
+    outline: flash === key ? '2px solid var(--color-sky)' : '2px solid transparent',
+    outlineOffset: 6, borderRadius: 16, transition: 'outline-color .45s ease',
+  })
 
   return (
     <div className="fadeup space-y-6">
       <div>
         <Eyebrow>Assess · model validation</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Score vs observed record</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          The credibility check a model-validation team or supervisor asks for: don't just publish a score — show it is consistent with what actually happened. Each hazard is validated against the ground truth that fits it — a discrete event catalogue where we hold one, real economic impact where we don't.
+        <h1 className="display text-3xl font-semibold mt-2 mb-2">Does the score hold up against what happened?</h1>
+        <p className="text-[15px] leading-relaxed text-[var(--color-mute)] max-w-2xl">
+          A score is only worth what it can be checked against. So we don't publish one validation — we test each hazard against the <span className="text-[var(--color-ink)]">ground truth that actually fits it</span>, and we show you where it fails.
         </p>
+      </div>
+
+      {/* ── The story, as a workflow you drill: each beat clicks into the evidence below ── */}
+      <div className="space-y-2">
+        <StoryRow n="01" title="A score is only worth what it can be checked against">
+          Two hazards have a real event catalogue; others don't — so we validate each against the ground truth that fits it, and we show where it fails.
+        </StoryRow>
+
+        <StoryRow n="02" tag="in-sample · faithfulness" title="Does the score reflect the record we hold?"
+          drill={() => drillTo('mv-catalogue', 'cat')}
+          chips={d?.perils?.map(p => (
+            <span key={p.peril} className="inline-flex items-center gap-1 mono text-[10.5px] px-2 py-0.5 rounded capitalize"
+              style={{ background: p.passed ? '#7BBF8F22' : '#E8B24C22', color: p.passed ? '#4FA46E' : '#C68A1E' }}>
+              {p.passed ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}{p.peril}
+            </span>
+          ))}>
+          Where we hold a real event catalogue — earthquakes, storms — the score should track it. This catches a broken surface, but it's in-sample: the score is built from the same record.
+        </StoryRow>
+
+        <StoryRow n="03" tag="out-of-sample · skill · the stronger test" accent="#4FA46E"
+          title="Does it predict impact it never saw?"
+          drill={() => drillTo('mv-economic', 'eco')}
+          chips={d?.economic?.available ? [
+            <span key="p" className="mono text-[10.5px] px-2 py-0.5 rounded" style={{ background: '#7BBF8F22', color: '#4FA46E' }}>{d.economic.n_pass} published</span>,
+            <span key="h" className="mono text-[10.5px] px-2 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)]">{d.economic.n_fits - d.economic.n_pass} held</span>,
+            <span key="g" className="mono text-[10.5px] px-2 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">gate r²≥{d.economic.gate_r2_oos.toFixed(2)}</span>,
+          ] : undefined}>
+          Where we hold real <em>impact</em> instead — 31 years of crop yield — the score should predict losses. Yield is not an input to the score, so this is genuine skill, not faithfulness.
+        </StoryRow>
+
+        <StoryRow n="04" title="Where it fails, we say so" drill={() => drillTo('mv-economic', 'eco')}>
+          Storm reads “Review”; most crop-fits are “held” below the r²≥0.40 bar. A validation dashboard that is all green is engineered — the credibility of the greens here comes from the honesty of the reds.
+        </StoryRow>
       </div>
 
       {q.isLoading && <Card className="p-5 text-[13px] text-[var(--color-mute)]">Running the backtest…</Card>}
 
-      <div className="flex items-center gap-2">
-        <FlaskConical size={15} className="text-[var(--color-sky)]" />
-        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Observed event catalogue · seismic, storm</span>
+      <div id="mv-catalogue" style={flashStyle('cat')} className="space-y-4">
+        <div className="flex items-center gap-2">
+          <FlaskConical size={15} className="text-[var(--color-sky)]" />
+          <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Step 02 · observed event catalogue · seismic, storm</span>
+        </div>
+        {d?.perils?.map(p => <PerilCard key={p.peril} p={p} />)}
+        {note && (
+          <Card className="p-4 bg-[var(--color-panel-2)]">
+            <div className="mono text-[9px] uppercase tracking-[0.16em] text-[var(--color-faint)] mb-1.5">Method &amp; honesty · catalogue</div>
+            <p className="text-[11.5px] text-[var(--color-mute)] leading-relaxed">{note}</p>
+          </Card>
+        )}
       </div>
 
-      {d?.perils?.map(p => <PerilCard key={p.peril} p={p} />)}
-
       {d?.economic?.available && (
-        <>
+        <div id="mv-economic" style={flashStyle('eco')} className="space-y-4">
           <div className="flex items-center gap-2 pt-1">
             <FlaskConical size={15} className="text-[var(--color-sky)]" />
-            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Economic impact · drought, heat, soil-water</span>
+            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Step 03 · economic impact · drought, heat, soil-water</span>
           </div>
           <EconomicCard e={d.economic} />
           <Card className="p-4 bg-[var(--color-panel-2)]">
             <div className="mono text-[9px] uppercase tracking-[0.16em] text-[var(--color-faint)] mb-1.5">Method &amp; honesty · economic</div>
             <p className="text-[11.5px] text-[var(--color-mute)] leading-relaxed">{d.economic.note}</p>
           </Card>
-        </>
-      )}
-
-      {note && (
-        <Card className="p-4 bg-[var(--color-panel-2)]">
-          <div className="mono text-[9px] uppercase tracking-[0.16em] text-[var(--color-faint)] mb-1.5">Method &amp; honesty · catalogue</div>
-          <p className="text-[11.5px] text-[var(--color-mute)] leading-relaxed">{note}</p>
-        </Card>
+        </div>
       )}
     </div>
   )
