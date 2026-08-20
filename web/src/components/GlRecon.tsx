@@ -15,7 +15,11 @@ interface Recon {
   reported_book_eur?: number; gl_book_eur?: number; variance_eur?: number; variance_pct?: number | null
   tolerance_pct?: number; reconciled?: boolean; n_accounts?: number; accounts?: Acct[]
 }
-const eur = (n?: number | null) => n == null ? '—' : `${n < 0 ? '−' : ''}` + (Math.abs(n) >= 1e9 ? `€${(Math.abs(n) / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(Math.abs(n) / 1e6).toFixed(1)}m` : `€${Math.round(Math.abs(n) / 1e3)}k`)
+// Reconciliation figures must FOOT visibly (reported − GL = variance, and the account rows sum to GL), so
+// they are shown at a fixed €m precision with thousands separators — never abbreviated to €Xbn, which would
+// round two nearly-equal totals to a fake gap larger than the real variance.
+const eur = (n?: number | null) => n == null ? '—'
+  : `${n < 0 ? '−' : ''}€${(Math.abs(n) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}m`
 
 export default function GlRecon() {
   const qc = useQueryClient()
