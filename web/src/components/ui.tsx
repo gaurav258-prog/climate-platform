@@ -1,6 +1,57 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import clsx from 'clsx'
+
+// ── Count-up number — the KPI/stat "hooked" micro-moment. Animates from 0 to the value on mount/change,
+// respects prefers-reduced-motion (jumps straight to the value), and renders through a formatter so it works
+// for euros, percentages, and plain counts. Skin-agnostic; the motion reads on every skin.
+export function CountUp({ value, format = (n) => `${Math.round(n)}`, duration = 900, className }: {
+  value: number; format?: (n: number) => string; duration?: number; className?: string
+}) {
+  const [display, setDisplay] = useState(0)   // start low so the count-up is actually seen on first mount
+  const raf = useRef<number | null>(null)
+  const from = useRef(0)
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    // no animation when reduced-motion, non-finite, or the tab is hidden (rAF is throttled/paused in
+    // background tabs — animating there would leave the number stuck at 0). Land on the value directly.
+    if (reduce || !isFinite(value) || (typeof document !== 'undefined' && document.hidden)) {
+      setDisplay(value); from.current = value; return
+    }
+    const start = performance.now(); const a = from.current; const b = value
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration)
+      const eased = 1 - Math.pow(1 - p, 3)  // ease-out cubic
+      setDisplay(a + (b - a) * eased)
+      if (p < 1) raf.current = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf.current = requestAnimationFrame(tick)
+    // safety net: guarantee we land on the exact value even if rAF stalls (backgrounded mid-animation).
+    const safety = window.setTimeout(() => { setDisplay(b); from.current = b }, duration + 150)
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); clearTimeout(safety) }
+  }, [value, duration])
+  return <span className={className}>{format(display)}</span>
+}
+
+// Count-up for an ALREADY-formatted KPI string ("€648.1m", "70%", "1,240"). Parses the single leading number,
+// animates it, and re-assembles with the original prefix/suffix/precision — so any KPI grid gets the count-up
+// moment with no numeric plumbing. Falls back to the plain string for anything it can't cleanly parse
+// (fractions like "129/145", ranges, status text), so it's always safe to drop in.
+export function CountUpText({ children, className, duration }: { children: string; className?: string; duration?: number }) {
+  const text = String(children ?? '')
+  const m = /^(\D*)(\d[\d,]*(?:\.\d+)?)(.*)$/.exec(text.trim())
+  if (!m || m[3].includes('/')) return <span className={className}>{text}</span>
+  const [, pre, numStr, suf] = m
+  const decimals = numStr.includes('.') ? numStr.split('.')[1].length : 0
+  const hadComma = numStr.includes(',')
+  const value = parseFloat(numStr.replace(/,/g, ''))
+  if (!isFinite(value)) return <span className={className}>{text}</span>
+  const fmt = (n: number) => pre + (hadComma
+    ? n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : n.toFixed(decimals)) + suf
+  return <CountUp value={value} format={fmt} duration={duration} className={className} />
+}
 
 // The one consistent "export what I'm looking at" control — wired to lib/export downloadCsv on every view,
 // so extract-to-your-own-tool is a standard affordance across all sectors, not an ad-hoc per-page button.
@@ -32,8 +83,10 @@ export function BrandMark({ size = 28 }: { size?: number }) {
   )
 }
 
-export function Card({ className, children, style, onClick }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
-  return <div className={clsx('card', className)} style={style} onClick={onClick}>{children}</div>
+// `lift` opts a card into the hover-lift micro-interaction (used for clickable/drillable cards). The transform
+// lives only during :hover (see skins.css) so it never leaves a retained transform that would trap fixed drawers.
+export function Card({ className, children, style, onClick, lift }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void; lift?: boolean }) {
+  return <div className={clsx('card', lift && 'lift', className)} style={style} onClick={onClick}>{children}</div>
 }
 
 // The page's flow-stage hue tints the eyebrow (Shell sets --stage per route), so a page's header echoes
@@ -85,7 +138,9 @@ export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: stri
   const c = { ink: 'text-[var(--color-ink)]', good: 'text-[var(--color-good)]', warn: 'text-[var(--color-warn)]', bad: 'text-[var(--color-bad)]' }[tone]
   return (
     <Card className="p-5">
-      <div className={clsx('display text-3xl font-semibold leading-none', c)}>{big}</div>
+      <div className={clsx('display text-3xl font-semibold leading-none tabular-nums', c)}>
+        {typeof big === 'string' ? <CountUpText>{big}</CountUpText> : big}
+      </div>
       <div className="text-xs text-[var(--color-mute)] mt-2">{label}</div>
     </Card>
   )
@@ -110,7 +165,7 @@ export function Button({ children, onClick, variant = 'primary', disabled, class
 }) {
   const base = 'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed'
   const v = variant === 'primary'
-    ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] hover:bg-[var(--color-blue)]'
+    ? 'btn-accent bg-[var(--color-sky)] text-[var(--color-on-accent)] hover:bg-[var(--color-blue)]'
     : 'border border-[var(--color-line-2)] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]'
   return <button onClick={onClick} disabled={disabled} className={clsx(base, v, className)}>{children}</button>
 }

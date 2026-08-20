@@ -5,7 +5,7 @@ import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'luc
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { Eyebrow, Card, SectionHead, CountUpText } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
@@ -395,7 +395,7 @@ export default function Portfolio() {
 function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) {
   return (
     <Card className="px-4 py-3.5">
-      <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{value}</div>
+      <div className="display text-[26px] leading-none tabular-nums" style={tone ? { color: tone } : undefined}><CountUpText>{value}</CountUpText></div>
       <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2" title={hint}>
         {label}{hint && <span className="text-[var(--color-faint)] normal-case tracking-normal"> ⓘ</span>}
       </div>
