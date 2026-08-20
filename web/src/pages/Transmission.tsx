@@ -7,7 +7,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { filingLink } from '../lib/links'
 import { frameworkLabel } from '../lib/hazards'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Card, Button, PageHeader, SectionHead } from '../components/ui'
 
 // Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
 // thread per submission. (The real transmission channel to a regulator portal is external; this records it.)
@@ -42,14 +42,9 @@ export default function Transmission() {
 
   return (
     <div className="fadeup space-y-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <Eyebrow>Regulator communication</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Transmission</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every submission and the correspondence around it — one tracker per filing, from ready-to-submit through the regulator's queries to closed.</p>
-        </div>
-        {canAct && <Button variant="ghost" onClick={() => setOpening(o => !o)}><Plus size={14} /> Open case</Button>}
-      </div>
+      <PageHeader eyebrow="Regulator communication" title="Transmission"
+        lead="Every submission and the correspondence around it — one tracker per filing, from ready-to-submit through the regulator's queries to closed."
+        actions={canAct && <Button variant="ghost" onClick={() => setOpening(o => !o)}><Plus size={14} /> Open case</Button>} />
 
       {opening && (
         <Card className="p-3 flex items-center gap-2">
@@ -62,7 +57,7 @@ export default function Transmission() {
       <div className="grid lg:grid-cols-[300px_1fr] gap-5">
         {/* case list */}
         <Card className="p-0 overflow-hidden self-start">
-          <div className="px-4 py-2.5 border-b border-[var(--color-line)] mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Cases</div>
+          <div className="px-4 py-3 border-b border-[var(--color-line)]"><SectionHead>Cases</SectionHead></div>
           {cases.length === 0 ? <div className="px-4 py-6 text-[13px] text-[var(--color-faint)]">No cases yet.</div>
             : <div className="divide-y divide-[var(--color-line)]">
                 {cases.map(c => (

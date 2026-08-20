@@ -5,7 +5,7 @@ import { ArrowRight, ShieldAlert, Check, Clock, RefreshCw, TrendingUp, X } from 
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
+import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
@@ -61,10 +61,8 @@ export default function Decisions() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>{profile?.org?.name} · act</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-risk decisions</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one (engage / reprice / disclose) spins a card on the board.</p>
+      <PageHeader eyebrow={`${profile?.org?.name} · act`} title="Forward-risk decisions"
+        lead={<>Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one (engage / reprice / disclose) spins a card on the board.</>}>
         {cq.data?.policy && (
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
             {cq.data.policy.requires_approval
@@ -72,7 +70,7 @@ export default function Decisions() {
               : <>governance · <span className="text-[var(--color-mute)]">decisions apply directly (no 4-eyes)</span> — configurable in Settings → Approval matrix</>}
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* controls */}
       <Card className="px-5 py-4">
@@ -82,12 +80,12 @@ export default function Decisions() {
         </div>
       </Card>
 
-      {/* summary */}
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Stat label="Exposures crossing" value={cq.isLoading ? '—' : String(crossings.length)} sub={`${scLabel(scenario)} · by ${horizon}`} />
-        <Stat label="Value newly at risk" value={cq.isLoading ? '—' : eur(exposed)} sub="crosses the High line" tone="var(--color-bad)" />
-        <Stat label="Decided" value={cq.isLoading ? '—' : `${approved} / ${crossings.length}`} sub={pending > 0 ? `${pending} pending 4-eyes` : 'approved (4-eyes)'} tone={approved === crossings.length && crossings.length > 0 ? 'var(--color-good)' : pending > 0 ? 'var(--color-warn)' : undefined} />
-      </div>
+      {/* summary — lead with the answer */}
+      <HeroStrip>
+        <HeroMetric value={cq.isLoading ? '—' : crossings.length} label="Exposures crossing" sub={`${scLabel(scenario)} · by ${horizon}`} />
+        <HeroMetric value={cq.isLoading ? '—' : eur(exposed)} label="Value newly at risk" sub="crosses the High line" tone="#D23B3B" />
+        <HeroMetric value={cq.isLoading ? '—' : `${approved} / ${crossings.length}`} label="Decided" sub={pending > 0 ? `${pending} pending 4-eyes` : 'approved (4-eyes)'} tone={approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined} />
+      </HeroStrip>
 
       {/* crossings list */}
       <Card className="p-0 overflow-hidden">
@@ -104,7 +102,7 @@ export default function Decisions() {
 
       {/* reference — what you're monitoring + the decision history, tabbed so the crossings stay the hero */}
       <div>
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2 px-1">Monitoring &amp; history</div>
+        <SectionHead hint="what you’re watching · what’s been decided" className="mb-2.5">Monitoring &amp; history</SectionHead>
         <DecisionsReference canAct={canAct} log={lq.data?.decisions ?? []} />
       </div>
     </div>
@@ -279,12 +277,3 @@ function Seg({ label, options, value, onChange }: { label: string; options: [str
   )
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
-  return (
-    <Card className="px-4 py-3.5">
-      <div className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">{label}</div>
-      <div className="display text-[26px] leading-none mt-2 tabular-nums" style={tone ? { color: tone } : undefined}>{value}</div>
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-1.5">{sub}</div>
-    </Card>
-  )
-}

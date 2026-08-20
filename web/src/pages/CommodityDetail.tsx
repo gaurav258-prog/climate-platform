@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, ShieldAlert, TrendingUp, FlaskConical } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, Eyebrow, Stat } from '../components/ui'
+import { Card, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
 
@@ -40,29 +40,27 @@ export default function CommodityDetail() {
   return (
     <div className="fadeup space-y-6">
       <Link to="/cogs" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><ArrowLeft size={15} /> back to COGS-at-risk</Link>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Eyebrow>Commodity · analytics</Eyebrow>
-          <div className="flex items-center gap-3 mt-2">
-            <h1 className="display text-3xl font-semibold">{d.commodity}</h1>
-            {d.eudr_covered && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-blue)] bg-[color-mix(in_oklab,var(--color-blue)_13%,transparent)]">EUDR</span>}
-            {s.calibration && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_13%,transparent)]">{s.calibration}{s.fit_r2 != null ? ` · r² ${s.fit_r2.toFixed(2)}` : ''}</span>}
-            {s.confidence_grade && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-mute)] border border-[var(--color-line-2)]">Grade {s.confidence_grade}</span>}
+      <PageHeader eyebrow="Commodity · analytics" title={d.commodity}
+        lead={<>Driver hazard: <span className="mono" style={{ color: hz(s.avg_hazard) }}>{pretty(s.top_hazard)} {s.avg_hazard ?? '—'}</span></>}
+        actions={
+          <div className="text-right">
+            <div className="display text-2xl font-semibold" style={{ color: published ? 'var(--color-warn)' : 'var(--color-faint)' }}>{varLabel}</div>
+            <div className="text-[10px] text-[var(--color-faint)]">{published ? 'volume at risk' : 'exposure mapped — not €-published'}</div>
           </div>
-          <p className="text-[var(--color-mute)] text-sm mt-1">Driver hazard: <span className="mono" style={{ color: hz(s.avg_hazard) }}>{pretty(s.top_hazard)} {s.avg_hazard ?? '—'}</span></p>
+        }>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          {d.eudr_covered && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-blue)] bg-[color-mix(in_oklab,var(--color-blue)_13%,transparent)]">EUDR</span>}
+          {s.calibration && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_13%,transparent)]">{s.calibration}{s.fit_r2 != null ? ` · r² ${s.fit_r2.toFixed(2)}` : ''}</span>}
+          {s.confidence_grade && <span className="mono text-[9px] px-2 py-0.5 rounded-full text-[var(--color-mute)] border border-[var(--color-line-2)]">Grade {s.confidence_grade}</span>}
         </div>
-        <div className="text-right">
-          <div className="display text-2xl font-semibold" style={{ color: published ? 'var(--color-warn)' : 'var(--color-faint)' }}>{varLabel}</div>
-          <div className="text-[10px] text-[var(--color-faint)]">{published ? 'volume at risk' : 'exposure mapped — not €-published'}</div>
-        </div>
-      </div>
+      </PageHeader>
 
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={eur(s.annual_spend_eur)} label="annual spend" />
-        <Stat big={s.n_plots} label="sourcing plots" />
-        <Stat big={s.yield_shock_pct != null ? `${s.yield_shock_pct}%` : '—'} label="of yield at risk" tone={published && (s.yield_shock_pct ?? 0) > 0 ? 'warn' : 'ink'} />
-        <Stat big={s.confidence_grade ?? '—'} label="confidence grade" />
-      </div>
+      <HeroStrip>
+        <HeroMetric value={eur(s.annual_spend_eur)} label="annual spend" />
+        <HeroMetric value={s.n_plots} label="sourcing plots" />
+        <HeroMetric value={s.yield_shock_pct != null ? `${s.yield_shock_pct}%` : '—'} label="of yield at risk" tone={published && (s.yield_shock_pct ?? 0) > 0 ? '#E8853C' : undefined} />
+        <HeroMetric value={s.confidence_grade ?? '—'} label="confidence grade" />
+      </HeroStrip>
 
       {!published && s.held_reason && (
         <Card className="p-4 border-l-2" style={{ borderLeftColor: 'var(--color-warn)' }}>
@@ -78,7 +76,7 @@ export default function CommodityDetail() {
             ? <MiniMap lat={cLat} lon={cLon} color={hz(s.avg_hazard)} zoom={4} />
             : <Card className="p-8 text-center text-[var(--color-faint)] text-sm">no geolocated plots</Card>}
           <Card className="p-5">
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Sourcing plots</div>
+            <SectionHead className="mb-3">Sourcing plots</SectionHead>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left"><th className="font-normal py-1 pr-3">Plot</th><th className="font-normal pr-3">Country</th><th className="font-normal pr-3 text-right">Spend</th><th className="font-normal">Hazard</th></tr></thead>
@@ -102,7 +100,7 @@ export default function CommodityDetail() {
         <div className="space-y-4">
           {/* calibration / validation */}
           <Card className="p-5">
-            <div className="flex items-center gap-2 mb-3"><FlaskConical size={15} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Calibration & validation</span></div>
+            <SectionHead icon={FlaskConical} className="mb-3">Calibration & validation</SectionHead>
             {d.fits.length === 0 ? <div className="text-[13px] text-[var(--color-faint)]">No multi-year regression on record for this crop yet.</div> :
               <div className="space-y-3">
                 {d.fits.map((f, i) => (
@@ -124,7 +122,7 @@ export default function CommodityDetail() {
           {/* projections */}
           {horizons.length > 0 && (
             <Card className="p-5">
-              <div className="flex items-center gap-2 mb-3"><TrendingUp size={15} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">{pretty(s.top_hazard)} projection — mean hazard by warming path</span></div>
+              <SectionHead icon={TrendingUp} className="mb-3">{pretty(s.top_hazard)} projection — mean hazard by warming path</SectionHead>
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px]">
                   <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase text-left"><th className="font-normal py-1 pr-3">Scenario</th>{horizons.map(h => <th key={h} className="font-normal px-2 text-center">{h}</th>)}</tr></thead>
@@ -149,7 +147,7 @@ export default function CommodityDetail() {
           {/* adaptation */}
           {d.adaptation.length > 0 && (
             <Card className="p-5">
-              <div className="flex items-center gap-2 mb-3"><ShieldAlert size={15} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Adaptation — what to do</span></div>
+              <SectionHead icon={ShieldAlert} className="mb-3">Adaptation — what to do</SectionHead>
               {d.adaptation.map((a, i) => (
                 <div key={i}>
                   <div className="text-[13px] font-medium mb-1" style={{ color: hz(80) }}>{a.label}</div>

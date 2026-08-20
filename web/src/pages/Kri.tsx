@@ -6,7 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Eyebrow, Card, Lens, ExportButton } from '../components/ui'
+import { Card, Lens, ExportButton, PageHeader } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
@@ -101,17 +101,12 @@ export default function Kri() {
 
   return (
     <div className="fadeup space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Eyebrow>Regulatory intelligence</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">KRI dashboard</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings.</p>
-        </div>
-        <div className="flex items-center gap-2 mt-1 shrink-0">
+      <PageHeader eyebrow="Regulatory intelligence" title="KRI dashboard"
+        lead="A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings."
+        actions={<>
           {d?.supported && !!d.kpis?.length && <ExportButton onExport={exportKri} />}
           <Lens kind="governance" />
-        </div>
-      </div>
+        </>} />
 
       {/* framework picker — shown when the org reports on more than one (e.g. a bank: TCFD + Pillar 3 ESG) */}
       {frameworks.length > 1 && (

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileCheck2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
+import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
 import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
@@ -84,14 +84,10 @@ export default function FundDetail() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Asset management · SFDR (Sustainable Finance Disclosure Regulation) · fund</Eyebrow>
-        <div className="flex items-center gap-3 mt-2 mb-1">
-          <h1 className="display text-3xl font-semibold">{s.fund.name}</h1>
-          <SfdrBadge c={s.fund.sfdr_classification} />
-        </div>
-        <p className="mono text-[11px] text-[var(--color-faint)]">{eur(s.total_value_eur)} · {s.positions} position{s.positions === 1 ? '' : 's'} · {s.fund.fund_type?.replace(/_/g, ' ')}</p>
-      </div>
+      <PageHeader eyebrow="Asset management · SFDR (Sustainable Finance Disclosure Regulation) · fund"
+        title={<span className="inline-flex items-center gap-3">{s.fund.name}<SfdrBadge c={s.fund.sfdr_classification} /></span>}>
+        <p className="mono text-[11px] text-[var(--color-faint)] mt-1">{eur(s.total_value_eur)} · {s.positions} position{s.positions === 1 ? '' : 's'} · {s.fund.fund_type?.replace(/_/g, ' ')}</p>
+      </PageHeader>
 
       {/* climate report */}
       {s.positions === 0

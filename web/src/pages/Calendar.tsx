@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare, ChevronRight as Chev } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { Card, SectionHead, PageHeader } from '../components/ui'
 import { filingLink, taskLink } from '../lib/links'
 
 // Regulatory calendar — filing deadlines and task due-dates on one month grid, with an upcoming list.
@@ -44,11 +44,8 @@ export default function Calendar() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Workflow · calendar</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Regulatory calendar</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Filing deadlines and task due-dates on one timeline — see the whole runway and what's due next.</p>
-      </div>
+      <PageHeader eyebrow="Workflow · calendar" title="Regulatory calendar"
+        lead="Filing deadlines and task due-dates on one timeline — see the whole runway and what's due next." />
 
       <div className="grid lg:grid-cols-[1.6fr_1fr] gap-5">
         {/* month grid */}

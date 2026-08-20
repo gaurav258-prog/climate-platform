@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 
 interface Row {
   id: string; action: string; target_type: string | null; target_id: string | null
@@ -25,13 +25,8 @@ export default function Audit({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className={embedded ? 'space-y-6' : 'fadeup space-y-6'}>
       {!embedded && (
-      <div>
-        <Eyebrow>Governance · accountability</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Audit trail</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Every change — who did what, when, and (where it needed sign-off) who approved it. Immutable, append-only.
-        </p>
-      </div>
+        <PageHeader eyebrow="Governance · accountability" title="Audit trail"
+          lead="Every change — who did what, when, and (where it needed sign-off) who approved it. Immutable, append-only." />
       )}
 
       <input value={actor} onChange={e => setActor(e.target.value)} placeholder="filter by user email…"

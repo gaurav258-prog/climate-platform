@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Pencil, BadgeCheck, AlertTriangle } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { Eyebrow, Card, Button, SectionHead } from '../components/ui'
+import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 
 // The asset-manager's SFDR front door: the manager's filing identity (LEI / legal name / contact — required
 // before any statement can be filed) and the fund list, each fund drilling to its full climate report + the
@@ -40,11 +40,8 @@ export default function Funds() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Asset management · SFDR (Sustainable Finance Disclosure Regulation)</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Funds</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Each fund's physical &amp; transition climate risk and its SFDR Principal-Adverse-Impact statement — assembled from your holdings against the golden source, ready to file.</p>
-      </div>
+      <PageHeader eyebrow="Asset management · SFDR (Sustainable Finance Disclosure Regulation)" title="Funds"
+        lead="Each fund's physical & transition climate risk and its SFDR Principal-Adverse-Impact statement — assembled from your holdings against the golden source, ready to file." />
 
       <FilingIdentity />
       <SfdrNarratives />
@@ -111,7 +108,7 @@ function FilingIdentity() {
     <Card className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Filing identity · the manager on every SFDR statement</div>
+          <SectionHead hint="the manager on every SFDR statement" className="mb-2">Filing identity</SectionHead>
           {!edit ? (
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px]">
               <span className="inline-flex items-center gap-1.5">{hasLei ? <BadgeCheck size={14} className="text-[var(--color-good)]" /> : <AlertTriangle size={14} className="text-[var(--color-warn)]" />}<b className="text-[var(--color-ink)]">{p?.legal_name || p?.name || '—'}</b></span>
@@ -165,7 +162,10 @@ function SfdrNarratives() {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-4 mb-1">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">SFDR narratives · required on every statement <span className="ml-1.5" style={{ color: filled === NARR.length ? 'var(--color-good)' : 'var(--color-warn)' }}>{filled}/{NARR.length} complete</span></div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <SectionHead hint="required on every statement">SFDR narratives</SectionHead>
+          <span className="mono text-[11px]" style={{ color: filled === NARR.length ? 'var(--color-good)' : 'var(--color-warn)' }}>{filled}/{NARR.length} complete</span>
+        </div>
         {!p.lei ? <span className="mono text-[10.5px] text-[var(--color-warn)]">set the filing identity first</span>
           : !edit ? <Button variant="ghost" onClick={open}><Pencil size={13} /> Edit</Button>
           : <div className="flex gap-2 shrink-0"><Button variant="primary" onClick={save} disabled={busy}>Save</Button><Button variant="ghost" onClick={() => setEdit(false)}>Cancel</Button></div>}

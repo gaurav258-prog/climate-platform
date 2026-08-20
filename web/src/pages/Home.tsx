@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { ArrowUpRight, ArrowRight, Boxes, Building2, Sprout, ShieldCheck, TrendingDown, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow } from '../components/ui'
+import { PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface Task { key: string; title: string; detail: string; severity: 'action' | 'warning' | 'info' | 'good'; cta_label: string; cta_href: string }
@@ -25,9 +25,7 @@ function TaskFeed() {
 
   return (
     <div>
-      <div className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-3">
-        {first ? `What needs you, ${first}` : 'What needs you now'}
-      </div>
+      <SectionHead className="mb-3">{first ? `What needs you, ${first}` : 'What needs you now'}</SectionHead>
       {q.isLoading && <div className="text-[13px] text-[var(--color-faint)]">Checking your workspace…</div>}
       {!q.isLoading && tasks.length === 0 && (
         <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5">
@@ -119,34 +117,36 @@ export default function Home() {
       {/* role-shaped task feed — the cockpit leads with what needs YOU now, not just state */}
       <TaskFeed />
 
-      <div>
-        <Eyebrow>{profile?.org?.name} · agriculture workspace</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Overview</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Your climate risk across operations and sourcing — one glance, then click any tile to open the detail.</p>
-      </div>
+      <PageHeader eyebrow={`${profile?.org?.name} · agriculture workspace`} title="Overview"
+        lead="Your climate risk across operations and sourcing — one glance, then click any tile to open the detail." />
 
-      {/* KPI widgets — each clickable → its detail view */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Widget icon={TrendingDown} tone="warn" onClick={() => nav('/cogs')}
-          value={eur(s?.rollup.volume_at_risk_eur)} label="Volume at risk (physical)"
-          sub={s ? `${s.rollup.pct_cogs_at_risk.toFixed(2)}% of COGS · top: ${topCommodity ? `${topCommodity.commodity} ${eur(topCommodity.volume_at_risk_eur)}` : '—'}` : '…'} />
-        <Widget icon={Building2} onClick={() => nav('/operations')}
-          value={siteList.length} label="Operational sites"
-          sub={`${sitesElevated} at elevated hazard (≥40)`} tone={sitesElevated ? 'warn' : 'ink'} />
-        <Widget icon={Sprout} onClick={() => nav('/sourcing')}
-          value={plots.length} label="Sourcing plots"
-          sub={`geolocated & scored · ${eur(plots.reduce((a, p) => a + (p.spend_eur ?? 0), 0))} spend`} />
-        <Widget icon={ShieldCheck} tone="good" onClick={() => nav('/disclosure')}
-          value={coveredPlots ? `${defFree}/${coveredPlots}` : '—'} label="EUDR deforestation-free"
-          sub={coveredPlots ? `of ${coveredPlots} EUDR-covered plots` : 'no EUDR-covered plots'} />
-        <Widget icon={Boxes} onClick={() => nav('/cogs')}
-          value={`${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS at risk"
-          sub="physical climate exposure on the bill of materials" />
-      </div>
+      {/* KPI hero strip — each metric opens its detail view */}
+      <HeroStrip>
+        <button onClick={() => nav('/cogs')} className="text-left min-w-0 hover:opacity-80 transition">
+          <HeroMetric value={eur(s?.rollup.volume_at_risk_eur)} label="Volume at risk (physical)" tone="#E8853C"
+            sub={s ? `${s.rollup.pct_cogs_at_risk.toFixed(2)}% of COGS · top: ${topCommodity ? `${topCommodity.commodity} ${eur(topCommodity.volume_at_risk_eur)}` : '—'}` : '…'} />
+        </button>
+        <button onClick={() => nav('/operations')} className="text-left min-w-0 hover:opacity-80 transition">
+          <HeroMetric value={siteList.length} label="Operational sites"
+            sub={`${sitesElevated} at elevated hazard (≥40)`} tone={sitesElevated ? '#E8853C' : undefined} />
+        </button>
+        <button onClick={() => nav('/sourcing')} className="text-left min-w-0 hover:opacity-80 transition">
+          <HeroMetric value={plots.length} label="Sourcing plots"
+            sub={`geolocated & scored · ${eur(plots.reduce((a, p) => a + (p.spend_eur ?? 0), 0))} spend`} />
+        </button>
+        <button onClick={() => nav('/disclosure')} className="text-left min-w-0 hover:opacity-80 transition">
+          <HeroMetric value={coveredPlots ? `${defFree}/${coveredPlots}` : '—'} label="EUDR deforestation-free" tone="#4FA46E"
+            sub={coveredPlots ? `of ${coveredPlots} EUDR-covered plots` : 'no EUDR-covered plots'} />
+        </button>
+        <button onClick={() => nav('/cogs')} className="text-left min-w-0 hover:opacity-80 transition">
+          <HeroMetric value={`${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS at risk"
+            sub="physical climate exposure on the bill of materials" />
+        </button>
+      </HeroStrip>
 
       {/* granular strip — what's driving the numbers, clickable */}
       <div>
-        <div className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-3">Biggest exposures right now</div>
+        <SectionHead className="mb-3">Biggest exposures right now</SectionHead>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {exposures.map((e, i) => (
             <button key={i} onClick={() => window.open(e.href, '_blank')}
@@ -162,23 +162,5 @@ export default function Home() {
         </div>
       </div>
     </div>
-  )
-}
-
-function Widget({ icon: Icon, value, label, sub, onClick, tone = 'ink', hideIfUndef }:
-  { icon: typeof Boxes; value: React.ReactNode; label: string; sub: string; onClick: () => void; tone?: 'ink' | 'good' | 'warn'; hideIfUndef?: boolean }) {
-  if (hideIfUndef && (value === '—' || value === undefined)) return null
-  const c = tone === 'good' ? 'var(--color-good)' : tone === 'warn' ? 'var(--color-warn)' : 'var(--color-ink)'
-  return (
-    <button onClick={onClick}
-      className="group text-left rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5 hover:border-[var(--color-sky)] transition">
-      <div className="flex items-start justify-between">
-        <Icon size={18} className="text-[var(--color-sky)]" />
-        <ArrowUpRight size={16} className="text-[var(--color-faint)] group-hover:text-[var(--color-sky)] transition" />
-      </div>
-      <div className="mt-3 text-[28px] font-semibold leading-none" style={{ color: c }}>{value}</div>
-      <div className="mt-1.5 text-[13px] text-[var(--color-ink)]">{label}</div>
-      <div className="mt-1 text-[11px] text-[var(--color-faint)]">{sub}</div>
-    </button>
   )
 }

@@ -5,7 +5,7 @@ import { LifeBuoy, Plus, Send, CheckCircle2, RotateCcw, MessageSquare, Search, C
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 import { DOCS } from '../content/docs'
 
 // Support Center — one place to find an answer, raise a ticket, and watch its SLA count down. The dashboard
@@ -86,11 +86,8 @@ export default function Support() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Support · with Tellumen</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Support Center</h1>
-        <p className="text-[var(--color-mute)] text-sm">Documentation · file a ticket · track your requests · SLA countdown.</p>
-      </div>
+      <PageHeader eyebrow="Support · with Tellumen" title="Support Center"
+        lead="Documentation · file a ticket · track your requests · SLA countdown." />
 
       {/* tab bar */}
       <div className="flex flex-wrap gap-1 border-b border-[var(--color-line)]">
@@ -188,7 +185,7 @@ function Tile({ label, n, tone, ring, onClick }: { label: string; n: number; ton
     <Comp onClick={onClick} className={`text-left px-4 py-3.5 rounded-xl border transition ${ring ? '' : 'border-[var(--color-line)]'} ${onClick ? 'hover:border-[var(--color-line-2)]' : ''} bg-[var(--color-panel)]`}
       style={ring ? { borderColor: `color-mix(in oklab, ${tone} 45%, transparent)`, background: `color-mix(in oklab, ${tone} 7%, var(--color-panel))` } : undefined}>
       <div className="display text-[30px] leading-none tabular-nums" style={{ color: tone }}>{n}</div>
-      <div className="mono text-[9.5px] tracking-wide uppercase text-[var(--color-faint)] mt-2">{label}</div>
+      <div className="text-[12px] text-[var(--color-mute)] mt-2">{label}</div>
     </Comp>
   )
 }

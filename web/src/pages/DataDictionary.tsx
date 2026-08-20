@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Database } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // The single golden model, browsable — each field, the source feed(s) it derives from, how current the
@@ -29,25 +29,25 @@ export default function DataDictionary() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Foundation · golden model</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Data dictionary</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere.</p>
-      </div>
+      <PageHeader eyebrow="Foundation · golden model" title="Data dictionary"
+        lead="The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere." />
 
       {d && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Tile n={d.summary.hazard_fields} label="hazard fields" />
-          <Tile n={d.summary.mapped_to_source} label="mapped to a source" tone="#34d399" />
-          <Card className="px-4 py-3.5 sm:col-span-1 col-span-2"><div className="text-[12px] text-[var(--color-mute)] leading-snug">{d.summary.note}</div></Card>
-        </div>
+        <HeroStrip>
+          <HeroMetric value={d.summary.hazard_fields} label="Hazard fields" />
+          <HeroMetric value={d.summary.mapped_to_source} label="Mapped to a source" tone="#4FA46E" />
+          <div className="min-w-0 sm:col-span-1 flex items-center"><p className="text-[12.5px] text-[var(--color-mute)] leading-snug">{d.summary.note}</p></div>
+        </HeroStrip>
       )}
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the dictionary.</div>
         : (
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-2.5 border-b border-[var(--color-line)] mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">
+          <div className="px-5 py-3 border-b border-[var(--color-line)]">
+            <SectionHead icon={Database} hint="field · source feed · vintage · consumers">Golden model fields</SectionHead>
+          </div>
+          <div className="grid grid-cols-[1.4fr_0.9fr_1.8fr_0.9fr_1.1fr] gap-2 px-5 py-2.5 border-b border-[var(--color-line)] mono text-[11px] uppercase tracking-wide text-[var(--color-faint)]">
             <span>Field</span><span>Type</span><span>Source feed</span><span>Vintage</span><span>Consumed by</span>
           </div>
           <div className="divide-y divide-[var(--color-line)]">
@@ -131,8 +131,4 @@ export default function DataDictionary() {
       )}
     </div>
   )
-}
-
-function Tile({ n, label, tone }: { n: number; label: string; tone?: string }) {
-  return <Card className="px-4 py-3.5"><div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{n}</div><div className="mono text-[10px] tracking-wide uppercase text-[var(--color-faint)] mt-2">{label}</div></Card>
 }

@@ -4,7 +4,7 @@ import { ChevronRight, Plus, ExternalLink, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Card, Button, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
 
 // Regulatory-change register — the "change the bank" pipeline: a rule change tracked from spotted to shipped
 // (identified → analysis → scheduled → in dev → testing → released).
@@ -40,14 +40,9 @@ export default function RegChanges() {
 
   return (
     <div className="fadeup space-y-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <Eyebrow>Change the bank</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Regulatory changes</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every new or amended rule tracked from spotted to shipped — monitored, analysed, scheduled, built, tested and released — so nothing catches the filing off guard.</p>
-        </div>
-        {canAct && <Button variant="ghost" onClick={() => setAdding(a => !a)}><Plus size={14} /> Register change</Button>}
-      </div>
+      <PageHeader eyebrow="Change the bank" title="Regulatory changes"
+        lead="Every new or amended rule tracked from spotted to shipped — monitored, analysed, scheduled, built, tested and released — so nothing catches the filing off guard."
+        actions={canAct && <Button variant="ghost" onClick={() => setAdding(a => !a)}><Plus size={14} /> Register change</Button>} />
 
       {adding && (
         <Card className="p-3 flex flex-wrap items-center gap-2">
@@ -58,7 +53,12 @@ export default function RegChanges() {
         </Card>
       )}
 
-      {d && <div className="mono text-[11px] text-[var(--color-faint)]">{d.summary.total} change{d.summary.total === 1 ? '' : 's'} tracked · {d.summary.released} released</div>}
+      {d && (
+        <HeroStrip>
+          <HeroMetric value={d.summary.total} label="Changes tracked" />
+          <HeroMetric value={d.summary.released} label="Released" tone={d.summary.released > 0 ? '#4FA46E' : undefined} />
+        </HeroStrip>
+      )}
 
       <div className="overflow-x-auto pb-2">
         <div className="grid grid-cols-6 gap-3 min-w-[1080px]">

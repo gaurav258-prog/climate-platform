@@ -4,7 +4,7 @@ import { Check, X, Clock, ShieldCheck, Undo2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 
 interface Req {
   id: string; request_type: string; title: string | null; payload: Record<string, unknown>
@@ -78,14 +78,8 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
   return (
     <div className={embedded ? 'space-y-6' : 'fadeup space-y-6'}>
       {!embedded && (
-      <div>
-        <Eyebrow>Governance · maker-checker</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Approvals</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Changes that need a second pair of eyes land here. A different person from the one who requested the change
-          approves or rejects it (4-eyes) — nothing sensitive applies on one person's say-so.
-        </p>
-      </div>
+        <PageHeader eyebrow="Governance · maker-checker" title="Approvals"
+          lead="Changes that need a second pair of eyes land here. A different person from the one who requested the change approves or rejects it (4-eyes) — nothing sensitive applies on one person's say-so." />
       )}
 
       <div className="flex gap-2">
