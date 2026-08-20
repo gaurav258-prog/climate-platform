@@ -7,9 +7,10 @@ event, nothing projected.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from api.deps import DbSession, require_permission
+from services.intelligence.climate_track_record import track_record
 from services.intelligence.realized_exposure import realized_exposure
 
 router = APIRouter(prefix="/v1/realized-exposure", tags=["Realized exposure"])
@@ -27,3 +28,15 @@ def get_realized_exposure(session: DbSession, ctx: dict = Depends(require_permis
         return {"available": False, "reason": "unsupported_sector"}
     return {"org_id": org["org_id"], "sector": org["type"],
             **realized_exposure(session, org["org_id"], vertical)}
+
+
+@router.get("/track-record", summary="Climate Track Record for any address — observed past + current risk (diligence)")
+def get_track_record(session: DbSession,
+                     lat: float = Query(..., ge=-90, le=90),
+                     lon: float = Query(..., ge=-180, le=180),
+                     name: str = Query(None, description="Optional label for the location/counterparty."),
+                     ctx: dict = Depends(require_permission("modules.view"))):
+    """The per-location diligence dossier: the real events that have already crossed this address, plus its
+    current hazard scores. A different deliverable (and buyer) from the regulatory filings — underwriting,
+    lending, and M&A diligence."""
+    return track_record(session, lat, lon, name)

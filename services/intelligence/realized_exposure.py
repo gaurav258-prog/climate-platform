@@ -33,6 +33,52 @@ def _haversine_km(lat1, lon1, lat2, lon2) -> float:
     return 2 * r * math.asin(min(1.0, math.sqrt(a)))
 
 
+def events_near_point(session: Session, lat: float, lon: float,
+                      storm_radius_km: float = _STORM_RADIUS_KM,
+                      quake_radius_km: float = _QUAKE_RADIUS_KM,
+                      min_magnitude: float = _MIN_MAGNITUDE) -> dict:
+    """The observed storms and earthquakes that have crossed a single location — the point-level realized
+    exposure behind the any-address Climate Track Record. Real catalogued events only."""
+    m = max(storm_radius_km, quake_radius_km) / 111.0 + 0.5   # deg margin for the bbox pre-filter
+    storm_pts = session.execute(text("""
+        SELECT storm_id, storm_name, season_year, sshs_category, CAST(max_wind_kt AS FLOAT) AS wind,
+               CAST(lat AS FLOAT) AS lat, CAST(lon AS FLOAT) AS lon
+        FROM storm_events WHERE lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+    """), {"a": lat - m, "b": lat + m, "c": lon - m, "d": lon + m}).mappings().all()
+    storms: dict = {}
+    for pt in storm_pts:
+        d = _haversine_km(lat, lon, pt["lat"], pt["lon"])
+        if d <= storm_radius_km:
+            sid = pt["storm_id"]
+            st = storms.setdefault(sid, {"name": (pt["storm_name"] or "Unnamed").title(), "year": pt["season_year"],
+                                         "category": -1, "wind": 0, "closest_km": d})
+            st["category"] = max(st["category"], pt["sshs_category"] or -1)
+            st["wind"] = max(st["wind"] or 0, pt["wind"] or 0)
+            st["closest_km"] = min(st["closest_km"], d)
+    storm_events = [{"kind": "storm", "name": st["name"], "year": st["year"],
+                     "severity": _SSHS_LABEL.get(st["category"], "Storm"),
+                     "max_wind_kt": round(st["wind"]) if st["wind"] else None,
+                     "closest_km": round(st["closest_km"], 1)} for st in storms.values()]
+
+    quakes = session.execute(text("""
+        SELECT CAST(magnitude AS FLOAT) AS mag, region_name, origin_time,
+               CAST(epicentre_lat AS FLOAT) AS lat, CAST(epicentre_lon AS FLOAT) AS lon
+        FROM seismic_events WHERE CAST(magnitude AS FLOAT) >= :m
+          AND epicentre_lat BETWEEN :a AND :b AND epicentre_lon BETWEEN :c AND :d
+    """), {"m": min_magnitude, "a": lat - m, "b": lat + m, "c": lon - m, "d": lon + m}).mappings().all()
+    quake_events = []
+    for q in quakes:
+        d = _haversine_km(lat, lon, q["lat"], q["lon"])
+        if d <= quake_radius_km:
+            quake_events.append({"kind": "earthquake", "name": f'M{q["mag"]:.1f} · {q["region_name"] or "—"}',
+                                 "year": q["origin_time"].year if q["origin_time"] else None,
+                                 "severity": f'Magnitude {q["mag"]:.1f}', "magnitude": q["mag"],
+                                 "closest_km": round(d, 1)})
+    events = sorted(storm_events + quake_events, key=lambda e: -(e["year"] or 0))
+    return {"n_events": len(events), "n_storms": len(storm_events), "n_earthquakes": len(quake_events),
+            "events": events}
+
+
 def _located_assets(session: Session, org_id: str, vertical: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT entity_id::text AS id, entity_name AS name, CAST(latitude AS FLOAT) AS lat,
