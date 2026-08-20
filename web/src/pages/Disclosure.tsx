@@ -5,6 +5,7 @@ import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2 } from 'luci
 import { api } from '../lib/api'
 import { Eyebrow, Card, Stat, Button, StatusPill } from '../components/ui'
 import Lineage from '../components/Lineage'
+import RealizedExposure from '../components/RealizedExposure'
 
 interface Disc {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number; ingredient_spend_eur: number; total_cogs_eur: number }
@@ -86,6 +87,9 @@ export default function Disclosure() {
         <Stat big={s.covered_plots ?? 0} label="EUDR-covered plots" />
         <Stat big={s.deforestation_free ?? 0} label="deforestation-free" tone="good" />
       </div>
+
+      {/* realized exposure — the real yield shocks that have ALREADY hit this buyer's origins (observed hook) */}
+      <RealizedExposure />
 
       {/* re-sourcing / origin substitution — cut COGS-at-risk by shifting to a lower-risk origin you already source */}
       <ResourcingCard rs={rs.data} />

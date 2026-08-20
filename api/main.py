@@ -38,6 +38,7 @@ try:
     from api.routers import insurance as insurance_router
     from api.routers import platform as platform_router
     from api.routers import realestate as realestate_router
+    from api.routers import realized as realized_router
     from api.routers import supply as supply_router
     ROUTERS_AVAILABLE = True
 except ImportError:
@@ -154,6 +155,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(assetmgmt_router.router)
     app.include_router(funds_router.router)
     app.include_router(calc_settings_router.router)
+    app.include_router(realized_router.router)
     app.include_router(lookup.router)
 
 if AUTH_USER_AVAILABLE:
