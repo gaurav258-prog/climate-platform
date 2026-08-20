@@ -6,6 +6,7 @@ import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead } from '../components/ui'
+import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
@@ -222,6 +223,9 @@ export default function Portfolio() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
       </div>
+
+      {/* realized exposure — the real, named events that have ALREADY crossed this book (the observed hook). */}
+      <RealizedExposure />
 
       {/* modelled uncertainty — the expected value loss as a RANGE, from the per-cell score confidence
           interval propagated through the same haircut (bank & REIT; nothing invented). */}
