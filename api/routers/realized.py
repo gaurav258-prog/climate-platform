@@ -13,6 +13,7 @@ from fastapi.responses import Response
 from api.deps import DbSession, require_permission
 from services.intelligence.climate_track_record import track_record, track_record_pdf
 from services.intelligence.realized_exposure import realized_exposure
+from services.intelligence.underwriting_review import underwriting_review
 
 router = APIRouter(prefix="/v1/realized-exposure", tags=["Realized exposure"])
 
@@ -29,6 +30,17 @@ def get_realized_exposure(session: DbSession, ctx: dict = Depends(require_permis
         return {"available": False, "reason": "unsupported_sector"}
     return {"org_id": org["org_id"], "sector": org["type"],
             **realized_exposure(session, org["org_id"], vertical)}
+
+
+@router.get("/underwriting-review", summary="Per-policy observed loss experience + frequency validation of the priced return period (insurance)")
+def get_underwriting_review(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
+    """The insurance underwriting deliverable: for the caller's policy book, the real climate events that have
+    already crossed each risk, plus — for perils Tellumen holds an observed catalogue for (storm, seismic) —
+    whether the observed hit-rate matches the modelled return period the policy is priced on. Insurers only."""
+    org = ctx["org"]
+    if org.get("type") != "insurer":
+        return {"available": False, "reason": "insurance_only"}
+    return {"org_id": org["org_id"], "sector": org["type"], **underwriting_review(session, org["org_id"])}
 
 
 @router.get("/track-record", summary="Climate Track Record for any address — observed past + current risk (diligence)")
