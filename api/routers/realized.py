@@ -8,9 +8,10 @@ event, nothing projected.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from api.deps import DbSession, require_permission
-from services.intelligence.climate_track_record import track_record
+from services.intelligence.climate_track_record import track_record, track_record_pdf
 from services.intelligence.realized_exposure import realized_exposure
 
 router = APIRouter(prefix="/v1/realized-exposure", tags=["Realized exposure"])
@@ -40,3 +41,14 @@ def get_track_record(session: DbSession,
     current hazard scores. A different deliverable (and buyer) from the regulatory filings — underwriting,
     lending, and M&A diligence."""
     return track_record(session, lat, lon, name)
+
+
+@router.get("/track-record.pdf", summary="Climate Track Record as a one-page PDF dossier (diligence hand-over)")
+def track_record_pdf_ep(session: DbSession,
+                        lat: float = Query(..., ge=-90, le=90),
+                        lon: float = Query(..., ge=-180, le=180),
+                        name: str = Query(None),
+                        ctx: dict = Depends(require_permission("modules.view"))):
+    fname, blob = track_record_pdf(session, lat, lon, name)
+    return Response(blob, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})

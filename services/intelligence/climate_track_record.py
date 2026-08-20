@@ -84,3 +84,42 @@ def track_record(session: Session, lat: float, lon: float, name: str | None = No
                  "current golden-source hazard scores (with model version + data vintage). A hazard not yet "
                  "scored for this cell is omitted, never invented. This is a risk dossier, not a filing."),
     }
+
+
+def track_record_pdf(session: Session, lat: float, lon: float, name: str | None = None) -> tuple[str, bytes]:
+    """Render the Climate Track Record as a one-page PDF dossier a diligence team can hand over. Reuses the
+    dependency-free PDF writer. Returns (filename, pdf_bytes)."""
+    from services.governance.assurance_pack import _render_cover_pdf
+    tr = track_record(session, lat, lon, name)
+    loc = name or f"{lat:.4f}, {lon:.4f}"
+    lines: list[tuple[str, str]] = [
+        (loc, "head"),
+        (f"{lat:.5f}, {lon:.5f}  ·  H3 {tr['location']['h3_cell']}", "mono"),
+        ("", "normal"),
+        ("Verdict", "head"),
+    ]
+    # wrap the verdict to ~92 chars
+    v = tr["verdict"]
+    while v:
+        cut = v if len(v) <= 92 else v[:92].rsplit(" ", 1)[0]
+        lines.append((cut, "normal"))
+        v = v[len(cut):].lstrip()
+    lines.append(("", "normal"))
+    lines.append(("Already crossed this location (observed catalogue)", "head"))
+    if tr["realized"]["events"]:
+        for e in tr["realized"]["events"][:10]:
+            lines.append((f"- {e['name']}  ({e.get('year') or '—'})  ·  {e['severity']}  ·  {e.get('closest_km')} km", "mono"))
+    else:
+        lines.append(("- No catalogued storm or earthquake within the felt radius.", "mono"))
+    lines.append(("", "normal"))
+    lines.append(("Current physical risk (golden source)", "head"))
+    if tr["current_risk"]:
+        for h in tr["current_risk"][:11]:
+            lines.append((f"- {h['label']}: {h['bucket']} ({h['score']}/100)", "mono"))
+    else:
+        lines.append(("- Not yet scored for this cell (would score on demand in production).", "mono"))
+    lines.append(("", "normal"))
+    lines.append(("Observed past (IBTrACS + USGS) + current golden-source scores. A risk dossier, not a filing.", "normal"))
+    blob = _render_cover_pdf("Climate Track Record", lines)
+    safe = "".join(c if c.isalnum() else "-" for c in loc)[:40].strip("-") or "location"
+    return f"climate-track-record-{safe}.pdf", blob
