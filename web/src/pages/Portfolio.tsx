@@ -5,7 +5,7 @@ import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'luc
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead, CountUpText } from '../components/ui'
+import { Eyebrow, Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
@@ -190,25 +190,22 @@ export default function Portfolio() {
 
   return (
     <div className="fadeup space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Eyebrow>{profile?.org?.name} · {cfg.noun}</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Portfolio</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Your {cfg.noun}, checked against our verified climate data — the biggest physical threat to each one, and how it changes with warming. Every figure is real; “—” means we haven’t scored that one yet.</p>
-        </div>
-        <div className="flex flex-col gap-2 items-end">
-          <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
-            {SCENARIOS.map(([k, lbl]) => (
-              <button key={k} title={SCENARIO_HINT[k]} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
-            ))}
-          </div>
-          {view === 'book' && (
-            <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
-              <HorizonSelect value={horizon} onChange={setHorizon} />
+      <PageHeader eyebrow={`${profile?.org?.name} · ${cfg.noun}`} title="Portfolio"
+        lead={`Your ${cfg.noun}, checked against our verified climate data — the biggest physical threat to each one, and how it changes with warming. Every figure is real; “—” means we haven’t scored that one yet.`}
+        actions={
+          <div className="flex flex-col gap-2 items-end">
+            <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+              {SCENARIOS.map(([k, lbl]) => (
+                <button key={k} title={SCENARIO_HINT[k]} onClick={() => setScenario(k)} className={`px-3 py-1.5 rounded-md text-[12px] transition ${scenario === k ? 'bg-[var(--color-bg-2)] text-[var(--color-ink)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{lbl}</button>
+              ))}
             </div>
-          )}
-        </div>
-      </div>
+            {view === 'book' && (
+              <div className="flex items-center gap-1 p-1 rounded-lg border border-[var(--color-line-2)]">
+                <HorizonSelect value={horizon} onChange={setHorizon} />
+              </div>
+            )}
+          </div>
+        } />
 
       {/* view switch — separate the two jobs so the page isn't a long scroll of both at once:
           "Your book" = the searchable asset list you operate; "Forward view" = the trajectory + €-loss analysis. */}
@@ -220,9 +217,9 @@ export default function Portfolio() {
       </div>
 
       {/* rollup KPIs — sector-labelled; the headline, shown on both views */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {cfg.kpis.map(k => <Kpi key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} hint={k.hint} />)}
-      </div>
+      <HeroStrip>
+        {cfg.kpis.map(k => <HeroMetric key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} />)}
+      </HeroStrip>
 
       {/* realized exposure — the real, named events that have ALREADY crossed this book (the observed hook). */}
       <RealizedExposure />
@@ -392,16 +389,6 @@ export default function Portfolio() {
   )
 }
 
-function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) {
-  return (
-    <Card className="px-4 py-3.5">
-      <div className="display text-[26px] leading-none tabular-nums" style={tone ? { color: tone } : undefined}><CountUpText>{value}</CountUpText></div>
-      <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2" title={hint}>
-        {label}{hint && <span className="text-[var(--color-faint)] normal-case tracking-normal"> ⓘ</span>}
-      </div>
-    </Card>
-  )
-}
 
 function ValueLossBand({ band }: { band?: LossBand }) {
   if (!band || !band.expected_value_loss_eur) return null

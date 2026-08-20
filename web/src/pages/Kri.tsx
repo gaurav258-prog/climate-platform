@@ -6,7 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Card, Lens, ExportButton, PageHeader } from '../components/ui'
+import { Card, Lens, ExportButton, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
@@ -70,6 +70,9 @@ export default function Kri() {
   const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
   const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
   const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
+  const nRed = d?.kpis?.filter(k => k.status === 'red').length ?? 0
+  const nAmber = d?.kpis?.filter(k => k.status === 'amber').length ?? 0
+  const nOk = d?.kpis?.filter(k => k.status === 'ok').length ?? 0
   // act on breaches from here: jump to the off-appetite indicators, and raise a remediation task on one.
   const [onlyBreaches, setOnlyBreaches] = useState(false)
   const [raising, setRaising] = useState<string | null>(null)
@@ -122,6 +125,13 @@ export default function Kri() {
         : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}</Card>
         : (
         <>
+          {/* lead with the answer: how the book's indicators sit against appetite right now */}
+          <HeroStrip>
+            <HeroMetric value={d.kpis.length} label="Indicators tracked" />
+            <HeroMetric value={nOk} label="Within appetite" tone={nOk > 0 ? '#4FA46E' : undefined} />
+            <HeroMetric value={nAmber} label="Warning" tone={nAmber > 0 ? '#E8853C' : undefined} />
+            <HeroMetric value={nRed} label="In breach" tone={nRed > 0 ? '#D23B3B' : '#4FA46E'} />
+          </HeroStrip>
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
           {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (
