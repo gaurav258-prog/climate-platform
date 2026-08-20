@@ -12,6 +12,7 @@ from fastapi.responses import Response
 
 from api.deps import DbSession, require_permission
 from services.intelligence.climate_track_record import track_record, track_record_pdf
+from services.intelligence.model_validation import model_validation_all
 from services.intelligence.realized_exposure import realized_exposure
 from services.intelligence.underwriting_review import underwriting_review
 
@@ -41,6 +42,15 @@ def get_underwriting_review(session: DbSession, ctx: dict = Depends(require_perm
     if org.get("type") != "insurer":
         return {"available": False, "reason": "insurance_only"}
     return {"org_id": org["org_id"], "sector": org["type"], **underwriting_review(session, org["org_id"])}
+
+
+@router.get("/model-validation", summary="Score vs observed-record consistency backtest (model validation / supervisory credibility)")
+def get_model_validation(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
+    """Tests Tellumen's own hazard scores against the observed catalogues, for the perils with a real record
+    (seismic, storm): do higher-scored locations carry more observed near-field events? Reports a per-band
+    table, a Spearman discrimination metric, and an honest verdict — weak results shown as weak. In-sample
+    consistency (faithfulness), not out-of-sample prediction; see the note."""
+    return model_validation_all(session)
 
 
 @router.get("/track-record", summary="Climate Track Record for any address — observed past + current risk (diligence)")

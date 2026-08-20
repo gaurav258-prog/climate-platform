@@ -35,6 +35,7 @@ const GROUPS: Group[] = [
     { to: '/kri', label: 'KRI dashboard', icon: Gauge, perm: 'modules.view' },
     { to: '/track-record', label: 'Climate track record', icon: History, perm: 'modules.view' },
     { to: '/underwriting', label: 'Underwriting review', icon: ClipboardCheck, perm: 'modules.view', sectors: ['insurer'] },
+    { to: '/model-validation', label: 'Model validation', icon: FlaskConical, perm: 'modules.view' },
     { to: '/analytics', label: 'Analytics', icon: LineChart, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit'] },
     { to: '/models', label: 'How we score', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
   ] },

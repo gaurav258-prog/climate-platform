@@ -37,6 +37,7 @@ import DataFoundation from './pages/DataFoundation'
 import RiskMap from './pages/RiskMap'
 import TrackRecord from './pages/TrackRecord'
 import UnderwritingReview from './pages/UnderwritingReview'
+import ModelValidation from './pages/ModelValidation'
 import DetailView from './pages/DetailView'
 import CommodityDetail from './pages/CommodityDetail'
 import Support from './pages/Support'
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/track-record" element={<TrackRecord />} />
         <Route path="/underwriting" element={<UnderwritingReview />} />
+        <Route path="/model-validation" element={<ModelValidation />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />
