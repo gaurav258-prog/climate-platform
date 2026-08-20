@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { ArrowRight, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, AlertCircle, AlertTriangle, Info, CheckCircle2, PackageX, Building2, MapPin, TreePine, Percent } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface Task { key: string; title: string; detail: string; severity: 'action' | 'warning' | 'info' | 'good'; cta_label: string; cta_href: string }
@@ -79,8 +79,8 @@ const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 
 export default function Home() {
-  const nav = useNavigate()
   const { profile } = useAuth()
+  const nav = useNavigate()
   // Home is the agriculture cockpit (it reads the /v1/supply/* endpoints). The financial verticals have
   // their own operating surface — send them to the Portfolio instead of loading agri data they don't have.
   const isFin = ['bank', 'insurer', 'asset_manager', 'reit'].includes(profile?.org?.type ?? '')
@@ -95,8 +95,6 @@ export default function Home() {
   const plots = pf.data?.plots ?? []
   const coveredPlots = plots.filter(p => p.eudr_covered).length
   const defFree = plots.filter(p => p.eudr_determination === 'deforestation_free').length
-  const topCommodity = (s?.commodities ?? []).filter(c => (c.volume_at_risk_eur ?? 0) > 0)
-    .sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))[0]
 
   // biggest exposures across the whole book (sites + suppliers), for the granular strip — each opens its detail
   const exposures = [
@@ -120,29 +118,18 @@ export default function Home() {
       <PageHeader eyebrow={`${profile?.org?.name} · agriculture workspace`} title="Overview"
         lead="Your climate risk across operations and sourcing — one glance, then click any tile to open the detail." />
 
-      {/* KPI hero strip — each metric opens its detail view */}
-      <HeroStrip>
-        <button onClick={() => nav('/cogs')} className="text-left min-w-0 hover:opacity-80 transition">
-          <HeroMetric value={eur(s?.rollup.volume_at_risk_eur)} label="Volume at risk (physical)" tone="#E8853C"
-            sub={s ? `${s.rollup.pct_cogs_at_risk.toFixed(2)}% of COGS · top: ${topCommodity ? `${topCommodity.commodity} ${eur(topCommodity.volume_at_risk_eur)}` : '—'}` : '…'} />
-        </button>
-        <button onClick={() => nav('/operations')} className="text-left min-w-0 hover:opacity-80 transition">
-          <HeroMetric value={siteList.length} label="Operational sites"
-            sub={`${sitesElevated} at elevated hazard (≥40)`} tone={sitesElevated ? '#E8853C' : undefined} />
-        </button>
-        <button onClick={() => nav('/sourcing')} className="text-left min-w-0 hover:opacity-80 transition">
-          <HeroMetric value={plots.length} label="Sourcing plots"
-            sub={`geolocated & scored · ${eur(plots.reduce((a, p) => a + (p.spend_eur ?? 0), 0))} spend`} />
-        </button>
-        <button onClick={() => nav('/disclosure')} className="text-left min-w-0 hover:opacity-80 transition">
-          <HeroMetric value={coveredPlots ? `${defFree}/${coveredPlots}` : '—'} label="EUDR deforestation-free" tone="#4FA46E"
-            sub={coveredPlots ? `of ${coveredPlots} EUDR-covered plots` : 'no EUDR-covered plots'} />
-        </button>
-        <button onClick={() => nav('/cogs')} className="text-left min-w-0 hover:opacity-80 transition">
-          <HeroMetric value={`${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS at risk"
-            sub="physical climate exposure on the bill of materials" />
-        </button>
-      </HeroStrip>
+      {/* the rich cockpit hero — narrative + live posture tiles */}
+      <HeroBanner
+        eyebrow="Standing exposure"
+        title={(s?.rollup.volume_at_risk_eur ?? 0) > 0 || sitesElevated > 0 ? 'Climate is pressing on your book.' : 'Your book is running clear.'}
+        lead="Your climate exposure across operations and sourcing, rolled to euros on the bill of materials — one glance at the whole book."
+        stat={[
+          { label: 'Volume at risk (physical)', value: eur(s?.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C', onClick: () => nav('/cogs') },
+          { label: 'Operational sites', value: siteList.length, icon: Building2, tone: sitesElevated ? '#E8853C' : undefined, onClick: () => nav('/operations') },
+          { label: 'Sourcing plots', value: plots.length, icon: MapPin, tone: 'var(--color-sky)', onClick: () => nav('/sourcing') },
+          { label: 'EUDR deforestation-free', value: coveredPlots ? `${defFree}/${coveredPlots}` : '—', icon: TreePine, tone: '#4FA46E', onClick: () => nav('/sourcing') },
+          { label: 'of COGS at risk', value: `${(s?.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent, onClick: () => nav('/cogs') },
+        ]} />
 
       {/* granular strip — what's driving the numbers, clickable */}
       <div>

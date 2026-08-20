@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Download, Building2, Sprout, TrendingUp, ShieldCheck, Layers } from 'lucide-react'
 import { api, download } from '../lib/api'
-import { Card, Button, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface HazardBlock { hazard: string; label: string; class: string
@@ -57,12 +57,16 @@ export default function Csrd() {
       </PageHeader>
 
       {/* headline financial effects — the numbers a filing must carry */}
-      <HeroStrip>
-        <HeroMetric value={eur(fe.asset_value_at_risk_eur)} label="Asset value at material risk" tone="#E8853C" />
-        <HeroMetric value={eur(fe.business_interruption_eur)} label="Business interruption (v0)" tone="#E8853C" />
-        <HeroMetric value={eur(fe.cogs_at_risk_published_eur)} label="Sourcing COGS at risk (published)" tone="#E8853C" />
-        <HeroMetric value={eur(fe.exposure_mapped_but_withheld_eur)} label="Exposure mapped · € withheld" />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Compliance · ESRS E1 physical risk"
+        title="The anticipated financial effects your CSRD filing must carry."
+        lead="Assembled from your own sites and your sourcing book — a euro shows as a firm loss only where the hazard-to-yield chain is validated, otherwise exposure is mapped and the € withheld."
+        stat={[
+          { label: 'Asset value at material risk', value: eur(fe.asset_value_at_risk_eur), icon: Building2, tone: '#E8853C' },
+          { label: 'Business interruption (v0)', value: eur(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
+          { label: 'Sourcing COGS at risk (published)', value: eur(fe.cogs_at_risk_published_eur), icon: Sprout, tone: '#E8853C' },
+          { label: 'Exposure mapped · € withheld', value: eur(fe.exposure_mapped_but_withheld_eur), icon: ShieldCheck, tone: 'var(--color-sky)' },
+        ]} />
       <p className="text-[12px] text-[var(--color-mute)] -mt-3">{fe.note}</p>
 
       {/* material hazards — acute/chronic, split own-ops vs upstream */}

@@ -4,7 +4,7 @@ import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lu
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Lens, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, Lens, PageHeader, HeroBanner } from '../components/ui'
 import { frameworkLabel, prettify } from '../lib/hazards'
 import { filingLink, taskLink } from '../lib/links'
 
@@ -53,12 +53,16 @@ export default function Exceptions() {
         </div>
       )}
       {d && (
-        <HeroStrip>
-          <HeroMetric value={d.summary.total} label="Open exceptions" sub={`${d.summary.filings_scanned} filings scanned`} />
-          <HeroMetric value={d.summary.blocking} label="Blocking" tone={d.summary.blocking > 0 ? '#D23B3B' : undefined} />
-          <HeroMetric value={d.summary.warnings} label="To review" tone={d.summary.warnings > 0 ? '#E8853C' : undefined} />
-          <HeroMetric value={d.summary.tracked} label="Already tracked" tone={d.summary.tracked > 0 ? '#4FA46E' : undefined} />
-        </HeroStrip>
+        <HeroBanner
+          eyebrow="Workflow · control tower"
+          title={d.summary.blocking > 0 ? `${d.summary.blocking} blocking exception${d.summary.blocking === 1 ? '' : 's'} to clear.` : d.summary.total > 0 ? 'A few exceptions to review.' : 'Every live filing is clean.'}
+          lead={`Every open validation and reconciliation exception across ${d.summary.filings_scanned} scanned filing${d.summary.filings_scanned === 1 ? '' : 's'}, worst first — the checks a filing must clear before it can be attested.`}
+          stat={[
+            { label: 'Open exceptions', value: d.summary.total, icon: AlertTriangle, tone: 'var(--color-sky)' },
+            { label: 'Blocking', value: d.summary.blocking, icon: XCircle, tone: d.summary.blocking > 0 ? '#D23B3B' : '#4FA46E', pulse: d.summary.blocking > 0 },
+            { label: 'To review', value: d.summary.warnings, icon: AlertTriangle, tone: d.summary.warnings > 0 ? '#E8853C' : '#4FA46E' },
+            { label: 'Already tracked', value: d.summary.tracked, icon: CheckCircle2, tone: d.summary.tracked > 0 ? '#4FA46E' : 'var(--color-sky)' },
+          ]} />
       )}
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">scanning filings…</Card>

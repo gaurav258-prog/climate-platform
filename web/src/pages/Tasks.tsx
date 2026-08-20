@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell } from 'lucide-react'
+import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell, ListChecks } from 'lucide-react'
 import { api, ApiError, upload, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Button, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 import { filingLink } from '../lib/links'
 import { prettify } from '../lib/hazards'
 
@@ -111,11 +111,15 @@ export default function Tasks() {
         actions={<MentionsBell onOpen={setOpenId} />} />
 
       {b && (
-        <HeroStrip>
-          <HeroMetric value={b.summary.total} label="Open" />
-          <HeroMetric value={b.summary.overdue} label="Overdue" tone={b.summary.overdue > 0 ? '#D23B3B' : undefined} />
-          <HeroMetric value={b.summary.unassigned} label="Unassigned" tone={b.summary.unassigned > 0 ? '#E8853C' : undefined} />
-        </HeroStrip>
+        <HeroBanner
+          eyebrow="Workflow"
+          title={b.summary.overdue > 0 ? `${b.summary.overdue} task${b.summary.overdue === 1 ? '' : 's'} overdue.` : b.summary.unassigned > 0 ? 'A few tasks still need an owner.' : 'The board is under control.'}
+          lead="Every task the team needs to get a filing out — where it sits on the board, what's slipping, and what has no owner yet."
+          stat={[
+            { label: 'Open', value: b.summary.total, icon: ListChecks, tone: 'var(--color-sky)' },
+            { label: 'Overdue', value: b.summary.overdue, icon: AlertTriangle, tone: b.summary.overdue > 0 ? '#D23B3B' : '#4FA46E', pulse: b.summary.overdue > 0 },
+            { label: 'Unassigned', value: b.summary.unassigned, icon: AtSign, tone: b.summary.unassigned > 0 ? '#E8853C' : '#4FA46E' },
+          ]} />
       )}
 
       {/* quick add */}

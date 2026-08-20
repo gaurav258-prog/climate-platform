@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ShieldAlert, TrendingUp, FlaskConical } from 'lucide-react'
+import { ArrowLeft, ShieldAlert, TrendingUp, FlaskConical, Coins, Sprout, TrendingDown, BadgeCheck } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
 
@@ -55,12 +55,16 @@ export default function CommodityDetail() {
         </div>
       </PageHeader>
 
-      <HeroStrip>
-        <HeroMetric value={eur(s.annual_spend_eur)} label="annual spend" />
-        <HeroMetric value={s.n_plots} label="sourcing plots" />
-        <HeroMetric value={s.yield_shock_pct != null ? `${s.yield_shock_pct}%` : '—'} label="of yield at risk" tone={published && (s.yield_shock_pct ?? 0) > 0 ? '#E8853C' : undefined} />
-        <HeroMetric value={s.confidence_grade ?? '—'} label="confidence grade" />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Commodity detail"
+        title={published ? 'Climate drives this crop — the euro is published.' : 'Exposure mapped — the euro is withheld.'}
+        lead="Driver hazard, sourcing plots and confidence for this commodity, on live satellite data."
+        stat={[
+          { label: 'annual spend', value: eur(s.annual_spend_eur), icon: Coins },
+          { label: 'sourcing plots', value: s.n_plots, icon: Sprout, tone: 'var(--color-sky)' },
+          { label: 'of yield at risk', value: s.yield_shock_pct != null ? `${s.yield_shock_pct}%` : '—', icon: TrendingDown, tone: published && (s.yield_shock_pct ?? 0) > 0 ? '#E8853C' : undefined },
+          { label: 'confidence grade', value: s.confidence_grade ?? '—', icon: BadgeCheck },
+        ]} />
 
       {!published && s.held_reason && (
         <Card className="p-4 border-l-2" style={{ borderLeftColor: 'var(--color-warn)' }}>

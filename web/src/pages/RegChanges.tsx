@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, ExternalLink, X } from 'lucide-react'
+import { ChevronRight, Plus, ExternalLink, X, Radar, CheckCircle2 } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Button, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 
 // Regulatory-change register — the "change the bank" pipeline: a rule change tracked from spotted to shipped
 // (identified → analysis → scheduled → in dev → testing → released).
@@ -54,10 +54,14 @@ export default function RegChanges() {
       )}
 
       {d && (
-        <HeroStrip>
-          <HeroMetric value={d.summary.total} label="Changes tracked" />
-          <HeroMetric value={d.summary.released} label="Released" tone={d.summary.released > 0 ? '#4FA46E' : undefined} />
-        </HeroStrip>
+        <HeroBanner
+          eyebrow="Change the bank"
+          title={d.summary.total === 0 ? 'Nothing in the change pipeline yet.' : d.summary.total - d.summary.released > 0 ? `${d.summary.total - d.summary.released} change${d.summary.total - d.summary.released === 1 ? '' : 's'} still moving through.` : 'Every tracked change has shipped.'}
+          lead="Every new or amended rule tracked from spotted to shipped — monitored, analysed, scheduled, built, tested and released — so nothing catches a filing off guard."
+          stat={[
+            { label: 'Changes tracked', value: d.summary.total, icon: Radar, tone: 'var(--color-sky)' },
+            { label: 'Released', value: d.summary.released, icon: CheckCircle2, tone: d.summary.released > 0 ? '#4FA46E' : 'var(--color-sky)' },
+          ]} />
       )}
 
       <div className="overflow-x-auto pb-2">

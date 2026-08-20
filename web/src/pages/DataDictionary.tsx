@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Database } from 'lucide-react'
+import { ChevronDown, ChevronRight, Database, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // The single golden model, browsable — each field, the source feed(s) it derives from, how current the
@@ -33,11 +33,14 @@ export default function DataDictionary() {
         lead="The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere." />
 
       {d && (
-        <HeroStrip>
-          <HeroMetric value={d.summary.hazard_fields} label="Hazard fields" />
-          <HeroMetric value={d.summary.mapped_to_source} label="Mapped to a source" tone="#4FA46E" />
-          <div className="min-w-0 sm:col-span-1 flex items-center"><p className="text-[12.5px] text-[var(--color-mute)] leading-snug">{d.summary.note}</p></div>
-        </HeroStrip>
+        <HeroBanner
+          eyebrow="Foundation · golden model"
+          title={d.summary.mapped_to_source >= d.summary.hazard_fields ? `All ${d.summary.hazard_fields} hazard fields trace to a source.` : `${d.summary.mapped_to_source} of ${d.summary.hazard_fields} fields mapped to a source.`}
+          lead={d.summary.note}
+          stat={[
+            { label: 'Hazard fields', value: d.summary.hazard_fields, icon: Database, tone: 'var(--color-sky)' },
+            { label: 'Mapped to a source', value: d.summary.mapped_to_source, icon: CheckCircle2, tone: '#4FA46E' },
+          ]} />
       )}
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus } from 'lucide-react'
+import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Card, Lens, ExportButton, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Card, Lens, ExportButton, PageHeader, HeroBanner } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
@@ -126,12 +126,16 @@ export default function Kri() {
         : (
         <>
           {/* lead with the answer: how the book's indicators sit against appetite right now */}
-          <HeroStrip>
-            <HeroMetric value={d.kpis.length} label="Indicators tracked" />
-            <HeroMetric value={nOk} label="Within appetite" tone={nOk > 0 ? '#4FA46E' : undefined} />
-            <HeroMetric value={nAmber} label="Warning" tone={nAmber > 0 ? '#E8853C' : undefined} />
-            <HeroMetric value={nRed} label="In breach" tone={nRed > 0 ? '#D23B3B' : '#4FA46E'} />
-          </HeroStrip>
+          <HeroBanner
+            eyebrow="KRI dashboard"
+            title={nRed > 0 ? `${nRed} indicator${nRed === 1 ? '' : 's'} in breach.` : nAmber > 0 ? `${nAmber} indicator${nAmber === 1 ? '' : 's'} in warning.` : 'Every indicator is within appetite.'}
+            lead="How the book's key risk indicators sit against appetite right now — before you drill into any one hazard."
+            stat={[
+              { label: 'Indicators tracked', value: d.kpis.length, icon: Gauge, tone: 'var(--color-sky)' },
+              { label: 'Within appetite', value: nOk, icon: CheckCircle2, tone: nOk > 0 ? '#4FA46E' : undefined },
+              { label: 'Warning', value: nAmber, icon: AlertTriangle, tone: nAmber > 0 ? '#E8853C' : undefined },
+              { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? '#D23B3B' : '#4FA46E', pulse: nRed > 0 },
+            ]} />
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
           {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (

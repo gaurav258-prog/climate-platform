@@ -5,7 +5,7 @@ import { ArrowRight, ShieldAlert, Check, Clock, RefreshCw, TrendingUp, X } from 
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
@@ -81,11 +81,15 @@ export default function Decisions() {
       </Card>
 
       {/* summary — lead with the answer */}
-      <HeroStrip>
-        <HeroMetric value={cq.isLoading ? '—' : crossings.length} label="Exposures crossing" sub={`${scLabel(scenario)} · by ${horizon}`} />
-        <HeroMetric value={cq.isLoading ? '—' : eur(exposed)} label="Value newly at risk" sub="crosses the High line" tone="#D23B3B" />
-        <HeroMetric value={cq.isLoading ? '—' : `${approved} / ${crossings.length}`} label="Decided" sub={pending > 0 ? `${pending} pending 4-eyes` : 'approved (4-eyes)'} tone={approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined} />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Forward-risk decisions"
+        title={cq.isLoading ? 'Reading the forward book…' : crossings.length === 0 ? 'Nothing crosses into High+ by this pathway.' : `${crossings.length} exposure${crossings.length === 1 ? '' : 's'} cross into High+.`}
+        lead={`Exposures that cross the High line by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
+        stat={[
+          { label: 'Exposures crossing', value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
+          { label: 'Value newly at risk', value: cq.isLoading ? '—' : eur(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
+          { label: 'Decided', value: cq.isLoading ? '—' : `${approved} / ${crossings.length}`, icon: Check, tone: approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined },
+        ]} />
 
       {/* crossings list */}
       <Card className="p-0 overflow-hidden">

@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight } from 'lucide-react'
+import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight, Coins, Percent, PieChart } from 'lucide-react'
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
@@ -217,9 +217,16 @@ export default function Portfolio() {
       </div>
 
       {/* rollup KPIs — sector-labelled; the headline, shown on both views */}
-      <HeroStrip>
-        {cfg.kpis.map(k => <HeroMetric key={k.label} label={k.label} value={kpiValue(k, r)} tone={k.tone} />)}
-      </HeroStrip>
+      <HeroBanner
+        eyebrow={`${profile?.org?.name} · ${cfg.noun}`}
+        title="Your book against a warming world."
+        lead="The biggest physical threat to each asset and how it shifts with warming — every figure real; “—” means not yet scored."
+        stat={cfg.kpis.map(k => ({
+          label: k.label,
+          value: kpiValue(k, r),
+          tone: k.tone,
+          icon: k.fmt === 'eur' ? Coins : k.fmt === 'pct' ? Percent : PieChart,
+        }))} />
 
       {/* realized exposure — the real, named events that have ALREADY crossed this book (the observed hook). */}
       <RealizedExposure />

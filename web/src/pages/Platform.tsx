@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2 } from 'lucide-react'
+import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Button, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -38,13 +38,17 @@ export default function Platform() {
       <PageHeader eyebrow="Tellumen · platform operator" title="Tenants"
         lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff." />
 
-      <HeroStrip>
-        <HeroMetric value={d.totals.tenants} label="Tenants" />
-        <HeroMetric value={d.totals.users} label="Users" />
-        <HeroMetric value={d.totals.sites} label="Sites" />
-        <HeroMetric value={d.totals.plots} label="Sourcing plots" />
-        <HeroMetric value={d.totals.pending_approvals} label="Pending approvals" tone={d.totals.pending_approvals ? '#E8853C' : undefined} />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Tellumen · platform operator"
+        title={d.totals.pending_approvals > 0 ? `${d.totals.pending_approvals} approval${d.totals.pending_approvals === 1 ? '' : 's'} waiting across your tenants.` : `${d.totals.tenants} organization${d.totals.tenants === 1 ? '' : 's'} on the platform.`}
+        lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff."
+        stat={[
+          { label: 'Tenants', value: d.totals.tenants, icon: Building2, tone: 'var(--color-sky)' },
+          { label: 'Users', value: d.totals.users, icon: Users, tone: 'var(--color-sky)' },
+          { label: 'Sites', value: d.totals.sites, icon: MapPin, tone: 'var(--color-sky)' },
+          { label: 'Sourcing plots', value: d.totals.plots, icon: Sprout, tone: 'var(--color-sky)' },
+          { label: 'Pending approvals', value: d.totals.pending_approvals, icon: Clock, tone: d.totals.pending_approvals ? '#E8853C' : '#4FA46E' },
+        ]} />
 
       <Card className="p-0 overflow-x-auto">
         <table className="w-full text-[13px]">

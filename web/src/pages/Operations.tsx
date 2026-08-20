@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus } from 'lucide-react'
+import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus, AlertTriangle, Coins, Activity } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card, Button, ExportButton, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
@@ -98,12 +98,16 @@ export default function Operations() {
         lead="Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds."
         actions={sites.length > 0 ? <ExportButton onExport={exportSites} /> : undefined} />
 
-      <HeroStrip>
-        <HeroMetric value={sites.length} label="operational sites" />
-        <HeroMetric value={highN} label="at elevated hazard (≥40)" tone={highN ? '#E8853C' : undefined} />
-        <HeroMetric value={eur(t?.asset_value_eur)} label="asset value (damage exposure)" />
-        <HeroMetric value={eur(t?.bi_at_risk_eur)} label="business-interruption exposure" tone={(t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined} />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Your operations"
+        title={highN > 0 ? 'Some sites sit in elevated hazard.' : 'Every site is running low-hazard.'}
+        lead="Your own sites on the same live hazard data as your suppliers — damage and business-interruption exposure, priced."
+        stat={[
+          { label: 'operational sites', value: sites.length, icon: Building2, tone: 'var(--color-sky)' },
+          { label: 'at elevated hazard (≥40)', value: highN, icon: AlertTriangle, tone: highN ? '#E8853C' : undefined },
+          { label: 'asset value (damage exposure)', value: eur(t?.asset_value_eur), icon: Coins },
+          { label: 'business-interruption exposure', value: eur(t?.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
+        ]} />
       <div className="text-[11px] text-[var(--color-faint)] -mt-3">{q.data?.bi_note}</div>
 
       {/* add a site */}

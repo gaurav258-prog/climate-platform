@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Upload, Sprout } from 'lucide-react'
+import { Plus, Upload, Sprout, Coins, TreePine } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Card, StatusPill, Button, ExportButton, PageHeader, HeroStrip, HeroMetric, SectionHead, PlainLead } from '../components/ui'
+import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, SectionHead, PlainLead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
@@ -107,11 +107,15 @@ export default function Sourcing() {
           })),
           { title: 'Sourcing book', org: profile?.org?.name })} /> : undefined} />
 
-      <HeroStrip>
-        <HeroMetric value={plots.length} label="sourcing plots" />
-        <HeroMetric value={eur(totalSpend)} label="annual spend" />
-        <HeroMetric value={eudrPlots} label="EUDR-covered plots" />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Your sourcing book"
+        title="Every plot you source, on live hazard."
+        lead="Geolocated and scored on live hazard, and — where EUDR-covered — checked against satellite forest-loss."
+        stat={[
+          { label: 'sourcing plots', value: plots.length, icon: Sprout, tone: 'var(--color-sky)' },
+          { label: 'annual spend', value: eur(totalSpend), icon: Coins },
+          { label: 'EUDR-covered plots', value: eudrPlots, icon: TreePine, tone: '#4FA46E' },
+        ]} />
 
       {/* annual spend exposed by hazard — plain-language, traffic-light */}
       {hazGroups.length > 0 && (

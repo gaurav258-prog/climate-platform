@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead, PageHeader, HeroStrip, HeroMetric } from '../components/ui'
+import { SlidersHorizontal, AlertTriangle, Coins } from 'lucide-react'
+import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 
@@ -59,11 +60,15 @@ function TriggersView() {
   return (
     <div className="space-y-4">
       <SectionHead hint="live monitoring">Parametric cover</SectionHead>
-      <HeroStrip>
-        <HeroMetric value={r.n_configured} label="Configured triggers" />
-        <HeroMetric value={r.n_triggered_now} label="Breached now" tone={r.n_triggered_now > 0 ? '#D23B3B' : '#4FA46E'} />
-        <HeroMetric value={eur(r.total_payout_if_triggered_eur)} label="Payout if breached" tone={r.n_triggered_now > 0 ? '#E8853C' : undefined} />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Parametric cover"
+        title={r.n_triggered_now > 0 ? `${r.n_triggered_now} trigger${r.n_triggered_now === 1 ? '' : 's'} breached now.` : 'All parametric triggers within band.'}
+        lead="Live index-based cover monitoring — which triggers have breached, and the payout they would release."
+        stat={[
+          { label: 'Configured triggers', value: r.n_configured, icon: SlidersHorizontal, tone: 'var(--color-sky)' },
+          { label: 'Breached now', value: r.n_triggered_now, icon: AlertTriangle, tone: r.n_triggered_now > 0 ? '#D23B3B' : '#4FA46E', pulse: r.n_triggered_now > 0 },
+          { label: 'Payout if breached', value: eur(r.total_payout_if_triggered_eur), icon: Coins, tone: r.n_triggered_now > 0 ? '#E8853C' : undefined },
+        ]} />
       {q.data.configured.length === 0
         ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">No parametric triggers configured yet. Configure index-based cover on a policy to monitor breaches here.</Card>
         : <div className="space-y-6">

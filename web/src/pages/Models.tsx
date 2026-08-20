@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { FlaskConical, CheckCircle2, PauseCircle } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface Fit {
@@ -38,11 +39,15 @@ export default function Models() {
       <PageHeader eyebrow="Agriculture · trust & assurance" title="Models & validation"
         lead={`Every crop×origin we tested, and whether climate robustly drives its yield. We publish a euro only above an out-of-sample fit floor of r² ≥ ${floor}; the rest are shown tested-and-held, with the r², so you see exactly what we earned and what we withheld.`} />
 
-      <HeroStrip>
-        <HeroMetric value={fits.length} label="crop × origin tested" />
-        <HeroMetric value={published.length} label="published" tone="#4FA46E" />
-        <HeroMetric value={held.length} label="tested & held" />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Models & validation"
+        title="What climate robustly drives — and what we withheld."
+        lead={`We publish a euro only above an out-of-sample fit floor of r² ≥ ${floor}; the rest are shown tested-and-held, with the r².`}
+        stat={[
+          { label: 'crop × origin tested', value: fits.length, icon: FlaskConical, tone: 'var(--color-sky)' },
+          { label: 'published', value: published.length, icon: CheckCircle2, tone: '#4FA46E' },
+          { label: 'tested & held', value: held.length, icon: PauseCircle },
+        ]} />
 
       <FitTable title={`Published — climate drives yield (r² ≥ ${floor})`} fits={published} floor={floor} showGrade />
       <FitTable title="Tested & held — shown honestly, € withheld" fits={held} floor={floor} />

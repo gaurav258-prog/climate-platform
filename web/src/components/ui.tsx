@@ -149,7 +149,7 @@ export function PlainLead({ children, className }: { children: ReactNode; classN
 // world"); `stat` tiles carry the numbers. The glows read the page's --stage hue automatically.
 export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
   eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode
-  stat?: { label: string; value: string | number; tone?: string; icon?: React.ComponentType<{ size?: number }>; pulse?: boolean }[]
+  stat?: { label: string; value: string | number; tone?: string; icon?: React.ComponentType<{ size?: number }>; pulse?: boolean; onClick?: () => void }[]
   className?: string
 }) {
   const cols = stat.length <= 2 ? 'grid-cols-2' : stat.length === 3 ? 'grid-cols-3'
@@ -170,7 +170,9 @@ export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
         {stat.length > 0 && (
           <div className={clsx('grid gap-3', cols)}>
             {stat.map((t, i) => (
-              <div key={i} className="rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5">
+              <div key={i} onClick={t.onClick}
+                className={clsx('rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5 transition',
+                  t.onClick && 'cursor-pointer hover:border-[var(--color-line-2)] hover:bg-[color-mix(in_oklab,var(--color-panel)_85%,transparent)]')}>
                 <div className="flex items-center gap-1.5 mb-2">
                   {t.icon && (
                     <span className="relative inline-flex items-center justify-center h-6 w-6 rounded-lg" style={{ background: `color-mix(in oklab, ${t.tone || 'var(--color-sky)'} 16%, transparent)`, color: t.tone || 'var(--color-sky)' }}>

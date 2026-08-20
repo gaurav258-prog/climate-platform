@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts'
-import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2 } from 'lucide-react'
+import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2, Percent } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, Button, StatusPill, PageHeader, HeroStrip, HeroMetric, SectionHead } from '../components/ui'
+import { Card, Button, StatusPill, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import Lineage from '../components/Lineage'
 import RealizedExposure from '../components/RealizedExposure'
 
@@ -76,12 +76,18 @@ export default function Disclosure() {
         lead="Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot — computed from satellite data, traceable end to end." />
 
       {/* stat row — lead with the answer */}
-      <HeroStrip>
-        <HeroMetric value={eur(d.rollup.volume_at_risk_eur)} label="Volume at risk (physical)" tone="#E8853C" />
-        <HeroMetric value={`${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS" />
-        <HeroMetric value={s.covered_plots ?? 0} label="EUDR-covered plots" />
-        <HeroMetric value={s.deforestation_free ?? 0} label="Deforestation-free" tone="#4FA46E" />
-      </HeroStrip>
+      <HeroBanner
+        eyebrow="Disclosure & EUDR"
+        title={(s.covered_plots ?? 0) > 0 && (s.deforestation_free ?? 0) === (s.covered_plots ?? 0)
+          ? 'Every covered plot is deforestation-free.'
+          : `${s.deforestation_free ?? 0} of ${s.covered_plots ?? 0} plots deforestation-free.`}
+        lead="Physical volume-at-risk from your sourcing book and the EUDR determination per plot — computed from satellite data, traceable end to end."
+        stat={[
+          { label: 'Volume at risk (physical)', value: eur(d.rollup.volume_at_risk_eur), icon: AlertTriangle, tone: '#E8853C' },
+          { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent, tone: 'var(--color-sky)' },
+          { label: 'EUDR-covered plots', value: s.covered_plots ?? 0, icon: Satellite, tone: 'var(--color-sky)' },
+          { label: 'Deforestation-free', value: s.deforestation_free ?? 0, icon: ShieldCheck, tone: '#4FA46E' },
+        ]} />
 
       {/* realized exposure — the real yield shocks that have ALREADY hit this buyer's origins (observed hook) */}
       <RealizedExposure />
