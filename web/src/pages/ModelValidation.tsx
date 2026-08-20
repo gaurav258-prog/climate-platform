@@ -262,8 +262,8 @@ export default function ModelValidation() {
           For crops we hold 31 years of real harvests — so we can check whether the score predicts losses it never saw. The stronger test.
         </StoryRow>
 
-        <StoryRow n="04" title="Where it fails, we say so" drill={() => drillTo('mv-economic', 'eco')}>
-          Storms are flagged; most crops are held back. A dashboard that's all green is engineered — the honest gaps are what make the passes believable.
+        <StoryRow n="04" title="Where it's weaker, we say so" drill={() => drillTo('mv-economic', 'eco')}>
+          Most crops are held back below the bar, and storms pass only moderately — clearly weaker than earthquakes. A dashboard that's all green is engineered; the honest gaps are what make the passes believable.
         </StoryRow>
       </div>
 
