@@ -270,6 +270,36 @@ def solvency_scr(session: DbSession, org_id: OrgId,
     }
 
 
+@router.get("/reinsurance", summary="Net-of-reinsurance retention — gross catastrophe loss after ceding")
+def reinsurance(session: DbSession, org_id: OrgId,
+                scenario: str = Query("baseline"), horizon: str = Query("current"),
+                quota_share_pct: float = Query(20.0, ge=0, le=100),
+                xol_attachment_eur: float = Query(50_000_000, ge=0),
+                xol_limit_eur: float = Query(100_000_000, ge=0)):
+    """The loss the insurer actually RETAINS after ceding to reinsurers — the number that hits its capital.
+    Applies the reinsurance program (proportional quota share + a per-occurrence catastrophe excess-of-loss
+    layer) to the same modelled gross catastrophe loss distribution and returns gross vs net PML/OEP/AEP.
+    Honest: the quota share is exact; the cat XoL recovers on the single largest event (exact on the OEP), and
+    a within-year aggregate treaty / reinstatements are not modelled — disclosed in the note."""
+    _st = get_calc_settings(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    prog = {"quota_share_pct": quota_share_pct, "xol_attachment_eur": xol_attachment_eur, "xol_limit_eur": xol_limit_eur}
+    cat = catastrophe_accumulation(policies, org_id, scenario, horizon,
+                                   pml_return_period=_st["pml_return_period"], reinsurance=prog)
+    if not cat.get("available"):
+        return {"available": False, "reason": cat.get("reason", "no_scored_policies")}
+    return {
+        "available": True, "scenario": scenario, "horizon": horizon,
+        "pml_return_period": cat.get("pml_return_period"),
+        "gross_pml_eur": cat.get("pml_eur"),
+        "gross_oep_1_in_200_eur": (cat.get("oep_eur") or {}).get("rp_200"),
+        "gross_mean_annual_loss_eur": cat.get("mean_annual_loss_eur"),
+        "program": prog,
+        "net": cat.get("net_of_reinsurance"),
+    }
+
+
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk

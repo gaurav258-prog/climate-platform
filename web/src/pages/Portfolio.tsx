@@ -243,6 +243,10 @@ export default function Portfolio() {
           managers use, run on the insurer's own investment book. Self-fetching; only where an investment book exists. */}
       {type === 'insurer' && <InsurerInvestmentsCard scenario={fwdScenario} horizon={horizon} />}
 
+      {/* insurer net-of-reinsurance retention — the loss that actually hits capital after ceding. Interactive:
+          the insurer enters their program (quota share + cat XoL); gross vs net PML recompute live. */}
+      {type === 'insurer' && <InsurerReinsuranceCard scenario={scenario} horizon={horizon} />}
+
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
@@ -545,6 +549,63 @@ const HAZARD_LABEL: Record<string, string> = {
   heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
 }
 
+interface ReinsNet { quota_share_pct: number; xol_attachment_eur: number | null; xol_limit_eur: number | null; net_pml_eur: number; ceded_pml_eur: number; cession_ratio_pct: number | null; note: string }
+interface Reinsurance { available: boolean; pml_return_period: number; gross_pml_eur: number; net: ReinsNet }
+function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horizon: string }) {
+  const [qs, setQs] = useState(20)
+  const [att, setAtt] = useState(50)   // €m
+  const [lim, setLim] = useState(100)  // €m
+  const q = useQuery({
+    queryKey: ['insurer-reins', scenario, horizon, qs, att, lim],
+    queryFn: () => api.get<Reinsurance>(`/v1/insurance/reinsurance?scenario=${scenario}&horizon=${horizon}&quota_share_pct=${qs}&xol_attachment_eur=${att * 1e6}&xol_limit_eur=${lim * 1e6}`),
+  })
+  const d = q.data
+  if (d && !d.available) return null
+  const n = d?.net
+  const Field = ({ label, val, set, suf }: { label: string; val: number; set: (v: number) => void; suf: string }) => (
+    <label className="flex flex-col gap-1">
+      <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span>
+      <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2 py-1">
+        <input type="number" value={val} min={0} onChange={e => set(Math.max(0, Number(e.target.value)))} className="w-16 bg-transparent text-[13px] tabular-nums outline-none" />
+        <span className="mono text-[10px] text-[var(--color-faint)]">{suf}</span>
+      </span>
+    </label>
+  )
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Net of reinsurance · retained catastrophe loss</span>
+        <span className="text-[12px] text-[var(--color-mute)]">what actually hits your capital after ceding</span>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <Field label="Quota share" val={qs} set={setQs} suf="%" />
+        <Field label="Cat XoL attachment" val={att} set={setAtt} suf="€m" />
+        <Field label="Cat XoL limit" val={lim} set={setLim} suf="€m" />
+      </div>
+      {n && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(d!.gross_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Gross PML (1-in-{d!.pml_return_period})</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums" style={{ color: 'var(--color-good)' }}>{eur(n.net_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Net retained PML</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(n.ceded_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Ceded to reinsurers</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{n.cession_ratio_pct ?? '—'}%</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Cession ratio</div>
+          </div>
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{n?.note}</div>
+    </Card>
+  )
+}
 interface InvestVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_pct_of_book: number; n_with_transition: number }
 interface InsurerInvestments { n_holdings: number; n_scored: number; coverage_pct: number; total_value_eur: number; climate_var: InvestVar }
 function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horizon: string }) {
