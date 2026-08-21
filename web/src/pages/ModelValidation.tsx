@@ -23,7 +23,9 @@ interface Economic {
   available: boolean; gate_r2_oos: number; n_fits: number; n_pass: number; hazards_covered: string[]
   fits: CropFit[]; events: CropEvent[]; note: string
 }
-interface Resp { perils: Peril[]; economic?: Economic }
+interface CoverageItem { hazard: string; status: 'validated' | 'not_yet'; method?: string | null; detail?: string; needed?: string; strength?: string }
+interface Coverage { n_hazards: number; n_validated: number; n_pending: number; items: CoverageItem[]; note: string }
+interface Resp { perils: Peril[]; economic?: Economic; coverage?: Coverage }
 
 const BAND_COLOR: Record<string, string> = { VH: '#D23B3B', H: '#E8744A', M: '#E8B24C', L: '#7BBF8F' }
 const num = (n: number) => n.toLocaleString('en-US')
@@ -296,6 +298,64 @@ export default function ModelValidation() {
           </Card>
         </div>
       )}
+
+      {d?.coverage && <CoverageCard c={d.coverage} />}
     </div>
+  )
+}
+
+const HAZ_LABEL: Record<string, string> = {
+  seismic: 'Earthquake', storm: 'Storm', drought: 'Drought', heat: 'Heat', heat_chronic: 'Chronic heat',
+  soil_water: 'Soil-water', flood: 'Flood', wildfire: 'Wildfire', coastal_flood: 'Coastal flood',
+  volcanic: 'Volcanic', pollution: 'Pollution', frost: 'Frost',
+}
+
+// Every hazard, validated or not — the honest coverage map. Validated hazards show their method; the rest show
+// exactly what observed feed would unlock them, never dressed up as validated.
+function CoverageCard({ c }: { c: Coverage }) {
+  const val = c.items.filter(i => i.status === 'validated')
+  const pending = c.items.filter(i => i.status === 'not_yet')
+  return (
+    <>
+      <div className="flex items-center gap-2 pt-1">
+        <FlaskConical size={15} className="text-[var(--color-sky)]" />
+        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Coverage · every hazard, validated or not</span>
+      </div>
+      <Card className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <h3 className="display text-[22px] font-semibold text-[var(--color-ink)]">Validation coverage</h3>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold" style={{ background: '#7BBF8F22', color: '#4FA46E' }}>
+            <CheckCircle2 size={15} />{c.n_validated} of {c.n_hazards} validated
+          </span>
+        </div>
+        <p className="text-[14px] leading-relaxed text-[var(--color-mute)] max-w-2xl mb-5">
+          We only mark a hazard validated where we hold a <b className="text-[var(--color-ink)]">credible observed target</b> — an event catalogue, or 31 years of crop yield. The rest are shown as <b className="text-[var(--color-ink)]">not yet</b>, with the exact feed that would unlock them — never dressed up as validated.
+        </p>
+
+        <div className="text-[12px] font-medium mb-2" style={{ color: '#4FA46E' }}>Validated · {val.length}</div>
+        <div className="space-y-1.5 mb-5">
+          {val.map(i => (
+            <div key={i.hazard} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px]">
+              <CheckCircle2 size={14} style={{ color: '#4FA46E' }} className="shrink-0" />
+              <span className="w-28 shrink-0 font-medium text-[var(--color-ink)]">{HAZ_LABEL[i.hazard] ?? i.hazard}</span>
+              <span className="mono text-[10.5px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)]">{i.method}</span>
+              <span className="text-[12.5px] text-[var(--color-mute)]">{i.detail}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-[12px] font-medium mb-2" style={{ color: '#C68A1E' }}>Not yet — needs an observed feed · {pending.length}</div>
+        <div className="space-y-1.5">
+          {pending.map(i => (
+            <div key={i.hazard} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px]">
+              <span className="w-28 shrink-0 font-medium text-[var(--color-mute)]">{HAZ_LABEL[i.hazard] ?? i.hazard}</span>
+              <span className="flex-1 min-w-0 text-[12.5px] text-[var(--color-faint)] leading-snug">{i.needed}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[11.5px] text-[var(--color-faint)] leading-relaxed mt-5 pt-4 border-t border-[var(--color-line)]">{c.note}</p>
+      </Card>
+    </>
   )
 }

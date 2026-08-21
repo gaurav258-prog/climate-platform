@@ -279,9 +279,58 @@ def crop_impact_validation(session: Session) -> dict:
     }
 
 
+# The honest per-hazard coverage map. A hazard is only marked validated where we hold a CREDIBLE observed
+# target; where the observed record is too thin/approximate to back a claim, it is 'not_yet' with the exact
+# feed that would unlock it — never dressed up as validated. (Investigated 2026-08: the flood/wildfire ML
+# feature labels are single approximate fallback events — 44 flood / 120 fire positives across ~20 cells —
+# far too sparse to publish a backtest on.)
+_COVERAGE_PENDING = {
+    "flood": "Observed record is a single approximate Copernicus EMS event (~22 cells). Needs the full EMS "
+             "rapid-mapping catalogue + Sentinel-1 SAR inundation at scale before a credible backtest.",
+    "wildfire": "Only an approximate EFFIS-2022 fallback (~20 cells). Needs a FIRMS / EFFIS burned-area feed.",
+    "coastal_flood": "Needs tide-gauge / storm-surge observations to backtest against.",
+    "volcanic": "Eruptions are too rare for a location-level occurrence backtest; GVP physics only.",
+    "pollution": "Needs an air-quality monitoring feed (EEA / OpenAQ) as the observed target.",
+    "frost": "Needs an observed frost / minimum-temperature record.",
+    "heat_chronic": "Chronic-heat trend needs a multi-decade station/reanalysis target (partial today via the "
+                    "crop-yield heat fits).",
+}
+_CATALOGUE_LABEL = {"seismic": "USGS earthquake catalogue", "storm": "IBTrACS storm tracks"}
+
+
+def validation_coverage(session: Session) -> dict:
+    """The honest map of what is validated, how, and what is not yet — with the feed each gap needs."""
+    perils = [model_validation(session, p) for p in _PERILS]
+    econ = crop_impact_validation(session)
+    econ_haz = sorted(econ.get("hazards_covered", []))
+    items: list[dict] = []
+    for p in perils:
+        items.append({"hazard": p["peril"], "status": "validated", "method": "event catalogue",
+                      "detail": f"{_CATALOGUE_LABEL.get(p['peril'], p['label'])} · Spearman {p['spearman']}",
+                      "strength": "strong" if (p["spearman"] or 0) >= 0.65 else "moderate"})
+    for h in econ_haz:
+        items.append({"hazard": h, "status": "validated", "method": "economic (crop yield)",
+                      "detail": f"{econ['n_pass']} crop-region{'s' if econ['n_pass'] != 1 else ''} clear "
+                                f"r²≥{econ['gate_r2_oos']:.2f} out-of-sample", "strength": "moderate"})
+    for h, reason in _COVERAGE_PENDING.items():
+        items.append({"hazard": h, "status": "not_yet", "method": None, "needed": reason})
+    n_val = sum(1 for i in items if i["status"] == "validated")
+    return {
+        "n_hazards": len(items), "n_validated": n_val, "n_pending": len(items) - n_val,
+        "items": items,
+        "note": ("Every hazard is listed with its validation status. A hazard is marked validated only where we "
+                 "hold a credible observed target (an event catalogue, or 31 years of crop yield); where the "
+                 "observed record is too sparse or approximate to back a claim (flood, wildfire), it is shown as "
+                 "'not yet' with the exact feed that would unlock it — not dressed up as validated. A true "
+                 "out-of-sample temporal holdout is not yet possible: it needs hazard scores frozen before a "
+                 "held-out period, which we will only have once score snapshots accrue going forward."),
+    }
+
+
 def model_validation_all(session: Session) -> dict:
-    """Both catalogued perils + the economic-impact (crop-yield) validation, for the validation dashboard."""
+    """Catalogued perils + economic-impact validation + the honest per-hazard coverage map."""
     return {
         "perils": [model_validation(session, p) for p in _PERILS],
         "economic": crop_impact_validation(session),
+        "coverage": validation_coverage(session),
     }
