@@ -12,10 +12,10 @@ import uuid
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
+from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from api.services.rbac import write_audit
-from sqlalchemy import text
 
 router = APIRouter(prefix="/v1/source-systems", tags=["Drill-through"])
 
