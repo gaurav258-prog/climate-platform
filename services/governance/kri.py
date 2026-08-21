@@ -91,6 +91,13 @@ def _reit_kri(session: Session, org_id: str) -> dict:
         _kpi("coverage", "Book scored", cov, "pct"),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
     ]
+    # transition risk — energy-performance stranding (share of value below the rising minimum-EPC floor)
+    es = r.get("energy_stranding") or {}
+    if es.get("n_assessed"):
+        kpis.append(_kpi("stranding", "Value below EPC floor", es.get("pct_portfolio_value_below_floor"), "pct",
+                         tone="#f0a860", hint=f"Share of portfolio value below the modelled EPC-{es.get('floor_epc')} "
+                                              f"minimum-to-let (transition/stranding risk); {es.get('epc_coverage_pct')}% "
+                                              "of the book carries an EPC"))
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
                 "value_at_risk": _hplus((h["payload"].get("rollup") or {}).get("by_bucket", {}), "value_eur"),
