@@ -38,6 +38,7 @@ from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
+from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -208,6 +209,27 @@ def portfolio(session: DbSession, org_id: OrgId,
                                    expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies}
+
+
+@router.get("/investments", summary="Investment-side climate risk — the insurer's asset book (the other regulatory half)")
+def investments(session: DbSession, org_id: OrgId,
+                scenario: str = Query("disorderly_2c"), horizon: str = Query("current")):
+    """An insurer is an underwriter AND a large institutional investor; EIOPA/IFRS S2 require climate risk on
+    both sides. The liability side is /portfolio; this is the ASSET side — the same combined physical+transition
+    climate-VaR engine the asset managers use, run on the insurer's own investment book. Honest: unscored
+    positions are excluded (coverage reported), nothing invented."""
+    _st = get_calc_settings(session, org_id)
+    dependence = ((_st.get("interpretation") or {}).get("climate_var_dependence")) or "independent"
+    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"])
+    holdings = [{**r, "position_value_eur": r.get("primary_value_eur")} for r in rows]
+    total = sum(h.get("primary_value_eur") or 0 for h in holdings)
+    n_scored = sum(1 for h in holdings if h.get("headline_bucket"))
+    var = combined_climate_var(holdings, org_id, scenario, horizon, dependence=dependence)
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
+            "n_holdings": len(holdings), "n_scored": n_scored,
+            "total_value_eur": round(total),
+            "coverage_pct": round(100 * n_scored / len(holdings), 1) if holdings else 0.0,
+            "climate_var": var}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")

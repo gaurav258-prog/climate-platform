@@ -239,6 +239,10 @@ export default function Portfolio() {
       {/* catastrophe accumulation — the correlated tail (AEP/OEP/PML) the summed EALs hide (insurer). */}
       <CatAccumulation cat={r?.catastrophe as Cat | undefined} />
 
+      {/* insurer investment-side climate risk — the ASSET half (EIOPA/IFRS S2), the same combined VaR the asset
+          managers use, run on the insurer's own investment book. Self-fetching; only where an investment book exists. */}
+      {type === 'insurer' && <InsurerInvestmentsCard scenario={fwdScenario} horizon={horizon} />}
+
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
@@ -539,6 +543,44 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
 const HAZARD_LABEL: Record<string, string> = {
   flood: 'Flooding', coastal_flood: 'Coastal flood', storm: 'Storms', wildfire: 'Wildfire', seismic: 'Earthquake',
   heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
+}
+
+interface InvestVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_pct_of_book: number; n_with_transition: number }
+interface InsurerInvestments { n_holdings: number; n_scored: number; coverage_pct: number; total_value_eur: number; climate_var: InvestVar }
+function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horizon: string }) {
+  const q = useQuery({ queryKey: ['insurer-investments', scenario, horizon], queryFn: () => api.get<InsurerInvestments>(`/v1/insurance/investments?scenario=${scenario}&horizon=${horizon}`) })
+  const d = q.data; const v = d?.climate_var
+  if (!d || !d.n_holdings || !v?.available) return null
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Investment-side climate risk · the asset book</span>
+        <span className="text-[12px] text-[var(--color-mute)]">EIOPA / IFRS S2 — an insurer is an investor too</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{d.n_scored}/{d.n_holdings} positions scored · book {eur(d.total_value_eur)}</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#fb7185' }}>{eur(v.var99_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Climate VaR (99%)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{v.combined_pct_of_book}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of investment book</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.physical_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Physical</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.transition_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Transition</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        The insurer's own investment book run through the same combined physical + transition climate-VaR engine the asset managers use — the ASSET half of an insurer's climate exposure (the liability / underwriting half is above). Unscored positions excluded; coverage shown, nothing invented.
+      </div>
+    </Card>
+  )
 }
 
 function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {

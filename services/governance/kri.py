@@ -123,6 +123,18 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
         _kpi("value_at_risk", "Sum insured at risk (High+)", round(var), "eur"),
         _kpi("coverage", "Policies priced", cov, "pct"),
     ]
+    # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
+    try:
+        from api.routers.insurance import investments as _inv_ep
+        inv = _inv_ep(session, org_id, s["scenario"], s["horizon"])
+        iv = inv.get("climate_var") or {}
+        if iv.get("available"):
+            kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", round(iv.get("var99_eur") or 0), "eur",
+                             tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own "
+                                                  f"investment book ({inv.get('coverage_pct')}% of positions scored) — "
+                                                  "the asset side, EIOPA/IFRS S2"))
+    except Exception:
+        pass
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
                 "value_at_risk": (h["payload"].get("rollup") or {}).get("total_expected_annual_loss_eur"),
