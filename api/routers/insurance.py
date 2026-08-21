@@ -232,6 +232,44 @@ def investments(session: DbSession, org_id: OrgId,
             "climate_var": var}
 
 
+@router.get("/solvency-scr", summary="Solvency II NatCat SCR — the 99.5% (1-in-200) modelled catastrophe capital charge")
+def solvency_scr(session: DbSession, org_id: OrgId,
+                 scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """The catastrophe capital an insurer must hold. HONEST BASIS: this is the INTERNAL-MODEL-style figure —
+    our modelled 1-in-200 (99.5% VaR) annual-aggregate NatCat loss, from the same common-shock cat engine that
+    drives the PML. It is NOT the prescribed STANDARD-FORMULA SCR: that uses EIOPA's per-region catastrophe
+    factors and correlation matrices (Delegated Regulation 2015/35, Art. 121-135), which are a governed input to
+    LOAD from the official source — we do not fabricate those coefficients. Both are labelled as such."""
+    _st = get_calc_settings(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    cat = catastrophe_accumulation(policies, org_id, scenario, horizon, pml_return_period=200)
+    if not cat.get("available"):
+        return {"available": False, "reason": cat.get("reason", "no_scored_policies")}
+    aep200 = (cat.get("aep_eur") or {}).get("rp_200")
+    oep200 = (cat.get("oep_eur") or {}).get("rp_200")
+    gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
+    mean_al = cat.get("mean_annual_loss_eur")
+    return {
+        "available": True, "scenario": scenario, "horizon": horizon,
+        "scr_basis": "internal_model_99_5_var",
+        "natcat_scr_eur": aep200,                     # 99.5% annual-aggregate loss = the NatCat capital charge
+        "aep_1_in_200_eur": aep200,                   # 99.5% VaR, annual aggregate
+        "oep_1_in_200_eur": oep200,                   # 99.5% VaR, single largest event
+        "mean_annual_loss_eur": mean_al,
+        "risk_load_eur": round((aep200 or 0) - (mean_al or 0)),   # capital above the expected loss
+        "gross_sum_insured_eur": round(gross_si),
+        "scr_pct_of_sum_insured": round(100 * aep200 / gross_si, 3) if gross_si and aep200 else None,
+        "n_zones": cat.get("n_zones"),
+        "standard_formula_factors": "pending_official_ingest",
+        "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
+                 "loss, from the common-shock cat engine (geographic accumulation already correlated, so this is "
+                 "below the sum of standalone-peril charges). The prescribed STANDARD-FORMULA SCR uses EIOPA's "
+                 "per-region catastrophe factors (Delegated Regulation 2015/35) — a governed input to load from "
+                 "the official source, never fabricated here. Both bases are labelled."),
+    }
+
+
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
 def forward_risk_ep(session: DbSession, org_id: OrgId, scenario: str = Query("disorderly_2c")):
     from services.intelligence.forward_risk import forward_risk
