@@ -42,6 +42,7 @@ interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independen
 interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
 interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
+interface EnergyStranding { floor_epc: string; n_properties: number; n_assessed: number; n_no_epc: number; n_below_floor: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_portfolio_value_below_floor: number; epc_coverage_pct: number; note: string }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -238,6 +239,14 @@ export default function Portfolio() {
       {/* catastrophe accumulation — the correlated tail (AEP/OEP/PML) the summed EALs hide (insurer). */}
       <CatAccumulation cat={r?.catastrophe as Cat | undefined} />
 
+      {/* insurer investment-side climate risk — the ASSET half (EIOPA/IFRS S2), the same combined VaR the asset
+          managers use, run on the insurer's own investment book. Self-fetching; only where an investment book exists. */}
+      {type === 'insurer' && <InsurerInvestmentsCard scenario={fwdScenario} horizon={horizon} />}
+
+      {/* insurer net-of-reinsurance retention — the loss that actually hits capital after ceding. Interactive:
+          the insurer enters their program (quota share + cat XoL); gross vs net PML recompute live. */}
+      {type === 'insurer' && <InsurerReinsuranceCard scenario={scenario} horizon={horizon} />}
+
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
@@ -246,6 +255,9 @@ export default function Portfolio() {
 
       {/* resilience & adaptation capex — spend vs avoided loss + Taxonomy-aligned capex (REIT). */}
       <ResilienceCard rc={r?.resilience_capex as Resilience | undefined} />
+
+      {/* transition risk — energy-performance (EPC) stranding under a rising minimum-to-let floor (REIT). */}
+      <EnergyStrandingCard es={r?.energy_stranding as EnergyStranding | undefined} />
 
       {view === 'forward' ? (
         <div className="space-y-6">
@@ -535,6 +547,134 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
 const HAZARD_LABEL: Record<string, string> = {
   flood: 'Flooding', coastal_flood: 'Coastal flood', storm: 'Storms', wildfire: 'Wildfire', seismic: 'Earthquake',
   heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
+}
+
+interface ReinsNet { quota_share_pct: number; xol_attachment_eur: number | null; xol_limit_eur: number | null; net_pml_eur: number; ceded_pml_eur: number; cession_ratio_pct: number | null; note: string }
+interface Reinsurance { available: boolean; pml_return_period: number; gross_pml_eur: number; net: ReinsNet }
+function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horizon: string }) {
+  const [qs, setQs] = useState(20)
+  const [att, setAtt] = useState(50)   // €m
+  const [lim, setLim] = useState(100)  // €m
+  const q = useQuery({
+    queryKey: ['insurer-reins', scenario, horizon, qs, att, lim],
+    queryFn: () => api.get<Reinsurance>(`/v1/insurance/reinsurance?scenario=${scenario}&horizon=${horizon}&quota_share_pct=${qs}&xol_attachment_eur=${att * 1e6}&xol_limit_eur=${lim * 1e6}`),
+  })
+  const d = q.data
+  if (d && !d.available) return null
+  const n = d?.net
+  const Field = ({ label, val, set, suf }: { label: string; val: number; set: (v: number) => void; suf: string }) => (
+    <label className="flex flex-col gap-1">
+      <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span>
+      <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2 py-1">
+        <input type="number" value={val} min={0} onChange={e => set(Math.max(0, Number(e.target.value)))} className="w-16 bg-transparent text-[13px] tabular-nums outline-none" />
+        <span className="mono text-[10px] text-[var(--color-faint)]">{suf}</span>
+      </span>
+    </label>
+  )
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Net of reinsurance · retained catastrophe loss</span>
+        <span className="text-[12px] text-[var(--color-mute)]">what actually hits your capital after ceding</span>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <Field label="Quota share" val={qs} set={setQs} suf="%" />
+        <Field label="Cat XoL attachment" val={att} set={setAtt} suf="€m" />
+        <Field label="Cat XoL limit" val={lim} set={setLim} suf="€m" />
+      </div>
+      {n && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(d!.gross_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Gross PML (1-in-{d!.pml_return_period})</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums" style={{ color: 'var(--color-good)' }}>{eur(n.net_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Net retained PML</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(n.ceded_pml_eur)}</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Ceded to reinsurers</div>
+          </div>
+          <div>
+            <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{n.cession_ratio_pct ?? '—'}%</div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Cession ratio</div>
+          </div>
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{n?.note}</div>
+    </Card>
+  )
+}
+interface InvestVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_pct_of_book: number; n_with_transition: number }
+interface InsurerInvestments { n_holdings: number; n_scored: number; coverage_pct: number; total_value_eur: number; climate_var: InvestVar }
+function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horizon: string }) {
+  const q = useQuery({ queryKey: ['insurer-investments', scenario, horizon], queryFn: () => api.get<InsurerInvestments>(`/v1/insurance/investments?scenario=${scenario}&horizon=${horizon}`) })
+  const d = q.data; const v = d?.climate_var
+  if (!d || !d.n_holdings || !v?.available) return null
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Investment-side climate risk · the asset book</span>
+        <span className="text-[12px] text-[var(--color-mute)]">EIOPA / IFRS S2 — an insurer is an investor too</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{d.n_scored}/{d.n_holdings} positions scored · book {eur(d.total_value_eur)}</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#fb7185' }}>{eur(v.var99_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Climate VaR (99%)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{v.combined_pct_of_book}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of investment book</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.physical_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Physical</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.transition_expected_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Transition</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
+        The insurer's own investment book run through the same combined physical + transition climate-VaR engine the asset managers use — the ASSET half of an insurer's climate exposure (the liability / underwriting half is above). Unscored positions excluded; coverage shown, nothing invented.
+      </div>
+    </Card>
+  )
+}
+
+function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
+  if (!es || !es.n_assessed) return null
+  const hasRisk = es.n_below_floor > 0
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Energy-performance stranding · transition risk</span>
+        <span className="text-[12px] text-[var(--color-mute)]">below a rising minimum-to-let EPC floor</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{es.n_below_floor}/{es.n_properties} below EPC {es.floor_epc} · {es.epc_coverage_pct}% with an EPC</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(es.value_at_stranding_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Value at stranding risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(es.retrofit_capex_to_derisk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: es.pct_portfolio_value_below_floor > 0 ? '#E8B24C' : 'var(--color-ink)' }}>{es.pct_portfolio_value_below_floor}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of portfolio value below floor</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{es.n_below_floor}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Properties below floor</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{es.note}</div>
+    </Card>
+  )
 }
 
 function ResilienceCard({ rc }: { rc?: Resilience }) {

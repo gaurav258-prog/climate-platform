@@ -29,6 +29,7 @@ from sqlalchemy import text
 from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
+from ml.scoring.epc_stranding import epc_stranding, stranding_rollup
 from ml.scoring.realestate_impact import noi_impact
 from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
@@ -59,8 +60,11 @@ def _realestate_extra(row, headline, hz):
                         hazard=headline["hazard"], attrs=attrs) if headline else None
     tax = classify_taxonomy(REALESTATE_NACE, headline_bucket=row["headline_bucket"], resilience_rating=None,
                              epc_rating=row.get("epc_rating"), minimum_safeguards_status=row.get("minimum_safeguards_status"))
+    # transition risk — energy-performance stranding under a rising minimum-EPC floor (the other half of the
+    # property's climate exposure; physical NOI drag is above)
+    stranding = epc_stranding(row.get("epc_rating"), row["primary_value_eur"], row["annual_noi_eur"])
     return {"noi_impact": impact, "taxonomy_status": tax["status"], "taxonomy_activity_ref": tax["activity_ref"],
-            "taxonomy_reasoning": tax["reasoning"]}
+            "taxonomy_reasoning": tax["reasoning"], "stranding": stranding}
 
 
 def _map_property_row(row):
@@ -74,7 +78,7 @@ def _map_property_row(row):
         "year_built": row["year_built"], "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
-        "valuation": row["valuation"], "noi_impact": row["noi_impact"],
+        "valuation": row["valuation"], "noi_impact": row["noi_impact"], "stranding": row["stranding"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
         "taxonomy_reasoning": row["taxonomy_reasoning"], "epc_rating": row["epc_rating"],
         "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
@@ -137,6 +141,7 @@ def _rollup(properties, adaptation_scenario="reference"):
         "total_discounted_value_eur": round(total_discounted),
         "expected_value_loss_band": value_loss_band(properties),
         "resilience_capex": resilience_capex_plan(properties, scenario=adaptation_scenario),
+        "energy_stranding": stranding_rollup(properties),
         "total_expected_insurance_premium_eur": round(total_premium),
         "portfolio_noi_impact_pct": round(100 * total_premium / total_noi, 2) if total_noi else 0,
         "by_bucket": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in by_bucket.items()},

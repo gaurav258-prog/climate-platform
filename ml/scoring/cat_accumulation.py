@@ -27,7 +27,8 @@ _DEFAULT_SIMS = 30000
 
 def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, horizon: str,
                              n_years: int = _DEFAULT_SIMS,
-                             pml_return_period: int = _DEFAULT_PML_RETURN_PERIOD) -> dict:
+                             pml_return_period: int = _DEFAULT_PML_RETURN_PERIOD,
+                             reinsurance: dict | None = None) -> dict:
     """policies: the priced insurance book (each with pricing.net_scenario_loss_eur /
     .annual_occurrence_prob / .expected_annual_loss_eur, plus headline_hazard and region). Returns the
     AEP/OEP exceedance losses, the PML, and the reconciliation of the simulated mean to the EAL sum.
@@ -82,7 +83,7 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
         return float(np.quantile(arr, 1.0 - 1.0 / t))
 
     mean_annual = float(annual.mean())
-    return {
+    out = {
         "available": True,
         "n_years": n_years,
         "n_zones": len(zones),
@@ -101,3 +102,35 @@ def catastrophe_accumulation(policies: list[dict], org_id: str, scenario: str, h
                    "each policy's marginal EAL. Correlation perfect within a zone, independent across zones. "
                    "Not a fitted vendor cat model."),
     }
+
+    # ── Net of reinsurance ── apply the ceded program to the simulated GROSS losses. Quota share is
+    # proportional (exact on both aggregate and occurrence); the per-occurrence cat XoL recovers on the single
+    # largest event (exact on OEP; the annual AEP applies quota share only — a within-year aggregate treaty /
+    # reinstatements are not modelled, and that is disclosed).
+    if reinsurance:
+        qs = max(0.0, min(1.0, (reinsurance.get("quota_share_pct") or 0) / 100.0))
+        att = reinsurance.get("xol_attachment_eur")
+        lim = reinsurance.get("xol_limit_eur")
+        net_annual = annual * (1.0 - qs)
+        net_occ = occ_max * (1.0 - qs)
+        xol_recovery_occ = np.zeros_like(net_occ)
+        if att is not None and lim:
+            xol_recovery_occ = np.clip(net_occ - float(att), 0.0, float(lim))
+            net_occ = net_occ - xol_recovery_occ
+        gross_pml = out["pml_eur"]
+        net_pml = round(rp(net_occ, pml_return_period))
+        out["net_of_reinsurance"] = {
+            "quota_share_pct": round(qs * 100, 1),
+            "xol_attachment_eur": round(att) if att is not None else None,
+            "xol_limit_eur": round(lim) if lim else None,
+            "net_aep_eur": {f"rp_{t}": round(rp(net_annual, t)) for t in return_periods},
+            "net_oep_eur": {f"rp_{t}": round(rp(net_occ, t)) for t in return_periods},
+            "net_pml_eur": net_pml,
+            "net_mean_annual_loss_eur": round(float(net_annual.mean())),
+            "ceded_pml_eur": round((gross_pml or 0) - net_pml),
+            "cession_ratio_pct": round(100 * (1 - net_pml / gross_pml), 1) if gross_pml else None,
+            "note": ("Net = gross after ceding. Quota share is proportional (exact); the per-occurrence cat XoL "
+                     "recovers on the single largest event (exact on the OEP). The annual AEP applies the quota "
+                     "share only — a within-year aggregate treaty / XoL reinstatements are not modelled here."),
+        }
+    return out

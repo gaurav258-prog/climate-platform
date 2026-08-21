@@ -38,6 +38,7 @@ from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
+from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -208,6 +209,95 @@ def portfolio(session: DbSession, org_id: OrgId,
                                    expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"]), "policies": policies}
+
+
+@router.get("/investments", summary="Investment-side climate risk — the insurer's asset book (the other regulatory half)")
+def investments(session: DbSession, org_id: OrgId,
+                scenario: str = Query("disorderly_2c"), horizon: str = Query("current")):
+    """An insurer is an underwriter AND a large institutional investor; EIOPA/IFRS S2 require climate risk on
+    both sides. The liability side is /portfolio; this is the ASSET side — the same combined physical+transition
+    climate-VaR engine the asset managers use, run on the insurer's own investment book. Honest: unscored
+    positions are excluded (coverage reported), nothing invented."""
+    _st = get_calc_settings(session, org_id)
+    dependence = ((_st.get("interpretation") or {}).get("climate_var_dependence")) or "independent"
+    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"])
+    holdings = [{**r, "position_value_eur": r.get("primary_value_eur")} for r in rows]
+    total = sum(h.get("primary_value_eur") or 0 for h in holdings)
+    n_scored = sum(1 for h in holdings if h.get("headline_bucket"))
+    var = combined_climate_var(holdings, org_id, scenario, horizon, dependence=dependence)
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
+            "n_holdings": len(holdings), "n_scored": n_scored,
+            "total_value_eur": round(total),
+            "coverage_pct": round(100 * n_scored / len(holdings), 1) if holdings else 0.0,
+            "climate_var": var}
+
+
+@router.get("/solvency-scr", summary="Solvency II NatCat SCR — the 99.5% (1-in-200) modelled catastrophe capital charge")
+def solvency_scr(session: DbSession, org_id: OrgId,
+                 scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """The catastrophe capital an insurer must hold. HONEST BASIS: this is the INTERNAL-MODEL-style figure —
+    our modelled 1-in-200 (99.5% VaR) annual-aggregate NatCat loss, from the same common-shock cat engine that
+    drives the PML. It is NOT the prescribed STANDARD-FORMULA SCR: that uses EIOPA's per-region catastrophe
+    factors and correlation matrices (Delegated Regulation 2015/35, Art. 121-135), which are a governed input to
+    LOAD from the official source — we do not fabricate those coefficients. Both are labelled as such."""
+    _st = get_calc_settings(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    cat = catastrophe_accumulation(policies, org_id, scenario, horizon, pml_return_period=200)
+    if not cat.get("available"):
+        return {"available": False, "reason": cat.get("reason", "no_scored_policies")}
+    aep200 = (cat.get("aep_eur") or {}).get("rp_200")
+    oep200 = (cat.get("oep_eur") or {}).get("rp_200")
+    gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
+    mean_al = cat.get("mean_annual_loss_eur")
+    return {
+        "available": True, "scenario": scenario, "horizon": horizon,
+        "scr_basis": "internal_model_99_5_var",
+        "natcat_scr_eur": aep200,                     # 99.5% annual-aggregate loss = the NatCat capital charge
+        "aep_1_in_200_eur": aep200,                   # 99.5% VaR, annual aggregate
+        "oep_1_in_200_eur": oep200,                   # 99.5% VaR, single largest event
+        "mean_annual_loss_eur": mean_al,
+        "risk_load_eur": round((aep200 or 0) - (mean_al or 0)),   # capital above the expected loss
+        "gross_sum_insured_eur": round(gross_si),
+        "scr_pct_of_sum_insured": round(100 * aep200 / gross_si, 3) if gross_si and aep200 else None,
+        "n_zones": cat.get("n_zones"),
+        "standard_formula_factors": "pending_official_ingest",
+        "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
+                 "loss, from the common-shock cat engine (geographic accumulation already correlated, so this is "
+                 "below the sum of standalone-peril charges). The prescribed STANDARD-FORMULA SCR uses EIOPA's "
+                 "per-region catastrophe factors (Delegated Regulation 2015/35) — a governed input to load from "
+                 "the official source, never fabricated here. Both bases are labelled."),
+    }
+
+
+@router.get("/reinsurance", summary="Net-of-reinsurance retention — gross catastrophe loss after ceding")
+def reinsurance(session: DbSession, org_id: OrgId,
+                scenario: str = Query("baseline"), horizon: str = Query("current"),
+                quota_share_pct: float = Query(20.0, ge=0, le=100),
+                xol_attachment_eur: float = Query(50_000_000, ge=0),
+                xol_limit_eur: float = Query(100_000_000, ge=0)):
+    """The loss the insurer actually RETAINS after ceding to reinsurers — the number that hits its capital.
+    Applies the reinsurance program (proportional quota share + a per-occurrence catastrophe excess-of-loss
+    layer) to the same modelled gross catastrophe loss distribution and returns gross vs net PML/OEP/AEP.
+    Honest: the quota share is exact; the cat XoL recovers on the single largest event (exact on the OEP), and
+    a within-year aggregate treaty / reinstatements are not modelled — disclosed in the note."""
+    _st = get_calc_settings(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    prog = {"quota_share_pct": quota_share_pct, "xol_attachment_eur": xol_attachment_eur, "xol_limit_eur": xol_limit_eur}
+    cat = catastrophe_accumulation(policies, org_id, scenario, horizon,
+                                   pml_return_period=_st["pml_return_period"], reinsurance=prog)
+    if not cat.get("available"):
+        return {"available": False, "reason": cat.get("reason", "no_scored_policies")}
+    return {
+        "available": True, "scenario": scenario, "horizon": horizon,
+        "pml_return_period": cat.get("pml_return_period"),
+        "gross_pml_eur": cat.get("pml_eur"),
+        "gross_oep_1_in_200_eur": (cat.get("oep_eur") or {}).get("rp_200"),
+        "gross_mean_annual_loss_eur": cat.get("mean_annual_loss_eur"),
+        "program": prog,
+        "net": cat.get("net_of_reinsurance"),
+    }
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")

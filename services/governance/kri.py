@@ -91,6 +91,13 @@ def _reit_kri(session: Session, org_id: str) -> dict:
         _kpi("coverage", "Book scored", cov, "pct"),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
     ]
+    # transition risk — energy-performance stranding (share of value below the rising minimum-EPC floor)
+    es = r.get("energy_stranding") or {}
+    if es.get("n_assessed"):
+        kpis.append(_kpi("stranding", "Value below EPC floor", es.get("pct_portfolio_value_below_floor"), "pct",
+                         tone="#f0a860", hint=f"Share of portfolio value below the modelled EPC-{es.get('floor_epc')} "
+                                              f"minimum-to-let (transition/stranding risk); {es.get('epc_coverage_pct')}% "
+                                              "of the book carries an EPC"))
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
                 "value_at_risk": _hplus((h["payload"].get("rollup") or {}).get("by_bucket", {}), "value_eur"),
@@ -116,6 +123,29 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
         _kpi("value_at_risk", "Sum insured at risk (High+)", round(var), "eur"),
         _kpi("coverage", "Policies priced", cov, "pct"),
     ]
+    # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
+    try:
+        from api.routers.insurance import investments as _inv_ep
+        inv = _inv_ep(session, org_id, s["scenario"], s["horizon"])
+        iv = inv.get("climate_var") or {}
+        if iv.get("available"):
+            kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", round(iv.get("var99_eur") or 0), "eur",
+                             tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own "
+                                                  f"investment book ({inv.get('coverage_pct')}% of positions scored) — "
+                                                  "the asset side, EIOPA/IFRS S2"))
+    except Exception:
+        pass
+    # Solvency II NatCat capital — the 1-in-200 (99.5% VaR) modelled catastrophe charge (internal-model basis)
+    try:
+        from api.routers.insurance import solvency_scr as _scr_ep
+        scr = _scr_ep(session, org_id, s["scenario"], s["horizon"])
+        if scr.get("available"):
+            kpis.append(_kpi("natcat_scr", "NatCat SCR (99.5%, modelled)", round(scr.get("natcat_scr_eur") or 0), "eur",
+                             tone="#f0a860", hint="Modelled 1-in-200 (99.5% VaR) catastrophe capital charge, "
+                                                  "internal-model basis; the standard-formula SCR uses EIOPA's "
+                                                  "prescribed regional factors (governed input to load)"))
+    except Exception:
+        pass
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
                 "value_at_risk": (h["payload"].get("rollup") or {}).get("total_expected_annual_loss_eur"),
