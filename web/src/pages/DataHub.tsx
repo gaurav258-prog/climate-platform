@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, ArrowRight, Plug } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Eyebrow, Card, PageHeader } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
 import LiveEarthHero from '../components/LiveEarthHero'
 import GlRecon from '../components/GlRecon'
@@ -50,11 +50,8 @@ export default function DataHub() {
           See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
         </p>
       </LiveEarthHero>
-      <div>
-        <Eyebrow>{profile?.org?.name} · data</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Data</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Feed the engine and see what it made of your book — upload your {cfg.rowNoun}s (we check every row before anything is saved), read the scores, then fill any regulatory gaps.</p>
-      </div>
+      <PageHeader eyebrow={`${profile?.org?.name} · data`} title="Data"
+        lead={`Feed the engine and see what it made of your book — upload your ${cfg.rowNoun}s (we check every row before anything is saved), read the scores, then fill any regulatory gaps.`} />
 
       {/* general-ledger reconciliation — tie the reported book total back to the ledger (gate 4) */}
       <GlRecon />
@@ -249,7 +246,7 @@ function Flow({ children }: { children: React.ReactNode }) {
   return <div className="mono text-[10px] text-[var(--color-faint)] pl-5 flex items-center gap-2"><span>↓</span><span>{children}</span></div>
 }
 function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return <div><div className="display text-[22px] leading-none" style={accent ? { color: 'var(--color-warn)' } : undefined}>{value}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">{label}</div></div>
+  return <div><div className="display text-[24px] leading-none" style={accent ? { color: 'var(--color-warn)' } : undefined}>{value}</div><div className="text-[12px] text-[var(--color-mute)] mt-1.5">{label}</div></div>
 }
 function NavBtn({ to, children }: { to: string; children: React.ReactNode }) {
   return <Link to={to} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition">{children} <ArrowRight size={12} /></Link>

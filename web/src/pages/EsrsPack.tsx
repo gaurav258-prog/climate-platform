@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2, Lock, History, ChevronRight, FileCode, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button, Stat } from '../components/ui'
+import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 
 interface Topic {
   topic: string; title: string; standard?: string; material: boolean
@@ -37,20 +37,10 @@ export default function EsrsPack() {
 
   return (
     <div className="fadeup space-y-7">
-      <div className="flex items-start justify-between gap-6 flex-wrap">
-        <div>
-          <Eyebrow>Compliance · corporate sustainability reporting</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">ESRS (European Sustainability Reporting Standards) Climate &amp; Nature pack</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-            The ESRS topics driven by our physical-climate &amp; deforestation engine — climate physical risk (E1),
-            water (E3) and biodiversity/deforestation (E4) — assembled filing-grade to slot into your wider CSRD
-            statement. GHG accounting, social and governance stay with your other tools, by design.
-          </p>
-          <p className="mono text-[11px] text-[var(--color-faint)] mt-2">
-            {d.entity.name} · {d.entity.country}{d.entity.eori ? ` · EORI ${d.entity.eori}` : ''} · basis {d.reporting_basis.scenario}/{d.reporting_basis.horizon}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader eyebrow="Compliance · corporate sustainability reporting"
+        title="ESRS (European Sustainability Reporting Standards) Climate & Nature pack"
+        lead="The ESRS topics driven by our physical-climate & deforestation engine — climate physical risk (E1), water (E3) and biodiversity/deforestation (E4) — assembled filing-grade to slot into your wider CSRD statement. GHG accounting, social and governance stay with your other tools, by design."
+        actions={<>
           <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xlsx', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xlsx`)}>
             <Download size={15} /> Excel
           </Button>
@@ -60,8 +50,11 @@ export default function EsrsPack() {
           <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.ixbrl', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xhtml`)}>
             <FileCode size={15} /> iXBRL
           </Button>
-        </div>
-      </div>
+        </>}>
+        <p className="mono text-[11px] text-[var(--color-faint)] mt-2">
+          {d.entity.name} · {d.entity.country}{d.entity.eori ? ` · EORI ${d.entity.eori}` : ''} · basis {d.reporting_basis.scenario}/{d.reporting_basis.horizon}
+        </p>
+      </PageHeader>
 
       {/* the topics we own */}
       <div className="grid lg:grid-cols-3 gap-4">
@@ -130,7 +123,7 @@ export default function EsrsPack() {
 
       {/* out of scope — by design */}
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-1"><MinusCircle size={15} className="text-[var(--color-faint)]" /><h3 className="font-semibold">Out of scope — by design</h3></div>
+        <SectionHead icon={MinusCircle} className="mb-1">Out of scope — by design</SectionHead>
         <p className="text-[12px] text-[var(--color-mute)] mb-3">These ESRS topics aren't driven by our engine — your carbon, EHS, HR and governance tools produce them, and everything combines into one CSRD statement. We say so rather than pretend to cover it.</p>
         <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[13px]">
           {d.out_of_scope.map((o, i) => (
@@ -144,7 +137,7 @@ export default function EsrsPack() {
 
       {/* provenance */}
       <Card className="p-5 space-y-2 text-[12.5px] text-[var(--color-mute)]">
-        <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-1">Basis of preparation</div>
+        <SectionHead className="mb-1">Basis of preparation</SectionHead>
         {Object.entries(d.provenance).map(([k, v]) => (
           <div key={k} className="flex gap-2">
             <span className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] shrink-0 w-28">{k.replace(/_/g, ' ')}</span>
@@ -171,7 +164,7 @@ function TaxonomyAdaptation() {
   if (!d) return null
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-1"><Trees size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">EU Taxonomy · Climate change adaptation (Art. 8)</h3></div>
+      <SectionHead icon={Trees} className="mb-1">EU Taxonomy · Climate change adaptation (Art. 8)</SectionHead>
       <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">The mandated hard input for the adaptation objective is a robust <b>Climate Risk &amp; Vulnerability Assessment</b> and evidence that adaptation solutions address the material physical risks — that's ours. We provide the substantial-contribution evidence, not the turnover/capex/opex alignment %.</p>
       <div className="grid sm:grid-cols-4 gap-4 mb-4">
         <Stat big={`${d.crva.coverage_pct ?? 0}%`} label="CRVA coverage (sites assessed)" tone={d.crva.coverage_pct === 100 ? 'good' : 'warn'} />
@@ -209,7 +202,7 @@ function FilingReadiness({ scenario }: { scenario: string }) {
   const d = v.data
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-1"><ShieldCheck size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">Filing readiness — Inline XBRL (ESEF)</h3></div>
+      <SectionHead icon={ShieldCheck} className="mb-1">Filing readiness — Inline XBRL (ESEF)</SectionHead>
       <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">
         The pack is emitted as <b>Inline XBRL</b> — one document a person reads and a machine parses, the shape ESEF filings take. We validate it structurally here; full taxonomy conformance runs in the filing tool once bound to the adopted EFRAG taxonomy.
       </p>
@@ -268,7 +261,7 @@ function FilingsHistory() {
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2 mb-1"><Lock size={15} className="text-[var(--color-sky)]" /><h3 className="font-semibold">Filed versions — frozen &amp; immutable</h3></div>
+      <SectionHead icon={Lock} className="mb-1">Filed versions — frozen &amp; immutable</SectionHead>
       <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">
         Freeze a filing and its exact figures, reporting basis and golden-source state are captured as an immutable, versioned record — reproducible for the board or an assurer even after the live engine moves on. A correction is a new version; nothing is ever overwritten.
       </p>

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Download, Building2, Sprout, TrendingUp, ShieldCheck } from 'lucide-react'
+import { Download, Building2, Sprout, TrendingUp, ShieldCheck, Layers } from 'lucide-react'
 import { api, download } from '../lib/api'
-import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface HazardBlock { hazard: string; label: string; class: string
@@ -43,36 +43,35 @@ export default function Csrd() {
 
   return (
     <div className="fadeup space-y-7">
-      <div className="flex items-start justify-between gap-6 flex-wrap">
-        <div>
-          <Eyebrow>Compliance · corporate sustainability reporting</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">CSRD (Corporate Sustainability Reporting Directive) · ESRS E1 physical risk</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-            The physical-climate-risk section your CSRD report must disclose (ESRS E1-9, anticipated financial
-            effects), assembled from your own sites and your sourcing book on the golden source. A euro is shown as a
-            firm loss only where the hazard→yield chain is validated; otherwise exposure is mapped and the € withheld.
-          </p>
-          <p className="mono text-[11px] text-[var(--color-faint)] mt-2">
-            {d.entity.name} · {d.entity.country}{d.entity.eori ? ` · EORI ${d.entity.eori}` : ''} · basis {d.reporting_basis.scenario}/{d.reporting_basis.horizon}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={() => download('/v1/supply/csrd-e1.xlsx', `tellumen-csrd-e1-${d.reporting_basis.scenario}.xlsx`)}>
-          <Download size={15} /> Export (Excel)
-        </Button>
-      </div>
+      <PageHeader eyebrow="Compliance · corporate sustainability reporting"
+        title="CSRD (Corporate Sustainability Reporting Directive) · ESRS E1 physical risk"
+        lead="The physical-climate-risk section your CSRD report must disclose (ESRS E1-9, anticipated financial effects), assembled from your own sites and your sourcing book on the golden source. A euro is shown as a firm loss only where the hazard→yield chain is validated; otherwise exposure is mapped and the € withheld."
+        actions={
+          <Button variant="ghost" onClick={() => download('/v1/supply/csrd-e1.xlsx', `tellumen-csrd-e1-${d.reporting_basis.scenario}.xlsx`)}>
+            <Download size={15} /> Export (Excel)
+          </Button>
+        }>
+        <p className="mono text-[11px] text-[var(--color-faint)] mt-2">
+          {d.entity.name} · {d.entity.country}{d.entity.eori ? ` · EORI ${d.entity.eori}` : ''} · basis {d.reporting_basis.scenario}/{d.reporting_basis.horizon}
+        </p>
+      </PageHeader>
 
       {/* headline financial effects — the numbers a filing must carry */}
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={eur(fe.asset_value_at_risk_eur)} label="asset value at material risk" tone="warn" />
-        <Stat big={eur(fe.business_interruption_eur)} label="business interruption (v0)" tone="warn" />
-        <Stat big={eur(fe.cogs_at_risk_published_eur)} label="sourcing COGS at risk (published)" tone="warn" />
-        <Stat big={eur(fe.exposure_mapped_but_withheld_eur)} label="exposure mapped · € withheld" />
-      </div>
+      <HeroBanner
+        eyebrow="Compliance · ESRS E1 physical risk"
+        title="The anticipated financial effects your CSRD filing must carry."
+        lead="Assembled from your own sites and your sourcing book — a euro shows as a firm loss only where the hazard-to-yield chain is validated, otherwise exposure is mapped and the € withheld."
+        stat={[
+          { label: 'Asset value at material risk', value: eur(fe.asset_value_at_risk_eur), icon: Building2, tone: '#E8853C' },
+          { label: 'Business interruption (v0)', value: eur(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
+          { label: 'Sourcing COGS at risk (published)', value: eur(fe.cogs_at_risk_published_eur), icon: Sprout, tone: '#E8853C' },
+          { label: 'Exposure mapped · € withheld', value: eur(fe.exposure_mapped_but_withheld_eur), icon: ShieldCheck, tone: 'var(--color-sky)' },
+        ]} />
       <p className="text-[12px] text-[var(--color-mute)] -mt-3">{fe.note}</p>
 
       {/* material hazards — acute/chronic, split own-ops vs upstream */}
       <section className="space-y-3">
-        <h2 className="display text-xl font-semibold">Material physical hazards</h2>
+        <SectionHead icon={Layers}>Material physical hazards</SectionHead>
         {d.material_hazards.length === 0 && <Card className="p-5 text-sm text-[var(--color-faint)]">No hazard reaches the materiality threshold on any site or commodity.</Card>}
         {d.material_hazards.map(h => (
           <Card key={h.hazard} className="p-4">
@@ -101,7 +100,7 @@ export default function Csrd() {
       {/* two exposure ledgers */}
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-5">
-          <div className="flex items-center gap-2 mb-3"><Building2 size={16} className="text-[var(--color-blue)]" /><h3 className="font-semibold">Own operations</h3></div>
+          <SectionHead icon={Building2} className="mb-3">Own operations</SectionHead>
           <div className="grid grid-cols-2 gap-y-2 text-[13px]">
             <span className="text-[var(--color-mute)]">Sites</span><span className="text-right font-medium">{d.own_operations.n_sites}</span>
             <span className="text-[var(--color-mute)]">Asset value</span><span className="text-right font-medium">{eur(d.own_operations.asset_value_eur)}</span>
@@ -111,7 +110,7 @@ export default function Csrd() {
           </div>
         </Card>
         <Card className="p-5">
-          <div className="flex items-center gap-2 mb-3"><Sprout size={16} className="text-[var(--color-good)]" /><h3 className="font-semibold">Upstream sourcing</h3></div>
+          <SectionHead icon={Sprout} className="mb-3">Upstream sourcing</SectionHead>
           <div className="grid grid-cols-2 gap-y-2 text-[13px]">
             <span className="text-[var(--color-mute)]">Ingredient spend</span><span className="text-right font-medium">{eur(d.upstream_sourcing.ingredient_spend_eur)}</span>
             <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.upstream_sourcing.cogs_at_risk_published_eur)}</span>
@@ -134,7 +133,7 @@ export default function Csrd() {
       {/* forward horizons */}
       {hazards.length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-center gap-2"><TrendingUp size={16} className="text-[var(--color-blue)]" /><h2 className="display text-xl font-semibold">Forward trajectory (mean hazard score)</h2></div>
+          <SectionHead icon={TrendingUp}>Forward trajectory (mean hazard score)</SectionHead>
           <Card className="p-0 overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead><tr className="text-left text-[var(--color-mute)] border-b border-[var(--color-line)]">
@@ -158,7 +157,7 @@ export default function Csrd() {
       {/* resilience / adaptation */}
       {d.resilience.length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-[var(--color-good)]" /><h2 className="display text-xl font-semibold">Resilience &amp; adaptation</h2></div>
+          <SectionHead icon={ShieldCheck}>Resilience &amp; adaptation</SectionHead>
           <div className="grid sm:grid-cols-2 gap-3">
             {d.resilience.map(r => (
               <Card key={r.hazard} className="p-4">
@@ -174,7 +173,7 @@ export default function Csrd() {
 
       {/* provenance */}
       <section className="space-y-2">
-        <h2 className="display text-xl font-semibold">Basis of preparation</h2>
+        <SectionHead>Basis of preparation</SectionHead>
         <Card className="p-5 space-y-2 text-[12.5px] text-[var(--color-mute)]">
           {Object.entries(d.provenance).map(([k, v]) => (
             <div key={k} className="flex gap-2">

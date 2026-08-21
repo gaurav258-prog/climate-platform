@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, AlertTriangle, FileText, Download, ShieldCheck } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Eyebrow, Card, SectionHead, Button } from '../components/ui'
+import { Card, SectionHead, Button, PageHeader } from '../components/ui'
 
 // Prior filings — bring in ESG reports already filed and accepted. Upload the submitted file itself;
 // the engine reads it into its reported lines, the preparer confirms them, and the figures are stored as
@@ -116,11 +116,8 @@ export default function PriorFilings() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Reported history</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Prior filings</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Bring in the ESG reports you have already filed and had accepted. Upload the report you submitted — it is read into its reported lines for you to confirm, then kept as your reported record for trends and follow-up questions.</p>
-      </div>
+      <PageHeader eyebrow="Reported history" title="Prior filings"
+        lead="Bring in the ESG reports you have already filed and had accepted. Upload the report you submitted — it is read into its reported lines for you to confirm, then kept as your reported record for trends and follow-up questions." />
 
       {/* import */}
       {!draft && (
@@ -172,7 +169,7 @@ export default function PriorFilings() {
             <table className="w-full text-[13px]">
               <thead><tr className="text-left">
                 {['From the report', 'Datapoint', 'Value', 'Read', ''].map(h =>
-                  <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+                  <th key={h} className="mono text-[11px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
               </tr></thead>
               <tbody>
                 {(draft.figures ?? []).map(fig => {
@@ -239,7 +236,7 @@ export default function PriorFilings() {
                 <table className="w-full text-[13px]">
                   <thead><tr className="text-left">
                     {['Period', 'Framework', 'Entity', 'Format', 'Lines', 'Status', ''].map(h =>
-                      <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+                      <th key={h} className="mono text-[11px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {(list.data?.filings ?? []).map(f => (
@@ -295,7 +292,7 @@ export default function PriorFilings() {
             <table className="w-full text-[13px]">
               <thead><tr className="text-left">
                 {['From the report', 'Datapoint', 'Value'].map(h =>
-                  <th key={h} className="mono text-[9.5px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
+                  <th key={h} className="mono text-[11px] tracking-[0.12em] uppercase text-[var(--color-faint)] font-medium px-4 py-2 border-b border-[var(--color-line)]">{h}</th>)}
               </tr></thead>
               <tbody>
                 {(detail.data.figures ?? []).map(fig => (

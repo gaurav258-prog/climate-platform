@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 
 // Supervisory view — the whole institution the way a regulator or board reviews it: every mandatory filing
 // with its status, coverage and KRI breaches, plus house-in-order readiness and open exceptions. Read-only,
@@ -25,26 +25,32 @@ export default function Oversight() {
   const d = q.data
   const s = d?.summary
 
+  const verdict = s && (
+    `${s.n_frameworks} mandatory filing${s.n_frameworks === 1 ? '' : 's'}${s.never_filed > 0 ? `, ${s.never_filed} never filed` : ', all filed'}. `
+    + `${s.total_breaches} KRI ${s.total_breaches === 1 ? 'breach' : 'breaches'} and ${s.open_exceptions} open exception${s.open_exceptions === 1 ? '' : 's'}`
+    + `${(s.total_breaches + s.open_exceptions) > 0 ? ' need attention' : ' — nothing outstanding'}. Readiness ${s.readiness_pct}%.`
+  )
   return (
-    <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Governance · supervisory view</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Supervisory overview</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">The whole institution on one screen, the way a regulator or your board reviews it — every mandatory filing's status, how much of it you produce, its KRI breaches, plus readiness and open exceptions.</p>
-      </div>
+    <div className="fadeup space-y-6">
+      <PageHeader eyebrow="Governance · supervisory view" title="Supervisory overview"
+        lead="The whole institution on one screen, the way a regulator or your board reviews it — every mandatory filing's status, how much of it you produce, its KRI breaches, plus readiness and open exceptions." />
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the supervisory view.</div>
         : (
         <>
-          {/* headline posture */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <Tile n={s!.n_frameworks} label="mandatory filings" />
-            <Tile n={s!.never_filed} label="never filed" tone={s!.never_filed > 0 ? '#f0a860' : undefined} />
-            <Tile n={s!.total_breaches} label="KRI breaches" tone={s!.total_breaches > 0 ? '#fb7185' : 'var(--color-good)'} />
-            <Tile n={s!.open_exceptions} label="open exceptions" tone={s!.open_exceptions > 0 ? '#f0a860' : 'var(--color-good)'} />
-            <Tile n={`${s!.readiness_pct}%`} label="readiness" tone={s!.readiness_pct >= 100 ? 'var(--color-good)' : '#f0a860'} />
-          </div>
+          {/* the rich cockpit hero — narrative + live posture tiles */}
+          <HeroBanner
+            eyebrow="Supervisory overview"
+            title={s!.total_breaches + s!.open_exceptions + s!.never_filed > 0 ? 'A few things need your attention.' : 'The house is in order.'}
+            lead={verdict}
+            stat={[
+              { label: 'Mandatory filings', value: s!.n_frameworks, icon: ShieldCheck, tone: 'var(--color-sky)' },
+              { label: 'Never filed', value: s!.never_filed, icon: Clock, tone: s!.never_filed > 0 ? '#E8853C' : 'var(--color-good)' },
+              { label: 'KRI breaches', value: s!.total_breaches, icon: AlertTriangle, tone: s!.total_breaches > 0 ? '#D23B3B' : '#4FA46E', pulse: s!.total_breaches > 0 },
+              { label: 'Open exceptions', value: s!.open_exceptions, icon: AlertTriangle, tone: s!.open_exceptions > 0 ? '#E8853C' : '#4FA46E' },
+              { label: 'Readiness', value: `${s!.readiness_pct}%`, icon: CheckCircle2, tone: s!.readiness_pct >= 100 ? '#4FA46E' : '#E8853C' },
+            ]} />
 
           {/* per-filing rollup */}
           <Card className="p-0 overflow-hidden">
@@ -80,7 +86,7 @@ export default function Oversight() {
           <div className="grid lg:grid-cols-2 gap-5">
             {/* readiness */}
             <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">House-in-order · readiness controls</div>
+              <SectionHead icon={CheckCircle2} hint="is the house in order?" className="mb-2.5">Readiness controls</SectionHead>
               <Card className="p-0 overflow-hidden">
                 <div className="divide-y divide-[var(--color-line)]">
                   {d.readiness.checks.map(c => (
@@ -94,7 +100,7 @@ export default function Oversight() {
             </div>
             {/* exceptions */}
             <div>
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Open exceptions · from live filings</div>
+              <SectionHead icon={AlertTriangle} hint="from live filings" className="mb-2.5">Open exceptions</SectionHead>
               <Card className="p-0 overflow-hidden">
                 {d.exceptions.open === 0
                   ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No open exceptions.</div>
@@ -117,8 +123,4 @@ export default function Oversight() {
       )}
     </div>
   )
-}
-
-function Tile({ n, label, tone }: { n: number | string; label: string; tone?: string }) {
-  return <Card className="px-4 py-3.5"><div className="display text-[26px] leading-none tabular-nums" style={tone ? { color: tone } : undefined}>{n}</div><div className="mono text-[9.5px] tracking-wide uppercase text-[var(--color-faint)] mt-2">{label}</div></Card>
 }

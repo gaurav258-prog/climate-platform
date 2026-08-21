@@ -4,7 +4,7 @@ import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, Scro
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button, Stat } from '../components/ui'
+import { Card, Button, Stat, PageHeader } from '../components/ui'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
@@ -45,11 +45,8 @@ export default function Admin() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Governance · control center</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Control center</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Is your organization set up correctly and your data complete enough to trust the numbers? Reporting identity, data readiness, users, roles, and the approval matrix — in one place.</p>
-      </div>
+      <PageHeader eyebrow="Governance · control center" title="Control center"
+        lead="Is your organization set up correctly and your data complete enough to trust the numbers? Reporting identity, data readiness, users, roles, and the approval matrix — in one place." />
       <div className="flex gap-2 flex-wrap">
         {tabs.map(t => (
           <button key={t} onClick={() => setTab(t)}

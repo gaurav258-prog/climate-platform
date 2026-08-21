@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Coins, PackageX, Percent, Boxes } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, Stat } from '../components/ui'
+import { Card, PageHeader, HeroBanner } from '../components/ui'
 
 interface Commodity {
   commodity: string; eudr_covered: boolean; annual_spend_eur: number; n_plots: number; status: string
@@ -32,22 +32,19 @@ export default function Cogs() {
 
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · the volume that won't arrive</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">COGS-at-risk</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Climate hazard on every sourcing plot, rolled into the share of your volume that fails — priced at what you
-          already pay. A euro publishes only when the hazard→yield chain reproduces a real crop failure; otherwise
-          exposure is mapped and the € withheld.
-        </p>
-      </div>
+      <PageHeader eyebrow="Agriculture · the volume that won't arrive" title="COGS-at-risk"
+        lead="Climate hazard on every sourcing plot, rolled into the share of your volume that fails — priced at what you already pay. A euro publishes only when the hazard→yield chain reproduces a real crop failure; otherwise exposure is mapped and the € withheld." />
 
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={eur(d.rollup.ingredient_spend_eur)} label="ingredient spend" />
-        <Stat big={eur(d.rollup.volume_at_risk_eur)} label="volume at risk (physical)" tone="warn" />
-        <Stat big={`${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS" />
-        <Stat big={d.commodities.length} label="commodities" />
-      </div>
+      <HeroBanner
+        eyebrow="COGS-at-risk"
+        title={(d.rollup.volume_at_risk_eur ?? 0) > 0 ? "Some of your volume won't arrive." : 'Your volume is clearing.'}
+        lead="Climate hazard on every sourcing plot, rolled into the share of volume that fails — priced at what you already pay."
+        stat={[
+          { label: 'ingredient spend', value: eur(d.rollup.ingredient_spend_eur), icon: Coins },
+          { label: 'volume at risk (physical)', value: eur(d.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C' },
+          { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent },
+          { label: 'commodities', value: d.commodities.length, icon: Boxes, tone: 'var(--color-sky)' },
+        ]} />
 
       <div className="space-y-3">
         {rows.map(c => {

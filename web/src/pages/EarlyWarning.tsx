@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader, SectionHead, PlainLead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { Radio, ChevronRight } from 'lucide-react'
 
@@ -24,18 +24,11 @@ export default function EarlyWarning() {
 
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · sense</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Early warning</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Commodities whose sourcing plots are under elevated hazard right now — the signal that lets you act before
-          the shortfall, not after the harvest.
-        </p>
-      </div>
+      <PageHeader eyebrow="Agriculture · sense" title="Early warning"
+        lead="Commodities whose sourcing plots are under elevated hazard right now — the signal that lets you act before the shortfall, not after the harvest." />
 
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-4"><Radio size={16} className="text-[var(--color-warn)]" />
-          <div className="text-[13px] font-semibold">{d.n_alerts} live alert{d.n_alerts === 1 ? '' : 's'}</div></div>
+        <SectionHead icon={Radio} className="mb-4">{d.n_alerts} live alert{d.n_alerts === 1 ? '' : 's'}</SectionHead>
         {alerts.length === 0 ? <div className="text-[13px] text-[var(--color-mute)]">No elevated hazard on the book right now.</div> :
           <div className="space-y-2">
             {alerts.map((a, i) => {
@@ -56,8 +49,8 @@ export default function EarlyWarning() {
 
       {d.pending.length > 0 &&
         <Card className="p-5">
-          <div className="text-[13px] font-semibold mb-1">Exposure mapped, awaiting a scored signal</div>
-          <p className="text-[12px] text-[var(--color-faint)] mb-3">These commodities are in the book but not yet scored on a live hazard — no false alarm, no false calm.</p>
+          <SectionHead className="mb-1">Exposure mapped, awaiting a scored signal</SectionHead>
+          <PlainLead className="mb-3">These commodities are in the book but not yet scored on a live hazard — no false alarm, no false calm.</PlainLead>
           <div className="flex flex-wrap gap-2">
             {d.pending.map((p, i) => {
               const clickable = !!d.commodity_ids?.[p.commodity]

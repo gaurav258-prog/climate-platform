@@ -50,6 +50,10 @@ export default function RealizedExposure() {
   const cfg = d.sector ? SECTOR_CFG[d.sector] : undefined
 
   return (
+    <>
+    {/* the card is permanently dark, so force its subtree into dark-token context — otherwise the theme's
+        muted/faint text tokens resolve to dark values in light mode and read dark-on-dark (unreadable). */}
+    <div data-theme="dark">
     <Card className="p-5" style={{ borderColor: 'var(--color-blued)', background: 'linear-gradient(180deg,#0e2338,var(--color-panel))' }}>
       <div className="flex items-center gap-2 mb-1">
         <History size={16} className="text-[var(--color-sky)]" />
@@ -105,7 +109,10 @@ export default function RealizedExposure() {
           ? 'Observed national yield failures (>5% YoY decline) matched to the commodity × origin you source.'
           : `${d.n_storms ?? 0} storms (IBTrACS) + ${d.n_earthquakes ?? 0} earthquakes (USGS) within the felt radius of your assets.`} Observed catalogue events only — nothing projected. {cfg && d.sector !== 'manufacturer' && <span className="text-[var(--color-sky)]">Expand an event to see the assets it crossed.</span>}
       </div>
-      {drawerId && cfg && <AssetDrawer cfg={cfg} id={drawerId} onClose={() => setDrawerId(null)} onChanged={() => q.refetch()} />}
     </Card>
+    </div>
+    {/* drawer stays outside the forced-dark wrapper so it follows the app theme */}
+    {drawerId && cfg && <AssetDrawer cfg={cfg} id={drawerId} onClose={() => setDrawerId(null)} onChanged={() => q.refetch()} />}
+    </>
   )
 }

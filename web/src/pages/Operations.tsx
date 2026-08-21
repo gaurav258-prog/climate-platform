@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus } from 'lucide-react'
+import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus, AlertTriangle, Coins, Activity } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Stat, Button, ExportButton } from '../components/ui'
+import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
@@ -94,32 +94,25 @@ export default function Operations() {
 
   return (
     <div className="fadeup space-y-7">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Eyebrow>Agriculture · your operations</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Operations</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-            Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same
-            live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds.
-          </p>
-        </div>
-        {sites.length > 0 && <ExportButton onExport={exportSites} className="mt-1 shrink-0" />}
-      </div>
+      <PageHeader eyebrow="Agriculture · your operations" title="Operations"
+        lead="Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds."
+        actions={sites.length > 0 ? <ExportButton onExport={exportSites} /> : undefined} />
 
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={sites.length} label="operational sites" />
-        <Stat big={highN} label="at elevated hazard (≥40)" tone={highN ? 'warn' : 'ink'} />
-        <Stat big={eur(t?.asset_value_eur)} label="asset value (damage exposure)" />
-        <Stat big={eur(t?.bi_at_risk_eur)} label="business-interruption exposure" tone={(t?.bi_at_risk_eur ?? 0) > 0 ? 'warn' : 'ink'} />
-      </div>
+      <HeroBanner
+        eyebrow="Your operations"
+        title={highN > 0 ? 'Some sites sit in elevated hazard.' : 'Every site is running low-hazard.'}
+        lead="Your own sites on the same live hazard data as your suppliers — damage and business-interruption exposure, priced."
+        stat={[
+          { label: 'operational sites', value: sites.length, icon: Building2, tone: 'var(--color-sky)' },
+          { label: 'at elevated hazard (≥40)', value: highN, icon: AlertTriangle, tone: highN ? '#E8853C' : undefined },
+          { label: 'asset value (damage exposure)', value: eur(t?.asset_value_eur), icon: Coins },
+          { label: 'business-interruption exposure', value: eur(t?.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
+        ]} />
       <div className="text-[11px] text-[var(--color-faint)] -mt-3">{q.data?.bi_note}</div>
 
       {/* add a site */}
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Plus size={16} className="text-[var(--color-sky)]" />
-          <span className="text-[14px] font-semibold">Add a site</span>
-        </div>
+        <SectionHead icon={Plus} className="mb-3">Add a site</SectionHead>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Name *"><input ref={nameRef} className={inp}
             style={nameErr ? { borderColor: 'var(--color-warn)', boxShadow: '0 0 0 1px var(--color-warn)' } : undefined}

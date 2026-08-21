@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts'
-import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2 } from 'lucide-react'
+import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2, Percent } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card, Stat, Button, StatusPill } from '../components/ui'
+import { Card, Button, StatusPill, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import Lineage from '../components/Lineage'
 import RealizedExposure from '../components/RealizedExposure'
 
@@ -71,22 +71,23 @@ export default function Disclosure() {
 
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · Sense → Score → Act</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Disclosure &amp; EUDR (EU Deforestation Regulation)</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot —
-          computed from satellite data, traceable end to end.
-        </p>
-      </div>
+      <PageHeader eyebrow="Agriculture · Sense → Score → Act"
+        title="Disclosure & EUDR (EU Deforestation Regulation)"
+        lead="Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot — computed from satellite data, traceable end to end." />
 
-      {/* stat row */}
-      <div className="grid sm:grid-cols-4 gap-4">
-        <Stat big={eur(d.rollup.volume_at_risk_eur)} label="volume at risk (physical)" tone="warn" />
-        <Stat big={`${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`} label="of COGS" />
-        <Stat big={s.covered_plots ?? 0} label="EUDR-covered plots" />
-        <Stat big={s.deforestation_free ?? 0} label="deforestation-free" tone="good" />
-      </div>
+      {/* stat row — lead with the answer */}
+      <HeroBanner
+        eyebrow="Disclosure & EUDR"
+        title={(s.covered_plots ?? 0) > 0 && (s.deforestation_free ?? 0) === (s.covered_plots ?? 0)
+          ? 'Every covered plot is deforestation-free.'
+          : `${s.deforestation_free ?? 0} of ${s.covered_plots ?? 0} plots deforestation-free.`}
+        lead="Physical volume-at-risk from your sourcing book and the EUDR determination per plot — computed from satellite data, traceable end to end."
+        stat={[
+          { label: 'Volume at risk (physical)', value: eur(d.rollup.volume_at_risk_eur), icon: AlertTriangle, tone: '#E8853C' },
+          { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent, tone: 'var(--color-sky)' },
+          { label: 'EUDR-covered plots', value: s.covered_plots ?? 0, icon: Satellite, tone: 'var(--color-sky)' },
+          { label: 'Deforestation-free', value: s.deforestation_free ?? 0, icon: ShieldCheck, tone: '#4FA46E' },
+        ]} />
 
       {/* realized exposure — the real yield shocks that have ALREADY hit this buyer's origins (observed hook) */}
       <RealizedExposure />
@@ -97,7 +98,7 @@ export default function Disclosure() {
       {/* chart + eudr run */}
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-4">
         <Card className="p-5">
-          <div className="text-[13px] font-semibold mb-3">Volume-at-risk by commodity <span className="text-[var(--color-faint)] font-normal">· €m, physical</span></div>
+          <SectionHead hint="€m, physical" className="mb-3">Volume-at-risk by commodity</SectionHead>
           <div className="h-[240px]">
             {chart.length === 0 ? <Empty>No published € yet — commodities still validating.</Empty> :
               <ResponsiveContainer width="100%" height="100%">
@@ -115,8 +116,7 @@ export default function Disclosure() {
         </Card>
 
         <Card className="p-5 flex flex-col">
-          <div className="flex items-center gap-2 mb-1"><Satellite size={16} className="text-[var(--color-blue)]" />
-            <div className="text-[13px] font-semibold">EUDR satellite check</div></div>
+          <SectionHead icon={Satellite} className="mb-1">EUDR satellite check</SectionHead>
           <p className="text-[12.5px] text-[var(--color-mute)] mb-4">Run the deforestation-free determination across your covered plots against Hansen forest-loss (post-2020 cutoff).</p>
           <div className="grid grid-cols-2 gap-2 mb-4">
             <Mini n={s.deforestation_free ?? 0} label="deforestation-free" tone="good" />
@@ -132,7 +132,7 @@ export default function Disclosure() {
 
       {/* per-plot: declared vs computed */}
       <Card className="p-5">
-        <div className="text-[13px] font-semibold mb-3">Per plot — declared vs. our satellite determination</div>
+        <SectionHead className="mb-3">Per plot — declared vs. our satellite determination</SectionHead>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
@@ -162,8 +162,7 @@ export default function Disclosure() {
       {/* DDS */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2"><FileCheck2 size={16} className="text-[var(--color-good)]" />
-            <div className="text-[13px] font-semibold">EUDR Due Diligence Statement</div></div>
+          <SectionHead icon={FileCheck2}>EUDR Due Diligence Statement</SectionHead>
           <Button variant="ghost" onClick={() => assemble.mutate()} disabled={assemble.isPending}>
             {assemble.isPending ? <><Loader2 size={14} className="animate-spin" /> Assembling…</> : 'Assemble DDS'}
           </Button>

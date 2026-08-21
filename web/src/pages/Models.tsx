@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { FlaskConical, CheckCircle2, PauseCircle } from 'lucide-react'
 import { api } from '../lib/api'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface Fit {
@@ -35,21 +36,18 @@ export default function Models() {
 
   return (
     <div className="fadeup space-y-7">
-      <div>
-        <Eyebrow>Agriculture · trust &amp; assurance</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Models &amp; validation</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          Every crop×origin we tested, and whether climate robustly drives its yield. We publish a euro only above an
-          out-of-sample fit floor of r² ≥ {floor}; the rest are shown tested-and-held, with the r², so you see exactly
-          what we earned and what we withheld.
-        </p>
-      </div>
+      <PageHeader eyebrow="Agriculture · trust & assurance" title="Models & validation"
+        lead={`Every crop×origin we tested, and whether climate robustly drives its yield. We publish a euro only above an out-of-sample fit floor of r² ≥ ${floor}; the rest are shown tested-and-held, with the r², so you see exactly what we earned and what we withheld.`} />
 
-      <div className="grid grid-cols-3 gap-4">
-        <Mini n={fits.length} label="crop × origin tested" />
-        <Mini n={published.length} label="published" tone="good" />
-        <Mini n={held.length} label="tested &amp; held" tone="slate" />
-      </div>
+      <HeroBanner
+        eyebrow="Models & validation"
+        title="What climate robustly drives — and what we withheld."
+        lead={`We publish a euro only above an out-of-sample fit floor of r² ≥ ${floor}; the rest are shown tested-and-held, with the r².`}
+        stat={[
+          { label: 'crop × origin tested', value: fits.length, icon: FlaskConical, tone: 'var(--color-sky)' },
+          { label: 'published', value: published.length, icon: CheckCircle2, tone: '#4FA46E' },
+          { label: 'tested & held', value: held.length, icon: PauseCircle },
+        ]} />
 
       <FitTable title={`Published — climate drives yield (r² ≥ ${floor})`} fits={published} floor={floor} showGrade />
       <FitTable title="Tested & held — shown honestly, € withheld" fits={held} floor={floor} />
@@ -61,7 +59,7 @@ function FitTable({ title, fits, floor, showGrade }: { title: string; fits: Fit[
   if (fits.length === 0) return null
   return (
     <Card className="p-5">
-      <div className="text-[13px] font-semibold mb-3">{title}</div>
+      <SectionHead className="mb-3">{title}</SectionHead>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
@@ -100,11 +98,4 @@ function FitTable({ title, fits, floor, showGrade }: { title: string; fits: Fit[
   )
 }
 
-function Mini({ n, label, tone = 'ink' }: { n: number; label: string; tone?: 'ink' | 'good' | 'slate' }) {
-  const c = { ink: 'var(--color-ink)', good: 'var(--color-good)', slate: 'var(--color-slate)' }[tone]
-  return (
-    <Card className="p-4"><div className="display text-2xl font-semibold" style={{ color: c }}>{n}</div>
-      <div className="text-[11px] text-[var(--color-mute)] mt-1" dangerouslySetInnerHTML={{ __html: label }} /></Card>
-  )
-}
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>

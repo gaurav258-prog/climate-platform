@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell } from 'lucide-react'
+import { Plus, ChevronRight, ChevronLeft, AlertTriangle, X, Clock, FileText, Send, Check, GripVertical, ShieldCheck, Paperclip, Download, Trash2, AtSign, Bell, ListChecks } from 'lucide-react'
 import { api, ApiError, upload, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Button } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 import { filingLink } from '../lib/links'
 import { prettify } from '../lib/hazards'
 
@@ -106,21 +106,21 @@ export default function Tasks() {
   const b = q.data
   return (
     <div className="fadeup space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Eyebrow>Workflow</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Tasks</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Everything the team needs to do to get a filing out — move a card across the board, or assign it to a colleague.</p>
-        </div>
-        <div className="flex items-center gap-5">
-          <MentionsBell onOpen={setOpenId} />
-          {b && <div className="flex gap-4 text-right">
-            <Stat n={b.summary.total} label="open" />
-            <Stat n={b.summary.overdue} label="overdue" tone={b.summary.overdue > 0 ? '#fb7185' : undefined} />
-            <Stat n={b.summary.unassigned} label="unassigned" tone={b.summary.unassigned > 0 ? '#f0a860' : undefined} />
-          </div>}
-        </div>
-      </div>
+      <PageHeader eyebrow="Workflow" title="Tasks"
+        lead="Everything the team needs to do to get a filing out — move a card across the board, or assign it to a colleague."
+        actions={<MentionsBell onOpen={setOpenId} />} />
+
+      {b && (
+        <HeroBanner
+          eyebrow="Workflow"
+          title={b.summary.overdue > 0 ? `${b.summary.overdue} task${b.summary.overdue === 1 ? '' : 's'} overdue.` : b.summary.unassigned > 0 ? 'A few tasks still need an owner.' : 'The board is under control.'}
+          lead="Every task the team needs to get a filing out — where it sits on the board, what's slipping, and what has no owner yet."
+          stat={[
+            { label: 'Open', value: b.summary.total, icon: ListChecks, tone: 'var(--color-sky)' },
+            { label: 'Overdue', value: b.summary.overdue, icon: AlertTriangle, tone: b.summary.overdue > 0 ? '#D23B3B' : '#4FA46E', pulse: b.summary.overdue > 0 },
+            { label: 'Unassigned', value: b.summary.unassigned, icon: AtSign, tone: b.summary.unassigned > 0 ? '#E8853C' : '#4FA46E' },
+          ]} />
+      )}
 
       {/* quick add */}
       <Card className="p-3 flex flex-wrap items-center gap-2">
@@ -244,10 +244,6 @@ function TaskCard({ t, members, onMove, onAssign, onOpen, dragging, onDragStart,
       </div>
     </div>
   )
-}
-
-function Stat({ n, label, tone }: { n: number; label: string; tone?: string }) {
-  return <div><div className="display text-2xl leading-none" style={tone ? { color: tone } : undefined}>{n}</div><div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{label}</div></div>
 }
 
 const box = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'

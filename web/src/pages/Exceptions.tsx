@@ -4,7 +4,7 @@ import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lu
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Lens } from '../components/ui'
+import { Card, Lens, PageHeader, HeroBanner } from '../components/ui'
 import { frameworkLabel, prettify } from '../lib/hazards'
 import { filingLink, taskLink } from '../lib/links'
 
@@ -43,14 +43,9 @@ export default function Exceptions() {
 
   return (
     <div className="fadeup space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Eyebrow>Workflow · control tower</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Control Tower</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every open validation &amp; reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up.</p>
-        </div>
-        <Lens kind="control" className="mt-1 shrink-0" />
-      </div>
+      <PageHeader eyebrow="Workflow · control tower" title="Control Tower"
+        lead="Every open validation & reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up."
+        actions={<Lens kind="control" />} />
 
       {d && d.summary.filings_skipped > 0 && (
         <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-bad)]">
@@ -58,12 +53,16 @@ export default function Exceptions() {
         </div>
       )}
       {d && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Tile n={d.summary.total} label={`open exceptions · ${d.summary.filings_scanned} filings scanned`} />
-          <Tile n={d.summary.blocking} label="blocking" tone={d.summary.blocking > 0 ? '#fb7185' : undefined} />
-          <Tile n={d.summary.warnings} label="to review" tone={d.summary.warnings > 0 ? '#f0a860' : undefined} />
-          <Tile n={d.summary.tracked} label="already tracked" tone={d.summary.tracked > 0 ? '#34d399' : undefined} />
-        </div>
+        <HeroBanner
+          eyebrow="Workflow · control tower"
+          title={d.summary.blocking > 0 ? `${d.summary.blocking} blocking exception${d.summary.blocking === 1 ? '' : 's'} to clear.` : d.summary.total > 0 ? 'A few exceptions to review.' : 'Every live filing is clean.'}
+          lead={`Every open validation and reconciliation exception across ${d.summary.filings_scanned} scanned filing${d.summary.filings_scanned === 1 ? '' : 's'}, worst first — the checks a filing must clear before it can be attested.`}
+          stat={[
+            { label: 'Open exceptions', value: d.summary.total, icon: AlertTriangle, tone: 'var(--color-sky)' },
+            { label: 'Blocking', value: d.summary.blocking, icon: XCircle, tone: d.summary.blocking > 0 ? '#D23B3B' : '#4FA46E', pulse: d.summary.blocking > 0 },
+            { label: 'To review', value: d.summary.warnings, icon: AlertTriangle, tone: d.summary.warnings > 0 ? '#E8853C' : '#4FA46E' },
+            { label: 'Already tracked', value: d.summary.tracked, icon: CheckCircle2, tone: d.summary.tracked > 0 ? '#4FA46E' : 'var(--color-sky)' },
+          ]} />
       )}
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">scanning filings…</Card>
@@ -102,14 +101,5 @@ export default function Exceptions() {
           </Card>
         )}
     </div>
-  )
-}
-
-function Tile({ n, label, tone }: { n: number; label: string; tone?: string }) {
-  return (
-    <Card className="px-4 py-3.5">
-      <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{n}</div>
-      <div className="mono text-[10px] tracking-wide uppercase text-[var(--color-faint)] mt-2">{label}</div>
-    </Card>
   )
 }

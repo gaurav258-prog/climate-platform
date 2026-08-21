@@ -1,6 +1,57 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import clsx from 'clsx'
+
+// ── Count-up number — the KPI/stat "hooked" micro-moment. Animates from 0 to the value on mount/change,
+// respects prefers-reduced-motion (jumps straight to the value), and renders through a formatter so it works
+// for euros, percentages, and plain counts. Skin-agnostic; the motion reads on every skin.
+export function CountUp({ value, format = (n) => `${Math.round(n)}`, duration = 900, className }: {
+  value: number; format?: (n: number) => string; duration?: number; className?: string
+}) {
+  const [display, setDisplay] = useState(0)   // start low so the count-up is actually seen on first mount
+  const raf = useRef<number | null>(null)
+  const from = useRef(0)
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    // no animation when reduced-motion, non-finite, or the tab is hidden (rAF is throttled/paused in
+    // background tabs — animating there would leave the number stuck at 0). Land on the value directly.
+    if (reduce || !isFinite(value) || (typeof document !== 'undefined' && document.hidden)) {
+      setDisplay(value); from.current = value; return
+    }
+    const start = performance.now(); const a = from.current; const b = value
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration)
+      const eased = 1 - Math.pow(1 - p, 3)  // ease-out cubic
+      setDisplay(a + (b - a) * eased)
+      if (p < 1) raf.current = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf.current = requestAnimationFrame(tick)
+    // safety net: guarantee we land on the exact value even if rAF stalls (backgrounded mid-animation).
+    const safety = window.setTimeout(() => { setDisplay(b); from.current = b }, duration + 150)
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); clearTimeout(safety) }
+  }, [value, duration])
+  return <span className={className}>{format(display)}</span>
+}
+
+// Count-up for an ALREADY-formatted KPI string ("€648.1m", "70%", "1,240"). Parses the single leading number,
+// animates it, and re-assembles with the original prefix/suffix/precision — so any KPI grid gets the count-up
+// moment with no numeric plumbing. Falls back to the plain string for anything it can't cleanly parse
+// (fractions like "129/145", ranges, status text), so it's always safe to drop in.
+export function CountUpText({ children, className, duration }: { children: string; className?: string; duration?: number }) {
+  const text = String(children ?? '')
+  const m = /^(\D*)(\d[\d,]*(?:\.\d+)?)(.*)$/.exec(text.trim())
+  if (!m || m[3].includes('/')) return <span className={className}>{text}</span>
+  const [, pre, numStr, suf] = m
+  const decimals = numStr.includes('.') ? numStr.split('.')[1].length : 0
+  const hadComma = numStr.includes(',')
+  const value = parseFloat(numStr.replace(/,/g, ''))
+  if (!isFinite(value)) return <span className={className}>{text}</span>
+  const fmt = (n: number) => pre + (hadComma
+    ? n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : n.toFixed(decimals)) + suf
+  return <CountUp value={value} format={fmt} duration={duration} className={className} />
+}
 
 // The one consistent "export what I'm looking at" control — wired to lib/export downloadCsv on every view,
 // so extract-to-your-own-tool is a standard affordance across all sectors, not an ad-hoc per-page button.
@@ -32,14 +83,115 @@ export function BrandMark({ size = 28 }: { size?: number }) {
   )
 }
 
-export function Card({ className, children, style, onClick }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
-  return <div className={clsx('card', className)} style={style} onClick={onClick}>{children}</div>
+// `lift` opts a card into the hover-lift micro-interaction (used for clickable/drillable cards). The transform
+// lives only during :hover (see skins.css) so it never leaves a retained transform that would trap fixed drawers.
+export function Card({ className, children, style, onClick, lift }: { className?: string; children: ReactNode; style?: React.CSSProperties; onClick?: () => void; lift?: boolean }) {
+  return <div className={clsx('card', lift && 'lift', className)} style={style} onClick={onClick}>{children}</div>
 }
 
 // The page's flow-stage hue tints the eyebrow (Shell sets --stage per route), so a page's header echoes
 // its nav stage. Falls back to the neutral blue where --stage isn't set (e.g. login, standalone screens).
 export function Eyebrow({ children }: { children: ReactNode }) {
   return <p className="mono text-[11px] uppercase tracking-[0.2em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{children}</p>
+}
+
+// ── The "great page" kit ─────────────────────────────────────────────────────────────────────
+// Standard page header — stage-coloured eyebrow, a large balanced title, one plain-language lede, and an
+// optional actions slot (filters/export/toggles) on the right. Use on every page so headers read the same.
+export function PageHeader({ eyebrow, title, lead, actions, children }: {
+  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode; actions?: ReactNode; children?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+        <h1 className="display text-[30px] leading-tight font-semibold text-[var(--color-ink)] mt-2 mb-1" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h1>
+        {lead && <p className="text-[14.5px] leading-relaxed text-[var(--color-mute)] max-w-2xl">{lead}</p>}
+        {children}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
+    </div>
+  )
+}
+
+// A big headline metric — the "lead with the answer" hero number, count-up animated. Pass a preformatted
+// string ("€648.1m", "70%") or a raw number. Optional tone colour and a small sub-line.
+export function HeroMetric({ value, label, tone, sub, className }: {
+  value: string | number; label: ReactNode; tone?: string; sub?: ReactNode; className?: string
+}) {
+  return (
+    <div className={clsx('min-w-0', className)}>
+      <div className="display text-[32px] leading-none font-semibold tabular-nums" style={tone ? { color: tone } : undefined}>
+        {typeof value === 'string' ? <CountUpText>{value}</CountUpText> : <CountUp value={value} />}
+      </div>
+      <div className="text-[12.5px] text-[var(--color-mute)] mt-2">{label}</div>
+      {sub && <div className="text-[11.5px] text-[var(--color-faint)] mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
+// A hero summary strip — a row of HeroMetrics on one elevated card, evenly divided. The "answer first" band
+// that leads most pages. Children are HeroMetric (or anything); they lay out as equal columns on ≥sm.
+export function HeroStrip({ children, className, style }: { children: ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <Card className={clsx('p-5 sm:p-6 grid gap-x-6 gap-y-5 sm:grid-flow-col sm:auto-cols-fr', className)} style={style}>{children}</Card>
+}
+
+// A one-line plain-language explainer under a section head — the "what this is / how to read it" line that
+// keeps a data-dense surface legible. Kept deliberately short.
+export function PlainLead({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={clsx('text-[13px] leading-relaxed text-[var(--color-mute)] max-w-3xl', className)}>{children}</p>
+}
+
+// The RICH hero — the "cockpit" banner (generalised from the filing cockpit): a gradient card with ambient
+// stage-coloured glows, a narrative headline on the left, and a grid of icon'd status tiles (count-up) on the
+// right. This is what makes a page feel designed rather than a plain white stat row — use it as the lead on
+// operational pages. `title` should be a short narrative line ("1 filing needs you", "Your book vs a warming
+// world"); `stat` tiles carry the numbers. The glows read the page's --stage hue automatically.
+export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
+  eyebrow?: ReactNode; title: ReactNode; lead?: ReactNode
+  stat?: { label: string; value: string | number; tone?: string; icon?: React.ComponentType<{ size?: number }>; pulse?: boolean; onClick?: () => void }[]
+  className?: string
+}) {
+  const cols = stat.length <= 2 ? 'grid-cols-2' : stat.length === 3 ? 'grid-cols-3'
+    : stat.length === 5 ? 'grid-cols-2 sm:grid-cols-5' : stat.length >= 6 ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-4'
+  return (
+    <div className={clsx('relative overflow-hidden rounded-[18px] border border-[var(--color-line)]', className)}
+      style={{ background: 'linear-gradient(135deg, var(--color-panel-2) 0%, var(--color-panel) 46%, var(--color-bg-2) 100%)' }}>
+      <div aria-hidden className="pointer-events-none absolute -top-28 -right-16 h-72 w-72 rounded-full drift"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--stage, var(--color-blue)) 40%, transparent), transparent 68%)' }} />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-10 h-72 w-72 rounded-full"
+        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--color-blue) 22%, transparent), transparent 70%)' }} />
+      <div className={clsx('relative px-6 py-6 grid gap-6 items-center', stat.length ? 'lg:grid-cols-[1.05fr_1.45fr]' : '')}>
+        <div>
+          {eyebrow && <p className="mono text-[11px] uppercase tracking-[0.22em] m-0" style={{ color: 'var(--stage, var(--color-blue))' }}>{eyebrow}</p>}
+          <h2 className="display text-[26px] leading-[1.12] font-semibold mt-2 mb-2 text-[var(--color-ink)]" style={{ textWrap: 'balance' } as React.CSSProperties}>{title}</h2>
+          {lead && <p className="text-[13px] text-[var(--color-mute)] max-w-md leading-relaxed">{lead}</p>}
+        </div>
+        {stat.length > 0 && (
+          <div className={clsx('grid gap-3', cols)}>
+            {stat.map((t, i) => (
+              <div key={i} onClick={t.onClick}
+                className={clsx('rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5 transition',
+                  t.onClick && 'cursor-pointer hover:border-[var(--color-line-2)] hover:bg-[color-mix(in_oklab,var(--color-panel)_85%,transparent)]')}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  {t.icon && (
+                    <span className="relative inline-flex items-center justify-center h-6 w-6 rounded-lg" style={{ background: `color-mix(in oklab, ${t.tone || 'var(--color-sky)'} 16%, transparent)`, color: t.tone || 'var(--color-sky)' }}>
+                      {t.pulse && <span className="absolute inline-flex h-full w-full rounded-lg animate-ping" style={{ background: t.tone || 'var(--color-sky)', opacity: 0.35 }} />}
+                      <t.icon size={13} />
+                    </span>
+                  )}
+                  <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] leading-tight">{t.label}</span>
+                </div>
+                <div className="display text-[28px] leading-none font-semibold tabular-nums" style={{ color: t.tone || 'var(--color-ink)' }}>
+                  {typeof t.value === 'string' ? <CountUpText>{t.value}</CountUpText> : <CountUp value={t.value} />}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // The three oversight lenses over the same book. Each surface declares which lens it is, so the
@@ -85,7 +237,9 @@ export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: stri
   const c = { ink: 'text-[var(--color-ink)]', good: 'text-[var(--color-good)]', warn: 'text-[var(--color-warn)]', bad: 'text-[var(--color-bad)]' }[tone]
   return (
     <Card className="p-5">
-      <div className={clsx('display text-3xl font-semibold leading-none', c)}>{big}</div>
+      <div className={clsx('display text-3xl font-semibold leading-none tabular-nums', c)}>
+        {typeof big === 'string' ? <CountUpText>{big}</CountUpText> : big}
+      </div>
       <div className="text-xs text-[var(--color-mute)] mt-2">{label}</div>
     </Card>
   )
@@ -110,7 +264,7 @@ export function Button({ children, onClick, variant = 'primary', disabled, class
 }) {
   const base = 'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed'
   const v = variant === 'primary'
-    ? 'bg-[var(--color-sky)] text-[var(--color-on-accent)] hover:bg-[var(--color-blue)]'
+    ? 'btn-accent bg-[var(--color-sky)] text-[var(--color-on-accent)] hover:bg-[var(--color-blue)]'
     : 'border border-[var(--color-line-2)] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]'
   return <button onClick={onClick} disabled={disabled} className={clsx(base, v, className)}>{children}</button>
 }

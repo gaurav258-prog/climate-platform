@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2 } from 'lucide-react'
+import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Stat, Button } from '../components/ui'
+import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -35,23 +35,24 @@ export default function Platform() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Tellumen · platform operator</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Tenants</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff.</p>
-      </div>
+      <PageHeader eyebrow="Tellumen · platform operator" title="Tenants"
+        lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff." />
 
-      <div className="grid sm:grid-cols-5 gap-4">
-        <Stat big={d.totals.tenants} label="tenants" />
-        <Stat big={d.totals.users} label="users" />
-        <Stat big={d.totals.sites} label="sites" />
-        <Stat big={d.totals.plots} label="sourcing plots" />
-        <Stat big={d.totals.pending_approvals} label="pending approvals" tone={d.totals.pending_approvals ? 'warn' : 'ink'} />
-      </div>
+      <HeroBanner
+        eyebrow="Tellumen · platform operator"
+        title={d.totals.pending_approvals > 0 ? `${d.totals.pending_approvals} approval${d.totals.pending_approvals === 1 ? '' : 's'} waiting across your tenants.` : `${d.totals.tenants} organization${d.totals.tenants === 1 ? '' : 's'} on the platform.`}
+        lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff."
+        stat={[
+          { label: 'Tenants', value: d.totals.tenants, icon: Building2, tone: 'var(--color-sky)' },
+          { label: 'Users', value: d.totals.users, icon: Users, tone: 'var(--color-sky)' },
+          { label: 'Sites', value: d.totals.sites, icon: MapPin, tone: 'var(--color-sky)' },
+          { label: 'Sourcing plots', value: d.totals.plots, icon: Sprout, tone: 'var(--color-sky)' },
+          { label: 'Pending approvals', value: d.totals.pending_approvals, icon: Clock, tone: d.totals.pending_approvals ? '#E8853C' : '#4FA46E' },
+        ]} />
 
       <Card className="p-0 overflow-x-auto">
         <table className="w-full text-[13px]">
-          <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+          <thead><tr className="text-[var(--color-faint)] mono text-[11px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
             <th className="font-normal py-2.5 px-4">Tenant</th><th className="font-normal px-4">Type</th>
             <th className="font-normal px-4 text-right">Users</th><th className="font-normal px-4 text-right">Sites</th>
             <th className="font-normal px-4 text-right">Plots</th><th className="font-normal px-4 text-right">Pending</th>
@@ -102,7 +103,7 @@ function SupportQueue() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2"><LifeBuoy size={16} className="text-[var(--color-sky)]" /><h2 className="display text-xl font-semibold">Support queue</h2></div>
+        <SectionHead icon={LifeBuoy}>Support queue</SectionHead>
         {q.data && <span className="text-[12px] text-[var(--color-mute)]">{q.data.totals.awaiting_support} awaiting a reply · {q.data.totals.open} open</span>}
         <div className="ml-auto flex gap-2">
           {(['open', 'all'] as const).map(f => (
@@ -113,7 +114,7 @@ function SupportQueue() {
       <Card className="p-0 overflow-x-auto">
         {rows.length === 0 ? <div className="p-8 text-center text-[var(--color-faint)] text-sm">Nothing {status === 'open' ? 'open' : 'here'}.</div> : (
           <table className="w-full text-[13px]">
-            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
+            <thead><tr className="text-[var(--color-faint)] mono text-[11px] uppercase tracking-wide text-left border-b border-[var(--color-line)]">
               <th className="font-normal py-2.5 px-4">Tenant</th><th className="font-normal px-4">Request</th><th className="font-normal px-4">Type</th>
               <th className="font-normal px-4">Status</th><th className="font-normal px-4 text-right">Msgs</th><th className="font-normal px-4">Last</th><th className="font-normal px-4"></th>
             </tr></thead>

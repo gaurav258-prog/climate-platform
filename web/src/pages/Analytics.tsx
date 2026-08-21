@@ -10,7 +10,7 @@ import FiledForwardCard from '../components/FiledForwardCard'
 import AnalyticsViews from '../components/AnalyticsViews'
 import { downloadCsv } from '../lib/export'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { Eyebrow, Card, SectionHead, PageHeader } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
@@ -137,13 +137,9 @@ export default function Analytics() {
           <button onClick={clearFocus} className="ml-auto inline-flex items-center gap-1 mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] hover:text-[var(--color-ink)]">clear <X size={12} /></button>
         </div>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Eyebrow>{profile?.org?.name} · analytics</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Forward-looking analytics</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.{perils && ` Scoped to ${perils} perils.`}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader eyebrow={`${profile?.org?.name} · analytics`} title="Forward-looking analytics"
+        lead={`How the book’s climate exposure moves as the world warms — value at risk along each scenario pathway, and the hazards driving it.${perils ? ` Scoped to ${perils} perils.` : ''}`}
+        actions={<>
           {/* one flow: this is the deep version of Portfolio's Forward view */}
           <Link to="/portfolio?view=forward" className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
             <ChevronRight size={13} className="rotate-180" /> Your portfolio
@@ -155,8 +151,7 @@ export default function Analytics() {
           <button onClick={() => setAsTable(t => !t)} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
             {asTable ? <><LineIcon size={13} /> Charts</> : <><Table2 size={13} /> Table</>}
           </button>
-        </div>
-      </div>
+        </>} />
       <FiledForwardCard />
 
       {/* what-if — the two parameters the user drives; everything below recomputes live */}

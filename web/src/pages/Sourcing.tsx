@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Upload, Sprout } from 'lucide-react'
+import { Plus, Upload, Sprout, Coins, TreePine } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, Stat, StatusPill, Button, ExportButton } from '../components/ui'
+import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, SectionHead, PlainLead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
@@ -93,16 +93,9 @@ export default function Sourcing() {
 
   return (
     <div className="fadeup space-y-7">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Eyebrow>Agriculture · your book</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">Sourcing book</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-            Every plot you source from — geolocated, scored on live hazard, and (where EUDR-covered) checked against
-            satellite forest-loss. Add plots one at a time, or bulk-upload your whole procurement book.
-          </p>
-        </div>
-        {plots.length > 0 && <ExportButton className="mt-1 shrink-0" onExport={() => downloadCsv('tellumen-sourcing-plots',
+      <PageHeader eyebrow="Agriculture · your book" title="Sourcing book"
+        lead="Every plot you source from — geolocated, scored on live hazard, and (where EUDR-covered) checked against satellite forest-loss. Add plots one at a time, or bulk-upload your whole procurement book."
+        actions={plots.length > 0 ? <ExportButton onExport={() => downloadCsv('tellumen-sourcing-plots',
           [{ key: 'name', label: 'Plot' }, { key: 'commodity', label: 'Commodity' }, { key: 'region', label: 'Region' },
            { key: 'country', label: 'Country' }, { key: 'lat', label: 'Lat' }, { key: 'lon', label: 'Lon' },
            { key: 'spend', label: 'Annual spend (EUR)' }, { key: 'hazard', label: 'Worst hazard' }, { key: 'score', label: 'Score' },
@@ -112,25 +105,25 @@ export default function Sourcing() {
             spend: p.spend_eur ?? '', hazard: p.top_hazard ? hazardLabel(p.top_hazard) : '', score: p.hazard_score ?? '',
             eudr: p.eudr_covered ? 'yes' : 'no', determination: p.eudr_determination ?? '',
           })),
-          { title: 'Sourcing book', org: profile?.org?.name })} />}
-      </div>
+          { title: 'Sourcing book', org: profile?.org?.name })} /> : undefined} />
 
-      <div className="grid sm:grid-cols-3 gap-4">
-        <Stat big={plots.length} label="sourcing plots" />
-        <Stat big={eur(totalSpend)} label="annual spend" />
-        <Stat big={eudrPlots} label="EUDR-covered plots" />
-      </div>
+      <HeroBanner
+        eyebrow="Your sourcing book"
+        title="Every plot you source, on live hazard."
+        lead="Geolocated and scored on live hazard, and — where EUDR-covered — checked against satellite forest-loss."
+        stat={[
+          { label: 'sourcing plots', value: plots.length, icon: Sprout, tone: 'var(--color-sky)' },
+          { label: 'annual spend', value: eur(totalSpend), icon: Coins },
+          { label: 'EUDR-covered plots', value: eudrPlots, icon: TreePine, tone: '#4FA46E' },
+        ]} />
 
       {/* annual spend exposed by hazard — plain-language, traffic-light */}
       {hazGroups.length > 0 && (
         <Card className="p-5">
-          <div className="flex items-baseline justify-between mb-1">
-            <span className="text-[14px] font-semibold">Annual spend at risk, by threat</span>
-            <span className="text-[11px] text-[var(--color-faint)]">worst threat first · colour = severity</span>
-          </div>
-          <p className="text-[12px] text-[var(--color-mute)] mb-4">
+          <SectionHead hint="worst threat first · colour = severity" className="mb-1">Annual spend at risk, by threat</SectionHead>
+          <PlainLead className="mb-4">
             How much of your yearly procurement spend sits on plots whose biggest climate threat is each of these.
-          </p>
+          </PlainLead>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {hazGroups.map(([hz, g]) => (
               <div key={hz} className="rounded-xl border p-3.5" style={{ borderColor: `${sevColor(g.worst)}55`, background: `${sevColor(g.worst)}10` }}>
@@ -148,7 +141,7 @@ export default function Sourcing() {
 
       {/* add plots — single, or bulk CSV */}
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-3"><Plus size={16} className="text-[var(--color-sky)]" /><span className="text-[14px] font-semibold">Add sourcing plots</span></div>
+        <SectionHead icon={Plus} className="mb-3">Add sourcing plots</SectionHead>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Plot name *"><input className={inp} value={form.plot_name} onChange={e => setForm({ ...form, plot_name: e.target.value })} placeholder="e.g. Côte d'Ivoire cocoa lot 12" /></Field>
           <Field label="Commodity *">

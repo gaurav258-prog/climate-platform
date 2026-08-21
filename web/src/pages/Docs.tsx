@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BookOpen, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 import { DOCS, DOC_CATEGORIES, type DocArticle } from '../content/docs'
 
 export default function Docs() {
@@ -27,14 +27,8 @@ export default function Docs() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>Help · documentation</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Documentation</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
-          How the software works, how to get your data in, and how a disclosure is produced and governed —
-          written for your risk, data and compliance teams.
-        </p>
-      </div>
+      <PageHeader eyebrow="Help · documentation" title="Documentation"
+        lead="How the software works, how to get your data in, and how a disclosure is produced and governed — written for your risk, data and compliance teams." />
 
       <div className="grid lg:grid-cols-[minmax(0,300px)_1fr] gap-6 items-start">
         {/* index */}
@@ -46,7 +40,7 @@ export default function Docs() {
           </div>
           {DOC_CATEGORIES.filter(c => byCat(c).length > 0).map(cat => (
             <div key={cat}>
-              <div className="mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-1.5 px-1">{cat}</div>
+              <div className="mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--color-faint)] mb-1.5 px-1">{cat}</div>
               <div className="space-y-0.5">
                 {byCat(cat).map(d => (
                   <button key={d.slug} onClick={() => setSlug(d.slug)}

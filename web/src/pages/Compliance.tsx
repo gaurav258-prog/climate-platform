@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead } from '../components/ui'
+import { SlidersHorizontal, AlertTriangle, Coins } from 'lucide-react'
+import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 
@@ -39,11 +40,7 @@ export default function Compliance() {
 
   return (
     <div className="fadeup space-y-6">
-      <div>
-        <Eyebrow>{profile?.org?.name} · reporting</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">{meta.title}</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">{meta.blurb}</p>
-      </div>
+      <PageHeader eyebrow={`${profile?.org?.name} · reporting`} title={meta.title} lead={meta.blurb} />
 
       {/* the filing workspace — requirements, eligibility & coverage, basis, calendar, register + the drawer
           (final form → recon → submit). Hidden for sectors with no frameworks wired. */}
@@ -63,11 +60,15 @@ function TriggersView() {
   return (
     <div className="space-y-4">
       <SectionHead hint="live monitoring">Parametric cover</SectionHead>
-      <div className="grid grid-cols-3 gap-3">
-        <Kpi label="configured triggers" value={String(r.n_configured)} />
-        <Kpi label="breached now" value={String(r.n_triggered_now)} tone={r.n_triggered_now > 0 ? '#E9744A' : undefined} />
-        <Kpi label="payout if breached" value={eur(r.total_payout_if_triggered_eur)} />
-      </div>
+      <HeroBanner
+        eyebrow="Parametric cover"
+        title={r.n_triggered_now > 0 ? `${r.n_triggered_now} trigger${r.n_triggered_now === 1 ? '' : 's'} breached now.` : 'All parametric triggers within band.'}
+        lead="Live index-based cover monitoring — which triggers have breached, and the payout they would release."
+        stat={[
+          { label: 'Configured triggers', value: r.n_configured, icon: SlidersHorizontal, tone: 'var(--color-sky)' },
+          { label: 'Breached now', value: r.n_triggered_now, icon: AlertTriangle, tone: r.n_triggered_now > 0 ? '#D23B3B' : '#4FA46E', pulse: r.n_triggered_now > 0 },
+          { label: 'Payout if breached', value: eur(r.total_payout_if_triggered_eur), icon: Coins, tone: r.n_triggered_now > 0 ? '#E8853C' : undefined },
+        ]} />
       {q.data.configured.length === 0
         ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">No parametric triggers configured yet. Configure index-based cover on a policy to monitor breaches here.</Card>
         : <div className="space-y-6">
@@ -103,11 +104,3 @@ function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerR
   )
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <Card className="px-4 py-3.5">
-      <div className="display text-[26px] leading-none" style={tone ? { color: tone } : undefined}>{value}</div>
-      <div className="mono text-[10.5px] tracking-[0.14em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
-    </Card>
-  )
-}

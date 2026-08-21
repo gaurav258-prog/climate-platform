@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus } from 'lucide-react'
+import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
-import { Eyebrow, Card, Lens, ExportButton } from '../components/ui'
+import { Card, Lens, ExportButton, PageHeader, HeroBanner } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
@@ -70,6 +70,9 @@ export default function Kri() {
   const kindOf = (k: Kpi): 'computed' | 'integrated' => k.kind ?? (k.integrated ? 'integrated' : 'computed')
   const nComputed = d?.kpis?.filter(k => kindOf(k) === 'computed').length ?? 0
   const nIntegrated = d?.kpis?.filter(k => kindOf(k) === 'integrated').length ?? 0
+  const nRed = d?.kpis?.filter(k => k.status === 'red').length ?? 0
+  const nAmber = d?.kpis?.filter(k => k.status === 'amber').length ?? 0
+  const nOk = d?.kpis?.filter(k => k.status === 'ok').length ?? 0
   // act on breaches from here: jump to the off-appetite indicators, and raise a remediation task on one.
   const [onlyBreaches, setOnlyBreaches] = useState(false)
   const [raising, setRaising] = useState<string | null>(null)
@@ -101,17 +104,12 @@ export default function Kri() {
 
   return (
     <div className="fadeup space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Eyebrow>Regulatory intelligence</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2 mb-1">KRI dashboard</h1>
-          <p className="text-[var(--color-mute)] text-sm max-w-2xl">A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings.</p>
-        </div>
-        <div className="flex items-center gap-2 mt-1 shrink-0">
+      <PageHeader eyebrow="Regulatory intelligence" title="KRI dashboard"
+        lead="A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings."
+        actions={<>
           {d?.supported && !!d.kpis?.length && <ExportButton onExport={exportKri} />}
           <Lens kind="governance" />
-        </div>
-      </div>
+        </>} />
 
       {/* framework picker — shown when the org reports on more than one (e.g. a bank: TCFD + Pillar 3 ESG) */}
       {frameworks.length > 1 && (
@@ -127,6 +125,17 @@ export default function Kri() {
         : !d || !d.supported ? <Card className="p-10 text-[13px] text-[var(--color-mute)]">{d?.message ?? 'No KRI dashboard for this sector yet.'}</Card>
         : (
         <>
+          {/* lead with the answer: how the book's indicators sit against appetite right now */}
+          <HeroBanner
+            eyebrow="KRI dashboard"
+            title={nRed > 0 ? `${nRed} indicator${nRed === 1 ? '' : 's'} in breach.` : nAmber > 0 ? `${nAmber} indicator${nAmber === 1 ? '' : 's'} in warning.` : 'Every indicator is within appetite.'}
+            lead="How the book's key risk indicators sit against appetite right now — before you drill into any one hazard."
+            stat={[
+              { label: 'Indicators tracked', value: d.kpis.length, icon: Gauge, tone: 'var(--color-sky)' },
+              { label: 'Within appetite', value: nOk, icon: CheckCircle2, tone: nOk > 0 ? '#4FA46E' : undefined },
+              { label: 'Warning', value: nAmber, icon: AlertTriangle, tone: nAmber > 0 ? '#E8853C' : undefined },
+              { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? '#D23B3B' : '#4FA46E', pulse: nRed > 0 },
+            ]} />
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
           {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (

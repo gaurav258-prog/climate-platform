@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth'
 import App from './App'
 import Toaster from './components/Toaster'
 import './index.css'
+import './skins.css'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 

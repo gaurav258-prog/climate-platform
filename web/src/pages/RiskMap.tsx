@@ -5,7 +5,7 @@ import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { api } from '../lib/api'
 import { PLACE_LABELS } from '../lib/placeLabels'
-import { Eyebrow, Card } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 
 interface Plot {
@@ -195,15 +195,12 @@ export default function RiskMap() {
 
   return (
     <div className="fadeup space-y-5">
-      <div>
-        <Eyebrow>Agriculture · where the risk sits</Eyebrow>
-        <h1 className="display text-3xl font-semibold mt-2 mb-1">Risk map</h1>
-        <p className="text-[var(--color-mute)] text-sm max-w-2xl">
+      <PageHeader eyebrow="Agriculture · where the risk sits" title="Risk map"
+        lead={<>
           The Earth as we index it — broken into <span className="text-[var(--color-ink)]">H3 hexagonal cells</span>.
           Each cell around your book carries its own hazard reading from the golden source. Zoom in and the cells get
           finer. Click a hexagon or a plot for the detail.
-        </p>
-      </div>
+        </>} />
 
       <div className="flex flex-wrap items-center gap-4 text-[12px] text-[var(--color-mute)]">
         <Legend c="#34d399" l="low (<40)" /><Legend c="#f59e0b" l="medium (40–60)" />

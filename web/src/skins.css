@@ -1,0 +1,146 @@
+/* ============================================================================
+   Tellumen SKIN LAYER — reversible visual directions.
+
+   A "skin" is a whole visual direction (surfaces, depth, glow, motion), chosen
+   independently of the light/dark THEME. It is selected by `data-skin` on <html>
+   (set in index.html, persisted as `tellumen.skin`; default "terminal").
+
+   REVERSIBILITY CONTRACT
+   ----------------------
+   * Every enriched rule below is scoped under `[data-skin="terminal"]`.
+   * The base color/typography tokens still live in index.css and are untouched.
+   * To switch direction later: fill in the `[data-skin="luxe"]` / `[data-skin="vibrant"]`
+     blocks and change the default in index.html — NO component edits required.
+   * To fully revert to the pre-skin look: set data-skin to anything unstyled (or
+     remove this import). The app renders exactly as it did before, because nothing
+     here changes structure — only tokens and the `.card`/hover/background surface.
+
+   This file is imported AFTER index.css, so its `.card` (scoped) wins by cascade.
+   ============================================================================ */
+
+/* ---- Visual-grammar token DEFAULTS (safe fallbacks; any skin may override) ---- */
+:root {
+  --radius: 14px;
+  --radius-lg: 18px;
+  --dur-1: .14s;
+  --dur-2: .28s;
+  --dur-3: .5s;
+  --ease: cubic-bezier(.22,.61,.36,1);      /* ease-out, gentle */
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --elev-1: 0 1px 2px rgba(8,15,30,.06);
+  --elev-2: 0 6px 20px -10px rgba(8,15,30,.18);
+  --elev-3: 0 18px 50px -18px rgba(8,15,30,.30);
+  --app-bg: var(--color-bg);
+  --surface: var(--color-panel);
+  --surface-top: transparent;               /* faint top-edge highlight on cards */
+  --accent-glow: transparent;               /* accent halo colour (transparent = off) */
+}
+
+/* ============================================================================
+   SKIN · TERMINAL  — dark-premium intelligence terminal (the current default).
+   Deep layered surfaces, ambient depth, luminous data accents, refined motion.
+   Works in both themes; richest in dark (the terminal's home).
+   ============================================================================ */
+[data-skin="terminal"] {
+  --radius: 15px;
+  --radius-lg: 20px;
+  --surface-top: color-mix(in oklab, var(--color-sky) 8%, transparent);
+  --accent-glow: color-mix(in oklab, var(--color-sky) 42%, transparent);
+  --elev-2: 0 8px 26px -12px rgba(4,10,24,.55), 0 2px 6px -2px rgba(4,10,24,.4);
+  --elev-3: 0 26px 70px -22px rgba(4,10,24,.7), 0 8px 24px -12px rgba(4,10,24,.5);
+}
+
+/* ambient canvas — very soft radial glows over the base bg; token-driven so a skin
+   swap replaces the whole atmosphere. Fixed attachment so it doesn't scroll-jank. */
+[data-skin="terminal"] {
+  --app-bg:
+    radial-gradient(1200px 700px at 12% -8%, color-mix(in oklab, var(--color-sky) 12%, transparent), transparent 60%),
+    radial-gradient(1100px 800px at 108% 10%, color-mix(in oklab, var(--color-blued) 16%, transparent), transparent 55%),
+    radial-gradient(900px 900px at 85% 115%, color-mix(in oklab, var(--color-warn) 7%, transparent), transparent 60%),
+    var(--color-bg);
+}
+[data-skin="terminal"] body {
+  background: var(--app-bg);
+  background-attachment: fixed;
+}
+
+/* the workhorse surface — every <Card> and .card upgrades here.
+   A subtle vertical sheen + a hairline top highlight + layered elevation. */
+[data-skin="terminal"] .card {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-panel) 92%, var(--color-bg-2) 8%), var(--color-panel));
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-2);
+  position: relative;
+  transition: box-shadow var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+/* the top-edge light — a 1px inner highlight that reads as glass under a light source */
+[data-skin="terminal"] .card::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding-top: 1px;
+  background: linear-gradient(180deg, var(--surface-top), transparent 40%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* hover-lift — the transform lives ONLY during :hover and reverts, so it never leaves
+   a retained transform (which would make a card a containing block for fixed drawers).
+   Opt-in via the `.lift` class so dense/table cards can stay put. */
+[data-skin="terminal"] .lift { cursor: pointer; }
+[data-skin="terminal"] .lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--elev-3);
+  border-color: color-mix(in oklab, var(--color-sky) 40%, var(--color-line));
+}
+
+/* primary buttons get a soft accent halo — reads premium, still calm */
+[data-skin="terminal"] .btn-accent,
+[data-skin="terminal"] button.btn-accent {
+  box-shadow: 0 6px 18px -8px var(--accent-glow), inset 0 1px 0 color-mix(in oklab, #fff 22%, transparent);
+}
+
+/* focus ring — a luminous, keyboard-visible ring in the accent hue (a11y + polish) */
+[data-skin="terminal"] :focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-sky) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* refined scrollbars for the skin */
+[data-skin="terminal"] *::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-line-2) 80%, var(--color-sky) 20%);
+}
+
+/* ---- reusable motion the pages/components opt into ---- */
+/* count-up / draw-in helpers are JS (AnimatedNumber); these are the CSS ones. */
+@keyframes sheen { from { background-position: -140% 0; } to { background-position: 240% 0; } }
+/* a live "scanning" shimmer for loading/hero accents — reduced-motion safe (guard below) */
+.shimmer {
+  background: linear-gradient(100deg, transparent 30%, color-mix(in oklab, var(--color-sky) 22%, transparent) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: sheen 2.6s var(--ease) infinite;
+}
+
+/* ============================================================================
+   SKIN · LUXE (light editorial)  — RESERVED, empty on purpose.
+   Fill these tokens/rules to switch the whole app to the warm paper-and-ink,
+   oversized-serif direction. No component changes needed. Example starting point:
+     [data-skin="luxe"] { --radius: 4px; --app-bg: #f6f3ec; --surface: #fffdf8; ... }
+   ============================================================================ */
+[data-skin="luxe"] { /* intentionally empty — reversible target */ }
+
+/* ============================================================================
+   SKIN · VIBRANT (data-forward)  — RESERVED, empty on purpose.
+   Fill to switch to the saturated, gradient-hero, playful-motion direction.
+   ============================================================================ */
+[data-skin="vibrant"] { /* intentionally empty — reversible target */ }
+
+/* honour reduced-motion for the skin's own animations */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none; }
+  [data-skin="terminal"] .lift:hover { transform: none; }
+}

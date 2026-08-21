@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Download, Map as MapIcon, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, Eyebrow } from '../components/ui'
+import { Card, PageHeader, SectionHead } from '../components/ui'
 import MiniMap from '../components/MiniMap'
 import LocationEditor from '../components/LocationEditor'
 import { hazardLabel } from '../lib/hazards'
@@ -36,17 +36,13 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
       <Link to={kind === 'site' ? '/operations' : '/sourcing'} className="inline-flex items-center gap-1.5 text-[13px] text-[var(--color-mute)] hover:text-[var(--color-sky)]">
         <ArrowLeft size={15} /> back to {kind === 'site' ? 'Operations' : 'Sourcing book'}
       </Link>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Eyebrow>{kind === 'site' ? 'Operational site' : 'Sourcing plot'}</Eyebrow>
-          <h1 className="display text-3xl font-semibold mt-2">{n.title}</h1>
-          <p className="text-[var(--color-mute)] text-sm mt-1">{n.sub}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="mono text-[12px] text-[var(--color-faint)]">worst hazard</span>
-          <span className="text-3xl font-semibold mono" style={{ color: hz(worst) }}>{Math.round(worst)}</span>
-        </div>
-      </div>
+      <PageHeader eyebrow={kind === 'site' ? 'Operational site' : 'Sourcing plot'} title={n.title} lead={n.sub}
+        actions={
+          <div className="flex items-center gap-3">
+            <span className="mono text-[12px] text-[var(--color-faint)]">worst hazard</span>
+            <span className="text-3xl font-semibold mono" style={{ color: hz(worst) }}>{Math.round(worst)}</span>
+          </div>
+        } />
 
       <LocationEditor kind={kind} id={id as string} record={(d![kind] as Record<string, unknown>) ?? {}} onChanged={() => q.refetch()} />
 
@@ -57,7 +53,7 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
             ? <MiniMap lat={n.lat} lon={n.lon} color={hz(worst)} />
             : <Card className="p-8 text-center text-[var(--color-faint)] text-sm">no coordinates for this {kind}</Card>}
           <Card className="p-5">
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Key facts</div>
+            <SectionHead className="mb-3">Key facts</SectionHead>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-[13px]">
               {n.facts.map((f, i) => (
                 <div key={i} className="flex justify-between border-b border-[var(--color-line)] pb-1.5">
@@ -71,7 +67,7 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
         {/* hazards + adaptation */}
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-3">Hazards on this cell</div>
+            <SectionHead className="mb-3">Hazards on this cell</SectionHead>
             <div className="space-y-2.5">
               {n.hazards.filter(h => h.score != null).map((h, i) => (
                 <div key={i}>
@@ -90,19 +86,14 @@ export default function DetailView({ kind }: { kind: 'site' | 'plot' }) {
 
           {n.irrigationContext?.note && (
             <Card className="p-4">
-              <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">
-                Water management · declared {n.irrigationContext.status.replace('_', '-')}
-              </div>
+              <SectionHead className="mb-1.5">Water management · declared {n.irrigationContext.status.replace('_', '-')}</SectionHead>
               <div className="text-[12.5px] text-[var(--color-mute)] leading-relaxed">{n.irrigationContext.note}</div>
             </Card>
           )}
 
           {n.adaptation.length > 0 && (
             <Card className="p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <ShieldAlert size={15} className="text-[var(--color-sky)]" />
-                <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Adaptation — what to do</span>
-              </div>
+              <SectionHead icon={ShieldAlert} className="mb-3">Adaptation — what to do</SectionHead>
               <div className="space-y-3">
                 {n.adaptation.map((a, i) => (
                   <div key={i}>
