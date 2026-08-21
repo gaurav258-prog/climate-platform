@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X, ShieldCheck, RotateCcw, Save, Clock, MapPin } from 'lucide-react'
+import { X, ShieldCheck, RotateCcw, Save, Clock, MapPin, ExternalLink } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -55,6 +55,41 @@ const errText = (e: unknown, fb: string) => {
     return b?.message ?? b?.error?.message ?? fb
   }
   return fb
+}
+
+// Drill THROUGH to the customer's source system: resolves this entity to the deep link that opens the source
+// record (GL / core-banking / LOS) in their own system, under their own auth. Honest empty state — if no system
+// is connected, only an admin sees the hint to set one up; the record itself is never pulled into Tellumen.
+interface DrillLink { system: string; kind: string; url: string }
+interface DrillResp { available: boolean; links?: DrillLink[]; reason?: string; can_configure?: boolean }
+function DrillThrough({ entityId }: { entityId: string }) {
+  const q = useQuery({ queryKey: ['drill-through', entityId], queryFn: () => api.get<DrillResp>(`/v1/source-systems/drill-through/${entityId}`) })
+  const d = q.data
+  if (!d) return null
+  if (d.available && d.links?.length) {
+    return (
+      <div className="flex flex-wrap gap-2 mt-2.5">
+        {d.links.map((l, i) => (
+          <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 text-[12px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"
+            title={`Open this record in ${l.system} (opens in a new tab)`}>
+            <ExternalLink size={13} /> Open in {l.system}
+          </a>
+        ))}
+      </div>
+    )
+  }
+  // not linked — only nudge an admin who can actually wire it up
+  if (d.can_configure) {
+    return (
+      <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2.5">
+        {d.reason === 'no_source_system'
+          ? 'Connect a source system in Settings → Integrations to drill through to the record.'
+          : 'This record isn’t linked to a source system yet.'}
+      </div>
+    )
+  }
+  return null
 }
 
 export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: DrawerCfg; id: string; onClose: () => void; onChanged: () => void }) {
@@ -116,6 +151,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
                 {(region || country) && <span>· {[region, country].filter(Boolean).join(', ')}</span>}
                 {lat != null && lon != null && <span className="inline-flex items-center gap-1"><MapPin size={10} /> {Math.abs(lat).toFixed(2)}°{lat >= 0 ? 'N' : 'S'}, {Math.abs(lon).toFixed(2)}°{lon >= 0 ? 'E' : 'W'}</span>}
               </div>
+              <DrillThrough entityId={id} />
             </div>
 
             {/* hazards */}

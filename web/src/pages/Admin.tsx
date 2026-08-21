@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge } from 'lucide-react'
+import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Card, Button, Stat, PageHeader } from '../components/ui'
+import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
@@ -230,7 +230,64 @@ function Integrations() {
       </Card>
 
       <Webhooks />
+      <SourceSystems />
     </div>
+  )
+}
+
+interface SrcSystem { key: string; name: string; kind: string; deep_link_template: string; active: boolean }
+const SRC_KINDS = ['core_banking', 'gl', 'los', 'warehouse', 'gis', 'other']
+// Register the customer's systems of record so a user can drill from a Tellumen figure through to the SOURCE
+// record. Deep-link only — Tellumen stores the link template, never the source data.
+function SourceSystems() {
+  const q = useQuery({ queryKey: ['source-systems'], queryFn: () => api.get<{ systems: SrcSystem[] }>('/v1/source-systems') })
+  const [f, setF] = useState({ key: '', name: '', kind: 'core_banking', deep_link_template: '' })
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    if (!f.key || !f.name || !f.deep_link_template) { toast.error('Fill key, name and the link template.'); return }
+    setBusy(true)
+    try {
+      await api.post('/v1/source-systems', f)
+      toast.success(`Registered ${f.name}.`)
+      setF({ key: '', name: '', kind: 'core_banking', deep_link_template: '' }); q.refetch()
+    } catch {
+      toast.error('Could not register — the link template must be https and contain {id}.')
+    } finally { setBusy(false) }
+  }
+  const systems = q.data?.systems ?? []
+  return (
+    <Card className="p-5">
+      <SectionHead icon={ExternalLink} hint="drill from a figure to its source record">Source systems</SectionHead>
+      <p className="text-[12.5px] text-[var(--color-mute)] max-w-3xl mt-1.5 leading-relaxed">
+        Register your systems of record (GL, core banking, loan origination, warehouse, GIS). A user can then open a Tellumen figure’s source record in that system from the asset drawer. <span className="text-[var(--color-ink)]">Deep-link only</span> — Tellumen stores the link template, never the source data; the record opens under your own system’s login. Use <span className="mono">{'{id}'}</span> in the URL for the source record id.
+      </p>
+
+      {systems.length > 0 && (
+        <div className="mt-4 divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
+          {systems.map(s => (
+            <div key={s.key} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-2.5 text-[12.5px]">
+              <span className="font-medium text-[var(--color-ink)]">{s.name}</span>
+              <span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)]">{s.kind.replace('_', ' ')}</span>
+              <span className="flex-1 min-w-0 mono text-[11px] text-[var(--color-faint)] truncate">{s.deep_link_template}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 gap-3 mt-4 max-w-3xl">
+        <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="Display name (e.g. Finacle core banking)"
+          className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px]" />
+        <input value={f.key} onChange={e => setF({ ...f, key: e.target.value.replace(/[^a-z0-9_]/g, '') })} placeholder="key (e.g. core_banking)"
+          className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px] mono" />
+        <select value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })}
+          className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px]">
+          {SRC_KINDS.map(k => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+        </select>
+        <input value={f.deep_link_template} onChange={e => setF({ ...f, deep_link_template: e.target.value })} placeholder="https://gl.example.com/account/{id}"
+          className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px] mono" />
+      </div>
+      <div className="mt-3"><Button onClick={submit} disabled={busy}>{busy ? 'Registering…' : 'Register source system'}</Button></div>
+    </Card>
   )
 }
 

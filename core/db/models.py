@@ -414,3 +414,40 @@ class DamageAssessment(Base):
 
     # Relationships
     event = relationship("SeismicEvent", back_populates="damage_assessments")
+
+
+class SourceSystem(Base):
+    """A customer's external system of record (GL / core-banking, loan-origination, data warehouse, GIS),
+    registered so a user can drill from a Tellumen figure through to the SOURCE record. Phase 1 is deep-link
+    only: the external app renders the record under its own auth; Tellumen stores no source data, only the
+    link template. (Phase 2 = read-through data-pull, which additionally needs identity federation.)"""
+
+    __tablename__ = "source_systems"
+
+    source_system_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), nullable=False)
+    key = Column(String(64), nullable=False)          # stable handle, e.g. 'core_banking'
+    name = Column(String(120), nullable=False)         # display, e.g. 'Finacle core banking'
+    kind = Column(String(40), nullable=False, default="other")  # gl/core_banking/los/warehouse/gis/other
+    deep_link_template = Column(Text, nullable=False)  # 'https://gl.example.com/account/{id}' — {id}=source_record_id
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(255))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+    __table_args__ = (UniqueConstraint("org_id", "key", name="uq_source_system_org_key"),)
+
+
+class EntitySourceRef(Base):
+    """Links one Tellumen entity (a loan / policy / property / plot row) to its record id in a registered
+    source system — the pointer that makes drill-through possible. Additive; stores only the id, no source data."""
+
+    __tablename__ = "entity_source_refs"
+
+    ref_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id = Column(UUID(as_uuid=True), nullable=False)
+    entity_id = Column(UUID(as_uuid=True), nullable=False)   # portfolio_entities.entity_id (or sector equivalent)
+    source_system_key = Column(String(64), nullable=False)
+    source_record_id = Column(String(200), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+    __table_args__ = (UniqueConstraint("org_id", "entity_id", "source_system_key", name="uq_entity_source_ref"),)
