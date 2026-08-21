@@ -42,6 +42,7 @@ interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independen
 interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
 interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
+interface EnergyStranding { floor_epc: string; n_properties: number; n_assessed: number; n_no_epc: number; n_below_floor: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_portfolio_value_below_floor: number; epc_coverage_pct: number; note: string }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -246,6 +247,9 @@ export default function Portfolio() {
 
       {/* resilience & adaptation capex — spend vs avoided loss + Taxonomy-aligned capex (REIT). */}
       <ResilienceCard rc={r?.resilience_capex as Resilience | undefined} />
+
+      {/* transition risk — energy-performance (EPC) stranding under a rising minimum-to-let floor (REIT). */}
+      <EnergyStrandingCard es={r?.energy_stranding as EnergyStranding | undefined} />
 
       {view === 'forward' ? (
         <div className="space-y-6">
@@ -535,6 +539,39 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
 const HAZARD_LABEL: Record<string, string> = {
   flood: 'Flooding', coastal_flood: 'Coastal flood', storm: 'Storms', wildfire: 'Wildfire', seismic: 'Earthquake',
   heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
+}
+
+function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
+  if (!es || !es.n_assessed) return null
+  const hasRisk = es.n_below_floor > 0
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Energy-performance stranding · transition risk</span>
+        <span className="text-[12px] text-[var(--color-mute)]">below a rising minimum-to-let EPC floor</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{es.n_below_floor}/{es.n_properties} below EPC {es.floor_epc} · {es.epc_coverage_pct}% with an EPC</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(es.value_at_stranding_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Value at stranding risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(es.retrofit_capex_to_derisk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: es.pct_portfolio_value_below_floor > 0 ? '#E8B24C' : 'var(--color-ink)' }}>{es.pct_portfolio_value_below_floor}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of portfolio value below floor</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{es.n_below_floor}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Properties below floor</div>
+        </div>
+      </div>
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{es.note}</div>
+    </Card>
+  )
 }
 
 function ResilienceCard({ rc }: { rc?: Resilience }) {
