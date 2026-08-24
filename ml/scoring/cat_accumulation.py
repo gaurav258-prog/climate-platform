@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-_BASE_RETURN_PERIODS = [10, 50, 100, 250]
+_BASE_RETURN_PERIODS = [10, 50, 100, 200, 250]   # 200 = Solvency II 99.5% VaR; always in the ladder
 _DEFAULT_PML_RETURN_PERIOD = 250
 _DEFAULT_SIMS = 30000
 

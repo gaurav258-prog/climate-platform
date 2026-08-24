@@ -28,7 +28,8 @@ def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integra
 
 # the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
 _KRI_LABELS = {"bank_tcfd": "TCFD · Taxonomy", "bank_p3esg": "Pillar 3 ESG", "sfdr_pai": "SFDR PAI",
-               "reit_tcfd": "TCFD · property", "insurer_climate": "Climate / NatCat", "esrs_pack": "ESRS E1·E3·E4"}
+               "reit_tcfd": "TCFD · property", "insurer_climate": "Climate / NatCat", "esrs_pack": "ESRS E1·E3·E4",
+               "assetmgmt_tcfd": "TCFD · holdings"}
 
 
 def kri_frameworks(org_type: str | None) -> list[dict]:
@@ -49,6 +50,8 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
         result = _reit_kri(session, org_id)
     elif framework == "insurer_climate":
         result = _insurer_kri(session, org_id)
+    elif framework == "assetmgmt_tcfd":
+        result = _assetmgmt_kri(session, org_id)
     elif framework in ("csrd_e1", "esrs_pack"):
         result = _agri_kri(session, org_id, framework)
     else:
@@ -98,6 +101,13 @@ def _reit_kri(session: Session, org_id: str) -> dict:
                          tone="#f0a860", hint=f"Share of portfolio value below the modelled EPC-{es.get('floor_epc')} "
                                               f"minimum-to-let (transition/stranding risk); {es.get('epc_coverage_pct')}% "
                                               "of the book carries an EPC"))
+    # adaptation — resilience capex to de-risk and the loss it avoids (benefit-cost)
+    rc = r.get("resilience_capex") or {}
+    if rc.get("available"):
+        kpis.append(_kpi("resilience_capex", "Resilience capex to de-risk", round(rc.get("total_resilience_capex_eur") or 0), "eur",
+                         tone="#f0a860", hint=(f"Adaptation capex modelled against {round((rc.get('total_avoided_loss_eur') or 0)/1e6,1)}m "
+                                               f"avoided physical loss (benefit-cost {rc.get('portfolio_benefit_cost_ratio')}×); "
+                                               f"{round((rc.get('taxonomy_adaptation_aligned_capex_eur') or 0)/1e6,1)}m Taxonomy adaptation-aligned")))
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_value_eur"),
                 "value_at_risk": _hplus((h["payload"].get("rollup") or {}).get("by_bucket", {}), "value_eur"),
@@ -123,34 +133,81 @@ def _insurer_kri(session: Session, org_id: str) -> dict:
         _kpi("value_at_risk", "Sum insured at risk (High+)", round(var), "eur"),
         _kpi("coverage", "Policies priced", cov, "pct"),
     ]
-    # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
-    try:
-        from api.routers.insurance import investments as _inv_ep
-        inv = _inv_ep(session, org_id, s["scenario"], s["horizon"])
-        iv = inv.get("climate_var") or {}
-        if iv.get("available"):
-            kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", round(iv.get("var99_eur") or 0), "eur",
-                             tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own "
-                                                  f"investment book ({inv.get('coverage_pct')}% of positions scored) — "
-                                                  "the asset side, EIOPA/IFRS S2"))
-    except Exception:
-        pass
+    # Catastrophe PML — the correlated 1-in-N tail the summed EALs hide (read from the frozen snapshot).
+    cat = r.get("catastrophe") or {}
+    if cat.get("available"):
+        kpis.append(_kpi("cat_pml", f"Catastrophe PML (1-in-{cat.get('pml_return_period')})", round(cat.get("pml_eur") or 0), "eur",
+                         tone="#fb7185", hint="Probable maximum loss — the single largest modelled event at the chosen "
+                                              "return period, from the common-shock accumulation engine"))
     # Solvency II NatCat capital — the 1-in-200 (99.5% VaR) modelled catastrophe charge (internal-model basis)
-    try:
-        from api.routers.insurance import solvency_scr as _scr_ep
-        scr = _scr_ep(session, org_id, s["scenario"], s["horizon"])
-        if scr.get("available"):
-            kpis.append(_kpi("natcat_scr", "NatCat SCR (99.5%, modelled)", round(scr.get("natcat_scr_eur") or 0), "eur",
-                             tone="#f0a860", hint="Modelled 1-in-200 (99.5% VaR) catastrophe capital charge, "
-                                                  "internal-model basis; the standard-formula SCR uses EIOPA's "
-                                                  "prescribed regional factors (governed input to load)"))
-    except Exception:
-        pass
+    scr = snap.get("solvency_scr") or {}
+    if scr.get("available"):
+        kpis.append(_kpi("natcat_scr", "NatCat SCR (99.5%, modelled)", round(scr.get("natcat_scr_eur") or 0), "eur",
+                         tone="#f0a860", hint="Modelled 1-in-200 (99.5% VaR) catastrophe capital charge, internal-model "
+                                              "basis; the standard-formula SCR uses EIOPA's prescribed regional factors "
+                                              "(governed input to load)"))
+    # Net-of-reinsurance retention — the loss that actually hits capital after ceding (illustrative program).
+    reins = snap.get("reinsurance") or {}
+    net = reins.get("net") or {}
+    if reins.get("available") and net:
+        kpis.append(_kpi("net_retention", "Net retention (post-reinsurance PML)", round(net.get("net_pml_eur") or 0), "eur",
+                         tone="#f0a860", hint=f"PML retained after the illustrative reinsurance program "
+                                              f"({net.get('cession_ratio_pct')}% ceded); the insurer configures their own "
+                                              "program on the live workspace"))
+    # the ASSET side — climate VaR on the insurer's own investment book (EIOPA/IFRS S2 require both sides)
+    inv = snap.get("investments") or {}
+    iv = inv.get("climate_var") or {}
+    if inv.get("available") and iv.get("available"):
+        kpis.append(_kpi("investment_var", "Investment climate VaR (99%)", round(iv.get("var99_eur") or 0), "eur",
+                         tone="#fb7185", hint=f"Combined physical+transition climate VaR on the insurer's own investment "
+                                              f"book ({inv.get('coverage_pct')}% of positions scored) — the asset side, "
+                                              "EIOPA/IFRS S2"))
     by_hazard = _by_hazard(snap)
     history = [{"label": h["label"], "filing_id": h["filing_id"], "total_value": (h["payload"].get("rollup") or {}).get("total_sum_insured_eur"),
                 "value_at_risk": (h["payload"].get("rollup") or {}).get("total_expected_annual_loss_eur"),
                 "pct_at_risk": None} for h in _snapshot_history(session, org_id, "insurer_climate")]
     return {"framework": "insurer_climate", "supported": True, "label": "Insurer climate/NatCat KRIs",
+            "kpis": kpis, "by_hazard": by_hazard, "history": history}
+
+
+def _assetmgmt_kri(session: Session, org_id: str) -> dict:
+    from api.routers.assetmgmt import build_disclosure_snapshot
+    from services.governance.reporting_settings import get_settings
+    s = get_settings(session, org_id)
+    snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
+    r = snap.get("rollup", {})
+    tax = snap.get("taxonomy", {})
+    conc = snap.get("concentration", {})
+    total = r.get("total_portfolio_value_eur", 0) or 0
+    elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
+    tax_total = sum((v or {}).get("value_eur", 0) or 0 for v in tax.values())
+    cov = round(100 * r.get("n_scored", 0) / r.get("n_holdings", 1), 1) if r.get("n_holdings") else 0
+    kpis = [
+        _kpi("total_value", "Portfolio value", total, "eur"),
+        _kpi("climate_var", "Portfolio climate VaR", r.get("total_climate_var_eur"), "eur", tone="#fb7185",
+             hint="Position value − climate-discounted value across the book"),
+        _kpi("var_pct", "Climate VaR (% of book)", r.get("portfolio_climate_var_pct"), "pct", tone="#f0a860"),
+        _kpi("coverage", "Holdings scored", cov, "pct"),
+        _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
+    ]
+    # concentration — the diversification diagnostic (common-shock share + top-region share)
+    if conc.get("available"):
+        tr = conc.get("top_region") or {}
+        kpis.append(_kpi("common_shock", "VaR in largest common-shock", conc.get("common_shock_var_pct_of_total"), "pct",
+                         tone="#fb7185", hint=(f"Share of total climate VaR in the single largest common-shock cluster "
+                                               f"({(conc.get('common_shock') or {}).get('hazard', '—')} in "
+                                               f"{(conc.get('common_shock') or {}).get('region', '—')}) — the "
+                                               "concentration a single event exposes")))
+        kpis.append(_kpi("top_region_conc", "Top-region concentration", tr.get("pct_of_book"), "pct", tone="#f0a860",
+                         hint=(f"Largest single region: {tr.get('region', '—')}. Effective independent regions "
+                               f"(1/HHI): {conc.get('effective_regions')} · hazards: {conc.get('effective_hazards')}")))
+    by_hazard = _by_hazard(snap)
+    history = [{"label": h["label"], "filing_id": h["filing_id"],
+                "total_value": (h["payload"].get("rollup") or {}).get("total_portfolio_value_eur"),
+                "value_at_risk": (h["payload"].get("rollup") or {}).get("total_climate_var_eur"),
+                "pct_at_risk": (h["payload"].get("rollup") or {}).get("portfolio_climate_var_pct")}
+               for h in _snapshot_history(session, org_id, "assetmgmt_tcfd")]
+    return {"framework": "assetmgmt_tcfd", "supported": True, "label": "Asset-manager holdings KRIs",
             "kpis": kpis, "by_hazard": by_hazard, "history": history}
 
 
@@ -637,6 +694,15 @@ def _bank_kri(session: Session, org_id: str) -> dict:
         _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
              hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
     ]
+    # Climate expected loss (IFRS-9 / ECL-relevant) — annual + lifetime, maturity-matched, from the frozen snapshot.
+    elb = snap.get("expected_loss") or {}
+    if elb.get("annual_el_eur") is not None:
+        kpis.append(_kpi("expected_loss", "Climate expected loss (annual)", round(elb.get("annual_el_eur") or 0), "eur",
+                         tone="#fb7185", hint=(f"Physical climate annual EL ({elb.get('annual_el_bps')} bps of EAD); "
+                                               f"lifetime {round((elb.get('lifetime_el_eur') or 0)/1e6,1)}m "
+                                               f"({elb.get('lifetime_el_bps')} bps), maturity-matched. Exposure × P(event) × "
+                                               f"collateral severity under {elb.get('scenario')} — a disclosed relative model, not a fitted PD·LGD.")))
+
     # Transition risk ON THE COLLATERAL — loan value at risk if RE collateral strands below the rising EPC floor
     # (an LGD driver, distinct from the counterparty carbon-price transition). Only where the bank has RE collateral.
     csr = snap.get("collateral_stranding") or {}

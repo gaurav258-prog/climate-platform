@@ -330,6 +330,62 @@ def _located_annex(dps: dict, payload: dict | None = None) -> list[dict]:
 
     # TCFD metrics & targets — physical-risk exposure by hazard
     sections += _tcfd_physical_sections(dps)
+    # Computed credit-risk analytics from the projected book (expected loss, transition, collateral stranding)
+    sections += _bank_analytics_sections(payload or {})
+    return sections
+
+
+def _bank_analytics_sections(payload: dict) -> list[dict]:
+    """The bank's computed credit-risk analytics rendered as official-form sections: physical expected loss
+    (IFRS-9/ECL-relevant), counterparty transition risk, and real-estate-collateral energy-stranding."""
+    sections: list[dict] = []
+
+    el = payload.get("expected_loss") or {}
+    if el.get("annual_el_eur") is not None:
+        sections.append({
+            "title": "Physical climate expected loss (IFRS 9 / ECL-relevant)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt("Exposure at default (EAD)"), _mnum(_eur(el.get("total_ead_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Annual expected loss"), _mnum(_eur(el.get("annual_el_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Annual expected loss (bps of EAD)"), _num(f"{el.get('annual_el_bps')} bps")]},
+                {"type": "row", "cells": [_txt("Lifetime expected loss (maturity-matched)"), _mnum(_eur(el.get("lifetime_el_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Lifetime expected loss (bps of EAD)"), _num(f"{el.get('lifetime_el_bps')} bps")]},
+            ],
+            "note": (f"Scenario {el.get('scenario')}. Physical EL = exposure × P(event/yr) × collateral-impairment "
+                     "severity (loss curve × disclosed vulnerability-adjusted haircut schedule). Lifetime EL "
+                     f"accumulates annual EL over each loan's residual maturity ({el.get('maturity_fed')}/{el.get('n_assets')} "
+                     "maturity-fed). A disclosed relative model, not a fitted PD·LGD.")})
+
+    tr = payload.get("transition") or {}
+    if tr.get("available"):
+        sections.append({
+            "title": "Transition risk — counterparty (financed emissions + carbon-price expected loss)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt("Financed emissions (Scope 1+2, reported + estimated)"), _num(f"{tr.get('financed_emissions_tco2e'):,} tCO₂e")]},
+                {"type": "row", "cells": [_txt("Emissions reported (vs NACE-estimated)"), _num(f"{tr.get('emissions_reported_pct')}%")]},
+                {"type": "row", "cells": [_txt("Transition expected loss"), _mnum(_eur(tr.get("transition_expected_loss_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Transition EL (% of outstanding)"), _num(f"{tr.get('transition_el_pct_of_outstanding')}%")]},
+            ],
+            "note": "Financed emissions = counterparty Scope 1+2 (reported or NACE-intensity estimated, flagged); a "
+                    "rigorous PCAF attribution additionally needs counterparty EVIC (customer-supplied). Transition EL "
+                    "= outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers), a disclosed "
+                    "relative tier, not a fitted PD model."})
+
+    cs = payload.get("collateral_stranding") or {}
+    if cs.get("available"):
+        sections.append({
+            "title": "Transition risk — real-estate collateral energy-stranding (LGD driver)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt(f"Collateral value at risk (below EPC-{cs.get('floor_epc')} floor)"), _mnum(_eur(cs.get("collateral_value_at_risk_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Exposure-weighted LTV — original → stressed"), _num(f"{cs.get('exposure_weighted_ltv_pct')}% → {cs.get('stressed_ltv_pct')}% (+{cs.get('ltv_uplift_pp')}pp)")]},
+                {"type": "row", "cells": [_txt("Loan exposure uncovered (LTV > 100%)"), _mnum(_eur(cs.get("loan_value_at_risk_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Retrofit capex to de-risk"), _mnum(_eur(cs.get("retrofit_capex_to_derisk_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("RE loans below floor / assessed"), _num(f"{cs.get('n_below_floor')}/{cs.get('n_re_loans')} · {cs.get('epc_coverage_pct')}% with EPC")]},
+            ],
+            "note": "Disclosed EPBD-recast policy scenario (rising minimum-EPC-to-let floor), not a market fit. "
+                    "Collateral erosion lifts effective LTV and, where the stressed collateral no longer covers the "
+                    "loan, puts loan value at risk (an LGD driver). Loans with no EPC excluded and reported as coverage."})
+
     return sections
 
 
@@ -411,6 +467,36 @@ def _reit_annex(dps: dict, payload: dict) -> list[dict]:
 
     # TCFD physical-risk — the property book scored by hazard (genuinely computed by our engine).
     sections += _tcfd_physical_sections(dps)
+
+    # Computed transition + adaptation analytics from the frozen rollup.
+    rollup = (payload or {}).get("rollup") or {}
+    es = rollup.get("energy_stranding") or {}
+    if es.get("n_assessed"):
+        sections.append({
+            "title": "Transition risk — energy-performance stranding (rising minimum-EPC floor)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt(f"Value at stranding risk (below EPC-{es.get('floor_epc')})"), _mnum(_eur(es.get("value_at_stranding_risk_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Retrofit capex to de-risk"), _mnum(_eur(es.get("retrofit_capex_to_derisk_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Portfolio value below floor"), _num(f"{es.get('pct_portfolio_value_below_floor')}%")]},
+                {"type": "row", "cells": [_txt("Properties below floor / assessed"), _num(f"{es.get('n_below_floor')}/{es.get('n_assessed')} · {es.get('epc_coverage_pct')}% with EPC")]},
+            ],
+            "note": "Disclosed EPBD-recast policy scenario (rising minimum-to-let EPC floor), not a market fit. "
+                    "Properties without an EPC excluded and reported as coverage, never assigned a fabricated number."})
+
+    rc = rollup.get("resilience_capex") or {}
+    if rc.get("available"):
+        sections.append({
+            "title": "Adaptation — resilience capex vs avoided loss (EU-Taxonomy adaptation)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt("Resilience / adaptation capex"), _mnum(_eur(rc.get("total_resilience_capex_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Avoided physical loss"), _mnum(_eur(rc.get("total_avoided_loss_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Portfolio benefit-cost ratio"), _num(f"{rc.get('portfolio_benefit_cost_ratio')}×" if rc.get("portfolio_benefit_cost_ratio") is not None else "—")]},
+                {"type": "row", "cells": [_txt("Taxonomy adaptation-aligned capex"), _mnum(_eur(rc.get("taxonomy_adaptation_aligned_capex_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Properties worth retrofitting"), _num(f"{rc.get('n_worth_retrofit')}/{rc.get('n_properties')}")]},
+            ],
+            "note": "Adaptation capex modelled per hazard against the physical loss it avoids; the Taxonomy-aligned "
+                    "portion is the evidence base for the Climate-Change-Adaptation substantial-contribution objective."})
+
     return sections
 
 
@@ -499,6 +585,75 @@ def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
             "col_sources": ["", "computed", "computed"], "rows": geo_rows,
             "note": "Geographic concentration of NatCat exposure — sum insured on High+ policies aggregated by the "
                     "policy's region."})
+
+    # 5 — Catastrophe accumulation (AEP/OEP exceedance & PML) — the correlated tail the summed EALs hide.
+    cat = rollup.get("catastrophe") or {}
+    if cat.get("available"):
+        aep, oep = cat.get("aep_eur") or {}, cat.get("oep_eur") or {}
+        rp_rows = []
+        for t in (10, 50, 100, 200, 250):
+            a, o = aep.get(f"rp_{t}"), oep.get(f"rp_{t}")
+            if a is None and o is None:
+                continue
+            rp_rows.append({"type": "row", "cells": [_txt(f"1-in-{t} year"), _mnum(_eur(a), "computed"), _mnum(_eur(o), "computed")]})
+        if rp_rows:
+            sections.append({
+                "title": "Catastrophe accumulation — exceedance losses (AEP / OEP)",
+                "columns": ["Return period", "Aggregate (AEP)", "Single-event (OEP)"],
+                "col_sources": ["", "computed", "computed"], "rows": rp_rows,
+                "note": (f"Common-shock Monte-Carlo over {cat.get('n_zones', '—')} (peril × region) accumulation zones "
+                         f"({cat.get('n_years', '—'):,} simulated years). PML (1-in-{cat.get('pml_return_period')}) = "
+                         f"{_eur(cat.get('pml_eur'))}; simulated mean {_eur(cat.get('mean_annual_loss_eur'))} reconciles "
+                         "to the independent EAL sum. Correlation perfect within a zone, independent across zones; not a "
+                         "fitted vendor cat model.")})
+
+    # 6 — Solvency II NatCat SCR (internal-model 99.5% basis).
+    scr = (payload or {}).get("solvency_scr") or {}
+    if scr.get("available"):
+        sections.append({
+            "title": "Solvency II — NatCat SCR (internal-model basis, 99.5% VaR)",
+            "columns": ["Component", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt("NatCat SCR — 1-in-200 annual aggregate (99.5% VaR)"), _mnum(_eur(scr.get("natcat_scr_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Single largest event — 1-in-200 (OEP)"), _mnum(_eur(scr.get("oep_1_in_200_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Mean annual loss"), _mnum(_eur(scr.get("mean_annual_loss_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Risk load (capital above expected loss)"), _mnum(_eur(scr.get("risk_load_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("SCR as % of gross sum insured"), _num(f"{scr.get('scr_pct_of_sum_insured')}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")]},
+            ],
+            "note": "Internal-model-basis NatCat SCR = modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe loss. "
+                    "The prescribed STANDARD-FORMULA SCR (EIOPA Delegated Reg. 2015/35 per-region factors) is a governed "
+                    "input pending official ingest — never fabricated; both bases are labelled."})
+
+    # 7 — Net-of-reinsurance retention (the loss that actually hits capital).
+    reins = (payload or {}).get("reinsurance") or {}
+    net = reins.get("net") or {}
+    if reins.get("available") and net:
+        prog = reins.get("program") or {}
+        sections.append({
+            "title": "Net-of-reinsurance retention (illustrative standard program)",
+            "columns": ["Measure", "Gross", "Net of reinsurance"], "rows": [
+                {"type": "row", "cells": [_txt(f"PML (1-in-{reins.get('pml_return_period')})"), _mnum(_eur(reins.get("gross_pml_eur")), "computed"), _mnum(_eur(net.get("net_pml_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Mean annual loss"), _mnum(_eur(reins.get("gross_mean_annual_loss_eur")), "computed"), _mnum(_eur(net.get("net_mean_annual_loss_eur")), "computed")]},
+                {"type": "subheader", "label": f"Program: {prog.get('quota_share_pct')}% quota share · cat XoL {_eur(prog.get('xol_attachment_eur'))} xs {_eur(prog.get('xol_limit_eur'))}"},
+            ],
+            "note": ("Illustrative standard program — the insurer configures their own on the live workspace. Quota share is "
+                     "exact; the per-occurrence cat XoL recovers on the single largest event (exact on the OEP); a within-year "
+                     f"aggregate treaty / reinstatements are not modelled. Cession ratio {net.get('cession_ratio_pct')}%.")})
+
+    # 8 — Investment-side climate VaR (the asset half of the insurer's climate exposure — EIOPA / IFRS S2).
+    inv = (payload or {}).get("investments") or {}
+    if inv.get("available"):
+        cv = inv.get("climate_var") or {}
+        sections.append({
+            "title": "Investment-side climate VaR — asset book (EIOPA · IFRS S2)",
+            "columns": ["Measure", "Amount"], "rows": [
+                {"type": "row", "cells": [_txt("Investment book value"), _mnum(_eur(inv.get("total_value_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Combined physical + transition expected loss"), _mnum(_eur(cv.get("combined_expected_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("99th-percentile climate VaR"), _mnum(_eur(cv.get("var99_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Positions scored (coverage)"), _num(f"{inv.get('n_scored')}/{inv.get('n_holdings')} · {inv.get('coverage_pct')}%")]},
+            ],
+            "note": "An insurer is an underwriter AND an institutional investor; EIOPA/IFRS S2 require climate risk on both "
+                    "sides. This is the ASSET side — the combined physical + transition climate-VaR engine on the insurer's "
+                    "own investment book. Unscored positions excluded and reported as coverage."})
 
     return sections
 
@@ -749,6 +904,8 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             ("emissions.scope3", "Scope 3 (financed) emissions"), ("emissions.total", "Total financed emissions")]]
         sections.append({"title": "Transition risk — financed emissions (PCAF, tCO₂e)", "columns": ["Scope", "tCO₂e"],
                          "rows": em_rows, "note": "Counterparty Scope-3 basis for the transition-risk templates (Templates 1–4)."})
+    # Computed credit-risk analytics (physical EL, transition EL, collateral stranding) — shared with the bank TCFD annex
+    sections += _bank_analytics_sections(payload or {})
     return sections
 
 
@@ -760,6 +917,76 @@ def _generic_annex(dps: dict, groups: list[dict]) -> list[dict]:
         if rows:
             sections.append({"title": g.get("group", "Disclosure"), "columns": ["Datapoint", "Value"],
                              "rows": rows, "note": None})
+    return sections
+
+
+def _assetmgmt_annex(dps: dict, payload: dict) -> list[dict]:
+    """Asset-manager HOLDINGS-book TCFD disclosure: physical-risk exposure by hazard, EU-Taxonomy status, and
+    portfolio climate-risk concentration (the diversification lens). Distinct from the fund-level SFDR PAI."""
+    sections: list[dict] = []
+    rollup = (payload or {}).get("rollup") or {}
+    by_hazard = (payload or {}).get("by_hazard") or {}
+    tax = (payload or {}).get("taxonomy") or {}
+    conc = (payload or {}).get("concentration") or {}
+
+    # 1 — Portfolio physical-risk summary
+    total = rollup.get("total_portfolio_value_eur")
+    sections.append({
+        "title": "Portfolio physical climate-risk — summary (TCFD asset-manager guidance)",
+        "columns": ["Metric", "Amount"], "rows": [
+            {"type": "row", "cells": [_txt("Total portfolio value"), _mnum(_eur(total), "computed")]},
+            {"type": "row", "cells": [_txt("Portfolio climate VaR"), _mnum(_eur(rollup.get("total_climate_var_eur")), "computed")]},
+            {"type": "row", "cells": [_txt("Climate VaR (% of portfolio)"), _num(f"{rollup.get('portfolio_climate_var_pct')}%" if rollup.get("portfolio_climate_var_pct") is not None else "—")]},
+            {"type": "row", "cells": [_txt("Holdings flagged (High+)"), _num(f"{rollup.get('n_flagged')}/{rollup.get('n_holdings')}")]},
+            {"type": "row", "cells": [_txt("Holdings scored (coverage)"), _num(f"{rollup.get('n_scored')}/{rollup.get('n_holdings')}")]},
+        ],
+        "note": "Value-weighted physical-climate-risk exposure across holdings — the metric TCFD's asset-owner/manager "
+                "guidance recommends. Climate VaR = position value − climate-discounted value from the shared engine."})
+
+    # 2 — Physical risk by hazard
+    haz_rows = []
+    for hz in sorted(by_hazard, key=lambda h: -((by_hazard[h] or {}).get("exposed_value_eur") or 0)):
+        h = by_hazard[hz] or {}
+        haz_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(hz)), _mnum(_eur(h.get("exposed_value_eur")), "computed"),
+                                                   _num(str(h.get("n_exposed", 0))), _num(f"{h.get('max_score', 0)}")]})
+    if haz_rows:
+        sections.append({"title": "Physical-risk exposure by hazard (High+)",
+                         "columns": ["Hazard", "Value exposed", "Holdings exposed", "Max score"],
+                         "col_sources": ["", "computed", "computed", "computed"], "rows": haz_rows, "note": None})
+
+    # 3 — EU-Taxonomy status
+    if tax:
+        tax_rows = [{"type": "row", "cells": [_txt(str(k).replace("_", " ").title()), _mnum(_eur(v.get("value_eur")), "computed"), _num(str(v.get("count", 0)))]}
+                    for k, v in sorted(tax.items(), key=lambda kv: -(kv[1].get("value_eur") or 0))]
+        sections.append({"title": "EU-Taxonomy status (holdings)", "columns": ["Status", "Value", "Holdings"],
+                         "col_sources": ["", "computed", "computed"], "rows": tax_rows,
+                         "note": "Taxonomy eligibility classified where the holding's NACE is known; alignment needs the "
+                                 "issuer's own Article-8 figures (customer-supplied), never inferred."})
+
+    # 4 — Climate-risk concentration (the diversification diagnostic)
+    if conc.get("available"):
+        cs = conc.get("common_shock") or {}
+        sections.append({
+            "title": "Climate-risk concentration — diversification & common-shock",
+            "columns": ["Measure", "Value"], "rows": [
+                {"type": "row", "cells": [_txt("Effective independent regions (1/HHI)"), _num(str(conc.get("effective_regions") or "—"))]},
+                {"type": "row", "cells": [_txt("Effective independent hazards (1/HHI)"), _num(str(conc.get("effective_hazards") or "—"))]},
+                {"type": "row", "cells": [_txt(f"Top region — {(conc.get('top_region') or {}).get('region', '—')}"), _num(f"{(conc.get('top_region') or {}).get('pct_of_book', 0)}% of book")]},
+                {"type": "row", "cells": [_txt(f"Largest common-shock — {_pretty_hazard(cs.get('hazard', ''))} in {cs.get('region', '—')}"), _mnum(_eur(cs.get("climate_var_eur")), "computed")]},
+                {"type": "row", "cells": [_txt("Common-shock share of total climate VaR"), _num(f"{conc.get('common_shock_var_pct_of_total')}%")]},
+            ],
+            "note": "Concentration decomposes the portfolio's climate VaR by region and hazard; HHI = Herfindahl index, "
+                    "effective count = 1/HHI. A common-shock cluster is one hazard in one region — positions a single "
+                    "event hits together. Structural definition, not a fitted correlation matrix."})
+        clusters = conc.get("clusters") or []
+        if clusters:
+            cl_rows = [{"type": "row", "cells": [_txt(f"{_pretty_hazard(c.get('hazard', ''))} · {c.get('region', '—')}"),
+                                                 _mnum(_eur(c.get("climate_var_eur")), "computed"), _num(str(c.get("n", 0))),
+                                                 _num(f"{c.get('pct_of_book')}%")]} for c in clusters[:8]]
+            sections.append({"title": "Common-shock clusters — the concentration to diversify",
+                             "columns": ["Hazard × region", "Climate VaR", "Holdings", "% of book"],
+                             "col_sources": ["", "computed", "computed", "computed"], "rows": cl_rows, "note": None})
+
     return sections
 
 
@@ -775,6 +1002,8 @@ def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | N
         sections = _reit_annex(dps, payload or {})
     elif framework == "insurer_climate":
         sections = _insurer_annex(dps, payload or {})
+    elif framework == "assetmgmt_tcfd":
+        sections = _assetmgmt_annex(dps, payload or {})
     elif framework == "bank_tcfd":
         sections = _located_annex(dps, payload or {})
     else:

@@ -70,15 +70,42 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
     raise ExportError(f"unknown format '{fmt}'")
 
 
+def _cell_text(cell: dict):
+    """Display value of an annex cell for the export sheet (dp-bound cells carry the merged datapoint value)."""
+    if "dp" in cell:
+        dp = cell.get("dp") or {}
+        v = dp.get("value")
+        return v if v is not None else "—"
+    return cell.get("text")
+
+
+def _summary_blocks(framework: str, payload: dict) -> list[dict]:
+    """The computed official-form sections (catastrophe/SCR/stranding/concentration/…) flattened into
+    export blocks, so every analytic the annex shows also lands in the downloadable workbook. Payload-derived
+    sections render fully; datapoint-bound cells with no frozen value render '—' (the honest gap, preserved)."""
+    from services.governance.filing_annex import build_annex
+    ann = build_annex(framework, {}, [], payload=payload) or {}
+    blocks = []
+    for sec in ann.get("sections", []):
+        rows = []
+        for row in sec.get("rows", []):
+            if row.get("type") == "subheader":
+                rows.append([row.get("label")])
+            else:
+                rows.append([_cell_text(c) for c in row.get("cells", [])])
+        blocks.append({"title": sec.get("title", ""), "columns": sec.get("columns") or [], "rows": rows})
+    return blocks
+
+
 def _xlsx(framework: str, payload: dict) -> io.BytesIO:
-    from services.templates.workbook import build_export_workbook
+    from services.templates.workbook import build_disclosure_workbook, build_export_workbook
     if framework in ("bank_tcfd", "bank_p3esg"):
         headers = ["asset_name", "sector", "country", "value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[a.get("asset_name"), a.get("sector"), a.get("country"), a.get("value_eur"),
                  a.get("headline_score"), a.get("headline_bucket") or "unscored",
                  a.get("taxonomy_status"), a.get("h3_cell")] for a in payload.get("assets", [])]
-        return build_export_workbook(headers, rows, sheet_name="Physical risk disclosure")
+        return build_disclosure_workbook(headers, rows, "Physical risk disclosure", _summary_blocks(framework, payload))
     if framework == "sfdr_pai":
         # build straight from the frozen entity-level indicator rows (fund-level renderer expects a
         # different shape, so we serialize the entity statement's own mandatory-indicator table)
@@ -97,12 +124,19 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         rows = [[p.get("property_name"), p.get("property_type"), p.get("country"), p.get("property_value_eur"),
                  p.get("headline_score"), p.get("headline_bucket") or "unscored",
                  p.get("taxonomy_status"), p.get("h3_cell")] for p in payload.get("properties", [])]
-        return build_export_workbook(headers, rows, sheet_name="Property physical-risk disclosure")
+        return build_disclosure_workbook(headers, rows, "Property physical risk", _summary_blocks(framework, payload))
     if framework == "insurer_climate":
         headers = ["policy_name", "region", "sum_insured_eur", "headline_score", "risk_bucket", "h3_cell"]
         rows = [[p.get("policy_name"), p.get("region"), p.get("sum_insured_eur"), p.get("headline_score"),
                  p.get("headline_bucket") or "unscored", p.get("h3_cell")] for p in payload.get("policies", [])]
-        return build_export_workbook(headers, rows, sheet_name="NatCat exposure disclosure")
+        return build_disclosure_workbook(headers, rows, "NatCat exposure disclosure", _summary_blocks(framework, payload))
+    if framework == "assetmgmt_tcfd":
+        headers = ["holding_name", "sector", "country", "position_value_eur", "headline_score",
+                   "risk_bucket", "taxonomy_status", "h3_cell"]
+        rows = [[h.get("holding_name"), h.get("sector"), h.get("country"), h.get("position_value_eur"),
+                 h.get("headline_score"), h.get("headline_bucket") or "unscored",
+                 h.get("taxonomy_status"), h.get("h3_cell")] for h in payload.get("holdings", [])]
+        return build_disclosure_workbook(headers, rows, "Holdings physical risk", _summary_blocks(framework, payload))
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 

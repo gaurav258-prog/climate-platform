@@ -41,6 +41,9 @@ FRAMEWORKS = {
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
+    "assetmgmt_tcfd": {"label": "TCFD · physical-risk & concentration disclosure (holdings book)", "sectors": ("asset_manager",),
+                       "frequency": "annual", "due": (6, 30),
+                       "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},
     # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
                 "frequency": "annual", "due": (3, 31),
@@ -62,6 +65,7 @@ EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
     "bank_p3esg": ("json", "xlsx", "xbrl"),
     "sfdr_pai":  ("json", "xlsx", "xbrl"),
+    "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
@@ -92,6 +96,8 @@ class FilingError(ValueError):
 # SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
 # aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
+# assetmgmt_tcfd is NOT entity-scoped: the holdings snapshot ignores entity_ids (whole-org only), so offering a
+# per-entity scope would silently mislabel a whole-org number — same reason SFDR/agri are excluded.
 _ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"}
 
 

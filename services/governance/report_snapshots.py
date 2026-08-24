@@ -81,6 +81,8 @@ _BUILDERS = {
                    lambda s, o, sc, hz, m, ei, vw: _bank_tcfd(s, o, sc, hz, ei, vw), ("bank",)),
     "sfdr_pai": ("SFDR Principal Adverse Impacts statement (Annex I)",
                  lambda s, o, sc, hz, m, ei, vw: _sfdr_pai(s, o), ("asset_manager",)),
+    "assetmgmt_tcfd": ("TCFD · physical-risk & concentration disclosure (holdings book)",
+                       lambda s, o, sc, hz, m, ei, vw: _assetmgmt_tcfd(s, o, sc, hz, ei, vw), ("asset_manager",)),
     "reit_tcfd": ("TCFD · EU-Taxonomy disclosure (property book)",
                   lambda s, o, sc, hz, m, ei, vw: _reit_tcfd(s, o, sc, hz, ei, vw), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
@@ -106,6 +108,11 @@ def _bank_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weight
 def _sfdr_pai(session, org_id):
     from ml.regulatory.sfdr_pai import entity_pai_statement
     return entity_pai_statement(session, org_id)
+
+
+def _assetmgmt_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+    from api.routers.assetmgmt import build_disclosure_snapshot
+    return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
 
 
 def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
