@@ -125,6 +125,34 @@ def attest(session: Session, org_id: str, payload: dict, decision: str, actor: s
     return {"provided_id": pid, "status": status}
 
 
+def attested_values(session: Session, org_id: str, framework: str) -> list[dict]:
+    """The ATTESTED provided values for a framework — the ones that passed 4-eyes and therefore MAY land in a
+    filing. Returned in a form-datapoint shape so the filing form/annex can surface them as provided datapoints
+    (with their reconciliation vs the Tellumen baseline), instead of dead-ending at the provided-data list view."""
+    rows = session.execute(text("""
+        SELECT p.datapoint_key, p.value_num, p.value_text, p.unit, p.source, p.provider_name,
+               p.tellumen_value, p.delta_pct, p.within_tolerance, p.decided_at, du.email AS attested_by
+        FROM provided_datapoint p
+        LEFT JOIN users du ON du.user_id = p.decided_by
+        WHERE p.org_id = :o AND p.framework = :f AND p.status = 'attested'
+        ORDER BY p.decided_at DESC
+    """), {"o": org_id, "f": framework}).mappings().all()
+    labels = {d["key"]: d["label"] for fw in CATALOG.values() for d in fw}
+    units = {d["key"]: d.get("unit") for fw in CATALOG.values() for d in fw}
+    out = []
+    for r in rows:
+        val = r["value_num"] if r["value_num"] is not None else r["value_text"]
+        out.append({
+            "key": f"provided.{r['datapoint_key']}", "label": labels.get(r["datapoint_key"], r["datapoint_key"]),
+            "value": val, "unit": r["unit"] or units.get(r["datapoint_key"]), "source": "provided",
+            "provider": r["provider_name"], "attested_by": r["attested_by"],
+            "attested_at": r["decided_at"].isoformat() if r["decided_at"] else None,
+            "tellumen_value": r["tellumen_value"], "delta_pct": r["delta_pct"],
+            "within_tolerance": r["within_tolerance"],
+        })
+    return out
+
+
 def provided_list(session: Session, org_id: str, framework: str | None = None) -> list[dict]:
     """Live + recent provided values with their recon + attest status."""
     rows = session.execute(text("""
