@@ -12,6 +12,7 @@ import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
 import ReportedHistoryRef from '../components/ReportedHistoryRef'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
+import { HBar } from '../components/Charts'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
 // type (bank / insurer / asset_manager / reit) chooses which real book endpoint to read and how to label
@@ -465,6 +466,13 @@ function CatAccumulation({ cat }: { cat?: Cat }) {
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">mean annual loss{cat.tail_to_mean_multiple ? ` · tail ${cat.tail_to_mean_multiple}×` : ''}</div>
         </div>
       </div>
+      {/* exceedance ladder — aggregate-year loss by return period (the accumulation tail, visualised) */}
+      <div className="mt-4">
+        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Exceedance ladder — aggregate loss by return period (AEP)</div>
+        <HBar data={[10, 50, 100, 200, 250].filter(t => cat.aep_eur[`rp_${t}`] != null).map(t => ({
+          label: `1-in-${t}`, value: cat.aep_eur[`rp_${t}`],
+          color: t >= cat.pml_return_period ? '#E9744A' : t >= 100 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18} />
+      </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         Common-shock Monte-Carlo over peril·region zones — a single event hits every policy in its footprint. Mean {cat.mean_reconciles ? 'reconciles to' : 'vs'} the summed expected annual loss ({eur(cat.sum_independent_eal_eur)}); the tail is the accumulation. Correlation assumed, not a fitted vendor cat model.
       </div>
@@ -591,14 +599,25 @@ function ConcentrationCard({ c }: { c?: Concentration }) {
           </div>
         </div>
       )}
+      {/* the diversification picture — climate VaR concentrated by region, by hazard, and by common-shock cluster */}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {c.by_region.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by region</div>
+            <HBar data={c.by_region.slice(0, 6).map(r => ({ label: r.region, value: r.climate_var_eur, sub: `${r.pct_of_book}%`, color: r.pct_of_book > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18} />
+          </div>
+        )}
+        {c.by_hazard.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by hazard</div>
+            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.climate_var_eur, sub: `${h.n}`, color: i === 0 ? '#E9744A' : 'var(--color-blue)' }))} format={eur} height={18} />
+          </div>
+        )}
+      </div>
       {c.clusters.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {c.clusters.slice(0, 6).map((cl, i) => (
-            <span key={i} title={`${cl.n} holdings · ${eur(cl.value_eur)} exposed · ${cl.pct_of_book}% of book`}
-              className="mono text-[10px] rounded-md border border-[var(--color-line-2)] px-2 py-1 text-[var(--color-mute)]">
-              {hazardLabel(cl.hazard)} · {cl.region} · {eur(cl.climate_var_eur)}
-            </span>
-          ))}
+        <div className="mt-4">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Common-shock clusters — the concentration to diversify (VaR)</div>
+          <HBar data={c.clusters.slice(0, 6).map(cl => ({ label: `${hazardLabel(cl.hazard)} · ${cl.region}`, value: cl.climate_var_eur, sub: `${cl.n} · ${cl.pct_of_book}%`, color: '#E9744A' }))} format={eur} height={18} />
         </div>
       )}
       {c.flags.length > 0 && (
@@ -665,6 +684,16 @@ function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horiz
             <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{n.cession_ratio_pct ?? '—'}%</div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Cession ratio</div>
           </div>
+        </div>
+      )}
+      {n && (
+        <div className="mt-4">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Gross vs retained PML — the ceded layer</div>
+          <HBar data={[
+            { label: 'Gross PML', value: d!.gross_pml_eur, color: '#E9744A' },
+            { label: 'Net retained', value: n.net_pml_eur, color: 'var(--color-good)' },
+            { label: 'Ceded', value: n.ceded_pml_eur, color: 'var(--color-sky)' },
+          ]} format={eur} height={18} />
         </div>
       )}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{n?.note}</div>
