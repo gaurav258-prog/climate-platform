@@ -45,6 +45,7 @@ from services.portfolio_engine import (
 )
 from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
+from services.scoring.portfolio_concentration import portfolio_concentration
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 
@@ -151,7 +152,8 @@ def portfolio(session: DbSession, org_id: OrgId,
     rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
                      dependence=settings["climate_var_dependence"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": rollup, "holdings": holdings}
+            "rollup": rollup, "holdings": holdings,
+            "concentration": portfolio_concentration(holdings)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -206,6 +208,7 @@ def disclosure(session: DbSession, org_id: OrgId,
         "rollup": _rollup(holdings),
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
+        "concentration": portfolio_concentration(holdings),
     }
 
 
