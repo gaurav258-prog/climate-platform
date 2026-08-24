@@ -47,6 +47,7 @@ interface ConcCluster { hazard: string; region: string; value_eur: number; clima
 interface Concentration { available: boolean; total_value_eur: number; total_climate_var_eur: number; n_scored: number; n_unscored: number; coverage_pct: number; region_hhi: number; effective_regions: number | null; hazard_hhi: number | null; effective_hazards: number | null; top_region: ConcRegion | null; top_hazard: ConcHazard | null; common_shock: ConcCluster | null; common_shock_var_pct_of_total: number; by_region: ConcRegion[]; by_hazard: ConcHazard[]; clusters: ConcCluster[]; flags: string[]; method: string }
 interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
 interface EnergyStranding { floor_epc: string; n_properties: number; n_assessed: number; n_no_epc: number; n_below_floor: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_portfolio_value_below_floor: number; epc_coverage_pct: number; note: string }
+interface CollateralStranding { available: boolean; floor_epc: string; n_re_loans: number; n_below_floor: number; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number; retrofit_capex_to_derisk_eur: number; exposure_weighted_ltv_pct: number | null; stressed_ltv_pct: number | null; ltv_uplift_pp: number | null; pct_re_loans_below_floor: number; epc_coverage_pct: number; note: string; top_exposures: { asset_id: string; name: string; asset_type: string; epc_rating: string; brown_discount_pct: number; original_ltv_pct: number | null; stressed_ltv_pct: number | null; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number }[] }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -253,6 +254,9 @@ export default function Portfolio() {
 
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
+
+      {/* transition risk on the RE COLLATERAL — EPC-floor stranding erodes the recovery cushion / lifts LGD (bank). */}
+      <CollateralStrandingCard cs={(q.data as PortfolioResp | undefined)?.collateral_stranding as CollateralStranding | undefined} />
 
       {/* combined physical + transition climate VaR — one loss distribution over both drivers (asset mgmt). */}
       <CombinedVarCard c={r?.combined_climate_var as CombinedVar | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
@@ -734,6 +738,49 @@ function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
         </div>
       </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{es.note}</div>
+    </Card>
+  )
+}
+
+function CollateralStrandingCard({ cs }: { cs?: CollateralStranding }) {
+  if (!cs || !cs.available || !cs.n_re_loans) return null
+  const hasRisk = cs.n_below_floor > 0
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Collateral energy-stranding · transition risk</span>
+        <span className="text-[12px] text-[var(--color-mute)]">RE collateral below a rising minimum-to-let EPC floor — an LGD driver</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{cs.n_below_floor}/{cs.n_re_loans} RE loans below EPC {cs.floor_epc} · {cs.epc_coverage_pct}% with an EPC</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.collateral_value_at_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Collateral value at risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{cs.exposure_weighted_ltv_pct ?? '—'}%<span className="text-[13px] text-[var(--color-faint)]"> → {cs.stressed_ltv_pct ?? '—'}%</span></div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure-wtd LTV{cs.ltv_uplift_pp != null ? ` · +${cs.ltv_uplift_pp}pp` : ''}</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: cs.loan_value_at_risk_eur > 0 ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.loan_value_at_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure uncovered (LTV&gt;100%)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(cs.retrofit_capex_to_derisk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
+        </div>
+      </div>
+      {hasRisk && cs.top_exposures.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {cs.top_exposures.slice(0, 6).map(t => (
+            <span key={t.asset_id} title={`EPC ${t.epc_rating} · LTV ${t.original_ltv_pct}%→${t.stressed_ltv_pct}% · collateral at risk ${eur(t.collateral_value_at_risk_eur)}`}
+              className="mono text-[10px] rounded-md border border-[var(--color-line-2)] px-2 py-1 text-[var(--color-mute)]">
+              {t.name} · EPC {t.epc_rating} · {eur(t.collateral_value_at_risk_eur)}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{cs.note}</div>
     </Card>
   )
 }

@@ -637,6 +637,19 @@ def _bank_kri(session: Session, org_id: str) -> dict:
         _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
              hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
     ]
+    # Transition risk ON THE COLLATERAL — loan value at risk if RE collateral strands below the rising EPC floor
+    # (an LGD driver, distinct from the counterparty carbon-price transition). Only where the bank has RE collateral.
+    csr = snap.get("collateral_stranding") or {}
+    if csr.get("available"):
+        kpis.append(_kpi(
+            "collateral_stranding", "Collateral value at risk · EPC stranding",
+            csr.get("collateral_value_at_risk_eur"), "eur", tone="#fb7185",
+            hint=(f"Recovery-cushion erosion if real-estate collateral strands below the modelled EPC-{csr.get('floor_epc')} "
+                  f"minimum-to-let floor — the LGD driver on {csr.get('n_below_floor')} of {csr.get('n_re_loans')} "
+                  f"RE-collateralised loans ({csr.get('pct_re_loans_below_floor')}% of RE-book exposure below floor). "
+                  f"Exposure-weighted LTV migrates {csr.get('exposure_weighted_ltv_pct')}%→{csr.get('stressed_ltv_pct')}% "
+                  f"(+{csr.get('ltv_uplift_pp')}pp); €{round((csr.get('loan_value_at_risk_eur') or 0)/1e6,1)}m exposure "
+                  f"uncovered (LTV>100%). {csr.get('epc_coverage_pct')}% carry an EPC. Disclosed EPBD-recast scenario, not a market fit.")))
     by_hazard = sorted(
         [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}
          for h, b in (snap.get("by_hazard") or {}).items() if (b.get("exposed_value_eur") or 0) > 0],
