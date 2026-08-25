@@ -66,15 +66,22 @@ class RegulatoryChangeDetector:
         documents rather than crashing the scheduler."""
         if self._scrapers is not None:
             return self._scrapers
+        self._scrapers = {}
+        # News (httpx-only) works even where the bs4 document scrapers' deps are absent — import it on its own.
+        try:
+            from .scrapers.news_aggregator import NewsAggregator
+            self._scrapers["news"] = NewsAggregator()
+        except ImportError as e:
+            self.logger.warning(f"News aggregator unavailable ({e}).")
+        # Document scrapers need requests/bs4 (optional); a missing dep degrades to news-only, not a crash.
         try:
             from .scrapers.eur_lex_scraper import EurLexScraper
             from .scrapers.fca_scraper import FCAScraper
             from .scrapers.sec_scraper import SECScraper
-            self._scrapers = {"eurlex": EurLexScraper(), "sec": SECScraper(), "fca": FCAScraper()}
+            self._scrapers.update({"eurlex": EurLexScraper(), "sec": SECScraper(), "fca": FCAScraper()})
         except ImportError as e:
-            self.logger.warning(f"Regulatory scrapers unavailable (missing optional dep: {e}); "
-                                "change detection will find no documents this run.")
-            self._scrapers = {}
+            self.logger.warning(f"Document scrapers unavailable (missing optional dep: {e}); "
+                                "change detection runs news-only this run.")
         return self._scrapers
 
     def detect_changes(self, framework_id: str) -> List[Dict]:
@@ -126,22 +133,46 @@ class RegulatoryChangeDetector:
         scrapers = self._build_scrapers()
         if not scrapers:
             return []
-        eurlex, sec, fca = scrapers["eurlex"], scrapers["sec"], scrapers["fca"]
+        eurlex, sec, fca = scrapers.get("eurlex"), scrapers.get("sec"), scrapers.get("fca")
+        news = scrapers.get("news")
         name = (framework.framework_name or "").lower()
         calls: List = []
-        if "taxonomy" in name:
+        if eurlex and "taxonomy" in name:
             calls.append(("EUR-Lex", eurlex.scrape_taxonomy_updates))
-        if "csrd" in name or "sustainability reporting" in name:
+        if eurlex and ("csrd" in name or "sustainability reporting" in name):
             calls.append(("EUR-Lex", eurlex.scrape_csrd_updates))
-        if "eba" in name or "ecb" in name or "pillar 3" in name or "pillar3" in name:
+        if eurlex and ("eba" in name or "ecb" in name or "pillar 3" in name or "pillar3" in name):
             calls.append(("EUR-Lex", eurlex.scrape_eba_guidelines))
-        if "sec" in name or "tcfd" in name:
+        if sec and ("sec" in name or "tcfd" in name):
             calls.append(("SEC", sec.scrape_climate_rules))
-        if "fca" in name or "tcfd" in name:
+        if fca and ("fca" in name or "tcfd" in name):
             calls.append(("FCA", fca.scrape_climate_rules))
-        if not calls:
+        if not calls and eurlex:
             calls.append(("EUR-Lex", eurlex.scrape_recent_documents))
+        # News early-signal — a leading indicator on this framework, queried on its own name so the diffed
+        # item is framework-specific (a change here means the top regulatory-news item for this rule moved).
+        if news is not None:
+            fw_query = self._news_query_for(framework.framework_name or "")
+            calls.append(("Climate news (GDELT)", lambda q=fw_query: news.get_climate_news(hours=48, query=q)))
         return calls
+
+    @staticmethod
+    def _news_query_for(framework_name: str) -> str:
+        """A GDELT query targeted at this framework so its news signal is specific, not generic climate news."""
+        n = framework_name.lower()
+        if "taxonomy" in n:
+            return '"EU taxonomy" (regulation OR "delegated act" OR EFRAG OR "technical screening")'
+        if "csrd" in n or "esrs" in n or "sustainability reporting" in n:
+            return '(CSRD OR ESRS) (EFRAG OR "delegated act" OR "sustainability reporting" OR omnibus)'
+        if "pillar 3" in n or "pillar3" in n or "eba" in n:
+            return '"Pillar 3" (EBA OR ESG OR "disclosure" OR "ITS")'
+        if "sfdr" in n:
+            return 'SFDR (ESMA OR "RTS" OR "PAI" OR "principal adverse")'
+        if "tcfd" in n or "sec" in n:
+            return '("climate disclosure" OR TCFD) (SEC OR FCA OR "rule")'
+        if "eudr" in n or "deforestation" in n:
+            return 'EUDR (deforestation OR TRACES OR "due diligence")'
+        return f'"{framework_name}" (regulation OR directive OR disclosure)'
 
     def _fetch_from_sources(self, framework) -> Dict:
         """
