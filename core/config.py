@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     SENTINEL_HUB_CLIENT_ID: str = ""
     SENTINEL_HUB_CLIENT_SECRET: str = ""
 
+    # Regulatory-news early-signal feed (services/regulatory_monitoring/scrapers/news_aggregator.py).
+    # Empty = the free, keyless GDELT DOC 2.0 index is used. Set NEWS_API_KEY to use NewsAPI.org instead.
+    NEWS_API_KEY: str = ""
+
     # Redis — Celery broker + result backend for the gridded on-demand hazard
     # jobs (durability upgrade from FastAPI BackgroundTasks; see services/tasks/).
     # Was already in .env but never actually declared here, so it was silently

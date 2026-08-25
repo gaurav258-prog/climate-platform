@@ -41,7 +41,10 @@ FEEDS: list[dict] = [
              "runoff (source_provider='era5_total_runoff'). River-gauge/DEM terrain not yet landed."},
     {"key": "fire_thermal", "name": "NASA FIRMS (VIIRS active fire)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
-     "note": "Active fire real; Sentinel-3 SLSTR land-surface-temperature integration is stubbed, not in production."},
+     "note": "Active fire real. Sentinel-3 SLSTR heat integration is now LIVE via the CDSE Sentinel Hub "
+             "Statistical API (per-H3-cell S8 10.85µm thermal-IR brightness temperature → lst_kelvin heat "
+             "feature; activates on SENTINEL_HUB_CLIENT_ID/SECRET). It is brightness temperature, not the "
+             "emissivity-corrected L2 LST product (that is the raw-scene Path-B upgrade)."},
     {"key": "atmosphere", "name": "Copernicus CAMS", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "on_demand",
      "note": "Air quality / dust / fire emissions, fetched per-query (not landed). Informs the risk view; "
