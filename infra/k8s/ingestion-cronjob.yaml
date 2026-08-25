@@ -1,0 +1,85 @@
+# Ingestion CronJobs — land fresh observations into the golden source before the scorer runs.
+#
+#  * satellite-ingestion — runs the adapter pipeline (NASA FIRMS wildfire, ERA5 climate, GloFAS/SAR flood,
+#    Sentinel-3 SLSTR heat) at 05:00 UTC, one hour before the scorer (06:00 UTC), so scoring reads fresh data.
+#    The Sentinel-1 SAR (flood) and Sentinel-3 SLSTR (heat) adapters activate on SENTINEL_HUB_CLIENT_ID/SECRET;
+#    without them they land nothing (honest, no fabrication).
+#  * reg-monitoring — runs the regulatory change-detector (EUR-Lex/SEC/FCA scrapers + GDELT news early-signal)
+#    at 02:00 UTC daily.
+#
+# Both mount the same climate-platform-secrets (see secret.yaml) and use the worker image (satellite ingestion
+# needs the GDAL/NetCDF stack; the Sentinel Hub Statistical API path used today does not, but the image is shared).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: satellite-ingestion
+  namespace: climate-platform
+spec:
+  schedule: "0 5 * * *"           # 05:00 UTC daily (before the 06:00 scorer)
+  concurrencyPolicy: Forbid        # single-writer into satellite_observations
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ingestion
+              image: ghcr.io/OWNER/climate-platform-worker:latest  # replaced by CI
+              imagePullPolicy: Always
+              command:
+                - python
+                - -m
+                - services.ingestion.pipeline
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+                - name: H3_RESOLUTION
+                  value: "8"
+              resources:
+                requests:
+                  cpu:    "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu:    "2000m"
+                  memory: "4Gi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reg-monitoring
+  namespace: climate-platform
+spec:
+  schedule: "0 2 * * *"           # 02:00 UTC daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: reg-monitoring
+              image: ghcr.io/OWNER/climate-platform-worker:latest  # replaced by CI
+              imagePullPolicy: Always
+              command:
+                - python
+                - scripts/run_reg_monitoring.py
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+              resources:
+                requests:
+                  cpu:    "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu:    "1000m"
+                  memory: "2Gi"
