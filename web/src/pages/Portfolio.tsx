@@ -12,6 +12,7 @@ import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
 import ReportedHistoryRef from '../components/ReportedHistoryRef'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
+import { HBar } from '../components/Charts'
 
 // The financial-sector operating surface behind the Horizon globe. One page, sector-adaptive: the org's
 // type (bank / insurer / asset_manager / reit) chooses which real book endpoint to read and how to label
@@ -41,8 +42,13 @@ interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss
 interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
 interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
+interface ConcRegion { region: string; value_eur: number; climate_var_eur: number; n: number; pct_of_book: number }
+interface ConcHazard { hazard: string; value_eur: number; climate_var_eur: number; n: number; pct_of_scored: number }
+interface ConcCluster { hazard: string; region: string; value_eur: number; climate_var_eur: number; n: number; pct_of_book: number }
+interface Concentration { available: boolean; total_value_eur: number; total_climate_var_eur: number; n_scored: number; n_unscored: number; coverage_pct: number; region_hhi: number; effective_regions: number | null; hazard_hhi: number | null; effective_hazards: number | null; top_region: ConcRegion | null; top_hazard: ConcHazard | null; common_shock: ConcCluster | null; common_shock_var_pct_of_total: number; by_region: ConcRegion[]; by_hazard: ConcHazard[]; clusters: ConcCluster[]; flags: string[]; method: string }
 interface Resilience { available: boolean; n_properties: number; total_resilience_capex_eur: number; total_avoided_loss_eur: number; portfolio_benefit_cost_ratio: number | null; n_worth_retrofit: number; taxonomy_adaptation_aligned_capex_eur: number; by_hazard: { hazard: string; resilience_capex_eur: number; avoided_loss_eur: number; n: number }[] }
 interface EnergyStranding { floor_epc: string; n_properties: number; n_assessed: number; n_no_epc: number; n_below_floor: number; value_at_stranding_risk_eur: number; retrofit_capex_to_derisk_eur: number; pct_portfolio_value_below_floor: number; epc_coverage_pct: number; note: string }
+interface CollateralStranding { available: boolean; floor_epc: string; n_re_loans: number; n_below_floor: number; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number; retrofit_capex_to_derisk_eur: number; exposure_weighted_ltv_pct: number | null; stressed_ltv_pct: number | null; ltv_uplift_pp: number | null; pct_re_loans_below_floor: number; epc_coverage_pct: number; note: string; top_exposures: { asset_id: string; name: string; asset_type: string; epc_rating: string; brown_discount_pct: number; original_ltv_pct: number | null; stressed_ltv_pct: number | null; collateral_value_at_risk_eur: number; loan_value_at_risk_eur: number }[] }
 
 type Kpi = { label: string; field?: string; num?: string; den?: string; fmt: 'eur' | 'pct' | 'frac'; tone?: string; hint?: string }
 // plain-English → the precise technical term (shown on hover) so a pro's model-risk team still sees it
@@ -250,8 +256,14 @@ export default function Portfolio() {
       {/* transition risk — financed emissions + a carbon-price expected-loss beside the physical one (bank). */}
       <TransitionCard t={(q.data as PortfolioResp | undefined)?.transition as Transition | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
+      {/* transition risk on the RE COLLATERAL — EPC-floor stranding erodes the recovery cushion / lifts LGD (bank). */}
+      <CollateralStrandingCard cs={(q.data as PortfolioResp | undefined)?.collateral_stranding as CollateralStranding | undefined} />
+
       {/* combined physical + transition climate VaR — one loss distribution over both drivers (asset mgmt). */}
       <CombinedVarCard c={r?.combined_climate_var as CombinedVar | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
+
+      {/* climate-risk concentration — where the portfolio VaR clusters (region/hazard/common-shock) (asset mgmt). */}
+      <ConcentrationCard c={(q.data as PortfolioResp | undefined)?.concentration as Concentration | undefined} />
 
       {/* resilience & adaptation capex — spend vs avoided loss + Taxonomy-aligned capex (REIT). */}
       <ResilienceCard rc={r?.resilience_capex as Resilience | undefined} />
@@ -454,6 +466,13 @@ function CatAccumulation({ cat }: { cat?: Cat }) {
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">mean annual loss{cat.tail_to_mean_multiple ? ` · tail ${cat.tail_to_mean_multiple}×` : ''}</div>
         </div>
       </div>
+      {/* exceedance ladder — aggregate-year loss by return period (the accumulation tail, visualised) */}
+      <div className="mt-4">
+        <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Exceedance ladder — aggregate loss by return period (AEP)</div>
+        <HBar data={[10, 50, 100, 200, 250].filter(t => cat.aep_eur[`rp_${t}`] != null).map(t => ({
+          label: `1-in-${t}`, value: cat.aep_eur[`rp_${t}`],
+          color: t >= cat.pml_return_period ? '#E9744A' : t >= 100 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18} />
+      </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         Common-shock Monte-Carlo over peril·region zones — a single event hits every policy in its footprint. Mean {cat.mean_reconciles ? 'reconciles to' : 'vs'} the summed expected annual loss ({eur(cat.sum_independent_eal_eur)}); the tail is the accumulation. Correlation assumed, not a fitted vendor cat model.
       </div>
@@ -544,6 +563,71 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
   )
 }
 
+function ConcentrationCard({ c }: { c?: Concentration }) {
+  if (!c || !c.available) return null
+  const cs = c.common_shock
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Climate-risk concentration</span>
+        <span className="text-[12px] text-[var(--color-mute)]">where the portfolio VaR clusters — diversification &amp; common-shock</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{c.coverage_pct}% of holdings scored ({c.n_scored}/{c.n_scored + c.n_unscored})</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_regions ?? '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective regions (1/HHI)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_hazards ?? '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective hazards (1/HHI)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: c.top_region && c.top_region.pct_of_book > 25 ? '#E8B24C' : 'var(--color-ink)' }}>{c.top_region ? `${c.top_region.pct_of_book}%` : '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Top region{c.top_region ? ` · ${c.top_region.region}` : ''}</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{c.common_shock_var_pct_of_total}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">VaR in top common-shock</div>
+        </div>
+      </div>
+      {cs && (
+        <div className="mt-3 rounded-lg border border-[var(--color-line-2)] px-3.5 py-2.5">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Largest common-shock cluster · one event hits these together</div>
+          <div className="text-[13px] text-[var(--color-ink)]">
+            <span className="font-medium">{hazardLabel(cs.hazard)}</span> in <span className="font-medium">{cs.region}</span> — {cs.n} holdings · {eur(cs.value_eur)} exposed · <span style={{ color: '#E9744A' }}>{eur(cs.climate_var_eur)} climate VaR</span>
+          </div>
+        </div>
+      )}
+      {/* the diversification picture — climate VaR concentrated by region, by hazard, and by common-shock cluster */}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {c.by_region.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by region</div>
+            <HBar data={c.by_region.slice(0, 6).map(r => ({ label: r.region, value: r.climate_var_eur, sub: `${r.pct_of_book}%`, color: r.pct_of_book > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18} />
+          </div>
+        )}
+        {c.by_hazard.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by hazard</div>
+            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.climate_var_eur, sub: `${h.n}`, color: i === 0 ? '#E9744A' : 'var(--color-blue)' }))} format={eur} height={18} />
+          </div>
+        )}
+      </div>
+      {c.clusters.length > 0 && (
+        <div className="mt-4">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Common-shock clusters — the concentration to diversify (VaR)</div>
+          <HBar data={c.clusters.slice(0, 6).map(cl => ({ label: `${hazardLabel(cl.hazard)} · ${cl.region}`, value: cl.climate_var_eur, sub: `${cl.n} · ${cl.pct_of_book}%`, color: '#E9744A' }))} format={eur} height={18} />
+        </div>
+      )}
+      {c.flags.length > 0 && (
+        <div className="mono text-[9.5px] mt-3" style={{ color: '#E8B24C' }}>{c.flags.join(' · ')}</div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">{c.method}</div>
+    </Card>
+  )
+}
+
 const HAZARD_LABEL: Record<string, string> = {
   flood: 'Flooding', coastal_flood: 'Coastal flood', storm: 'Storms', wildfire: 'Wildfire', seismic: 'Earthquake',
   heat_chronic: 'Heat', drought: 'Drought', soil_water: 'Soil-water', pollution: 'Pollution',
@@ -600,6 +684,16 @@ function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horiz
             <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{n.cession_ratio_pct ?? '—'}%</div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Cession ratio</div>
           </div>
+        </div>
+      )}
+      {n && (
+        <div className="mt-4">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Gross vs retained PML — the ceded layer</div>
+          <HBar data={[
+            { label: 'Gross PML', value: d!.gross_pml_eur, color: '#E9744A' },
+            { label: 'Net retained', value: n.net_pml_eur, color: 'var(--color-good)' },
+            { label: 'Ceded', value: n.ceded_pml_eur, color: 'var(--color-sky)' },
+          ]} format={eur} height={18} />
         </div>
       )}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{n?.note}</div>
@@ -673,6 +767,49 @@ function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
         </div>
       </div>
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{es.note}</div>
+    </Card>
+  )
+}
+
+function CollateralStrandingCard({ cs }: { cs?: CollateralStranding }) {
+  if (!cs || !cs.available || !cs.n_re_loans) return null
+  const hasRisk = cs.n_below_floor > 0
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Collateral energy-stranding · transition risk</span>
+        <span className="text-[12px] text-[var(--color-mute)]">RE collateral below a rising minimum-to-let EPC floor — an LGD driver</span>
+        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{cs.n_below_floor}/{cs.n_re_loans} RE loans below EPC {cs.floor_epc} · {cs.epc_coverage_pct}% with an EPC</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.collateral_value_at_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Collateral value at risk</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{cs.exposure_weighted_ltv_pct ?? '—'}%<span className="text-[13px] text-[var(--color-faint)]"> → {cs.stressed_ltv_pct ?? '—'}%</span></div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure-wtd LTV{cs.ltv_uplift_pp != null ? ` · +${cs.ltv_uplift_pp}pp` : ''}</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: cs.loan_value_at_risk_eur > 0 ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.loan_value_at_risk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure uncovered (LTV&gt;100%)</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(cs.retrofit_capex_to_derisk_eur)}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
+        </div>
+      </div>
+      {hasRisk && cs.top_exposures.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {cs.top_exposures.slice(0, 6).map(t => (
+            <span key={t.asset_id} title={`EPC ${t.epc_rating} · LTV ${t.original_ltv_pct}%→${t.stressed_ltv_pct}% · collateral at risk ${eur(t.collateral_value_at_risk_eur)}`}
+              className="mono text-[10px] rounded-md border border-[var(--color-line-2)] px-2 py-1 text-[var(--color-mute)]">
+              {t.name} · EPC {t.epc_rating} · {eur(t.collateral_value_at_risk_eur)}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{cs.note}</div>
     </Card>
   )
 }

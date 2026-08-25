@@ -58,6 +58,85 @@ def epc_stranding(epc_rating: Optional[str], property_value_eur: Optional[float]
     }
 
 
+def loan_collateral_stranding(epc_rating: Optional[str], collateral_value_eur: Optional[float],
+                              loan_eur: Optional[float], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
+    """A bank's transition risk on ONE real-estate-collateralised loan: energy-stranding of the collateral erodes
+    its value, lifting the effective LTV and, where the stressed collateral no longer covers the loan, putting
+    loan value at risk (an LGD driver). Reuses the property brown-discount; honest 'not assessed' with no EPC."""
+    st = epc_stranding(epc_rating, collateral_value_eur, None, floor_epc)
+    if not st["assessed"]:
+        return {"assessed": False, "reason": st.get("reason"), "note": st.get("note")}
+    value = collateral_value_eur or 0.0
+    loan = loan_eur or 0.0
+    discount = (st["brown_discount_pct"] or 0.0) / 100.0
+    stressed_collateral = value * (1.0 - discount)
+    uncovered = max(0.0, loan - stressed_collateral)   # loan value no longer covered once the collateral strands
+    return {
+        "assessed": True, "epc_rating": st["epc_rating"], "floor_epc": st["floor_epc"],
+        "below_floor": st["below_floor"], "grades_below": st["grades_below"],
+        "brown_discount_pct": st["brown_discount_pct"],
+        "collateral_value_at_risk_eur": st["value_at_risk_eur"],
+        "original_ltv_pct": round(100 * loan / value, 1) if value else None,
+        "stressed_ltv_pct": round(100 * loan / stressed_collateral, 1) if stressed_collateral else None,
+        "loan_value_at_risk_eur": round(uncovered, 2),
+        "retrofit_capex_eur": st["retrofit_capex_eur"],
+    }
+
+
+def bank_collateral_stranding_rollup(loans: list[dict], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
+    """Book-level collateral energy-stranding for a bank's real-estate-collateralised loans. `loans` rows expose
+    epc_label, asset_value_eur (collateral), outstanding_loan_balance_eur (loan)."""
+    n = len(loans)
+    below = 0
+    no_epc = 0
+    loan_var = capex = collat_var = 0.0
+    loan_below = 0.0
+    total_loan = 0.0
+    # exposure-weighted LTV migration (the LGD driver even where the loan stays covered)
+    w_orig_ltv = w_stress_ltv = w_exposure = 0.0
+    for x in loans:
+        loan = x.get("outstanding_loan_balance_eur") or x.get("loan_eur") or 0.0
+        total_loan += loan
+        r = loan_collateral_stranding(x.get("epc_label") or x.get("epc_rating"),
+                                      x.get("asset_value_eur") or x.get("collateral_value_eur"), loan, floor_epc)
+        if not r["assessed"]:
+            no_epc += 1
+            continue
+        if r["original_ltv_pct"] is not None and r["stressed_ltv_pct"] is not None and loan:
+            w_orig_ltv += r["original_ltv_pct"] * loan
+            w_stress_ltv += r["stressed_ltv_pct"] * loan
+            w_exposure += loan
+        if r["below_floor"]:
+            below += 1
+            loan_var += r["loan_value_at_risk_eur"]
+            collat_var += r["collateral_value_at_risk_eur"]
+            capex += r["retrofit_capex_eur"]
+            loan_below += loan
+    orig_ltv = round(w_orig_ltv / w_exposure, 1) if w_exposure else None
+    stress_ltv = round(w_stress_ltv / w_exposure, 1) if w_exposure else None
+    return {
+        "floor_epc": floor_epc,
+        "n_re_loans": n,
+        "n_assessed": n - no_epc,
+        "n_no_epc": no_epc,
+        "n_below_floor": below,
+        "collateral_value_at_risk_eur": round(collat_var),   # recovery-cushion erosion — the LGD driver
+        "loan_value_at_risk_eur": round(loan_var),           # tail: exposure uncovered once collateral strands (LTV>100%)
+        "retrofit_capex_to_derisk_eur": round(capex),
+        "exposure_weighted_ltv_pct": orig_ltv,
+        "stressed_ltv_pct": stress_ltv,
+        "ltv_uplift_pp": round(stress_ltv - orig_ltv, 1) if (orig_ltv is not None and stress_ltv is not None) else None,
+        "exposure_below_floor_eur": round(loan_below),
+        "pct_re_loans_below_floor": round(100 * loan_below / total_loan, 1) if total_loan else 0.0,
+        "epc_coverage_pct": round(100 * (n - no_epc) / n, 1) if n else 0.0,
+        "note": ("Transition risk on the bank's real-estate loan collateral: energy-performance stranding under a "
+                 "rising minimum-EPC floor erodes collateral value, lifting effective LTV and putting loan value "
+                 "at risk where the stressed collateral no longer covers the loan (an LGD driver). Disclosed "
+                 "policy scenario (EPBD-recast direction), not a market fit; loans with no EPC are excluded and "
+                 "reported as coverage, never assigned a fabricated number."),
+    }
+
+
 def stranding_rollup(properties: list[dict], floor_epc: str = _DEFAULT_FLOOR_EPC) -> dict:
     """Portfolio energy-stranding summary: € value at risk, retrofit capex to de-risk, and honest coverage
     (how many properties carry an EPC). `properties` rows must expose epc_rating, property_value_eur, annual_noi_eur."""

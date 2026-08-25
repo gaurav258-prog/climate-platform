@@ -92,3 +92,54 @@ def build_export_workbook(headers: list[str], rows: list[list], sheet_name: str 
     wb.save(buf)
     buf.seek(0)
     return buf
+
+
+SECTION_TITLE_FILL = PatternFill(start_color="1E2A44", end_color="1E2A44", fill_type="solid")
+SECTION_TITLE_FONT = Font(bold=True, color="FFFFFF")
+SECTION_COL_FONT = Font(bold=True, color="1E2A44")
+
+
+def build_disclosure_workbook(data_headers: list[str], data_rows: list[list], data_sheet_name: str,
+                              summary_blocks: list[dict]) -> io.BytesIO:
+    """Two-sheet disclosure export: the per-entity data sheet PLUS a 'Computed disclosure' sheet built from the
+    official-form annex sections, so the computed analytics (catastrophe/SCR/reinsurance/stranding/concentration/…)
+    are in the downloadable filing, not just the per-row data. summary_blocks: [{title, columns, rows(list[list])}]."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = data_sheet_name
+    for i, h in enumerate(data_headers, start=1):
+        cell = ws.cell(row=1, column=i, value=h)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+    for r, row in enumerate(data_rows, start=2):
+        for i, val in enumerate(row, start=1):
+            ws.cell(row=r, column=i, value=val)
+    ws.freeze_panes = "A2"
+    _autosize(ws, len(data_headers))
+
+    sw = wb.create_sheet("Computed disclosure")
+    maxcols = 1
+    r = 1
+    for blk in summary_blocks:
+        tc = sw.cell(row=r, column=1, value=blk["title"])
+        tc.fill = SECTION_TITLE_FILL
+        tc.font = SECTION_TITLE_FONT
+        r += 1
+        cols = blk.get("columns") or []
+        for i, h in enumerate(cols, start=1):
+            hc = sw.cell(row=r, column=i, value=h)
+            hc.font = SECTION_COL_FONT
+        maxcols = max(maxcols, len(cols))
+        r += 1
+        for row in blk.get("rows", []):
+            for i, val in enumerate(row, start=1):
+                sw.cell(row=r, column=i, value=val)
+            maxcols = max(maxcols, len(row))
+            r += 1
+        r += 1   # spacer between sections
+    _autosize(sw, maxcols)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf

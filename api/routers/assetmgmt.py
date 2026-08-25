@@ -45,6 +45,7 @@ from services.portfolio_engine import (
 )
 from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
+from services.scoring.portfolio_concentration import portfolio_concentration
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 
@@ -151,7 +152,8 @@ def portfolio(session: DbSession, org_id: OrgId,
     rollup = _rollup(holdings, settings["assetmgmt_var_method"], org_id, scenario, horizon, settings["severity_model"],
                      dependence=settings["climate_var_dependence"])
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
-            "rollup": rollup, "holdings": holdings}
+            "rollup": rollup, "holdings": holdings,
+            "concentration": portfolio_concentration(holdings)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -173,15 +175,11 @@ def summary(session: DbSession, org_id: OrgId,
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": rollup}
 
 
-@router.get("/disclosure", summary="Physical-risk exposure + EU Taxonomy status — the portfolio-level "
-                                    "metric TCFD's asset-owner/manager guidance recommends disclosing")
-def disclosure(session: DbSession, org_id: OrgId,
-               scenario: str = Query("baseline"), horizon: str = Query("current")):
-    """TCFD's guidance for asset owners/managers recommends disclosing physical-risk
-    exposure value-weighted across holdings -- this is that metric. NOT framed as
-    an SFDR Principal Adverse Impact indicator: SFDR's mandatory PAI set has no
-    direct physical-climate-risk metric (only fossil-fuel exposure/energy
-    inefficiency for real estate holdings specifically, PAI 17/18)."""
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+    """The asset manager's holdings-book TCFD physical-risk disclosure — physical-risk exposure by hazard,
+    EU-Taxonomy status, and portfolio climate-risk CONCENTRATION. Live (/disclosure) and frozen (filing
+    snapshot) callers share this so a filing can't drift from the live view. This is the HOLDINGS-book
+    disclosure, distinct from the fund-level SFDR PAI statement (separate data model)."""
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
     hazards: dict = {}
@@ -202,11 +200,25 @@ def disclosure(session: DbSession, org_id: OrgId,
         tax[h["taxonomy_status"]]["count"] += 1
         tax[h["taxonomy_status"]]["value_eur"] += h["position_value_eur"] or 0
     return {
-        "org_id": org_id, "scenario": scenario, "horizon": horizon,
         "rollup": _rollup(holdings),
+        "holdings": holdings,
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
+        "concentration": portfolio_concentration(holdings),
     }
+
+
+@router.get("/disclosure", summary="Physical-risk exposure + EU Taxonomy status — the portfolio-level "
+                                    "metric TCFD's asset-owner/manager guidance recommends disclosing")
+def disclosure(session: DbSession, org_id: OrgId,
+               scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """TCFD's guidance for asset owners/managers recommends disclosing physical-risk
+    exposure value-weighted across holdings -- this is that metric. NOT framed as
+    an SFDR Principal Adverse Impact indicator: SFDR's mandatory PAI set has no
+    direct physical-climate-risk metric (only fossil-fuel exposure/energy
+    inefficiency for real estate holdings specifically, PAI 17/18)."""
+    return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
+            **build_disclosure_snapshot(session, org_id, scenario, horizon)}
 
 
 # Required fields keep an asset manager's actual holdings data recognizable

@@ -35,7 +35,7 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
-from services.scoring.loan_transition import loan_transition_overlay
+from services.scoring.loan_transition import collateral_stranding_overlay, loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_BANKING_COLUMNS = [
@@ -162,7 +162,8 @@ def portfolio(session: DbSession, org_id: OrgId,
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(assets), "assets": assets,
-            "transition": loan_transition_overlay(assets, scenario, horizon)}
+            "transition": loan_transition_overlay(assets, scenario, horizon),
+            "collateral_stranding": collateral_stranding_overlay(assets)}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")
@@ -230,10 +231,20 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model,
                                entity_ids=entity_ids, value_weights=value_weights)
+    # Climate expected loss (€ annual + lifetime, maturity-matched) — the IFRS-9/ECL-relevant number. Physical
+    # EL is scenario-driven; under 'baseline' it uses the warming pathway the calc-settings default, so freeze it
+    # under a forward scenario. Whole-org only for now (EL is not yet entity-scoped) — omitted on scoped filings.
+    el = None
+    if entity_ids is None:
+        from services.intelligence.expected_loss import bank_expected_loss
+        el_scenario = scenario if scenario and scenario != "baseline" else "disorderly_2c"
+        el = bank_expected_loss(session, org_id, el_scenario)
     return {
         "rollup": _rollup(assets),
         "assets": assets,
         "transition": loan_transition_overlay(assets, scenario, horizon),
+        "collateral_stranding": collateral_stranding_overlay(assets),
+        "expected_loss": el,
         **_hazard_rollup(assets),
     }
 

@@ -77,6 +77,12 @@ def observe(session: Session, org_id: str, framework: Optional[str] = None, resu
                         "severity": b["severity"], "value": b["value"], "threshold": b["threshold"]})
                 except Exception:
                     pass
+                # Close the loop: a newly-opened breach auto-raises a remediation task (used to need a human
+                # click), and a RED breach auto-opens the notifiability clock so a statutory window can't
+                # silently run out. Both de-dupe on source_ref → safe to re-run every sweep.
+                _auto_remediation_task(session, org_id, fw, key, b)
+                if b["severity"] == "red":
+                    _auto_notification_candidate(session, org_id, fw, key, b)
             else:
                 worst = b["severity"] if _SEV_RANK.get(b["severity"], 0) > _SEV_RANK.get(ep["severity"], 0) else ep["severity"]
                 pv = float(ep["peak_value"]) if ep["peak_value"] is not None else b["value"]
@@ -94,6 +100,36 @@ def observe(session: Session, org_id: str, framework: Optional[str] = None, resu
                 cleared += 1
     session.commit()
     return {"opened": opened, "updated": updated, "cleared": cleared}
+
+
+def _auto_remediation_task(session: Session, org_id: str, framework: str, key: str, b: dict) -> None:
+    """A newly-opened breach auto-raises a remediation task (de-duped on source_ref) — the breach→task link that
+    used to require a human click. System-actored (created_by NULL); swallows errors so it can't sink the sweep."""
+    try:
+        from services.governance import tasks as T
+        crit = "high" if b.get("severity") == "red" else "normal"
+        title = f"KRI breach — {b.get('label')}"[:300]
+        desc = (f"Indicator '{b.get('label')}' entered breach, auto-detected by the KRI sweep: value {b.get('value')} "
+                f"vs threshold {b.get('threshold')} ({b.get('severity')}). Framework {framework}. Review and remediate.")
+        T.create_task(session, org_id, None, title=title, description=desc, criticality=crit,
+                      source="kri", source_ref=f"{framework}:{key}")
+    except Exception:
+        pass
+
+
+def _auto_notification_candidate(session: Session, org_id: str, framework: str, key: str, b: dict) -> None:
+    """A RED breach auto-OPENS the notifiability clock so the 'notify the regulator within N hours' window starts
+    counting instead of depending on someone remembering. HONEST: raising only opens the clock and de-dupes on
+    source_ref; whether it is genuinely notifiable stays a human decision — a person confirms the actual
+    notification (record) or dismisses it. Titled a candidate so it is never mistaken for a filed notification."""
+    try:
+        from services.governance import notification_clock as NC
+        NC.raise_event(session, org_id,
+                       title=f"Potentially notifiable — KRI breach: {b.get('label')} (confirm or dismiss)",
+                       source_type="kri_breach_auto", source_ref=f"{framework}:{key}",
+                       category="kri_breach", severity=b.get("severity"))
+    except Exception:
+        pass
 
 
 def sweep(session: Session) -> dict:

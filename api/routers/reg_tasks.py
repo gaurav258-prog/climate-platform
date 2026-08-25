@@ -160,6 +160,34 @@ def kri_spin_task(body: KriTask, session: DbSession, ctx: dict = Depends(require
     return task
 
 
+class SupplyTask(BaseModel):
+    commodity: str = Field(..., max_length=120)
+    signal: str = Field(..., max_length=200)                 # e.g. "Drought · Andalucía olive · €4.2m COGS at risk"
+    action: str = Field("mitigate", max_length=40)           # mitigate | re-source | engage-supplier
+    detail: Optional[str] = Field(None, max_length=400)
+
+
+@router.post("/supply/spin-task", status_code=201, summary="Turn an agri supply signal into a mitigation task")
+def supply_spin_task(body: SupplyTask, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    """Close the agri loop: an early-warning / COGS-at-risk signal becomes an operational task (re-source,
+    engage the supplier, or mitigate) instead of dead-ending in a view. De-dupes on the commodity+action so a
+    live task for the same signal returns the existing one rather than piling up."""
+    verb = {"re-source": "Re-source", "engage-supplier": "Engage supplier", "mitigate": "Mitigate"}.get(body.action, "Act on")
+    title = f"{verb} — {body.commodity}: {body.signal}"[:300]
+    desc = (f"Supply signal on {body.commodity}: {body.signal}.\n"
+            + (f"{body.detail}\n" if body.detail else "")
+            + f"Action: {body.action}. Raised from the agriculture early-warning / COGS-at-risk surface — "
+              "assess re-sourcing, supplier engagement, or mitigation.")
+    try:
+        # source='decision' (an allowed task source): an agri supply signal → a decision to act. source_ref
+        # namespaced 'supply:' so it never collides with a financial-vertical forward-risk decision.
+        task = T.create_task(session, ctx["org"]["org_id"], ctx["user"]["id"], title=title, description=desc,
+                             criticality="high", source="decision", source_ref=f"supply:{body.commodity}:{body.action}")
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+    return task
+
+
 @router.get("/board", summary="The Kanban board — tasks grouped into columns")
 def board(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     return T.board(session, ctx["org"]["org_id"])

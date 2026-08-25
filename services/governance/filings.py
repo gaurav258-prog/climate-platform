@@ -41,6 +41,9 @@ FRAMEWORKS = {
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
+    "assetmgmt_tcfd": {"label": "TCFD · physical-risk & concentration disclosure (holdings book)", "sectors": ("asset_manager",),
+                       "frequency": "annual", "due": (6, 30),
+                       "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},
     # ── agriculture (manufacturer) frameworks — builders already registered in report_snapshots._BUILDERS ──
     "csrd_e1": {"label": "CSRD · ESRS E1 physical-risk report", "sectors": ("manufacturer",),
                 "frequency": "annual", "due": (3, 31),
@@ -62,6 +65,7 @@ EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
     "bank_p3esg": ("json", "xlsx", "xbrl"),
     "sfdr_pai":  ("json", "xlsx", "xbrl"),
+    "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
@@ -92,6 +96,8 @@ class FilingError(ValueError):
 # SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
 # aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
+# assetmgmt_tcfd is NOT entity-scoped: the holdings snapshot ignores entity_ids (whole-org only), so offering a
+# per-entity scope would silently mislabel a whole-org number — same reason SFDR/agri are excluded.
 _ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"}
 
 
@@ -143,6 +149,24 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
             elif o["status"] == "pending":
                 d["pending"] = {"value": o["proposed_value"], "reason": o["reason"], "by": o["proposed_by"]}
                 n_pending += 1
+    # Lane 2 — attested "provided" (customer/vendor) values that passed 4-eyes now LAND in the filing: as their
+    # own datapoint group AND an annex section, each with its reconciliation vs the Tellumen baseline. Previously
+    # these dead-ended at the provided-data list view and never reached a disclosure.
+    from services.governance.provided_data import attested_values
+    provided = attested_values(session, org_id, r["framework"])
+    if provided:
+        groups.append({
+            "group": "Provided & attested (customer / vendor)",
+            "note": "Values you or a vendor supplied and attested under 4-eyes — client > vendor precedence. Each shows "
+                    "the reconciliation against Tellumen's own computed baseline where one exists.",
+            "datapoints": [{"key": p["key"], "label": p["label"], "value": p["value"], "unit": p.get("unit"),
+                            "fmt": "num" if isinstance(p["value"], (int, float)) else "text", "source": "provided",
+                            "provided": {"provider": p.get("provider"), "attested_by": p.get("attested_by"),
+                                         "attested_at": p.get("attested_at"), "delta_pct": p.get("delta_pct"),
+                                         "tellumen_value": p.get("tellumen_value"), "within_tolerance": p.get("within_tolerance")}}
+                           for p in provided],
+        })
+
     # the official regulator-form layout (SFDR Annex I Table 1, Taxonomy Art.8 GAR, ESRS E1 …) built from the
     # SAME merged datapoints, so the official form and the datapoint list stay in lock-step (overrides included).
     from services.governance.filing_annex import build_annex
@@ -150,6 +174,19 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     # the raw frozen payload is passed too — some official templates (e.g. EBA Pillar 3 Template 5) are
     # structured GRIDS computed from the per-asset book, not flat datapoints, and are rebuilt at read time.
     annex = build_annex(r["framework"], dps_by_key, groups, payload=r["payload"] or {})
+    # surface attested provided values in the official annex too (a computed section, source-flagged 'provided')
+    if provided and annex:
+        prow = []
+        for p in provided:
+            recon = (f"Δ {p['delta_pct']}% vs baseline" if p.get("delta_pct") is not None else "no baseline")
+            prow.append({"type": "row", "cells": [{"text": p["label"]},
+                        {"text": f"{p['value']} {p.get('unit') or ''}".strip(), "num": isinstance(p["value"], (int, float)), "source": "provided"},
+                        {"text": recon}, {"text": p.get("provider") or p.get("attested_by") or "—"}]})
+        annex.setdefault("sections", []).append({
+            "title": "Provided & attested values (customer / vendor, 4-eyes)",
+            "columns": ["Datapoint", "Provided value", "Reconciliation", "Provider / attester"], "rows": prow,
+            "note": "Values supplied and attested by the institution or a vendor under 4-eyes (client > vendor "
+                    "precedence), reconciled against Tellumen's computed baseline. Source-flagged 'provided'."})
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),

@@ -21,8 +21,51 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from ml.scoring.epc_stranding import bank_collateral_stranding_rollup, loan_collateral_stranding
 from ml.scoring.transition_risk import transition_score
 from services.reference.emissions_estimation import estimate_emissions
+
+# Loans whose CREDIT is secured on a building that a minimum-EPC-to-let floor bites on. Corporate loans to
+# operating companies (energy, agriculture, logistics, industrial, hospitality) carry their transition risk on
+# the COUNTERPARTY (the financed-emissions / carbon-price overlay above), not on the collateral building.
+_RE_COLLATERAL_TYPES = {"residential_real_estate", "commercial_real_estate", "office"}
+
+
+def collateral_stranding_overlay(assets: list[dict], floor_epc: str = "D") -> dict:
+    """The bank's transition risk ON ITS REAL-ESTATE COLLATERAL — the piece the counterparty overlay above does
+    not see. As the minimum-EPC-to-let floor rises (EPBD-recast direction), collateral below the floor takes a
+    brown-value discount; where the stressed collateral no longer covers the loan, loan value is at risk (an LGD
+    driver). Reuses the same disclosed EPC-stranding scenario the real-estate vertical publishes. `assets` are
+    bank loan rows (asset_type, epc_label, value_eur = collateral value, outstanding_loan_balance_eur)."""
+    re_loans = [
+        {"epc_label": a.get("epc_label"),
+         "asset_value_eur": a.get("value_eur"),
+         "outstanding_loan_balance_eur": a.get("outstanding_loan_balance_eur")}
+        for a in assets if (a.get("asset_type") or a.get("entity_type")) in _RE_COLLATERAL_TYPES
+    ]
+    if not re_loans:
+        return {"available": False, "reason": "no_real_estate_collateral"}
+    roll = bank_collateral_stranding_rollup(re_loans, floor_epc)
+    # the most-exposed individual loans, for the drill-down
+    top = []
+    for a in assets:
+        if (a.get("asset_type") or a.get("entity_type")) not in _RE_COLLATERAL_TYPES:
+            continue
+        r = loan_collateral_stranding(a.get("epc_label"), a.get("value_eur"),
+                                      a.get("outstanding_loan_balance_eur"), floor_epc)
+        if r["assessed"] and r["below_floor"]:
+            top.append({
+                "asset_id": a.get("asset_id") or a.get("entity_id"),
+                "name": a.get("asset_name") or a.get("entity_name"),
+                "asset_type": a.get("asset_type") or a.get("entity_type"),
+                "epc_rating": r["epc_rating"], "brown_discount_pct": r["brown_discount_pct"],
+                "original_ltv_pct": r["original_ltv_pct"], "stressed_ltv_pct": r["stressed_ltv_pct"],
+                "collateral_value_at_risk_eur": r["collateral_value_at_risk_eur"],
+                "loan_value_at_risk_eur": r["loan_value_at_risk_eur"],
+                "retrofit_capex_eur": r["retrofit_capex_eur"],
+            })
+    top.sort(key=lambda r: -r["loan_value_at_risk_eur"])
+    return {"available": True, **roll, "top_exposures": top[:8]}
 
 
 def _section(nace_code: str | None) -> str:
