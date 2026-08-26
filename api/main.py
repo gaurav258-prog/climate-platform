@@ -67,6 +67,7 @@ try:
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
     from api.routers import notifications as notifications_router
+    from api.routers import onboarding_intake as onboarding_intake_router
     from api.routers import ops_console as ops_console_router
     from api.routers import portal as portal_router
     from api.routers import prices as prices_router
@@ -188,6 +189,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
+    app.include_router(onboarding_intake_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

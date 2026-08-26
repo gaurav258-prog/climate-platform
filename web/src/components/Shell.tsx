@@ -72,6 +72,7 @@ const GROUPS: Group[] = [
   ] },
   { label: 'Platform', color: 'var(--stage-setup)', items: [
     { to: '/platform', label: 'Tenants', icon: Globe, perm: 'platform.admin' },
+    { to: '/intake', label: 'Client intake', icon: ClipboardCheck, perm: 'onboarding.manage' },
   ] },
 ]
 

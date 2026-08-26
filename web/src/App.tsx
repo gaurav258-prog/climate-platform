@@ -12,6 +12,9 @@ import Audit from './pages/Audit'
 import Admin from './pages/Admin'
 import Contracts from './pages/Contracts'
 import Onboarding from './pages/Onboarding'
+import IntakeReview from './pages/IntakeReview'
+import IntakeForm from './pages/IntakeForm'
+import Activate from './pages/Activate'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
@@ -46,6 +49,18 @@ import Support from './pages/Support'
 import Docs from './pages/Docs'
 
 export default function App() {
+  // Public, pre-authentication surfaces — a client fills their intake and each user activates their
+  // account BEFORE any tenant/session exists, so these must render outside the auth gate.
+  return (
+    <Routes>
+      <Route path="/onboarding/form/:token" element={<IntakeForm />} />
+      <Route path="/activate/:token" element={<Activate />} />
+      <Route path="*" element={<Workspace />} />
+    </Routes>
+  )
+}
+
+function Workspace() {
   const { profile, loading } = useAuth()
 
   if (loading) return <Splash />
@@ -79,6 +94,7 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />

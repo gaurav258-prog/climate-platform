@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
+import { ApiError } from '../lib/api'
 import { BrandMark, Button } from '../components/ui'
+
+function errCode(e: unknown): string | undefined {
+  if (e instanceof ApiError) {
+    const b = e.body as { error?: { error?: string } } | undefined
+    return b?.error?.error
+  }
+  return undefined
+}
 
 // one demo tenant per sector; pick the ROLE first, then a sector — every tenant has all three roles,
 // so you can sign in as the approver to see the maker-checker decision + assignment flow.
@@ -25,12 +34,19 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [role, setRole] = useState('admin')
+  const [mfa, setMfa] = useState(false)   // second factor required for this account
+  const [otp, setOtp] = useState('')
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
     setBusy(true); setErr(null)
-    try { await login(email.trim(), pw) }
-    catch { setErr('Email or password is incorrect.') }
+    try { await login(email.trim(), pw, mfa ? otp.trim() : undefined) }
+    catch (e) {
+      const code = errCode(e)
+      if (code === 'mfa_required') { setMfa(true); setErr(null) }
+      else if (code === 'mfa_invalid') { setMfa(true); setErr("That code didn't match. Try again.") }
+      else setErr('Email or password is incorrect.')
+    }
     finally { setBusy(false) }
   }
 
@@ -68,9 +84,19 @@ export default function Login() {
             className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)] mb-5"
             placeholder="••••••••" />
 
+          {mfa && (
+            <div className="mb-5">
+              <label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Authenticator code</label>
+              <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoFocus
+                className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)] tracking-[0.4em] text-center"
+                placeholder="123456" />
+              <p className="text-[11px] text-[var(--color-faint)] mt-1.5">Enter the 6-digit code from your authenticator app.</p>
+            </div>
+          )}
+
           {err && <div className="text-[13px] text-[var(--color-bad)] mb-4">{err}</div>}
-          <Button variant="primary" disabled={busy || !email || !pw} className="w-full justify-center">
-            {busy ? 'Signing in…' : 'Sign in →'}
+          <Button variant="primary" disabled={busy || !email || !pw || (mfa && otp.length < 6)} className="w-full justify-center">
+            {busy ? 'Signing in…' : mfa ? 'Verify & sign in →' : 'Sign in →'}
           </Button>
         </form>
 
