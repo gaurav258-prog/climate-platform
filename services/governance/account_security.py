@@ -84,6 +84,8 @@ def complete_password_reset(session: Session, token: str, password: str) -> dict
     """), {"pw": hash_password(password), "u": str(r["user_id"])})
     session.execute(text("UPDATE password_reset SET status = 'used', used_at = now() WHERE reset_id = :i"),
                     {"i": str(r["reset_id"])})
+    session.execute(text("UPDATE refresh_token SET status = 'revoked' WHERE user_id = :u AND status = 'active'"),
+                    {"u": str(r["user_id"])})   # revoke refresh sessions too
     write_audit(session, org_id=str(r["org_id"]), actor_user_id=str(r["user_id"]),
                 action="account.password_reset", target_type="user", target_id=str(r["user_id"]))
     session.commit()

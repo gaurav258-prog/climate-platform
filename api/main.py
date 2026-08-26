@@ -145,6 +145,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Observability: metrics, structured access logs, optional Sentry ─────
+try:
+    from api.observability import ObservabilityMiddleware, init_sentry, metrics_response
+    init_sentry()
+    app.add_middleware(ObservabilityMiddleware)
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics():
+        return metrics_response()
+except ImportError:
+    pass
+
 # ── Routers ────────────────────────────────────────────────────────────
 if ROUTERS_AVAILABLE:
     app.include_router(auth.router)

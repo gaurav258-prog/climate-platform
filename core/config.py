@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     # Envelope-encryption key for secrets at rest (OIDC client secret, etc.). A dedicated Fernet key
     # (urlsafe-b64, 32 bytes) belongs in the environment / KMS; absent, one is derived from SECRET_KEY.
     APP_ENCRYPTION_KEY: str = ""
+    # Optional error tracking; enabled only when a DSN is set and sentry-sdk is installed.
+    SENTRY_DSN: str = ""
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 

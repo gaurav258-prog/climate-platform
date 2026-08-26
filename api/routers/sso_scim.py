@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from api.deps import DbSession, require_permission
 from core.config import settings
@@ -34,6 +35,7 @@ class SsoConfigIn(BaseModel):
     oidc_client_secret: Optional[str] = None
     saml_idp_entity_id: Optional[str] = None
     saml_idp_sso_url: Optional[str] = None
+    saml_idp_slo_url: Optional[str] = None
     saml_idp_x509_cert: Optional[str] = None
     allowed_email_domain: Optional[str] = None
     jit_provisioning: Optional[bool] = None
@@ -179,3 +181,53 @@ def scim_delete(user_id: str, ctx: tuple = Depends(scim_org)):
     except scim_svc.ScimError as e:
         return JSONResponse(status_code=e.status, content=e.body())
     return JSONResponse(status_code=204, content=None)
+
+
+@scim_router.post("/Groups", status_code=201)
+async def scim_group_create(request: Request, ctx: tuple = Depends(scim_org)):
+    session, org_id = ctx
+    return _scim(scim_svc.create_group, session, org_id, await request.json())
+
+
+@scim_router.get("/Groups")
+def scim_group_list(ctx: tuple = Depends(scim_org)):
+    session, org_id = ctx
+    return _scim(scim_svc.list_groups, session, org_id)
+
+
+@scim_router.get("/Groups/{group_id}")
+def scim_group_get(group_id: str, ctx: tuple = Depends(scim_org)):
+    session, org_id = ctx
+    return _scim(scim_svc.get_group, session, org_id, group_id)
+
+
+@scim_router.patch("/Groups/{group_id}")
+async def scim_group_patch(group_id: str, request: Request, ctx: tuple = Depends(scim_org)):
+    session, org_id = ctx
+    return _scim(scim_svc.patch_group, session, org_id, group_id, await request.json())
+
+
+@scim_router.delete("/Groups/{group_id}", status_code=204)
+def scim_group_delete(group_id: str, ctx: tuple = Depends(scim_org)):
+    session, org_id = ctx
+    try:
+        scim_svc.delete_group(session, org_id, group_id)
+    except scim_svc.ScimError as e:
+        return JSONResponse(status_code=e.status, content=e.body())
+    return JSONResponse(status_code=204, content=None)
+
+
+@router.get("/saml/logout")
+def saml_logout(org_id: str, session: DbSession, state: str = ""):
+    """SP-initiated SAML logout — redirect to the IdP's SLO endpoint when configured."""
+    slo = session_slo_url(session, org_id)
+    base = settings.APP_BASE_URL.rstrip("/")
+    if not slo:
+        return RedirectResponse(url=f"{base}/#logged_out=1")
+    from services.governance import saml as _saml
+    return RedirectResponse(url=_saml.build_logout_request(idp_slo_url=slo, relay_state=state or org_id))
+
+
+def session_slo_url(session, org_id: str):
+    return session.execute(text("SELECT saml_idp_slo_url FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
+                           {"o": org_id}).scalar()

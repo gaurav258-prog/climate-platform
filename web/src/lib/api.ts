@@ -1,5 +1,6 @@
 // Thin fetch wrapper against the existing FastAPI. JWT bearer from localStorage.
 const TOKEN_KEY = 'tellumen.token'
+const REFRESH_KEY = 'tellumen.refresh'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -7,6 +8,13 @@ export function getToken(): string | null {
 export function setToken(t: string | null) {
   if (t) localStorage.setItem(TOKEN_KEY, t)
   else localStorage.removeItem(TOKEN_KEY)
+}
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY)
+}
+export function setRefreshToken(t: string | null) {
+  if (t) localStorage.setItem(REFRESH_KEY, t)
+  else localStorage.removeItem(REFRESH_KEY)
 }
 
 export class ApiError extends Error {
@@ -19,7 +27,22 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function tryRefresh(): Promise<boolean> {
+  const rt = getRefreshToken()
+  if (!rt) return false
+  try {
+    const res = await fetch('/v1/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: rt }),
+    })
+    if (!res.ok) { setToken(null); setRefreshToken(null); return false }
+    const d = await res.json()
+    setToken(d.access_token); setRefreshToken(d.refresh_token)
+    return true
+  } catch { return false }
+}
+
+async function request<T>(method: string, path: string, body?: unknown, _retried = false): Promise<T> {
   const token = getToken()
   // FormData must be sent as multipart with a browser-set boundary — never JSON-stringified, or the file is
   // destroyed. Detecting it here means api.post(path, formData) works for every uploader (bank & agri alike).
@@ -32,6 +55,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     },
     body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
   })
+  // access token expired/revoked → rotate the refresh token once and retry transparently
+  if (res.status === 401 && token && !_retried && !path.includes('/v1/auth/')) {
+    if (await tryRefresh()) return request<T>(method, path, body, true)
+  }
   const text = await res.text()
   const data = text ? safeJson(text) : null
   if (!res.ok) throw new ApiError(res.status, (data as { detail?: unknown })?.detail ?? data ?? text)

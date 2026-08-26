@@ -177,3 +177,122 @@ def deactivate_user(session: Session, org_id: str, user_id: str) -> None:
     session.execute(text("UPDATE users SET status = 'disabled' WHERE user_id = CAST(:u AS uuid) AND org_id = CAST(:o AS uuid)"),
                     {"u": user_id, "o": org_id})
     session.commit()
+
+
+# ── SCIM Groups (mapped to roles) ────────────────────────────────────────────
+GROUP_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Group"
+
+
+def _role_for(session: Session, org_id: str, display_name: str) -> str | None:
+    """Map a directory group to a Tellumen role by matching its display name to a role name."""
+    dn = (display_name or "").strip().lower()
+    r = session.execute(text("SELECT name FROM roles WHERE org_id = CAST(:o AS uuid) AND lower(name) = :n"),
+                        {"o": org_id, "n": dn}).scalar()
+    return r if r in VALID_ROLES else None
+
+
+def _grant(session: Session, org_id: str, user_id: str, role: str) -> None:
+    rid = session.execute(text("SELECT role_id FROM roles WHERE org_id = CAST(:o AS uuid) AND name = :r"),
+                          {"o": org_id, "r": role}).scalar()
+    if rid:
+        session.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (CAST(:u AS uuid), CAST(:r AS uuid)) ON CONFLICT DO NOTHING"),
+                        {"u": user_id, "r": str(rid)})
+
+
+def _revoke(session: Session, org_id: str, user_id: str, role: str) -> None:
+    rid = session.execute(text("SELECT role_id FROM roles WHERE org_id = CAST(:o AS uuid) AND name = :r"),
+                          {"o": org_id, "r": role}).scalar()
+    if rid:
+        session.execute(text("DELETE FROM user_roles WHERE user_id = CAST(:u AS uuid) AND role_id = CAST(:r AS uuid)"),
+                        {"u": user_id, "r": str(rid)})
+
+
+def _group_repr(session: Session, org_id: str, gid: str) -> dict:
+    g = session.execute(text("SELECT group_id, display_name, external_id, mapped_role FROM scim_group WHERE group_id = CAST(:g AS uuid)"),
+                        {"g": gid}).mappings().first()
+    members = session.execute(text("SELECT user_id FROM scim_group_member WHERE group_id = CAST(:g AS uuid)"),
+                             {"g": gid}).scalars().all()
+    return {"schemas": [GROUP_SCHEMA], "id": str(g["group_id"]), "displayName": g["display_name"],
+            "externalId": g["external_id"], "mappedRole": g["mapped_role"],
+            "members": [{"value": str(m)} for m in members],
+            "meta": {"resourceType": "Group", "location": f"/scim/v2/Groups/{g['group_id']}"}}
+
+
+def create_group(session: Session, org_id: str, payload: dict) -> dict:
+    import uuid as _uuid
+    name = (payload.get("displayName") or "").strip()
+    if not name:
+        raise ScimError(400, "displayName is required", "invalidValue")
+    dup = session.execute(text("SELECT group_id FROM scim_group WHERE org_id = CAST(:o AS uuid) AND lower(display_name) = lower(:n)"),
+                          {"o": org_id, "n": name}).first()
+    if dup:
+        raise ScimError(409, "a group with this displayName already exists", "uniqueness")
+    gid = str(_uuid.uuid4())
+    role = _role_for(session, org_id, name)
+    session.execute(text("""
+        INSERT INTO scim_group (group_id, org_id, external_id, display_name, mapped_role)
+        VALUES (CAST(:g AS uuid), CAST(:o AS uuid), :x, :n, :r)
+    """), {"g": gid, "o": org_id, "x": payload.get("externalId"), "n": name, "r": role})
+    for m in payload.get("members", []) or []:
+        uid = m.get("value")
+        if uid:
+            session.execute(text("INSERT INTO scim_group_member (group_id, user_id) VALUES (CAST(:g AS uuid), CAST(:u AS uuid)) ON CONFLICT DO NOTHING"),
+                            {"g": gid, "u": uid})
+            if role:
+                _grant(session, org_id, uid, role)
+    session.commit()
+    return _group_repr(session, org_id, gid)
+
+
+def get_group(session: Session, org_id: str, gid: str) -> dict:
+    g = session.execute(text("SELECT 1 FROM scim_group WHERE group_id = CAST(:g AS uuid) AND org_id = CAST(:o AS uuid)"),
+                        {"g": gid, "o": org_id}).first()
+    if not g:
+        raise ScimError(404, "group not found")
+    return _group_repr(session, org_id, gid)
+
+
+def list_groups(session: Session, org_id: str) -> dict:
+    ids = session.execute(text("SELECT group_id FROM scim_group WHERE org_id = CAST(:o AS uuid) ORDER BY created_at"),
+                         {"o": org_id}).scalars().all()
+    res = [_group_repr(session, org_id, str(g)) for g in ids]
+    return {"schemas": [LIST_SCHEMA], "totalResults": len(res), "startIndex": 1, "itemsPerPage": len(res), "Resources": res}
+
+
+def patch_group(session: Session, org_id: str, gid: str, payload: dict) -> dict:
+    g = session.execute(text("SELECT mapped_role FROM scim_group WHERE group_id = CAST(:g AS uuid) AND org_id = CAST(:o AS uuid)"),
+                        {"g": gid, "o": org_id}).mappings().first()
+    if not g:
+        raise ScimError(404, "group not found")
+    role = g["mapped_role"]
+    for op in payload.get("Operations", []):
+        action = (op.get("op") or "").lower()
+        path = (op.get("path") or "")
+        value = op.get("value")
+        if path == "members" or (isinstance(value, dict) and "members" in value):
+            members = value if isinstance(value, list) else (value.get("members") if isinstance(value, dict) else [])
+            for m in members or []:
+                uid = m.get("value") if isinstance(m, dict) else m
+                if not uid:
+                    continue
+                if action == "remove":
+                    session.execute(text("DELETE FROM scim_group_member WHERE group_id = CAST(:g AS uuid) AND user_id = CAST(:u AS uuid)"),
+                                    {"g": gid, "u": uid})
+                    if role:
+                        _revoke(session, org_id, uid, role)
+                else:
+                    session.execute(text("INSERT INTO scim_group_member (group_id, user_id) VALUES (CAST(:g AS uuid), CAST(:u AS uuid)) ON CONFLICT DO NOTHING"),
+                                    {"g": gid, "u": uid})
+                    if role:
+                        _grant(session, org_id, uid, role)
+    session.commit()
+    return _group_repr(session, org_id, gid)
+
+
+def delete_group(session: Session, org_id: str, gid: str) -> None:
+    g = session.execute(text("SELECT 1 FROM scim_group WHERE group_id = CAST(:g AS uuid) AND org_id = CAST(:o AS uuid)"),
+                        {"g": gid, "o": org_id}).first()
+    if not g:
+        raise ScimError(404, "group not found")
+    session.execute(text("DELETE FROM scim_group WHERE group_id = CAST(:g AS uuid)"), {"g": gid})
+    session.commit()

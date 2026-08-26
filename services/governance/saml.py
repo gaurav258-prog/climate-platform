@@ -151,7 +151,23 @@ def validate_saml_response(saml_response_b64: str, *, sp_entity_id: str, sp_acs_
     if not email:
         raise SamlError("the SAML assertion did not carry an email (NameID or an email attribute)")
     name = next((attrs[k] for k in _NAME_ATTRS if attrs.get(k)), None)
-    return {"email": email.strip().lower(), "name": name, "name_id": name_id}
+    return {"email": email.strip().lower(), "name": name, "name_id": name_id,
+            "assertion_id": assertion.get("ID")}
+
+
+def build_logout_request(*, idp_slo_url: str, relay_state: str) -> str:
+    """Build a SAML LogoutRequest and return the IdP SLO redirect URL (HTTP-Redirect binding)."""
+    req_id = "_" + uuid.uuid4().hex
+    issued = _now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    xml = (
+        f'<samlp:LogoutRequest xmlns:samlp="{NS["samlp"]}" xmlns:saml="{NS["saml"]}" '
+        f'ID="{req_id}" Version="2.0" IssueInstant="{issued}" Destination="{idp_slo_url}">'
+        f'<saml:Issuer>{sp_entity_id()}</saml:Issuer></samlp:LogoutRequest>'
+    )
+    deflated = zlib.compress(xml.encode())[2:-4]
+    params = urlencode({"SAMLRequest": base64.b64encode(deflated).decode(), "RelayState": relay_state})
+    sep = "&" if "?" in idp_slo_url else "?"
+    return f"{idp_slo_url}{sep}{params}"
 
 
 def _check_window(not_before: str | None, not_on_or_after: str | None, now: datetime, leeway: int) -> None:

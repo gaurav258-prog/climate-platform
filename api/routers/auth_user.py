@@ -17,6 +17,7 @@ from api.ratelimit import rate_limiter
 from api.security import create_access_token, token_expires_in_seconds
 from api.services.rbac import AuthError, authenticate, load_user_context, write_audit
 from services.governance import account_security as acct
+from services.governance import sessions as sess
 from services.governance import totp
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
@@ -77,22 +78,44 @@ def login(body: LoginRequest, session: DbSession, request: Request, _rl: None = 
 
     ctx = load_user_context(session, user["user_id"])
     token = create_access_token(user_id=user["user_id"], org_id=user["org_id"], token_version=user.get("token_version", 0))
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    refresh = sess.issue_refresh(session, user_id=str(user["user_id"]), org_id=str(user["org_id"]), user_agent=ua, ip=ip)
 
-    write_audit(
-        session,
-        org_id=str(user["org_id"]),
-        actor_user_id=str(user["user_id"]),
-        action="login",
-        ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    write_audit(session, org_id=str(user["org_id"]), actor_user_id=str(user["user_id"]),
+                action="login", ip=ip, user_agent=ua)
 
     return {
         "access_token": token,
+        "refresh_token": refresh,
         "token_type": "bearer",
         "expires_in": token_expires_in_seconds(),
         **_profile(ctx),
     }
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh", summary="Rotate a refresh token for a fresh access token")
+def refresh(body: RefreshRequest, session: DbSession, request: Request):
+    try:
+        return sess.rotate(session, body.refresh_token,
+                           user_agent=request.headers.get("user-agent"),
+                           ip=request.client.host if request.client else None)
+    except sess.SessionError as e:
+        raise HTTPException(status_code=401, detail={"error": "invalid_refresh", "message": str(e)})
+
+
+@router.get("/sessions", summary="List active sessions on this account")
+def sessions_list(ctx: CurrentUser, session: DbSession):
+    return {"sessions": sess.list_sessions(session, ctx["user"]["id"])}
+
+
+@router.delete("/sessions/{token_id}", summary="Revoke one session")
+def session_revoke(token_id: str, ctx: CurrentUser, session: DbSession):
+    return {"revoked": sess.revoke_session(session, user_id=ctx["user"]["id"], token_id=token_id)}
 
 
 @router.get("/me", summary="Current user profile")
@@ -114,7 +137,8 @@ def logout(ctx: CurrentUser, session: DbSession):
 
 @router.post("/logout-all", summary="Sign out of all sessions on every device")
 def logout_all(ctx: CurrentUser, session: DbSession):
-    return acct.revoke_all_sessions(session, user_id=ctx["user"]["id"], org_id=ctx["org"]["org_id"])
+    sess.revoke_all(session, user_id=ctx["user"]["id"])              # revoke refresh tokens
+    return acct.revoke_all_sessions(session, user_id=ctx["user"]["id"], org_id=ctx["org"]["org_id"])  # + bump access version
 
 
 @router.post("/mfa/backup-codes", summary="Generate one-time MFA recovery codes (shown once)")
