@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck, History, ShieldAlert } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
+import ReviewTabs from '../components/ReviewTabs'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
 
 // the insurer policy detail is the same drawer Portfolio opens (/v1/insurance/policy/{id}) — reused here so a
@@ -59,6 +60,7 @@ export default function UnderwritingReview() {
 
   return (
     <div className="fadeup space-y-6">
+      <ReviewTabs />
       <div>
         <Eyebrow>Assess · insurance underwriting</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Underwriting review</h1>

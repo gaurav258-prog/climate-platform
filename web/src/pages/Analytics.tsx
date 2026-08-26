@@ -11,6 +11,7 @@ import AnalyticsViews from '../components/AnalyticsViews'
 import { downloadCsv } from '../lib/export'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead, PageHeader } from '../components/ui'
+import ReviewTabs from '../components/ReviewTabs'
 import { hazardLabel } from '../lib/hazards'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
@@ -129,6 +130,7 @@ export default function Analytics() {
 
   return (
     <div className="fadeup space-y-6">
+      <ReviewTabs />
       {(fromKri || perils) && (
         <div className="flex items-center gap-2.5 rounded-lg border border-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_7%,transparent)] px-3.5 py-2 text-[12.5px]">
           <span className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-sky)]">Exploring KRI</span>
