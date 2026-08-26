@@ -19,7 +19,7 @@ from api.security import verify_password
 def authenticate(session: Session, email: str, password: str) -> Optional[dict]:
     """Return the user row (mapping) if email+password are valid and active, else None."""
     row = session.execute(text("""
-        SELECT user_id, org_id, email, full_name, hashed_password, status
+        SELECT user_id, org_id, email, full_name, hashed_password, status, mfa_secret, mfa_enrolled_at
         FROM   users
         WHERE  lower(email) = lower(:email)
     """), {"email": email}).mappings().first()

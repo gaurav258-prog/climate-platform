@@ -17,7 +17,7 @@ interface AuthState {
   profile: Profile | null
   loading: boolean
   viewing: Viewing | null
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, otp?: string) => Promise<void>
   logout: () => void
   viewAsTenant: (orgId: string) => Promise<void>
   exitViewing: () => void
@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  async function login(email: string, password: string) {
-    const data = await api.post<{ access_token: string } & Profile>('/v1/auth/login', { email, password })
+  async function login(email: string, password: string, otp?: string) {
+    const data = await api.post<{ access_token: string } & Profile>('/v1/auth/login', { email, password, otp })
     setToken(data.access_token)
     // full reload → the app rehydrates as the NEW user with an empty query cache, so a different org's
     // data (globe/entities/tasks) can never bleed through from the previous session

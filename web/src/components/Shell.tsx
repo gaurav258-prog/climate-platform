@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -60,16 +60,19 @@ const GROUPS: Group[] = [
     { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view' },
   ] },
   { label: 'Set up', color: 'var(--stage-setup)', items: [
+    { to: '/onboarding', label: 'Onboarding', icon: Rocket, perm: 'admin.users.manage' },
     { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view' },
     { to: '/foundation', label: 'Where our data comes from', icon: Database, perm: 'modules.view', sectors: AGRI },
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
     { to: '/admin', label: 'Settings & team', icon: Settings,
       anyPerm: ['admin.users.manage', 'approvals.view', 'admin.audit.view', 'admin.roles.manage', 'admin.approval_policy.manage'] },
+    { to: '/contracts', label: 'Contracts', icon: FileSignature, perm: 'contracts.view' },
     { to: '/docs', label: 'Help & guides', icon: BookOpen, perm: 'modules.view' },
     { to: '/support', label: 'Support', icon: LifeBuoy, perm: 'portal.use' },
   ] },
   { label: 'Platform', color: 'var(--stage-setup)', items: [
     { to: '/platform', label: 'Tenants', icon: Globe, perm: 'platform.admin' },
+    { to: '/intake', label: 'Client intake', icon: ClipboardCheck, perm: 'onboarding.manage' },
   ] },
 ]
 

@@ -59,6 +59,7 @@ try:
     from api.routers import analytics as analytics_router
     from api.routers import approvals as approvals_router
     from api.routers import arrears as arrears_router
+    from api.routers import contracts as contracts_router
     from api.routers import decisions as decisions_router
     from api.routers import export_api as export_api_router
     from api.routers import filings as filings_router
@@ -66,6 +67,7 @@ try:
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
     from api.routers import notifications as notifications_router
+    from api.routers import onboarding_intake as onboarding_intake_router
     from api.routers import ops_console as ops_console_router
     from api.routers import portal as portal_router
     from api.routers import prices as prices_router
@@ -167,6 +169,7 @@ if AUTH_USER_AVAILABLE:
 
 if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(admin_router.router)
+    app.include_router(contracts_router.router)
     app.include_router(approvals_router.router)
     app.include_router(filings_router.router)
     app.include_router(reg_tasks_router.router)
@@ -186,6 +189,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
+    app.include_router(onboarding_intake_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────
