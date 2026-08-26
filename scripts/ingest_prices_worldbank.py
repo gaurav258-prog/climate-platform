@@ -101,16 +101,12 @@ def _download() -> str:
     return CACHE
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
-
+def _parse() -> list[dict]:
+    """Parse the cached/downloaded Pink Sheet into rows {c, y, m, p, u}."""
     import openpyxl
     wb = openpyxl.load_workbook(_download(), read_only=True, data_only=True)
     rows = list(wb["Monthly Prices"].iter_rows(values_only=True))
     names, units = rows[4], rows[5]
-
     cols = {}
     for i, n in enumerate(names):
         key = str(n).strip() if n else ""
@@ -119,7 +115,6 @@ def main() -> int:
     missing = set(COLUMN_MAP.values()) - {c for c, _ in cols.values()}
     if missing:
         print(f"  ! Pink Sheet columns not found for: {sorted(missing)} — headers may have changed")
-
     out = []
     for r in rows[6:]:
         label = str(r[0]) if r[0] else ""
@@ -129,31 +124,47 @@ def main() -> int:
         for i, (commodity, unit) in cols.items():
             v = r[i]
             if isinstance(v, (int, float)):
-                out.append({"c": commodity, "y": int(y), "m": int(m),
-                            "p": round(float(v), 6), "u": unit})
+                out.append({"c": commodity, "y": int(y), "m": int(m), "p": round(float(v), 6), "u": unit})
+    return out
 
-    by = {}
+
+def _write(session, out: list[dict]) -> None:
+    """Upsert into BOTH the COGS-validation series (sc_commodity_prices) and the price-pressure panel
+    (commodity_price_index) — one authoritative Pink Sheet, both surfaces."""
+    for r_ in out:
+        session.execute(text("""
+            INSERT INTO sc_commodity_prices (commodity, year, month, price, unit, source)
+            VALUES (:c, :y, :m, :p, :u, :src)
+            ON CONFLICT (commodity, year, month, source) DO UPDATE SET
+                price = EXCLUDED.price, unit = EXCLUDED.unit, ingested_at = now()
+        """), {**r_, "src": SOURCE})
+    import services.intelligence.price_index as PI
+    PI.ingest(session, [{"source": SOURCE, "commodity": r_["c"], "period_ym": f"{r_['y']}-{r_['m']:02d}",
+                         "index_value": r_["p"], "unit": r_["u"]} for r_ in out])
+
+
+def refresh(session) -> int:
+    """Importable entry for the scheduled feed-refresh system. Returns the number of points loaded."""
+    out = _parse()
+    _write(session, out)
+    return len(out)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    out = _parse()
+    by: dict = {}
     for r_ in out:
         by.setdefault(r_["c"], []).append(r_["y"])
     for c, ys in sorted(by.items()):
-        print(f"  {c:12s} {len(ys):>5} months  [{min(ys)}-{max(ys)}]  unit="
-              f"{next(u for _, u in cols.values() if True) if False else ''}"
-              f"{[u for cc, u in cols.values() if cc == c][0]}")
+        print(f"  {c:22s} {len(ys):>5} months  [{min(ys)}-{max(ys)}]")
 
     if not args.dry_run and out:
         with get_session() as s:
-            for r_ in out:
-                s.execute(text("""
-                    INSERT INTO sc_commodity_prices (commodity, year, month, price, unit, source)
-                    VALUES (:c, :y, :m, :p, :u, :src)
-                    ON CONFLICT (commodity, year, month, source) DO UPDATE SET
-                        price = EXCLUDED.price, unit = EXCLUDED.unit, ingested_at = now()
-                """), {**r_, "src": SOURCE})
-            # Feed the input-cost-pressure panel (commodity_price_index) from the SAME authoritative series —
-            # one Pink Sheet, both the COGS-validation prices and the observed price-pressure surface.
-            import services.intelligence.price_index as PI
-            PI.ingest(s, [{"source": SOURCE, "commodity": r_["c"], "period_ym": f"{r_['y']}-{r_['m']:02d}",
-                           "index_value": r_["p"], "unit": r_["u"]} for r_ in out])
+            _write(s, out)
 
     print(f"\n{len(out)} monthly price points {'(dry run)' if args.dry_run else 'ingested'}")
     return 0
