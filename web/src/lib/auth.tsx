@@ -34,7 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    if (!getToken()) return
+    // SSO return leg: the OIDC callback redirects here with the session token in the URL fragment
+    // (fragments are never sent to a server or written to logs). Consume it, then clean the URL.
+    const m = window.location.hash.match(/sso_token=([^&]+)/)
+    if (m) {
+      setToken(decodeURIComponent(m[1]))
+      window.history.replaceState(null, '', window.location.pathname)
+      setLoading(true)
+    }
+    if (!getToken()) { setLoading(false); return }
     api.get<Profile>('/v1/auth/me')
       .then(setProfile)
       .catch(() => setToken(null))
