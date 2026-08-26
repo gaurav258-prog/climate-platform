@@ -51,6 +51,7 @@ COLUMN_MAP = {
     "Palm oil": "Palm oil",
     "Soybeans": "Soybean",
     "Maize": "Maize",
+    "Wheat, US SRW": "Wheat",         # soft red winter — the reference for common (bread) wheat
     "Wheat, US HRW": "Durum wheat",   # no durum quote; HRW is the closest liquid wheat ref
     "Sugar, world": "Sugar beet",     # world sugar is one fungible market (beet + cane)
     "Rice, Thai 5%": "Rice",
@@ -118,6 +119,11 @@ def main() -> int:
                     ON CONFLICT (commodity, year, month, source) DO UPDATE SET
                         price = EXCLUDED.price, unit = EXCLUDED.unit, ingested_at = now()
                 """), {**r_, "src": SOURCE})
+            # Feed the input-cost-pressure panel (commodity_price_index) from the SAME authoritative series —
+            # one Pink Sheet, both the COGS-validation prices and the observed price-pressure surface.
+            import services.intelligence.price_index as PI
+            PI.ingest(s, [{"source": SOURCE, "commodity": r_["c"], "period_ym": f"{r_['y']}-{r_['m']:02d}",
+                           "index_value": r_["p"], "unit": r_["u"]} for r_ in out])
 
     print(f"\n{len(out)} monthly price points {'(dry run)' if args.dry_run else 'ingested'}")
     return 0
