@@ -23,7 +23,7 @@ type Group = { label: string | null; color?: string; flow?: boolean; items: Item
 const GROUPS: Group[] = [
   { label: 'Sense', color: 'var(--stage-sense)', flow: true, items: [
     { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
-    { to: '/home', label: 'Home', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
+    { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
     { to: '/data', label: 'Data', icon: Database, perm: 'modules.view', sectors: FIN },
     { to: '/operations', label: 'Our sites', icon: Building2, perm: 'modules.view', sectors: AGRI },
