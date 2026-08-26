@@ -64,10 +64,12 @@ try:
     from api.routers import export_api as export_api_router
     from api.routers import filings as filings_router
     from api.routers import gl as gl_router
+    from api.routers import growth as growth_router
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
     from api.routers import notifications as notifications_router
     from api.routers import onboarding_intake as onboarding_intake_router
+    from api.routers import passkeys_esign as passkeys_esign_router
     from api.routers import ops_console as ops_console_router
     from api.routers import portal as portal_router
     from api.routers import prices as prices_router
@@ -75,6 +77,7 @@ try:
     from api.routers import provided as provided_router
     from api.routers import reg_changes as reg_changes_router
     from api.routers import reg_tasks as reg_tasks_router
+    from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
     from api.routers import transmission as transmission_router
     from api.routers import webhooks as webhooks_router
@@ -144,6 +147,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Observability: metrics, structured access logs, optional Sentry ─────
+try:
+    from api.observability import (
+        ObservabilityMiddleware,
+        SecurityHeadersMiddleware,
+        init_sentry,
+        metrics_response,
+    )
+    init_sentry()
+    app.add_middleware(ObservabilityMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics():
+        return metrics_response()
+except ImportError:
+    pass
+
 # ── Routers ────────────────────────────────────────────────────────────
 if ROUTERS_AVAILABLE:
     app.include_router(auth.router)
@@ -193,6 +214,9 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(onboarding_intake_router.router)
     app.include_router(sso_scim_router.router)
     app.include_router(sso_scim_router.scim_router)
+    app.include_router(security_admin_router.router)
+    app.include_router(growth_router.router)
+    app.include_router(passkeys_esign_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

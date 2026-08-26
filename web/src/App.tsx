@@ -1,63 +1,75 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Login from './pages/Login'
 import Shell from './components/Shell'
-import Horizon from './pages/Horizon'
-import Home from './pages/Home'
-import Disclosure from './pages/Disclosure'
-import Csrd from './pages/Csrd'
-import EsrsPack from './pages/EsrsPack'
-import Approvals from './pages/Approvals'
-import Audit from './pages/Audit'
-import Admin from './pages/Admin'
-import Contracts from './pages/Contracts'
-import Onboarding from './pages/Onboarding'
-import IntakeReview from './pages/IntakeReview'
-import IntakeForm from './pages/IntakeForm'
-import Activate from './pages/Activate'
-import SingleSignOn from './pages/SingleSignOn'
-import Platform from './pages/Platform'
-import Cogs from './pages/Cogs'
-import Portfolio from './pages/Portfolio'
-import Compliance from './pages/Compliance'
-import PriorFilings from './pages/PriorFilings'
-import DataHub from './pages/DataHub'
-import Analytics from './pages/Analytics'
-import Decisions from './pages/Decisions'
-import Tasks from './pages/Tasks'
-import Exceptions from './pages/Exceptions'
-import Oversight from './pages/Oversight'
-import Calendar from './pages/Calendar'
-import Kri from './pages/Kri'
-import Transmission from './pages/Transmission'
-import RegChanges from './pages/RegChanges'
-import DataDictionary from './pages/DataDictionary'
-import Filings from './pages/Filings'
-import Funds from './pages/Funds'
-import FundDetail from './pages/FundDetail'
-import Models from './pages/Models'
-import EarlyWarning from './pages/EarlyWarning'
-import Sourcing from './pages/Sourcing'
-import Operations from './pages/Operations'
-import DataFoundation from './pages/DataFoundation'
-import RiskMap from './pages/RiskMap'
-import TrackRecord from './pages/TrackRecord'
-import UnderwritingReview from './pages/UnderwritingReview'
-import ModelValidation from './pages/ModelValidation'
-import DetailView from './pages/DetailView'
-import CommodityDetail from './pages/CommodityDetail'
-import Support from './pages/Support'
-import Docs from './pages/Docs'
+
+// Route-level code-splitting: each page ships as its own chunk, loaded on demand, so the initial
+// bundle stays small. Login + Shell are eager (first paint / layout); everything else is lazy.
+const Horizon = lazy(() => import('./pages/Horizon'))
+const Home = lazy(() => import('./pages/Home'))
+const Disclosure = lazy(() => import('./pages/Disclosure'))
+const Csrd = lazy(() => import('./pages/Csrd'))
+const EsrsPack = lazy(() => import('./pages/EsrsPack'))
+const Approvals = lazy(() => import('./pages/Approvals'))
+const Audit = lazy(() => import('./pages/Audit'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Contracts = lazy(() => import('./pages/Contracts'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
+const IntakeReview = lazy(() => import('./pages/IntakeReview'))
+const IntakeForm = lazy(() => import('./pages/IntakeForm'))
+const Activate = lazy(() => import('./pages/Activate'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const Signup = lazy(() => import('./pages/Signup'))
+const Billing = lazy(() => import('./pages/Billing'))
+const AccountSecurity = lazy(() => import('./pages/AccountSecurity'))
+const SingleSignOn = lazy(() => import('./pages/SingleSignOn'))
+const Platform = lazy(() => import('./pages/Platform'))
+const Cogs = lazy(() => import('./pages/Cogs'))
+const Portfolio = lazy(() => import('./pages/Portfolio'))
+const Compliance = lazy(() => import('./pages/Compliance'))
+const PriorFilings = lazy(() => import('./pages/PriorFilings'))
+const DataHub = lazy(() => import('./pages/DataHub'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Decisions = lazy(() => import('./pages/Decisions'))
+const Tasks = lazy(() => import('./pages/Tasks'))
+const Exceptions = lazy(() => import('./pages/Exceptions'))
+const Oversight = lazy(() => import('./pages/Oversight'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const Kri = lazy(() => import('./pages/Kri'))
+const Transmission = lazy(() => import('./pages/Transmission'))
+const RegChanges = lazy(() => import('./pages/RegChanges'))
+const DataDictionary = lazy(() => import('./pages/DataDictionary'))
+const Filings = lazy(() => import('./pages/Filings'))
+const Funds = lazy(() => import('./pages/Funds'))
+const FundDetail = lazy(() => import('./pages/FundDetail'))
+const Models = lazy(() => import('./pages/Models'))
+const EarlyWarning = lazy(() => import('./pages/EarlyWarning'))
+const Sourcing = lazy(() => import('./pages/Sourcing'))
+const Operations = lazy(() => import('./pages/Operations'))
+const DataFoundation = lazy(() => import('./pages/DataFoundation'))
+const RiskMap = lazy(() => import('./pages/RiskMap'))
+const TrackRecord = lazy(() => import('./pages/TrackRecord'))
+const UnderwritingReview = lazy(() => import('./pages/UnderwritingReview'))
+const ModelValidation = lazy(() => import('./pages/ModelValidation'))
+const DetailView = lazy(() => import('./pages/DetailView'))
+const CommodityDetail = lazy(() => import('./pages/CommodityDetail'))
+const Support = lazy(() => import('./pages/Support'))
+const Docs = lazy(() => import('./pages/Docs'))
 
 export default function App() {
   // Public, pre-authentication surfaces — a client fills their intake and each user activates their
   // account BEFORE any tenant/session exists, so these must render outside the auth gate.
   return (
-    <Routes>
-      <Route path="/onboarding/form/:token" element={<IntakeForm />} />
-      <Route path="/activate/:token" element={<Activate />} />
-      <Route path="*" element={<Workspace />} />
-    </Routes>
+    <Suspense fallback={<Splash />}>
+      <Routes>
+        <Route path="/onboarding/form/:token" element={<IntakeForm />} />
+        <Route path="/activate/:token" element={<Activate />} />
+        <Route path="/reset/:token" element={<ResetPassword />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Workspace />} />
+      </Routes>
+    </Suspense>
   )
 }
 
@@ -96,6 +108,8 @@ function Workspace() {
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/sso" element={<SingleSignOn />} />
+        <Route path="/billing" element={<Billing />} />
+        <Route path="/account-security" element={<AccountSecurity />} />
         <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
@@ -128,7 +142,7 @@ function Workspace() {
 }
 
 function ShellLayout() {
-  return <Shell><Outlet /></Shell>
+  return <Shell><Suspense fallback={<Splash />}><Outlet /></Suspense></Shell>
 }
 
 function Splash() {

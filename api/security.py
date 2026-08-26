@@ -34,12 +34,13 @@ def verify_password(plaintext: str, hashed: Optional[str]) -> bool:
 
 # ── JWT access tokens ──────────────────────────────────────────────────
 
-def create_access_token(user_id: str, org_id: str, extra: Optional[dict] = None) -> str:
+def create_access_token(user_id: str, org_id: str, extra: Optional[dict] = None, token_version: int = 0) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "org_id": str(org_id),
         "typ": "access",
+        "tv": token_version,   # session-revocation version; must match the user's current token_version
         "iat": now,
         "exp": now + timedelta(hours=settings.JWT_EXPIRATION_HOURS),
     }
@@ -60,3 +61,10 @@ def decode_access_token(token: str) -> Optional[dict]:
 
 def token_expires_in_seconds() -> int:
     return settings.JWT_EXPIRATION_HOURS * 3600
+
+
+def create_step_up_token(user_id: str, minutes: int = 5) -> str:
+    """A short-lived proof of recent re-authentication, required for sensitive actions (step-up auth)."""
+    now = datetime.now(timezone.utc)
+    return jwt.encode({"sub": str(user_id), "typ": "stepup", "iat": now, "exp": now + timedelta(minutes=minutes)},
+                      settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)

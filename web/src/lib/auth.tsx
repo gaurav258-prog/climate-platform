@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, setToken, getToken } from './api'
+import { api, setToken, getToken, setRefreshToken } from './api'
 
 export interface Profile {
   user: { id?: string; email?: string; name?: string; role?: string }
@@ -50,15 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(email: string, password: string, otp?: string) {
-    const data = await api.post<{ access_token: string } & Profile>('/v1/auth/login', { email, password, otp })
+    const data = await api.post<{ access_token: string; refresh_token?: string } & Profile>('/v1/auth/login', { email, password, otp })
     setToken(data.access_token)
+    if (data.refresh_token) setRefreshToken(data.refresh_token)
     // full reload → the app rehydrates as the NEW user with an empty query cache, so a different org's
     // data (globe/entities/tasks) can never bleed through from the previous session
     window.location.href = '/'
   }
 
   function logout() {
-    setToken(null); localStorage.removeItem(OP_TOKEN); localStorage.removeItem(VIEWING)
+    setToken(null); setRefreshToken(null); localStorage.removeItem(OP_TOKEN); localStorage.removeItem(VIEWING)
     setProfile(null); setViewing(null)
     window.location.href = '/'   // full reload → clears any cached tenant data on the way out
   }

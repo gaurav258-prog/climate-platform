@@ -21,6 +21,7 @@ from urllib.parse import urlencode
 import jwt
 from jwt.algorithms import RSAAlgorithm
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.security import create_access_token
@@ -64,8 +65,12 @@ def upsert_config(session: Session, org_id: str, *, actor_user_id: str | None, *
         raise SsoError("protocol must be 'oidc' or 'saml'")
     allowed = {"protocol", "enabled", "oidc_issuer", "oidc_client_id", "oidc_client_secret",
                "allowed_email_domain", "jit_provisioning", "default_role", "scim_enabled",
-               "saml_idp_entity_id", "saml_idp_sso_url", "saml_idp_x509_cert"}
+               "saml_idp_entity_id", "saml_idp_sso_url", "saml_idp_slo_url", "saml_idp_x509_cert",
+               "password_login_disabled"}
     cols = {k: v for k, v in fields.items() if k in allowed}
+    if "oidc_client_secret" in cols:   # never store the client secret in plaintext
+        from core.security.crypto import encrypt
+        cols["oidc_client_secret"] = encrypt(cols["oidc_client_secret"])
     exists = session.execute(text("SELECT 1 FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
                             {"o": org_id}).first()
     if not exists:
@@ -247,6 +252,16 @@ def handle_saml_acs(session: Session, saml_response_b64: str, relay_state: str) 
             idp_cert=cfg["saml_idp_x509_cert"])
     except saml_svc.SamlError as e:
         raise SsoError(str(e)) from e
+    # replay protection: an assertion ID may be consumed exactly once per tenant
+    aid = claims.get("assertion_id")
+    if aid:
+        try:
+            session.execute(text("INSERT INTO saml_assertion_seen (assertion_id, org_id) VALUES (:a, CAST(:o AS uuid))"),
+                            {"a": aid, "o": org_id})
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            raise SsoError("this SAML assertion has already been used (replay rejected)")
     email = claims["email"]
     if cfg["allowed_email_domain"] and not email.endswith("@" + cfg["allowed_email_domain"].lower()):
         raise SsoError("this email domain is not permitted for single sign-on here")
@@ -271,9 +286,10 @@ def handle_oidc_callback(session: Session, org_id: str, code: str) -> dict:
         raise SsoError("SSO is not enabled for this organization")
     meta = discover(cfg["oidc_issuer"])
     import requests
+    from core.security.crypto import decrypt
     tok = requests.post(meta["token_endpoint"], timeout=10, data={
         "grant_type": "authorization_code", "code": code, "redirect_uri": _redirect_uri(),
-        "client_id": cfg["oidc_client_id"], "client_secret": cfg["oidc_client_secret"],
+        "client_id": cfg["oidc_client_id"], "client_secret": decrypt(cfg["oidc_client_secret"]),
     })
     tok.raise_for_status()
     id_token = tok.json().get("id_token")

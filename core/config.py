@@ -69,6 +69,21 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-insecure-change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
+    # Short-lived access token + long-lived rotating refresh token (enterprise session model).
+    ACCESS_TOKEN_MINUTES: int = 30
+    REFRESH_TOKEN_DAYS: int = 14
+    # Envelope-encryption key for secrets at rest (OIDC client secret, etc.). A dedicated Fernet key
+    # (urlsafe-b64, 32 bytes) belongs in the environment / KMS; absent, one is derived from SECRET_KEY.
+    APP_ENCRYPTION_KEY: str = ""
+    # Optional error tracking; enabled only when a DSN is set and sentry-sdk is installed.
+    SENTRY_DSN: str = ""
+    # Billing: absent → internal/manual billing (plans, seats, invoices work; no card charge).
+    # Set to a Stripe secret key to route charging through Stripe (external, gated).
+    STRIPE_API_KEY: str = ""
+    # E-signature: absent → upload-signed-PDF into the vault; set to route through a vendor (DocuSign).
+    DOCUSIGN_API_KEY: str = ""
+    # Data retention: how long the audit trail is kept before the retention sweep prunes it (default 2 years).
+    AUDIT_RETENTION_DAYS: int = 730
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 

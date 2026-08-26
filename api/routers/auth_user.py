@@ -9,21 +9,36 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import text as _sql
 
 from api.deps import CurrentUser, DbSession
+from api.ratelimit import rate_limiter
 from api.security import create_access_token, token_expires_in_seconds
-from api.services.rbac import authenticate, load_user_context, write_audit
+from api.services.rbac import AuthError, authenticate, load_user_context, write_audit
+from services.governance import account_security as acct
+from services.governance import sessions as sess
 from services.governance import totp
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
+
+_login_limit = rate_limiter(max_calls=30, window_seconds=60)     # 30 login attempts / IP / minute
+_forgot_limit = rate_limiter(max_calls=8, window_seconds=300)    # 8 reset requests / IP / 5 min
 
 
 class LoginRequest(BaseModel):
     email:    str = Field(..., min_length=3)
     password: str = Field(..., min_length=1)
     otp:      Optional[str] = None
+
+
+class ForgotRequest(BaseModel):
+    email: str = Field(..., min_length=3)
+
+
+class ResetRequest(BaseModel):
+    password: str = Field(..., min_length=10)
 
 
 def _profile(ctx: dict) -> dict:
@@ -37,45 +52,71 @@ def _profile(ctx: dict) -> dict:
 
 
 @router.post("/login", summary="Log in with email + password")
-def login(body: LoginRequest, session: DbSession, request: Request):
-    user = authenticate(session, body.email, body.password)
+def login(body: LoginRequest, session: DbSession, request: Request, _rl: None = Depends(_login_limit)):
+    try:
+        user = authenticate(session, body.email, body.password)
+    except AuthError as e:
+        raise HTTPException(status_code=401, detail={"error": e.code, "message": e.message})
     if not user:
         raise HTTPException(
             status_code=401,
             detail={"error": "invalid_credentials", "message": "Email or password is incorrect."},
         )
 
-    # MFA is mandatory once enrolled — password alone is not enough.
+    # MFA is mandatory once enrolled — password alone is not enough. A one-time backup code also works.
     if user.get("mfa_enrolled_at"):
         if not body.otp:
             raise HTTPException(
                 status_code=401,
                 detail={"error": "mfa_required", "message": "Enter the 6-digit code from your authenticator app."},
             )
-        if not totp.verify(user.get("mfa_secret") or "", body.otp):
+        ok = totp.verify(user.get("mfa_secret") or "", body.otp) or acct.consume_backup_code(session, str(user["user_id"]), body.otp)
+        if not ok:
             raise HTTPException(
                 status_code=401,
-                detail={"error": "mfa_invalid", "message": "That code didn't match. Try again."},
+                detail={"error": "mfa_invalid", "message": "That code didn't match. Try a code or a backup code."},
             )
 
     ctx = load_user_context(session, user["user_id"])
-    token = create_access_token(user_id=user["user_id"], org_id=user["org_id"])
+    token = create_access_token(user_id=user["user_id"], org_id=user["org_id"], token_version=user.get("token_version", 0))
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    refresh = sess.issue_refresh(session, user_id=str(user["user_id"]), org_id=str(user["org_id"]), user_agent=ua, ip=ip)
 
-    write_audit(
-        session,
-        org_id=str(user["org_id"]),
-        actor_user_id=str(user["user_id"]),
-        action="login",
-        ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    write_audit(session, org_id=str(user["org_id"]), actor_user_id=str(user["user_id"]),
+                action="login", ip=ip, user_agent=ua)
 
     return {
         "access_token": token,
+        "refresh_token": refresh,
         "token_type": "bearer",
         "expires_in": token_expires_in_seconds(),
         **_profile(ctx),
     }
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh", summary="Rotate a refresh token for a fresh access token")
+def refresh(body: RefreshRequest, session: DbSession, request: Request):
+    try:
+        return sess.rotate(session, body.refresh_token,
+                           user_agent=request.headers.get("user-agent"),
+                           ip=request.client.host if request.client else None)
+    except sess.SessionError as e:
+        raise HTTPException(status_code=401, detail={"error": "invalid_refresh", "message": str(e)})
+
+
+@router.get("/sessions", summary="List active sessions on this account")
+def sessions_list(ctx: CurrentUser, session: DbSession):
+    return {"sessions": sess.list_sessions(session, ctx["user"]["id"])}
+
+
+@router.delete("/sessions/{token_id}", summary="Revoke one session")
+def session_revoke(token_id: str, ctx: CurrentUser, session: DbSession):
+    return {"revoked": sess.revoke_session(session, user_id=ctx["user"]["id"], token_id=token_id)}
 
 
 @router.get("/me", summary="Current user profile")
@@ -93,3 +134,55 @@ def logout(ctx: CurrentUser, session: DbSession):
         action="logout",
     )
     return None
+
+
+@router.post("/logout-all", summary="Sign out of all sessions on every device")
+def logout_all(ctx: CurrentUser, session: DbSession):
+    sess.revoke_all(session, user_id=ctx["user"]["id"])              # revoke refresh tokens
+    return acct.revoke_all_sessions(session, user_id=ctx["user"]["id"], org_id=ctx["org"]["org_id"])  # + bump access version
+
+
+@router.post("/mfa/backup-codes", summary="Generate one-time MFA recovery codes (shown once)")
+def mfa_backup_codes(ctx: CurrentUser, session: DbSession):
+    return {"codes": acct.generate_backup_codes(session, ctx["user"]["id"])}
+
+
+class StepUpRequest(BaseModel):
+    password: str
+    otp: Optional[str] = None
+
+
+@router.post("/step-up", summary="Re-authenticate for a sensitive action (step-up)")
+def step_up(body: StepUpRequest, ctx: CurrentUser, session: DbSession):
+    from api.security import create_step_up_token, verify_password
+    row = session.execute(
+        _sql("SELECT hashed_password, mfa_secret, mfa_enrolled_at FROM users WHERE user_id = CAST(:u AS uuid)"),
+        {"u": ctx["user"]["id"]}).mappings().first()
+    if not verify_password(body.password, row["hashed_password"]):
+        raise HTTPException(status_code=401, detail={"error": "invalid_credentials", "message": "Password is incorrect."})
+    if row["mfa_enrolled_at"] and not (totp.verify(row["mfa_secret"] or "", body.otp or "")
+                                       or acct.consume_backup_code(session, ctx["user"]["id"], body.otp or "")):
+        raise HTTPException(status_code=401, detail={"error": "mfa_invalid", "message": "Authenticator code required."})
+    return {"step_up_token": create_step_up_token(ctx["user"]["id"])}
+
+
+@router.post("/password/forgot", summary="Request a password-reset link")
+def forgot_password(body: ForgotRequest, session: DbSession, _rl: None = Depends(_forgot_limit)):
+    # always 200 — never reveals whether the email is registered
+    return acct.request_password_reset(session, body.email)
+
+
+@router.get("/password/reset/{token}", summary="Validate a password-reset link")
+def check_reset(token: str, session: DbSession):
+    r = acct.get_reset(session, token)
+    if not r:
+        raise HTTPException(status_code=404, detail={"message": "this reset link is invalid or has expired"})
+    return r
+
+
+@router.post("/password/reset/{token}", summary="Set a new password via a reset link")
+def do_reset(token: str, body: ResetRequest, session: DbSession):
+    try:
+        return acct.complete_password_reset(session, token, body.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})

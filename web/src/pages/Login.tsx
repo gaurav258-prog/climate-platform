@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { api, ApiError } from '../lib/api'
+import { api, ApiError, setToken, setRefreshToken } from '../lib/api'
 import { BrandMark, Button } from '../components/ui'
+import * as webauthn from '../lib/webauthn'
 
 function errCode(e: unknown): string | undefined {
   if (e instanceof ApiError) {
@@ -36,6 +37,15 @@ export default function Login() {
   const [role, setRole] = useState('admin')
   const [mfa, setMfa] = useState(false)   // second factor required for this account
   const [otp, setOtp] = useState('')
+  const [forgot, setForgot] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+
+  async function sendReset() {
+    if (!email.includes('@')) { setErr('Enter your email first.'); return }
+    setBusy(true); setErr(null)
+    try { await api.post('/v1/auth/password/forgot', { email: email.trim() }); setForgotSent(true) }
+    catch { setForgotSent(true) } finally { setBusy(false) }   // never reveal existence
+  }
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -58,6 +68,18 @@ export default function Login() {
       if (!r.org_id) { setErr('No single sign-on is set up for your email domain.'); setBusy(false); return }
       window.location.href = `/v1/sso/login?org_id=${r.org_id}`   // → your IdP, then back with a session
     } catch { setErr('Could not start single sign-on.'); setBusy(false) }
+  }
+
+  async function passkeyLogin() {
+    if (!email.includes('@')) { setErr('Enter your email to use a passkey.'); return }
+    if (!webauthn.supported()) { setErr('This browser does not support passkeys.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const opts = await api.post('/v1/auth/passkey/login/options', { email: email.trim() })
+      const credential = await webauthn.startAuthentication(opts)
+      const d = await api.post<{ access_token: string; refresh_token: string }>('/v1/auth/passkey/login/verify', { email: email.trim(), credential })
+      setToken(d.access_token); setRefreshToken(d.refresh_token); window.location.href = '/'
+    } catch { setErr('Passkey sign-in failed or no passkey is registered.'); setBusy(false) }
   }
 
   async function demoLogin(tenant: string) {
@@ -94,6 +116,11 @@ export default function Login() {
             className="w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)] mb-5"
             placeholder="••••••••" />
 
+          {!mfa && (
+            <button type="button" onClick={() => { setForgot(true); setErr(null) }}
+              className="text-[12px] text-[var(--color-sky)] hover:text-[var(--color-blue)] -mt-3 mb-4 block">Forgot password?</button>
+          )}
+
           {mfa && (
             <div className="mb-5">
               <label className="block text-[11px] mono uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Authenticator code</label>
@@ -105,20 +132,47 @@ export default function Login() {
           )}
 
           {err && <div className="text-[13px] text-[var(--color-bad)] mb-4">{err}</div>}
-          <Button variant="primary" disabled={busy || !email || !pw || (mfa && otp.length < 6)} className="w-full justify-center">
-            {busy ? 'Signing in…' : mfa ? 'Verify & sign in →' : 'Sign in →'}
-          </Button>
 
-          <div className="flex items-center gap-3 my-4">
-            <div className="h-px flex-1 bg-[var(--color-line)]" />
-            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">or</span>
-            <div className="h-px flex-1 bg-[var(--color-line)]" />
-          </div>
-          <button type="button" onClick={ssoStart} disabled={busy}
-            className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
-            Sign in with single sign-on
-          </button>
+          {forgot ? (
+            forgotSent ? (
+              <div className="text-[13px] text-[var(--color-mute)]">If an account exists for that email, a reset link is on its way. Check your inbox.
+                <button type="button" onClick={() => { setForgot(false); setForgotSent(false) }} className="block mt-3 text-[var(--color-sky)]">← Back to sign in</button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[12px] text-[var(--color-mute)] mb-3">Enter your email and we’ll send a reset link.</p>
+                <button type="button" onClick={sendReset} disabled={busy || !email}
+                  className="w-full justify-center inline-flex items-center rounded-lg bg-[var(--color-sky)] text-[#08111f] px-4 py-2.5 text-[13px] font-medium hover:bg-[var(--color-blue)] transition disabled:opacity-60">
+                  {busy ? 'Sending…' : 'Send reset link →'}
+                </button>
+                <button type="button" onClick={() => setForgot(false)} className="block mt-3 text-[12px] text-[var(--color-sky)]">← Back to sign in</button>
+              </div>
+            )
+          ) : (
+            <>
+              <Button variant="primary" disabled={busy || !email || !pw || (mfa && otp.length < 6)} className="w-full justify-center">
+                {busy ? 'Signing in…' : mfa ? 'Verify & sign in →' : 'Sign in →'}
+              </Button>
+              <div className="flex items-center gap-3 my-4">
+                <div className="h-px flex-1 bg-[var(--color-line)]" />
+                <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">or</span>
+                <div className="h-px flex-1 bg-[var(--color-line)]" />
+              </div>
+              <button type="button" onClick={ssoStart} disabled={busy}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
+                Sign in with single sign-on
+              </button>
+              <button type="button" onClick={passkeyLogin} disabled={busy}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
+                Sign in with a passkey
+              </button>
+            </>
+          )}
         </form>
+
+        <div className="text-center mt-4">
+          <a href="/signup" className="text-[12px] text-[var(--color-sky)] hover:text-[var(--color-blue)]">New to Tellumen? Start a free trial →</a>
+        </div>
 
         <div className="mt-5">
           <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Jump into a demo sector</div>
