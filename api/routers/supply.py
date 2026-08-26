@@ -41,6 +41,7 @@ from services.intelligence.supply_cogs import (
     clear_commodity_override,
     project_org_supply,
 )
+from services.intelligence.supply_concentration import supply_concentration
 from services.scoring.on_demand import schedule_scoring
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -126,6 +127,8 @@ def summary(session: DbSession, org_id: OrgId,
             "covered_spend_eur": r.covered_spend_eur,
         },
         "commodities": [asdict(c) for c in r.commodities],
+        # supply-shock concentration — is the at-risk book concentrated in one crop / one hazard (the diversification lens)
+        "concentration": supply_concentration(r.commodities),
         # name → commodity_id, so the UI can deep-link each commodity to its analytics detail
         "commodity_ids": {row["name"]: row["commodity_id"] for row in session.execute(text("""
             SELECT DISTINCT co.commodity_id::text AS commodity_id, co.name
@@ -715,6 +718,7 @@ def disclosure(session: DbSession, org_id: OrgId,
         "rollup": {"ingredient_spend_eur": r.ingredient_spend_eur, "total_cogs_eur": r.total_cogs_eur,
                    "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "volume_at_risk_eur": r.volume_at_risk_eur,
                    "pct_cogs_at_risk": r.pct_cogs_at_risk},
+        "concentration": supply_concentration(r.commodities),
         "csrd": csrd, "eudr": {"summary": eudr_summary, "plots": eudr},
     }
 

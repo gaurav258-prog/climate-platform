@@ -245,6 +245,23 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
         _kpi("ghg_emissions", "GHG emissions (Scope 1-3)", None, "num", integrated=True, integrated_note="carbon tool",
              hint="ESRS E1-6 GHG accounting is integrated from your carbon-accounting tool — Tellumen computes the physical/nature ESRS, not the emissions inventory."),
     ]
+    # supply-shock concentration — is the sourcing book concentrated in one crop / one hazard (diversification lens)
+    try:
+        from services.intelligence.supply_cogs import project_org_supply
+        from services.intelligence.supply_concentration import supply_concentration
+        conc = supply_concentration(project_org_supply(session, org_id, scenario=s["scenario"], time_horizon=s["horizon"]).commodities)
+        if conc.get("available"):
+            cshock = conc.get("common_shock") or {}
+            kpis.append(_kpi("supply_common_shock", "Spend in largest common shock", conc.get("common_shock_pct_of_spend"), "pct",
+                             tone="#fb7185", hint=(f"Share of sourcing spend exposed to the single biggest common shock "
+                                                   f"({cshock.get('hazard', '—')} across {cshock.get('n_commodities', 0)} crops) — "
+                                                   "a bad season on this one hazard hits this much of the book at once")))
+            kpis.append(_kpi("supply_diversification", "Effective independent crops", conc.get("effective_commodities"), "num",
+                             tone="#f0a860", hint=(f"1/HHI over sourcing spend — the book behaves like this many equally-weighted "
+                                                   f"independent crops (of {len(conc.get('by_commodity') or [])} sourced). "
+                                                   f"Effective independent hazards: {conc.get('effective_hazards')}")))
+    except Exception:  # noqa: BLE001 — a missing supply signal must not sink the KRI set
+        pass
     # Separate regional frost-severity indicator (E1 physical hazard) — standalone, shown only where the
     # org sources from a region we hold frost data for. A HAZARD-extent number, NOT a euro (coffee € stays
     # held); kept distinct from the per-plot score and from the COGS figures above.
