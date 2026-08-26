@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -65,6 +65,7 @@ const GROUPS: Group[] = [
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
     { to: '/admin', label: 'Settings & team', icon: Settings,
       anyPerm: ['admin.users.manage', 'approvals.view', 'admin.audit.view', 'admin.roles.manage', 'admin.approval_policy.manage'] },
+    { to: '/contracts', label: 'Contracts', icon: FileSignature, perm: 'contracts.view' },
     { to: '/docs', label: 'Help & guides', icon: BookOpen, perm: 'modules.view' },
     { to: '/support', label: 'Support', icon: LifeBuoy, perm: 'portal.use' },
   ] },
