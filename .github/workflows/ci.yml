@@ -188,6 +188,7 @@ jobs:
           kubectl apply -f infra/k8s/secret.yaml        # pre-created in cluster
           kubectl apply -f infra/k8s/api-deployment.yaml
           kubectl apply -f infra/k8s/scorer-cronjob.yaml
+          kubectl apply -f infra/k8s/ingestion-cronjob.yaml
           kubectl apply -f infra/k8s/ingress.yaml
 
       - name: Wait for rollout
