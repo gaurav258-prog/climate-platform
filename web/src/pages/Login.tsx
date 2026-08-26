@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { ApiError } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { BrandMark, Button } from '../components/ui'
 
 function errCode(e: unknown): string | undefined {
@@ -48,6 +48,16 @@ export default function Login() {
       else setErr('Email or password is incorrect.')
     }
     finally { setBusy(false) }
+  }
+
+  async function ssoStart() {
+    if (!email.includes('@')) { setErr('Enter your work email to continue with SSO.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const r = await api.get<{ org_id?: string; protocol?: string }>(`/v1/sso/discover?email=${encodeURIComponent(email.trim())}`)
+      if (!r.org_id) { setErr('No single sign-on is set up for your email domain.'); setBusy(false); return }
+      window.location.href = `/v1/sso/login?org_id=${r.org_id}`   // → your IdP, then back with a session
+    } catch { setErr('Could not start single sign-on.'); setBusy(false) }
   }
 
   async function demoLogin(tenant: string) {
@@ -98,6 +108,16 @@ export default function Login() {
           <Button variant="primary" disabled={busy || !email || !pw || (mfa && otp.length < 6)} className="w-full justify-center">
             {busy ? 'Signing in…' : mfa ? 'Verify & sign in →' : 'Sign in →'}
           </Button>
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px flex-1 bg-[var(--color-line)]" />
+            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">or</span>
+            <div className="h-px flex-1 bg-[var(--color-line)]" />
+          </div>
+          <button type="button" onClick={ssoStart} disabled={busy}
+            className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
+            Sign in with single sign-on
+          </button>
         </form>
 
         <div className="mt-5">

@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from api.deps import CurrentUser, DbSession, require_permission
+from api.deps import DbSession, require_permission
 from core.config import settings
+from services.governance import saml as saml_svc
 from services.governance import scim as scim_svc
 from services.governance import sso as sso_svc
 
@@ -26,10 +27,14 @@ _admin = require_permission("admin.users.manage")
 
 # ── tenant SSO configuration ─────────────────────────────────────────────────
 class SsoConfigIn(BaseModel):
+    protocol: Optional[str] = None
     enabled: Optional[bool] = None
     oidc_issuer: Optional[str] = None
     oidc_client_id: Optional[str] = None
     oidc_client_secret: Optional[str] = None
+    saml_idp_entity_id: Optional[str] = None
+    saml_idp_sso_url: Optional[str] = None
+    saml_idp_x509_cert: Optional[str] = None
     allowed_email_domain: Optional[str] = None
     jit_provisioning: Optional[bool] = None
     default_role: Optional[str] = None
@@ -55,11 +60,18 @@ def new_scim_token(session: DbSession, ctx: dict = Depends(_admin)):
     return sso_svc.generate_scim_token(session, ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"])
 
 
-# ── OIDC login round-trip (public; activates once a tenant configures a real IdP) ──
+# ── login round-trip (public; activates once a tenant configures a real IdP) ──
+@router.get("/discover")
+def sso_discover(email: str, session: DbSession):
+    """Does this work email's domain have SSO? Powers the 'Sign in with SSO' button (no data leak beyond y/n)."""
+    hit = sso_svc.discover_by_email(session, email)
+    return hit or {"found": False}
+
+
 @router.get("/login")
 def sso_login(org_id: str, session: DbSession, state: str = ""):
     try:
-        return RedirectResponse(url=sso_svc.authorize_url(session, org_id, state or org_id))
+        return RedirectResponse(url=sso_svc.login_redirect_url(session, org_id, state or org_id))
     except sso_svc.SsoError as e:
         raise HTTPException(status_code=400, detail={"message": str(e)})
     except Exception as e:  # noqa: BLE001 — discovery/network failures shouldn't 500 opaquely
@@ -76,6 +88,23 @@ def sso_callback(code: str, session: DbSession, state: str = ""):
     # hand the session token to the SPA via the URL fragment (never sent to a server / logged)
     base = settings.APP_BASE_URL.rstrip("/")
     return RedirectResponse(url=f"{base}/#sso_token={result['access_token']}")
+
+
+@router.post("/saml/acs")
+def saml_acs(session: DbSession, SAMLResponse: str = Form(...), RelayState: str = Form("")):
+    """SAML Assertion Consumer Service — the IdP POSTs the signed Response here."""
+    try:
+        result = sso_svc.handle_saml_acs(session, SAMLResponse, RelayState)
+    except sso_svc.SsoError as e:
+        raise HTTPException(status_code=400, detail={"message": str(e)})
+    base = settings.APP_BASE_URL.rstrip("/")
+    return RedirectResponse(url=f"{base}/#sso_token={result['access_token']}", status_code=303)
+
+
+@router.get("/saml/metadata")
+def saml_metadata():
+    """Our SP metadata — hand this to the tenant's IdP to configure the SAML connection."""
+    return Response(content=saml_svc.sp_metadata_xml(), media_type="application/samlmetadata+xml")
 
 
 # ── SCIM 2.0 provisioning (bearer-authed with the tenant's SCIM token) ────────

@@ -60,8 +60,11 @@ def upsert_config(session: Session, org_id: str, *, actor_user_id: str | None, *
     """Create or update a tenant's SSO config. Only the provided fields are changed."""
     if "default_role" in fields and fields["default_role"] not in VALID_ROLES:
         raise SsoError(f"default_role must be one of {sorted(VALID_ROLES)}")
+    if "protocol" in fields and fields["protocol"] not in ("oidc", "saml"):
+        raise SsoError("protocol must be 'oidc' or 'saml'")
     allowed = {"protocol", "enabled", "oidc_issuer", "oidc_client_id", "oidc_client_secret",
-               "allowed_email_domain", "jit_provisioning", "default_role", "scim_enabled"}
+               "allowed_email_domain", "jit_provisioning", "default_role", "scim_enabled",
+               "saml_idp_entity_id", "saml_idp_sso_url", "saml_idp_x509_cert"}
     cols = {k: v for k, v in fields.items() if k in allowed}
     exists = session.execute(text("SELECT 1 FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
                             {"o": org_id}).first()
@@ -71,11 +74,16 @@ def upsert_config(session: Session, org_id: str, *, actor_user_id: str | None, *
         sets = ", ".join(f"{k} = :{k}" for k in cols)
         session.execute(text(f"UPDATE tenant_sso_config SET {sets}, updated_at = now() WHERE org_id = CAST(:o AS uuid)"),
                         {**cols, "o": org_id})
-    # can't enable OIDC without the essentials
-    cfg = session.execute(text("SELECT enabled, oidc_issuer, oidc_client_id FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": org_id}).mappings().first()
-    if cfg["enabled"] and not (cfg["oidc_issuer"] and cfg["oidc_client_id"]):
-        raise SsoError("issuer and client_id are required before enabling SSO")
+    # can't enable a protocol without its essentials
+    cfg = session.execute(text("""
+        SELECT enabled, protocol, oidc_issuer, oidc_client_id, saml_idp_sso_url, saml_idp_x509_cert
+        FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)
+    """), {"o": org_id}).mappings().first()
+    if cfg["enabled"]:
+        if cfg["protocol"] == "saml" and not (cfg["saml_idp_sso_url"] and cfg["saml_idp_x509_cert"]):
+            raise SsoError("SAML IdP SSO URL and signing certificate are required before enabling SSO")
+        if cfg["protocol"] != "saml" and not (cfg["oidc_issuer"] and cfg["oidc_client_id"]):
+            raise SsoError("issuer and client_id are required before enabling SSO")
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="sso.config_updated",
                 target_type="tenant_sso_config", target_id=org_id, detail={"fields": list(cols)})
     session.commit()
@@ -183,6 +191,76 @@ def provision_sso_user(session: Session, org_id: str, *, email: str, full_name: 
         session.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (CAST(:u AS uuid), CAST(:r AS uuid)) ON CONFLICT DO NOTHING"),
                         {"u": user_id, "r": str(rid)})
     return {"user_id": user_id, "email": email, "created": True}
+
+
+def discover_by_email(session: Session, email: str) -> dict | None:
+    """Resolve a work email to an SSO-enabled tenant by its allowed_email_domain (for the login-screen button)."""
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return None
+    domain = email.split("@", 1)[1]
+    r = session.execute(text("""
+        SELECT c.org_id, c.protocol, o.name AS org_name
+        FROM tenant_sso_config c JOIN organizations o ON o.org_id = c.org_id
+        WHERE c.enabled = true AND lower(c.allowed_email_domain) = :d
+        LIMIT 1
+    """), {"d": domain}).mappings().first()
+    return {"org_id": str(r["org_id"]), "protocol": r["protocol"], "org_name": r["org_name"]} if r else None
+
+
+def login_redirect_url(session: Session, org_id: str, state: str) -> str:
+    """Protocol-aware SP-initiated login: OIDC authorize URL or a SAML AuthnRequest redirect."""
+    cfg = session.execute(text("""
+        SELECT enabled, protocol, oidc_issuer, oidc_client_id, saml_idp_sso_url
+        FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)
+    """), {"o": org_id}).mappings().first()
+    if not cfg or not cfg["enabled"]:
+        raise SsoError("SSO is not enabled for this organization")
+    if cfg["protocol"] == "saml":
+        from services.governance import saml as saml_svc
+        if not cfg["saml_idp_sso_url"]:
+            raise SsoError("this organization's SAML IdP is not fully configured")
+        return saml_svc.build_authn_request(idp_sso_url=cfg["saml_idp_sso_url"], relay_state=state or org_id)
+    # OIDC
+    from urllib.parse import urlencode as _q
+    if not (cfg["oidc_issuer"] and cfg["oidc_client_id"]):
+        raise SsoError("this organization's OIDC IdP is not fully configured")
+    meta = discover(cfg["oidc_issuer"])
+    return f"{meta['authorization_endpoint']}?" + _q({
+        "response_type": "code", "client_id": cfg["oidc_client_id"], "redirect_uri": _redirect_uri(),
+        "scope": "openid email profile", "state": state or org_id})
+
+
+def handle_saml_acs(session: Session, saml_response_b64: str, relay_state: str) -> dict:
+    """Validate a SAML Response POSTed to our ACS, JIT-provision the user, and mint our session JWT. IdP-gated."""
+    from services.governance import saml as saml_svc
+    org_id = relay_state
+    cfg = session.execute(text("SELECT * FROM tenant_sso_config WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": org_id}).mappings().first()
+    if not cfg or not cfg["enabled"] or cfg["protocol"] != "saml":
+        raise SsoError("SAML SSO is not enabled for this organization")
+    if not cfg["saml_idp_x509_cert"]:
+        raise SsoError("this organization's SAML signing certificate is not configured")
+    try:
+        claims = saml_svc.validate_saml_response(
+            saml_response_b64, sp_entity_id=saml_svc.sp_entity_id(), sp_acs_url=saml_svc.acs_url(),
+            idp_cert=cfg["saml_idp_x509_cert"])
+    except saml_svc.SamlError as e:
+        raise SsoError(str(e)) from e
+    email = claims["email"]
+    if cfg["allowed_email_domain"] and not email.endswith("@" + cfg["allowed_email_domain"].lower()):
+        raise SsoError("this email domain is not permitted for single sign-on here")
+    if not cfg["jit_provisioning"]:
+        exists = session.execute(text("SELECT user_id FROM users WHERE org_id = CAST(:o AS uuid) AND lower(email) = :e AND status='active'"),
+                                 {"o": org_id, "e": email}).first()
+        if not exists:
+            raise SsoError("no account for this user, and JIT provisioning is disabled")
+    user = provision_sso_user(session, org_id, email=email, full_name=claims.get("name"),
+                              external_id=claims.get("name_id"), default_role=cfg["default_role"])
+    write_audit(session, org_id=org_id, actor_user_id=user["user_id"], action="sso.login",
+                target_type="user", target_id=user["user_id"], detail={"protocol": "saml", "jit_created": user["created"]})
+    session.commit()
+    return {"access_token": create_access_token(user_id=user["user_id"], org_id=org_id), "token_type": "bearer"}
 
 
 def handle_oidc_callback(session: Session, org_id: str, code: str) -> dict:
