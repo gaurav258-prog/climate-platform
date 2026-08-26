@@ -16,23 +16,52 @@ from sqlalchemy.orm import Session
 from api.security import verify_password
 
 
+_LOCKOUT_THRESHOLD = 5
+_LOCKOUT_MINUTES = 15
+
+
+class AuthError(Exception):
+    """A non-credential authentication failure the login endpoint should surface specifically."""
+
+    def __init__(self, code: str, message: str):
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
 def authenticate(session: Session, email: str, password: str) -> Optional[dict]:
-    """Return the user row (mapping) if email+password are valid and active, else None."""
+    """Validated user mapping on success; None on bad credentials. Raises AuthError for account-locked or
+    SSO-enforced (password sign-in disabled). Tracks failed attempts and applies a temporary lockout."""
+    from datetime import timedelta
     row = session.execute(text("""
-        SELECT user_id, org_id, email, full_name, hashed_password, status, mfa_secret, mfa_enrolled_at
-        FROM   users
-        WHERE  lower(email) = lower(:email)
+        SELECT u.user_id, u.org_id, u.email, u.full_name, u.hashed_password, u.status,
+               u.mfa_secret, u.mfa_enrolled_at, u.token_version, u.failed_login_count, u.locked_until,
+               COALESCE(c.password_login_disabled, false) AS password_login_disabled
+        FROM   users u
+        LEFT JOIN tenant_sso_config c ON c.org_id = u.org_id
+        WHERE  lower(u.email) = lower(:email)
     """), {"email": email}).mappings().first()
 
     if not row or row["status"] != "active":
         return None
+    now = datetime.now(timezone.utc)
+    if row["locked_until"] and row["locked_until"] > now:
+        raise AuthError("account_locked", "Too many failed attempts. Try again later or reset your password.")
+    if row["password_login_disabled"]:
+        raise AuthError("sso_required", "Password sign-in is disabled for your organization. Use single sign-on.")
+
     if not verify_password(password, row["hashed_password"]):
+        n = (row["failed_login_count"] or 0) + 1
+        lock = now + timedelta(minutes=_LOCKOUT_MINUTES) if n >= _LOCKOUT_THRESHOLD else None
+        session.execute(text("UPDATE users SET failed_login_count = :n, locked_until = :lk WHERE user_id = :uid"),
+                        {"n": n, "lk": lock, "uid": str(row["user_id"])})
+        session.commit()
+        if lock:
+            raise AuthError("account_locked", "Too many failed attempts. Your account is temporarily locked.")
         return None
 
-    session.execute(
-        text("UPDATE users SET last_login_at = :now WHERE user_id = :uid"),
-        {"now": datetime.now(timezone.utc), "uid": str(row["user_id"])},
-    )
+    session.execute(text("UPDATE users SET last_login_at = :now, failed_login_count = 0, locked_until = NULL WHERE user_id = :uid"),
+                    {"now": now, "uid": str(row["user_id"])})
     return dict(row)
 
 
@@ -43,7 +72,7 @@ def load_user_context(session: Session, user_id: str) -> Optional[dict]:
        roles:[names], permissions:[codes], entitlements:[offering_ids]}
     """
     u = session.execute(text("""
-        SELECT u.user_id, u.email, u.full_name, u.status,
+        SELECT u.user_id, u.email, u.full_name, u.status, u.token_version,
                o.org_id, o.name AS org_name, o.type AS org_type, o.country AS org_country
         FROM   users u
         JOIN   organizations o ON o.org_id = u.org_id
@@ -80,6 +109,7 @@ def load_user_context(session: Session, user_id: str) -> Optional[dict]:
             "email": u["email"],
             "full_name": u["full_name"],
             "status": u["status"],
+            "token_version": u["token_version"] or 0,
         },
         "org": {
             "org_id": str(u["org_id"]),

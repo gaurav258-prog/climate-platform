@@ -15,6 +15,7 @@ import Onboarding from './pages/Onboarding'
 import IntakeReview from './pages/IntakeReview'
 import IntakeForm from './pages/IntakeForm'
 import Activate from './pages/Activate'
+import ResetPassword from './pages/ResetPassword'
 import SingleSignOn from './pages/SingleSignOn'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
@@ -56,6 +57,7 @@ export default function App() {
     <Routes>
       <Route path="/onboarding/form/:token" element={<IntakeForm />} />
       <Route path="/activate/:token" element={<Activate />} />
+      <Route path="/reset/:token" element={<ResetPassword />} />
       <Route path="*" element={<Workspace />} />
     </Routes>
   )

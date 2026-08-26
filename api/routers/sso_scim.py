@@ -39,6 +39,7 @@ class SsoConfigIn(BaseModel):
     jit_provisioning: Optional[bool] = None
     default_role: Optional[str] = None
     scim_enabled: Optional[bool] = None
+    password_login_disabled: Optional[bool] = None
 
 
 @router.get("/config")

@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-insecure-change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
+    # Short-lived access token + long-lived rotating refresh token (enterprise session model).
+    ACCESS_TOKEN_MINUTES: int = 30
+    REFRESH_TOKEN_DAYS: int = 14
+    # Envelope-encryption key for secrets at rest (OIDC client secret, etc.). A dedicated Fernet key
+    # (urlsafe-b64, 32 bytes) belongs in the environment / KMS; absent, one is derived from SECRET_KEY.
+    APP_ENCRYPTION_KEY: str = ""
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 

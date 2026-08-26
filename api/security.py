@@ -34,12 +34,13 @@ def verify_password(plaintext: str, hashed: Optional[str]) -> bool:
 
 # ── JWT access tokens ──────────────────────────────────────────────────
 
-def create_access_token(user_id: str, org_id: str, extra: Optional[dict] = None) -> str:
+def create_access_token(user_id: str, org_id: str, extra: Optional[dict] = None, token_version: int = 0) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
         "org_id": str(org_id),
         "typ": "access",
+        "tv": token_version,   # session-revocation version; must match the user's current token_version
         "iat": now,
         "exp": now + timedelta(hours=settings.JWT_EXPIRATION_HOURS),
     }

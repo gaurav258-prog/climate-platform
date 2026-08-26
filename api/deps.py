@@ -141,6 +141,12 @@ def get_current_user(
             status_code=401,
             detail={"error": "invalid_token", "message": "User not found or disabled."},
         )
+    # session revocation: a token minted before revoke-all / password-reset carries a stale version
+    if payload.get("tv", 0) != ctx["user"].get("token_version", 0):
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "session_revoked", "message": "This session has been signed out. Please sign in again."},
+        )
     return ctx
 
 

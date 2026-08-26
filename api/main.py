@@ -75,6 +75,7 @@ try:
     from api.routers import provided as provided_router
     from api.routers import reg_changes as reg_changes_router
     from api.routers import reg_tasks as reg_tasks_router
+    from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
     from api.routers import transmission as transmission_router
     from api.routers import webhooks as webhooks_router
@@ -193,6 +194,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(onboarding_intake_router.router)
     app.include_router(sso_scim_router.router)
     app.include_router(sso_scim_router.scim_router)
+    app.include_router(security_admin_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────
