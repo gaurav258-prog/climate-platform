@@ -177,8 +177,10 @@ jobs:
         run: |
           sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/api-deployment.yaml
           sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/scorer-cronjob.yaml
+          sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/ingestion-cronjob.yaml
           sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/api-deployment.yaml
           sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/scorer-cronjob.yaml
+          sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/ingestion-cronjob.yaml
 
       - name: Apply manifests
         env:
