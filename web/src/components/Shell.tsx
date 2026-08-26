@@ -61,7 +61,7 @@ const GROUPS: Group[] = [
     { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view' },
   ] },
   { label: 'Set up', color: 'var(--stage-setup)', items: [
-    { to: '/onboarding', label: 'Onboarding', icon: Rocket, perm: 'admin.users.manage' },
+    { to: '/onboarding', label: 'Get started', icon: Rocket, perm: 'admin.users.manage' },
     { to: '/sso', label: 'Single sign-on', icon: ShieldCheck, perm: 'admin.users.manage' },
     { to: '/billing', label: 'Plan & billing', icon: CreditCard, perm: 'admin.users.manage' },
     { to: '/account-security', label: 'My security', icon: Fingerprint, perm: 'modules.view' },
