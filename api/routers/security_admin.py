@@ -33,6 +33,12 @@ def drain_email(session: DbSession, ctx: dict = Depends(require_permission("plat
     return deliver(session, limit=limit)
 
 
+@router.post("/retention/cleanup", summary="Prune expired tokens, consumed challenges, delivered mail, aged audit")
+def retention_cleanup(session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
+    from services.governance import retention
+    return retention.cleanup(session)
+
+
 @router.get("/access-review", summary="Access review — every user, their roles, MFA, and last activity")
 def access_review(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     rows = session.execute(text("""

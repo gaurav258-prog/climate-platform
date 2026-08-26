@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     STRIPE_API_KEY: str = ""
     # E-signature: absent → upload-signed-PDF into the vault; set to route through a vendor (DocuSign).
     DOCUSIGN_API_KEY: str = ""
+    # Data retention: how long the audit trail is kept before the retention sweep prunes it (default 2 years).
+    AUDIT_RETENTION_DAYS: int = 730
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 

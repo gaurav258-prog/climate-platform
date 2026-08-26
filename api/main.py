@@ -149,9 +149,15 @@ app.add_middleware(
 
 # ── Observability: metrics, structured access logs, optional Sentry ─────
 try:
-    from api.observability import ObservabilityMiddleware, init_sentry, metrics_response
+    from api.observability import (
+        ObservabilityMiddleware,
+        SecurityHeadersMiddleware,
+        init_sentry,
+        metrics_response,
+    )
     init_sentry()
     app.add_middleware(ObservabilityMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/metrics", include_in_schema=False)
     def metrics():
