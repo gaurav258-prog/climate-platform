@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from './lib/auth'
+import { api } from './lib/api'
 import Login from './pages/Login'
 import Shell from './components/Shell'
 
@@ -87,8 +89,9 @@ function Workspace() {
       {/* everything lives inside the operating Shell — the Horizon front door too, so the nav is consistent.
           Horizon renders full-bleed inside the content area (Shell drops the padded <main> for '/'). */}
       <Route element={<ShellLayout />}>
-        {/* the front door — Horizon globe (customer workspaces); operators skip to their console */}
-        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <Horizon />} />
+        {/* the front door — Horizon globe (customer workspaces); operators skip to their console;
+            a first-run admin whose org isn't Live yet is funnelled to Get started until it is */}
+        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <FirstRunGate />} />
         <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />
@@ -143,6 +146,22 @@ function Workspace() {
 
 function ShellLayout() {
   return <Shell><Suspense fallback={<Splash />}><Outlet /></Suspense></Shell>
+}
+
+// First-run funnel: an admin whose organisation hasn't reached "Live" lands on Get started (the derived
+// onboarding checklist) instead of the globe — until every required step is done. Non-admins and Live orgs
+// go straight to Horizon. The rest of the app stays reachable via the nav; only the front door is funnelled.
+function FirstRunGate() {
+  const { profile } = useAuth()
+  const isAdmin = profile?.permissions?.includes('admin.users.manage')
+  const q = useQuery({
+    queryKey: ['onboarding-gate'],
+    queryFn: () => api.get<{ available: boolean; live: boolean }>('/v1/admin/onboarding'),
+    enabled: !!isAdmin,
+  })
+  if (isAdmin && q.isLoading) return <Splash />
+  if (isAdmin && q.data?.available && !q.data.live) return <Navigate to="/onboarding" replace />
+  return <Horizon />
 }
 
 function Splash() {

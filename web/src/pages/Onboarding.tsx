@@ -19,8 +19,8 @@ export default function Onboarding() {
 
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow="Set up · onboarding" title="Go-live checklist"
-        lead={`Everything ${d.org_name} needs to be live and filing — tracked from the real state of your account, not a checklist someone ticks by hand.`} />
+      <PageHeader eyebrow={d.live ? 'Set up · onboarding' : 'Welcome · get started'} title={d.live ? 'Go-live checklist' : 'Get started'}
+        lead={`Everything ${d.org_name} needs to be live and filing — tracked from the real state of your account, not a checklist someone ticks by hand.${d.live ? '' : ' Work down the steps; each links straight to where it’s done.'}`} />
 
       {/* progress + live gate */}
       <Card className="p-5">

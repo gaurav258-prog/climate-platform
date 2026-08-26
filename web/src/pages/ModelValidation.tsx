@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FlaskConical, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
+import ReviewTabs from '../components/ReviewTabs'
 
 // Model validation — the credibility layer. Tests Tellumen's own hazard scores against the observed event
 // catalogues it holds (seismic, storm): do higher-scored locations actually carry more observed near-field
@@ -228,6 +229,7 @@ export default function ModelValidation() {
 
   return (
     <div className="fadeup space-y-6">
+      <ReviewTabs />
       <div>
         <Eyebrow>Assess · model validation</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-2">Does the score hold up against what happened?</h1>

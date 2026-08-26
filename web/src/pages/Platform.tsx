@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
+import OperatorTabs from '../components/OperatorTabs'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -36,6 +37,7 @@ export default function Platform() {
 
   return (
     <div className="fadeup space-y-6">
+      <OperatorTabs />
       <div className="flex items-start justify-between gap-4">
         <PageHeader eyebrow="Tellumen · platform operator" title="Tenants"
           lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff." />

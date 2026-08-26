@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useResizableWidth } from '../lib/resizable'
 import { Card, Lens, ExportButton, PageHeader, HeroBanner } from '../components/ui'
+import ReviewTabs from '../components/ReviewTabs'
 import { downloadCsv } from '../lib/export'
 import DetectionLag from '../components/DetectionLag'
 import RegNotifications from '../components/RegNotifications'
@@ -104,6 +105,7 @@ export default function Kri() {
 
   return (
     <div className="fadeup space-y-5">
+      <ReviewTabs />
       <PageHeader eyebrow="Regulatory intelligence" title="KRI dashboard"
         lead="A regulator's-eye view of the book's key risk indicators — identify emerging risk early, drill into a hazard, and track the trend across filings."
         actions={<>

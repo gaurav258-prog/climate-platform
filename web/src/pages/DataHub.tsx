@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, ArrowRight, Plug } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, PageHeader } from '../components/ui'
+import { Card, PageHeader } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
 import LiveEarthHero from '../components/LiveEarthHero'
 import GlRecon from '../components/GlRecon'
@@ -31,9 +31,27 @@ export default function DataHub() {
   const summary = useQuery({ enabled: !!cfg, queryKey: ['data-summary', cfg?.prefix],
     queryFn: () => api.get<{ rollup: Rollup }>(`/v1/${cfg!.prefix}/summary?scenario=baseline&horizon=current`) })
 
+  // Agri book = geolocated sites + sourcing plots (not a single loan-tape). "Your data" is still the one
+  // canonical entry — it routes to the two management surfaces so the loading home is consistent per sector.
   if (!cfg) return (
-    <div className="fadeup"><Eyebrow>Data</Eyebrow>
-      <Card className="p-10 mt-4 text-[13px] text-[var(--color-mute)]">The data workspace is for the financial sectors (bank, insurer, asset manager, REIT).</Card>
+    <div className="fadeup space-y-6">
+      <PageHeader eyebrow="Sense · your data" title="Your data"
+        lead="Everything the engine scores comes from your book — your operational sites and your sourcing plots. Load them here; each is located, scored, and ready for reporting." />
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Link to="/operations" className="group rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5 hover:border-[var(--color-sky)] transition">
+          <div className="flex items-center gap-2 text-[var(--color-sky)] mb-1.5"><Upload size={18} /><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Own operations</span></div>
+          <div className="text-[15px] font-semibold text-[var(--color-ink)]">Your sites</div>
+          <div className="text-[12.5px] text-[var(--color-mute)] mt-0.5">Add or upload your facilities — each geolocated and scored across hazards.</div>
+          <div className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)]">Open <ArrowRight size={13} className="group-hover:translate-x-0.5 transition" /></div>
+        </Link>
+        <Link to="/sourcing" className="group rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5 hover:border-[var(--color-sky)] transition">
+          <div className="flex items-center gap-2 text-[var(--color-sky)] mb-1.5"><FileSpreadsheet size={18} /><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Supply chain</span></div>
+          <div className="text-[15px] font-semibold text-[var(--color-ink)]">Suppliers &amp; crops</div>
+          <div className="text-[12.5px] text-[var(--color-mute)] mt-0.5">Add sourcing plots by commodity &amp; origin — scored, and checked for EUDR deforestation-free status.</div>
+          <div className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)]">Open <ArrowRight size={13} className="group-hover:translate-x-0.5 transition" /></div>
+        </Link>
+      </div>
+      <div className="mono text-[10px] text-[var(--color-faint)]">Bringing a figure calculated on your side (a certified footprint, an audited number)? Provide it under “Provided &amp; reconciled data” inside your reports.</div>
     </div>
   )
   const r = summary.data?.rollup
@@ -50,7 +68,7 @@ export default function DataHub() {
           See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
         </p>
       </LiveEarthHero>
-      <PageHeader eyebrow={`${profile?.org?.name} · data`} title="Data"
+      <PageHeader eyebrow={`${profile?.org?.name} · your data`} title="Your data"
         lead={`Feed the engine and see what it made of your book — upload your ${cfg.rowNoun}s (we check every row before anything is saved), read the scores, then fill any regulatory gaps.`} />
 
       {/* general-ledger reconciliation — tie the reported book total back to the ledger (gate 4) */}

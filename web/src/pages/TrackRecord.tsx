@@ -3,6 +3,7 @@ import { Search, Download, History, ShieldAlert } from 'lucide-react'
 import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Eyebrow, Card } from '../components/ui'
+import ReviewTabs from '../components/ReviewTabs'
 
 // Climate Track Record — the diligence deliverable. Enter any location; get the real events that have already
 // crossed it (observed catalogue) plus its current hazard scores, and hand over a one-page PDF dossier.
@@ -45,6 +46,7 @@ export default function TrackRecord() {
 
   return (
     <div className="fadeup space-y-6">
+      <ReviewTabs />
       <div>
         <Eyebrow>Diligence · any address on Earth</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">Climate Track Record</h1>

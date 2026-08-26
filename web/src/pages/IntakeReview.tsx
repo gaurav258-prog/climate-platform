@@ -4,6 +4,7 @@ import { Plus, X, Rocket, Copy, FileText, Users, CheckCircle2, Building2, ArrowR
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, PageHeader } from '../components/ui'
+import OperatorTabs from '../components/OperatorTabs'
 
 interface IntakeRow {
   intake_id: string; company_name: string; org_type: string; country: string | null; region: string
@@ -44,6 +45,7 @@ export default function IntakeReview() {
 
   return (
     <div className="fadeup space-y-6">
+      <OperatorTabs />
       <PageHeader eyebrow="Platform · onboarding" title="Client intake"
         lead="Every new client from signed contract to first login — capture their details, verify identity, and provision the tenant in one action."
         actions={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New intake</Button>} />

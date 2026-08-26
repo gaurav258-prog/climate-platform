@@ -1,67 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { ArrowRight, AlertCircle, AlertTriangle, Info, CheckCircle2, PackageX, Building2, MapPin, TreePine, Percent } from 'lucide-react'
+import { PackageX, Building2, MapPin, TreePine, Percent } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
-
-interface Task { key: string; title: string; detail: string; severity: 'action' | 'warning' | 'info' | 'good'; cta_label: string; cta_href: string }
-interface TasksResp { tasks: Task[]; all_clear: boolean }
-
-const SEV: Record<Task['severity'], { icon: typeof AlertCircle; color: string; ring: string }> = {
-  action:  { icon: AlertCircle,   color: 'var(--color-sky)',  ring: 'var(--color-sky)' },
-  warning: { icon: AlertTriangle, color: 'var(--color-warn)', ring: 'var(--color-warn)' },
-  info:    { icon: Info,          color: 'var(--color-blue)', ring: 'var(--color-line-2)' },
-  good:    { icon: CheckCircle2,  color: 'var(--color-good)', ring: 'var(--color-good)' },
-}
-
-function TaskFeed() {
-  const nav = useNavigate()
-  const { profile } = useAuth()
-  const q = useQuery({ queryKey: ['my-tasks'], queryFn: () => api.get<TasksResp>('/v1/me/tasks') })
-  const tasks = q.data?.tasks ?? []
-  const first = (profile?.user?.name || profile?.user?.email || '').split(/[ @]/)[0]
-
-  return (
-    <div>
-      <SectionHead className="mb-3">{first ? `What needs you, ${first}` : 'What needs you now'}</SectionHead>
-      {q.isLoading && <div className="text-[13px] text-[var(--color-faint)]">Checking your workspace…</div>}
-      {!q.isLoading && tasks.length === 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-5">
-          <CheckCircle2 size={20} className="text-[var(--color-good)]" />
-          <div>
-            <div className="text-[14px] text-[var(--color-ink)]">You're all caught up.</div>
-            <div className="text-[12px] text-[var(--color-faint)]">Nothing needs your attention right now — the overview below shows your standing exposure.</div>
-          </div>
-        </div>
-      )}
-      <div className="grid gap-2.5">
-        {tasks.map(t => {
-          const s = SEV[t.severity]
-          return (
-            <button key={t.key} onClick={() => nav(t.cta_href)}
-              className="group flex items-center gap-4 text-left rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-4 hover:border-[color:var(--tint)] transition"
-              style={{ ['--tint' as string]: s.ring }}>
-              <div className="grid place-items-center h-9 w-9 shrink-0 rounded-xl"
-                style={{ background: `color-mix(in oklab, ${s.color} 14%, transparent)` }}>
-                <s.icon size={18} style={{ color: s.color }} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[14px] text-[var(--color-ink)] font-medium">{t.title}</div>
-                <div className="text-[12px] text-[var(--color-faint)] truncate">{t.detail}</div>
-              </div>
-              <div className="shrink-0 inline-flex items-center gap-1.5 text-[12.5px] font-medium mono"
-                style={{ color: s.color }}>
-                {t.cta_label} <ArrowRight size={15} className="group-hover:translate-x-0.5 transition" />
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 interface Summary {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number }
@@ -104,17 +47,9 @@ export default function Home() {
 
   return (
     <div className="fadeup space-y-7">
-      {/* brand masthead — the live-Earth video now runs on the Data foundation page */}
-      <div className="pt-1">
-        <h1 className="display text-[clamp(26px,3.6vw,40px)] font-semibold italic leading-tight">
-          See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
-        </h1>
-        <p className="mono mt-2 text-[11px] uppercase tracking-[0.28em] text-[var(--color-blue)]">Tellumen · Light on the Earth</p>
-      </div>
-
-      {/* role-shaped task feed — the cockpit leads with what needs YOU now, not just state */}
-      <TaskFeed />
-
+      {/* The front door (Horizon) leads with the globe + "what needs you"; this is the agri OPERATIONS
+          overview reached from there — the COGS/EUDR posture across operations and sourcing. No duplicate
+          task feed, no second masthead: one front door, one landing. */}
       <PageHeader eyebrow={`${profile?.org?.name} · agriculture workspace`} title="Overview"
         lead="Your climate risk across operations and sourcing — one glance, then click any tile to open the detail." />
 
