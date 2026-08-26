@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock } from 'lucide-react'
-import { api } from '../lib/api'
+import { Globe, ChevronRight, X, LogIn, LifeBuoy, Send, CheckCircle2, Building2, Users, MapPin, Sprout, Clock, Plus } from 'lucide-react'
+import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
@@ -28,6 +28,7 @@ const ago = (iso: string | null) => {
 export default function Platform() {
   const q = useQuery({ queryKey: ['ops-tenants'], queryFn: () => api.get<Tenants>('/v1/ops/tenants') })
   const [open, setOpen] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
 
   if (q.isLoading) return <Center>loading…</Center>
   if (q.error || !q.data) return <Center>Could not load — platform access only.</Center>
@@ -35,8 +36,15 @@ export default function Platform() {
 
   return (
     <div className="fadeup space-y-6">
-      <PageHeader eyebrow="Tellumen · platform operator" title="Tenants"
-        lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff." />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader eyebrow="Tellumen · platform operator" title="Tenants"
+          lead="Every customer organization on the platform — seats, data footprint, and governance activity. Cross-tenant, read-only; visible only to Tellumen staff." />
+        <button onClick={() => setShowNew(true)}
+          className="shrink-0 mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-sky)] text-[#08111f] px-3.5 py-2 text-[13px] font-medium hover:bg-[var(--color-blue)] transition">
+          <Plus size={15} /> Provision tenant
+        </button>
+      </div>
+      {showNew && <CreateTenantModal onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); q.refetch() }} />}
 
       <HeroBanner
         eyebrow="Tellumen · platform operator"
@@ -255,4 +263,110 @@ function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
     </div>
   )
 }
+// ─────────────── Provision a new client tenant (onboarding step 1) ───────────────
+interface Catalog { org_types: string[]; default_entitlements: Record<string, string[]>; offerings: string[] }
+interface CreatedTenant { org_id: string; name: string; type: string; entitlements: string[]; admin: { email: string } | null }
+
+function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const cat = useQuery({ queryKey: ['tenants-catalog'], queryFn: () => api.get<Catalog>('/v1/admin/tenants/catalog') })
+  const [f, setF] = useState({ name: '', org_type: 'bank', country: '', legal_name: '', lei: '', filing_contact_email: '', admin_email: '', admin_full_name: '', admin_password: '' })
+  const [ent, setEnt] = useState<string[] | null>(null)   // null = use sector defaults
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<CreatedTenant | null>(null)
+  const set = (k: string, v: string) => setF(s => ({ ...s, [k]: v }))
+  const defaults = cat.data?.default_entitlements?.[f.org_type] ?? []
+  const chosen = ent ?? defaults
+
+  const submit = async () => {
+    if (!f.name.trim()) { toast.error('A tenant needs a name.'); return }
+    if (!f.country.trim()) { toast.error('Country (ISO-2) is required.'); return }
+    if (f.admin_email && f.admin_password.length < 6) { toast.error('First-admin password must be at least 6 characters.'); return }
+    setBusy(true)
+    try {
+      const body: Record<string, unknown> = { name: f.name.trim(), org_type: f.org_type, country: f.country || null,
+        legal_name: f.legal_name || null, lei: f.lei || null, filing_contact_email: f.filing_contact_email || null,
+        entitlements: ent }
+      if (f.admin_email) { body.admin_email = f.admin_email; body.admin_full_name = f.admin_full_name || null; body.admin_password = f.admin_password }
+      const r = await api.post<CreatedTenant>('/v1/admin/tenants', body)
+      setDone(r); toast.success(`Tenant "${r.name}" provisioned`)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? (err.body as { message?: string })?.message ?? 'Could not provision the tenant.' : 'Could not provision the tenant.')
+    } finally { setBusy(false) }
+  }
+
+  const Field = ({ label, k, ph, type = 'text' }: { label: string; k: keyof typeof f; ph?: string; type?: string }) => (
+    <label className="flex flex-col gap-1">
+      <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{label}</span>
+      <input type={type} value={f[k]} placeholder={ph} onChange={e => set(k, e.target.value)}
+        className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+    </label>
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-[560px]" onClick={e => e.stopPropagation()}>
+      <Card className="max-h-[88vh] overflow-y-auto p-5">
+        <div className="flex items-center justify-between mb-1">
+          <SectionHead icon={Building2}>Provision a new client tenant</SectionHead>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+        </div>
+
+        {done ? (
+          <div className="mt-3 space-y-3">
+            <div className="flex items-center gap-2 text-[var(--color-good)]"><CheckCircle2 size={18} /> <span className="text-[14px] font-medium">{done.name} is live</span></div>
+            <div className="text-[13px] text-[var(--color-mute)]">Sector <b className="text-[var(--color-ink)] capitalize">{done.type.replace('_', ' ')}</b> · offerings {done.entitlements.join(', ')} · roles admin/analyst/approver/viewer seeded.</div>
+            {done.admin && <div className="rounded-lg border border-[var(--color-line-2)] px-3 py-2 text-[13px]">First admin: <span className="mono text-[var(--color-ink)]">{done.admin.email}</span> — they can log in now and invite the rest of their team.</div>}
+            <div className="text-[12px] text-[var(--color-faint)]">Next in onboarding: reporting identity (GLEIF), the client loads their book into the golden source, and governance setup.</div>
+            <div className="flex justify-end"><Button onClick={onCreated}>Done</Button></div>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-4">
+            <p className="text-[12.5px] text-[var(--color-mute)]">Hybrid onboarding — you stand up the tenant, its identity and a first admin; the client then loads their own book and invites their people.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Tenant name *" k="name" ph="Meridian Bank" />
+              <label className="flex flex-col gap-1">
+                <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Sector *</span>
+                <select value={f.org_type} onChange={e => { set('org_type', e.target.value); setEnt(null) }}
+                  className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--color-sky)] capitalize">
+                  {(cat.data?.org_types ?? ['bank']).map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                </select>
+              </label>
+              <Field label="Country (ISO-2) *" k="country" ph="ES" />
+              <Field label="Legal name" k="legal_name" ph="Meridian Bank AG" />
+              <Field label="LEI" k="lei" ph="529900…" />
+              <Field label="Filing contact email" k="filing_contact_email" ph="ir@client.com" />
+            </div>
+
+            <div>
+              <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Entitlements {ent === null && <span className="text-[var(--color-mute)]">· sector defaults</span>}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {(cat.data?.offerings ?? []).map(o => {
+                  const on = chosen.includes(o)
+                  return <button key={o} onClick={() => setEnt((ent ?? defaults).includes(o) ? (ent ?? defaults).filter(x => x !== o) : [...(ent ?? defaults), o])}
+                    className={`mono text-[11px] px-2.5 py-1 rounded-md border transition ${on ? 'border-[var(--color-sky)] text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_10%,transparent)]' : 'border-[var(--color-line-2)] text-[var(--color-faint)]'}`}>{o}</button>
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--color-line)] pt-3">
+              <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">First admin (optional — the client's login)</div>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Email" k="admin_email" ph="admin@client.com" />
+                <Field label="Full name" k="admin_full_name" ph="Jane Admin" />
+                <Field label="Temp password" k="admin_password" ph="≥ 6 chars" type="password" />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button onClick={submit} disabled={busy}>{busy ? 'Provisioning…' : 'Provision tenant'}</Button>
+            </div>
+          </div>
+        )}
+      </Card>
+      </div>
+    </div>
+  )
+}
+
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[50vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>

@@ -545,3 +545,53 @@ def patch_organization(body: OrgPatch, session: DbSession,
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="organization.update",
                 target_type="organization", target_id=org_id, detail={"changes": changes})
     return {"ok": True, "changes": changes}
+
+
+# ── Platform · tenant provisioning (creating a new client org) ─────────────────────────────────────────────
+# Gated on platform.admin (the Tellumen platform-operator), NOT a tenant's own admin — creating a tenant is a
+# platform-level act. This is step 1 of client onboarding; orgs used to be created only by a seed script.
+
+class TenantCreate(BaseModel):
+    name:                 str = Field(..., min_length=2, max_length=200)
+    org_type:             str = Field(..., pattern="^(bank|insurer|asset_manager|reit|manufacturer)$")
+    country:              Optional[str] = Field(None, max_length=2)
+    legal_name:           Optional[str] = Field(None, max_length=255)
+    lei:                  Optional[str] = Field(None, max_length=20)
+    filing_contact_email: Optional[str] = Field(None, max_length=255)
+    entitlements:         Optional[list[str]] = None          # None → sector defaults
+    admin_email:          Optional[str] = Field(None, max_length=255)   # seed a first admin (hybrid onboarding)
+    admin_full_name:      Optional[str] = Field(None, max_length=255)
+    admin_password:       Optional[str] = Field(None, min_length=6, max_length=200)
+
+
+@router.get("/tenants/catalog", summary="Sector types + offering catalog for the tenant-create form")
+def tenants_catalog(ctx: dict = Depends(require_permission("platform.admin"))):
+    from services.governance.tenant_provisioning import DEFAULT_ENTITLEMENTS, VALID_ORG_TYPES
+    return {"org_types": sorted(VALID_ORG_TYPES), "default_entitlements": DEFAULT_ENTITLEMENTS,
+            "offerings": sorted({o for offs in DEFAULT_ENTITLEMENTS.values() for o in offs})}
+
+
+@router.get("/tenants", summary="Every client tenant (platform view)")
+def list_tenants(session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
+    rows = session.execute(text("""
+        SELECT o.org_id::text AS org_id, o.name, o.type, o.country, o.lei, o.created_at,
+               (SELECT count(*) FROM users u WHERE u.org_id = o.org_id) AS n_users,
+               (SELECT array_agg(offering_id) FROM org_entitlements e WHERE e.org_id = o.org_id AND e.enabled) AS offerings
+        FROM organizations o WHERE o.type <> 'platform' ORDER BY o.created_at DESC
+    """)).mappings().all()
+    return {"tenants": [{"org_id": r["org_id"], "name": r["name"], "type": r["type"], "country": r["country"],
+                         "lei": r["lei"], "n_users": r["n_users"], "offerings": list(r["offerings"] or []),
+                         "created_at": r["created_at"].isoformat() if r["created_at"] else None} for r in rows]}
+
+
+@router.post("/tenants", status_code=201, summary="Provision a new client tenant")
+def create_tenant_ep(body: TenantCreate, session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
+    from services.governance.tenant_provisioning import TenantError, create_tenant
+    try:
+        return create_tenant(
+            session, actor_user_id=ctx["user"]["id"], name=body.name, org_type=body.org_type, country=body.country,
+            legal_name=body.legal_name, lei=body.lei, filing_contact_email=body.filing_contact_email,
+            entitlements=body.entitlements, admin_email=body.admin_email, admin_full_name=body.admin_full_name,
+            admin_password=body.admin_password)
+    except TenantError as e:
+        raise HTTPException(status_code=409, detail={"error": "tenant_error", "message": str(e)})
