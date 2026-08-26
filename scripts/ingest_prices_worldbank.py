@@ -46,16 +46,46 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 # and exactly (after strip), so a renamed column fails loudly instead of silently binding to
 # the wrong series.
 COLUMN_MAP = {
+    # ── beverages ──
     "Cocoa": "Cocoa",
     "Coffee, Arabica": "Coffee",
-    "Palm oil": "Palm oil",
-    "Soybeans": "Soybean",
-    "Maize": "Maize",
+    "Tea, avg 3 auctions": "Tea",
+    # ── cereals ──
     "Wheat, US SRW": "Wheat",         # soft red winter — the reference for common (bread) wheat
     "Wheat, US HRW": "Durum wheat",   # no durum quote; HRW is the closest liquid wheat ref
-    "Sugar, world": "Sugar beet",     # world sugar is one fungible market (beet + cane)
+    "Maize": "Maize",
     "Rice, Thai 5%": "Rice",
+    "Barley": "Barley",
+    "Sorghum": "Sorghum",
+    # ── oilseeds, meals & vegetable oils ──
+    "Soybeans": "Soybean",
+    "Soybean oil": "Soybean oil",
+    "Soybean meal": "Soybean meal",
+    "Palm oil": "Palm oil",
+    "Palm kernel oil": "Palm kernel oil",
+    "Sunflower oil": "Sunflower oil",
+    "Rapeseed oil": "Rapeseed oil",
+    "Coconut oil": "Coconut oil",
+    "Groundnuts": "Groundnuts",
+    "Groundnut oil **": "Groundnut oil",
+    "Fish meal": "Fish meal",
+    # ── fruit ──
     "Orange": "Citrus",
+    "Banana, Europe": "Banana",
+    # ── sugar ──
+    "Sugar, world": "Sugar beet",     # world sugar is one fungible market (beet + cane)
+    "Sugar, EU": "Sugar",
+    # ── animal protein ──
+    "Beef **": "Beef",
+    "Chicken **": "Chicken",
+    "Lamb **": "Lamb",
+    "Shrimps, Mexican": "Shrimp",
+    # ── farm inputs (fertiliser) — the other half of input-cost pressure for growers ──
+    "Urea": "Urea",
+    "DAP": "DAP",
+    "TSP": "TSP",
+    "Phosphate rock": "Phosphate rock",
+    "Potassium chloride **": "Potassium chloride",
 }
 
 
