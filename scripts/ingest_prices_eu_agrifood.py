@@ -90,6 +90,13 @@ def build() -> list[dict]:
     return rows
 
 
+def refresh(session) -> int:
+    """Importable entry for the scheduled feed-refresh system. Returns the number of points loaded."""
+    rows = build()
+    PI.ingest(session, rows)
+    return len(rows)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")

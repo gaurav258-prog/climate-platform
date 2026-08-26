@@ -104,6 +104,16 @@ FEEDS: list[dict] = [
      "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
      "note": "Emissions are sector-average intensity × revenue (source='estimated'), NOT a Climate TRACE / GEM "
              "facility feed — no such client is wired. Labelled estimated throughout."},
+    {"key": "commodity_prices_wb", "name": "World Bank Pink Sheet (commodity prices)", "category": "reference",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
+     "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)",
+     "note": "Monthly commodity + fertiliser prices (1960→), keyless. Feeds the input-cost-pressure panel AND "
+             "the COGS-validation series — 33 commodities. Updates monthly; refreshed automatically."},
+    {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
+     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
+     "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
+     "note": "Weekly EU prices the Pink Sheet lacks — olive oil, wine, and dairy — aggregated to a monthly EU "
+             "mean, keyless. Updates weekly; refreshed automatically. Almonds remain gated on a free USDA key."},
 ]
 _BY_KEY = {f["key"]: f for f in FEEDS}
 
@@ -227,6 +237,20 @@ _REFRESH_HOOKS: dict = {}
 
 def register_refresh_hook(feed_key: str, fn) -> None:
     _REFRESH_HOOKS[feed_key] = fn
+
+
+def _hook_commodity_prices_wb(session: Session) -> None:
+    from scripts.ingest_prices_worldbank import refresh
+    refresh(session)
+
+
+def _hook_commodity_prices_eu(session: Session) -> None:
+    from scripts.ingest_prices_eu_agrifood import refresh
+    refresh(session)
+
+
+register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
+register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)
 
 
 def refresh_one(session: Session, feed_key: str, actor_user_id: str | None = None) -> dict:

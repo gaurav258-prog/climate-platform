@@ -83,3 +83,48 @@ spec:
                 limits:
                   cpu:    "1000m"
                   memory: "2Gi"
+---
+# price-ingestion — refresh the commodity price indices that feed the input-cost-pressure panel.
+#  * World Bank Pink Sheet (monthly) + EU agri-food portal (weekly, olive oil/wine/dairy) — keyless, always run.
+#  * USDA almonds activates only when USDA_MARS_API_KEY is present in climate-platform-secrets (else no-ops).
+# Runs weekly (EU updates weekly; the WB monthly pull is idempotent). The feed-refresh system also picks these
+# up on cadence when the Celery beat runs — this CronJob is the deployment-independent guarantee.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: price-ingestion
+  namespace: climate-platform
+spec:
+  schedule: "0 4 * * 1"            # 04:00 UTC every Monday
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: price-ingestion
+              image: ghcr.io/OWNER/climate-platform-worker:latest  # replaced by CI
+              imagePullPolicy: Always
+              command:
+                - /bin/sh
+                - -c
+                - >
+                  python -m scripts.ingest_prices_worldbank &&
+                  python -m scripts.ingest_prices_eu_agrifood &&
+                  python -m scripts.ingest_prices_usda_almonds
+              envFrom:
+                - secretRef:
+                    name: climate-platform-secrets
+              env:
+                - name: APP_ENV
+                  value: production
+              resources:
+                requests:
+                  cpu:    "250m"
+                  memory: "512Mi"
+                limits:
+                  cpu:    "1000m"
+                  memory: "2Gi"
