@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from api.deps import DbSession, Pagination, require_permission
+from api.deps import CurrentUser, DbSession, Pagination, require_permission
 from api.security import hash_password
 from api.services.rbac import write_audit
 
@@ -595,3 +595,15 @@ def create_tenant_ep(body: TenantCreate, session: DbSession, ctx: dict = Depends
             admin_password=body.admin_password)
     except TenantError as e:
         raise HTTPException(status_code=409, detail={"error": "tenant_error", "message": str(e)})
+
+
+# ── Onboarding tracker — the guided go-live checklist for a tenant ──────────────────────────────────────────
+@router.get("/onboarding", summary="Onboarding checklist & go-live readiness for a tenant")
+def onboarding(session: DbSession, ctx: CurrentUser, org_id: Optional[str] = Query(None)):
+    """An org admin sees their own tenant's onboarding; a platform admin may pass ?org_id to inspect any tenant."""
+    perms = ctx["permissions"]
+    if "admin.users.manage" not in perms and "platform.admin" not in perms:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission"})
+    target = org_id if (org_id and "platform.admin" in perms) else ctx["org"]["org_id"]
+    from services.governance.onboarding import onboarding_status
+    return onboarding_status(session, target)

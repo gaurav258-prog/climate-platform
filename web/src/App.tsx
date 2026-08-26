@@ -11,6 +11,7 @@ import Approvals from './pages/Approvals'
 import Audit from './pages/Audit'
 import Admin from './pages/Admin'
 import Contracts from './pages/Contracts'
+import Onboarding from './pages/Onboarding'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/contracts" element={<Contracts />} />
+        <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />
