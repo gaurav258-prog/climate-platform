@@ -15,6 +15,7 @@ import Onboarding from './pages/Onboarding'
 import IntakeReview from './pages/IntakeReview'
 import IntakeForm from './pages/IntakeForm'
 import Activate from './pages/Activate'
+import SingleSignOn from './pages/SingleSignOn'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
 import Portfolio from './pages/Portfolio'
@@ -94,6 +95,7 @@ function Workspace() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/sso" element={<SingleSignOn />} />
         <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />

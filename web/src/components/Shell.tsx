@@ -61,6 +61,7 @@ const GROUPS: Group[] = [
   ] },
   { label: 'Set up', color: 'var(--stage-setup)', items: [
     { to: '/onboarding', label: 'Onboarding', icon: Rocket, perm: 'admin.users.manage' },
+    { to: '/sso', label: 'Single sign-on', icon: ShieldCheck, perm: 'admin.users.manage' },
     { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view' },
     { to: '/foundation', label: 'Where our data comes from', icon: Database, perm: 'modules.view', sectors: AGRI },
     // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
