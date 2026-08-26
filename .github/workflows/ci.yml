@@ -177,8 +177,10 @@ jobs:
         run: |
           sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/api-deployment.yaml
           sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/scorer-cronjob.yaml
+          sed -i "s|:latest|:${{ github.sha }}|g" infra/k8s/ingestion-cronjob.yaml
           sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/api-deployment.yaml
           sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/scorer-cronjob.yaml
+          sed -i "s|OWNER|${{ github.repository_owner }}|g" infra/k8s/ingestion-cronjob.yaml
 
       - name: Apply manifests
         env:
@@ -188,6 +190,7 @@ jobs:
           kubectl apply -f infra/k8s/secret.yaml        # pre-created in cluster
           kubectl apply -f infra/k8s/api-deployment.yaml
           kubectl apply -f infra/k8s/scorer-cronjob.yaml
+          kubectl apply -f infra/k8s/ingestion-cronjob.yaml
           kubectl apply -f infra/k8s/ingress.yaml
 
       - name: Wait for rollout
