@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { api, ApiError } from '../lib/api'
+import { api, ApiError, setToken, setRefreshToken } from '../lib/api'
 import { BrandMark, Button } from '../components/ui'
+import * as webauthn from '../lib/webauthn'
 
 function errCode(e: unknown): string | undefined {
   if (e instanceof ApiError) {
@@ -67,6 +68,18 @@ export default function Login() {
       if (!r.org_id) { setErr('No single sign-on is set up for your email domain.'); setBusy(false); return }
       window.location.href = `/v1/sso/login?org_id=${r.org_id}`   // → your IdP, then back with a session
     } catch { setErr('Could not start single sign-on.'); setBusy(false) }
+  }
+
+  async function passkeyLogin() {
+    if (!email.includes('@')) { setErr('Enter your email to use a passkey.'); return }
+    if (!webauthn.supported()) { setErr('This browser does not support passkeys.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const opts = await api.post('/v1/auth/passkey/login/options', { email: email.trim() })
+      const credential = await webauthn.startAuthentication(opts)
+      const d = await api.post<{ access_token: string; refresh_token: string }>('/v1/auth/passkey/login/verify', { email: email.trim(), credential })
+      setToken(d.access_token); setRefreshToken(d.refresh_token); window.location.href = '/'
+    } catch { setErr('Passkey sign-in failed or no passkey is registered.'); setBusy(false) }
   }
 
   async function demoLogin(tenant: string) {
@@ -148,6 +161,10 @@ export default function Login() {
               <button type="button" onClick={ssoStart} disabled={busy}
                 className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
                 Sign in with single sign-on
+              </button>
+              <button type="button" onClick={passkeyLogin} disabled={busy}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-line)] py-2 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] transition disabled:opacity-60">
+                Sign in with a passkey
               </button>
             </>
           )}

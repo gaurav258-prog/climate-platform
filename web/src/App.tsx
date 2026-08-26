@@ -18,6 +18,7 @@ import Activate from './pages/Activate'
 import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/Signup'
 import Billing from './pages/Billing'
+import AccountSecurity from './pages/AccountSecurity'
 import SingleSignOn from './pages/SingleSignOn'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
@@ -102,6 +103,7 @@ function Workspace() {
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/sso" element={<SingleSignOn />} />
         <Route path="/billing" element={<Billing />} />
+        <Route path="/account-security" element={<AccountSecurity />} />
         <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />

@@ -25,3 +25,4 @@ signxml>=5.0  # SAML 2.0 XML-DSig assertion validation (enterprise SSO)
 lxml>=5.0  # SAML/XML parsing (signxml dep)
 prometheus-client>=0.20  # /metrics observability
 sentry-sdk>=2.0  # optional error tracking (activates when SENTRY_DSN set)
+webauthn>=2.0  # FIDO2 / WebAuthn passkeys
