@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     DOCUSIGN_API_KEY: str = ""
     # Data retention: how long the audit trail is kept before the retention sweep prunes it (default 2 years).
     AUDIT_RETENTION_DAYS: int = 730
+    # USDA Market News (MARS) API key (free) — enables the almond price feed. Absent → feed stays off.
+    USDA_MARS_API_KEY: str = ""
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 
