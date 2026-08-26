@@ -64,6 +64,7 @@ try:
     from api.routers import export_api as export_api_router
     from api.routers import filings as filings_router
     from api.routers import gl as gl_router
+    from api.routers import growth as growth_router
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
     from api.routers import notifications as notifications_router
@@ -207,6 +208,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(sso_scim_router.router)
     app.include_router(sso_scim_router.scim_router)
     app.include_router(security_admin_router.router)
+    app.include_router(growth_router.router)
 
 
 # ── Core Health & Info Endpoints ────────────────────────────────────────

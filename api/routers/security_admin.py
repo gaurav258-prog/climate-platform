@@ -12,14 +12,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
-from api.deps import DbSession, require_permission
+from api.deps import DbSession, require_permission, require_step_up
 from services.governance import account_security as acct
 
 router = APIRouter(prefix="/v1/security", tags=["security"])
 
 
-@router.post("/users/{user_id}/reset-mfa", summary="Clear a user's MFA so they re-enrol")
-def reset_mfa(user_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+@router.post("/users/{user_id}/reset-mfa", summary="Clear a user's MFA so they re-enrol (requires step-up)")
+def reset_mfa(user_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage")),
+              _su: dict = Depends(require_step_up)):
     try:
         return acct.admin_reset_mfa(session, actor_user_id=ctx["user"]["id"], org_id=ctx["org"]["org_id"], user_id=user_id)
     except ValueError as e:

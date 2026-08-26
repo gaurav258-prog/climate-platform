@@ -79,6 +79,12 @@ def create_user(body: UserCreate, session: DbSession,
     if exists:
         raise HTTPException(409, {"error": "email_taken", "message": "A user with that email already exists."})
 
+    from services.governance import billing
+    try:
+        billing.enforce_seat(session, org_id)   # no-op for tenants without a subscription (legacy)
+    except billing.BillingError as e:
+        raise HTTPException(402, {"error": "seat_limit", "message": str(e)})
+
     role_ids = _valid_role_ids(session, org_id, body.role_ids)
     primary_role = session.execute(text(
         "SELECT name FROM roles WHERE role_id = :r"

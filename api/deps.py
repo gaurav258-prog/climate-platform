@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Generator, Optional
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -151,6 +151,16 @@ def get_current_user(
 
 
 CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+def require_step_up(ctx: CurrentUser, x_step_up: Optional[str] = Header(None)) -> dict:
+    """Gate a sensitive action on a fresh step-up token (from POST /v1/auth/step-up), passed as X-Step-Up."""
+    from api.security import decode_access_token
+    p = decode_access_token(x_step_up) if x_step_up else None
+    if not p or p.get("typ") != "stepup" or p.get("sub") != ctx["user"]["id"]:
+        raise HTTPException(status_code=403,
+                            detail={"error": "step_up_required", "message": "Re-authenticate to perform this action."})
+    return ctx
 
 
 def require_permission(code: str):

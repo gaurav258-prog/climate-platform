@@ -11,6 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import text as _sql
 
 from api.deps import CurrentUser, DbSession
 from api.ratelimit import rate_limiter
@@ -144,6 +145,25 @@ def logout_all(ctx: CurrentUser, session: DbSession):
 @router.post("/mfa/backup-codes", summary="Generate one-time MFA recovery codes (shown once)")
 def mfa_backup_codes(ctx: CurrentUser, session: DbSession):
     return {"codes": acct.generate_backup_codes(session, ctx["user"]["id"])}
+
+
+class StepUpRequest(BaseModel):
+    password: str
+    otp: Optional[str] = None
+
+
+@router.post("/step-up", summary="Re-authenticate for a sensitive action (step-up)")
+def step_up(body: StepUpRequest, ctx: CurrentUser, session: DbSession):
+    from api.security import create_step_up_token, verify_password
+    row = session.execute(
+        _sql("SELECT hashed_password, mfa_secret, mfa_enrolled_at FROM users WHERE user_id = CAST(:u AS uuid)"),
+        {"u": ctx["user"]["id"]}).mappings().first()
+    if not verify_password(body.password, row["hashed_password"]):
+        raise HTTPException(status_code=401, detail={"error": "invalid_credentials", "message": "Password is incorrect."})
+    if row["mfa_enrolled_at"] and not (totp.verify(row["mfa_secret"] or "", body.otp or "")
+                                       or acct.consume_backup_code(session, ctx["user"]["id"], body.otp or "")):
+        raise HTTPException(status_code=401, detail={"error": "mfa_invalid", "message": "Authenticator code required."})
+    return {"step_up_token": create_step_up_token(ctx["user"]["id"])}
 
 
 @router.post("/password/forgot", summary="Request a password-reset link")

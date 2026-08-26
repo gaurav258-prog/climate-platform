@@ -153,6 +153,10 @@ export default function Login() {
           )}
         </form>
 
+        <div className="text-center mt-4">
+          <a href="/signup" className="text-[12px] text-[var(--color-sky)] hover:text-[var(--color-blue)]">New to Tellumen? Start a free trial →</a>
+        </div>
+
         <div className="mt-5">
           <div className="mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-faint)] mb-2">Jump into a demo sector</div>
           {/* pick the role first — approver reaches the maker-checker decision + assignment flow */}

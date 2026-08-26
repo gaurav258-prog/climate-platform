@@ -16,6 +16,8 @@ import IntakeReview from './pages/IntakeReview'
 import IntakeForm from './pages/IntakeForm'
 import Activate from './pages/Activate'
 import ResetPassword from './pages/ResetPassword'
+import Signup from './pages/Signup'
+import Billing from './pages/Billing'
 import SingleSignOn from './pages/SingleSignOn'
 import Platform from './pages/Platform'
 import Cogs from './pages/Cogs'
@@ -58,6 +60,7 @@ export default function App() {
       <Route path="/onboarding/form/:token" element={<IntakeForm />} />
       <Route path="/activate/:token" element={<Activate />} />
       <Route path="/reset/:token" element={<ResetPassword />} />
+      <Route path="/signup" element={<Signup />} />
       <Route path="*" element={<Workspace />} />
     </Routes>
   )
@@ -98,6 +101,7 @@ function Workspace() {
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/sso" element={<SingleSignOn />} />
+        <Route path="/billing" element={<Billing />} />
         <Route path="/intake" element={<IntakeReview />} />
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />

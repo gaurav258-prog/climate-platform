@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     APP_ENCRYPTION_KEY: str = ""
     # Optional error tracking; enabled only when a DSN is set and sentry-sdk is installed.
     SENTRY_DSN: str = ""
+    # Billing: absent → internal/manual billing (plans, seats, invoices work; no card charge).
+    # Set to a Stripe secret key to route charging through Stripe (external, gated).
+    STRIPE_API_KEY: str = ""
+    # E-signature: absent → upload-signed-PDF into the vault; set to route through a vendor (DocuSign).
+    DOCUSIGN_API_KEY: str = ""
     # Comma-separated allowed origins for CORS (used when APP_ENV != development).
     CORS_ORIGINS: str = "http://localhost:5175,http://localhost:5173"
 
