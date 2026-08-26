@@ -50,6 +50,7 @@ EXT_BANKING_COLUMNS = [
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
+    "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 alignment
 ]
 
 
@@ -75,6 +76,7 @@ def _map_asset_list_row(row):
         "loan_origination_date": row["loan_origination_date"],
         "residual_maturity_years": row.get("residual_maturity_years"),
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
+        "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 (IEA)
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"],
@@ -421,8 +423,9 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "money", "description": "Remaining life of the loan, in years.", "example": "7"},
     {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
     {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
+    {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
 ]
-_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage"}
+_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -483,6 +486,9 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         stg = row.get("ifrs9_stage")
         if stg not in (None, ""):
             sets.append("ifrs9_stage = :stg"); params["stg"] = str(stg).strip()
+        ei = row.get("emission_intensity")
+        if ei not in (None, ""):
+            sets.append("emission_intensity = :ei"); params["ei"] = float(str(ei).replace(",", ""))
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

@@ -96,9 +96,7 @@ class FilingError(ValueError):
 # SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
 # aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
-# assetmgmt_tcfd is NOT entity-scoped: the holdings snapshot ignores entity_ids (whole-org only), so offering a
-# per-entity scope would silently mislabel a whole-org number — same reason SFDR/agri are excluded.
-_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"}
+_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate", "assetmgmt_tcfd"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:

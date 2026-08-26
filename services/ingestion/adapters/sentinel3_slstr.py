@@ -54,6 +54,24 @@ SH_STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 CDSE_SEARCH_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 EU_WKT = "POLYGON((-10 35, 30 35, 30 72, -10 72, -10 35))"
 
+# Single-channel emissivity correction (Artis & Carnahan 1982): LST = Tb / (1 + (λ·Tb/ρ)·ln ε). Turns the S8
+# brightness temperature into an emissivity-corrected land-surface temperature (Tb runs a few K cool). A nominal
+# land emissivity is used and DISCLOSED — the split-window L2 LST product (per-pixel emissivity) is the heavier
+# raw-scene Path-B upgrade; this is the verifiable single-channel approximation on the same live BT.
+_S8_WAVELENGTH_M = 10.85e-6      # S8 central wavelength
+_PLANCK_RHO_M_K = 1.438e-2       # ρ = h·c/σ_Boltzmann (m·K)
+_LAND_EMISSIVITY = float(os.getenv("SLSTR_LAND_EMISSIVITY", "0.97"))   # nominal broadband land emissivity (veg/soil)
+
+
+def bt_to_lst(bt_kelvin: float, emissivity: float = _LAND_EMISSIVITY) -> float:
+    """Emissivity-correct an S8 brightness temperature to land-surface temperature (single-channel, disclosed
+    nominal emissivity). Pure + deterministic. Returns the input unchanged for a non-physical emissivity."""
+    import math
+    if not bt_kelvin or not (0.0 < emissivity <= 1.0):
+        return bt_kelvin
+    return round(bt_kelvin / (1.0 + (_S8_WAVELENGTH_M * bt_kelvin / _PLANCK_RHO_M_K) * math.log(emissivity)), 3)
+
+
 # SLSTR S8 — 10.85 µm thermal-infrared brightness temperature (Kelvin). `dataMask` is mandatory so the
 # Statistical API averages only valid pixels.
 S3_BT_EVALSCRIPT = """//VERSION=3
@@ -84,11 +102,13 @@ class Sentinel3SLSTRAdapter(BaseAdapter):
     source_provider = "sentinel3_slstr_lst"   # the heat-feature contract (ml/features/heat.py)
 
     def __init__(self, target_date: Optional[date] = None, cells: Optional[list[str]] = None,
-                 lookback_days: int = 14, max_cells: int = 500):
+                 lookback_days: int = 14, max_cells: Optional[int] = None):
         self.target_date = target_date or (date.today() - timedelta(days=1))
         self.cells = cells                    # explicit cells; None → the org's exposure cells
         self.lookback_days = lookback_days    # SLSTR revisits ~daily but has gaps/cloud — window + take the peak
-        self.max_cells = max_cells
+        # cap the per-run Statistical API call count (one call ≈ one Processing Unit) to bound PU spend. Default
+        # 500; override with SENTINEL3_MAX_CELLS (e.g. a nightly cap for a large book on a small PU allowance).
+        self.max_cells = max_cells if max_cells is not None else int(os.getenv("SENTINEL3_MAX_CELLS", "500"))
         self.stub = os.getenv("SENTINEL3_STUB", "false").lower() == "true"
 
     # ── fetch ────────────────────────────────────────────────────────────────────────────────────────────
@@ -132,17 +152,19 @@ class Sentinel3SLSTRAdapter(BaseAdapter):
             k = r.get("bt_kelvin")
             if k is None:
                 continue
+            lst = bt_to_lst(k)   # emissivity-correct S8 BT → land-surface temperature
             obs.append(SatelliteObservation(
                 h3_cell=r["h3_cell"],
                 h3_resolution=settings.H3_RESOLUTION,
                 source_provider=self.source_provider,
                 hazard_type=HazardType.HEAT_ACUTE.value,
                 observed_at=r["observed_at"],
-                raw_value=round(k, 3),
+                raw_value=lst,
                 raw_unit="K",
                 quality_flag=0,
-                quality_notes=("SLSTR S8 (10.85 µm) thermal-IR brightness temperature — peak over "
-                               f"{self.lookback_days}d window; not emissivity-corrected L2 LST (runs slightly cool)"),
+                quality_notes=(f"SLSTR S8 (10.85 µm) LST — peak over {self.lookback_days}d window; single-channel "
+                               f"emissivity-corrected (ε={_LAND_EMISSIVITY}, Artis-Carnahan) from {round(k, 1)}K BT. "
+                               "Split-window L2 LST (per-pixel emissivity) is the raw-scene upgrade."),
                 adapter_version=ADAPTER_VERSION,
             ))
         return obs

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Coins, PackageX, Percent, Boxes } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
+import { HBar } from '../components/Charts'
+import { hazardLabel } from '../lib/hazards'
 
 interface Commodity {
   commodity: string; eudr_covered: boolean; annual_spend_eur: number; n_plots: number; status: string
@@ -10,10 +12,19 @@ interface Commodity {
   yield_shock_pct: number | null; volume_at_risk_eur: number | null; volume_at_risk_low_eur: number | null
   volume_at_risk_high_eur: number | null; fit_r2: number | null; confidence_grade: string | null; measured_basis: string | null
 }
+interface ConcHazard { hazard: string; spend_eur: number; at_risk_eur: number | null; n_commodities: number; pct_of_spend: number }
+interface Concentration {
+  available: boolean; total_spend_eur: number; effective_commodities: number | null; effective_hazards: number | null
+  top_commodity: { commodity: string; pct_of_spend: number } | null
+  common_shock: ConcHazard | null; common_shock_pct_of_spend: number
+  by_commodity: { commodity: string; spend_eur: number; pct_of_spend: number }[]
+  by_hazard: ConcHazard[]; flags: string[]; method: string
+}
 interface Summary {
   rollup: { ingredient_spend_eur: number; total_cogs_eur: number; volume_at_risk_eur: number; pct_cogs_at_risk: number }
   commodities: Commodity[]
   commodity_ids: Record<string, string>
+  concentration?: Concentration
 }
 
 const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
@@ -45,6 +56,8 @@ export default function Cogs() {
           { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent },
           { label: 'commodities', value: d.commodities.length, icon: Boxes, tone: 'var(--color-sky)' },
         ]} />
+
+      <SupplyConcentrationCard c={d.concentration} />
 
       <div className="space-y-3">
         {rows.map(c => {
@@ -82,6 +95,52 @@ export default function Cogs() {
         })}
       </div>
     </div>
+  )
+}
+function SupplyConcentrationCard({ c }: { c?: Concentration }) {
+  if (!c || !c.available) return null
+  const cs = c.common_shock
+  return (
+    <Card className="px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Supply-shock concentration</span>
+        <span className="text-[12px] text-[var(--color-mute)]">is your sourcing risk concentrated in one crop or one hazard?</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_commodities ?? '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective independent crops</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_hazards ?? '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective independent hazards</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: c.top_commodity && c.top_commodity.pct_of_spend > 25 ? '#E8B24C' : 'var(--color-ink)' }}>{c.top_commodity ? `${c.top_commodity.pct_of_spend}%` : '—'}</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Top crop{c.top_commodity ? ` · ${c.top_commodity.commodity}` : ''}</div>
+        </div>
+        <div>
+          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{c.common_shock_pct_of_spend}%</div>
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Spend in top common shock</div>
+        </div>
+      </div>
+      {cs && (
+        <div className="mt-3 rounded-lg border border-[var(--color-line-2)] px-3.5 py-2.5">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Largest common shock · one bad season hits these together</div>
+          <div className="text-[13px] text-[var(--color-ink)]">
+            <span className="font-medium">{hazardLabel(cs.hazard)}</span> across <span className="font-medium">{cs.n_commodities} crops</span> — {eur(cs.spend_eur)} spend exposed{cs.at_risk_eur ? <> · <span style={{ color: '#E9744A' }}>{eur(cs.at_risk_eur)} published at-risk</span></> : null}
+          </div>
+        </div>
+      )}
+      {c.by_hazard.length > 0 && (
+        <div className="mt-4">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend exposed by hazard</div>
+          <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.spend_eur, sub: `${h.n_commodities} crops`, color: i === 0 ? '#E9744A' : 'var(--color-sky)' }))} format={eur} height={18} />
+        </div>
+      )}
+      {c.flags.length > 0 && <div className="mono text-[9.5px] mt-3" style={{ color: '#E8B24C' }}>{c.flags.join(' · ')}</div>}
+      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">{c.method}</div>
+    </Card>
   )
 }
 const Center = ({ children }: { children: React.ReactNode }) => <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">{children}</div>

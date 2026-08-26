@@ -100,13 +100,15 @@ def resolve_org(
 OrgId = Annotated[str, Depends(resolve_org)]
 
 
-def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="universal"):
+def _holdings_with_risk(session, org_id, scenario, horizon, severity_model="universal",
+                        entity_ids=None, value_weights=None):
     """All of an org's holdings (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py) --
     asset management needs no extension table (sector/nace_code already live
-    on the shared portfolio_entities table)."""
+    on the shared portfolio_entities table). entity_ids / value_weights scope +
+    consolidation-weight the book for a per-entity / group filing (None = whole org)."""
     rows = fetch_entities_with_risk(session, org_id, "assetmgmt", scenario, horizon, severity_model,
-                                     extra_calc=_assetmgmt_extra)
+                                     extra_calc=_assetmgmt_extra, entity_ids=entity_ids, value_weights=value_weights)
     return [_map_holding_row(r) for r in rows]
 
 
@@ -179,9 +181,11 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     """The asset manager's holdings-book TCFD physical-risk disclosure — physical-risk exposure by hazard,
     EU-Taxonomy status, and portfolio climate-risk CONCENTRATION. Live (/disclosure) and frozen (filing
     snapshot) callers share this so a filing can't drift from the live view. This is the HOLDINGS-book
-    disclosure, distinct from the fund-level SFDR PAI statement (separate data model)."""
+    disclosure, distinct from the fund-level SFDR PAI statement (separate data model). entity_ids /
+    value_weights scope + consolidation-weight the book for a per-entity or group filing (None = whole org)."""
     severity_model = get_calc_settings(session, org_id)["severity_model"]
-    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model)
+    holdings = _holdings_with_risk(session, org_id, scenario, horizon, severity_model,
+                                   entity_ids=entity_ids, value_weights=value_weights)
     hazards: dict = {}
     for h in holdings:
         for hz in h["hazards"]:
