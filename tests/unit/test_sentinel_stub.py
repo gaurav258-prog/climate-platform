@@ -34,6 +34,10 @@ def test_sentinel1_no_credentials_returns_empty(monkeypatch):
     monkeypatch.delenv("SENTINEL1_STUB", raising=False)
     monkeypatch.setattr("core.config.settings.COPERNICUS_USER", "")
     monkeypatch.setattr("core.config.settings.COPERNICUS_PASSWORD", "")
+    # the SAR adapter gates on the Sentinel Hub Statistical-API creds — clear those too, or a local .env that
+    # actually has them (real deployment) makes this "no credentials" assertion fail for the wrong reason.
+    monkeypatch.setattr("core.config.settings.SENTINEL_HUB_CLIENT_ID", "")
+    monkeypatch.setattr("core.config.settings.SENTINEL_HUB_CLIENT_SECRET", "")
     from importlib import reload
 
     import services.ingestion.adapters.sentinel1_sar as m
