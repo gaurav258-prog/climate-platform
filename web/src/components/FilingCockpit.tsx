@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
@@ -350,6 +350,33 @@ function DetailsTabs({ filings, onOpen }: { filings: FilingSummary[]; onOpen: (i
   )
 }
 
+// The onward hand-off from a filing to the surfaces where its remaining work lives — turns the cockpit from a
+// dead-end into a conveyor. Each chip deep-links to that surface, pre-filtered to this filing where supported.
+function SubmitReadiness({ filingId, status, blocking }: { filingId: string; status: string; blocking: number }) {
+  if (['submitted', 'accepted'].includes(status)) return null   // filed — nothing left to submit
+  const inReview = status === 'in_review'
+  const chip = (tone: string) => `inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] transition hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] ${tone}`
+  const neutral = 'border-[var(--color-line-2)] text-[var(--color-mute)]'
+  return (
+    <Card className="p-3">
+      <div className="flex items-center flex-wrap gap-2">
+        <span className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mr-1">To submit</span>
+        <Link to={`/exceptions?filing=${filingId}`}
+          className={chip(blocking > 0 ? 'border-[var(--color-warn)] text-[var(--color-warn)]' : 'border-[var(--color-line-2)] text-[var(--color-good)]')}>
+          <AlertTriangle size={12} /> {blocking > 0 ? `${blocking} blocking exception${blocking === 1 ? '' : 's'} to clear` : 'exceptions clear'} <ArrowRight size={12} />
+        </Link>
+        <Link to="/approvals" className={chip(inReview ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : neutral)}>
+          <ListChecks size={12} /> {inReview ? 'Awaiting 2nd-eyes' : 'Four-eyes sign-off'} <ArrowRight size={12} />
+        </Link>
+        <Link to={`/tasks?filing=${filingId}`} className={chip(neutral)}>
+          <Flame size={12} /> Team tasks <ArrowRight size={12} />
+        </Link>
+      </div>
+    </Card>
+  )
+}
+
+
 function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: string; onClose: () => void; onChanged: () => void; onOpen: (id: string) => void }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
@@ -379,6 +406,10 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
 
             {/* lifecycle rail */}
             <StageRail status={f.status} />
+
+            {/* submit-readiness — thread the Disclose stage onward so the drawer is never a dead-end:
+                the concrete blockers, sign-off and team work for THIS filing, each one click away */}
+            <SubmitReadiness filingId={filingId} status={f.status} blocking={val.data?.blocking ?? 0} />
 
             {/* frozen snapshot */}
             {f.snapshot && (

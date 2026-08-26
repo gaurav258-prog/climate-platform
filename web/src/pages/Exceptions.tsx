@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -27,9 +27,13 @@ const sevColor = (s: string) => s === 'blocking' ? '#fb7185' : '#f0a860'
 export default function Exceptions() {
   const qc = useQueryClient()
   const nav = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const filingFilter = params.get('filing')   // arrive scoped to one filing (from the filing cockpit)
   const { profile } = useAuth()
   const q = useQuery({ queryKey: ['exceptions'], queryFn: () => api.get<Resp>('/v1/reg-tasks/exceptions') })
   const d = q.data
+  const shown = filingFilter && d ? d.exceptions.filter(e => e.filing_id === filingFilter) : (d?.exceptions ?? [])
+  const filteredLabel = filingFilter && shown.length ? `${frameworkLabel(shown[0].filing_label)} · ${shown[0].period}` : null
 
   const spin = async (e: Exc) => {
     try {
@@ -46,6 +50,15 @@ export default function Exceptions() {
       <PageHeader eyebrow="Workflow · control tower" title="Control Tower"
         lead="Every open validation & reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up."
         actions={<Lens kind="control" />} />
+
+      {filingFilter && (
+        <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-mute)]">
+          <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Filtered to</span>
+          <span className="text-[var(--color-ink)]">{filteredLabel ?? 'one filing'}</span>
+          <button onClick={() => { params.delete('filing'); setParams(params, { replace: true }) }}
+            className="text-[var(--color-sky)] hover:text-[var(--color-blue)]">· show all filings</button>
+        </div>
+      )}
 
       {d && d.summary.filings_skipped > 0 && (
         <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-bad)]">
@@ -67,12 +80,12 @@ export default function Exceptions() {
 
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">scanning filings…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load exceptions.</div>
-        : d.exceptions.length === 0
-          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">No open exceptions — every live filing is clean.</div></Card>
+        : shown.length === 0
+          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">{filingFilter ? 'No open exceptions on this filing — it’s clean.' : 'No open exceptions — every live filing is clean.'}</div></Card>
           : (
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-[var(--color-line)]">
-              {d.exceptions.map((e, i) => {
+              {shown.map((e, i) => {
                 const Icon = e.severity === 'blocking' ? XCircle : AlertTriangle
                 return (
                   <div key={i} className="px-5 py-3 flex items-center gap-3">

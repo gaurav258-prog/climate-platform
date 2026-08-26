@@ -54,6 +54,7 @@ const GROUPS: Group[] = [
   ] },
   { label: 'Operate', color: 'var(--stage-operate)', flow: true, items: [
     { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view' },
+    { to: '/approvals', label: 'My approvals', icon: ClipboardCheck, perm: 'approvals.view' },
     { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'modules.view' },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view' },
     { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view' },
