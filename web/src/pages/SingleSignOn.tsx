@@ -7,7 +7,8 @@ import { Card, Button, PageHeader } from '../components/ui'
 
 interface Config {
   enabled: boolean; protocol?: string; oidc_issuer?: string | null; oidc_client_id?: string | null
-  oidc_client_secret?: string | null; allowed_email_domain?: string | null
+  oidc_client_secret?: string | null; saml_idp_entity_id?: string | null; saml_idp_sso_url?: string | null
+  saml_idp_x509_cert?: string | null; allowed_email_domain?: string | null
   jit_provisioning?: boolean; default_role?: string; scim_enabled?: boolean; scim_configured?: boolean
 }
 const inp = 'w-full bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-sm outline-none focus:border-[var(--color-sky)]'
@@ -30,8 +31,10 @@ export default function SingleSignOn() {
     setBusy(true)
     try {
       const body = {
-        enabled: c!.enabled, oidc_issuer: c!.oidc_issuer, oidc_client_id: c!.oidc_client_id,
+        protocol: c!.protocol ?? 'oidc', enabled: c!.enabled,
+        oidc_issuer: c!.oidc_issuer, oidc_client_id: c!.oidc_client_id,
         oidc_client_secret: c!.oidc_client_secret && c!.oidc_client_secret !== '********' ? c!.oidc_client_secret : undefined,
+        saml_idp_entity_id: c!.saml_idp_entity_id, saml_idp_sso_url: c!.saml_idp_sso_url, saml_idp_x509_cert: c!.saml_idp_x509_cert,
         allowed_email_domain: c!.allowed_email_domain, jit_provisioning: c!.jit_provisioning ?? true,
         default_role: c!.default_role ?? 'viewer',
       }
@@ -51,19 +54,44 @@ export default function SingleSignOn() {
       <PageHeader eyebrow="Set up · identity" title="Single sign-on & provisioning"
         lead="Connect your identity provider (Okta, Microsoft Entra ID) so your team signs in with your directory and is provisioned automatically. Activates once your IdP is connected." />
 
-      {/* OIDC */}
+      {/* SSO */}
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-1"><ShieldCheck size={18} className="text-[var(--color-sky)]" /><h2 className="display text-base font-semibold m-0">OpenID Connect (SSO)</h2></div>
-        <p className="text-[12px] text-[var(--color-mute)] mb-4">Users authenticate at your IdP; on return we validate the signed token and sign them in.</p>
+        <div className="flex items-center gap-2 mb-1"><ShieldCheck size={18} className="text-[var(--color-sky)]" /><h2 className="display text-base font-semibold m-0">Single sign-on</h2></div>
+        <p className="text-[12px] text-[var(--color-mute)] mb-4">Users authenticate at your IdP; on return we validate the signed assertion and sign them in.</p>
+
+        {/* protocol switch */}
+        <div className="flex gap-1 p-1 rounded-lg border border-[var(--color-line)] mb-4 max-w-[260px]">
+          {['oidc', 'saml'].map(p => (
+            <button key={p} type="button" onClick={() => set('protocol', p)}
+              className={`flex-1 rounded-md py-1.5 mono text-[11px] uppercase transition ${(c.protocol ?? 'oidc') === p ? 'bg-[var(--color-bg-2)] text-[var(--color-sky)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+              {p === 'oidc' ? 'OpenID Connect' : 'SAML 2.0'}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-[13px] cursor-pointer">
             <input type="checkbox" checked={!!c.enabled} onChange={e => set('enabled', e.target.checked)} /> Enable SSO for this organization
           </label>
-          <Field label="Issuer URL"><input className={inp} value={c.oidc_issuer ?? ''} onChange={e => set('oidc_issuer', e.target.value)} placeholder="https://your-org.okta.com" /></Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Client ID"><input className={inp} value={c.oidc_client_id ?? ''} onChange={e => set('oidc_client_id', e.target.value)} /></Field>
-            <Field label="Client secret"><input className={inp} type="password" value={c.oidc_client_secret ?? ''} onChange={e => set('oidc_client_secret', e.target.value)} placeholder="••••••••" /></Field>
-          </div>
+
+          {(c.protocol ?? 'oidc') === 'saml' ? (
+            <>
+              <Field label="IdP entity ID"><input className={inp} value={c.saml_idp_entity_id ?? ''} onChange={e => set('saml_idp_entity_id', e.target.value)} placeholder="https://idp.company.com/saml/metadata" /></Field>
+              <Field label="IdP SSO URL"><input className={inp} value={c.saml_idp_sso_url ?? ''} onChange={e => set('saml_idp_sso_url', e.target.value)} placeholder="https://idp.company.com/saml/sso" /></Field>
+              <Field label="IdP signing certificate (X.509, PEM or base64)">
+                <textarea className={inp + ' font-mono text-[11px] h-28'} value={c.saml_idp_x509_cert ?? ''} onChange={e => set('saml_idp_x509_cert', e.target.value)} placeholder="-----BEGIN CERTIFICATE-----" />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Issuer URL"><input className={inp} value={c.oidc_issuer ?? ''} onChange={e => set('oidc_issuer', e.target.value)} placeholder="https://your-org.okta.com" /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Client ID"><input className={inp} value={c.oidc_client_id ?? ''} onChange={e => set('oidc_client_id', e.target.value)} /></Field>
+                <Field label="Client secret"><input className={inp} type="password" value={c.oidc_client_secret ?? ''} onChange={e => set('oidc_client_secret', e.target.value)} placeholder="••••••••" /></Field>
+              </div>
+            </>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Allowed email domain"><input className={inp} value={c.allowed_email_domain ?? ''} onChange={e => set('allowed_email_domain', e.target.value)} placeholder="company.com" /></Field>
             <Field label="Default role for new users"><select className={inp} value={c.default_role ?? 'viewer'} onChange={e => set('default_role', e.target.value)}>{['viewer', 'analyst', 'approver', 'admin'].map(r => <option key={r} value={r}>{r}</option>)}</select></Field>
@@ -72,9 +100,17 @@ export default function SingleSignOn() {
             <input type="checkbox" checked={c.jit_provisioning ?? true} onChange={e => set('jit_provisioning', e.target.checked)} /> Create accounts automatically on first sign-in (JIT)
           </label>
         </div>
-        <div className="mt-4 pt-3 border-t border-[var(--color-line)]">
-          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Give your IdP this redirect URI</div>
-          <CopyRow value={`${origin}/sso/callback`} />
+
+        <div className="mt-4 pt-3 border-t border-[var(--color-line)] space-y-3">
+          {(c.protocol ?? 'oidc') === 'saml' ? (
+            <>
+              <div><div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Give your IdP this ACS (reply) URL</div><CopyRow value={`${origin}/v1/sso/saml/acs`} /></div>
+              <div><div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SP entity ID</div><CopyRow value={`${origin}/sp`} /></div>
+              <div className="text-[11px] text-[var(--color-faint)]">Or import our <a className="text-[var(--color-sky)]" href={`${origin}/v1/sso/saml/metadata`} target="_blank" rel="noreferrer">SP metadata</a> into your IdP.</div>
+            </>
+          ) : (
+            <div><div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Give your IdP this redirect URI</div><CopyRow value={`${origin}/sso/callback`} /></div>
+          )}
         </div>
         <div className="flex justify-end mt-4"><Button onClick={save} disabled={busy || !f}>{busy ? 'Saving…' : 'Save SSO settings'}</Button></div>
       </Card>

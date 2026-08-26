@@ -21,3 +21,5 @@ python-multipart==0.0.20
 openpyxl==3.1.5
 pdfplumber==0.11.8
 qrcode>=8.0  # TOTP MFA enrolment QR (SVG factory, no Pillow needed)
+signxml>=5.0  # SAML 2.0 XML-DSig assertion validation (enterprise SSO)
+lxml>=5.0  # SAML/XML parsing (signxml dep)
