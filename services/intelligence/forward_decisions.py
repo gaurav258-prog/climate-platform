@@ -12,11 +12,45 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 AT_RISK = 50.0                       # High+ boundary (score ≥ 50) — the decision line
-ACTIONS = ("reprice", "engage", "disclose", "monitor", "accept")
+
+# ── Sector verb-packs — the ONLY sector-specific part of the decision engine ──────────────────────────────
+# The subject (dial 1) and the action vocabulary (dial 2) vary by sector; the lifecycle, playbook automation,
+# 4-eyes and task spin-off are identical across every vertical. Every pack shares the tail engage/disclose/
+# monitor/accept.
+_SHARED = ("engage", "disclose", "monitor", "accept")
+SECTOR_ACTIONS: dict[str, tuple[str, ...]] = {
+    "banking":    ("reprice", "adjust_terms", "limit_exit", "provision") + _SHARED,
+    "insurance":  ("reprice", "adjust_cover", "exclude", "non_renew", "reinsure") + _SHARED,
+    "assetmgmt":  ("reweight", "engage_issuer", "divest", "hedge") + _SHARED,
+    "realestate": ("adaptation_capex", "reposition", "dispose", "insure") + _SHARED,
+    "agri":       ("reallocate_origin", "diversify_supplier", "buffer_prebuy", "adaptation_invest", "renegotiate") + _SHARED,
+}
+ACTIONS = SECTOR_ACTIONS["banking"]                                          # legacy alias (bank default)
+ALL_ACTIONS = tuple(sorted({a for acts in SECTOR_ACTIONS.values() for a in acts}))
+
+
+def actions_for(vertical: str) -> tuple[str, ...]:
+    """The decision verb-pack for a sector — sent to the UI so it offers the right actions."""
+    return SECTOR_ACTIONS.get(vertical, SECTOR_ACTIONS["banking"])
+
+
 # actions that imply follow-up work → a card is spun on the Kanban board when the decision is approved
-ACTIONABLE = {"engage", "reprice", "disclose"}
-_TASK_TITLE = {"engage": "Engage counterparty", "reprice": "Reprice at renewal", "disclose": "Disclose climate risk"}
-VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insurance", "reit": "realestate"}
+ACTIONABLE = {"engage", "reprice", "disclose"} | {
+    a for v, acts in SECTOR_ACTIONS.items() for a in acts if a not in ("monitor", "accept")}
+_TASK_TITLE = {
+    "engage": "Engage counterparty", "reprice": "Reprice at renewal", "disclose": "Disclose climate risk",
+    "adjust_terms": "Adjust terms / covenant", "limit_exit": "Limit or exit exposure", "provision": "Review provisioning",
+    "adjust_cover": "Adjust deductible / limit", "exclude": "Add exclusion", "non_renew": "Non-renew at expiry", "reinsure": "Review reinsurance",
+    "reweight": "Reweight holding", "engage_issuer": "Engage issuer", "divest": "Divest holding", "hedge": "Hedge exposure",
+    "adaptation_capex": "Plan adaptation capex", "reposition": "Reposition asset", "dispose": "Dispose asset", "insure": "Insure asset",
+    "reallocate_origin": "Reallocate sourcing origin", "diversify_supplier": "Diversify supplier",
+    "buffer_prebuy": "Build buffer / pre-buy", "adaptation_invest": "Invest in supplier adaptation", "renegotiate": "Renegotiate contract",
+}
+ACTION_LABELS = {**_TASK_TITLE, "monitor": "Monitor / watchlist", "accept": "Accept risk"}
+SUBJECT_NOUN = {"banking": "exposure", "insurance": "policy", "assetmgmt": "holding",
+                "realestate": "property", "agri": "commodity"}
+VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insurance", "reit": "realestate",
+            "manufacturer": "agri"}
 WATCH_REVIEW_DAYS = 90               # default re-review cadence for a 'monitor' watch (overridable per playbook)
 WATCH_DETERIORATION = 2.0            # score points a watched exposure must worsen by to escalate on re-check
 
@@ -27,10 +61,14 @@ class DecisionError(ValueError):
 
 def crossings(session: Session, org_id: str, vertical: str, scenario: str, horizon: str,
               at_risk: float = AT_RISK) -> list[dict]:
-    """Exposures newly crossing into High+ by (scenario, horizon): worst priceable hazard today < line, at the
-    horizon ≥ line. Ranked by adverse migration × value. Each carries its latest standing decision (if any)."""
+    """Subjects newly crossing into High+ by (scenario, horizon): worst priceable hazard today < line, at the
+    horizon ≥ line. Ranked by adverse migration × value. Each carries its latest standing decision (if any).
+    The subject is the financial entity (FIN) or the sourcing commodity/origin (agri) — same shape, same
+    lifecycle. Dial 1 of the standardized decision layer."""
     if horizon not in ("2030", "2050", "2100"):
         raise DecisionError("horizon must be 2030 / 2050 / 2100")
+    if vertical == "agri":
+        return _agri_crossings(session, org_id, scenario, horizon, at_risk)
     rows = session.execute(text("""
         WITH cur AS (
             SELECT DISTINCT ON (v.entity_id) v.entity_id, v.physical_risk_score AS sc
@@ -62,6 +100,49 @@ def crossings(session: Session, org_id: str, vertical: str, scenario: str, horiz
         out.append({
             "entity_id": r["eid"], "entity_name": r["entity_name"], "value_eur": r["val"] or 0.0,
             "country": r["country"], "region": r["region"], "driver": r["driver"],
+            "current_score": round(cur_sc, 1) if cur_sc is not None else None,
+            "future_score": round(r["fut_sc"], 1) if r["fut_sc"] is not None else None,
+            "delta": round((r["fut_sc"] or 0) - (cur_sc or 0), 1),
+            "decision": live.get(r["eid"]),
+        })
+    out.sort(key=lambda x: -(max(0.0, x["delta"]) * (x["value_eur"] or 0)))
+    return out
+
+
+def _agri_crossings(session: Session, org_id: str, scenario: str, horizon: str, at_risk: float) -> list[dict]:
+    """Agri subject = the sourced COMMODITY (commodity_id, a uuid — fits the same entity-keyed lifecycle).
+    A commodity crosses when its worst plot hazard rises from < line today to ≥ line at the horizon; value is
+    the commodity's annual sourcing spend. The recommendation source downstream is the re-sourcing engine."""
+    rows = session.execute(text("""
+        WITH cur AS (
+            SELECT commodity_id, MAX(physical_risk_score) AS sc
+            FROM v_sc_plot_physical_risk
+            WHERE org_id = :o AND scenario = 'baseline' AND time_horizon = 'current' AND hazard_type <> 'heat_acute'
+            GROUP BY commodity_id
+        ), fut AS (
+            SELECT DISTINCT ON (commodity_id) commodity_id, physical_risk_score AS sc, hazard_type AS driver
+            FROM v_sc_plot_physical_risk
+            WHERE org_id = :o AND scenario = :scen AND time_horizon = :hz AND hazard_type <> 'heat_acute'
+            ORDER BY commodity_id, physical_risk_score DESC
+        ), spend AS (
+            SELECT commodity_id, SUM(CAST(annual_spend_eur AS FLOAT)) AS val
+            FROM sc_sourcing_plots WHERE org_id = :o GROUP BY commodity_id
+        )
+        SELECT co.commodity_id::text AS eid, co.name AS entity_name, COALESCE(spend.val, 0) AS val,
+               cur.sc AS cur_sc, fut.sc AS fut_sc, fut.driver
+        FROM fut
+        JOIN sc_commodities co ON co.commodity_id = fut.commodity_id
+        LEFT JOIN cur ON cur.commodity_id = fut.commodity_id
+        LEFT JOIN spend ON spend.commodity_id = fut.commodity_id
+        WHERE (cur.sc IS NULL OR cur.sc < :ar) AND fut.sc >= :ar
+    """), {"o": org_id, "scen": scenario, "hz": horizon, "ar": at_risk}).mappings().all()
+    live = _live_decisions(session, org_id, scenario, horizon)
+    out = []
+    for r in rows:
+        cur_sc = r["cur_sc"]
+        out.append({
+            "entity_id": r["eid"], "entity_name": r["entity_name"], "value_eur": r["val"] or 0.0,
+            "country": None, "region": None, "driver": r["driver"],
             "current_score": round(cur_sc, 1) if cur_sc is not None else None,
             "future_score": round(r["fut_sc"], 1) if r["fut_sc"] is not None else None,
             "delta": round((r["fut_sc"] or 0) - (cur_sc or 0), 1),
@@ -104,7 +185,7 @@ def playbook(session: Session, org_id: str) -> dict:
 
 def set_playbook(session: Session, org_id: str, actor: str, action: str, patch: dict) -> dict:
     """Upsert the org's row for one action. Only known automation fields are written."""
-    if action not in ACTIONS:
+    if action not in ALL_ACTIONS:
         raise DecisionError(f"unknown action '{action}'")
     cur = playbook(session, org_id).get(action, {})
     merged = {f: patch.get(f, cur.get(f)) for f in _PLAYBOOK_FIELDS}
@@ -352,8 +433,8 @@ def decide(session: Session, org_id: str, actor: str, *, entity_id: str, entity_
     """Record a decision. Whether it needs a second approval (4-eyes) is the ORG's choice, set at onboarding
     through the approval matrix — off by default. If 4-eyes doesn't apply, the decision is approved on the spot
     and any Kanban card is spun immediately; otherwise it stays 'proposed' until a checker approves it."""
-    if action not in ACTIONS:
-        raise DecisionError(f"action must be one of {ACTIONS}")
+    if action not in ALL_ACTIONS:
+        raise DecisionError(f"action must be one of {ALL_ACTIONS}")
     rationale = (rationale or "").strip() or None
     needs = _needs_four_eyes(session, org_id, value_eur)
     status = "proposed" if needs else "approved"

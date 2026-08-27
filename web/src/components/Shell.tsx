@@ -40,7 +40,7 @@ const GROUPS: Group[] = [
     { to: '/models', label: 'How we score', icon: FlaskConical, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Decide', color: 'var(--stage-decide)', flow: true, items: [
-    { to: '/decisions', label: 'Decisions', icon: Crosshair, perm: 'modules.view', sectors: FIN },
+    { to: '/decisions', label: 'Decisions', icon: Crosshair, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
   ] },
   { label: 'Disclose', color: 'var(--stage-disclose)', flow: true, items: [
     { to: '/funds', label: 'Funds', icon: Layers, perm: 'modules.view', sectors: ['asset_manager'] },

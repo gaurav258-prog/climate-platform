@@ -16,8 +16,15 @@ router = APIRouter(prefix="/v1/decisions", tags=["Forward-risk decisions"])
 def _vertical(ctx: dict) -> str:
     v = D.VERTICAL.get(ctx["org"].get("type"))
     if not v:
-        raise HTTPException(400, {"error": "unsupported", "message": "Forward-risk decisions are for financial books only."})
+        raise HTTPException(400, {"error": "unsupported", "message": "Forward-risk decisions aren't wired for this sector."})
     return v
+
+
+@router.get("/actions", summary="The decision verb-pack for this sector")
+def actions(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    v = _vertical(ctx)
+    return {"vertical": v, "subject_noun": D.SUBJECT_NOUN.get(v, "exposure"),
+            "actions": list(D.actions_for(v)), "labels": D.ACTION_LABELS}
 
 
 class DecideBody(BaseModel):
