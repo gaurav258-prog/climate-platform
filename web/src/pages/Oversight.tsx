@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, Scale, Eye, HelpCircle } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, Scale, Eye, HelpCircle, ExternalLink } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 
@@ -26,10 +26,12 @@ interface Posture {
 
 // ── regulator (outward) ──
 interface Answer { label: string; value: number | string | null; fmt: string; breached: boolean }
-interface SQ { framework: string; question: string; focus: string; metric: string | null; answer: Answer | null; answered: boolean }
+interface SQ { framework: string; question: string; focus: string; metric: string | null; answer: Answer | null; answered: boolean; review: boolean }
 interface Focus { title: string; scrutiny: string; transparency: string }
-interface Supervisor { id: string; name: string; jurisdiction: string; mission: string; reference: string; focus_areas: Focus[]; frameworks: string[]; questions: SQ[]; answered: number; total: number }
-interface SupResp { supervisors: Supervisor[]; summary: { n_supervisors: number; n_questions: number; n_answered: number } }
+interface RegChange { title: string; when: string; date: string | null; citation: string; url: string | null }
+interface Review { needs_review: boolean; changes: RegChange[] }
+interface Supervisor { id: string; name: string; jurisdiction: string; mission: string; reference: string; focus_areas: Focus[]; frameworks: string[]; questions: SQ[]; answered: number; total: number; review: Review }
+interface SupResp { supervisors: Supervisor[]; library_reviewed: string; summary: { n_supervisors: number; n_questions: number; n_answered: number; n_review: number } }
 
 const fmtVal = (v: number | string | null, fmt: string) => {
   if (v == null) return '—'
@@ -81,6 +83,12 @@ function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
           { label: 'Answered by your data', value: `${su.n_answered} / ${su.n_questions}`, icon: CheckCircle2, tone: su.n_answered === su.n_questions ? '#4FA46E' : '#E8853C' },
         ]} />
 
+      {/* provenance: the questions are a curated, cited library — answers are live; a regulatory change flags a review */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mono text-[10.5px] text-[var(--color-faint)] -mt-1">
+        <span>Question library reviewed <b className="text-[var(--color-mute)]">{d.library_reviewed}</b> · answers are computed live from your book.</span>
+        {su.n_review > 0 && <span className="inline-flex items-center gap-1" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={11} /> {su.n_review} supervisor{su.n_review === 1 ? '' : 's'} flagged — a regulatory change may affect the questions.</span>}
+      </div>
+
       <div className="space-y-5">
         {d.supervisors.map(s => (
           <Card key={s.id} className="p-0 overflow-hidden">
@@ -95,6 +103,29 @@ function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
               <p className="text-[13px] text-[var(--color-mute)] mt-2.5 leading-relaxed max-w-3xl">{s.mission}</p>
               <div className="mono text-[10px] text-[var(--color-faint)] mt-2">{s.reference}</div>
             </div>
+
+            {/* review-recommended banner — a regulatory change touches this supervisor's frameworks */}
+            {s.review.needs_review && (
+              <div className="px-5 py-3 border-b border-[var(--color-line)]" style={{ background: 'color-mix(in oklab, var(--color-warn) 8%, transparent)' }}>
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={14} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-[12.5px] font-medium text-[var(--color-ink)]">Review recommended — the regulation is moving</div>
+                    <div className="text-[12px] text-[var(--color-mute)] mt-0.5 leading-snug">These questions were verified against the rules as they stood; a change below may affect them. We flag it so nothing goes stale.</div>
+                    <div className="flex flex-col gap-1 mt-2">
+                      {s.review.changes.map((c, i) => (
+                        <div key={i} className="mono text-[10.5px] text-[var(--color-mute)] flex flex-wrap items-center gap-x-2">
+                          <span className="text-[var(--color-warn)]">▸</span><span className="text-[var(--color-ink)]">{c.title}</span>
+                          <span className="text-[var(--color-faint)]">· {c.when}</span>
+                          {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[var(--color-sky)] hover:underline"><ExternalLink size={9} />{c.citation}</a>}
+                        </div>
+                      ))}
+                    </div>
+                    <Link to="/reg-changes" className="mono text-[10.5px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1 mt-2">See the regulatory outlook <ChevronRight size={11} /></Link>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* what they scrutinise */}
             <div className="px-5 py-3.5">
@@ -118,7 +149,10 @@ function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
                   <div key={i} className="px-4 py-3 flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="text-[13px] text-[var(--color-ink)] leading-snug">{qq.question}</div>
-                      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{qq.focus}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{qq.focus}</span>
+                        {qq.review && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' }} title="A regulatory change may affect this question">review</span>}
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
                       {qq.answer

@@ -17,43 +17,59 @@ from services.governance.reg_reference import REFERENCE
 # any secondary milestone). `prepare` is what the CUSTOMER must ready (new data / integration) or None.
 _EURLEX = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
 COMING: list[dict] = [
-    {"sectors": ["manufacturer"], "framework": "eudr_dds", "title": "EUDR obligations take effect",
+    {"sectors": ["manufacturer"], "framework": "eudr_dds", "affects": ["eudr_dds"], "title": "EUDR obligations take effect",
      "date": "2025-12-30", "when": "30 Dec 2025 · large operators & traders (SMEs 30 Jun 2026)",
      "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
      "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
      "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234", "url": _EURLEX + "32024R3234"},
-    {"sectors": ["manufacturer", "bank", "reit"], "framework": None, "title": "EU Taxonomy — environmental objectives",
+    {"sectors": ["manufacturer", "bank", "reit"], "framework": None,
+     "affects": ["bank_tcfd", "reit_tcfd", "csrd_e1", "esrs_pack"], "title": "EU Taxonomy — environmental objectives",
      "date": "2024-01-01", "when": "1 Jan 2024 · first reported for FY2024",
      "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
      "prepare": "Activity-level data against the four additional environmental objectives.",
      "citation": "Environmental Delegated Act (EU) 2023/2486 (applies from 1 Jan 2024)", "url": _EURLEX + "32023R2486"},
-    {"sectors": ["manufacturer"], "framework": "esrs_pack", "title": "ESRS digital tagging (XBRL)",
+    {"sectors": ["manufacturer"], "framework": "esrs_pack", "affects": ["csrd_e1", "esrs_pack"], "title": "ESRS digital tagging (XBRL)",
      "date": None, "when": "no fixed date · phased with ESAP go-live (from 2027)",
      "whats_changing": "Sustainability statements must be tagged in the EFRAG ESRS XBRL taxonomy for machine-readable filing to the European Single Access Point.",
      "prepare": None,
      "citation": "EFRAG ESRS XBRL taxonomy · ESAP Regulation (EU) 2023/2859", "url": _EURLEX + "32023R2859"},
     {"sectors": ["manufacturer", "bank", "insurer", "asset_manager", "reit"], "framework": None,
-     "title": "CSRD / ESRS — Omnibus (‘stop-the-clock’)",
+     "affects": ["csrd_e1", "esrs_pack"], "title": "CSRD / ESRS — Omnibus (‘stop-the-clock’)",
      "date": None, "when": "Dir. (EU) 2025/794 (Apr 2025) — next waves delayed to FY2027 / FY2028; scope still in negotiation",
      "whats_changing": "The ‘stop-the-clock’ Directive postpones the next CSRD reporting waves by two years; the substantive scope changes (Omnibus) are still under EU negotiation.",
      "prepare": "No action yet — you'll be told if your own obligations change.",
      "citation": "Directive (EU) 2025/794 · EC Omnibus proposal (Feb 2025)", "url": _EURLEX + "32025L0794"},
-    {"sectors": ["bank"], "framework": "bank_p3esg", "title": "Pillar 3 ESG — template revisions",
+    {"sectors": ["bank"], "framework": "bank_p3esg", "affects": ["bank_p3esg"], "title": "Pillar 3 ESG — template revisions",
      "date": None, "when": "no fixed date · rolling EBA ITS updates",
      "whats_changing": "The EBA periodically revises the ESG disclosure templates (physical & transition risk, Green Asset Ratio).",
      "prepare": None,
      "citation": "EBA ITS (EU) 2022/2453, as revised", "url": _EURLEX + "32022R2453"},
-    {"sectors": ["asset_manager"], "framework": "sfdr_pai", "title": "SFDR RTS review — revised PAI methodology",
+    {"sectors": ["asset_manager"], "framework": "sfdr_pai", "affects": ["sfdr_pai"], "title": "SFDR RTS review — revised PAI methodology",
      "date": None, "when": "no adoption date set · ESAs proposal under EC review",
      "whats_changing": "The ESAs have proposed revisions to the SFDR RTS, including the Principal Adverse Impact indicators and disclosures.",
      "prepare": "Possibly new issuer-level attributes — the exact fields will be flagged once finalised.",
      "citation": "ESAs SFDR RTS review (2023 final report)", "url": "https://www.esma.europa.eu/"},
-    {"sectors": ["bank", "insurer", "asset_manager", "reit"], "framework": None, "title": "IFRS S2 / ISSB adoption",
+    {"sectors": ["bank", "insurer", "asset_manager", "reit"], "framework": None,
+     "affects": ["bank_tcfd", "reit_tcfd", "assetmgmt_tcfd", "insurer_climate"], "title": "IFRS S2 / ISSB adoption",
      "date": None, "when": "date set per jurisdiction on ISSB adoption",
      "whats_changing": "IFRS S2 climate-related disclosures become required where a jurisdiction adopts the ISSB standards.",
      "prepare": None,
      "citation": "IFRS S2 Climate-related Disclosures", "url": "https://www.ifrs.org/"},
 ]
+
+
+def changes_affecting(org_type: str | None, framework: str) -> list[dict]:
+    """Coming changes (for this sector) that touch a given framework — the single signal both the customer
+    outlook and the supervisory-question 'review recommended' flags read from. When the automated change
+    detector is wired, it feeds this same shape."""
+    out = []
+    for c in COMING:
+        if org_type not in (c.get("sectors") or []):
+            continue
+        if c.get("framework") == framework or framework in (c.get("affects") or []):
+            out.append({"title": c["title"], "when": c["when"], "date": c.get("date"),
+                        "citation": c["citation"], "url": c.get("url")})
+    return out
 
 
 def _short(fw: str) -> str:

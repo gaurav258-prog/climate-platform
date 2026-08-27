@@ -14,6 +14,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+# When the curated question library was last verified against the regulations. Shown as provenance; the
+# per-supervisor "review recommended" flags below catch anything the regulator has moved since.
+LIBRARY_REVIEWED = "January 2026"
+
 # ── which supervisor reads each framework ───────────────────────────────────────────────────────────
 FRAMEWORK_SUPERVISOR: dict[str, str] = {
     "bank_p3esg": "eba_ecb", "bank_tcfd": "eba_ecb",
@@ -199,6 +203,7 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
     supervisory question with the org's own live figure (or a filing pointer). Honest by construction."""
     from services.governance.filings import reporting_requirements
     from services.governance.kri import kri, kri_frameworks
+    from services.governance.reg_outlook import changes_affecting
 
     reqs = reporting_requirements(session, org_id, org_type)
     applicable = [r["framework"] for r in reqs]
@@ -217,8 +222,12 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
                     kmap[k["key"]] = k
             except Exception:
                 pass
-        entry = grouped.setdefault(sid, {"framework_ids": set(), "by_q": {}})
+        # tie to the regulatory-change signal: any coming change touching this framework flags its questions
+        fw_changes = changes_affecting(org_type, fw)
+        entry = grouped.setdefault(sid, {"framework_ids": set(), "by_q": {}, "changes": {}})
         entry["framework_ids"].add(fw)
+        for ch in fw_changes:
+            entry["changes"].setdefault(ch["title"], ch)
         for q in SUPERVISORY_QUESTIONS.get(fw, []):
             answer = None
             kk = kmap.get(q.get("kri_key")) if q.get("kri_key") else None
@@ -226,7 +235,8 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
                 answer = {"label": kk.get("label"), "value": kk.get("value"),
                           "fmt": kk.get("fmt"), "breached": bool(kk.get("breached"))}
             row = {"framework": fw, "question": q["q"], "focus": q["focus"],
-                   "metric": q.get("metric"), "answer": answer, "answered": answer is not None}
+                   "metric": q.get("metric"), "answer": answer, "answered": answer is not None,
+                   "review": bool(fw_changes)}
             # dedupe identical questions across frameworks that share a supervisor — keep the answered one
             prev = entry["by_q"].get(q["q"])
             if prev is None or (not prev["answered"] and row["answered"]):
@@ -236,14 +246,17 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
     for sid, e in grouped.items():
         s = SUPERVISORS[sid]
         questions = list(e["by_q"].values())
+        changes = list(e["changes"].values())
         supervisors.append({
             "id": sid, "name": s["name"], "jurisdiction": s["jurisdiction"], "mission": s["mission"],
             "reference": s["reference"], "focus_areas": s["focus_areas"],
             "frameworks": sorted(e["framework_ids"]), "questions": questions,
             "answered": sum(1 for q in questions if q["answered"]), "total": len(questions),
+            "review": {"needs_review": bool(changes), "changes": changes},
         })
     supervisors.sort(key=lambda x: x["name"])
-    return {"supervisors": supervisors,
+    return {"supervisors": supervisors, "library_reviewed": LIBRARY_REVIEWED,
             "summary": {"n_supervisors": len(supervisors),
                         "n_questions": sum(s["total"] for s in supervisors),
-                        "n_answered": sum(s["answered"] for s in supervisors)}}
+                        "n_answered": sum(s["answered"] for s in supervisors),
+                        "n_review": sum(1 for s in supervisors if s["review"]["needs_review"])}}
