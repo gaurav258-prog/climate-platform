@@ -32,6 +32,12 @@ def board(session: DbSession, ctx: dict = Depends(require_permission("reports.vi
     return C.board(session, ctx["org"]["org_id"])
 
 
+@router.get("/roadmap", summary="Coverage roadmap — live / building / planned frameworks for this sector, + data or integrations needed")
+def roadmap(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.coverage_roadmap import roadmap as _roadmap
+    return _roadmap(ctx["org"].get("type"))
+
+
 @router.post("", status_code=201, summary="Register a regulatory change")
 def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     try:

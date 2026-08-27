@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare, ChevronRight as Chev } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarClock, FileText, KanbanSquare, GitBranch, ChevronRight as Chev } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, SectionHead, PageHeader } from '../components/ui'
@@ -9,12 +9,12 @@ import { filingLink, taskLink } from '../lib/links'
 
 // Regulatory calendar — filing deadlines and task due-dates on one month grid, with an upcoming list.
 
-interface Ev { date: string; kind: 'obligation' | 'task'; title: string; sub: string; ref_id: string | null; status: string; overdue: boolean; criticality: string | null }
+interface Ev { date: string; kind: 'obligation' | 'task' | 'reg_change'; title: string; sub: string; ref_id: string | null; status: string; overdue: boolean; criticality: string | null }
 interface Resp { events: Ev[]; upcoming: Ev[]; today: string }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
-const kindColor = (e: Ev) => e.overdue ? '#fb7185' : e.kind === 'obligation' ? '#5cc8ff' : e.criticality === 'critical' ? '#fb7185' : e.criticality === 'high' ? '#f0a860' : '#34d399'
+const kindColor = (e: Ev) => e.overdue ? '#fb7185' : e.kind === 'obligation' ? '#5cc8ff' : e.kind === 'reg_change' ? '#a78bfa' : e.criticality === 'critical' ? '#fb7185' : e.criticality === 'high' ? '#f0a860' : '#34d399'
 
 export default function Calendar() {
   const q = useQuery({ queryKey: ['reg-calendar'], queryFn: () => api.get<Resp>('/v1/reg-tasks/calendar') })
@@ -29,8 +29,9 @@ export default function Calendar() {
 
   // where an event drills to: an obligation → its filing (or the filings page to prepare); a task → the board
   const target = (e: Ev): string | null =>
-    e.kind === 'task' ? (e.ref_id ? taskLink(e.ref_id) : '/tasks')
-      : (e.ref_id ? filingLink(profile?.org?.type, e.ref_id) : (profile?.org?.type === 'manufacturer' ? '/filings' : '/compliance'))
+    e.kind === 'reg_change' ? '/reg-changes'
+      : e.kind === 'task' ? (e.ref_id ? taskLink(e.ref_id) : '/tasks')
+        : (e.ref_id ? filingLink(profile?.org?.type, e.ref_id) : (profile?.org?.type === 'manufacturer' ? '/filings' : '/compliance'))
   const go = (e: Ev) => { const t = target(e); if (t) nav(t) }
 
   // build the month grid (Mon-first)
@@ -45,7 +46,7 @@ export default function Calendar() {
   return (
     <div className="fadeup space-y-5">
       <PageHeader eyebrow="Workflow · calendar" title="Regulatory calendar"
-        lead="Filing deadlines and task due-dates on one timeline — see the whole runway and what's due next." />
+        lead="Filing deadlines, task due-dates and upcoming rule changes on one timeline — see the whole runway and what's due next." />
 
       <div className="grid lg:grid-cols-[1.6fr_1fr] gap-5">
         {/* month grid */}
@@ -82,6 +83,7 @@ export default function Calendar() {
           <div className="flex gap-4 mt-3 mono text-[10px] text-[var(--color-faint)]">
             <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: '#5cc8ff' }} /> filing deadline</span>
             <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: '#34d399' }} /> task due</span>
+            <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: '#a78bfa' }} /> rule change takes effect</span>
             <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: '#fb7185' }} /> overdue</span>
           </div>
         </Card>
@@ -100,7 +102,7 @@ export default function Calendar() {
                 : list.length === 0 ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">{selDate ? 'Nothing on this day.' : 'Nothing due in the near term.'}</div>
                 : <div className="divide-y divide-[var(--color-line)]">
                     {list.map((e, i) => {
-                      const Icon = e.kind === 'obligation' ? FileText : KanbanSquare
+                      const Icon = e.kind === 'obligation' ? FileText : e.kind === 'reg_change' ? GitBranch : KanbanSquare
                       return (
                         <button key={i} onClick={() => go(e)} className="w-full text-left px-5 py-3 flex items-center gap-3 hover:bg-[var(--color-panel)] transition">
                           <Icon size={14} style={{ color: kindColor(e) }} className="shrink-0" />

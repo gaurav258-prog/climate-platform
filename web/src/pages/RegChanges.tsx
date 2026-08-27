@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, ExternalLink, X, Radar, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, Plus, ExternalLink, X, Radar, CheckCircle2, Wrench, Rocket, KanbanSquare, Map as MapIcon, Database, Plug } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
@@ -12,6 +12,8 @@ import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
 interface Change { change_id: string; title: string; framework: string | null; summary: string | null; citation: string | null; stage: string; owner: string; impact: string | null; effective_date: string | null; is_platform: boolean }
 interface Stage { key: string; changes: Change[] }
 interface Board { stages: Stage[]; summary: { total: number; released: number } }
+interface RoadItem { id: string; name: string; status: string; whats: string; prep: string | null; citation: string; target: string }
+interface Roadmap { groups: { live: RoadItem[]; building: RoadItem[]; planned: RoadItem[] }; summary: { live: number; building: number; planned: number } }
 
 const LABEL: Record<string, string> = { identified: 'Identified', analysis: 'Analysis', scheduled: 'Scheduled', in_dev: 'In development', testing: 'Testing', released: 'Released' }
 const ORDER = ['identified', 'analysis', 'scheduled', 'in_dev', 'testing', 'released']
@@ -21,7 +23,9 @@ export default function RegChanges() {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const canAct = (profile?.permissions ?? []).includes('reports.publish')
+  const [tab, setTab] = useState<'pipeline' | 'roadmap'>('pipeline')
   const q = useQuery({ queryKey: ['reg-changes'], queryFn: () => api.get<Board>('/v1/reg-changes/board') })
+  const rq = useQuery({ queryKey: ['reg-roadmap'], enabled: tab === 'roadmap', queryFn: () => api.get<Roadmap>('/v1/reg-changes/roadmap') })
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ title: '', framework: '', effective_date: '' })
   const [sel, setSel] = useState<Change | null>(null)
@@ -40,10 +44,23 @@ export default function RegChanges() {
 
   return (
     <div className="fadeup space-y-5">
-      <PageHeader eyebrow="Change the bank" title="Regulatory changes"
-        lead="Every new or amended rule tracked from spotted to shipped — monitored, analysed, scheduled, built, tested and released — so nothing catches the filing off guard."
-        actions={canAct && <Button variant="ghost" onClick={() => setAdding(a => !a)}><Plus size={14} /> Register change</Button>} />
+      <PageHeader eyebrow="Regulatory maintenance" title="Regulatory changes"
+        lead="Every new or amended rule tracked from spotted to shipped — and the forward roadmap of what we cover, what we're building, and what you'll need to prepare."
+        actions={tab === 'pipeline' && canAct && <Button variant="ghost" onClick={() => setAdding(a => !a)}><Plus size={14} /> Register change</Button>} />
 
+      {/* two lenses: the live change pipeline, and the forward coverage roadmap */}
+      <div className="flex gap-1 p-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] w-fit">
+        {([['pipeline', 'Change pipeline', KanbanSquare], ['roadmap', 'Coverage roadmap', MapIcon]] as const).map(([k, l, Icon]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12.5px] transition ${tab === k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+            <Icon size={14} /> {l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'roadmap' && <RoadmapView data={rq.data} loading={rq.isLoading} />}
+
+      {tab === 'pipeline' && (<>
       {adding && (
         <Card className="p-3 flex flex-wrap items-center gap-2">
           <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Change title (e.g. SFDR RTS 2026 — revised PAI methodology)" className="flex-1 min-w-[240px] bg-transparent outline-none text-[14px]" />
@@ -93,8 +110,9 @@ export default function RegChanges() {
           ))}
         </div>
       </div>
+      </>)}
 
-      {sel && (
+      {tab === 'pipeline' && sel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSel(null)}>
           <div className="absolute inset-0 bg-black/50" />
           <Card className="relative w-full max-w-lg p-0 overflow-hidden" >
@@ -121,5 +139,63 @@ export default function RegChanges() {
         </div>
       )}
     </div>
+  )
+}
+
+const STATUS_META: Record<string, { label: string; tone: string; icon: typeof Rocket; hint: string }> = {
+  live: { label: 'Live now', tone: '#4FA46E', icon: CheckCircle2, hint: 'we file this today' },
+  building: { label: 'Building', tone: '#E8B24C', icon: Wrench, hint: 'in development' },
+  planned: { label: 'Planned', tone: 'var(--color-sky)', icon: Rocket, hint: 'on the roadmap' },
+}
+
+function RoadmapView({ data, loading }: { data?: Roadmap; loading: boolean }) {
+  if (loading) return <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
+  if (!data) return <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the roadmap.</div>
+  const s = data.summary
+  return (
+    <>
+      <HeroBanner eyebrow="Coverage roadmap"
+        title={`${s.live} live · ${s.building} building · ${s.planned} planned`}
+        lead="What we cover for your sector today, what we're building next, and what's on the roadmap — with any new data or integration you'll need to prepare. Targets are our delivery intent, not a regulatory promise."
+        stat={[
+          { label: 'Live now', value: s.live, icon: CheckCircle2, tone: '#4FA46E' },
+          { label: 'Building', value: s.building, icon: Wrench, tone: '#E8B24C' },
+          { label: 'Planned', value: s.planned, icon: Rocket, tone: 'var(--color-sky)' },
+        ]} />
+      {(['live', 'building', 'planned'] as const).map(status => {
+        const items = data.groups[status]
+        if (!items.length) return null
+        const m = STATUS_META[status]
+        return (
+          <div key={status}>
+            <div className="flex items-center gap-2 mb-2.5 mt-1">
+              <m.icon size={15} style={{ color: m.tone }} />
+              <span className="text-[13px] font-semibold" style={{ color: m.tone }}>{m.label}</span>
+              <span className="mono text-[10px] text-[var(--color-faint)]">· {m.hint}</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3 mb-4">
+              {items.map(it => (
+                <Card key={it.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{it.name}</div>
+                    <span className="mono text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0" style={{ color: m.tone, background: `color-mix(in oklab, ${m.tone} 15%, transparent)` }}>{it.target}</span>
+                  </div>
+                  <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{it.whats}</p>
+                  {it.prep && (
+                    <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2">
+                      {/prep|integration|credential|traces/i.test(it.prep) && /integration|credential|traces|api/i.test(it.prep)
+                        ? <Plug size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
+                        : <Database size={13} className="text-[var(--color-sky)] shrink-0 mt-0.5" />}
+                      <div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">To prepare</div><div className="text-[12px] text-[var(--color-mute)] leading-snug">{it.prep}</div></div>
+                    </div>
+                  )}
+                  <div className="mono text-[10px] text-[var(--color-faint)] mt-2 inline-flex items-center gap-1"><ExternalLink size={10} /> {it.citation}</div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </>
   )
 }
