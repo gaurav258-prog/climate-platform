@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight, Sigma, Scale, KeyRound, Trees, Satellite, Network, FileSearch, UserPlus } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight, Sigma, Scale, KeyRound, Trees, Satellite, Network, FileSearch, UserPlus, Telescope } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -58,7 +58,7 @@ const GROUPS: Group[] = [
     { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'modules.view' },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view' },
     { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view' },
-    { to: '/reg-changes', label: 'Regulatory changes', icon: GitBranch, perm: 'modules.view' },
+    { to: '/reg-changes', label: 'Regulatory outlook', icon: Telescope, perm: 'modules.view' },
   ] },
   { label: 'Set up', color: 'var(--stage-setup)', items: [
     { to: '/onboarding', label: 'Get started', icon: Rocket, perm: 'admin.users.manage' },
@@ -77,6 +77,7 @@ const GROUPS: Group[] = [
   { label: 'Platform', color: 'var(--stage-setup)', items: [
     { to: '/platform', label: 'Tenants', icon: Network, perm: 'platform.admin' },
     { to: '/intake', label: 'Client intake', icon: UserPlus, perm: 'onboarding.manage' },
+    { to: '/reg-pipeline', label: 'Change pipeline', icon: GitBranch, perm: 'platform.admin' },
   ] },
 ]
 
@@ -89,7 +90,7 @@ const PRIMARY = new Set<string>([
   '/kri', '/underwriting', '/decisions',                                                // Assess · Decide
   '/funds', '/compliance', '/filings', '/disclosure',                                   // Disclose
   '/tasks', '/approvals', '/exceptions',                                                // Operate
-  '/platform', '/intake',                                                               // Platform (operator's whole job)
+  '/platform', '/intake', '/reg-pipeline',                                              // Platform (operator's whole job)
 ])
 
 // route → its stage hue, so a page can accent its own header/sections with the same colour as its nav

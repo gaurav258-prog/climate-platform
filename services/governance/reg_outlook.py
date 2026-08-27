@@ -1,0 +1,85 @@
+"""Regulatory outlook — the CUSTOMER's view of the regulation itself.
+
+Strictly customer point-of-view: what applies to you today, what regulatory changes are coming (and when),
+and whether YOU will need to provide new data or an integration. It says nothing about Tellumen's own build
+process — that internal delivery pipeline lives elsewhere. Dates and citations are real; where a change is
+proposed but not final, it says so rather than inventing a date.
+"""
+from __future__ import annotations
+
+from services.governance.filings import FRAMEWORKS
+from services.governance.reg_reference import REFERENCE
+
+# Curated, real upcoming regulatory changes — customer-framed. `when` is an honest label (a date where fixed,
+# "proposed / under review" where not). `prepare` is what the CUSTOMER must ready (new data or an integration),
+# or None when nothing is needed on their side. `sectors` scopes it; framework links back where applicable.
+_EURLEX = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
+COMING: list[dict] = [
+    {"sectors": ["manufacturer"], "framework": "eudr_dds", "title": "EUDR obligations take effect",
+     "when": "30 Dec 2025 (large operators) · 30 Jun 2026 (SMEs)",
+     "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
+     "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
+     "citation": "EUDR (EU) 2023/1115 · amended application dates (EU) 2024/3234", "url": _EURLEX + "32023R1115"},
+    {"sectors": ["manufacturer"], "framework": "esrs_pack", "title": "ESRS digital tagging (XBRL)",
+     "when": "phased with the EFRAG ESRS taxonomy / ESAP",
+     "whats_changing": "Sustainability statements must be tagged in the EFRAG ESRS XBRL taxonomy for machine-readable filing to the European Single Access Point.",
+     "prepare": None,
+     "citation": "EFRAG ESRS XBRL taxonomy · ESAP Regulation (EU) 2023/2859", "url": _EURLEX + "32023R2859"},
+    {"sectors": ["manufacturer", "bank", "reit"], "framework": None, "title": "EU Taxonomy — environmental objectives",
+     "when": "in force, phased (reporting from FY2024)",
+     "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
+     "prepare": "Activity-level data against the four additional environmental objectives.",
+     "citation": "Environmental Delegated Act (EU) 2023/2486", "url": _EURLEX + "32023R2486"},
+    {"sectors": ["manufacturer", "bank", "insurer", "asset_manager", "reit"], "framework": None,
+     "title": "CSRD / ESRS — Omnibus simplification",
+     "when": "proposed Feb 2025 — scope & timing under EU review",
+     "whats_changing": "The European Commission has proposed changes to CSRD scope and reporting timelines (the Omnibus package). The final outcome is pending.",
+     "prepare": "No action yet — you'll be told if your own obligations change.",
+     "citation": "EC Omnibus proposal (Feb 2025)", "url": "https://finance.ec.europa.eu/"},
+    {"sectors": ["bank"], "framework": "bank_p3esg", "title": "Pillar 3 ESG — template revisions",
+     "when": "per EBA ITS revisions",
+     "whats_changing": "The EBA periodically revises the ESG disclosure templates (physical & transition risk, Green Asset Ratio).",
+     "prepare": None,
+     "citation": "EBA ITS (EU) 2022/2453, as revised", "url": _EURLEX + "32022R2453"},
+    {"sectors": ["asset_manager"], "framework": "sfdr_pai", "title": "SFDR RTS review — revised PAI methodology",
+     "when": "proposed by the ESAs — timing under review",
+     "whats_changing": "The ESAs have proposed revisions to the SFDR RTS, including the Principal Adverse Impact indicators and disclosures.",
+     "prepare": "Possibly new issuer-level attributes — the exact fields will be flagged once finalised.",
+     "citation": "ESAs SFDR RTS review (2023 final report)", "url": "https://www.esma.europa.eu/"},
+    {"sectors": ["bank", "insurer", "asset_manager", "reit"], "framework": None, "title": "IFRS S2 / ISSB adoption",
+     "when": "as your jurisdiction adopts the ISSB standards",
+     "whats_changing": "IFRS S2 climate-related disclosures become required where a jurisdiction adopts the ISSB standards.",
+     "prepare": None,
+     "citation": "IFRS S2 Climate-related Disclosures", "url": "https://www.ifrs.org/"},
+]
+
+
+def _short(fw: str) -> str:
+    """A one-line 'what it requires' for a framework the org files today."""
+    r = REFERENCE.get(fw) or {}
+    return r.get("summary") or (FRAMEWORKS.get(fw, {}).get("label") or "")
+
+
+def outlook(org_type: str | None) -> dict:
+    """The customer's regulatory outlook: what's in force for this sector today, and what's coming."""
+    in_force = []
+    for fw, meta in FRAMEWORKS.items():
+        if org_type not in (meta.get("sectors") or ()):
+            continue
+        ref = REFERENCE.get(fw) or {}
+        in_force.append({
+            "framework": fw,
+            "name": ref.get("official_name") or meta.get("label"),
+            "authority": ref.get("authority") or meta.get("regulator"),
+            "frequency": meta.get("frequency"),
+            "requires": _short(fw),
+            "citation": ref.get("legal_basis") or meta.get("basis"),
+            "url": ref.get("url"),
+        })
+    in_force.sort(key=lambda x: x["name"] or "")
+
+    coming = [{k: c[k] for k in ("framework", "title", "when", "whats_changing", "prepare", "citation", "url")}
+              for c in COMING if org_type in (c.get("sectors") or [])]
+    return {"in_force": in_force, "coming": coming,
+            "summary": {"n_in_force": len(in_force), "n_coming": len(coming),
+                        "n_prepare": sum(1 for c in coming if c.get("prepare"))}}
