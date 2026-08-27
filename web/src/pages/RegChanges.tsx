@@ -8,8 +8,8 @@ import { Card, PageHeader, HeroBanner } from '../components/ui'
 // process (that internal pipeline lives on the platform-operator page).
 
 interface InForce { framework: string; name: string; authority: string; frequency: string; requires: string; citation: string; url: string | null }
-interface Coming { framework: string | null; title: string; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null }
-interface Outlook { in_force: InForce[]; coming: Coming[]; summary: { n_in_force: number; n_coming: number; n_prepare: number } }
+interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null }
+interface Outlook { in_force: InForce[]; coming: Coming[]; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number } }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
 
@@ -74,8 +74,10 @@ export default function RegChanges() {
                           <a href={c.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mono text-[10px] text-[var(--color-sky)] mt-2 inline-flex items-center gap-1 hover:underline"><ExternalLink size={10} /> {c.citation}</a>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Takes effect</div>
-                          <div className="mono text-[11.5px] text-[var(--color-ink)] mt-0.5 max-w-[180px]">{c.when}</div>
+                          <div className="mono text-[9px] uppercase tracking-wide inline-flex items-center gap-1 justify-end" style={{ color: c.date_fixed ? 'var(--color-good)' : 'var(--color-faint)' }}>
+                            {c.date_fixed ? <><CheckCircle2 size={10} /> Confirmed date</> : 'Not yet fixed'}
+                          </div>
+                          <div className="mono text-[11.5px] text-[var(--color-ink)] mt-0.5 max-w-[190px]" style={c.date_fixed ? { fontWeight: 600 } : undefined}>{c.when}</div>
                         </div>
                       </div>
                       {/* what YOU need to prepare — the only "action" this page ever asks of a customer */}
@@ -95,7 +97,7 @@ export default function RegChanges() {
                   ))}
                 </div>}
             <div className="mono text-[10px] text-[var(--color-faint)] mt-3 flex items-center gap-1.5">
-              <ArrowRight size={11} /> Dates are the regulator's timeline; where a change is proposed but not final, it says so.
+              <ArrowRight size={11} /> A <b className="text-[var(--color-good)]">confirmed date</b> is fixed in the cited regulation; <b>not yet fixed</b> means the regulator hasn't set one (a live proposal or jurisdiction-by-jurisdiction adoption) — we don't guess.
             </div>
           </div>
         </>)}
