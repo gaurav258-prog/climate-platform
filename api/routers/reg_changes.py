@@ -38,6 +38,12 @@ def outlook(session: DbSession, ctx: dict = Depends(require_permission("reports.
     return _outlook(ctx["org"].get("type"), session, ctx["org"]["org_id"])
 
 
+@router.get("/versions", summary="CRCS version register — each regulation's version lineage (base + amendments), what's in force now and what's coming")
+def versions(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_versions import versions as _versions
+    return _versions(session, ctx["org"].get("type"))
+
+
 @router.post("", status_code=201, summary="Register a regulatory change")
 def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     try:
