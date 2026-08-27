@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle, ArrowRight, Rocket } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader } from '../components/ui'
+import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 
 interface Step { key: string; phase: string; title: string; done: boolean; optional: boolean; detail: string; route: string }
 interface Status {
@@ -19,6 +20,7 @@ export default function Onboarding() {
 
   return (
     <div className="fadeup space-y-6">
+      <SectionTabs tabs={ADMIN_TABS} />
       <PageHeader eyebrow={d.live ? 'Set up · onboarding' : 'Welcome · get started'} title={d.live ? 'Go-live checklist' : 'Get started'}
         lead={`Everything ${d.org_name} needs to be live and filing — tracked from the real state of your account, not a checklist someone ticks by hand.${d.live ? '' : ' Work down the steps; each links straight to where it’s done.'}`} />
 

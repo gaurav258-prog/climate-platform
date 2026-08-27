@@ -5,7 +5,7 @@ import { ChevronRight, Download, Upload, FileSpreadsheet, ArrowRight, Coins, Per
 import { api, download, upload, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
-import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
+import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner, StatGrid, type StatItem } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
@@ -441,31 +441,17 @@ function ValueLossBand({ band }: { band?: LossBand }) {
 function CatAccumulation({ cat }: { cat?: Cat }) {
   if (!cat || !cat.available) return null
   const rp = (m: Record<string, number>, k: string) => eur(m[k])
+  const metrics: StatItem[] = [
+    { label: <>PML · 1-in-{cat.pml_return_period} single event</>, value: eur(cat.pml_eur), accent: '#E9744A' },
+    { label: '1-in-100 year (aggregate)', value: rp(cat.aep_eur, 'rp_100') },
+    { label: '1-in-250 year (aggregate)', value: rp(cat.aep_eur, 'rp_250') },
+    { label: <>mean annual loss{cat.tail_to_mean_multiple ? ` · tail ${cat.tail_to_mean_multiple}×` : ''}</>, value: eur(cat.mean_annual_loss_eur) },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Catastrophe accumulation</span>
-        <span className="text-[12px] text-[var(--color-mute)]">the correlated tail your summed expected losses hide</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{cat.n_zones} peril·region zones</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{eur(cat.pml_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">PML · 1-in-{cat.pml_return_period} single event</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{rp(cat.aep_eur, 'rp_100')}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">1-in-100 year (aggregate)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{rp(cat.aep_eur, 'rp_250')}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">1-in-250 year (aggregate)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-mute)]">{eur(cat.mean_annual_loss_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">mean annual loss{cat.tail_to_mean_multiple ? ` · tail ${cat.tail_to_mean_multiple}×` : ''}</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>the correlated tail your summed expected losses hide</>}>Catastrophe accumulation</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{cat.n_zones} peril·region zones</div>
+      <StatGrid items={metrics} />
       {/* exceedance ladder — aggregate-year loss by return period (the accumulation tail, visualised) */}
       <div className="mt-4">
         <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Exceedance ladder — aggregate loss by return period (AEP)</div>
@@ -489,30 +475,16 @@ const NACE_SECTION_LABEL: Record<string, string> = {
 function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: string }) {
   if (!t || !t.available) return null
   const tco2e = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}Mt` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}kt` : `${Math.round(n)}t`
+  const metrics: StatItem[] = [
+    { label: <>Transition expected loss · {t.transition_el_pct_of_outstanding}%</>, value: eur(t.transition_expected_loss_eur), accent: '#8E6FC7' },
+    { label: 'Financed emissions (Scope 1+2)', value: tco2e(t.financed_emissions_tco2e) },
+    { label: 'Weighted transition score', value: t.exposure_weighted_transition_score ?? '—' },
+    { label: <>Emissions reported{t.n_emissions_estimated ? ` · ${t.n_emissions_estimated} estimated` : ''}</>, value: `${t.emissions_reported_pct}%` },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Transition risk · loan book</span>
-        <span className="text-[12px] text-[var(--color-mute)]">the low-carbon shift on your counterparties ({scenarioLabel})</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#8E6FC7' }}>{eur(t.transition_expected_loss_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Transition expected loss · {t.transition_el_pct_of_outstanding}%</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{tco2e(t.financed_emissions_tco2e)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Financed emissions (Scope 1+2)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{t.exposure_weighted_transition_score ?? '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Weighted transition score</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-mute)]">{t.emissions_reported_pct}%</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Emissions reported{t.n_emissions_estimated ? ` · ${t.n_emissions_estimated} estimated` : ''}</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-3" hint={<>the low-carbon shift on your counterparties ({scenarioLabel})</>}>Transition risk · loan book</SectionHead>
+      <StatGrid items={metrics} />
       {t.by_sector?.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {t.by_sector.slice(0, 4).map(s => (
@@ -531,31 +503,17 @@ function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: s
 
 function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel: string }) {
   if (!c || !c.available) return null
+  const metrics: StatItem[] = [
+    { label: <>Combined expected · {c.combined_pct_of_book}%</>, value: eur(c.combined_expected_eur), accent: '#E9744A' },
+    { label: '— of which physical', value: <span className="text-[var(--color-blue)]">{eur(c.physical_expected_eur)}</span> },
+    { label: '— of which transition', value: <span style={{ color: '#8E6FC7' }}>{eur(c.transition_expected_eur)}</span> },
+    { label: '99th-percentile VaR', value: eur(c.var99_eur) },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Combined climate VaR</span>
-        <span className="text-[12px] text-[var(--color-mute)]">physical + transition in one loss distribution ({scenarioLabel})</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{c.n_with_transition}/{c.n_positions} positions carry a transition tier</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{eur(c.combined_expected_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Combined expected · {c.combined_pct_of_book}%</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-blue)]">{eur(c.physical_expected_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">— of which physical</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#8E6FC7' }}>{eur(c.transition_expected_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">— of which transition</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(c.var99_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">99th-percentile VaR</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>physical + transition in one loss distribution ({scenarioLabel})</>}>Combined climate VaR</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{c.n_with_transition}/{c.n_positions} positions carry a transition tier</div>
+      <StatGrid items={metrics} />
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         One Monte-Carlo per holding over both drivers — physical (continuous haircut, sampled around the per-cell confidence interval) and transition (sector stranded-asset fraction under the scenario's NGFS carbon price). Combined as 1−(1−physical)(1−transition), so a holding is never lost twice. Disclosed relative tiers, not a fitted model.
       </div>
@@ -566,31 +524,18 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
 function ConcentrationCard({ c }: { c?: Concentration }) {
   if (!c || !c.available) return null
   const cs = c.common_shock
+  const metrics: StatItem[] = [
+    { label: 'Effective regions (1/HHI)', value: c.effective_regions ?? '—' },
+    { label: 'Effective hazards (1/HHI)', value: c.effective_hazards ?? '—' },
+    { label: <>Top region{c.top_region ? ` · ${c.top_region.region}` : ''}</>, value: c.top_region ? `${c.top_region.pct_of_book}%` : '—',
+      accent: c.top_region && c.top_region.pct_of_book > 25 ? '#E8B24C' : undefined },
+    { label: 'VaR in top common-shock', value: `${c.common_shock_var_pct_of_total}%`, accent: '#E9744A' },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Climate-risk concentration</span>
-        <span className="text-[12px] text-[var(--color-mute)]">where the portfolio VaR clusters — diversification &amp; common-shock</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{c.coverage_pct}% of holdings scored ({c.n_scored}/{c.n_scored + c.n_unscored})</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_regions ?? '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective regions (1/HHI)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_hazards ?? '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective hazards (1/HHI)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: c.top_region && c.top_region.pct_of_book > 25 ? '#E8B24C' : 'var(--color-ink)' }}>{c.top_region ? `${c.top_region.pct_of_book}%` : '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Top region{c.top_region ? ` · ${c.top_region.region}` : ''}</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{c.common_shock_var_pct_of_total}%</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">VaR in top common-shock</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>where the portfolio VaR clusters — diversification &amp; common-shock</>}>Climate-risk concentration</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{c.coverage_pct}% of holdings scored ({c.n_scored}/{c.n_scored + c.n_unscored})</div>
+      <StatGrid items={metrics} />
       {cs && (
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] px-3.5 py-2.5">
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Largest common-shock cluster · one event hits these together</div>
@@ -657,34 +602,19 @@ function InsurerReinsuranceCard({ scenario, horizon }: { scenario: string; horiz
   )
   return (
     <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Net of reinsurance · retained catastrophe loss</span>
-        <span className="text-[12px] text-[var(--color-mute)]">what actually hits your capital after ceding</span>
-      </div>
+      <SectionHead className="mb-3" hint={<>what actually hits your capital after ceding</>}>Net of reinsurance · retained catastrophe loss</SectionHead>
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <Field label="Quota share" val={qs} set={setQs} suf="%" />
         <Field label="Cat XoL attachment" val={att} set={setAtt} suf="€m" />
         <Field label="Cat XoL limit" val={lim} set={setLim} suf="€m" />
       </div>
       {n && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(d!.gross_pml_eur)}</div>
-            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Gross PML (1-in-{d!.pml_return_period})</div>
-          </div>
-          <div>
-            <div className="display text-[22px] leading-none tabular-nums" style={{ color: 'var(--color-good)' }}>{eur(n.net_pml_eur)}</div>
-            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Net retained PML</div>
-          </div>
-          <div>
-            <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(n.ceded_pml_eur)}</div>
-            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Ceded to reinsurers</div>
-          </div>
-          <div>
-            <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{n.cession_ratio_pct ?? '—'}%</div>
-            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Cession ratio</div>
-          </div>
-        </div>
+        <StatGrid items={[
+          { label: <>Gross PML (1-in-{d!.pml_return_period})</>, value: eur(d!.gross_pml_eur) },
+          { label: 'Net retained PML', value: eur(n.net_pml_eur), accent: 'var(--color-good)' },
+          { label: 'Ceded to reinsurers', value: eur(n.ceded_pml_eur) },
+          { label: 'Cession ratio', value: `${n.cession_ratio_pct ?? '—'}%`, accent: '#E8B24C' },
+        ]} />
       )}
       {n && (
         <div className="mt-4">
@@ -708,29 +638,14 @@ function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horiz
   if (!d || !d.n_holdings || !v?.available) return null
   return (
     <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Investment-side climate risk · the asset book</span>
-        <span className="text-[12px] text-[var(--color-mute)]">EIOPA / IFRS S2 — an insurer is an investor too</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{d.n_scored}/{d.n_holdings} positions scored · book {eur(d.total_value_eur)}</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#fb7185' }}>{eur(v.var99_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Climate VaR (99%)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E8B24C' }}>{v.combined_pct_of_book}%</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of investment book</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.physical_expected_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Physical</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(v.transition_expected_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Transition</div>
-        </div>
-      </div>
+      <SectionHead className="mb-1" hint={<>EIOPA / IFRS S2 — an insurer is an investor too</>}>Investment-side climate risk · the asset book</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{d.n_scored}/{d.n_holdings} positions scored · book {eur(d.total_value_eur)}</div>
+      <StatGrid items={[
+        { label: 'Climate VaR (99%)', value: eur(v.var99_eur), accent: '#fb7185' },
+        { label: 'Of investment book', value: `${v.combined_pct_of_book}%`, accent: '#E8B24C' },
+        { label: 'Physical', value: eur(v.physical_expected_eur) },
+        { label: 'Transition', value: eur(v.transition_expected_eur) },
+      ]} />
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
         The insurer's own investment book run through the same combined physical + transition climate-VaR engine the asset managers use — the ASSET half of an insurer's climate exposure (the liability / underwriting half is above). Unscored positions excluded; coverage shown, nothing invented.
       </div>
@@ -741,32 +656,18 @@ function InsurerInvestmentsCard({ scenario, horizon }: { scenario: string; horiz
 function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
   if (!es || !es.n_assessed) return null
   const hasRisk = es.n_below_floor > 0
+  const metrics: StatItem[] = [
+    { label: 'Value at stranding risk', value: eur(es.value_at_stranding_risk_eur), accent: hasRisk ? '#E9744A' : undefined },
+    { label: 'Retrofit capex to de-risk', value: eur(es.retrofit_capex_to_derisk_eur) },
+    { label: 'Of portfolio value below floor', value: `${es.pct_portfolio_value_below_floor}%`, accent: es.pct_portfolio_value_below_floor > 0 ? '#E8B24C' : undefined },
+    { label: 'Properties below floor', value: es.n_below_floor },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Energy-performance stranding · transition risk</span>
-        <span className="text-[12px] text-[var(--color-mute)]">below a rising minimum-to-let EPC floor</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{es.n_below_floor}/{es.n_properties} below EPC {es.floor_epc} · {es.epc_coverage_pct}% with an EPC</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(es.value_at_stranding_risk_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Value at stranding risk</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(es.retrofit_capex_to_derisk_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: es.pct_portfolio_value_below_floor > 0 ? '#E8B24C' : 'var(--color-ink)' }}>{es.pct_portfolio_value_below_floor}%</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Of portfolio value below floor</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{es.n_below_floor}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Properties below floor</div>
-        </div>
-      </div>
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{es.note}</div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>below a rising minimum-to-let EPC floor</>}>Energy-performance stranding · transition risk</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3">{es.n_below_floor}/{es.n_properties} below EPC {es.floor_epc} · {es.epc_coverage_pct}% with an EPC</div>
+      <StatGrid items={metrics} />
+      <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">{es.note}</div>
     </Card>
   )
 }
@@ -774,73 +675,57 @@ function EnergyStrandingCard({ es }: { es?: EnergyStranding }) {
 function CollateralStrandingCard({ cs }: { cs?: CollateralStranding }) {
   if (!cs || !cs.available || !cs.n_re_loans) return null
   const hasRisk = cs.n_below_floor > 0
+  const WARN = '#E9744A'
+  const metrics: StatItem[] = [
+    { label: 'Collateral value at risk', value: eur(cs.collateral_value_at_risk_eur),
+      sub: 'RE collateral sitting below the rising EPC floor', accent: hasRisk ? WARN : undefined },
+    { label: 'Effective LTV after stranding',
+      value: <>{cs.exposure_weighted_ltv_pct ?? '—'}%<span className="text-[14px] text-[var(--color-faint)]"> → {cs.stressed_ltv_pct ?? '—'}%</span></>,
+      sub: cs.ltv_uplift_pp != null ? `exposure-weighted · +${cs.ltv_uplift_pp}pp uplift` : 'exposure-weighted' },
+    { label: 'Exposure uncovered', value: eur(cs.loan_value_at_risk_eur),
+      sub: 'loan value no longer covered (LTV > 100%)', accent: cs.loan_value_at_risk_eur > 0 ? WARN : undefined },
+    { label: 'Retrofit capex to de-risk', value: eur(cs.retrofit_capex_to_derisk_eur),
+      sub: 'spend to lift collateral back above the floor' },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Collateral energy-stranding · transition risk</span>
-        <span className="text-[12px] text-[var(--color-mute)]">RE collateral below a rising minimum-to-let EPC floor — an LGD driver</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{cs.n_below_floor}/{cs.n_re_loans} RE loans below EPC {cs.floor_epc} · {cs.epc_coverage_pct}% with an EPC</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: hasRisk ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.collateral_value_at_risk_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Collateral value at risk</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{cs.exposure_weighted_ltv_pct ?? '—'}%<span className="text-[13px] text-[var(--color-faint)]"> → {cs.stressed_ltv_pct ?? '—'}%</span></div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure-wtd LTV{cs.ltv_uplift_pp != null ? ` · +${cs.ltv_uplift_pp}pp` : ''}</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: cs.loan_value_at_risk_eur > 0 ? '#E9744A' : 'var(--color-ink)' }}>{eur(cs.loan_value_at_risk_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Exposure uncovered (LTV&gt;100%)</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(cs.retrofit_capex_to_derisk_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Retrofit capex to de-risk</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>transition risk · RE loan collateral vs a rising minimum-to-let EPC floor</>}>Collateral energy-stranding</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3"><b className="text-[var(--color-ink)]">{cs.n_below_floor}</b> of {cs.n_re_loans} real-estate loans sit below EPC {cs.floor_epc} · {cs.epc_coverage_pct}% have an EPC on file</div>
+      <StatGrid items={metrics} />
       {hasRisk && cs.top_exposures.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {cs.top_exposures.slice(0, 6).map(t => (
-            <span key={t.asset_id} title={`EPC ${t.epc_rating} · LTV ${t.original_ltv_pct}%→${t.stressed_ltv_pct}% · collateral at risk ${eur(t.collateral_value_at_risk_eur)}`}
-              className="mono text-[10px] rounded-md border border-[var(--color-line-2)] px-2 py-1 text-[var(--color-mute)]">
-              {t.name} · EPC {t.epc_rating} · {eur(t.collateral_value_at_risk_eur)}
-            </span>
-          ))}
+        <div className="mt-4">
+          <div className="text-[12px] text-[var(--color-mute)] mb-2">Most-exposed collateral</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {cs.top_exposures.slice(0, 6).map(t => (
+              <div key={t.asset_id} title={`LTV ${t.original_ltv_pct}%→${t.stressed_ltv_pct}%`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-line-2)] px-3 py-2">
+                <span className="text-[12.5px] text-[var(--color-ink)] truncate">{t.name}</span>
+                <span className="text-[11px] text-[var(--color-mute)] shrink-0 tabular-nums">EPC {t.epc_rating} · {eur(t.collateral_value_at_risk_eur)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-      <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">{cs.note}</div>
+      <div className="text-[10px] text-[var(--color-faint)] mt-3 leading-relaxed">{cs.note}</div>
     </Card>
   )
 }
 
 function ResilienceCard({ rc }: { rc?: Resilience }) {
   if (!rc || !rc.available) return null
+  const GOOD = 'var(--color-good)'
+  const metrics: StatItem[] = [
+    { label: 'Resilience capex', value: eur(rc.total_resilience_capex_eur), sub: 'to protect the properties worth retrofitting' },
+    { label: 'Loss avoided', value: eur(rc.total_avoided_loss_eur), sub: 'modelled physical loss the spend prevents', accent: GOOD },
+    { label: 'Benefit-cost ratio', value: `${rc.portfolio_benefit_cost_ratio ?? '—'}×`, sub: 'loss avoided per euro spent',
+      accent: rc.portfolio_benefit_cost_ratio && rc.portfolio_benefit_cost_ratio >= 1 ? GOOD : undefined },
+    { label: 'Taxonomy adaptation capex', value: eur(rc.taxonomy_adaptation_aligned_capex_eur), sub: 'EU-Taxonomy adaptation-aligned (Objective 2)' },
+  ]
   return (
-    <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Resilience &amp; adaptation capex</span>
-        <span className="text-[12px] text-[var(--color-mute)]">what to spend, what loss it avoids</span>
-        <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">{rc.n_worth_retrofit}/{rc.n_properties} properties worth retrofitting</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(rc.total_resilience_capex_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Resilience capex</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: 'var(--color-good)' }}>{eur(rc.total_avoided_loss_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Loss avoided</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: rc.portfolio_benefit_cost_ratio && rc.portfolio_benefit_cost_ratio >= 1 ? 'var(--color-good)' : 'var(--color-ink)' }}>{rc.portfolio_benefit_cost_ratio ?? '—'}×</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Benefit-cost ratio</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{eur(rc.taxonomy_adaptation_aligned_capex_eur)}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Taxonomy adaptation capex</div>
-        </div>
-      </div>
+    <Card className="p-5">
+      <SectionHead className="mb-1" hint={<>what to spend, and the loss it avoids</>}>Resilience &amp; adaptation capex</SectionHead>
+      <div className="text-[12px] text-[var(--color-mute)] mb-3"><b className="text-[var(--color-ink)]">{rc.n_worth_retrofit}</b> of {rc.n_properties} properties are worth retrofitting</div>
+      <StatGrid items={metrics} />
       {rc.by_hazard?.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {rc.by_hazard.slice(0, 4).map(h => (

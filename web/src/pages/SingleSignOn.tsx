@@ -4,6 +4,7 @@ import { KeyRound, ShieldCheck, Copy, RefreshCw, CheckCircle2 } from 'lucide-rea
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, PageHeader } from '../components/ui'
+import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 
 interface Config {
   enabled: boolean; protocol?: string; oidc_issuer?: string | null; oidc_client_id?: string | null
@@ -51,6 +52,7 @@ export default function SingleSignOn() {
 
   return (
     <div className="fadeup space-y-6 max-w-[760px]">
+      <SectionTabs tabs={ADMIN_TABS} />
       <PageHeader eyebrow="Set up · identity" title="Single sign-on & provisioning"
         lead="Connect your identity provider (Okta, Microsoft Entra ID) so your team signs in with your directory and is provisioned automatically. Activates once your IdP is connected." />
 

@@ -18,17 +18,28 @@ from sqlalchemy.orm import Session
 # Canonical default role → permission matrix for a NEW tenant (single source of truth, shared with the seed).
 # contracts.view / contracts.manage are included so a tenant gets contract access the moment those permissions
 # exist in the catalog; a role_permissions insert for a not-yet-defined code simply grants nothing (no error).
+# Every tenant-scoped capability (excludes the two cross-tenant operator codes platform.admin / onboarding.manage,
+# which belong only to the Tellumen platform tenant — a customer role never holds them). The analyst is the tenant
+# SUPER-USER: it holds all of these, so every in-tenant surface is visible to it. Other roles are strict subsets.
+ALL_TENANT_PERMS: list[str] = [
+    "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
+    "admin.users.manage", "admin.roles.manage", "admin.audit.view", "admin.approval_policy.manage",
+    "approvals.create", "approvals.view", "approvals.decide", "submissions.release", "portal.use",
+    "contracts.view", "contracts.manage", "supply.locations.write",
+    "oversight.view", "ops.oversee", "decisions.view",
+]
+
 DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
-    "admin": [
-        "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
-        "admin.users.manage", "admin.roles.manage", "admin.audit.view", "admin.approval_policy.manage",
-        "approvals.create", "approvals.view", "approvals.decide", "portal.use",
-        "contracts.view", "contracts.manage",
-    ],
-    "analyst":  ["modules.view", "reports.view", "pricing.view", "approvals.create", "portal.use"],
-    "approver": ["modules.view", "reports.view", "pricing.view", "reports.publish", "pricing.approve",
-                 "approvals.view", "approvals.decide", "submissions.release", "portal.use", "contracts.view"],
-    "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use"],
+    # admin = the tenant super-user for administration too: everything analyst sees, plus it owns the same set.
+    "admin": list(ALL_TENANT_PERMS),
+    # analyst = tenant super-user: sees and works every in-tenant surface (the persona used to review the whole app).
+    "analyst": list(ALL_TENANT_PERMS),
+    # approver (checker): reviews, decides, discloses and oversees — but not tenant administration (users/roles/billing).
+    "approver": ["modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
+                 "approvals.view", "approvals.decide", "submissions.release", "portal.use", "contracts.view",
+                 "oversight.view", "ops.oversee", "decisions.view"],
+    # viewer: read-only — the book, the analysis, the reports and the supervisory lens; no authoring, deciding or admin.
+    "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use", "oversight.view"],
 }
 
 VALID_ORG_TYPES = {"bank", "insurer", "asset_manager", "reit", "manufacturer"}

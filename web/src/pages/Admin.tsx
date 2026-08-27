@@ -8,6 +8,7 @@ import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
+import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
@@ -29,28 +30,40 @@ const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6
 export default function Admin() {
   const { profile } = useAuth()
   const perms = profile?.permissions ?? []
-  const tabs = [
-    perms.includes('admin.users.manage') && 'Overview',
-    perms.includes('approvals.view') && 'Approvals',
-    perms.includes('admin.audit.view') && 'Audit',
-    perms.includes('admin.users.manage') && 'Users',
-    perms.includes('admin.roles.manage') && 'Roles',
-    perms.includes('admin.users.manage') && 'Entities',
-    perms.includes('admin.approval_policy.manage') && 'Approval matrix',
-    perms.includes('admin.approval_policy.manage') && 'KRI appetite',
-    perms.includes('admin.roles.manage') && 'Methodology',
-    perms.includes('admin.users.manage') && 'Integrations',
-  ].filter(Boolean) as string[]
+  // Tabs are grouped by purpose and ordered as you'd actually set an org up and run it, left→right:
+  //  1. Overview (where do I stand)  2. People & access (who, and what they may do)
+  //  3. Governance (the approvals + audit those settings drive)  4. Organization & config (structure, appetite, method)
+  //  5. Connections. A thin divider between groups makes the grouping visible instead of one undifferentiated row.
+  const TAB_GROUPS: { perm: string; tab: string }[][] = [
+    [{ perm: 'admin.users.manage', tab: 'Overview' }],
+    [{ perm: 'admin.users.manage', tab: 'Users' },
+     { perm: 'admin.roles.manage', tab: 'Roles' },
+     { perm: 'admin.approval_policy.manage', tab: 'Approval matrix' }],
+    [{ perm: 'approvals.view', tab: 'Approvals' },
+     { perm: 'admin.audit.view', tab: 'Audit' }],
+    [{ perm: 'admin.users.manage', tab: 'Entities' },
+     { perm: 'admin.approval_policy.manage', tab: 'KRI appetite' },
+     { perm: 'admin.roles.manage', tab: 'Methodology' }],
+    [{ perm: 'admin.users.manage', tab: 'Integrations' }],
+  ]
+  const groups = TAB_GROUPS.map(g => g.filter(x => perms.includes(x.perm)).map(x => x.tab)).filter(g => g.length)
+  const tabs = groups.flat()
   const [tab, setTab] = useState(tabs[0] ?? 'Overview')
 
   return (
     <div className="fadeup space-y-6">
+      <SectionTabs tabs={ADMIN_TABS} />
       <PageHeader eyebrow="Governance · control center" title="Control center"
         lead="Is your organization set up correctly and your data complete enough to trust the numbers? Reporting identity, data readiness, users, roles, and the approval matrix — in one place." />
-      <div className="flex gap-2 flex-wrap">
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === t ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t}</button>
+      <div className="flex gap-2 flex-wrap items-center">
+        {groups.map((g, gi) => (
+          <div key={gi} className="flex gap-2 items-center">
+            {gi > 0 && <span className="w-px h-5 bg-[var(--color-line-2)] mx-1 shrink-0" aria-hidden />}
+            {g.map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === t ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{t}</button>
+            ))}
+          </div>
         ))}
       </div>
       {tab === 'Overview' && <Overview onTab={setTab} />}

@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { filingLink } from '../lib/links'
 import { frameworkLabel } from '../lib/hazards'
 import { Card, Button, PageHeader, SectionHead } from '../components/ui'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 // Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
 // thread per submission. (The real transmission channel to a regulator portal is external; this records it.)
@@ -42,6 +43,7 @@ export default function Transmission() {
 
   return (
     <div className="fadeup space-y-5">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Regulator communication" title="Transmission"
         lead="Every submission and the correspondence around it — one tracker per filing, from ready-to-submit through the regulator's queries to closed."
         actions={canAct && <Button variant="ghost" onClick={() => setOpening(o => !o)}><Plus size={14} /> Open case</Button>} />

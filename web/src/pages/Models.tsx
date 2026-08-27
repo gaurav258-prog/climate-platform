@@ -3,6 +3,7 @@ import { FlaskConical, CheckCircle2, PauseCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import ReviewTabs from '../components/ReviewTabs'
 
 interface Fit {
   commodity: string; origin: string; hazard_driver: string; r2: number; r2_oos: number | null
@@ -36,6 +37,7 @@ export default function Models() {
 
   return (
     <div className="fadeup space-y-7">
+      <ReviewTabs />
       <PageHeader eyebrow="Agriculture · trust & assurance" title="Models & validation"
         lead={`Every crop×origin we tested, and whether climate robustly drives its yield. We publish a euro only above an out-of-sample fit floor of r² ≥ ${floor}; the rest are shown tested-and-held, with the r², so you see exactly what we earned and what we withheld.`} />
 

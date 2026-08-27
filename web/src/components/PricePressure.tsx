@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { TrendingUp, Upload, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card } from './ui'
+import { Card, StatGrid, type StatItem } from './ui'
 
 // Commodity price pressure — observed authoritative price indices (FAO / World Bank / USDA) weighted by the
 // book's spend. Tellumen never forecasts a price; this is the observed move on commodities the buyer sources,
@@ -48,12 +48,12 @@ export default function PricePressure() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div><div className="display text-[20px] leading-none tabular-nums" style={{ color: 'var(--color-warn)' }}>{eur(s.input_cost_pressure_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Input-cost pressure</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{s.pressure_pct_of_spend}%</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">of spend</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{eur(s.total_spend_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Sourcing spend</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{s.coverage_pct}%</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Priced-index coverage</div></div>
-            </div>
+            <StatGrid className="mb-3" cols={4} items={[
+              { label: 'Input-cost pressure', value: eur(s.input_cost_pressure_eur), accent: 'var(--color-warn)' },
+              { label: 'of spend', value: `${s.pressure_pct_of_spend}%` },
+              { label: 'Sourcing spend', value: eur(s.total_spend_eur) },
+              { label: 'Priced-index coverage', value: `${s.coverage_pct}%` },
+            ] satisfies StatItem[]} />
             <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
               {d.commodities!.map(c => (
                 <div key={c.commodity} className="flex items-center gap-3 py-1.5 text-[12px]">

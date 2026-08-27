@@ -233,6 +233,39 @@ export function SectionHead({ icon: Icon, hint, children, className }: {
   )
 }
 
+// ── StatGrid — the canonical metric layout ────────────────────────────────────────────────────────────
+// One shared shape for "a row of headline numbers", modelled on the Portfolio hazard grid: each metric is a
+// bordered card with an optional accent dot, a plain-language label, the big number, and a one-line sub.
+// Use this instead of hand-rolling a `grid … display text-[22px] … mono uppercase` strip so cards stay
+// consistent across the app. Pass `accent` (a colour) on a metric that carries risk — it tints the dot and
+// number and draws the eye; leave it off for neutral metrics (no dot).
+export type StatItem = { label: ReactNode; value: ReactNode; sub?: ReactNode; accent?: string; title?: string }
+
+export function StatCard({ label, value, sub, accent, title }: StatItem) {
+  return (
+    <div title={title} className="rounded-lg border px-3.5 py-3"
+      style={{ borderColor: accent ? accent + '55' : 'var(--color-line-2)' }}>
+      <div className="flex items-center gap-2 mb-1.5">
+        {accent && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: accent }} />}
+        <span className="text-[12px] text-[var(--color-ink)] leading-tight">{label}</span>
+      </div>
+      <div className="display text-[21px] leading-none tabular-nums" style={accent ? { color: accent } : undefined}>
+        {value}
+      </div>
+      {sub != null && <div className="text-[11px] text-[var(--color-mute)] mt-1.5 leading-snug">{sub}</div>}
+    </div>
+  )
+}
+
+export function StatGrid({ items, cols = 4, className }: { items: StatItem[]; cols?: 2 | 3 | 4; className?: string }) {
+  const col = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 md:grid-cols-3', 4: 'sm:grid-cols-2 md:grid-cols-4' }[cols]
+  return (
+    <div className={clsx('grid grid-cols-2 gap-3', col, className)}>
+      {items.map((it, i) => <StatCard key={i} {...it} />)}
+    </div>
+  )
+}
+
 export function Stat({ big, label, tone = 'ink' }: { big: ReactNode; label: string; tone?: 'ink' | 'good' | 'warn' | 'bad' }) {
   const c = { ink: 'text-[var(--color-ink)]', good: 'text-[var(--color-good)]', warn: 'text-[var(--color-warn)]', bad: 'text-[var(--color-bad)]' }[tone]
   return (

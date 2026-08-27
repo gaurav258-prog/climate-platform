@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Coins, PackageX, Percent, Boxes } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, PageHeader, HeroBanner } from '../components/ui'
+import { Card, PageHeader, HeroBanner, SectionHead, StatGrid, type StatItem } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 
@@ -102,28 +102,13 @@ function SupplyConcentrationCard({ c }: { c?: Concentration }) {
   const cs = c.common_shock
   return (
     <Card className="px-4 py-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
-        <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-faint)]">Supply-shock concentration</span>
-        <span className="text-[12px] text-[var(--color-mute)]">is your sourcing risk concentrated in one crop or one hazard?</span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_commodities ?? '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective independent crops</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums text-[var(--color-ink)]">{c.effective_hazards ?? '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Effective independent hazards</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: c.top_commodity && c.top_commodity.pct_of_spend > 25 ? '#E8B24C' : 'var(--color-ink)' }}>{c.top_commodity ? `${c.top_commodity.pct_of_spend}%` : '—'}</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Top crop{c.top_commodity ? ` · ${c.top_commodity.commodity}` : ''}</div>
-        </div>
-        <div>
-          <div className="display text-[22px] leading-none tabular-nums" style={{ color: '#E9744A' }}>{c.common_shock_pct_of_spend}%</div>
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Spend in top common shock</div>
-        </div>
-      </div>
+      <SectionHead className="mb-3" hint="is your sourcing risk concentrated in one crop or one hazard?">Supply-shock concentration</SectionHead>
+      <StatGrid cols={4} items={[
+        { label: 'Effective independent crops', value: c.effective_commodities ?? '—' },
+        { label: 'Effective independent hazards', value: c.effective_hazards ?? '—' },
+        { label: `Top crop${c.top_commodity ? ` · ${c.top_commodity.commodity}` : ''}`, value: c.top_commodity ? `${c.top_commodity.pct_of_spend}%` : '—', accent: c.top_commodity && c.top_commodity.pct_of_spend > 25 ? '#E8B24C' : undefined },
+        { label: 'Spend in top common shock', value: `${c.common_shock_pct_of_spend}%`, accent: '#E9744A' },
+      ] satisfies StatItem[]} />
       {cs && (
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] px-3.5 py-2.5">
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Largest common shock · one bad season hits these together</div>

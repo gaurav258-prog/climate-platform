@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Landmark, Upload, CheckCircle2, AlertTriangle, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card } from './ui'
+import { Card, StatGrid, type StatItem } from './ui'
 
 // General-ledger reconciliation — tie the reported book TOTAL back to the customer's GL control accounts
 // (gate 4). Upload a GL trial-balance; the card shows reported vs GL vs variance against a tolerance. Honest:
@@ -60,17 +60,16 @@ export default function GlRecon() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{eur(d.reported_book_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Reported book</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{eur(d.gl_book_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">GL balance</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums" style={{ color: d.reconciled ? 'var(--color-good)' : 'var(--color-bad)' }}>{eur(d.variance_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Variance{d.variance_pct != null ? ` · ${d.variance_pct}%` : ''}</div></div>
-              <div className="flex flex-col justify-center">
-                {d.reconciled
+            <StatGrid className="mb-3" cols={4} items={[
+              { label: 'Reported book', value: eur(d.reported_book_eur) },
+              { label: 'GL balance', value: eur(d.gl_book_eur) },
+              { label: `Variance${d.variance_pct != null ? ` · ${d.variance_pct}%` : ''}`, value: eur(d.variance_eur), accent: d.reconciled ? 'var(--color-good)' : 'var(--color-bad)' },
+              { label: 'Status',
+                value: d.reconciled
                   ? <span className="inline-flex items-center gap-1.5 mono text-[11px]" style={{ color: 'var(--color-good)' }}><CheckCircle2 size={14} /> Reconciled</span>
-                  : <span className="inline-flex items-center gap-1.5 mono text-[11px]" style={{ color: 'var(--color-bad)' }}><AlertTriangle size={14} /> Out of tolerance</span>}
-                <span className="mono text-[9px] text-[var(--color-faint)] mt-1">±{d.tolerance_pct}% · as of {d.as_of ?? '—'}</span>
-              </div>
-            </div>
+                  : <span className="inline-flex items-center gap-1.5 mono text-[11px]" style={{ color: 'var(--color-bad)' }}><AlertTriangle size={14} /> Out of tolerance</span>,
+                sub: `±${d.tolerance_pct}% · as of ${d.as_of ?? '—'}` },
+            ] satisfies StatItem[]} />
             {(d.accounts?.length ?? 0) > 0 && (
               <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                 {d.accounts!.slice(0, 6).map(a => (

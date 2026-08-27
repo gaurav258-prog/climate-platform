@@ -7,6 +7,7 @@ import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, Section
 import { downloadCsv } from '../lib/export'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; region: string | null
@@ -93,6 +94,7 @@ export default function Sourcing() {
 
   return (
     <div className="fadeup space-y-7">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Agriculture · your book" title="Sourcing book"
         lead="Every plot you source from — geolocated, scored on live hazard, and (where EUDR-covered) checked against satellite forest-loss. Add plots one at a time, or bulk-upload your whole procurement book."
         actions={plots.length > 0 ? <ExportButton onExport={() => downloadCsv('tellumen-sourcing-plots',

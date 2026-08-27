@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { Card } from './ui'
+import { Card, StatGrid, type StatItem } from './ui'
 
 interface ELAsset {
   entity_id: string; entity_name: string; ead_eur: number; annual_el_eur: number; lifetime_el_eur: number
@@ -22,6 +22,11 @@ export default function ExpectedLossCard({ prefix, scenario, scenarioLabel }: { 
   const d = q.data
   if (!d) return null
 
+  const metrics: StatItem[] = [
+    { label: 'Expected loss · next 12 months', value: eur(d.annual_el_eur), sub: `${d.annual_el_bps} bps of exposure` },
+    { label: 'Expected loss · over remaining loan life', value: eur(d.lifetime_el_eur), sub: `${d.lifetime_el_bps} bps of exposure · maturity-matched`, accent: 'var(--color-warn)' },
+  ]
+
   return (
     <Card className="p-0 overflow-hidden mt-4">
       <div className="px-5 py-3.5 border-b border-[var(--color-line)] flex items-center justify-between gap-3 flex-wrap">
@@ -35,17 +40,8 @@ export default function ExpectedLossCard({ prefix, scenario, scenarioLabel }: { 
       </div>
 
       {/* headline: annual vs lifetime */}
-      <div className="grid grid-cols-2 divide-x divide-[var(--color-line)] border-b border-[var(--color-line)]">
-        <div className="px-5 py-4">
-          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Expected loss · next 12 months</div>
-          <div className="text-[26px] leading-tight text-[var(--color-ink)] mt-1" style={{ fontFamily: 'Georgia,serif' }}>{eur(d.annual_el_eur)}</div>
-          <div className="mono text-[11px] text-[var(--color-mute)] mt-0.5 tabular-nums">{d.annual_el_bps} bps of exposure</div>
-        </div>
-        <div className="px-5 py-4">
-          <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">Expected loss · over remaining loan life</div>
-          <div className="text-[26px] leading-tight mt-1" style={{ fontFamily: 'Georgia,serif', color: 'var(--color-warn)' }}>{eur(d.lifetime_el_eur)}</div>
-          <div className="mono text-[11px] text-[var(--color-mute)] mt-0.5 tabular-nums">{d.lifetime_el_bps} bps of exposure · maturity-matched</div>
-        </div>
+      <div className="px-5 py-4 border-b border-[var(--color-line)]">
+        <StatGrid items={metrics} cols={2} />
       </div>
 
       {/* top contributors */}
