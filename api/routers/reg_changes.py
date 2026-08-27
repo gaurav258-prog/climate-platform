@@ -44,6 +44,18 @@ def versions(session: DbSession, ctx: dict = Depends(require_permission("reports
     return _versions(session, ctx["org"].get("type"))
 
 
+@router.get("/alerts", summary="Proactive regulatory alerts raised for this org (detected changes / approaching deadlines)")
+def alerts(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_alerts import list_alerts
+    return {"alerts": list_alerts(session, ctx["org"]["org_id"])}
+
+
+@router.post("/alerts/sweep", summary="Run the alert sweep now — raise any new alerts (task + email + webhook)")
+def sweep_alerts(session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.governance.reg_alerts import sweep
+    return sweep(session, ctx["org"]["org_id"], ctx["org"].get("type"))
+
+
 @router.post("", status_code=201, summary="Register a regulatory change")
 def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     try:
