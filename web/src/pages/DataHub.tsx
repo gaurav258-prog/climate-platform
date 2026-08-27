@@ -6,7 +6,6 @@ import { api, upload as uploadFile, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
-import LiveEarthHero from '../components/LiveEarthHero'
 import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
 
@@ -59,15 +58,6 @@ export default function DataHub() {
 
   return (
     <div className="fadeup space-y-4 max-w-4xl">
-      {/* live Earth-from-space banner — the data workspace's front door */}
-      <LiveEarthHero height="32vh">
-        <div className="display text-[clamp(24px,4vw,42px)] font-semibold italic leading-none text-[#F4EFE6]">
-          Tel<span className="text-[var(--color-sky)]">lumen</span>
-        </div>
-        <p className="display italic mt-4 text-[clamp(15px,2.2vw,24px)] font-light leading-tight text-[#F4EFE6]">
-          See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
-        </p>
-      </LiveEarthHero>
       <PageHeader eyebrow={`${profile?.org?.name} · your data`} title="Your data"
         lead={`Feed the engine and see what it made of your book — upload your ${cfg.rowNoun}s (we check every row before anything is saved), read the scores, then fill any regulatory gaps.`} />
 

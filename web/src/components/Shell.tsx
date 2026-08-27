@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -22,7 +22,7 @@ type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?
 type Group = { label: string | null; color?: string; flow?: boolean; items: Item[] }
 const GROUPS: Group[] = [
   { label: 'Sense', color: 'var(--stage-sense)', flow: true, items: [
-    { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
+    { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
     { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view' },
@@ -80,6 +80,18 @@ const GROUPS: Group[] = [
   ] },
 ]
 
+// PRIMARY = the daily-loop destinations that stay pinned inline for every role. Everything else a role can
+// reach is still shown — but tucked under a single "More" disclosure at the foot of the nav, and any user can
+// pin a "More" item back inline (persisted). This cuts a typical sidebar from ~24 visible items to ~8–13
+// without hiding anything: permission/sector gating is unchanged, so nothing a role lacks appears in either place.
+const PRIMARY = new Set<string>([
+  '/horizon', '/home', '/portfolio', '/data', '/operations', '/sourcing', '/riskmap', '/early-warning',   // Sense
+  '/kri', '/underwriting', '/decisions',                                                // Assess · Decide
+  '/funds', '/compliance', '/filings', '/disclosure',                                   // Disclose
+  '/tasks', '/approvals', '/exceptions',                                                // Operate
+  '/platform', '/intake',                                                               // Platform (operator's whole job)
+])
+
 // route → its stage hue, so a page can accent its own header/sections with the same colour as its nav
 // stage (the <main> sets --stage; the shared Eyebrow + section rules read it). Detail routes that aren't
 // in the nav resolve by their base segment; anything unmapped falls back to the neutral blue.
@@ -105,7 +117,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   const canGoBack = pathname !== '/' && (window.history.state?.idx ?? 0) > 0
   const sector = profile?.org?.type ?? ''
   // the Horizon front door is a full-bleed globe — it fills the content area beside the nav (no padded main)
-  const bleed = pathname === '/'
+  const bleed = pathname === '/' || pathname === '/horizon'
   // the current page's operational-flow stage hue — exposed as --stage so the shared Eyebrow and any
   // page section can accent itself to match its nav stage (see stageColorFor / the Eyebrow in ui.tsx)
   const stage = stageColorFor(pathname)
@@ -121,6 +133,10 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { width: navW, setWidth: setNavW, startResize } = useResizableWidth('tellumen.navw', 240, 194, 420)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tellumen.navcollapsed') === '1')
   const toggleCollapse = () => setCollapsed(c => { localStorage.setItem('tellumen.navcollapsed', c ? '0' : '1'); return !c })
+  // items the user has pinned back inline from "More" (persisted). "More" itself opens on demand.
+  const [pinned, setPinned] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('tellumen.pinned') || '[]') } catch { return [] } })
+  const togglePin = (to: string) => setPinned(p => { const next = p.includes(to) ? p.filter(x => x !== to) : [...p, to]; localStorage.setItem('tellumen.pinned', JSON.stringify(next)); return next })
+  const [showMore, setShowMore] = useState(false)
   const RAIL = 68
   const asideW = collapsed ? RAIL : navW
   return (
@@ -153,44 +169,79 @@ export default function Shell({ children }: { children: ReactNode }) {
 
         <nav className={clsx('flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-5', collapsed ? 'px-2' : 'px-3')}>
           {(() => {
-            let stageNo = 0  // number only the operational-flow stages, contiguously, after sector filtering
-            return GROUPS.map((g, gi) => {
-              const items = g.items.filter(it =>
-                (!it.perm || profile?.permissions?.includes(it.perm)) &&
-                (!it.anyPerm || it.anyPerm.some(p => profile?.permissions?.includes(p))) &&
-                (!it.sectors || it.sectors.includes(sector)))
-              if (items.length === 0) return null
+            const pinnedSet = new Set(pinned)
+            const isInline = (to: string) => PRIMARY.has(to) || pinnedSet.has(to)
+            // one row — with a hover pin control on any item that isn't a fixed primary (so it can be pinned/unpinned)
+            const Row = (it: Item, hue: string, showPin: boolean) => (
+              <div key={it.to} className="relative group/nav">
+                <NavLink to={it.to} end={it.end} title={collapsed ? it.label : undefined} className={({ isActive }) => clsx(
+                  'relative flex items-center rounded-lg text-[14.5px] transition',
+                  collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-2.5 py-2.5',
+                  isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
+                           : 'text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
+                  {({ isActive }) => (<>
+                    {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full" style={{ background: hue }} />}
+                    <it.icon size={17} className="shrink-0" style={isActive ? { color: hue } : undefined} />
+                    {!collapsed && <span className="truncate">{it.label}</span>}
+                  </>)}
+                </NavLink>
+                {!collapsed && showPin && (
+                  <button onClick={e => { e.preventDefault(); e.stopPropagation(); togglePin(it.to) }}
+                    title={pinnedSet.has(it.to) ? 'Unpin from menu' : 'Pin to menu'}
+                    className={clsx('absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition',
+                      pinnedSet.has(it.to)
+                        ? 'text-[var(--color-sky)] opacity-100 hover:bg-[var(--color-panel)]'
+                        : 'text-[var(--color-faint)] opacity-0 group-hover/nav:opacity-100 hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
+                    <Pin size={12} className={pinnedSet.has(it.to) ? 'fill-current' : ''} />
+                  </button>
+                )}
+              </div>
+            )
+
+            const visible = (it: Item) =>
+              (!it.perm || profile?.permissions?.includes(it.perm)) &&
+              (!it.anyPerm || it.anyPerm.some(p => profile?.permissions?.includes(p))) &&
+              (!it.sectors || it.sectors.includes(sector))
+
+            let stageNo = 0  // number only the operational-flow stages, contiguously, after filtering
+            const more: { it: Item; hue: string }[] = []
+            const groupsJsx = GROUPS.map((g, gi) => {
+              const items = g.items.filter(visible)
               const hue = g.color ?? 'var(--color-sky)'
+              // collapsed rail shows only inline items (primary + pinned); expanded shows inline here, rest in More
+              const inline = items.filter(it => isInline(it.to))
+              if (!collapsed) items.filter(it => !isInline(it.to)).forEach(it => more.push({ it, hue }))
+              if (inline.length === 0) return null
               const n = g.flow ? ++stageNo : null
               return (
-              <div key={gi}>
-                {g.label && (collapsed
-                  ? <div className="flex justify-center mb-1.5" title={g.label}><span className="w-1.5 h-1.5 rounded-full" style={{ background: hue }} /></div>
-                  : <div className="px-2 mb-2 mt-0.5 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hue }} />
-                      <span className="text-[13px] font-semibold tracking-[0.01em]" style={{ color: hue }}>
-                        {n != null && <span className="tabular-nums">{n} · </span>}{g.label}
-                      </span>
-                    </div>
-                )}
-                <div className="space-y-0.5">
-                  {items.map(it => (
-                    <NavLink key={it.to} to={it.to} end={it.end} title={collapsed ? it.label : undefined} className={({ isActive }) => clsx(
-                      'relative flex items-center rounded-lg text-[14.5px] transition',
-                      collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-2.5 py-2.5',
-                      isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
-                               : 'text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
-                      {({ isActive }) => (<>
-                        {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full" style={{ background: hue }} />}
-                        <it.icon size={17} className="shrink-0" style={isActive ? { color: hue } : undefined} />
-                        {!collapsed && <span className="truncate">{it.label}</span>}
-                      </>)}
-                    </NavLink>
-                  ))}
+                <div key={gi}>
+                  {g.label && (collapsed
+                    ? <div className="flex justify-center mb-1.5" title={g.label}><span className="w-1.5 h-1.5 rounded-full" style={{ background: hue }} /></div>
+                    : <div className="px-2 mb-2 mt-0.5 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hue }} />
+                        <span className="text-[13px] font-semibold tracking-[0.01em]" style={{ color: hue }}>
+                          {n != null && <span className="tabular-nums">{n} · </span>}{g.label}
+                        </span>
+                      </div>
+                  )}
+                  <div className="space-y-0.5">{inline.map(it => Row(it, hue, !PRIMARY.has(it.to)))}</div>
                 </div>
-              </div>
               )
             })
+            return (<>
+              {groupsJsx}
+              {!collapsed && more.length > 0 && (
+                <div>
+                  <button onClick={() => setShowMore(s => !s)}
+                    className="w-full px-2 mb-2 mt-0.5 flex items-center gap-2 text-[var(--color-faint)] hover:text-[var(--color-mute)] transition">
+                    {showMore ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
+                    <span className="text-[13px] font-semibold tracking-[0.01em]">More</span>
+                    <span className="mono text-[10px] ml-auto tabular-nums">{more.length}</span>
+                  </button>
+                  {showMore && <div className="space-y-0.5">{more.map(({ it, hue }) => Row(it, hue, true))}</div>}
+                </div>
+              )}
+            </>)
           })()}
         </nav>
 

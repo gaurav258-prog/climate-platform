@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Wallet, ShieldCheck, Flame, AlertTriangle } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Crosshair, Satellite } from 'lucide-react'
+import LiveEarthHero from '../components/LiveEarthHero'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
 import { hazardLabel } from '../lib/hazards'
@@ -13,7 +13,7 @@ interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
   value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean; facets?: { k: string; v: string }[]
 }
-interface Check { key: string; label: string; ok: boolean; hint: string | null }
+interface Check { key: string; label: string; ok: boolean; hint: string | null; fix_href: string | null; fix_label: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
 interface MyScope { roles: string[]; raised_pending: number }
 interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; kpis?: Kpis; my_scope?: MyScope; assets: GAsset[] }
@@ -27,6 +27,30 @@ const D2R = Math.PI / 180
 const SUN = (() => { const v = [-0.5, 0.42, 0.76]; const m = Math.hypot(v[0], v[1], v[2]); return v.map(x => x / m) })()
 const pretty = hazardLabel
 
+// ── live ISS orbit overlay — real sub-satellite point (fetched) + its ground track ──────────────────
+const ISS_PERIOD_S = 92.9 * 60                 // one orbit ≈ 92.9 min
+const ISS_DEG_PER_S = 360 / ISS_PERIOD_S       // angular rate along the ground track
+const EARTH_DEG_PER_S = 360 / 86164            // sidereal spin — precesses the track westward each orbit
+const ISS_INCL = 51.6                          // orbital inclination (°)
+// initial-guess heading from inclination until two real samples give a measured bearing
+function inclHeading(la: number): number {
+  const c = Math.cos(ISS_INCL * D2R) / Math.max(0.05, Math.cos(la * D2R))
+  return Math.asin(Math.max(-1, Math.min(1, c))) / D2R
+}
+function bearingDeg(la1: number, lo1: number, la2: number, lo2: number): number {
+  const p1 = la1 * D2R, p2 = la2 * D2R, dl = (lo2 - lo1) * D2R
+  const y = Math.sin(dl) * Math.cos(p2)
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
+  return (Math.atan2(y, x) / D2R + 360) % 360
+}
+// point at angular distance `ang`° from (la,lo) along a great circle at bearing `brg`° (ang may be negative)
+function gcDest(la: number, lo: number, brg: number, ang: number): [number, number] {
+  const p1 = la * D2R, l1 = lo * D2R, th = brg * D2R, d = ang * D2R
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(th))
+  const l2 = l1 + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2))
+  return [p2 / D2R, ((l2 / D2R + 540) % 360) - 180]
+}
+
 // real projected score (0..100) at an arbitrary year, linearly interpolating the golden-source horizons
 function scoreAt(a: GAsset, y: number): number {
   const t = a.traj
@@ -37,18 +61,17 @@ function scoreAt(a: GAsset, y: number): number {
 function col(l: number): [number, number, number] { return l < 28 ? [207, 232, 255] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59] }
 function stateName(l: number) { return l < 28 ? 'safe' : l < 50 ? 'elevated' : l < 75 ? 'high' : 'severe' }
 
-function KpiCard({ label, value, tint, icon: Icon, onClick }: { label: string; value: string; tint?: string; icon?: ComponentType<{ size?: number; className?: string }>; onClick: () => void }) {
+// One compact card — label · value · sub — the single shape used for every stat on the globe. A dot in the
+// corner carries the tint (severity/state) without shouting. Click opens that stat's drill-down. Uniform on
+// purpose: the screen is just these tiles + the globe, and you click a tile to go deeper.
+function Tile({ label, value, sub, tint, onClick }: { label: string; value: string; sub?: string; tint?: string; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{ ['--tint' as string]: tint || 'var(--color-sky)' }}
-      className="group relative overflow-hidden text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3 py-3 transition hover:border-[color:var(--tint)] hover:-translate-y-px">
-      {/* accent wash blooms from the corner on hover */}
-      <span aria-hidden className="pointer-events-none absolute -top-6 -right-6 h-16 w-16 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--tint) 40%, transparent), transparent 70%)' }} />
-      <div className="relative flex items-start justify-between gap-2">
-        <div className="display text-[22px] leading-none tabular-nums" style={{ color: tint || '#F4EFE6' }}>{value}</div>
-        {Icon && <span style={{ color: tint || 'var(--color-faint)' }}><Icon size={13} className="shrink-0 mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity" /></span>}
-      </div>
-      <div className="relative mono text-[9px] tracking-[0.1em] uppercase text-[var(--color-faint)] mt-2">{label}</div>
+      className="group relative w-full text-left rounded-2xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3.5 transition hover:border-[color:var(--tint)]">
+      {tint && <span aria-hidden className="absolute top-4 right-4 w-2 h-2 rounded-full" style={{ background: tint }} />}
+      <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)]">{label}</div>
+      <div className="text-[24px] leading-tight mt-1 tabular-nums truncate" style={{ color: tint || '#F4EFE6' }}>{value}</div>
+      {sub && <div className="mono text-[12px] text-[var(--color-mute)] mt-1 truncate">{sub}</div>}
     </button>
   )
 }
@@ -60,6 +83,10 @@ export default function Horizon() {
   const [resolving, setResolving] = useState(false)
   // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
+  const [showAllAtRisk, setShowAllAtRisk] = useState(false)   // At-risk drill-down: top 8 vs the full list
+  const [issOpen, setIssOpen] = useState(false)               // live ISS feed modal
+  const issRef = useRef<{ lat: number; lon: number; hdg: number; t0: number } | null>(null)   // real sub-satellite anchor + fetch time (s)
+  const issScreenRef = useRef<{ x: number; y: number; vis: boolean }>({ x: -1, y: -1, vis: false })
   // entity the analyst is working on (an analyst can cover several) — the active reporting entity
   const [entOpen, setEntOpen] = useState(false)
   const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
@@ -67,7 +94,6 @@ export default function Horizon() {
   const [hexOpen, setHexOpen] = useState(false)
   // mobile (<800px): the two rails can't sit side-by-side over the globe, so a segmented control shows
   // one at a time. Ignored at ≥800px, where both rails render as usual.
-  const [mobileTab, setMobileTab] = useState<'overview' | 'tasks'>('overview')
   // site detail panel width — user can drag the left edge (any size) or maximize to full window
   const [selW, setSelW] = useState(440)
   const [selMax, setSelMax] = useState(false)
@@ -82,7 +108,6 @@ export default function Horizon() {
   const yearElRef = useRef<HTMLDivElement>(null)
   const statElRef = useRef<HTMLDivElement>(null)
   const leftPanelRef = useRef<HTMLDivElement>(null)   // overview rail — the globe must clear its right edge
-  const rightPanelRef = useRef<HTMLDivElement>(null)  // 'what needs you' rail — clear its left edge
   const [sel, setSel] = useState<GAsset | null>(null)
   // hover tooltip over a globe risk-dot — name, region, live score at the current year (canvas-local x/y)
   const [hoverTip, setHoverTip] = useState<{ name: string; region: string; score: number; x: number; y: number } | null>(null)
@@ -152,9 +177,8 @@ export default function Horizon() {
       const desktop = window.innerWidth > 800
       if (desktop) {
         const cr = cv.getBoundingClientRect(), GAP = 22
-        let lE = W * 0.28, rE = W * 0.72
+        let lE = W * 0.28; const rE = W * 0.9   // no right rail any more — the globe reclaims the right space
         const lp = leftPanelRef.current; if (lp) { const r = lp.getBoundingClientRect(); if (r.width) lE = (r.right - cr.left) + GAP }
-        const rp = rightPanelRef.current; if (rp) { const r = rp.getBoundingClientRect(); if (r.width) rE = (r.left - cr.left) - GAP }
         const bandW = Math.max(240, rE - lE)
         gx = lE + bandW / 2
         Rg = Math.min(bandW / 2, H * 0.42)
@@ -168,7 +192,6 @@ export default function Horizon() {
     // 'resize' fires for that — so observe the canvas AND the rails, and reflow the globe to the new band.
     const ro = new ResizeObserver(resize); ro.observe(cv)
     if (leftPanelRef.current) ro.observe(leftPanelRef.current)
-    if (rightPanelRef.current) ro.observe(rightPanelRef.current)
 
     const project = (la: number, lo: number) => {
       const lat = la * D2R, lon = lo * D2R, dl = lon - S.current.lon0, cl = Math.cos(lat), l0 = S.current.lat0
@@ -193,13 +216,17 @@ export default function Horizon() {
     const onMove = (e: PointerEvent) => {
       const [x, y] = rel(e)
       if (S.current.drag) { setHoverTip(null); const dx = x - S.current.px, dy = y - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = x; S.current.py = y; return }
+      const is = issScreenRef.current
+      const overIss = is.vis && Math.hypot(is.x - x, is.y - y) < 16
       const ha = S.current.focus ? null : hit(x, y)
-      cv.style.cursor = (ha || hitRegion(x, y)) ? 'pointer' : 'grab'
+      cv.style.cursor = (overIss || ha || hitRegion(x, y)) ? 'pointer' : 'grab'
       if (ha) setHoverTip({ name: ha.name, region: ha.region, score: Math.round(scoreAt(ha, S.current.year)), x, y })
       else setHoverTip(null)
     }
     const onLeave = () => setHoverTip(null)
-    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e); const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
+    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e)
+      const is = issScreenRef.current; if (is.vis && Math.hypot(is.x - x, is.y - y) < 16) { setIssOpen(true); return }
+      const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointerleave', onLeave)
 
     const drawCaption = () => {
@@ -273,8 +300,41 @@ export default function Horizon() {
         ctx.fillStyle = `rgba(${Math.min(255, r + 60)},${Math.min(255, gg + 50)},${Math.min(255, b + 50)},${al})`; ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, 7); ctx.fill()
         if (sel2) { ctx.strokeStyle = `rgba(${r},${gg},${b},${.5 + .3 * tw})`; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(p.x, p.y, sz + 9 + 2 * tw, 0, 7); ctx.stroke() }
       }
+
+      // ── live ISS orbit: its real current point + the ground track one orbit each way (front hemisphere only)
+      const iss = issRef.current
+      if (iss) {
+        ctx.lineWidth = 1.1; ctx.strokeStyle = 'rgba(126,182,255,0.32)'
+        let pen = false; ctx.beginPath()
+        for (let s = -ISS_PERIOD_S / 2; s <= ISS_PERIOD_S / 2; s += 90) {
+          const [la, loRaw] = gcDest(iss.lat, iss.lon, iss.hdg, ISS_DEG_PER_S * s)
+          const pp = project(la, loRaw - EARTH_DEG_PER_S * s)
+          if (!pp.vis) { pen = false; continue }
+          if (!pen) { ctx.moveTo(pp.x, pp.y); pen = true } else ctx.lineTo(pp.x, pp.y)
+        }
+        ctx.stroke()
+        // the satellite glides continuously: propagate the real anchor forward every frame (re-anchored each 5s fetch)
+        const dt = t - iss.t0
+        const [mlat, mlon] = gcDest(iss.lat, iss.lon, iss.hdg, ISS_DEG_PER_S * dt)
+        const pm = project(mlat, mlon - EARTH_DEG_PER_S * dt)
+        issScreenRef.current = { x: pm.x, y: pm.y, vis: pm.vis }
+        if (pm.vis) {
+          const pulse = 0.6 + 0.4 * Math.sin(t * 2)
+          const gl = ctx.createRadialGradient(pm.x, pm.y, 0, pm.x, pm.y, 14)
+          gl.addColorStop(0, `rgba(150,200,255,${0.55 * pulse})`); gl.addColorStop(1, 'rgba(150,200,255,0)')
+          ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(pm.x, pm.y, 14, 0, 7); ctx.fill()
+          ctx.strokeStyle = `rgba(150,200,255,${0.5 * pulse})`; ctx.lineWidth = 1
+          ctx.beginPath(); ctx.arc(pm.x, pm.y, 8 + 2 * pulse, 0, 7); ctx.stroke()
+          ctx.strokeStyle = 'rgba(210,230,255,0.95)'; ctx.lineWidth = 1.5
+          ctx.beginPath(); ctx.moveTo(pm.x - 6, pm.y); ctx.lineTo(pm.x + 6, pm.y); ctx.stroke()   // solar array
+          ctx.fillStyle = '#EAF3FF'; ctx.beginPath(); ctx.arc(pm.x, pm.y, 2.6, 0, 7); ctx.fill()   // body
+          ctx.fillStyle = 'rgba(200,225,255,0.9)'; ctx.font = '9px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'
+          ctx.fillText('ISS · live', pm.x + 12, pm.y + 3)
+        }
+      } else issScreenRef.current = { x: -1, y: -1, vis: false }
+
       if (yearElRef.current) yearElRef.current.textContent = String(Math.round(S.current.year))
-      if (statElRef.current) statElRef.current.textContent = `${elevated} of ${assets.length} ${nounRef.current} at elevated risk`
+      if (statElRef.current) statElRef.current.textContent = `${elevated} / ${assets.length}`
       if (S.current.snap) { S.current.snap = false; drawCaption(); try { const a = document.createElement('a'); a.download = 'tellumen-horizon-' + Math.round(S.current.year) + '.png'; a.href = cv.toDataURL('image/png'); a.click() } catch { /* */ } }
       raf = requestAnimationFrame(draw)
     }
@@ -294,15 +354,52 @@ export default function Horizon() {
       closeSel()
     } finally { setResolving(false) }
   }
+  // Escape mirrors the "← back" button: close the topmost open overlay, one press at a time. Order matches
+  // visual stacking — the granular grid sits over a drill-down, which sits over a selection / region focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (issOpen) setIssOpen(false)
+      else if (hexOpen) setHexOpen(false)
+      else if (entOpen) setEntOpen(false)
+      else if (panel) setPanel(null)
+      else if (sel) closeSel()
+      else if (beltName) closeBelt()
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [issOpen, hexOpen, entOpen, panel, sel, beltName])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll the ISS's real sub-satellite point (public telemetry). Heading comes from two consecutive samples;
+  // until then it's estimated from the orbital inclination. On any failure the overlay simply holds/​hides —
+  // it never blocks the globe. (Prod needs api.wheretheiss.at in the CSP connect-src.)
+  useEffect(() => {
+    let prev: { lat: number; lon: number } | null = null, alive = true
+    const pull = async () => {
+      try {
+        const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544')
+        if (!res.ok) return
+        const d = await res.json()
+        const lat = +d.latitude, lon = +d.longitude
+        if (!isFinite(lat) || !isFinite(lon)) return
+        const hdg = prev ? bearingDeg(prev.lat, prev.lon, lat, lon) : inclHeading(lat)
+        prev = { lat, lon }
+        if (alive) issRef.current = { lat, lon, hdg, t0: performance.now() / 1000 }   // anchor the smooth propagation to this real fix
+      } catch { /* keep last known; overlay holds or hides */ }
+    }
+    pull(); const iv = setInterval(pull, 5000)
+    return () => { alive = false; clearInterval(iv) }
+  }, [])
+
   // belt aggregate for the banner
   const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
   const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
 
   // left-rail / right-rail helpers
   const fmtEur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${Math.round(v / 1e3)}k`
-  const BUCKETS: [string, string, string][] = [['overdue', 'Overdue', '#D23B3B'], ['this_week', 'This week', '#E8B24C'], ['upcoming', 'Upcoming', '#8FC0F0'], ['open', 'Open · no fixed date', '#5c6879']]
-  const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
-  const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
+  const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setShowAllAtRisk(false); setPanel({ kind: k }) }
   // Choose the year to animate TO, then run from today up to it, so you watch the progression arrive.
   const playTo = (y: number) => { S.current.target = y; setTargetYear(y); S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025); S.current.play = true; setPlaying(true) }
   const togglePlay = () => {
@@ -310,7 +407,9 @@ export default function Horizon() {
     if (S.current.year >= S.current.target) { S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025) }  // at the end → replay from today
     S.current.play = true; setPlaying(true)
   }
-  const displayTasks = tasks
+  const overdueCount = tasks.filter(t => t.bucket === 'overdue').length
+  // decisions ('Act') exist for every book-holding sector — so a globe asset can jump straight to deciding on it
+  const canDecide = ['bank', 'insurer', 'asset_manager', 'reit', 'manufacturer'].includes(profile?.org?.type ?? '')
   const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
@@ -346,19 +445,9 @@ export default function Horizon() {
         <div className="mono text-[9.5px] tracking-[0.2em] text-[var(--color-faint)] uppercase mt-1.5">{profile?.org?.name} · {assets.length} {noun} · real coordinates</div>
       </div>
 
-      {/* mobile-only segmented control — pick which rail to show over the globe (hidden ≥800px) */}
+      {/* LEFT rail — the three cards (scope · exposure · reporting), all clickable → drill-down */}
       {!sel && !beltName && !panel && (
-        <div className="hidden max-[800px]:flex absolute top-[52px] left-3 right-3 z-20 gap-1 p-1 rounded-full border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
-          {([['overview', 'Overview'], ['tasks', `Needs you${displayTasks.length ? ` · ${displayTasks.length}` : ''}`]] as const).map(([k, lbl]) => (
-            <button key={k} onClick={() => setMobileTab(k)}
-              className={`flex-1 rounded-full py-1.5 mono text-[11px] tracking-wide transition ${mobileTab === k ? 'bg-[#17233a] text-[#F4EFE6]' : 'text-[var(--color-mute)]'}`}>{lbl}</button>
-          ))}
-        </div>
-      )}
-
-      {/* LEFT rail — the year, then MY SCOPE + org KPIs (all clickable → drill-down) */}
-      {!sel && !beltName && !panel && (
-      <div ref={leftPanelRef} className={`fadeup absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5 ${mobileTab === 'overview' ? '' : 'max-[800px]:hidden'}`}>
+      <div ref={leftPanelRef} className="fadeup absolute left-8 top-[11%] w-[clamp(200px,24cqw,272px)] max-h-[calc(100vh-130px)] overflow-y-auto flex flex-col gap-2.5 pr-1 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none max-[800px]:gap-2.5">
         {/* entity selector — the reporting entity the analyst is working on (they can cover several) */}
         <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur">
           <button onClick={() => setEntOpen(o => !o)} className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#0e1728]">
@@ -387,28 +476,36 @@ export default function Horizon() {
             </div>
           )}
         </div>
-        <div>
-          <div className="mono text-[10px] tracking-[0.28em] text-[var(--color-faint)] uppercase mb-0.5 pointer-events-none">Standing as of</div>
-          <div ref={yearElRef} className="display font-semibold text-[clamp(34px,4.4vw,60px)] leading-[.82] text-[#F4EFE6] pointer-events-none" style={{ letterSpacing: '-1px' }}>2025</div>
-          <div ref={statElRef} className="mono text-[12px] text-[var(--color-mute)] mt-2 pointer-events-none">— of {assets.length} {noun} at elevated risk</div>
-        </div>
+        {/* Three cards. Your scope = who you are (the open-action count lives in "What needs you", not here —
+            it was the same number twice). Exposure = book value + what's at risk, in one card (scrubs live with
+            the timeline). Reporting = filing readiness. Click any card for its full drill-down. */}
+        {/* Your scope = who you are + what needs you. The task list (formerly the right rail) lives in this
+            card's drill-down; overdue work is called out here so urgency stays visible at a glance. */}
         {myScope && (
-          <button onClick={() => openKpi('scope')} className="text-left rounded-lg border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-3.5 py-2.5 hover:border-[var(--color-sky)] transition">
-            <div className="mono text-[10px] tracking-[0.16em] uppercase text-[var(--color-faint)]">Your scope</div>
-            <div className="text-[13.5px] text-[var(--color-ink)] mt-0.5 capitalize">{myScope.roles.join(' · ') || 'viewer'}</div>
-            <div className="mono text-[11.5px] text-[var(--color-mute)] mt-0.5">{tasks.length} open action{tasks.length !== 1 ? 's' : ''}{myScope.raised_pending ? ` · ${myScope.raised_pending} you raised` : ''}</div>
+          <button onClick={() => openKpi('scope')} style={{ ['--tint' as string]: overdueCount ? '#D23B3B' : 'var(--color-sky)' }}
+            className="group relative w-full text-left rounded-2xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3.5 transition hover:border-[color:var(--tint)]">
+            {overdueCount > 0 && <span aria-hidden className="absolute top-4 right-4 w-2 h-2 rounded-full" style={{ background: '#D23B3B', boxShadow: '0 0 8px #D23B3B' }} />}
+            <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)]">Your scope</div>
+            <div className="text-[24px] leading-tight mt-1 truncate text-[#F4EFE6]">{(myScope.roles.join(' · ') || 'viewer').replace(/\b\w/g, c => c.toUpperCase())}</div>
+            <div className="mono text-[12px] mt-1 truncate">
+              {tasks.length === 0
+                ? <span className="text-[var(--color-mute)]">all clear · nothing needs you</span>
+                : <>{overdueCount > 0 && <span style={{ color: '#E8785B' }}>{overdueCount} overdue</span>}{overdueCount > 0 && <span className="text-[var(--color-faint)]"> · </span>}<span className="text-[var(--color-mute)]">{tasks.length} need{tasks.length === 1 ? 's' : ''} you</span></>}
+            </div>
           </button>
         )}
-        {kpis && (
-          <div className="grid grid-cols-2 gap-2">
-            <KpiCard label="book value" value={fmtEur(kpis.book_value_eur)} icon={Wallet} onClick={() => openKpi('book')} />
-            <KpiCard label="elevated by 2050" value={`${kpis.n_elevated}/${kpis.n_assets}`} tint="#E9744A" icon={Flame} onClick={() => openKpi('elevated')} />
-            <KpiCard label="filing readiness" value={`${kpis.readiness.passed}/${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} icon={ShieldCheck} onClick={() => openKpi('readiness')} />
-            {kpis.volume_at_risk_eur_today != null
-              ? <KpiCard label="€ at risk today" value={fmtEur(kpis.volume_at_risk_eur_today)} tint="#E8B24C" icon={AlertTriangle} onClick={() => openKpi('elevated')} />
-              : <KpiCard label={noun} value={String(kpis.n_assets)} icon={Wallet} onClick={() => openKpi('book')} />}
-          </div>
-        )}
+        {kpis && (<>
+          {/* Exposure — book value + what's at risk, combined. Value + year scrub live with the timeline;
+              the € book is the denominator the risk figure is measured against. */}
+          <button onClick={() => openKpi('elevated')} style={{ ['--tint' as string]: '#E9744A' }}
+            className="group relative w-full text-left rounded-2xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3.5 transition hover:border-[color:var(--tint)]">
+            <span aria-hidden className="absolute top-4 right-4 w-2 h-2 rounded-full" style={{ background: '#E9744A' }} />
+            <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)]">At risk · <span ref={yearElRef}>2025</span></div>
+            <div ref={statElRef} className="text-[24px] leading-tight mt-1 tabular-nums" style={{ color: '#E9744A' }}>{kpis.n_elevated} / {kpis.n_assets}</div>
+            <div className="mono text-[12px] text-[var(--color-mute)] mt-1 truncate">{kpis.volume_at_risk_eur_today != null ? `${fmtEur(kpis.volume_at_risk_eur_today)} at risk · ${fmtEur(kpis.book_value_eur)} book` : `${fmtEur(kpis.book_value_eur)} book · ${kpis.n_assets} ${noun}`}</div>
+          </button>
+          <Tile label="Filing readiness" value={`${kpis.readiness.passed} / ${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} sub="checks passed" onClick={() => openKpi('readiness')} />
+        </>)}
         {!kpis && (
           <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)] max-w-[300px]">
             {q.isLoading ? 'Loading your book…' : q.isError
@@ -416,42 +513,6 @@ export default function Horizon() {
               : 'No located assets yet — add your first ones to see them here.'}
           </div>
         )}
-      </div>
-      )}
-
-      {/* RIGHT rail — WHAT NEEDS YOU, grouped by urgency (severity is the colour within each bucket) */}
-      {!sel && !beltName && !panel && (
-      <div ref={rightPanelRef} className={`fadeup absolute right-8 top-[12%] w-[clamp(236px,27cqw,320px)] max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5 max-[800px]:left-3 max-[800px]:right-3 max-[800px]:top-[100px] max-[800px]:bottom-[128px] max-[800px]:w-auto max-[800px]:max-h-none ${mobileTab === 'tasks' ? '' : 'max-[800px]:hidden'}`}>
-        <div className="mono text-[11px] tracking-[0.2em] uppercase text-[var(--color-faint)] mb-3 max-[800px]:hidden">What needs you</div>
-        {displayTasks.length === 0 && (
-          <div className="rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 text-[12px] text-[var(--color-mute)]">
-            {tq.isLoading ? 'Loading…' : tq.isError ? 'Could not load your tasks — reload or sign in again.' : 'All clear — nothing needs you right now.'}
-          </div>
-        )}
-        <div className="flex flex-col gap-4">
-          {BUCKETS.map(([bk, label, bcol]) => { const ts = displayTasks.filter(t => t.bucket === bk); if (!ts.length) return null; return (
-            <div key={bk}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: bcol }} />
-                <span className="mono text-[11px] tracking-[0.16em] uppercase" style={{ color: bcol }}>{label}</span>
-                <span className="mono text-[11px] text-[var(--color-faint)]">{ts.length}</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {ts.map(t => (
-                  <button key={t.key} onClick={() => openTask(t)}
-                    className="group text-left rounded-xl border border-[var(--color-line)] bg-[#0b121ecc] backdrop-blur px-4 py-3 hover:border-[color:var(--tint)] transition"
-                    style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)', boxShadow: `0 0 8px ${SEV_COL[t.severity] || 'var(--color-sky)'}` }} />
-                      <span className="flex-1 min-w-0 text-[14px] text-[var(--color-ink)] leading-snug">{t.title}</span>
-                    </div>
-                    {t.due && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-1 ml-[18px]">{t.due}</div>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )})}
-        </div>
       </div>
       )}
 
@@ -467,20 +528,41 @@ export default function Horizon() {
               <div className="text-[14px] text-[var(--color-mute)] mt-3 leading-relaxed">Assets are org-wide — everyone sees the whole book. Your scope is what you can <b className="text-[#F4EFE6]">act on</b>: {tasks.length} open action{tasks.length !== 1 ? 's' : ''} routed to your role{myScope.raised_pending ? `, and ${myScope.raised_pending} approval${myScope.raised_pending !== 1 ? 's' : ''} you raised waiting on a second pair of eyes` : ''}.</div>
               <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)] mt-6 mb-2">Your open actions</div>
               <div className="flex flex-col gap-2">{tasks.map(t => (
-                <button key={t.key} onClick={() => openTask(t)} className="text-left rounded-lg border border-[var(--color-line)] px-3 py-2.5 hover:border-[var(--color-sky)] text-[14px] text-[var(--color-ink)]">{t.title}</button>))}</div>
+                <button key={t.key} onClick={() => nav(t.cta_href)}
+                  className="group/task text-left rounded-lg border border-[var(--color-line)] px-3 py-2.5 hover:border-[color:var(--tint)] transition"
+                  style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)' }} />
+                    <span className="flex-1 min-w-0 text-[14px] text-[var(--color-ink)] leading-snug">{t.title}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1 ml-[18px]">
+                    {t.due ? <span className="mono text-[11px] text-[var(--color-faint)]">{t.due}</span> : <span />}
+                    <span className="mono text-[11px] text-[color:var(--tint)] inline-flex items-center gap-1 whitespace-nowrap">{t.cta_label} <ArrowRight size={11} /></span>
+                  </div>
+                </button>))}</div>
             </div>
           )}
           {panel.kind === 'readiness' && kpis && (
             <div className="mt-6">
               <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)]">Filing readiness</div>
               <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{kpis.readiness.passed} of {kpis.readiness.total} controls green</div>
-              <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">The pre-filing checklist — each is a real control, not a score.</div>
-              <div className="flex flex-col gap-3 mt-5">{kpis.readiness.checks.map(c => (
-                <div key={c.key} className="flex gap-3 items-start">
+              <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">The pre-filing checklist — each is a real control. A failing one links straight to where you fix it.</div>
+              <div className="flex flex-col gap-2 mt-5">{kpis.readiness.checks.map(c => {
+                // a failing check the workflow knows how to fix is a click-through; passing / unrouted checks are static
+                const actionable = !c.ok && !!c.fix_href
+                const Row = actionable ? 'button' : 'div'
+                return (
+                <Row key={c.key} {...(actionable ? { onClick: () => nav(c.fix_href!) } : {})}
+                  className={`w-full text-left flex gap-3 items-start rounded-lg px-3 py-2.5 ${actionable ? 'border border-[#3a3320] bg-[#171208] hover:border-[var(--color-warn)] transition cursor-pointer' : ''}`}>
                   <span className="mt-0.5 shrink-0 text-[15px]" style={{ color: c.ok ? '#5FB98C' : '#E8B24C' }}>{c.ok ? '✓' : '○'}</span>
-                  <div><div className="text-[14px] text-[var(--color-ink)] leading-snug">{c.label}</div>{c.hint && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-0.5">{c.hint}</div>}</div>
-                </div>))}</div>
-              <button onClick={() => nav('/admin')} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Open readiness in Admin <ArrowRight size={14} /></button>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] text-[var(--color-ink)] leading-snug">{c.label}</div>
+                    {c.hint && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-0.5">{c.hint}</div>}
+                    {actionable && <div className="mono text-[11px] text-[var(--color-warn)] mt-1.5 inline-flex items-center gap-1">{c.fix_label} <ArrowRight size={11} /></div>}
+                  </div>
+                </Row>)
+              })}</div>
+              <button onClick={() => nav('/admin')} className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-5 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Full checklist in Control Center <ArrowRight size={14} /></button>
             </div>
           )}
           {(panel.kind === 'book' || panel.kind === 'elevated') && kpis && (
@@ -488,22 +570,24 @@ export default function Horizon() {
               <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)]">{panel.kind === 'book' ? 'Book value' : 'Elevated by 2050'}</div>
               <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{panel.kind === 'book' ? fmtEur(kpis.book_value_eur) : `${kpis.n_elevated} of ${kpis.n_assets} ${noun}`}</div>
               <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">{panel.kind === 'book' ? `Total value across your ${assets.length} located ${noun}. Top exposures:` : 'Highest projected physical-risk under the disorderly-2°C path at 2050:'}</div>
-              <div className="flex flex-col gap-1.5 mt-4">
-                {(panel.kind === 'book' ? topByValue : elevated2050).slice(0, 8).map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
-                  <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
-                    <span className="min-w-0"><span className="block text-[14px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[11px] text-[var(--color-faint)]">{a.region}</span></span>
-                    <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
-                  </button>) })}
-              </div>
-            </div>
-          )}
-          {panel.kind === 'task' && panel.task && (
-            <div className="mt-6">
-              <div className="mono text-[11.5px] tracking-[0.22em] uppercase" style={{ color: SEV_COL[panel.task.severity] || 'var(--color-sky)' }}>{panel.task.bucket.replace('_', ' ')}{panel.task.due ? ` · ${panel.task.due}` : ''}</div>
-              <div className="display text-[26px] leading-tight text-[#F4EFE6] mt-2">{panel.task.title}</div>
-              <div className="text-[14.5px] text-[var(--color-mute)] mt-3 leading-relaxed">{panel.task.detail}</div>
-              <button onClick={() => nav(panel.task!.cta_href)} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-sky)] border border-[var(--color-sky)] rounded-full px-5 py-3.5 hover:opacity-90">{panel.task.cta_label} <ArrowRight size={14} /></button>
-              <div className="mono text-[11px] text-[var(--color-faint)] mt-3 text-center">opens the workspace to complete it</div>
+              {(() => {
+                const full = panel.kind === 'book' ? topByValue : elevated2050
+                const shown = showAllAtRisk ? full : full.slice(0, 8)
+                return (<>
+                  <div className="flex flex-col gap-1.5 mt-4">
+                    {shown.map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
+                      <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
+                        <span className="min-w-0"><span className="block text-[14px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[11px] text-[var(--color-faint)]">{a.region}</span></span>
+                        <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
+                      </button>) })}
+                  </div>
+                  {full.length > 8 && (
+                    <button onClick={() => setShowAllAtRisk(v => !v)} className="mt-3 w-full inline-flex items-center justify-center gap-1.5 mono text-[11.5px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-4 py-2 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+                      {showAllAtRisk ? 'Show top 8' : `See all ${full.length} ${noun}`} <ArrowRight size={12} />
+                    </button>
+                  )}
+                </>)
+              })()}
             </div>
           )}
         </div>
@@ -587,9 +671,15 @@ export default function Horizon() {
               </button>
             </div>
           )}
+          {/* Act — jump straight from this exposure to a decision on it (Sense → … → Act) */}
+          {canDecide && (
+            <button onClick={() => nav(`/decisions?focus=${encodeURIComponent(sel.id)}`)}
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-sky)] border border-[var(--color-sky)] rounded-full px-5 py-3.5 hover:opacity-90">
+              <Crosshair size={14} /> Decide on this exposure <ArrowRight size={14} /></button>
+          )}
           {/* granular drill — the H3 res-8 grid + basemap under this exact location */}
           <button onClick={() => setHexOpen(true)}
-            className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+            className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
             <Grid3x3 size={14} /> View granular grid (H3 · ~0.7 km)</button>
           {/* deeper drill — the full per-site record (agri has a dedicated detail page); others open the workspace */}
           <button onClick={() => nav((sel.kind === 'plot' || sel.kind === 'site') ? `/detail/${sel.kind}/${sel.id}` : '/home')}
@@ -627,6 +717,23 @@ export default function Horizon() {
       </div>
 
       {/* granular H3 grid modal — the drill-down beneath the overview globe */}
+      {/* click the orbiting satellite → the live downlink from the ISS (reuses the Sen SpaceTV-1 feed) */}
+      {issOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#04060bee] backdrop-blur-sm p-6" onClick={() => setIssOpen(false)}>
+          <div className="relative w-[min(1120px,94vw)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="inline-flex items-center gap-2 mono text-[11px] uppercase tracking-[0.18em] text-white/70">
+                <Satellite size={13} className="text-[#9CC6FF]" /> Live · Earth from the ISS
+                {issRef.current && <span className="text-white/40 normal-case tracking-normal">· {Math.abs(issRef.current.lat).toFixed(1)}°{issRef.current.lat >= 0 ? 'N' : 'S'}, {Math.abs(issRef.current.lon).toFixed(1)}°{issRef.current.lon >= 0 ? 'E' : 'W'} · ~420 km · 27,600 km/h</span>}
+              </div>
+              <button onClick={() => setIssOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
+            </div>
+            <LiveEarthHero height="66vh" showBadge={false} />
+            <div className="mono text-[10.5px] text-white/40 mt-2.5 text-center">A live view from low-Earth orbit. Your risk scores are derived from Earth-observation satellites (Copernicus / Sentinel, NASA, USGS) — not this camera.</div>
+          </div>
+        </div>
+      )}
+
       {hexOpen && sel && (
         <div className="fixed inset-0 z-30 grid place-items-center bg-[#04060bcc] backdrop-blur-sm p-6" onClick={() => setHexOpen(false)}>
           <div className="relative w-[min(760px,92vw)] h-[min(560px,82vh)] rounded-2xl overflow-hidden border border-[var(--color-line-2)] bg-[#070b13]" onClick={e => e.stopPropagation()}>
