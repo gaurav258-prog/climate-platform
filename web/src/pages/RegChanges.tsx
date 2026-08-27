@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar } from 'lucide-react'
+import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
 
@@ -8,10 +9,71 @@ import { Card, PageHeader, HeroBanner } from '../components/ui'
 // process (that internal pipeline lives on the platform-operator page).
 
 interface InForce { framework: string; name: string; authority: string; frequency: string; requires: string; citation: string; url: string | null }
-interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string }
+interface DataField { field: string; note: string }
+interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null }
 interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | null; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number; n_detected: number; n_verified: number } }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
+
+function ComingCard({ c }: { c: Coming }) {
+  const [showData, setShowData] = useState(false)
+  const fields = c.data_fields ?? []
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="px-4 py-3.5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {c.source === 'detected' && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 16%, transparent)' }}><Radar size={9} /> newly detected · pending review</span>}
+            <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{c.title}</div>
+          </div>
+          <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{c.whats_changing}</p>
+          <a href={c.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mono text-[10px] text-[var(--color-sky)] mt-2 inline-flex items-center gap-1 hover:underline"><ExternalLink size={10} /> {c.citation}</a>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="mono text-[9px] uppercase tracking-wide inline-flex items-center gap-1 justify-end" style={{ color: c.date_fixed ? 'var(--color-good)' : 'var(--color-faint)' }}>
+            {c.date_fixed ? <><CheckCircle2 size={10} /> Confirmed date</> : 'Not yet fixed'}
+          </div>
+          <div className="mono text-[11.5px] text-[var(--color-ink)] mt-0.5 max-w-[190px]" style={c.date_fixed ? { fontWeight: 600 } : undefined}>{c.when}</div>
+          {c.verified_date && <div className="mono text-[9px] text-[var(--color-good)] mt-1 inline-flex items-center gap-1 justify-end"><CheckCircle2 size={9} /> verified vs EUR-Lex{c.verified_at ? ` · ${c.verified_at}` : ''}</div>}
+          {c.date_moved && <div className="mono text-[9px] text-[var(--color-warn)] mt-0.5">↑ updated from an earlier date</div>}
+        </div>
+      </div>
+
+      {/* what YOU need to prepare — the only "action" this page ever asks of a customer */}
+      <div className="px-4 py-2.5 border-t border-[var(--color-line)] flex items-start gap-2.5"
+        style={{ background: (c.prepare || c.data_tbc) ? 'color-mix(in oklab, var(--color-warn) 7%, transparent)' : 'var(--color-bg-2)' }}>
+        {c.prepare
+          ? (needsIntegration(c.prepare)
+              ? <Plug size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
+              : <Database size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />)
+          : c.data_tbc ? <Clock size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
+          : <CheckCircle2 size={13} className="text-[var(--color-good)] shrink-0 mt-0.5" />}
+        <div className="min-w-0 flex-1">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{c.prepare ? 'To prepare' : c.data_tbc ? 'Data — to be confirmed' : 'Your side'}</div>
+          <div className="text-[12px] text-[var(--color-mute)] leading-snug">{c.prepare ?? c.data_tbc ?? 'No new data or integration needed — computed from the book you already provide.'}</div>
+          {/* the exact fields the client should stand up in their systems — collapsed by default */}
+          {fields.length > 0 && (
+            <>
+              <button onClick={() => setShowData(v => !v)} className="mt-2 inline-flex items-center gap-1.5 mono text-[10px] text-[var(--color-sky)] hover:underline">
+                {showData ? <ChevronDown size={12} /> : <ChevronRight size={12} />}<ListChecks size={12} /> Data to provide · {fields.length} field{fields.length === 1 ? '' : 's'}
+              </button>
+              {showData && (
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {fields.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px]">
+                      <span className="text-[var(--color-warn)] mt-0.5 shrink-0">▸</span>
+                      <span><span className="text-[var(--color-ink)]">{f.field}</span>{f.note && <span className="mono text-[10px] text-[var(--color-faint)]"> — {f.note}</span>}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+}
 
 export default function RegChanges() {
   const q = useQuery({ queryKey: ['reg-outlook'], queryFn: () => api.get<Outlook>('/v1/reg-changes/outlook') })
@@ -65,41 +127,7 @@ export default function RegChanges() {
             {d.coming.length === 0
               ? <Card className="p-6 text-[13px] text-[var(--color-mute)]">No changes on the horizon for your sector right now.</Card>
               : <div className="space-y-3">
-                  {d.coming.map((c, i) => (
-                    <Card key={i} className="p-0 overflow-hidden">
-                      <div className="px-4 py-3.5 flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {c.source === 'detected' && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 16%, transparent)' }}><Radar size={9} /> newly detected · pending review</span>}
-                            <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{c.title}</div>
-                          </div>
-                          <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{c.whats_changing}</p>
-                          <a href={c.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mono text-[10px] text-[var(--color-sky)] mt-2 inline-flex items-center gap-1 hover:underline"><ExternalLink size={10} /> {c.citation}</a>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className="mono text-[9px] uppercase tracking-wide inline-flex items-center gap-1 justify-end" style={{ color: c.date_fixed ? 'var(--color-good)' : 'var(--color-faint)' }}>
-                            {c.date_fixed ? <><CheckCircle2 size={10} /> Confirmed date</> : 'Not yet fixed'}
-                          </div>
-                          <div className="mono text-[11.5px] text-[var(--color-ink)] mt-0.5 max-w-[190px]" style={c.date_fixed ? { fontWeight: 600 } : undefined}>{c.when}</div>
-                          {c.verified_date && <div className="mono text-[9px] text-[var(--color-good)] mt-1 inline-flex items-center gap-1 justify-end"><CheckCircle2 size={9} /> verified vs EUR-Lex{c.verified_at ? ` · ${c.verified_at}` : ''}</div>}
-                          {c.date_moved && <div className="mono text-[9px] text-[var(--color-warn)] mt-0.5">↑ updated from an earlier date</div>}
-                        </div>
-                      </div>
-                      {/* what YOU need to prepare — the only "action" this page ever asks of a customer */}
-                      <div className="px-4 py-2.5 border-t border-[var(--color-line)] flex items-start gap-2.5"
-                        style={{ background: c.prepare ? 'color-mix(in oklab, var(--color-warn) 7%, transparent)' : 'var(--color-bg-2)' }}>
-                        {c.prepare
-                          ? (needsIntegration(c.prepare)
-                              ? <Plug size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
-                              : <Database size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />)
-                          : <CheckCircle2 size={13} className="text-[var(--color-good)] shrink-0 mt-0.5" />}
-                        <div>
-                          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{c.prepare ? 'To prepare' : 'Your side'}</div>
-                          <div className="text-[12px] text-[var(--color-mute)] leading-snug">{c.prepare ?? 'No new data or integration needed — computed from the book you already provide.'}</div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                  {d.coming.map((c, i) => <ComingCard key={i} c={c} />)}
                 </div>}
             <div className="mono text-[10px] text-[var(--color-faint)] mt-3 space-y-1">
               <div className="flex items-start gap-1.5"><ArrowRight size={11} className="mt-0.5 shrink-0" /> A <b className="text-[var(--color-good)]">confirmed date</b> is fixed in the cited regulation; <b>not yet fixed</b> means the regulator hasn't set one — we don't guess.</div>

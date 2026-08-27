@@ -21,12 +21,25 @@ COMING: list[dict] = [
      "date": "2026-12-30", "when": "30 Dec 2026 · large operators & traders (SMEs 30 Jun 2027)",
      "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
      "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
+     "data_fields": [
+         {"field": "Plot geolocation — polygon vertices (lat/long), or a point for plots ≤ 4 ha", "note": "WGS-84; ≥ 6 decimal places"},
+         {"field": "Commodity + HS code, and production quantity", "note": "per plot / batch"},
+         {"field": "Country & region of production", "note": "ISO country + sub-national area"},
+         {"field": "Production date or time window", "note": "harvest / placing-on-market date"},
+         {"field": "Legality evidence", "note": "land-use rights, EUDR Annex-II legality documents"},
+         {"field": "Supplier / operator identity", "note": "name, address, EORI where applicable"}],
      "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234", "url": _EURLEX + "32024R3234"},
     {"sectors": ["manufacturer", "bank", "reit"], "framework": None,
      "affects": ["bank_tcfd", "reit_tcfd", "csrd_e1", "esrs_pack"], "title": "EU Taxonomy — environmental objectives",
      "date": "2024-01-01", "when": "1 Jan 2024 · first reported for FY2024",
      "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
      "prepare": "Activity-level data against the four additional environmental objectives.",
+     "data_fields": [
+         {"field": "Economic activity per NACE code", "note": "map each activity to a Taxonomy activity"},
+         {"field": "Turnover / CapEx / OpEx attributable to each activity", "note": "the three Art. 8 KPIs"},
+         {"field": "Substantial-contribution flag per objective", "note": "water · circular economy · pollution · biodiversity"},
+         {"field": "DNSH assessment per objective", "note": "‘do no significant harm’ screening"},
+         {"field": "Minimum-safeguards compliance", "note": "OECD MNE / UN Guiding Principles"}],
      "citation": "Environmental Delegated Act (EU) 2023/2486 (applies from 1 Jan 2024)", "url": _EURLEX + "32023R2486"},
     {"sectors": ["manufacturer"], "framework": "esrs_pack", "affects": ["csrd_e1", "esrs_pack"], "title": "ESRS digital tagging (XBRL)",
      "date": None, "when": "no fixed date · phased with ESAP go-live (from 2027)",
@@ -48,6 +61,7 @@ COMING: list[dict] = [
      "date": None, "when": "no adoption date set · ESAs proposal under EC review",
      "whats_changing": "The ESAs have proposed revisions to the SFDR RTS, including the Principal Adverse Impact indicators and disclosures.",
      "prepare": "Possibly new issuer-level attributes — the exact fields will be flagged once finalised.",
+     "data_tbc": "New PAI indicators are in the ESAs' proposal but not yet adopted — we'll publish the exact fields the moment the RTS is final.",
      "citation": "ESAs SFDR RTS review (2023 final report)", "url": "https://www.esma.europa.eu/"},
     {"sectors": ["bank", "insurer", "asset_manager", "reit"], "framework": None,
      "affects": ["bank_tcfd", "reit_tcfd", "assetmgmt_tcfd", "insurer_climate"], "title": "IFRS S2 / ISSB adoption",
@@ -126,6 +140,8 @@ def outlook(org_type: str | None, session=None) -> dict:
         item = {k: c[k] for k in ("framework", "title", "date", "when", "whats_changing", "prepare", "citation", "url")}
         item["date_fixed"] = c.get("date") is not None
         item["source"] = "curated"
+        item["data_fields"] = c.get("data_fields") or []
+        item["data_tbc"] = c.get("data_tbc")
         # reconcile the curated date against the live EUR-Lex register — only for items that (a) carry a fixed
         # date and (b) are tied to a single governing act, so we compare like with like (not a sub-timeline).
         fw = c.get("framework")
@@ -146,7 +162,7 @@ def outlook(org_type: str | None, session=None) -> dict:
             continue
         coming.append({"framework": dc["framework"], "title": dc["title"], "date": dc["effective_date"],
                        "date_fixed": dc["effective_date"] is not None, "when": (dc["effective_date"] or "newly detected"),
-                       "whats_changing": dc["summary"], "prepare": None,
+                       "whats_changing": dc["summary"], "prepare": None, "data_fields": [], "data_tbc": None,
                        "citation": f"EUR-Lex · CELEX:{dc['celex']}", "url": dc["url"],
                        "source": "detected", "status": dc["status"], "detected_at": dc["detected_at"]})
     # confirmed exact dates first, chronologically; then the not-yet-fixed ones
