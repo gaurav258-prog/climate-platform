@@ -12,7 +12,7 @@ interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
   value_eur: number; hazard: string; traj: Record<string, number>; adaptations?: string[]; eudr_undetermined?: boolean; facets?: { k: string; v: string }[]
 }
-interface Check { key: string; label: string; ok: boolean; hint: string | null }
+interface Check { key: string; label: string; ok: boolean; hint: string | null; fix_href: string | null; fix_label: string | null }
 interface Kpis { book_value_eur: number; n_assets: number; n_elevated: number; readiness: { passed: number; total: number; checks: Check[] }; volume_at_risk_eur_today: number | null }
 interface MyScope { roles: string[]; raised_pending: number }
 interface GlobeResp { scenario: string; sector?: string; noun?: string; horizons: string[]; n_assets: number; volume_at_risk_eur_today: number | null; kpis?: Kpis; my_scope?: MyScope; assets: GAsset[] }
@@ -312,7 +312,6 @@ export default function Horizon() {
   // left-rail / right-rail helpers
   const fmtEur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${Math.round(v / 1e3)}k`
   const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
-  const openTask = (t: Task) => { S.current.play = false; setPlaying(false); setPanel({ kind: 'task', task: t }) }
   // Choose the year to animate TO, then run from today up to it, so you watch the progression arrive.
   const playTo = (y: number) => { S.current.target = y; setTargetYear(y); S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025); S.current.play = true; setPlaying(true) }
   const togglePlay = () => {
@@ -439,20 +438,41 @@ export default function Horizon() {
               <div className="text-[14px] text-[var(--color-mute)] mt-3 leading-relaxed">Assets are org-wide — everyone sees the whole book. Your scope is what you can <b className="text-[#F4EFE6]">act on</b>: {tasks.length} open action{tasks.length !== 1 ? 's' : ''} routed to your role{myScope.raised_pending ? `, and ${myScope.raised_pending} approval${myScope.raised_pending !== 1 ? 's' : ''} you raised waiting on a second pair of eyes` : ''}.</div>
               <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)] mt-6 mb-2">Your open actions</div>
               <div className="flex flex-col gap-2">{tasks.map(t => (
-                <button key={t.key} onClick={() => openTask(t)} className="text-left rounded-lg border border-[var(--color-line)] px-3 py-2.5 hover:border-[var(--color-sky)] text-[14px] text-[var(--color-ink)]">{t.title}</button>))}</div>
+                <button key={t.key} onClick={() => nav(t.cta_href)}
+                  className="group/task text-left rounded-lg border border-[var(--color-line)] px-3 py-2.5 hover:border-[color:var(--tint)] transition"
+                  style={{ ['--tint' as string]: SEV_COL[t.severity] || 'var(--color-sky)' }}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: SEV_COL[t.severity] || 'var(--color-sky)' }} />
+                    <span className="flex-1 min-w-0 text-[14px] text-[var(--color-ink)] leading-snug">{t.title}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1 ml-[18px]">
+                    {t.due ? <span className="mono text-[11px] text-[var(--color-faint)]">{t.due}</span> : <span />}
+                    <span className="mono text-[11px] text-[color:var(--tint)] inline-flex items-center gap-1 whitespace-nowrap">{t.cta_label} <ArrowRight size={11} /></span>
+                  </div>
+                </button>))}</div>
             </div>
           )}
           {panel.kind === 'readiness' && kpis && (
             <div className="mt-6">
               <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)]">Filing readiness</div>
               <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{kpis.readiness.passed} of {kpis.readiness.total} controls green</div>
-              <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">The pre-filing checklist — each is a real control, not a score.</div>
-              <div className="flex flex-col gap-3 mt-5">{kpis.readiness.checks.map(c => (
-                <div key={c.key} className="flex gap-3 items-start">
+              <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">The pre-filing checklist — each is a real control. A failing one links straight to where you fix it.</div>
+              <div className="flex flex-col gap-2 mt-5">{kpis.readiness.checks.map(c => {
+                // a failing check the workflow knows how to fix is a click-through; passing / unrouted checks are static
+                const actionable = !c.ok && !!c.fix_href
+                const Row = actionable ? 'button' : 'div'
+                return (
+                <Row key={c.key} {...(actionable ? { onClick: () => nav(c.fix_href!) } : {})}
+                  className={`w-full text-left flex gap-3 items-start rounded-lg px-3 py-2.5 ${actionable ? 'border border-[#3a3320] bg-[#171208] hover:border-[var(--color-warn)] transition cursor-pointer' : ''}`}>
                   <span className="mt-0.5 shrink-0 text-[15px]" style={{ color: c.ok ? '#5FB98C' : '#E8B24C' }}>{c.ok ? '✓' : '○'}</span>
-                  <div><div className="text-[14px] text-[var(--color-ink)] leading-snug">{c.label}</div>{c.hint && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-0.5">{c.hint}</div>}</div>
-                </div>))}</div>
-              <button onClick={() => nav('/admin')} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Open readiness in Admin <ArrowRight size={14} /></button>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] text-[var(--color-ink)] leading-snug">{c.label}</div>
+                    {c.hint && <div className="mono text-[11.5px] text-[var(--color-faint)] mt-0.5">{c.hint}</div>}
+                    {actionable && <div className="mono text-[11px] text-[var(--color-warn)] mt-1.5 inline-flex items-center gap-1">{c.fix_label} <ArrowRight size={11} /></div>}
+                  </div>
+                </Row>)
+              })}</div>
+              <button onClick={() => nav('/admin')} className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[11px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-5 py-2.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">Full checklist in Control Center <ArrowRight size={14} /></button>
             </div>
           )}
           {(panel.kind === 'book' || panel.kind === 'elevated') && kpis && (
@@ -467,15 +487,6 @@ export default function Horizon() {
                     <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
                   </button>) })}
               </div>
-            </div>
-          )}
-          {panel.kind === 'task' && panel.task && (
-            <div className="mt-6">
-              <div className="mono text-[11.5px] tracking-[0.22em] uppercase" style={{ color: SEV_COL[panel.task.severity] || 'var(--color-sky)' }}>{panel.task.bucket.replace('_', ' ')}{panel.task.due ? ` · ${panel.task.due}` : ''}</div>
-              <div className="display text-[26px] leading-tight text-[#F4EFE6] mt-2">{panel.task.title}</div>
-              <div className="text-[14.5px] text-[var(--color-mute)] mt-3 leading-relaxed">{panel.task.detail}</div>
-              <button onClick={() => nav(panel.task!.cta_href)} className="mt-6 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-sky)] border border-[var(--color-sky)] rounded-full px-5 py-3.5 hover:opacity-90">{panel.task.cta_label} <ArrowRight size={14} /></button>
-              <div className="mono text-[11px] text-[var(--color-faint)] mt-3 text-center">opens the workspace to complete it</div>
             </div>
           )}
         </div>

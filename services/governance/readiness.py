@@ -15,6 +15,31 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+# The workflow destination that REMEDIATES each check — the single source of truth for "where do I go to fix
+# this?", colocated with the check definitions so the cockpit never hardcodes a route. Keyed by check key;
+# golden_source is sector-nuanced (handled in _attach_fix). A check with no entry simply isn't click-through.
+_FIX: dict[str, tuple[str, str]] = {
+    "identity":             ("/admin?setup=identity", "Finish setup"),
+    "second_approver":      ("/admin?tab=team",       "Add an approver"),
+    "sites_scored":         ("/operations",           "Add & score sites"),
+    "plots_polygons":       ("/sourcing",             "Add plot polygons"),
+    "eudr_run":             ("/disclosure",           "Run EUDR"),
+    "calibrations_current": ("/models",               "Review calibrations"),
+    "inputs_high_quality":  ("/data",                 "Fix inputs"),
+}
+
+
+def _attach_fix(checks: list[dict], is_agri: bool) -> list[dict]:
+    """Stamp each check with the workflow page that fixes it (fix_href/fix_label). The cockpit renders a
+    failing check as a click-through straight to that page — the workflow, not the UI, owns the routing."""
+    for c in checks:
+        if c["key"] == "golden_source_fresh":
+            c["fix_href"], c["fix_label"] = ("/foundation" if is_agri else "/data", "Review data source")
+        else:
+            href, label = _FIX.get(c["key"], (None, None))
+            c["fix_href"], c["fix_label"] = href, label
+    return checks
+
 
 def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
     """Return {passed, total, checks:[{key,label,ok,hint}]} for this org, sector-aware.
@@ -55,7 +80,7 @@ def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
             golden_source_check,
         ]
         passed = sum(1 for c in checks if c["ok"])
-        return {"passed": passed, "total": len(checks), "checks": checks}
+        return {"passed": passed, "total": len(checks), "checks": _attach_fix(checks, is_agri)}
 
     # ── Agriculture (manufacturer): the full eight, identical to the Control Center ──────────────────
     sites = session.execute(text("""
@@ -110,4 +135,4 @@ def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
                    "ok": iq["all_clear"],
                    "hint": ("Fix before filing — " + "; ".join(iq_bits) + "." if iq_bits else None)})
     passed = sum(1 for c in checks if c["ok"])
-    return {"passed": passed, "total": len(checks), "checks": checks}
+    return {"passed": passed, "total": len(checks), "checks": _attach_fix(checks, is_agri)}
