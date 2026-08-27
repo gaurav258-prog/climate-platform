@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight } from 'lucide-react'
+import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
 
@@ -8,8 +8,8 @@ import { Card, PageHeader, HeroBanner } from '../components/ui'
 // process (that internal pipeline lives on the platform-operator page).
 
 interface InForce { framework: string; name: string; authority: string; frequency: string; requires: string; citation: string; url: string | null }
-interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null }
-interface Outlook { in_force: InForce[]; coming: Coming[]; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number } }
+interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string }
+interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | null; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number; n_detected: number; n_verified: number } }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
 
@@ -69,7 +69,10 @@ export default function RegChanges() {
                     <Card key={i} className="p-0 overflow-hidden">
                       <div className="px-4 py-3.5 flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{c.title}</div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {c.source === 'detected' && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 16%, transparent)' }}><Radar size={9} /> newly detected · pending review</span>}
+                            <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{c.title}</div>
+                          </div>
                           <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{c.whats_changing}</p>
                           <a href={c.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mono text-[10px] text-[var(--color-sky)] mt-2 inline-flex items-center gap-1 hover:underline"><ExternalLink size={10} /> {c.citation}</a>
                         </div>
@@ -78,6 +81,8 @@ export default function RegChanges() {
                             {c.date_fixed ? <><CheckCircle2 size={10} /> Confirmed date</> : 'Not yet fixed'}
                           </div>
                           <div className="mono text-[11.5px] text-[var(--color-ink)] mt-0.5 max-w-[190px]" style={c.date_fixed ? { fontWeight: 600 } : undefined}>{c.when}</div>
+                          {c.verified_date && <div className="mono text-[9px] text-[var(--color-good)] mt-1 inline-flex items-center gap-1 justify-end"><CheckCircle2 size={9} /> verified vs EUR-Lex{c.verified_at ? ` · ${c.verified_at}` : ''}</div>}
+                          {c.date_moved && <div className="mono text-[9px] text-[var(--color-warn)] mt-0.5">↑ updated from an earlier date</div>}
                         </div>
                       </div>
                       {/* what YOU need to prepare — the only "action" this page ever asks of a customer */}
@@ -96,8 +101,9 @@ export default function RegChanges() {
                     </Card>
                   ))}
                 </div>}
-            <div className="mono text-[10px] text-[var(--color-faint)] mt-3 flex items-center gap-1.5">
-              <ArrowRight size={11} /> A <b className="text-[var(--color-good)]">confirmed date</b> is fixed in the cited regulation; <b>not yet fixed</b> means the regulator hasn't set one (a live proposal or jurisdiction-by-jurisdiction adoption) — we don't guess.
+            <div className="mono text-[10px] text-[var(--color-faint)] mt-3 space-y-1">
+              <div className="flex items-start gap-1.5"><ArrowRight size={11} className="mt-0.5 shrink-0" /> A <b className="text-[var(--color-good)]">confirmed date</b> is fixed in the cited regulation; <b>not yet fixed</b> means the regulator hasn't set one — we don't guess.</div>
+              {d.checked_at && <div className="flex items-start gap-1.5"><Radar size={11} className="mt-0.5 shrink-0 text-[var(--color-good)]" /> Dates are checked live against the official EU register (EUR-Lex / Cellar) — last checked <b className="text-[var(--color-mute)]">{d.checked_at}</b>. A <span style={{ color: '#a78bfa' }}>newly-detected</span> change is a machine-spotted move awaiting our confirmation.</div>}
             </div>
           </div>
         </>)}

@@ -222,8 +222,8 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
                     kmap[k["key"]] = k
             except Exception:
                 pass
-        # tie to the regulatory-change signal: any coming change touching this framework flags its questions
-        fw_changes = changes_affecting(org_type, fw)
+        # tie to the regulatory-change signal (curated + live EUR-Lex detector): any change touching this framework flags its questions
+        fw_changes = changes_affecting(org_type, fw, session)
         entry = grouped.setdefault(sid, {"framework_ids": set(), "by_q": {}, "changes": {}})
         entry["framework_ids"].add(fw)
         for ch in fw_changes:

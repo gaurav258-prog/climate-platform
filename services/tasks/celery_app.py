@@ -28,7 +28,7 @@ celery_app = Celery(
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
     include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
-             "services.tasks.decision_tasks", "services.tasks.kri_tasks"],
+             "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks"],
 )
 
 celery_app.conf.update(
@@ -77,5 +77,11 @@ celery_app.conf.beat_schedule = {
     "kri-observe-sweep": {
         "task": "kri.observe_sweep",
         "schedule": crontab(minute=0),   # top of every hour
+    },
+    # Scan EUR-Lex (Cellar SPARQL) daily for legal-date changes to the tracked frameworks — keeps the
+    # regulatory outlook's dates verified live and surfaces detected changes for review.
+    "scan-eurlex-daily": {
+        "task": "reg.scan_eurlex",
+        "schedule": crontab(hour=5, minute=15),   # once a day, early
     },
 }

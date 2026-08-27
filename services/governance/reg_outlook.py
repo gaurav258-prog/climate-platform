@@ -18,7 +18,7 @@ from services.governance.reg_reference import REFERENCE
 _EURLEX = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
 COMING: list[dict] = [
     {"sectors": ["manufacturer"], "framework": "eudr_dds", "affects": ["eudr_dds"], "title": "EUDR obligations take effect",
-     "date": "2025-12-30", "when": "30 Dec 2025 · large operators & traders (SMEs 30 Jun 2026)",
+     "date": "2026-12-30", "when": "30 Dec 2026 · large operators & traders (SMEs 30 Jun 2027)",
      "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
      "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
      "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234", "url": _EURLEX + "32024R3234"},
@@ -58,17 +58,26 @@ COMING: list[dict] = [
 ]
 
 
-def changes_affecting(org_type: str | None, framework: str) -> list[dict]:
+def changes_affecting(org_type: str | None, framework: str, session=None) -> list[dict]:
     """Coming changes (for this sector) that touch a given framework — the single signal both the customer
-    outlook and the supervisory-question 'review recommended' flags read from. When the automated change
-    detector is wired, it feeds this same shape."""
+    outlook and the supervisory-question 'review recommended' flags read from. Combines the curated library
+    with anything the live EUR-Lex detector has flagged for this framework (session required for the latter)."""
     out = []
     for c in COMING:
         if org_type not in (c.get("sectors") or []):
             continue
         if c.get("framework") == framework or framework in (c.get("affects") or []):
             out.append({"title": c["title"], "when": c["when"], "date": c.get("date"),
-                        "citation": c["citation"], "url": c.get("url")})
+                        "citation": c["citation"], "url": c.get("url"), "source": "curated"})
+    if session is not None:
+        try:
+            from services.regulatory_monitoring.eurlex_detector import detected_changes
+            for dc in detected_changes(session, framework):
+                out.append({"title": dc["title"], "when": (dc["effective_date"] or f"detected {dc['detected_at']}"),
+                            "date": dc["effective_date"], "citation": f"EUR-Lex · CELEX:{dc['celex']}",
+                            "url": dc["url"], "source": "detected", "status": dc["status"]})
+        except Exception:
+            pass
     return out
 
 
@@ -78,8 +87,22 @@ def _short(fw: str) -> str:
     return r.get("summary") or (FRAMEWORKS.get(fw, {}).get("label") or "")
 
 
-def outlook(org_type: str | None) -> dict:
-    """The customer's regulatory outlook: what's in force for this sector today, and what's coming."""
+def outlook(org_type: str | None, session=None) -> dict:
+    """The customer's regulatory outlook: what's in force for this sector today, and what's coming — with the
+    coming dates verified live against the EUR-Lex register, plus any changes the live detector has flagged."""
+    # live-verified legal dates + auto-detected changes from the EUR-Lex (Cellar) detector
+    verified: dict = {}
+    detected: list[dict] = []
+    checked_at = None
+    if session is not None:
+        try:
+            from services.regulatory_monitoring.eurlex_detector import verified_dates, detected_changes
+            verified = verified_dates(session)
+            detected = detected_changes(session)
+            checked_at = next((v.get("checked_at") for v in verified.values() if v.get("checked_at")), None)
+        except Exception:
+            verified, detected = {}, []
+
     in_force = []
     for fw, meta in FRAMEWORKS.items():
         if org_type not in (meta.get("sectors") or ()):
@@ -102,10 +125,35 @@ def outlook(org_type: str | None) -> dict:
             continue
         item = {k: c[k] for k in ("framework", "title", "date", "when", "whats_changing", "prepare", "citation", "url")}
         item["date_fixed"] = c.get("date") is not None
+        item["source"] = "curated"
+        # reconcile the curated date against the live EUR-Lex register — only for items that (a) carry a fixed
+        # date and (b) are tied to a single governing act, so we compare like with like (not a sub-timeline).
+        fw = c.get("framework")
+        v = verified.get(fw) if fw else None
+        if v and v.get("next_effective") and item["date_fixed"]:
+            item["verified_date"] = v["next_effective"]
+            item["verified_at"] = v.get("checked_at")
+            if item["date"] != v["next_effective"]:
+                item["date_moved"] = True   # our curated date differed from the register
+                item["date"] = v["next_effective"]
         coming.append(item)
+    # auto-detected changes from the live scan → new "pending review" items
+    for dc in detected:
+        # only surface those relevant to this sector's frameworks
+        if not any(dc["framework"] in (c.get("affects") or []) or dc["framework"] == c.get("framework")
+                   for c in COMING if org_type in (c.get("sectors") or [])) \
+           and dc["framework"] not in [f for f in FRAMEWORKS if org_type in (FRAMEWORKS[f].get("sectors") or ())]:
+            continue
+        coming.append({"framework": dc["framework"], "title": dc["title"], "date": dc["effective_date"],
+                       "date_fixed": dc["effective_date"] is not None, "when": (dc["effective_date"] or "newly detected"),
+                       "whats_changing": dc["summary"], "prepare": None,
+                       "citation": f"EUR-Lex · CELEX:{dc['celex']}", "url": dc["url"],
+                       "source": "detected", "status": dc["status"], "detected_at": dc["detected_at"]})
     # confirmed exact dates first, chronologically; then the not-yet-fixed ones
     coming.sort(key=lambda c: (c["date"] is None, c["date"] or "9999"))
-    return {"in_force": in_force, "coming": coming,
+    return {"in_force": in_force, "coming": coming, "checked_at": checked_at,
             "summary": {"n_in_force": len(in_force), "n_coming": len(coming),
                         "n_prepare": sum(1 for c in coming if c.get("prepare")),
-                        "n_dated": sum(1 for c in coming if c["date_fixed"])}}
+                        "n_dated": sum(1 for c in coming if c["date_fixed"]),
+                        "n_detected": sum(1 for c in coming if c.get("source") == "detected"),
+                        "n_verified": sum(1 for c in coming if c.get("verified_date"))}}
