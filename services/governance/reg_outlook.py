@@ -181,6 +181,16 @@ def outlook(org_type: str | None, session=None, org_id: str | None = None) -> di
                        "whats_changing": dc["summary"], "prepare": None, "data_fields": [], "data_tbc": None,
                        "citation": f"EUR-Lex · CELEX:{dc['celex']}", "url": dc["url"],
                        "source": "detected", "status": dc["status"], "detected_at": dc["detected_at"]})
+    # per-org impact (deadline urgency + record scope) on every coming change, from the client's own book
+    if session is not None and org_id:
+        try:
+            from services.governance.reg_impact import change_impact
+            for it in coming:
+                imp = change_impact(session, org_id, it.get("framework"), it.get("date"))
+                if imp:
+                    it["impact"] = imp
+        except Exception:
+            pass
     # confirmed exact dates first, chronologically; then the not-yet-fixed ones
     coming.sort(key=lambda c: (c["date"] is None, c["date"] or "9999"))
     return {"in_force": in_force, "coming": coming, "checked_at": checked_at,

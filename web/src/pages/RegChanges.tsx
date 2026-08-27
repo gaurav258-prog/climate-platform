@@ -11,7 +11,8 @@ import { Card, PageHeader, HeroBanner } from '../components/ui'
 interface InForce { framework: string; name: string; authority: string; frequency: string; requires: string; citation: string; url: string | null }
 interface DataField { field: string; note: string; status?: string; detail?: string | null }
 interface DataSummary { have: number; partial: number; needed: number; total: number }
-interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null; data_summary?: DataSummary }
+interface Impact { deadline?: { date: string; days: number; band: string }; scope?: { n: number; label: string } }
+interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null; data_summary?: DataSummary; impact?: Impact }
 interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | null; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number; n_detected: number; n_verified: number } }
 
 interface Act { celex: string; title: string; role: string; in_force: boolean; in_force_since: string | null; next_effective: string | null; future: string[]; url: string; live: boolean }
@@ -32,6 +33,18 @@ function ComingCard({ c }: { c: Coming }) {
             <div className="text-[14px] font-medium text-[var(--color-ink)] leading-snug">{c.title}</div>
           </div>
           <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{c.whats_changing}</p>
+          {/* per-org impact — the deadline urgency + how many of YOUR records it touches (CRCS) */}
+          {c.impact && (c.impact.deadline || c.impact.scope) && (() => {
+            const b = c.impact.deadline?.band
+            const tone = b === 'critical' ? '#fb7185' : b === 'soon' ? 'var(--color-sky)' : b === 'in_force' ? 'var(--color-good)' : 'var(--color-faint)'
+            const days = c.impact.deadline?.days ?? 0
+            return (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {c.impact.deadline && <span className="mono text-[9.5px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: tone, background: `color-mix(in oklab, ${tone} 14%, transparent)` }}><Clock size={10} />{b === 'in_force' ? 'in force' : `${days} day${days === 1 ? '' : 's'} to go`}</span>}
+                {c.impact.scope && <span className="mono text-[10px] text-[var(--color-mute)]">affects <b className="text-[var(--color-ink)]">{c.impact.scope.n}</b> of your {c.impact.scope.label}</span>}
+              </div>
+            )
+          })()}
           <a href={c.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mono text-[10px] text-[var(--color-sky)] mt-2 inline-flex items-center gap-1 hover:underline"><ExternalLink size={10} /> {c.citation}</a>
         </div>
         <div className="shrink-0 text-right">
