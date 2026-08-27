@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom'
-import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, Scale, Eye, HelpCircle, ExternalLink } from 'lucide-react'
+import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, ChevronDown, Scale, Eye, HelpCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 
@@ -90,88 +90,101 @@ function RegulatorView({ q }: { q: ReturnType<typeof useQuery<SupResp>> }) {
       </div>
 
       <div className="space-y-5">
-        {d.supervisors.map(s => (
-          <Card key={s.id} className="p-0 overflow-hidden">
-            <div className="px-5 py-4 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2"><Scale size={15} className="text-[var(--color-sky)] shrink-0" /><span className="text-[15px] font-semibold text-[var(--color-ink)]">{s.name}</span></div>
-                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{s.jurisdiction}</div>
-                </div>
-                <div className="mono text-[10px] text-[var(--color-faint)] shrink-0 text-right">{s.answered}/{s.total} answered<br />by your data</div>
-              </div>
-              <p className="text-[13px] text-[var(--color-mute)] mt-2.5 leading-relaxed max-w-3xl">{s.mission}</p>
-              <div className="mono text-[10px] text-[var(--color-faint)] mt-2">{s.reference}</div>
-            </div>
-
-            {/* review-recommended banner — a regulatory change touches this supervisor's frameworks */}
-            {s.review.needs_review && (
-              <div className="px-5 py-3 border-b border-[var(--color-line)]" style={{ background: 'color-mix(in oklab, var(--color-warn) 8%, transparent)' }}>
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle size={14} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="text-[12.5px] font-medium text-[var(--color-ink)]">Review recommended — the regulation is moving</div>
-                    <div className="text-[12px] text-[var(--color-mute)] mt-0.5 leading-snug">These questions were verified against the rules as they stood; a change below may affect them. We flag it so nothing goes stale.</div>
-                    <div className="flex flex-col gap-1 mt-2">
-                      {s.review.changes.map((c, i) => (
-                        <div key={i} className="mono text-[10.5px] text-[var(--color-mute)] flex flex-wrap items-center gap-x-2">
-                          <span className="text-[var(--color-warn)]">▸</span><span className="text-[var(--color-ink)]">{c.title}</span>
-                          <span className="text-[var(--color-faint)]">· {c.when}</span>
-                          {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[var(--color-sky)] hover:underline"><ExternalLink size={9} />{c.citation}</a>}
-                        </div>
-                      ))}
-                    </div>
-                    <Link to="/reg-changes" className="mono text-[10.5px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1 mt-2">See the regulatory outlook <ChevronRight size={11} /></Link>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* what they scrutinise */}
-            <div className="px-5 py-3.5">
-              <SectionHead hint="what they look at · the transparency they seek" className="mb-2.5">Supervisory focus</SectionHead>
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {s.focus_areas.map((f, i) => (
-                  <div key={i} className="rounded-lg border border-[var(--color-line)] px-3.5 py-3">
-                    <div className="text-[13px] font-medium text-[var(--color-ink)] mb-1">{f.title}</div>
-                    <div className="text-[12px] text-[var(--color-mute)] leading-snug">{f.scrutiny}</div>
-                    <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1.5 leading-snug">Seeks: {f.transparency}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* the questions to expect, answered by your figures */}
-            <div className="px-5 pb-4">
-              <SectionHead icon={HelpCircle} hint="be ready for these — with your own number" className="mb-2.5">Questions to expect</SectionHead>
-              <div className="divide-y divide-[var(--color-line)] rounded-lg border border-[var(--color-line)] overflow-hidden">
-                {s.questions.map((qq, i) => (
-                  <div key={i} className="px-4 py-3 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-[13px] text-[var(--color-ink)] leading-snug">{qq.question}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{qq.focus}</span>
-                        {qq.review && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' }} title="A regulatory change may affect this question">review</span>}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {qq.answer
-                        ? <>
-                            <div className="mono text-[14px] tabular-nums font-medium" style={{ color: qq.answer.breached ? '#fb7185' : 'var(--color-ink)' }}>
-                              {fmtVal(qq.answer.value, qq.answer.fmt)}{qq.answer.breached && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
-                            </div>
-                            <div className="mono text-[9.5px] text-[var(--color-faint)] max-w-[160px] truncate">{qq.answer.label}</div>
-                          </>
-                        : <div className="mono text-[10.5px] text-[var(--color-mute)] max-w-[170px] leading-snug">{qq.metric ? `in your filing · ${qq.metric}` : 'not produced yet'}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-        ))}
+        {d.supervisors.map(s => <SupervisorCard key={s.id} s={s} />)}
       </div>
     </>
+  )
+}
+
+function SupervisorCard({ s }: { s: Supervisor }) {
+  const [showFocus, setShowFocus] = useState(false)
+  const [showReview, setShowReview] = useState(false)
+  return (
+    <Card className="p-0 overflow-hidden">
+      {/* header — name, coverage, mission; the dense detail sits behind the toggles below */}
+      <div className="px-5 pt-4 pb-3.5 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2"><Scale size={16} className="text-[var(--color-sky)] shrink-0" /><span className="text-[15.5px] font-semibold text-[var(--color-ink)]">{s.name}</span></div>
+            <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{s.jurisdiction}</div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-[17px] font-semibold tabular-nums text-[var(--color-ink)] leading-none">{s.answered}<span className="text-[var(--color-faint)] text-[13px]">/{s.total}</span></div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1">answered by you</div>
+          </div>
+        </div>
+        <p className="text-[13px] text-[var(--color-mute)] mt-3 leading-relaxed max-w-2xl">{s.mission}</p>
+        {/* compact controls — review flag + a toggle to reveal what they scrutinise (both collapsed by default) */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {s.review.needs_review && (
+            <button onClick={() => setShowReview(v => !v)} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 13%, transparent)' }}>
+              <AlertTriangle size={11} /> Review recommended · {s.review.changes.length} {showReview ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            </button>
+          )}
+          <button onClick={() => setShowFocus(v => !v)} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-[var(--color-mute)] border border-[var(--color-line-2)] hover:text-[var(--color-ink)] hover:border-[var(--color-sky)] transition">
+            {showFocus ? <ChevronDown size={12} /> : <ChevronRight size={12} />} What they scrutinise · {s.focus_areas.length}
+          </button>
+          <span className="mono text-[9.5px] text-[var(--color-faint)] ml-auto truncate max-w-[46%] text-right" title={s.reference}>{s.reference}</span>
+        </div>
+        {showReview && s.review.needs_review && (
+          <div className="mt-2.5 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-3.5 py-2.5">
+            <div className="text-[12px] text-[var(--color-mute)] leading-snug">These questions were verified against the rules as they stood; the change{s.review.changes.length === 1 ? '' : 's'} below may affect them.</div>
+            <div className="flex flex-col gap-1.5 mt-2">
+              {s.review.changes.map((c, i) => (
+                <div key={i} className="text-[12px] flex flex-wrap items-center gap-x-2">
+                  <span className="text-[var(--color-warn)]">▸</span><span className="text-[var(--color-ink)]">{c.title}</span>
+                  <span className="mono text-[10px] text-[var(--color-faint)]">· {c.when}</span>
+                </div>
+              ))}
+            </div>
+            <Link to="/reg-changes" className="mono text-[10.5px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1 mt-2">See the regulatory outlook <ChevronRight size={11} /></Link>
+          </div>
+        )}
+      </div>
+
+      {/* what they scrutinise — collapsed by default so the page leads with the questions */}
+      {showFocus && (
+        <div className="px-5 py-3.5 border-b border-[var(--color-line)]">
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            {s.focus_areas.map((f, i) => (
+              <div key={i} className="rounded-lg border border-[var(--color-line)] px-3.5 py-3">
+                <div className="text-[13px] font-medium text-[var(--color-ink)] mb-1">{f.title}</div>
+                <div className="text-[12px] text-[var(--color-mute)] leading-snug">{f.scrutiny}</div>
+                <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1.5 leading-snug">Seeks: {f.transparency}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* the questions to expect — the hero of the card, answered by your figures */}
+      <div className="px-5 py-4">
+        <SectionHead icon={HelpCircle} hint="be ready for these — with your own number" className="mb-2.5">Questions to expect</SectionHead>
+        <div className="divide-y divide-[var(--color-line)] rounded-lg border border-[var(--color-line)] overflow-hidden">
+          {s.questions.map((qq, i) => (
+            <div key={i} className="px-4 py-3.5 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-[13.5px] text-[var(--color-ink)] leading-snug">{qq.question}</div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)]">{qq.focus}</span>
+                  {qq.review && <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' }} title="A regulatory change may affect this question">review</span>}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                {qq.answer
+                  ? <>
+                      <div className="mono text-[15px] tabular-nums font-medium" style={{ color: qq.answer.breached ? '#fb7185' : 'var(--color-ink)' }}>
+                        {fmtVal(qq.answer.value, qq.answer.fmt)}{qq.answer.breached && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
+                      </div>
+                      <div className="mono text-[9.5px] text-[var(--color-faint)] max-w-[160px] truncate">{qq.answer.label}</div>
+                    </>
+                  : <div className="mono text-[10.5px] text-[var(--color-mute)] max-w-[170px] leading-snug">{qq.metric ? `in your filing` : 'not produced yet'}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   )
 }
 
