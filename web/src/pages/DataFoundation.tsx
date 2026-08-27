@@ -3,7 +3,6 @@ import { api } from '../lib/api'
 import { Eyebrow, Card, Stat } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import { Radar, Upload, Boxes, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
-import LiveEarthHero from '../components/LiveEarthHero'
 import SeasonalArrears from '../components/SeasonalArrears'
 import PricePressure from '../components/PricePressure'
 
@@ -24,15 +23,6 @@ export default function DataFoundation() {
 
   return (
     <div className="fadeup space-y-7">
-      {/* live Earth-from-space banner — the data foundation's front door */}
-      <LiveEarthHero height="34vh">
-        <div className="display text-[clamp(24px,4vw,44px)] font-semibold italic leading-none text-[#F4EFE6]">
-          Tel<span className="text-[var(--color-sky)]">lumen</span>
-        </div>
-        <p className="display italic mt-4 text-[clamp(15px,2.2vw,26px)] font-light leading-tight text-[#F4EFE6]">
-          See what's coming. <span className="text-[var(--color-sky)]">Any place on Earth.</span>
-        </p>
-      </LiveEarthHero>
       <div>
         <Eyebrow>Agriculture · data foundation</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">One golden source in. A defensible number out.</h1>
