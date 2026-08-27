@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Timer, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card } from './ui'
+import { Card, StatGrid, type StatItem } from './ui'
 
 // Detection lag — how long each KRI sat in breach before anyone acted on it. Every figure here is a pure
 // timestamp fact from the breach-episode ledger (onset when first observed out of appetite → acknowledged
@@ -19,16 +19,6 @@ interface Resp {
 
 const dur = (n: number | null) => n == null ? '—' : n < 1 ? `${Math.round(n * 24)}h` : `${n < 10 ? n.toFixed(1) : Math.round(n)}d`
 
-function Stat({ label, value, tone = 'ink' }: { label: string; value: string; tone?: 'ink' | 'good' | 'bad' | 'warn' }) {
-  const c = { ink: 'var(--color-ink)', good: 'var(--color-good)', bad: 'var(--color-bad)', warn: 'var(--color-warn)' }[tone]
-  return (
-    <div>
-      <div className="display text-[22px] leading-none tabular-nums" style={{ color: c }}>{value}</div>
-      <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">{label}</div>
-    </div>
-  )
-}
-
 export default function DetectionLag({ framework }: { framework: string }) {
   const q = useQuery({
     queryKey: ['kri-detection-lag', framework],
@@ -40,6 +30,13 @@ export default function DetectionLag({ framework }: { framework: string }) {
   const s = d.summary
   const open = d.episodes.filter(e => e.open).sort((a, b) => b.days_in_breach - a.days_in_breach)
 
+  const metrics: StatItem[] = [
+    { label: 'Open breaches', value: String(s.n_open) },
+    { label: 'Unacknowledged', value: String(s.n_unacknowledged), accent: s.n_unacknowledged ? 'var(--color-bad)' : 'var(--color-good)' },
+    { label: 'Worst open', value: dur(s.worst_open_unacknowledged_days), accent: (s.worst_open_unacknowledged_days ?? 0) >= 7 ? 'var(--color-warn)' : undefined },
+    { label: 'Median response', value: dur(s.median_response_lag_days) },
+  ]
+
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -47,12 +44,7 @@ export default function DetectionLag({ framework }: { framework: string }) {
         <h3 className="font-semibold text-[14px] text-[var(--color-ink)]">Detection lag</h3>
         <span className="text-[12px] text-[var(--color-mute)] hidden sm:inline">· how long a breach sits before it's actioned</span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <Stat label="Open breaches" value={String(s.n_open)} />
-        <Stat label="Unacknowledged" value={String(s.n_unacknowledged)} tone={s.n_unacknowledged ? 'bad' : 'good'} />
-        <Stat label="Worst open" value={dur(s.worst_open_unacknowledged_days)} tone={(s.worst_open_unacknowledged_days ?? 0) >= 7 ? 'warn' : 'ink'} />
-        <Stat label="Median response" value={dur(s.median_response_lag_days)} />
-      </div>
+      <StatGrid items={metrics} cols={4} className="mb-4" />
       {open.length > 0 && (
         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
           {open.slice(0, 6).map(e => (

@@ -4,6 +4,7 @@ import { Check } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button, PageHeader } from '../components/ui'
+import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 
 interface Plan { key: string; seats: number; price_cents: number; label: string }
 interface Invoice { number: string; amount_cents: number; currency: string; status: string; created_at: string }
@@ -31,6 +32,7 @@ export default function Billing() {
 
   return (
     <div className="fadeup space-y-6 max-w-[860px]">
+      <SectionTabs tabs={ADMIN_TABS} />
       <PageHeader eyebrow="Set up · billing" title="Plan & billing"
         lead={`You're on the ${d.plans.find(p => p.key === d.subscription?.plan)?.label ?? d.subscription?.plan ?? 'trial'} plan${d.billing_provider === 'manual' ? ' · invoiced manually' : ' · billed via Stripe'}.`} />
 

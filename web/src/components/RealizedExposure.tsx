@@ -46,6 +46,19 @@ export default function RealizedExposure() {
   const d = q.data
   const [openIdx, setOpenIdx] = useState<number | null>(null)
   const [drawerId, setDrawerId] = useState<string | null>(null)
+  // While the request is in flight, hold a placeholder of the card's own height rather than collapsing to
+  // nothing — otherwise the card pops in a second later and shoves every section below it down the page
+  // (the "view changes within seconds" jump). Only truly-empty/unavailable data collapses the slot.
+  if (q.isLoading) return (
+    <div data-theme="dark">
+      <Card className="p-5 min-h-[240px] flex items-center justify-center"
+        style={{ borderColor: 'var(--color-blued)', background: 'linear-gradient(180deg,#0e2338,var(--color-panel))' }}>
+        <span className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-sky)] opacity-70">
+          Realized exposure · observed history — loading…
+        </span>
+      </Card>
+    </div>
+  )
   if (!d || !d.available || !d.events || d.events.length === 0) return null
   const cfg = d.sector ? SECTOR_CFG[d.sector] : undefined
 

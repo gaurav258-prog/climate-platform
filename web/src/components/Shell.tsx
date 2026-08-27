@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight, Sigma, Scale, KeyRound, Satellite, Network, FileSearch, UserPlus, Telescope } from 'lucide-react'
+import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -20,57 +20,52 @@ type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?
 // announces which stage of the loop it belongs to. Items stay sector-scoped (a bank never sees the agri
 // pages), so the same six-stage spine shapes both the financial and agriculture workspaces.
 type Group = { label: string | null; color?: string; flow?: boolean; items: Item[] }
+// Each sidebar entry is ONE destination. Where several related pages belong together, they are folded into a
+// single hub entry and reached as in-page tabs on that surface (Your data → SectionTabs · DATA_TABS; Risk &
+// analysis → ReviewTabs; Reports & filings → ReportTabs; Settings & team + Help → SectionTabs), so nothing is
+// buried in a "More" drawer. Visibility is gated two ways, both strict: `sectors` scopes an item to org types,
+// and `perm`/`anyPerm` scopes it to what the signed-in role may do — a role simply doesn't see what it can't use.
 const GROUPS: Group[] = [
   { label: 'Sense', color: 'var(--stage-sense)', flow: true, items: [
     { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
+    // Your data hub: Our sites · Suppliers & crops · Data dictionary · Data sources · Transmission (SectionTabs)
     { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view' },
-    { to: '/operations', label: 'Our sites', icon: Building2, perm: 'modules.view', sectors: AGRI },
-    { to: '/sourcing', label: 'Suppliers & crops', icon: Sprout, perm: 'modules.view', sectors: AGRI },
     { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },
     { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view', sectors: AGRI },
   ] },
   { label: 'Assess', color: 'var(--stage-assess)', flow: true, items: [
-    { to: '/kri', label: 'KRI dashboard', icon: Gauge, perm: 'modules.view' },
-    { to: '/track-record', label: 'Climate track record', icon: History, perm: 'modules.view' },
-    { to: '/underwriting', label: 'Underwriting review', icon: FileSearch, perm: 'modules.view', sectors: ['insurer'] },
-    { to: '/model-validation', label: 'Model validation', icon: FlaskConical, perm: 'modules.view' },
-    { to: '/analytics', label: 'Analytics', icon: LineChart, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit'] },
-    { to: '/models', label: 'How we score', icon: Sigma, perm: 'modules.view', sectors: AGRI },
+    // Risk & analysis hub: KRIs · Analytics · Track record · Underwriting · Model validation · How we score (ReviewTabs)
+    { to: '/kri', label: 'Risk & analysis', icon: Gauge, perm: 'modules.view' },
   ] },
   { label: 'Decide', color: 'var(--stage-decide)', flow: true, items: [
-    { to: '/decisions', label: 'Decisions', icon: Crosshair, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
+    { to: '/decisions', label: 'Decisions', icon: Crosshair, perm: 'decisions.view', sectors: [...FIN, ...AGRI] },
   ] },
   { label: 'Disclose', color: 'var(--stage-disclose)', flow: true, items: [
-    { to: '/funds', label: 'Funds', icon: Layers, perm: 'modules.view', sectors: ['asset_manager'] },
-    { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
-    { to: '/prior-filings', label: 'Prior filings', icon: FileClock, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit'] },
-    // Agri reporting is one hub: /filings is the entry; EUDR · CSRD · ESRS · Prior are tabs inside it (ReportTabs).
-    { to: '/filings', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
-    { to: '/oversight', label: 'Supervisory view', icon: Scale, perm: 'modules.view' },
+    { to: '/funds', label: 'Funds', icon: Layers, perm: 'reports.view', sectors: ['asset_manager'] },
+    // Reports & filings hub (FIN): Prior filings is a tab inside /compliance
+    { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'reports.view', sectors: FIN },
+    // Reports & filings hub (AGRI): EUDR · CSRD · ESRS · Prior filings are tabs inside /filings (ReportTabs)
+    { to: '/filings', label: 'Reports & filings', icon: ShieldCheck, perm: 'reports.view', sectors: AGRI },
+    { to: '/oversight', label: 'Supervisory view', icon: Scale, perm: 'oversight.view' },
   ] },
   { label: 'Operate', color: 'var(--stage-operate)', flow: true, items: [
     { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view' },
     { to: '/approvals', label: 'My approvals', icon: ClipboardCheck, perm: 'approvals.view' },
-    { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'modules.view' },
-    { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'modules.view' },
-    { to: '/transmission', label: 'Transmission', icon: RadioTower, perm: 'modules.view' },
+    { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'ops.oversee' },
+    { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'ops.oversee' },
     { to: '/reg-changes', label: 'Regulatory outlook', icon: Telescope, perm: 'modules.view' },
   ] },
   { label: 'Set up', color: 'var(--stage-setup)', items: [
-    { to: '/onboarding', label: 'Get started', icon: Rocket, perm: 'admin.users.manage' },
-    { to: '/sso', label: 'Single sign-on', icon: KeyRound, perm: 'admin.users.manage' },
-    { to: '/billing', label: 'Plan & billing', icon: CreditCard, perm: 'admin.users.manage' },
     { to: '/account-security', label: 'My security', icon: Fingerprint, perm: 'modules.view' },
-    { to: '/data-dictionary', label: 'Data dictionary', icon: Table2, perm: 'modules.view' },
-    { to: '/foundation', label: 'Where our data comes from', icon: Satellite, perm: 'modules.view', sectors: AGRI },
-    // one door for all governance — Approvals / Audit / Users / Roles / Approval-matrix live as tabs inside
+    // Settings & team hub: Get started · Single sign-on · Plan & billing are tabs inside /admin (SectionTabs · ADMIN_TABS);
+    // /admin itself still tabs Approvals / Audit / Users / Roles / Approval-matrix within its own page.
     { to: '/admin', label: 'Settings & team', icon: Settings,
       anyPerm: ['admin.users.manage', 'approvals.view', 'admin.audit.view', 'admin.roles.manage', 'admin.approval_policy.manage'] },
     { to: '/contracts', label: 'Contracts', icon: FileSignature, perm: 'contracts.view' },
+    // Help hub: Support is a tab inside /docs (SectionTabs · HELP_TABS)
     { to: '/docs', label: 'Help & guides', icon: BookOpen, perm: 'modules.view' },
-    { to: '/support', label: 'Support', icon: LifeBuoy, perm: 'portal.use' },
   ] },
   { label: 'Platform', color: 'var(--stage-setup)', items: [
     { to: '/platform', label: 'Tenants', icon: Network, perm: 'platform.admin' },
@@ -78,18 +73,6 @@ const GROUPS: Group[] = [
     { to: '/reg-pipeline', label: 'Change pipeline', icon: GitBranch, perm: 'platform.admin' },
   ] },
 ]
-
-// PRIMARY = the daily-loop destinations that stay pinned inline for every role. Everything else a role can
-// reach is still shown — but tucked under a single "More" disclosure at the foot of the nav, and any user can
-// pin a "More" item back inline (persisted). This cuts a typical sidebar from ~24 visible items to ~8–13
-// without hiding anything: permission/sector gating is unchanged, so nothing a role lacks appears in either place.
-const PRIMARY = new Set<string>([
-  '/horizon', '/home', '/portfolio', '/data', '/operations', '/sourcing', '/riskmap', '/early-warning',   // Sense
-  '/kri', '/underwriting', '/decisions',                                                // Assess · Decide
-  '/funds', '/compliance', '/filings',                                                  // Disclose (agri EUDR/CSRD/ESRS are tabs in /filings)
-  '/tasks', '/approvals', '/exceptions',                                                // Operate
-  '/platform', '/intake', '/reg-pipeline',                                              // Platform (operator's whole job)
-])
 
 // route → its stage hue, so a page can accent its own header/sections with the same colour as its nav
 // stage (the <main> sets --stage; the shared Eyebrow + section rules read it). Detail routes that aren't
@@ -132,10 +115,6 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { width: navW, setWidth: setNavW, startResize } = useResizableWidth('tellumen.navw', 240, 194, 420)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tellumen.navcollapsed') === '1')
   const toggleCollapse = () => setCollapsed(c => { localStorage.setItem('tellumen.navcollapsed', c ? '0' : '1'); return !c })
-  // items the user has pinned back inline from "More" (persisted). "More" itself opens on demand.
-  const [pinned, setPinned] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('tellumen.pinned') || '[]') } catch { return [] } })
-  const togglePin = (to: string) => setPinned(p => { const next = p.includes(to) ? p.filter(x => x !== to) : [...p, to]; localStorage.setItem('tellumen.pinned', JSON.stringify(next)); return next })
-  const [showMore, setShowMore] = useState(false)
   const RAIL = 68
   const asideW = collapsed ? RAIL : navW
   return (
@@ -168,33 +147,18 @@ export default function Shell({ children }: { children: ReactNode }) {
 
         <nav className={clsx('flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-5', collapsed ? 'px-2' : 'px-3')}>
           {(() => {
-            const pinnedSet = new Set(pinned)
-            const isInline = (to: string) => PRIMARY.has(to) || pinnedSet.has(to)
-            // one row — with a hover pin control on any item that isn't a fixed primary (so it can be pinned/unpinned)
-            const Row = (it: Item, hue: string, showPin: boolean) => (
-              <div key={it.to} className="relative group/nav">
-                <NavLink to={it.to} end={it.end} title={collapsed ? it.label : undefined} className={({ isActive }) => clsx(
-                  'relative flex items-center rounded-lg text-[14.5px] transition',
-                  collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-2.5 py-2.5',
-                  isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
-                           : 'text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
-                  {({ isActive }) => (<>
-                    {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full" style={{ background: hue }} />}
-                    <it.icon size={17} className="shrink-0" style={isActive ? { color: hue } : undefined} />
-                    {!collapsed && <span className="truncate">{it.label}</span>}
-                  </>)}
-                </NavLink>
-                {!collapsed && showPin && (
-                  <button onClick={e => { e.preventDefault(); e.stopPropagation(); togglePin(it.to) }}
-                    title={pinnedSet.has(it.to) ? 'Unpin from menu' : 'Pin to menu'}
-                    className={clsx('absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition',
-                      pinnedSet.has(it.to)
-                        ? 'text-[var(--color-sky)] opacity-100 hover:bg-[var(--color-panel)]'
-                        : 'text-[var(--color-faint)] opacity-0 group-hover/nav:opacity-100 hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
-                    <Pin size={12} className={pinnedSet.has(it.to) ? 'fill-current' : ''} />
-                  </button>
-                )}
-              </div>
+            const Row = (it: Item, hue: string) => (
+              <NavLink key={it.to} to={it.to} end={it.end} title={collapsed ? it.label : undefined} className={({ isActive }) => clsx(
+                'relative flex items-center rounded-lg text-[14.5px] transition',
+                collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-2.5 py-2.5',
+                isActive ? 'bg-[var(--color-panel-2)] text-[var(--color-ink)] font-medium'
+                         : 'text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-panel)]')}>
+                {({ isActive }) => (<>
+                  {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full" style={{ background: hue }} />}
+                  <it.icon size={17} className="shrink-0" style={isActive ? { color: hue } : undefined} />
+                  {!collapsed && <span className="truncate">{it.label}</span>}
+                </>)}
+              </NavLink>
             )
 
             const visible = (it: Item) =>
@@ -203,14 +167,10 @@ export default function Shell({ children }: { children: ReactNode }) {
               (!it.sectors || it.sectors.includes(sector))
 
             let stageNo = 0  // number only the operational-flow stages, contiguously, after filtering
-            const more: { it: Item; hue: string }[] = []
-            const groupsJsx = GROUPS.map((g, gi) => {
+            return GROUPS.map((g, gi) => {
               const items = g.items.filter(visible)
               const hue = g.color ?? 'var(--color-sky)'
-              // collapsed rail shows only inline items (primary + pinned); expanded shows inline here, rest in More
-              const inline = items.filter(it => isInline(it.to))
-              if (!collapsed) items.filter(it => !isInline(it.to)).forEach(it => more.push({ it, hue }))
-              if (inline.length === 0) return null
+              if (items.length === 0) return null
               const n = g.flow ? ++stageNo : null
               return (
                 <div key={gi}>
@@ -223,24 +183,10 @@ export default function Shell({ children }: { children: ReactNode }) {
                         </span>
                       </div>
                   )}
-                  <div className="space-y-0.5">{inline.map(it => Row(it, hue, !PRIMARY.has(it.to)))}</div>
+                  <div className="space-y-0.5">{items.map(it => Row(it, hue))}</div>
                 </div>
               )
             })
-            return (<>
-              {groupsJsx}
-              {!collapsed && more.length > 0 && (
-                <div>
-                  <button onClick={() => setShowMore(s => !s)}
-                    className="w-full px-2 mb-2 mt-0.5 flex items-center gap-2 text-[var(--color-faint)] hover:text-[var(--color-mute)] transition">
-                    {showMore ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
-                    <span className="text-[13px] font-semibold tracking-[0.01em]">More</span>
-                    <span className="mono text-[10px] ml-auto tabular-nums">{more.length}</span>
-                  </button>
-                  {showMore && <div className="space-y-0.5">{more.map(({ it, hue }) => Row(it, hue, true))}</div>}
-                </div>
-              )}
-            </>)
           })()}
         </nav>
 

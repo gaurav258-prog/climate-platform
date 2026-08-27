@@ -4,6 +4,7 @@ import { BookOpen, Search, ChevronRight } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import { DOCS, DOC_CATEGORIES, type DocArticle } from '../content/docs'
+import SectionTabs, { HELP_TABS } from '../components/SectionTabs'
 
 export default function Docs() {
   const { profile } = useAuth()
@@ -27,6 +28,7 @@ export default function Docs() {
 
   return (
     <div className="fadeup space-y-6">
+      <SectionTabs tabs={HELP_TABS} />
       <PageHeader eyebrow="Help · documentation" title="Documentation"
         lead="How the software works, how to get your data in, and how a disclosure is produced and governed — written for your risk, data and compliance teams." />
 

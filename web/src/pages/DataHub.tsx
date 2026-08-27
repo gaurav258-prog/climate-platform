@@ -8,6 +8,7 @@ import { Card, PageHeader } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
 import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -34,6 +35,7 @@ export default function DataHub() {
   // canonical entry — it routes to the two management surfaces so the loading home is consistent per sector.
   if (!cfg) return (
     <div className="fadeup space-y-6">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Sense · your data" title="Your data"
         lead="Everything the engine scores comes from your book — your operational sites and your sourcing plots. Load them here; each is located, scored, and ready for reporting." />
       <div className="grid sm:grid-cols-2 gap-3">
@@ -58,6 +60,7 @@ export default function DataHub() {
 
   return (
     <div className="fadeup space-y-4 max-w-4xl">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow={`${profile?.org?.name} · your data`} title="Your data"
         lead={`Feed the engine and see what it made of your book — upload your ${cfg.rowNoun}s (we check every row before anything is saved), read the scores, then fill any regulatory gaps.`} />
 

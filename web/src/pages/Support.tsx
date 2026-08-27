@@ -7,6 +7,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import { DOCS } from '../content/docs'
+import SectionTabs, { HELP_TABS } from '../components/SectionTabs'
 
 // Support Center — one place to find an answer, raise a ticket, and watch its SLA count down. The dashboard
 // summarises open / at-risk / breached / resolved; the SLA clock is computed from priority + when it was
@@ -86,6 +87,7 @@ export default function Support() {
 
   return (
     <div className="fadeup space-y-5">
+      <SectionTabs tabs={HELP_TABS} />
       <PageHeader eyebrow="Support · with Tellumen" title="Support Center"
         lead="Documentation · file a ticket · track your requests · SLA countdown." />
 

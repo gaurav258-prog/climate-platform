@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Database, CheckCircle2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 // The single golden model, browsable — each field, the source feed(s) it derives from, how current the
 // golden source is, and which reports consume it. "Source once, reuse everywhere" made visible.
@@ -29,6 +30,7 @@ export default function DataDictionary() {
 
   return (
     <div className="fadeup space-y-5">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Foundation · golden model" title="Data dictionary"
         lead="The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere." />
 

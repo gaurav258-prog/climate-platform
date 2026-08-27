@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sprout, Upload, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card } from './ui'
+import { Card, StatGrid, type StatItem } from './ui'
 
 // Seasonal-arrears overlay — separate normal harvest-cycle carry-over from genuine deterioration. Upload the
 // agri book's days-past-due; the card classifies each past-due loan against a documented crop calendar, with
@@ -51,12 +51,12 @@ export default function SeasonalArrears() {
           </div>
         ) : s ? (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <div><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{eur(s.past_due_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Past due · {s.n_past_due}</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums" style={{ color: 'var(--color-warn)' }}>{eur(s.seasonal_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Seasonal · {s.n_seasonal}</div></div>
-              <div><div className="display text-[20px] leading-none tabular-nums" style={{ color: 'var(--color-bad)' }}>{eur(s.genuine_eur)}</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Genuine · {s.n_genuine}</div></div>
-              <div className="flex flex-col justify-center"><div className="display text-[20px] leading-none tabular-nums text-[var(--color-ink)]">{s.reclassified_pct}%</div><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mt-1.5">Reclassified</div></div>
-            </div>
+            <StatGrid cols={4} className="mb-3" items={[
+              { label: <>Past due · {s.n_past_due}</>, value: eur(s.past_due_eur) },
+              { label: <>Seasonal · {s.n_seasonal}</>, value: eur(s.seasonal_eur), accent: 'var(--color-warn)' },
+              { label: <>Genuine · {s.n_genuine}</>, value: eur(s.genuine_eur), accent: 'var(--color-bad)' },
+              { label: 'Reclassified', value: `${s.reclassified_pct}%` },
+            ] satisfies StatItem[]} />
             <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
               {d.loans!.slice(0, 8).map(l => (
                 <div key={l.loan_ref} className="flex items-center gap-2.5 py-1.5 text-[12px]">

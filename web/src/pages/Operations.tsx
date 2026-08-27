@@ -7,6 +7,7 @@ import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from 
 import { downloadCsv } from '../lib/export'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 interface Site {
   site_id: string; name: string; site_type: string; lat: number | null; lon: number | null
@@ -94,6 +95,7 @@ export default function Operations() {
 
   return (
     <div className="fadeup space-y-7">
+      <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Agriculture · your operations" title="Operations"
         lead="Your own sites — head office, plants, cold stores, distribution centres — geolocated and scored on the same live hazard data as your suppliers. Add a site by address or coordinates and it's on the map in seconds."
         actions={sites.length > 0 ? <ExportButton onExport={exportSites} /> : undefined} />

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, AlertTriangle, Snowflake } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { Card, Button, SectionHead } from './ui'
+import { Card, Button, SectionHead, StatGrid, type StatItem } from './ui'
 
 // The confirm-data step: before a filing is frozen, the preparer reviews the basis, the data coverage and
 // the headline figures, sees any gaps honestly, and ticks "I confirm this is the data to file". Only then
@@ -78,15 +78,20 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
-              {d.coverage
-                ? <Stat big={`${d.coverage.pct}%`} label={d.coverage.label} sub={`${d.coverage.done}/${d.coverage.total}`} />
-                : <Stat big="—" label="coverage" sub={`from your ${d.noun}`} />}
-              {d.total_value_eur != null
-                ? <Stat big={eur(d.total_value_eur)} label={d.noun === 'positions' ? 'NAV in scope' : 'book value'} sub={d.positions != null ? `${d.positions} positions` : (d.coverage ? `${d.coverage.total} ${d.noun}` : '')} />
-                : <div />}
-              {d.value_at_risk_eur != null ? <Stat big={eur(d.value_at_risk_eur)} label="value at risk" /> : <div />}
-            </div>
+            {(() => {
+              const metrics: StatItem[] = [
+                d.coverage
+                  ? { label: d.coverage.label, value: `${d.coverage.pct}%`, sub: `${d.coverage.done}/${d.coverage.total}` }
+                  : { label: 'coverage', value: '—', sub: `from your ${d.noun}` },
+              ]
+              if (d.total_value_eur != null) metrics.push({
+                label: d.noun === 'positions' ? 'NAV in scope' : 'book value',
+                value: eur(d.total_value_eur),
+                sub: d.positions != null ? `${d.positions} positions` : (d.coverage ? `${d.coverage.total} ${d.noun}` : undefined),
+              })
+              if (d.value_at_risk_eur != null) metrics.push({ label: 'value at risk', value: eur(d.value_at_risk_eur) })
+              return <StatGrid items={metrics} cols={3} />
+            })()}
 
             {d.gaps.length > 0 && (
               <div className="rounded-lg border border-[var(--color-line-2)] p-3">
@@ -110,16 +115,6 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
           </>)}
         </div>
       </Card>
-    </div>
-  )
-}
-
-function Stat({ big, label, sub }: { big: string; label: string; sub?: string }) {
-  return (
-    <div>
-      <div className="display text-xl">{big}</div>
-      <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{label}</div>
-      {sub && <div className="mono text-[10px] text-[var(--color-faint)]">{sub}</div>}
     </div>
   )
 }

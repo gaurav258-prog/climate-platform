@@ -5,6 +5,7 @@ import { hazardLabel } from '../lib/hazards'
 import { Radar, Upload, Boxes, ShieldCheck, RefreshCw, Lock } from 'lucide-react'
 import SeasonalArrears from '../components/SeasonalArrears'
 import PricePressure from '../components/PricePressure'
+import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 interface Scores { total_current_scores: number; hazards: { hazard_type: string; cells: number }[] }
 const AGRI_HAZARDS = ['drought', 'heat_acute', 'soil_water']
@@ -23,6 +24,7 @@ export default function DataFoundation() {
 
   return (
     <div className="fadeup space-y-7">
+      <SectionTabs tabs={DATA_TABS} />
       <div>
         <Eyebrow>Agriculture · data foundation</Eyebrow>
         <h1 className="display text-3xl font-semibold mt-2 mb-1">One golden source in. A defensible number out.</h1>
