@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Crosshair } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Crosshair, Satellite } from 'lucide-react'
+import LiveEarthHero from '../components/LiveEarthHero'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
 import { hazardLabel } from '../lib/hazards'
@@ -25,6 +26,30 @@ const HK = ['current', '2030', '2050', '2100']
 const D2R = Math.PI / 180
 const SUN = (() => { const v = [-0.5, 0.42, 0.76]; const m = Math.hypot(v[0], v[1], v[2]); return v.map(x => x / m) })()
 const pretty = hazardLabel
+
+// ── live ISS orbit overlay — real sub-satellite point (fetched) + its ground track ──────────────────
+const ISS_PERIOD_S = 92.9 * 60                 // one orbit ≈ 92.9 min
+const ISS_DEG_PER_S = 360 / ISS_PERIOD_S       // angular rate along the ground track
+const EARTH_DEG_PER_S = 360 / 86164            // sidereal spin — precesses the track westward each orbit
+const ISS_INCL = 51.6                          // orbital inclination (°)
+// initial-guess heading from inclination until two real samples give a measured bearing
+function inclHeading(la: number): number {
+  const c = Math.cos(ISS_INCL * D2R) / Math.max(0.05, Math.cos(la * D2R))
+  return Math.asin(Math.max(-1, Math.min(1, c))) / D2R
+}
+function bearingDeg(la1: number, lo1: number, la2: number, lo2: number): number {
+  const p1 = la1 * D2R, p2 = la2 * D2R, dl = (lo2 - lo1) * D2R
+  const y = Math.sin(dl) * Math.cos(p2)
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
+  return (Math.atan2(y, x) / D2R + 360) % 360
+}
+// point at angular distance `ang`° from (la,lo) along a great circle at bearing `brg`° (ang may be negative)
+function gcDest(la: number, lo: number, brg: number, ang: number): [number, number] {
+  const p1 = la * D2R, l1 = lo * D2R, th = brg * D2R, d = ang * D2R
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(th))
+  const l2 = l1 + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2))
+  return [p2 / D2R, ((l2 / D2R + 540) % 360) - 180]
+}
 
 // real projected score (0..100) at an arbitrary year, linearly interpolating the golden-source horizons
 function scoreAt(a: GAsset, y: number): number {
@@ -59,6 +84,9 @@ export default function Horizon() {
   // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
   const [showAllAtRisk, setShowAllAtRisk] = useState(false)   // At-risk drill-down: top 8 vs the full list
+  const [issOpen, setIssOpen] = useState(false)               // live ISS feed modal
+  const issRef = useRef<{ lat: number; lon: number; hdg: number; t0: number } | null>(null)   // real sub-satellite anchor + fetch time (s)
+  const issScreenRef = useRef<{ x: number; y: number; vis: boolean }>({ x: -1, y: -1, vis: false })
   // entity the analyst is working on (an analyst can cover several) — the active reporting entity
   const [entOpen, setEntOpen] = useState(false)
   const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
@@ -188,13 +216,17 @@ export default function Horizon() {
     const onMove = (e: PointerEvent) => {
       const [x, y] = rel(e)
       if (S.current.drag) { setHoverTip(null); const dx = x - S.current.px, dy = y - S.current.py; if (Math.abs(dx) + Math.abs(dy) > 3) S.current.moved = true; S.current.lon0 -= dx * 0.005; S.current.lat0 = Math.max(-1.2, Math.min(1.2, S.current.lat0 + dy * 0.005)); S.current.tLon = S.current.lon0; S.current.tLat = S.current.lat0; S.current.px = x; S.current.py = y; return }
+      const is = issScreenRef.current
+      const overIss = is.vis && Math.hypot(is.x - x, is.y - y) < 16
       const ha = S.current.focus ? null : hit(x, y)
-      cv.style.cursor = (ha || hitRegion(x, y)) ? 'pointer' : 'grab'
+      cv.style.cursor = (overIss || ha || hitRegion(x, y)) ? 'pointer' : 'grab'
       if (ha) setHoverTip({ name: ha.name, region: ha.region, score: Math.round(scoreAt(ha, S.current.year)), x, y })
       else setHoverTip(null)
     }
     const onLeave = () => setHoverTip(null)
-    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e); const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
+    const onUp = (e: PointerEvent) => { if (!S.current.drag) return; S.current.drag = false; if (S.current.moved) return; const [x, y] = rel(e)
+      const is = issScreenRef.current; if (is.vis && Math.hypot(is.x - x, is.y - y) < 16) { setIssOpen(true); return }
+      const a = hit(x, y); if (a) { S.current.focus = a; S.current.play = false; setPlaying(false); setSel(a); return } if (!S.current.belt) { const r = hitRegion(x, y); if (r) openBelt(r) } }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointerleave', onLeave)
 
     const drawCaption = () => {
@@ -268,6 +300,39 @@ export default function Horizon() {
         ctx.fillStyle = `rgba(${Math.min(255, r + 60)},${Math.min(255, gg + 50)},${Math.min(255, b + 50)},${al})`; ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, 7); ctx.fill()
         if (sel2) { ctx.strokeStyle = `rgba(${r},${gg},${b},${.5 + .3 * tw})`; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(p.x, p.y, sz + 9 + 2 * tw, 0, 7); ctx.stroke() }
       }
+
+      // ── live ISS orbit: its real current point + the ground track one orbit each way (front hemisphere only)
+      const iss = issRef.current
+      if (iss) {
+        ctx.lineWidth = 1.1; ctx.strokeStyle = 'rgba(126,182,255,0.32)'
+        let pen = false; ctx.beginPath()
+        for (let s = -ISS_PERIOD_S / 2; s <= ISS_PERIOD_S / 2; s += 90) {
+          const [la, loRaw] = gcDest(iss.lat, iss.lon, iss.hdg, ISS_DEG_PER_S * s)
+          const pp = project(la, loRaw - EARTH_DEG_PER_S * s)
+          if (!pp.vis) { pen = false; continue }
+          if (!pen) { ctx.moveTo(pp.x, pp.y); pen = true } else ctx.lineTo(pp.x, pp.y)
+        }
+        ctx.stroke()
+        // the satellite glides continuously: propagate the real anchor forward every frame (re-anchored each 5s fetch)
+        const dt = t - iss.t0
+        const [mlat, mlon] = gcDest(iss.lat, iss.lon, iss.hdg, ISS_DEG_PER_S * dt)
+        const pm = project(mlat, mlon - EARTH_DEG_PER_S * dt)
+        issScreenRef.current = { x: pm.x, y: pm.y, vis: pm.vis }
+        if (pm.vis) {
+          const pulse = 0.6 + 0.4 * Math.sin(t * 2)
+          const gl = ctx.createRadialGradient(pm.x, pm.y, 0, pm.x, pm.y, 14)
+          gl.addColorStop(0, `rgba(150,200,255,${0.55 * pulse})`); gl.addColorStop(1, 'rgba(150,200,255,0)')
+          ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(pm.x, pm.y, 14, 0, 7); ctx.fill()
+          ctx.strokeStyle = `rgba(150,200,255,${0.5 * pulse})`; ctx.lineWidth = 1
+          ctx.beginPath(); ctx.arc(pm.x, pm.y, 8 + 2 * pulse, 0, 7); ctx.stroke()
+          ctx.strokeStyle = 'rgba(210,230,255,0.95)'; ctx.lineWidth = 1.5
+          ctx.beginPath(); ctx.moveTo(pm.x - 6, pm.y); ctx.lineTo(pm.x + 6, pm.y); ctx.stroke()   // solar array
+          ctx.fillStyle = '#EAF3FF'; ctx.beginPath(); ctx.arc(pm.x, pm.y, 2.6, 0, 7); ctx.fill()   // body
+          ctx.fillStyle = 'rgba(200,225,255,0.9)'; ctx.font = '9px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'
+          ctx.fillText('ISS · live', pm.x + 12, pm.y + 3)
+        }
+      } else issScreenRef.current = { x: -1, y: -1, vis: false }
+
       if (yearElRef.current) yearElRef.current.textContent = String(Math.round(S.current.year))
       if (statElRef.current) statElRef.current.textContent = `${elevated} / ${assets.length}`
       if (S.current.snap) { S.current.snap = false; drawCaption(); try { const a = document.createElement('a'); a.download = 'tellumen-horizon-' + Math.round(S.current.year) + '.png'; a.href = cv.toDataURL('image/png'); a.click() } catch { /* */ } }
@@ -294,7 +359,8 @@ export default function Horizon() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (hexOpen) setHexOpen(false)
+      if (issOpen) setIssOpen(false)
+      else if (hexOpen) setHexOpen(false)
       else if (entOpen) setEntOpen(false)
       else if (panel) setPanel(null)
       else if (sel) closeSel()
@@ -304,7 +370,28 @@ export default function Horizon() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [hexOpen, entOpen, panel, sel, beltName])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [issOpen, hexOpen, entOpen, panel, sel, beltName])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll the ISS's real sub-satellite point (public telemetry). Heading comes from two consecutive samples;
+  // until then it's estimated from the orbital inclination. On any failure the overlay simply holds/​hides —
+  // it never blocks the globe. (Prod needs api.wheretheiss.at in the CSP connect-src.)
+  useEffect(() => {
+    let prev: { lat: number; lon: number } | null = null, alive = true
+    const pull = async () => {
+      try {
+        const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544')
+        if (!res.ok) return
+        const d = await res.json()
+        const lat = +d.latitude, lon = +d.longitude
+        if (!isFinite(lat) || !isFinite(lon)) return
+        const hdg = prev ? bearingDeg(prev.lat, prev.lon, lat, lon) : inclHeading(lat)
+        prev = { lat, lon }
+        if (alive) issRef.current = { lat, lon, hdg, t0: performance.now() / 1000 }   // anchor the smooth propagation to this real fix
+      } catch { /* keep last known; overlay holds or hides */ }
+    }
+    pull(); const iv = setInterval(pull, 5000)
+    return () => { alive = false; clearInterval(iv) }
+  }, [])
 
   // belt aggregate for the banner
   const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
@@ -630,6 +717,23 @@ export default function Horizon() {
       </div>
 
       {/* granular H3 grid modal — the drill-down beneath the overview globe */}
+      {/* click the orbiting satellite → the live downlink from the ISS (reuses the Sen SpaceTV-1 feed) */}
+      {issOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[#04060bee] backdrop-blur-sm p-6" onClick={() => setIssOpen(false)}>
+          <div className="relative w-[min(1120px,94vw)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="inline-flex items-center gap-2 mono text-[11px] uppercase tracking-[0.18em] text-white/70">
+                <Satellite size={13} className="text-[#9CC6FF]" /> Live · Earth from the ISS
+                {issRef.current && <span className="text-white/40 normal-case tracking-normal">· {Math.abs(issRef.current.lat).toFixed(1)}°{issRef.current.lat >= 0 ? 'N' : 'S'}, {Math.abs(issRef.current.lon).toFixed(1)}°{issRef.current.lon >= 0 ? 'E' : 'W'} · ~420 km · 27,600 km/h</span>}
+              </div>
+              <button onClick={() => setIssOpen(false)} className="grid place-items-center w-8 h-8 rounded-full border border-[var(--color-line-2)] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><X size={15} /></button>
+            </div>
+            <LiveEarthHero height="66vh" showBadge={false} />
+            <div className="mono text-[10.5px] text-white/40 mt-2.5 text-center">A live view from low-Earth orbit. Your risk scores are derived from Earth-observation satellites (Copernicus / Sentinel, NASA, USGS) — not this camera.</div>
+          </div>
+        </div>
+      )}
+
       {hexOpen && sel && (
         <div className="fixed inset-0 z-30 grid place-items-center bg-[#04060bcc] backdrop-blur-sm p-6" onClick={() => setHexOpen(false)}>
           <div className="relative w-[min(760px,92vw)] h-[min(560px,82vh)] rounded-2xl overflow-hidden border border-[var(--color-line-2)] bg-[#070b13]" onClick={e => e.stopPropagation()}>
