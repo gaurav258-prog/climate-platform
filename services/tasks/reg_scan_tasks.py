@@ -25,3 +25,15 @@ def scan_eurlex() -> dict:
     if res["errors"]:
         logger.info("EUR-Lex scan: %d source(s) unreachable (%s)", len(res["errors"]), res["errors"])
     return res
+
+
+@celery_app.task(name="reg.alert_sweep")
+def alert_sweep() -> dict:
+    """Raise proactive alerts (task + email + webhook) for detected changes and approaching deadlines."""
+    from core.db.session import get_session
+    from services.governance.reg_alerts import sweep_all
+    with get_session() as s:
+        res = sweep_all(s)
+    if res["raised"]:
+        logger.warning("regulatory alert sweep: raised %d alert(s) across %d orgs", res["raised"], res["orgs"])
+    return res

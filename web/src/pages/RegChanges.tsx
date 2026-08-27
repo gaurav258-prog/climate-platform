@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock, Telescope, GitBranch } from 'lucide-react'
+import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock, Telescope, GitBranch, BellRing } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
 
@@ -18,6 +19,7 @@ interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | 
 interface Act { celex: string; title: string; role: string; in_force: boolean; in_force_since: string | null; next_effective: string | null; future: string[]; url: string; live: boolean }
 interface FwVersion { framework: string; name: string; authority: string; current_since: string | null; amended_by: number; upcoming_effective: string | null; acts: Act[]; checked_at: string | null }
 interface Versions { frameworks: FwVersion[]; checked_at: string | null; summary: { n: number; n_upcoming: number } }
+interface RegAlert { alert_key: string; kind: string; title: string; effective_date: string | null; task_id: string | null; raised_at: string }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
 
@@ -105,6 +107,7 @@ function ComingCard({ c }: { c: Coming }) {
 
 export default function RegChanges() {
   const [tab, setTab] = useState<'outlook' | 'versions'>('outlook')
+  const aq = useQuery({ queryKey: ['reg-alerts'], queryFn: () => api.get<{ alerts: RegAlert[] }>('/v1/reg-changes/alerts') })
   const q = useQuery({ queryKey: ['reg-outlook'], queryFn: () => api.get<Outlook>('/v1/reg-changes/outlook') })
   const vq = useQuery({ queryKey: ['reg-versions'], enabled: tab === 'versions', queryFn: () => api.get<Versions>('/v1/reg-changes/versions') })
   const d = q.data
@@ -113,6 +116,18 @@ export default function RegChanges() {
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Regulatory maintenance" title="Regulatory outlook"
         lead="What applies to you today, what's changing and when — and any new data you'll need to provide. We track the regulation so nothing catches your filing off guard." />
+
+      {/* proactive alerts — the outlook doesn't just wait to be checked; a change/deadline reaches you */}
+      {(aq.data?.alerts.length ?? 0) > 0 && (
+        <Card className="p-3.5 flex items-start gap-3" >
+          <BellRing size={16} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-medium text-[var(--color-ink)]">{aq.data!.alerts.length} proactive alert{aq.data!.alerts.length === 1 ? '' : 's'} raised for you</div>
+            <div className="text-[12px] text-[var(--color-mute)] mt-0.5 leading-snug">A regulatory change or approaching deadline was flagged — a task is on your board and your filing contact was emailed. {aq.data!.alerts[0]?.title}{aq.data!.alerts.length > 1 ? `, +${aq.data!.alerts.length - 1} more` : ''}.</div>
+          </div>
+          <Link to="/tasks" className="mono text-[10.5px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1 shrink-0 mt-0.5">Open tasks <ChevronRight size={12} /></Link>
+        </Card>
+      )}
 
       <div className="flex gap-1 p-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] w-fit">
         {([['outlook', 'Outlook', Telescope], ['versions', 'Version register', GitBranch]] as const).map(([k, l, Icon]) => (
