@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, ShieldAlert, Check, Clock, RefreshCw, TrendingUp, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -60,6 +60,8 @@ const scLabel = (k: string) => SCEN.find(s => s[0] === k)?.[1] ?? k
 export default function Decisions() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const [sp] = useSearchParams()
+  const focusId = sp.get('focus')   // deep-link from the Horizon globe: focus a specific exposure's row
   const supported = SUPPORTED.includes(profile?.org?.type ?? '')
   const canAct = (profile?.permissions ?? []).includes('approvals.create')
   const [scenario, setScenario] = useState('disorderly_2c')
@@ -133,7 +135,7 @@ export default function Decisions() {
         {cq.isLoading ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">projecting the book…</div>
           : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">No {nounP} newly cross into High+ under this pathway by {horizon}. Nothing to act on.</div>
           : <div className="divide-y divide-[var(--color-line)]">
-              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} onDone={refresh} />)}
+              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} focused={!!focusId && c.entity_id === focusId} onDone={refresh} />)}
             </div>}
       </Card>
 
@@ -146,8 +148,17 @@ export default function Decisions() {
   )
 }
 
-function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, onDone }: { c: Crossing; scenario: string; horizon: string; canAct: boolean; actions: (Meta & { key: string })[]; discloseTo: string; onDone: () => void }) {
-  const [open, setOpen] = useState(false)
+function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focused, onDone }: { c: Crossing; scenario: string; horizon: string; canAct: boolean; actions: (Meta & { key: string })[]; discloseTo: string; focused?: boolean; onDone: () => void }) {
+  const [open, setOpen] = useState(!!focused && canAct)   // deep-linked from the globe → open ready to decide
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [lit, setLit] = useState(!!focused)
+  // when this row is the deep-link target, scroll it into view and flash a highlight so the exposure is obvious
+  useEffect(() => {
+    if (!focused) return
+    rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setLit(false), 2400)
+    return () => clearTimeout(t)
+  }, [focused])
   const [action, setAction] = useState(c.decision?.action ?? '')
   const [rationale, setRationale] = useState(c.decision?.rationale ?? '')
   const [busy, setBusy] = useState(false)
@@ -163,7 +174,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, onDone
     finally { setBusy(false) }
   }
   return (
-    <div className="px-5 py-3">
+    <div ref={rowRef} className={`px-5 py-3 transition-colors duration-700 ${lit ? 'bg-[color-mix(in_oklab,var(--color-sky)_14%,transparent)]' : ''}`}>
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] text-[var(--color-ink)] truncate">{c.entity_name}</div>

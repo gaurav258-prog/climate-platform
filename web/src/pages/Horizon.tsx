@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Play, Pause, Camera, ArrowRight, Grid3x3, X, Maximize2, Minimize2, Crosshair } from 'lucide-react'
 import { api } from '../lib/api'
 import HexMap from '../components/HexMap'
 import { hazardLabel } from '../lib/hazards'
@@ -58,6 +58,7 @@ export default function Horizon() {
   const [resolving, setResolving] = useState(false)
   // drill-down overlay: a KPI ('book'|'elevated'|'readiness'|'scope') or a task
   const [panel, setPanel] = useState<{ kind: string; task?: Task } | null>(null)
+  const [showAllAtRisk, setShowAllAtRisk] = useState(false)   // At-risk drill-down: top 8 vs the full list
   // entity the analyst is working on (an analyst can cover several) — the active reporting entity
   const [entOpen, setEntOpen] = useState(false)
   const [entityId, setEntityId] = useState<string | null>(null)  // null = All entities (whole org)
@@ -311,7 +312,7 @@ export default function Horizon() {
 
   // left-rail / right-rail helpers
   const fmtEur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${Math.round(v / 1e3)}k`
-  const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setPanel({ kind: k }) }
+  const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setShowAllAtRisk(false); setPanel({ kind: k }) }
   // Choose the year to animate TO, then run from today up to it, so you watch the progression arrive.
   const playTo = (y: number) => { S.current.target = y; setTargetYear(y); S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025); S.current.play = true; setPlaying(true) }
   const togglePlay = () => {
@@ -320,6 +321,8 @@ export default function Horizon() {
     S.current.play = true; setPlaying(true)
   }
   const overdueCount = tasks.filter(t => t.bucket === 'overdue').length
+  // decisions ('Act') exist for every book-holding sector — so a globe asset can jump straight to deciding on it
+  const canDecide = ['bank', 'insurer', 'asset_manager', 'reit', 'manufacturer'].includes(profile?.org?.type ?? '')
   const topByValue = [...assets].sort((a, b) => b.value_eur - a.value_eur).slice(0, 6)
   const elevated2050 = assets.filter(a => (a.traj['2050'] ?? a.traj.current) >= 50).sort((a, b) => (b.traj['2050'] ?? 0) - (a.traj['2050'] ?? 0))
 
@@ -480,13 +483,24 @@ export default function Horizon() {
               <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)]">{panel.kind === 'book' ? 'Book value' : 'Elevated by 2050'}</div>
               <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{panel.kind === 'book' ? fmtEur(kpis.book_value_eur) : `${kpis.n_elevated} of ${kpis.n_assets} ${noun}`}</div>
               <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">{panel.kind === 'book' ? `Total value across your ${assets.length} located ${noun}. Top exposures:` : 'Highest projected physical-risk under the disorderly-2°C path at 2050:'}</div>
-              <div className="flex flex-col gap-1.5 mt-4">
-                {(panel.kind === 'book' ? topByValue : elevated2050).slice(0, 8).map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
-                  <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
-                    <span className="min-w-0"><span className="block text-[14px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[11px] text-[var(--color-faint)]">{a.region}</span></span>
-                    <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
-                  </button>) })}
-              </div>
+              {(() => {
+                const full = panel.kind === 'book' ? topByValue : elevated2050
+                const shown = showAllAtRisk ? full : full.slice(0, 8)
+                return (<>
+                  <div className="flex flex-col gap-1.5 mt-4">
+                    {shown.map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
+                      <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
+                        <span className="min-w-0"><span className="block text-[14px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[11px] text-[var(--color-faint)]">{a.region}</span></span>
+                        <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
+                      </button>) })}
+                  </div>
+                  {full.length > 8 && (
+                    <button onClick={() => setShowAllAtRisk(v => !v)} className="mt-3 w-full inline-flex items-center justify-center gap-1.5 mono text-[11.5px] text-[var(--color-mute)] border border-[var(--color-line-2)] rounded-full px-4 py-2 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+                      {showAllAtRisk ? 'Show top 8' : `See all ${full.length} ${noun}`} <ArrowRight size={12} />
+                    </button>
+                  )}
+                </>)
+              })()}
             </div>
           )}
         </div>
@@ -570,9 +584,15 @@ export default function Horizon() {
               </button>
             </div>
           )}
+          {/* Act — jump straight from this exposure to a decision on it (Sense → … → Act) */}
+          {canDecide && (
+            <button onClick={() => nav(`/decisions?focus=${encodeURIComponent(sel.id)}`)}
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#0b1206] bg-[var(--color-sky)] border border-[var(--color-sky)] rounded-full px-5 py-3.5 hover:opacity-90">
+              <Crosshair size={14} /> Decide on this exposure <ArrowRight size={14} /></button>
+          )}
           {/* granular drill — the H3 res-8 grid + basemap under this exact location */}
           <button onClick={() => setHexOpen(true)}
-            className="mt-5 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
+            className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
             <Grid3x3 size={14} /> View granular grid (H3 · ~0.7 km)</button>
           {/* deeper drill — the full per-site record (agri has a dedicated detail page); others open the workspace */}
           <button onClick={() => nav((sel.kind === 'plot' || sel.kind === 'site') ? `/detail/${sel.kind}/${sel.id}` : '/home')}
