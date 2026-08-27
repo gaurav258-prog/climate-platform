@@ -92,6 +92,9 @@ function Workspace() {
         {/* the front door — Horizon globe (customer workspaces); operators skip to their console;
             a first-run admin whose org isn't Live yet is funnelled to Get started until it is */}
         <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <FirstRunGate />} />
+        {/* the Horizon globe as an explicit destination — the sidebar's "Horizon" item points here, so it
+            always opens the earth even for a first-run admin (whose front door "/" still funnels to Get started) */}
+        <Route path="/horizon" element={<Horizon />} />
         <Route path="/home" element={<Home />} />
         <Route path="/disclosure" element={<Disclosure />} />
         <Route path="/csrd" element={<Csrd />} />

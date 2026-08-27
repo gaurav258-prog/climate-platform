@@ -22,7 +22,7 @@ type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?
 type Group = { label: string | null; color?: string; flow?: boolean; items: Item[] }
 const GROUPS: Group[] = [
   { label: 'Sense', color: 'var(--stage-sense)', flow: true, items: [
-    { to: '/', label: 'Horizon', icon: Globe, end: true, perm: 'modules.view' },
+    { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
     { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view' },
@@ -85,7 +85,7 @@ const GROUPS: Group[] = [
 // pin a "More" item back inline (persisted). This cuts a typical sidebar from ~24 visible items to ~8–13
 // without hiding anything: permission/sector gating is unchanged, so nothing a role lacks appears in either place.
 const PRIMARY = new Set<string>([
-  '/', '/home', '/portfolio', '/data', '/operations', '/sourcing', '/riskmap', '/early-warning',   // Sense
+  '/horizon', '/home', '/portfolio', '/data', '/operations', '/sourcing', '/riskmap', '/early-warning',   // Sense
   '/kri', '/underwriting', '/decisions',                                                // Assess · Decide
   '/funds', '/compliance', '/filings', '/disclosure',                                   // Disclose
   '/tasks', '/approvals', '/exceptions',                                                // Operate
@@ -117,7 +117,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   const canGoBack = pathname !== '/' && (window.history.state?.idx ?? 0) > 0
   const sector = profile?.org?.type ?? ''
   // the Horizon front door is a full-bleed globe — it fills the content area beside the nav (no padded main)
-  const bleed = pathname === '/'
+  const bleed = pathname === '/' || pathname === '/horizon'
   // the current page's operational-flow stage hue — exposed as --stage so the shared Eyebrow and any
   // page section can accent itself to match its nav stage (see stageColorFor / the Eyebrow in ui.tsx)
   const stage = stageColorFor(pathname)
