@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { Card, Button, StatusPill, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import Lineage from '../components/Lineage'
 import RealizedExposure from '../components/RealizedExposure'
+import ReportTabs from '../components/ReportTabs'
 
 interface Disc {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number; ingredient_spend_eur: number; total_cogs_eur: number }
@@ -71,6 +72,7 @@ export default function Disclosure() {
 
   return (
     <div className="fadeup space-y-7">
+      <ReportTabs />
       <PageHeader eyebrow="Agriculture · Sense → Score → Act"
         title="Disclosure & EUDR (EU Deforestation Regulation)"
         lead="Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot — computed from satellite data, traceable end to end." />

@@ -5,6 +5,7 @@ import { Download, CloudRain, Droplets, Trees, ArrowRight, MinusCircle, Code2, L
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
+import ReportTabs from '../components/ReportTabs'
 
 interface Topic {
   topic: string; title: string; standard?: string; material: boolean
@@ -37,6 +38,7 @@ export default function EsrsPack() {
 
   return (
     <div className="fadeup space-y-7">
+      <ReportTabs />
       <PageHeader eyebrow="Compliance · corporate sustainability reporting"
         title="ESRS (European Sustainability Reporting Standards) Climate & Nature pack"
         lead="The ESRS topics driven by our physical-climate & deforestation engine — climate physical risk (E1), water (E3) and biodiversity/deforestation (E4) — assembled filing-grade to slot into your wider CSRD statement. GHG accounting, social and governance stay with your other tools, by design."

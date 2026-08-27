@@ -3,6 +3,7 @@ import { Download, Building2, Sprout, TrendingUp, ShieldCheck, Layers } from 'lu
 import { api, download } from '../lib/api'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import ReportTabs from '../components/ReportTabs'
 
 interface HazardBlock { hazard: string; label: string; class: string
   own_operations: { n_sites: number; asset_value_eur: number; bi_at_risk_eur: number; max_score: number } | null
@@ -43,6 +44,7 @@ export default function Csrd() {
 
   return (
     <div className="fadeup space-y-7">
+      <ReportTabs />
       <PageHeader eyebrow="Compliance · corporate sustainability reporting"
         title="CSRD (Corporate Sustainability Reporting Directive) · ESRS E1 physical risk"
         lead="The physical-climate-risk section your CSRD report must disclose (ESRS E1-9, anticipated financial effects), assembled from your own sites and your sourcing book on the golden source. A euro is shown as a firm loss only where the hazard→yield chain is validated; otherwise exposure is mapped and the € withheld."
