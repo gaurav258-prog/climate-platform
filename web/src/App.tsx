@@ -41,6 +41,7 @@ const Calendar = lazy(() => import('./pages/Calendar'))
 const Kri = lazy(() => import('./pages/Kri'))
 const Transmission = lazy(() => import('./pages/Transmission'))
 const RegChanges = lazy(() => import('./pages/RegChanges'))
+const RegPipeline = lazy(() => import('./pages/RegPipeline'))
 const DataDictionary = lazy(() => import('./pages/DataDictionary'))
 const Filings = lazy(() => import('./pages/Filings'))
 const Funds = lazy(() => import('./pages/Funds'))
@@ -106,6 +107,7 @@ function Workspace() {
         <Route path="/kri" element={<Kri />} />
         <Route path="/transmission" element={<Transmission />} />
         <Route path="/reg-changes" element={<RegChanges />} />
+        <Route path="/reg-pipeline" element={<RegPipeline />} />
         <Route path="/data-dictionary" element={<DataDictionary />} />
         <Route path="/filings" element={<Filings />} />
         <Route path="/approvals" element={<Approvals />} />

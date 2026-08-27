@@ -32,6 +32,12 @@ def board(session: DbSession, ctx: dict = Depends(require_permission("reports.vi
     return C.board(session, ctx["org"]["org_id"])
 
 
+@router.get("/outlook", summary="Regulatory outlook (customer view) — what's in force today, and what's changing when + any data you'll need")
+def outlook(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_outlook import outlook as _outlook
+    return _outlook(ctx["org"].get("type"), session)
+
+
 @router.post("", status_code=201, summary="Register a regulatory change")
 def create(body: ChangeCreate, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     try:

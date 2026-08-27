@@ -38,6 +38,21 @@ def calendar(session: Session, org_id: str, org_type: str) -> dict:
             "status": r["status"], "overdue": r["due_date"] < today, "criticality": r["criticality"],
         })
 
+    # upcoming regulatory changes with a known effective date — "when a new version lands" on the same runway
+    # (platform-wide rule changes + this org's own adaptation items, not yet released).
+    changes = session.execute(text("""
+        SELECT change_id::text AS id, title, framework, stage, effective_date
+        FROM regulatory_change
+        WHERE (org_id IS NULL OR org_id = :o) AND effective_date IS NOT NULL AND stage <> 'released'
+        ORDER BY effective_date
+    """), {"o": org_id}).mappings().all()
+    for r in changes:
+        events.append({
+            "date": r["effective_date"].isoformat(), "kind": "reg_change", "title": r["title"],
+            "sub": f'{r["framework"] or "regulatory change"} · takes effect', "ref_id": r["id"],
+            "status": r["stage"], "overdue": False, "criticality": None,
+        })
+
     events.sort(key=lambda e: e["date"])
     upcoming = [e for e in events if e["date"] >= today.isoformat()][:12]
     return {"events": events, "upcoming": upcoming, "today": today.isoformat()}
