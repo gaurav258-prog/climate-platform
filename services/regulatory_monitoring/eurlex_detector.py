@@ -20,15 +20,18 @@ from sqlalchemy.orm import Session
 
 _ENDPOINT = "https://publications.europa.eu/webapi/rdf/sparql"
 
-# framework id -> the governing act's CELEX (the act whose legal dates we track). Acts without a single clean
-# CELEX (e.g. TCFD guidance) are omitted — the outlook falls back to the curated library for those.
-FRAMEWORK_CELEX: dict[str, str] = {
-    "bank_tcfd": "32021R2178", "reit_tcfd": "32021R2178",
-    "bank_p3esg": "32022R2453",
-    "sfdr_pai": "32022R1288",
-    "csrd_e1": "32023R2772", "esrs_pack": "32023R2772",
-    "insurer_climate": "32009L0138",
-    "eudr_dds": "32023R1115",
+# framework id -> the CELEX acts we track for it: the governing act FIRST (its legal dates drive the outlook's
+# verified date), then any key amending / related acts so a change to either is caught. Acts without a single
+# clean CELEX (e.g. TCFD guidance) are omitted — the outlook falls back to the curated library for those.
+FRAMEWORK_CELEX: dict[str, list[str]] = {
+    "bank_tcfd": ["32021R2178"],
+    "reit_tcfd": ["32021R2178"],
+    "bank_p3esg": ["32022R2453"],
+    "sfdr_pai": ["32022R1288", "32019R2088"],    # RTS + base SFDR
+    "csrd_e1": ["32023R2772", "32022L2464"],     # ESRS Delegated Act + CSRD Directive
+    "esrs_pack": ["32023R2772", "32022L2464"],
+    "insurer_climate": ["32009L0138"],
+    "eudr_dds": ["32023R1115", "32024R3234"],    # EUDR + the application-date amendment
 }
 
 _QUERY = """PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
@@ -79,56 +82,67 @@ def _next_effective(eif: list[str]) -> str | None:
 
 
 def scan(session: Session) -> dict:
-    """Query every tracked framework's act, update snapshots, and record any that moved since last time."""
+    """Query every tracked act (one row per CELEX), update its snapshot, and record any that moved. A single act
+    used by several frameworks (e.g. the Taxonomy DA) records a detected change against each of them."""
     from services.governance.reg_reference import REFERENCE
+    celex_fw: dict[str, list[str]] = {}
+    for fw, acts in FRAMEWORK_CELEX.items():
+        for cx in acts:
+            celex_fw.setdefault(cx, []).append(fw)
     baselines, changed, unchanged, errors = [], [], [], []
-    for fw, celex in FRAMEWORK_CELEX.items():
-        sig = _query_cellar(celex)
+    for cx, fws in celex_fw.items():
+        sig = _query_cellar(cx)
         if sig is None:
-            errors.append(fw)
+            errors.append(cx)
             continue
         fp = _fingerprint(sig)
-        prev = session.execute(text("SELECT fingerprint, signal FROM reg_source_snapshot WHERE framework=:f"),
-                               {"f": fw}).mappings().first()
+        prev = session.execute(text("SELECT fingerprint, signal FROM reg_source_snapshot WHERE celex=:c"),
+                               {"c": cx}).mappings().first()
         if prev is None:
-            session.execute(text("""INSERT INTO reg_source_snapshot (framework, celex, fingerprint, signal)
-                                    VALUES (:f,:c,:fp, CAST(:s AS jsonb))"""),
-                            {"f": fw, "c": celex, "fp": fp, "s": json.dumps(sig)})
-            baselines.append(fw)
+            session.execute(text("""INSERT INTO reg_source_snapshot (celex, framework, fingerprint, signal)
+                                    VALUES (:c,:f,:fp, CAST(:s AS jsonb))"""),
+                            {"c": cx, "f": fws[0], "fp": fp, "s": json.dumps(sig)})
+            baselines.append(cx)
         elif prev["fingerprint"] != fp:
             old = prev["signal"] or {}
             old_eif = ", ".join(old.get("entry_into_force") or []) or "—"
             new_eif = ", ".join(sig["entry_into_force"]) or "—"
-            label = (REFERENCE.get(fw) or {}).get("official_name") or fw
-            session.execute(text("""INSERT INTO reg_detected_change (framework, celex, title, summary, effective_date, url)
-                                    VALUES (:f,:c,:t,:s,:d,:u)"""),
-                            {"f": fw, "c": celex,
-                             "t": f"{label} — legal dates changed at source",
-                             "s": f"EUR-Lex now lists entry-into-force {new_eif} (was {old_eif}).",
-                             "d": _next_effective(sig["entry_into_force"]),
-                             "u": f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{celex}"})
+            for fw in fws:
+                label = (REFERENCE.get(fw) or {}).get("official_name") or fw
+                session.execute(text("""INSERT INTO reg_detected_change (framework, celex, title, summary, effective_date, url)
+                                        VALUES (:f,:c,:t,:s,:d,:u)"""),
+                                {"f": fw, "c": cx,
+                                 "t": f"{label} — legal dates changed at source",
+                                 "s": f"EUR-Lex now lists entry-into-force {new_eif} (was {old_eif}).",
+                                 "d": _next_effective(sig["entry_into_force"]),
+                                 "u": f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{cx}"})
             session.execute(text("""UPDATE reg_source_snapshot
                                     SET fingerprint=:fp, signal=CAST(:s AS jsonb), checked_at=now(), updated_at=now()
-                                    WHERE framework=:f"""),
-                            {"f": fw, "fp": fp, "s": json.dumps(sig)})
-            changed.append(fw)
+                                    WHERE celex=:c"""),
+                            {"c": cx, "fp": fp, "s": json.dumps(sig)})
+            changed.append(cx)
         else:
-            session.execute(text("UPDATE reg_source_snapshot SET checked_at=now() WHERE framework=:f"), {"f": fw})
-            unchanged.append(fw)
+            session.execute(text("UPDATE reg_source_snapshot SET checked_at=now() WHERE celex=:c"), {"c": cx})
+            unchanged.append(cx)
     session.commit()
-    return {"checked": len(FRAMEWORK_CELEX), "baselines": baselines, "changed": changed,
+    return {"checked": len(celex_fw), "baselines": baselines, "changed": changed,
             "unchanged": unchanged, "errors": errors}
 
 
 def verified_dates(session: Session) -> dict:
-    """Per-framework live-verified legal dates from the latest snapshot — for the outlook to show/reconcile."""
+    """Per-framework live-verified legal dates — from the framework's PRIMARY (governing) act's snapshot."""
+    snaps = {r["celex"]: r for r in
+             session.execute(text("SELECT celex, signal, checked_at FROM reg_source_snapshot")).mappings()}
     out: dict[str, dict] = {}
-    for r in session.execute(text("SELECT framework, celex, signal, checked_at FROM reg_source_snapshot")).mappings():
+    for fw, acts in FRAMEWORK_CELEX.items():
+        r = snaps.get(acts[0])
+        if not r:
+            continue
         sig = r["signal"] or {}
-        out[r["framework"]] = {"celex": r["celex"], "in_force": sig.get("in_force"),
-                               "entry_into_force": sig.get("entry_into_force") or [],
-                               "next_effective": _next_effective(sig.get("entry_into_force") or []),
-                               "checked_at": r["checked_at"].date().isoformat() if r["checked_at"] else None}
+        out[fw] = {"celex": acts[0], "in_force": sig.get("in_force"),
+                   "entry_into_force": sig.get("entry_into_force") or [],
+                   "next_effective": _next_effective(sig.get("entry_into_force") or []),
+                   "checked_at": r["checked_at"].date().isoformat() if r["checked_at"] else None}
     return out
 
 

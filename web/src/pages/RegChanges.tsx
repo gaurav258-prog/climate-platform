@@ -9,8 +9,9 @@ import { Card, PageHeader, HeroBanner } from '../components/ui'
 // process (that internal pipeline lives on the platform-operator page).
 
 interface InForce { framework: string; name: string; authority: string; frequency: string; requires: string; citation: string; url: string | null }
-interface DataField { field: string; note: string }
-interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null }
+interface DataField { field: string; note: string; status?: string; detail?: string | null }
+interface DataSummary { have: number; partial: number; needed: number; total: number }
+interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null; data_summary?: DataSummary }
 interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | null; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number; n_detected: number; n_verified: number } }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
@@ -51,20 +52,30 @@ function ComingCard({ c }: { c: Coming }) {
         <div className="min-w-0 flex-1">
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">{c.prepare ? 'To prepare' : c.data_tbc ? 'Data — to be confirmed' : 'Your side'}</div>
           <div className="text-[12px] text-[var(--color-mute)] leading-snug">{c.prepare ?? c.data_tbc ?? 'No new data or integration needed — computed from the book you already provide.'}</div>
-          {/* the exact fields the client should stand up in their systems — collapsed by default */}
+          {/* the exact fields the client should stand up in their systems — with what we already hold */}
           {fields.length > 0 && (
             <>
               <button onClick={() => setShowData(v => !v)} className="mt-2 inline-flex items-center gap-1.5 mono text-[10px] text-[var(--color-sky)] hover:underline">
                 {showData ? <ChevronDown size={12} /> : <ChevronRight size={12} />}<ListChecks size={12} /> Data to provide · {fields.length} field{fields.length === 1 ? '' : 's'}
+                {c.data_summary && <span className="text-[var(--color-faint)]">· you already hold {c.data_summary.have}/{c.data_summary.total}</span>}
               </button>
               {showData && (
                 <ul className="mt-2 flex flex-col gap-1.5">
-                  {fields.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px]">
-                      <span className="text-[var(--color-warn)] mt-0.5 shrink-0">▸</span>
-                      <span><span className="text-[var(--color-ink)]">{f.field}</span>{f.note && <span className="mono text-[10px] text-[var(--color-faint)]"> — {f.note}</span>}</span>
-                    </li>
-                  ))}
+                  {fields.map((f, i) => {
+                    const st = f.status
+                    const tone = st === 'have' ? 'var(--color-good)' : st === 'partial' ? 'var(--color-warn)' : 'var(--color-faint)'
+                    const Icon = st === 'have' ? CheckCircle2 : st === 'partial' ? Clock : Database
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-[12px]">
+                        <Icon size={12} className="mt-0.5 shrink-0" style={{ color: tone }} />
+                        <span className="min-w-0">
+                          <span className="text-[var(--color-ink)]">{f.field}</span>
+                          {f.note && <span className="mono text-[10px] text-[var(--color-faint)]"> — {f.note}</span>}
+                          {st && <span className="mono text-[9px] uppercase tracking-wide ml-1.5 px-1.5 py-0.5 rounded" style={{ color: tone, background: `color-mix(in oklab, ${tone} 14%, transparent)` }}>{st === 'have' ? 'you hold this' : st === 'partial' ? `partial ${f.detail ?? ''}` : 'you’ll provide'}</span>}
+                        </span>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </>

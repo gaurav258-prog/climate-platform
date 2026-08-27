@@ -22,12 +22,12 @@ COMING: list[dict] = [
      "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
      "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
      "data_fields": [
-         {"field": "Plot geolocation — polygon vertices (lat/long), or a point for plots ≤ 4 ha", "note": "WGS-84; ≥ 6 decimal places"},
-         {"field": "Commodity + HS code, and production quantity", "note": "per plot / batch"},
-         {"field": "Country & region of production", "note": "ISO country + sub-national area"},
-         {"field": "Production date or time window", "note": "harvest / placing-on-market date"},
-         {"field": "Legality evidence", "note": "land-use rights, EUDR Annex-II legality documents"},
-         {"field": "Supplier / operator identity", "note": "name, address, EORI where applicable"}],
+         {"key": "eudr_geoloc", "field": "Plot geolocation — polygon vertices (lat/long), or a point for plots ≤ 4 ha", "note": "WGS-84; ≥ 6 decimal places"},
+         {"key": "eudr_commodity_hs", "field": "Commodity + HS code, and production quantity", "note": "per plot / batch"},
+         {"key": "eudr_country", "field": "Country & region of production", "note": "ISO country + sub-national area"},
+         {"key": "eudr_production_date", "field": "Production date or time window", "note": "harvest / placing-on-market date"},
+         {"key": "eudr_legality", "field": "Legality evidence", "note": "land-use rights, EUDR Annex-II legality documents"},
+         {"key": "eudr_supplier", "field": "Supplier / operator identity", "note": "name, address, EORI where applicable"}],
      "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234", "url": _EURLEX + "32024R3234"},
     {"sectors": ["manufacturer", "bank", "reit"], "framework": None,
      "affects": ["bank_tcfd", "reit_tcfd", "csrd_e1", "esrs_pack"], "title": "EU Taxonomy — environmental objectives",
@@ -35,11 +35,11 @@ COMING: list[dict] = [
      "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
      "prepare": "Activity-level data against the four additional environmental objectives.",
      "data_fields": [
-         {"field": "Economic activity per NACE code", "note": "map each activity to a Taxonomy activity"},
-         {"field": "Turnover / CapEx / OpEx attributable to each activity", "note": "the three Art. 8 KPIs"},
-         {"field": "Substantial-contribution flag per objective", "note": "water · circular economy · pollution · biodiversity"},
-         {"field": "DNSH assessment per objective", "note": "‘do no significant harm’ screening"},
-         {"field": "Minimum-safeguards compliance", "note": "OECD MNE / UN Guiding Principles"}],
+         {"key": "taxo_nace", "field": "Economic activity per NACE code", "note": "map each activity to a Taxonomy activity"},
+         {"key": "taxo_kpis", "field": "Turnover / CapEx / OpEx attributable to each activity", "note": "the three Art. 8 KPIs"},
+         {"key": "taxo_sc", "field": "Substantial-contribution flag per objective", "note": "water · circular economy · pollution · biodiversity"},
+         {"key": "taxo_dnsh", "field": "DNSH assessment per objective", "note": "‘do no significant harm’ screening"},
+         {"key": "taxo_safeguards", "field": "Minimum-safeguards compliance", "note": "OECD MNE / UN Guiding Principles"}],
      "citation": "Environmental Delegated Act (EU) 2023/2486 (applies from 1 Jan 2024)", "url": _EURLEX + "32023R2486"},
     {"sectors": ["manufacturer"], "framework": "esrs_pack", "affects": ["csrd_e1", "esrs_pack"], "title": "ESRS digital tagging (XBRL)",
      "date": None, "when": "no fixed date · phased with ESAP go-live (from 2027)",
@@ -101,7 +101,7 @@ def _short(fw: str) -> str:
     return r.get("summary") or (FRAMEWORKS.get(fw, {}).get("label") or "")
 
 
-def outlook(org_type: str | None, session=None) -> dict:
+def outlook(org_type: str | None, session=None, org_id: str | None = None) -> dict:
     """The customer's regulatory outlook: what's in force for this sector today, and what's coming — with the
     coming dates verified live against the EUR-Lex register, plus any changes the live detector has flagged."""
     # live-verified legal dates + auto-detected changes from the EUR-Lex (Cellar) detector
@@ -140,8 +140,24 @@ def outlook(org_type: str | None, session=None) -> dict:
         item = {k: c[k] for k in ("framework", "title", "date", "when", "whats_changing", "prepare", "citation", "url")}
         item["date_fixed"] = c.get("date") is not None
         item["source"] = "curated"
-        item["data_fields"] = c.get("data_fields") or []
         item["data_tbc"] = c.get("data_tbc")
+        # data-readiness: for each required field, check the client's own book (have / partial / needed)
+        fields = []
+        for f in (c.get("data_fields") or []):
+            row = {"field": f["field"], "note": f.get("note", "")}
+            if session is not None and org_id:
+                try:
+                    from services.governance.reg_readiness import field_readiness
+                    row.update(field_readiness(session, org_id, f.get("key")))
+                except Exception:
+                    row["status"] = "needed"
+            fields.append(row)
+        item["data_fields"] = fields
+        if session is not None and org_id and fields:
+            item["data_summary"] = {"have": sum(1 for f in fields if f.get("status") == "have"),
+                                    "partial": sum(1 for f in fields if f.get("status") == "partial"),
+                                    "needed": sum(1 for f in fields if f.get("status") == "needed"),
+                                    "total": len(fields)}
         # reconcile the curated date against the live EUR-Lex register — only for items that (a) carry a fixed
         # date and (b) are tied to a single governing act, so we compare like with like (not a sub-timeline).
         fw = c.get("framework")

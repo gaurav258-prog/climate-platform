@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FileText, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Leaf, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight, Sigma, Scale, KeyRound, Trees, Satellite, Network, FileSearch, UserPlus, Telescope } from 'lucide-react'
+import { Home, Building2, Sprout, Map as MapIcon, BellRing, ShieldCheck, FlaskConical, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, LifeBuoy, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Table2, RadioTower, Layers, Sun, Moon, LineChart, Crosshair, PanelLeftClose, PanelLeftOpen, FileClock, History, ClipboardCheck, FileSignature, Rocket, CreditCard, Fingerprint, Pin, ChevronDown, ChevronRight, Sigma, Scale, KeyRound, Satellite, Network, FileSearch, UserPlus, Telescope } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -45,11 +45,9 @@ const GROUPS: Group[] = [
   { label: 'Disclose', color: 'var(--stage-disclose)', flow: true, items: [
     { to: '/funds', label: 'Funds', icon: Layers, perm: 'modules.view', sectors: ['asset_manager'] },
     { to: '/compliance', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: FIN },
-    { to: '/prior-filings', label: 'Prior filings', icon: FileClock, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit', 'manufacturer'] },
+    { to: '/prior-filings', label: 'Prior filings', icon: FileClock, perm: 'modules.view', sectors: ['bank', 'asset_manager', 'reit'] },
+    // Agri reporting is one hub: /filings is the entry; EUDR · CSRD · ESRS · Prior are tabs inside it (ReportTabs).
     { to: '/filings', label: 'Reports & filings', icon: ShieldCheck, perm: 'modules.view', sectors: AGRI },
-    { to: '/disclosure', label: 'EUDR & supply', icon: Trees, perm: 'modules.view', sectors: AGRI },
-    { to: '/csrd', label: 'Climate report (CSRD)', icon: FileText, perm: 'modules.view', sectors: AGRI },
-    { to: '/esrs', label: 'Nature report (ESRS)', icon: Leaf, perm: 'modules.view', sectors: AGRI },
     { to: '/oversight', label: 'Supervisory view', icon: Scale, perm: 'modules.view' },
   ] },
   { label: 'Operate', color: 'var(--stage-operate)', flow: true, items: [
@@ -88,7 +86,7 @@ const GROUPS: Group[] = [
 const PRIMARY = new Set<string>([
   '/horizon', '/home', '/portfolio', '/data', '/operations', '/sourcing', '/riskmap', '/early-warning',   // Sense
   '/kri', '/underwriting', '/decisions',                                                // Assess · Decide
-  '/funds', '/compliance', '/filings', '/disclosure',                                   // Disclose
+  '/funds', '/compliance', '/filings',                                                  // Disclose (agri EUDR/CSRD/ESRS are tabs in /filings)
   '/tasks', '/approvals', '/exceptions',                                                // Operate
   '/platform', '/intake', '/reg-pipeline',                                              // Platform (operator's whole job)
 ])

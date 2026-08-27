@@ -16,8 +16,8 @@ depends_on = None
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS reg_source_snapshot (
-  framework   text PRIMARY KEY,
-  celex       text NOT NULL,
+  celex       text PRIMARY KEY,
+  framework   text NOT NULL,
   fingerprint text NOT NULL,
   signal      jsonb,
   checked_at  timestamptz NOT NULL DEFAULT now(),

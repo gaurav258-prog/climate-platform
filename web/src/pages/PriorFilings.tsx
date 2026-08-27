@@ -5,6 +5,7 @@ import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, Ale
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, SectionHead, Button, PageHeader } from '../components/ui'
+import ReportTabs from '../components/ReportTabs'
 
 // Prior filings — bring in ESG reports already filed and accepted. Upload the submitted file itself;
 // the engine reads it into its reported lines, the preparer confirms them, and the figures are stored as
@@ -116,6 +117,7 @@ export default function PriorFilings() {
 
   return (
     <div className="fadeup space-y-6">
+      <ReportTabs />
       <PageHeader eyebrow="Reported history" title="Prior filings"
         lead="Bring in the ESG reports you have already filed and had accepted. Upload the report you submitted — it is read into its reported lines for you to confirm, then kept as your reported record for trends and follow-up questions." />
 
