@@ -288,6 +288,23 @@ export default function Horizon() {
       closeSel()
     } finally { setResolving(false) }
   }
+  // Escape mirrors the "← back" button: close the topmost open overlay, one press at a time. Order matches
+  // visual stacking — the granular grid sits over a drill-down, which sits over a selection / region focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (hexOpen) setHexOpen(false)
+      else if (entOpen) setEntOpen(false)
+      else if (panel) setPanel(null)
+      else if (sel) closeSel()
+      else if (beltName) closeBelt()
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [hexOpen, entOpen, panel, sel, beltName])   // eslint-disable-line react-hooks/exhaustive-deps
+
   // belt aggregate for the banner
   const beltAssets = beltName ? (beltsRef.current[beltName] || []) : []
   const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
