@@ -60,6 +60,12 @@ def oversight(session: DbSession, ctx: dict = Depends(require_permission("report
     return supervisor_view(session, ctx["org"]["org_id"], ctx["org"].get("type"))
 
 
+@router.get("/supervisory", summary="How your regulators will read you — supervisor mission, focus & the questions to expect, answered by your live figures")
+def supervisory(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_supervisors import supervisory_anticipation
+    return supervisory_anticipation(session, ctx["org"]["org_id"], ctx["org"].get("type"))
+
+
 @router.get("/kri/frameworks", summary="The KRI frameworks this org can report on (for the picker)")
 def kri_frameworks(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.kri import kri_frameworks as _kf
