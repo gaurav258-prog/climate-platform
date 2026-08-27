@@ -14,16 +14,41 @@ import { hazardLabel } from '../lib/hazards'
 // Project → ACT.
 
 const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
+const SUPPORTED = [...FIN, 'manufacturer']   // + agri — the standardized decision layer serves every sector
 const SCEN: [string, string][] = [['orderly_1_5c', 'Orderly 1.5°C'], ['disorderly_2c', 'Disorderly 2°C'], ['hot_house_3_5c', 'Hot-house 3.5°C']]
 const HZ = ['2030', '2050', '2100']
-const ACTIONS: { key: string; label: string; tone: string; desc: string }[] = [
-  { key: 'reprice', label: 'Reprice', tone: 'var(--scn-disorderly)', desc: 'Re-price the exposure to reflect the higher climate risk — adjust the margin, spread or terms at the next renewal. Spins a board task.' },
-  { key: 'engage', label: 'Engage', tone: 'var(--scn-baseline)', desc: 'Contact the counterparty to understand and reduce the risk (adaptation / transition plan) before repricing or exiting. Spins a board task.' },
-  { key: 'disclose', label: 'Disclose', tone: 'var(--scn-orderly)', desc: 'Flag this exposure to include in the climate-risk disclosure / regulatory filing for the period. Spins a board task.' },
-  { key: 'monitor', label: 'Monitor', tone: 'var(--color-mute)', desc: 'No action yet — put the exposure on a watchlist with a re-review date. A scheduled re-check re-scores it and escalates if it deteriorates further (when enabled in the playbook).' },
-  { key: 'accept', label: 'Accept', tone: 'var(--color-faint)', desc: 'Formally accept the risk with no change, rationale on record. No board task.' },
-]
-const actionMeta = (k?: string | null) => ACTIONS.find(a => a.key === k)
+
+// The verb-pack copy — one entry per action across every sector. The server's /v1/decisions/actions decides
+// WHICH verbs a given sector offers; this map supplies the label · tone · in-place explanation for each.
+type Meta = { label: string; tone: string; desc: string }
+const ACTION_META: Record<string, Meta> = {
+  reprice: { label: 'Reprice', tone: 'var(--scn-disorderly)', desc: 'Re-price to reflect the higher climate risk — margin, spread or terms at the next renewal. Spins a board task.' },
+  adjust_terms: { label: 'Adjust terms', tone: 'var(--scn-disorderly)', desc: 'Tighten covenants, LTV or collateral terms on the exposure. Spins a board task.' },
+  limit_exit: { label: 'Limit / exit', tone: 'var(--color-bad)', desc: 'Cap or wind down the exposure. Spins a board task.' },
+  provision: { label: 'Provision', tone: 'var(--scn-orderly)', desc: 'Review expected-loss provisioning for the exposure. Spins a board task.' },
+  adjust_cover: { label: 'Adjust cover', tone: 'var(--scn-disorderly)', desc: 'Adjust deductible or limit on the policy. Spins a board task.' },
+  exclude: { label: 'Exclude', tone: 'var(--color-bad)', desc: 'Add a peril exclusion at renewal. Spins a board task.' },
+  non_renew: { label: 'Non-renew', tone: 'var(--color-bad)', desc: 'Decline renewal at expiry. Spins a board task.' },
+  reinsure: { label: 'Reinsure', tone: 'var(--scn-orderly)', desc: 'Review reinsurance / retention on the risk. Spins a board task.' },
+  reweight: { label: 'Reweight', tone: 'var(--scn-disorderly)', desc: 'Reweight the holding in the portfolio. Spins a board task.' },
+  engage_issuer: { label: 'Engage issuer', tone: 'var(--scn-baseline)', desc: 'Engage the issuer on its adaptation / transition plan. Spins a board task.' },
+  divest: { label: 'Divest', tone: 'var(--color-bad)', desc: 'Divest the holding. Spins a board task.' },
+  hedge: { label: 'Hedge', tone: 'var(--scn-orderly)', desc: 'Hedge the exposure. Spins a board task.' },
+  adaptation_capex: { label: 'Adaptation capex', tone: 'var(--scn-orderly)', desc: 'Plan resilience capex for the property. Spins a board task.' },
+  reposition: { label: 'Reposition', tone: 'var(--scn-disorderly)', desc: 'Reposition the asset. Spins a board task.' },
+  dispose: { label: 'Dispose', tone: 'var(--color-bad)', desc: 'Dispose of the asset. Spins a board task.' },
+  insure: { label: 'Insure', tone: 'var(--scn-orderly)', desc: 'Insure the asset against the peril. Spins a board task.' },
+  reallocate_origin: { label: 'Reallocate origin', tone: 'var(--scn-disorderly)', desc: 'Shift a bounded share of spend to a lower-risk origin you already source from. Spins a board task.' },
+  diversify_supplier: { label: 'Diversify supplier', tone: 'var(--scn-orderly)', desc: 'Add an alternative supplier / origin to cut concentration. Spins a board task.' },
+  buffer_prebuy: { label: 'Buffer / pre-buy', tone: 'var(--scn-orderly)', desc: 'Build inventory buffer or pre-buy ahead of the disruption window. Spins a board task.' },
+  adaptation_invest: { label: 'Adaptation investment', tone: 'var(--scn-orderly)', desc: 'Invest with the supplier in adaptation (irrigation, storage). Spins a board task.' },
+  renegotiate: { label: 'Renegotiate', tone: 'var(--scn-disorderly)', desc: 'Renegotiate contract terms to share the climate risk. Spins a board task.' },
+  engage: { label: 'Engage', tone: 'var(--scn-baseline)', desc: 'Contact the counterparty to understand and reduce the risk before repricing or exiting. Spins a board task.' },
+  disclose: { label: 'Disclose', tone: 'var(--scn-orderly)', desc: 'Flag this to include in the climate-risk disclosure for the period. Spins a board task.' },
+  monitor: { label: 'Monitor', tone: 'var(--color-mute)', desc: 'No action yet — a watchlist with a re-review date; escalates if it deteriorates (when enabled in the playbook).' },
+  accept: { label: 'Accept', tone: 'var(--color-faint)', desc: 'Formally accept the risk with no change, rationale on record. No board task.' },
+}
+const actionMeta = (k?: string | null): Meta | undefined => k ? ACTION_META[k] : undefined
 
 interface Decision { action: string; rationale: string | null; status: string; by: string | null; at: string }
 interface Crossing { entity_id: string; entity_name: string; value_eur: number | null; country: string | null; region: string | null; driver: string; current_score: number | null; future_score: number | null; delta: number; decision: Decision | null }
@@ -35,22 +60,30 @@ const scLabel = (k: string) => SCEN.find(s => s[0] === k)?.[1] ?? k
 export default function Decisions() {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const isFin = FIN.includes(profile?.org?.type ?? '')
+  const supported = SUPPORTED.includes(profile?.org?.type ?? '')
   const canAct = (profile?.permissions ?? []).includes('approvals.create')
   const [scenario, setScenario] = useState('disorderly_2c')
   const [horizon, setHorizon] = useState('2050')
 
+  const aq = useQuery({ queryKey: ['decision-actions'], enabled: supported,
+    queryFn: () => api.get<{ vertical: string; subject_noun: string; actions: string[]; labels: Record<string, string> }>('/v1/decisions/actions') })
   const cq = useQuery({
     queryKey: ['decision-crossings', scenario, horizon],
-    enabled: isFin,
+    enabled: supported,
     queryFn: () => api.get<{ n: number; at_risk_threshold: number; policy: { requires_approval: boolean; threshold_eur: number | null }; crossings: Crossing[] }>(`/v1/decisions/crossings?scenario=${scenario}&horizon=${horizon}`),
   })
-  const lq = useQuery({ queryKey: ['decision-log'], enabled: isFin, queryFn: () => api.get<{ decisions: LogRow[] }>('/v1/decisions/log') })
+  const lq = useQuery({ queryKey: ['decision-log'], enabled: supported, queryFn: () => api.get<{ decisions: LogRow[] }>('/v1/decisions/log') })
   const refresh = () => { qc.invalidateQueries({ queryKey: ['decision-crossings'] }); qc.invalidateQueries({ queryKey: ['decision-log'] }) }
 
-  if (!isFin) return (
+  // the sector's verb-pack + subject noun, from the server registry
+  const noun = aq.data?.subject_noun ?? 'exposure'
+  const nounP = noun.endsWith('y') ? noun.slice(0, -1) + 'ies' : noun + 's'
+  const NounP = nounP.charAt(0).toUpperCase() + nounP.slice(1)
+  const actions = (aq.data?.actions ?? []).map(k => ({ key: k, ...(ACTION_META[k] ?? { label: aq.data?.labels?.[k] ?? k, tone: 'var(--color-mute)', desc: '' }) }))
+
+  if (!supported) return (
     <div className="fadeup"><Eyebrow>Decisions</Eyebrow>
-      <Card className="p-10 mt-4 text-[13px] text-[var(--color-mute)]">Forward-risk decisions are for financial books (bank / asset manager / insurer / REIT).</Card>
+      <Card className="p-10 mt-4 text-[13px] text-[var(--color-mute)]">Forward-risk decisions aren’t wired for this sector yet.</Card>
     </div>
   )
 
@@ -62,7 +95,7 @@ export default function Decisions() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow={`${profile?.org?.name} · act`} title="Forward-risk decisions"
-        lead={<>Exposures that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one (engage / reprice / disclose) spins a card on the board.</>}>
+        lead={<>{NounP} that cross into <b>High+</b> risk by the chosen pathway — the projection’s “act by” list. Decide on each; an actionable one spins a card on the board.</>}>
         {cq.data?.policy && (
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
             {cq.data.policy.requires_approval
@@ -83,10 +116,10 @@ export default function Decisions() {
       {/* summary — lead with the answer */}
       <HeroBanner
         eyebrow="Forward-risk decisions"
-        title={cq.isLoading ? 'Reading the forward book…' : crossings.length === 0 ? 'Nothing crosses into High+ by this pathway.' : `${crossings.length} exposure${crossings.length === 1 ? '' : 's'} cross into High+.`}
-        lead={`Exposures that cross the High line by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
+        title={cq.isLoading ? 'Reading the forward book…' : crossings.length === 0 ? 'Nothing crosses into High+ by this pathway.' : `${crossings.length} ${crossings.length === 1 ? noun : nounP} cross into High+.`}
+        lead={`${NounP} that cross the High line by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
         stat={[
-          { label: 'Exposures crossing', value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
+          { label: `${NounP} crossing`, value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
           { label: 'Value newly at risk', value: cq.isLoading ? '—' : eur(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
           { label: 'Decided', value: cq.isLoading ? '—' : `${approved} / ${crossings.length}`, icon: Check, tone: approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined },
         ]} />
@@ -95,12 +128,12 @@ export default function Decisions() {
       <Card className="p-0 overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-line)]">
           <ShieldAlert size={15} className="text-[var(--color-bad)]" />
-          <SectionHead hint="worst hazard vs the score-50 line">Exposures crossing into High+</SectionHead>
+          <SectionHead hint="worst hazard vs the score-50 line">{NounP} crossing into High+</SectionHead>
         </div>
         {cq.isLoading ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">projecting the book…</div>
-          : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">No exposures newly cross into High+ under this pathway by {horizon}. Nothing to act on.</div>
+          : crossings.length === 0 ? <div className="px-5 py-8 text-[13px] text-[var(--color-faint)]">No {nounP} newly cross into High+ under this pathway by {horizon}. Nothing to act on.</div>
           : <div className="divide-y divide-[var(--color-line)]">
-              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} onDone={refresh} />)}
+              {crossings.map(c => <CrossingRow key={c.entity_id} c={c} scenario={scenario} horizon={horizon} canAct={canAct} actions={actions} discloseTo={aq.data?.vertical === 'agri' ? '/filings' : '/compliance'} onDone={refresh} />)}
             </div>}
       </Card>
 
@@ -113,7 +146,7 @@ export default function Decisions() {
   )
 }
 
-function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; scenario: string; horizon: string; canAct: boolean; onDone: () => void }) {
+function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, onDone }: { c: Crossing; scenario: string; horizon: string; canAct: boolean; actions: (Meta & { key: string })[]; discloseTo: string; onDone: () => void }) {
   const [open, setOpen] = useState(false)
   const [action, setAction] = useState(c.decision?.action ?? '')
   const [rationale, setRationale] = useState(c.decision?.rationale ?? '')
@@ -163,14 +196,14 @@ function CrossingRow({ c, scenario, horizon, canAct, onDone }: { c: Crossing; sc
           <span>next</span>
           <Link to="/tasks" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Board task <ArrowRight size={11} /></Link>
           {c.decision.action === 'disclose' &&
-            <Link to="/compliance" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Include in the filing <ArrowRight size={11} /></Link>}
+            <Link to={discloseTo} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Include in the filing <ArrowRight size={11} /></Link>}
         </div>
       )}
 
       {open && canAct && (
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] p-3 space-y-2.5">
           <div className="flex flex-wrap gap-1.5">
-            {ACTIONS.map(a => (
+            {actions.map(a => (
               <button key={a.key} onClick={() => setAction(a.key)} title={a.desc} className={`px-2.5 py-1.5 rounded-lg text-[12px] border transition ${action === a.key ? 'border-transparent text-[var(--color-ink)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}
                 style={action === a.key ? { background: `color-mix(in oklab, ${a.tone} 16%, transparent)` } : undefined}>
                 <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: a.tone }} />{a.label}</span>
