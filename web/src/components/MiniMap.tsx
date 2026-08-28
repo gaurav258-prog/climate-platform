@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 // A small located-point map built from STATIC raster tiles (<img>), not interactive maplibre.
 // Rationale: maplibre-6 leaves its WebGL raster blank until the first user gesture; a plain <img>
 // tile grid always paints on load. Deterministic, reliable, no paint quirk. Non-interactive by design.
-const TILE = (z: number, x: number, y: number) => `https://a.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`
+// Keyless, label-free light base (Esri Light Gray Canvas) — no API key, no baked-in local-language labels.
+const TILE = (z: number, x: number, y: number) => `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/${z}/${y}/${x}`
 
 export default function MiniMap({ lat, lon, color = '#38bdf8', zoom = 6 }: { lat: number; lon: number; color?: string; zoom?: number }) {
   const el = useRef<HTMLDivElement | null>(null)

@@ -33,14 +33,17 @@ const resForZoom = (z: number) => Math.max(2, Math.min(7, Math.round(0.72 * z - 
 // sky-blue ground, so land and sea read as soft blues. Everything on top (place names, plots, and the
 // H3 hex grid) is drawn as a DOM/SVG overlay — maplibre-6 can leave its own vector layers unrendered
 // until the user's first gesture, but overlays projected via map.project() paint on load, reliably.
-const TILES = ['a', 'b', 'c', 'd'].map(s => `https://${s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png`)
+// Keyless, LABEL-FREE light base (Esri Light Gray Canvas) — no API key, and no baked-in place names, so the
+// only labels are the app's own English ones below (plain OSM bakes in local-language labels; CARTO's
+// no-label base now needs a key). Attribution required.
+const TILES = ['https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}']
 const SKY = '#a9d3ef'        // ocean blue behind everything (shows through the sea)
 const INK = '#12314f'        // deep navy for labels on the light land
 
 function baseStyle(): maplibregl.StyleSpecification {
   return {
     version: 8,
-    sources: { base: { type: 'raster', tiles: TILES, tileSize: 256, attribution: '© OpenStreetMap © CARTO' } },
+    sources: { base: { type: 'raster', tiles: TILES, tileSize: 256, maxzoom: 16, attribution: 'Tiles © Esri' } },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': SKY } },
       // full-strength, lightly-cooled Voyager with a contrast boost — clear blue sea vs light land,
