@@ -28,6 +28,23 @@ BELT_CONFIG: dict = {
     "morocco_wheat":     {"commodity": "Wheat",       "countries": ["MA"],       "driver": "spei",        "sign": 1,  "months": [2, 3, 4],          "src": "Maghreb rainfed wheat (SPEI)"},
     "australia_wheat":   {"commodity": "Wheat",       "countries": ["AU"],       "driver": "spei",        "sign": 1,  "months": [6, 7, 8, 9],       "src": "Australian winter-spring wheat (SPEI)"},
     "west_africa_cocoa": {"commodity": "Cocoa",       "countries": ["CI", "GH"], "driver": "temp_anom_c", "sign": -1, "months": [1, 2, 3],          "src": "cocoa = Jan–Mar harmattan heat, calibration re-fit"},
+    # ── expansion: all belts below already have ERA5 on disk + observed yield (FAOSTAT) ──
+    "brazil_coffee":     {"commodity": "Coffee",      "countries": ["BR"],       "driver": "spei", "sign": 1, "months": [10, 11, 12, 1, 2, 3], "src": "Brazil coffee SH growing-season moisture"},
+    "brazil_soy":        {"commodity": "Soybean",     "countries": ["BR"],       "driver": "spei", "sign": 1, "months": [12, 1, 2],           "src": "Brazil soy SH summer moisture"},
+    "bordeaux_wine":     {"commodity": "Wine grapes", "countries": ["FR"],       "driver": "temp_anom_c", "sign": -1, "months": [6, 7, 8, 9],  "src": "Bordeaux vintage summer heat"},
+    "india_rice":        {"commodity": "Rice",        "countries": ["IN"],       "driver": "spei", "sign": 1, "months": [6, 7, 8, 9],        "src": "India kharif rice monsoon moisture"},
+    "india_cane":        {"commodity": "Cane sugar",  "countries": ["IN"],       "driver": "spei", "sign": 1, "months": [6, 7, 8, 9],        "src": "India cane monsoon moisture"},
+    "south_africa_maize":{"commodity": "Maize",       "countries": ["ZA"],       "driver": "spei", "sign": 1, "months": [12, 1, 2],           "src": "South Africa summer maize moisture"},
+    "argentina_wheat":   {"commodity": "Wheat",       "countries": ["AR"],       "driver": "spei", "sign": 1, "months": [7, 8, 9, 10],       "src": "Argentina winter-spring wheat"},
+    "canada_prairies":   {"commodity": "Wheat",       "countries": ["CA"],       "driver": "spei", "sign": 1, "months": [5, 6, 7],           "src": "Canadian prairies spring wheat"},
+    "kazakhstan_wheat":  {"commodity": "Wheat",       "countries": ["KZ"],       "driver": "spei", "sign": 1, "months": [5, 6, 7],           "src": "Kazakh spring wheat"},
+    "iran_wheat":        {"commodity": "Wheat",       "countries": ["IR"],       "driver": "spei", "sign": 1, "months": [2, 3, 4],           "src": "Iran rainfed wheat"},
+    "tunisia_wheat":     {"commodity": "Wheat",       "countries": ["TN"],       "driver": "spei", "sign": 1, "months": [2, 3, 4],           "src": "Tunisia rainfed wheat"},
+    "algeria_wheat":     {"commodity": "Wheat",       "countries": ["DZ"],       "driver": "spei", "sign": 1, "months": [2, 3, 4],           "src": "Algeria rainfed wheat"},
+    "syria_wheat":       {"commodity": "Wheat",       "countries": ["SY"],       "driver": "spei", "sign": 1, "months": [3, 4, 5],           "src": "Syria rainfed wheat"},
+    "nigeria_sorghum":   {"commodity": "Sorghum",     "countries": ["NG"],       "driver": "spei", "sign": 1, "months": [6, 7, 8, 9],        "src": "Nigeria wet-season sorghum"},
+    "spain_beet":        {"commodity": "Sugar beet",  "countries": ["ES"],       "driver": "spei", "sign": 1, "months": [5, 6, 7, 8],        "src": "Spain sugar beet summer moisture"},
+    "spain_central":     {"commodity": "Barley",      "countries": ["ES"],       "driver": "spei", "sign": 1, "months": [3, 4, 5],           "src": "Central Spain rainfed barley"},
 }
 
 
