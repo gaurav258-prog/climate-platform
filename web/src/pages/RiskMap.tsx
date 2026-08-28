@@ -53,6 +53,25 @@ function baseStyle(): maplibregl.StyleSpecification {
   }
 }
 
+// Sovereign-boundary overlay. Global basemaps render the de-facto / UN view, which does NOT match the
+// Survey of India's official depiction (J&K, Ladakh incl. Aksai Chin, Arunachal Pradesh) — a legal
+// requirement for maps shown in India. This draws an AUTHORITATIVE boundary GeoJSON on top when one is
+// present at /geo/official_boundaries.geojson; it is a graceful no-op until that (licensed) file is supplied,
+// so we never render a fabricated official boundary. See web/public/geo/README.md.
+async function addOfficialBoundaries(m: maplibregl.Map) {
+  try {
+    const res = await fetch('/geo/official_boundaries.geojson')
+    if (!res.ok) return                       // no authoritative file yet → no-op (never fabricate)
+    const geo = await res.json()
+    if (m.getSource('official-boundaries')) return
+    m.addSource('official-boundaries', { type: 'geojson', data: geo })
+    m.addLayer({
+      id: 'official-boundaries', type: 'line', source: 'official-boundaries',
+      paint: { 'line-color': '#12314f', 'line-width': 1.1 },
+    })
+  } catch { /* overlay is optional — never break the map */ }
+}
+
 // ── DOM helpers ──────────────────────────────────────────────────────────────
 function labelEl(name: string, kind: string) {
   const d = document.createElement('div')
@@ -119,7 +138,7 @@ export default function RiskMap() {
       canvasContextAttributes: { preserveDrawingBuffer: true, antialias: true },
     })
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-    m.on('style.load', () => { m.resize(); setReady(true) })
+    m.on('style.load', () => { m.resize(); setReady(true); addOfficialBoundaries(m) })
     m.on('render', drawHexes)   // keep the SVG grid aligned to the map every frame
     const ro = new ResizeObserver(() => m.resize())
     ro.observe(el.current)
