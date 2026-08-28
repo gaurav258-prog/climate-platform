@@ -162,3 +162,26 @@ def latest_skill_for_model(session: Session, model_id: str) -> Optional[dict]:
         WHERE model_id = CAST(:m AS uuid) ORDER BY created_at DESC LIMIT 1
     """), {"m": model_id}).mappings().first()
     return dict(row) if row else None
+
+
+def apply_to_governance(session: Session, model_id: str, *, actor: str) -> dict:
+    """Close the loop: feed a model's latest validation result into MLOps governance.
+
+    A passing REGRESSION run's out-of-sample r² is exactly the number the governance approval gate reads, so
+    it auto-approves the model with that evidence. A passing discrimination/rank run is recorded as validated
+    but not auto-approved (the r²-gate applies to continuous models) — an honest boundary, not a forced fit.
+    Returns what was done. Requires the validation run to have been recorded against this model_id.
+    """
+    from services.mlops import model_governance as gov
+    skill = latest_skill_for_model(session, model_id)
+    if not skill:
+        return {"linked": False, "reason": "no validation run recorded for this model"}
+    if not skill["passed_gate"]:
+        return {"linked": False, "reason": f"latest validation did not pass ({skill['skill_grade']})"}
+    m = skill.get("metrics") or {}
+    if skill["kind"] == "regression" and m.get("r2_oos") is not None:
+        gov.approve(session, model_id, actor=actor, r2_oos=float(m["r2_oos"]),
+                    note=f"auto-approved from validation run (r²={m['r2_oos']})")
+        return {"linked": True, "action": "approved", "r2_oos": m["r2_oos"]}
+    return {"linked": True, "action": "recorded", "grade": skill["skill_grade"],
+            "note": "discrimination/rank pass recorded; the r²-gate approval applies to continuous models"}

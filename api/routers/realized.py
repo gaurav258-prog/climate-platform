@@ -53,6 +53,16 @@ def get_model_validation(session: DbSession, ctx: dict = Depends(require_permiss
     return model_validation_all(session)
 
 
+@router.get("/validation-record", summary="The recorded validation track record — append-only, provenanced backtests across hazards")
+def get_validation_record(session: DbSession, ctx: dict = Depends(require_permission("modules.view"))):
+    """The persisted, immutable validation track record (validation_run): each hazard backtested against an
+    independent observed target, with skill metrics, the pass/fail against the publish gate, method and
+    provenance. Populated by scripts/run_validation.py (and the scheduled sweep). Complements the live
+    per-peril computation above — this is the accumulating, audit-grade record supervisors can rely on."""
+    from services.validation.engine import list_runs
+    return {"runs": list_runs(session, limit=100)}
+
+
 @router.get("/track-record", summary="Climate Track Record for any address — observed past + current risk (diligence)")
 def get_track_record(session: DbSession,
                      lat: float = Query(..., ge=-90, le=90),

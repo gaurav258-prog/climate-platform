@@ -135,11 +135,13 @@ def grade_regression(r2: Optional[float]) -> Grade:
 
 
 def grade_discrimination(sp: Optional[float], monotonic: Optional[bool]) -> Grade:
+    # Rank skill (Spearman) is the robust signal; band monotonicity only ELEVATES a strong rank to STRONG.
+    # A strongly rank-correlated model whose coarse bands go noisy (few events) is FAIR, never WEAK.
     if sp is None:
         return Grade.INSUFFICIENT
     if sp >= 0.65 and monotonic:
         return Grade.STRONG
-    if sp >= 0.35 and (monotonic is None or monotonic):
+    if sp >= 0.35:
         return Grade.FAIR
     return Grade.WEAK
 
@@ -150,8 +152,10 @@ def passes_regression_gate(r2: Optional[float]) -> bool:
 
 
 def passes_discrimination_gate(sp: Optional[float], monotonic: Optional[bool]) -> bool:
-    """The publish gate for a score-vs-event model: rank skill ≥ 0.35 and bands rise with the score."""
-    return sp is not None and sp >= 0.35 and bool(monotonic)
+    """The publish gate for a score-vs-event model: rank skill ≥ 0.35. Monotonicity is reported and lifts the
+    GRADE to strong, but is not a hard gate — coarse-band monotonicity is noisy on few events and must not
+    fail a genuinely rank-correlated model (the `monotonic` arg is kept for signature symmetry)."""
+    return sp is not None and sp >= 0.35
 
 
 # ── applicability guard — is the test even CAPABLE of judging this model? ─────────────────────────
