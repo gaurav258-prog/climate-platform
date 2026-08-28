@@ -109,6 +109,50 @@ class ModelDriftObservation(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class ValidationRun(Base):
+    """A backtest result — the append-only, immutable validation track record.
+
+    One row per (model/approach × hazard × scope × horizon) validated against an INDEPENDENT observed
+    target. Immutable by DB trigger (no UPDATE/DELETE) so the record is audit-grade: every run carries its
+    full provenance (method, target source, sample size, code version, data vintage) and can be reproduced.
+    `kind` picks the honest metric family: 'regression' (R²-gated) vs 'discrimination' (rank/AUC-gated).
+    """
+    __tablename__ = "validation_run"
+
+    run_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("model_registry.model_id"))  # nullable: approach not yet registered
+    hazard_type = Column(String(50), nullable=False)
+    scope = Column(String(80))                 # region / commodity / 'global'
+    horizon = Column(String(20))               # 'current' / '2050' / … (nullable)
+    kind = Column(String(20), nullable=False)  # regression | discrimination
+    method = Column(String(30), nullable=False)  # in_sample | out_of_sample | temporal_holdout
+    target_source = Column(String(120), nullable=False)  # the independent truth (EMSC / IBTrACS / FAO / …)
+    n_samples = Column(Integer, nullable=False)
+    metrics = Column(JSONB, nullable=False)    # r2, spearman, auc, rmse, mae, bias, brier, bands, …
+    skill_grade = Column(String(20), nullable=False)  # strong | fair | weak | insufficient
+    passed_gate = Column(Boolean, nullable=False)
+    gate = Column(String(60))                  # which gate was applied
+    notes = Column(Text)
+    code_version = Column(String(60))
+    data_vintage = Column(String(60))
+    created_by = Column(String(255))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ValidationSample(Base):
+    """Per-sample (predicted, observed) pairs behind a run — full drill-down for auditors. Append-only.
+
+    Optional: a run can store aggregate metrics only, or persist every sample for complete traceability."""
+    __tablename__ = "validation_sample"
+
+    sample_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(UUID(as_uuid=True), ForeignKey("validation_run.run_id"), nullable=False)
+    label = Column(String(120))                # cell / event / commodity id
+    predicted = Column(Numeric(12, 4))
+    observed = Column(Numeric(12, 4))
+    meta = Column(JSONB)
+
+
 class CanonicalScore(Base):
     """
     The Golden Source. Append-only — no UPDATEs, no DELETEs.
