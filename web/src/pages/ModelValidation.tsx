@@ -211,9 +211,66 @@ function StoryRow({ n, title, tag, accent, drill, chips, children }: {
   )
 }
 
+type VRun = {
+  hazard_type: string; kind: string; skill_grade: string; passed_gate: boolean; method: string
+  target_source: string; metrics: Record<string, unknown>; created_at: string
+}
+
+const GRADE_COLOR: Record<string, string> = {
+  strong: '#4FA46E', fair: '#C68A1E', weak: '#C0553F', insufficient: 'var(--color-faint)',
+}
+
+function ValidationRecordCard({ runs }: { runs: VRun[] }) {
+  if (!runs?.length) return null
+  const metricOf = (r: VRun) => {
+    const m = r.metrics || {}
+    if (r.kind === 'regression') return m.r2_oos != null ? `r²=${m.r2_oos}` : '—'
+    return m.spearman != null ? `ρ=${m.spearman}` : '—'
+  }
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <FlaskConical size={15} className="text-[var(--color-sky)]" />
+        <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Validation track record · append-only, provenanced</span>
+      </div>
+      <p className="text-[12.5px] text-[var(--color-mute)] mb-3 max-w-2xl">Every backtest we've run, recorded immutably with its metric, the pass/fail against our publish gate, the method and the independent source — the accumulating evidence, honest where it's weak.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12.5px]" style={{ borderCollapse: 'collapse', minWidth: 560 }}>
+          <thead>
+            <tr className="text-[var(--color-faint)]">
+              {['Hazard', 'Test', 'Skill', 'Grade', 'Gate', 'Method · source'].map(h => (
+                <th key={h} className="mono text-[9.5px] uppercase tracking-wide text-left font-medium py-1.5 pr-3 border-b border-[var(--color-line)]">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((r, i) => (
+              <tr key={i} className="border-b border-[var(--color-line)]">
+                <td className="py-2 pr-3 capitalize text-[var(--color-ink)]">{r.hazard_type.replace(/_/g, ' ')}</td>
+                <td className="py-2 pr-3 mono text-[11px] text-[var(--color-mute)]">{r.kind}</td>
+                <td className="py-2 pr-3 mono tabular-nums">{metricOf(r)}</td>
+                <td className="py-2 pr-3">
+                  <span className="mono text-[10px] px-2 py-0.5 rounded capitalize" style={{ background: (GRADE_COLOR[r.skill_grade] || 'var(--color-faint)') + '22', color: GRADE_COLOR[r.skill_grade] || 'var(--color-faint)' }}>{r.skill_grade}</span>
+                </td>
+                <td className="py-2 pr-3">
+                  {r.passed_gate
+                    ? <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#4FA46E' }}><CheckCircle2 size={12} />pass</span>
+                    : <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-faint)]"><AlertTriangle size={12} />not yet</span>}
+                </td>
+                <td className="py-2 pr-3 text-[11.5px] text-[var(--color-mute)]"><span className="mono text-[10px] text-[var(--color-faint)]">{r.method}</span> · {r.target_source}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
 export default function ModelValidation() {
   const q = useQuery({ queryKey: ['model-validation'], queryFn: () => api.get<Resp>('/v1/realized-exposure/model-validation') })
   const d = q.data
+  const tr = useQuery({ queryKey: ['validation-record'], queryFn: () => api.get<{ runs: VRun[] }>('/v1/realized-exposure/validation-record') })
   const note = d?.perils?.[0]?.note
   const [flash, setFlash] = useState<string | null>(null)
   // scroll by element id (queried at click time) rather than a React ref — robust against ref-timing.
@@ -302,6 +359,8 @@ export default function ModelValidation() {
       )}
 
       {d?.coverage && <CoverageCard c={d.coverage} />}
+
+      {tr.data?.runs && tr.data.runs.length > 0 && <ValidationRecordCard runs={tr.data.runs} />}
     </div>
   )
 }

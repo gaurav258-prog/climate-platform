@@ -53,10 +53,12 @@ def test_grades_and_gates():
     assert m.passes_regression_gate(None) is False
 
     assert m.grade_discrimination(0.7, True) == m.Grade.STRONG
+    assert m.grade_discrimination(0.7, False) == m.Grade.FAIR    # strong rank, noisy bands → FAIR, not WEAK
     assert m.grade_discrimination(0.4, True) == m.Grade.FAIR
     assert m.grade_discrimination(0.1, True) == m.Grade.WEAK
     assert m.passes_discrimination_gate(0.4, True) is True
-    assert m.passes_discrimination_gate(0.4, False) is False     # not monotonic → fail
+    assert m.passes_discrimination_gate(0.4, False) is True      # rank skill present → passes (monotone only grades)
+    assert m.passes_discrimination_gate(0.2, True) is False      # rank skill too low → fails
 
 
 def test_monotonic():
