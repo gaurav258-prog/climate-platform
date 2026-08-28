@@ -13,6 +13,7 @@ import sys
 from core.db.session import get_session
 import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
 import services.validation.validators.storm_severity     # noqa: F401 — registers storm (severity)
+import services.validation.validators.agri_crop          # noqa: F401 — registers agri_drought/heat/crop_shock
 from services.validation import engine
 
 

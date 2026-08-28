@@ -176,16 +176,27 @@ def vulnerability_factor(hazard: Optional[str], attrs: Optional[dict]) -> tuple:
     attribute contributes 1.0 and is listed in `missing`; chronic perils and attribute-less assets
     (e.g. an equity holding) are neutral 1.0."""
     family = _HAZARD_FAMILY.get(hazard or "")
-    if family is None or family == _CHRONIC:
-        return 1.0, {"applied": False, "family": family or "unknown",
-                     "reason": "vulnerability-neutral (chronic / non-structural peril)",
-                     "complete": True, "drivers": [], "missing": []}
-    if not attrs:
-        return 1.0, {"applied": False, "family": family, "reason": "no asset attributes on file",
-                     "complete": False, "drivers": [], "missing": ["construction_type", "year_built"]}
+    # Asset ARCHETYPE vulnerability (impact-function library) — composes with the attribute factor below and
+    # ALSO applies to chronic perils the attribute model leaves neutral (a data centre to heat, a thermal
+    # plant to drought). Neutral 1.0 when the asset type is unknown or has no documented sensitivity.
+    from ml.scoring.impact_library import asset_type_factor
+    at_factor, at_prov = asset_type_factor((attrs or {}).get("asset_type"), hazard)
+    at_driver = ([{"attr": "asset_type", "value": at_prov.get("asset_type"), "tier": at_prov.get("tier"),
+                   "factor": round(at_factor, 3)}] if at_prov.get("applied") else [])
 
-    factor = 1.0
-    drivers, missing = [], []
+    if family is None or family == _CHRONIC:
+        applied = at_prov.get("applied", False)
+        return _clamp(at_factor, _VF_MIN, _VF_MAX), {"applied": applied, "family": family or "unknown",
+            "reason": ("asset-archetype vulnerability (chronic / non-structural peril)" if applied
+                       else "vulnerability-neutral (chronic / non-structural peril)"),
+            "complete": True, "drivers": at_driver, "missing": []}
+    if not attrs:
+        return _clamp(at_factor, _VF_MIN, _VF_MAX), {"applied": at_prov.get("applied", False), "family": family,
+            "reason": "asset-archetype only (no construction attributes on file)",
+            "complete": False, "drivers": at_driver, "missing": ["construction_type", "year_built"]}
+
+    factor = at_factor
+    drivers, missing = list(at_driver), []
 
     # construction
     if family in _CONSTRUCTION_VF:

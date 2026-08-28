@@ -82,6 +82,7 @@ def test_applicability_guard_flags_saturation_not_failure():
 
 
 def test_continuous_applicable():
-    assert m.continuous_applicable([10, 20, 30], [1, 2, 3])[0] is True
-    assert m.continuous_applicable([10, 20, 30], [5, 5, 5])[0] is False  # observed no variance
-    assert m.continuous_applicable([10, 10, 10], [1, 2, 3])[0] is False  # score no spread
+    assert m.continuous_applicable([10, 20, 30, 40, 50], [1, 2, 3, 4, 5])[0] is True
+    assert m.continuous_applicable([10, 20, 30], [1, 2, 3])[0] is False        # n=3 < REGRESSION_MIN_N
+    assert m.continuous_applicable([10, 20, 30, 40, 50], [5, 5, 5, 5, 5])[0] is False  # observed no variance
+    assert m.continuous_applicable([10, 10, 10, 10, 10], [1, 2, 3, 4, 5])[0] is False  # score no spread

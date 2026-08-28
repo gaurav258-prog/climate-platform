@@ -22,6 +22,7 @@ from typing import Optional
 import numpy as np
 
 MIN_N = 3                      # below this, no metric is honest
+REGRESSION_MIN_N = 5           # a continuous skill CLAIM needs more than the bare metric floor
 REGRESSION_GATE_R2 = 0.40     # the publish gate (matches the product's honesty standard)
 
 
@@ -186,8 +187,8 @@ def discrimination_applicable(pred: np.ndarray, obs: np.ndarray) -> tuple[bool, 
 def continuous_applicable(pred: np.ndarray, obs: np.ndarray) -> tuple[bool, str]:
     """Can a continuous test (regression, or rank vs a continuous observed quantity like intensity) run?"""
     pred, obs = np.asarray(pred, float), np.asarray(obs, float)
-    if len(pred) < MIN_N or len(pred) != len(obs):
-        return False, "too few or mismatched samples"
+    if len(pred) != len(obs) or len(pred) < REGRESSION_MIN_N:
+        return False, f"too few samples to claim skill (n={len(pred)}, need ≥{REGRESSION_MIN_N})"
     if np.ptp(pred) == 0:
         return False, "score has no spread"
     if np.var(obs) == 0:
