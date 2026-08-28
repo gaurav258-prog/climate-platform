@@ -1,0 +1,163 @@
+<title>Tellumen — platform architecture</title>
+<style>
+  :root{
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --bg: #eef0f3; --surface-1: #ffffff; --surface-2: #e9eaee;
+    --text-primary: #16171a; --text-secondary: #45464d; --text-muted: #63656d;
+    --border-strong: #c2c4cb; --border-accent: #93b6ec;
+    --bg-accent: #e2ecfb; --text-accent: #14448f;
+    --bg-success: #dcf0e6; --text-success: #12603a;
+    --bg-warning: #fbeacf; --text-warning: #8a4f12;
+    --tech: #6b4ea6; --tech-bg: #efeafa;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg: #161617; --surface-1: #1e1e20; --surface-2: #2a2a2e;
+      --text-primary: #f2f2f3; --text-secondary: #b3b3b8; --text-muted: #8a8a90;
+      --border-strong: #3a3a3d; --border-accent: #3a5a8f;
+      --bg-accent: #1c2a42; --text-accent: #8fb4ee;
+      --bg-success: #16301f; --text-success: #64c48f;
+      --bg-warning: #3a2c14; --text-warning: #e3aa5d;
+      --tech: #b79ae6; --tech-bg: #241d33;
+    }
+  }
+  *{box-sizing:border-box}
+  body{ background:var(--bg); margin:0; padding:34px 16px; font-family:var(--font-sans); color:var(--text-primary); }
+  .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  .wrap{ max-width:900px; margin:0 auto; }
+
+  /* operational envelope that wraps the whole flow */
+  .env{ border:1.5px solid var(--border-accent); border-radius:20px; padding:14px 18px 18px; background:color-mix(in srgb, var(--bg-accent) 40%, transparent); position:relative; }
+  .envlab{ text-align:center; font-size:10px; font-weight:700; letter-spacing:.16em; color:var(--text-accent); margin-bottom:12px; }
+  .pillars{ display:flex; flex-wrap:wrap; justify-content:center; gap:7px; margin-top:14px; }
+  .pill{ font-size:10.5px; padding:4px 11px; border-radius:20px; background:var(--surface-1); border:0.5px solid var(--border-accent); color:var(--text-accent); font-weight:500; }
+  .pill span{ color:var(--text-muted); font-weight:400; }
+
+  /* a node = functional box with a technical "runs on" strip on top */
+  .node{ border-radius:14px; border:0.5px solid var(--border-strong); overflow:hidden; background:var(--surface-1); }
+  .tech{ font-family:var(--mono); font-size:10px; color:var(--tech); background:var(--tech-bg); padding:5px 12px; text-align:center; letter-spacing:.02em; border-bottom:0.5px solid var(--border-strong); }
+  .tech b{ font-weight:700; letter-spacing:.1em; }
+  .body{ padding:13px 16px 14px; text-align:center; }
+  .eyebrow{ font-size:10px; font-weight:700; letter-spacing:.13em; color:var(--text-muted); }
+  .title{ font-size:15px; font-weight:600; margin-top:3px; }
+  .chips{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:9px; }
+  .chip{ font-size:11px; padding:3px 9px; border-radius:20px; background:var(--surface-2); border:0.5px solid var(--border-strong); color:var(--text-secondary); white-space:nowrap; }
+  .note{ font-size:11px; color:var(--text-muted); margin-top:8px; }
+
+  /* labelled data-flow arrow */
+  .flow{ display:flex; flex-direction:column; align-items:center; gap:2px; margin:7px 0; }
+  .flow .d{ font-family:var(--mono); font-size:10.5px; color:var(--text-secondary); }
+  .flow .a{ color:var(--text-muted); font-size:13px; line-height:1 }
+
+  .clusters{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:11px; }
+  .cluster{ min-width:0; border-radius:9px; padding:7px; }
+  .ch{ font-size:11.5px; font-weight:600; } .cs{ font-size:9.5px; color:var(--text-secondary); margin-top:2px; }
+  @media (max-width:640px){ .clusters{ grid-template-columns:1fr; } }
+</style>
+
+<h2 class="sr-only">Tellumen platform architecture, one integrated diagram. A vertical functional flow, each box labelled with the technology it runs on, the arrows labelled with the data that moves, all wrapped by an operational layer. Flow: a regulated entity (banking, insurance, asset management, REIT, agri), running on a React web workspace and REST API, sends its own book — loan-tape, SOV, plots — plus Tellumen's authoritative Earth data into the engine (FastAPI, 44 routers, physics and ML scorers, H3 grid, calibration), which emits per-cell hazard scores to one governed truth on append-only PostgreSQL at r-squared at least 0.40; that one governed number forks two ways — internal decisions (Risk, Credit, Underwriting, Portfolio, Treasury, Procurement) that stay inside, and external filings (CSRD, Taxonomy, SFDR, EUDR, iXBRL) assembled as iXBRL and evidence packs that alone go downstream to supervisors (ECB, EBA, EIOPA, ESMA, national authorities, EU TRACES) who verify the same number. The operational layer — security, governance, reliability, observability — wraps every step.</h2>
+
+<div class="wrap">
+
+  <div style="text-align:center;padding:0 0 20px">
+    <div style="font-size:13px;font-weight:600;letter-spacing:.18em">TELLUMEN</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px">platform architecture — function · technology · data flow, in one view</div>
+  </div>
+
+  <div class="env">
+    <div class="envlab">OPERATIONAL LAYER · WRAPS EVERY STEP</div>
+
+    <!-- entity -->
+    <div class="node">
+      <div class="tech"><b>RUNS ON</b> &nbsp;Web workspace · React · Vite · TypeScript · REST API (keys / JWT)</div>
+      <div class="body">
+        <div class="eyebrow" style="color:var(--text-accent)">RUNS THE PLATFORM</div>
+        <div class="title">Regulated entity</div>
+        <div class="chips"><span class="chip">Banking</span><span class="chip">Insurance</span><span class="chip">Asset mgmt</span><span class="chip">REIT</span><span class="chip">Agri</span></div>
+      </div>
+    </div>
+
+    <div class="flow"><span class="d">its book: loan-tape · SOV · plots &nbsp;+&nbsp; authoritative Earth data (ERA5 · FIRMS · Sentinel · EMSC · GLEIF)</span><span class="a">↓</span></div>
+
+    <!-- engine -->
+    <div class="node">
+      <div class="tech"><b>RUNS ON</b> &nbsp;FastAPI · 44 routers · ingestion adapters · physics + ML scorers · H3 grid · calibration</div>
+      <div class="body">
+        <div class="eyebrow">THE ENGINE</div>
+        <div class="title">Tellumen platform</div>
+        <div class="note" style="margin-top:4px">scores every hazard · governs to a publish standard</div>
+        <div class="clusters">
+          <div class="cluster" style="background:var(--bg-accent)"><div class="ch" style="color:var(--text-accent)">Data &amp; ingestion</div><div class="cs">golden source</div></div>
+          <div class="cluster" style="background:var(--bg-success)"><div class="ch" style="color:var(--text-success)">Scoring</div><div class="cs">hazard · H3</div></div>
+          <div class="cluster" style="background:var(--bg-warning)"><div class="ch" style="color:var(--text-warning)">Verticals</div><div class="cs">per-sector risk</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow"><span class="d">per-cell hazard scores &amp; € at risk</span><span class="a">↓</span></div>
+
+    <!-- truth pivot -->
+    <div class="node" style="border-color:var(--border-accent)">
+      <div class="tech"><b>STORED ON</b> &nbsp;PostgreSQL golden source · append-only canonical scores · immutable snapshots</div>
+      <div class="body" style="padding:12px 16px">
+        <div class="title" style="color:var(--text-accent);font-size:14px">ONE GOVERNED TRUTH · r² ≥ 0.40</div>
+        <div class="note" style="margin-top:2px">one number — proven, then used two ways</div>
+      </div>
+    </div>
+
+    <!-- fork -->
+    <div style="display:flex"><div style="width:50%;text-align:center"><div class="flow"><span class="d">governed € number</span><span class="a">↓</span></div></div><div style="width:50%;text-align:center"><div class="flow"><span class="d">the same number</span><span class="a">↓</span></div></div></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- internal -->
+      <div class="node" style="border-color:var(--text-success)">
+        <div class="tech"><b>RUNS ON</b> &nbsp;decisions · tasks · KRI · webhooks</div>
+        <div class="body" style="background:var(--bg-success)">
+          <div class="eyebrow" style="color:var(--text-success)">INTERNAL · RUN THE BUSINESS</div>
+          <div class="title">Decisions</div>
+          <div class="chips"><span class="chip">Risk</span><span class="chip">Credit</span><span class="chip">Underwriting</span><span class="chip">Portfolio</span><span class="chip">Treasury</span><span class="chip">Procurement</span></div>
+          <div class="note">stays inside the entity</div>
+        </div>
+      </div>
+      <!-- external -->
+      <div class="node" style="border-color:var(--border-accent)">
+        <div class="tech"><b>RUNS ON</b> &nbsp;reporting assemblers · iXBRL / ESEF · export API</div>
+        <div class="body" style="background:var(--bg-accent)">
+          <div class="eyebrow" style="color:var(--text-accent)">EXTERNAL · FILE IT</div>
+          <div class="title">Filings</div>
+          <div class="chips"><span class="chip">CSRD</span><span class="chip">Taxonomy</span><span class="chip">SFDR</span><span class="chip">EUDR</span><span class="chip">iXBRL</span></div>
+          <div class="note">leaves the entity</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- only external continues -->
+    <div style="display:flex"><div style="width:50%;text-align:center;padding-top:6px"><span style="font-family:var(--mono);font-size:10px;color:var(--text-muted)">→ your teams act (no external send)</span></div><div style="width:50%"><div class="flow"><span class="d">iXBRL filing + evidence pack</span><span class="a">↓</span></div></div></div>
+
+    <div style="display:flex;justify-content:flex-end">
+      <div class="node" style="width:calc(50% - 8px);border-style:dashed">
+        <div class="tech"><b>VIA</b> &nbsp;EU TRACES · filing gateways · EUR-Lex change monitor (CRCS)</div>
+        <div class="body">
+          <div class="eyebrow">DOWNSTREAM</div>
+          <div class="title">Supervisors</div>
+          <div class="chips"><span class="chip">ECB</span><span class="chip">EBA</span><span class="chip">EIOPA</span><span class="chip">ESMA</span><span class="chip">National CAs</span><span class="chip">EU TRACES</span></div>
+          <div class="note">receive &amp; verify the same number</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- operational pillars — the wrap, restated -->
+    <div class="pillars">
+      <span class="pill">Security <span>· SSO · SCIM · MFA · passkeys · RBAC · encryption</span></span>
+      <span class="pill">Governance <span>· four-eyes · immutable snapshots · audit</span></span>
+      <span class="pill">Reliability <span>· append-only · restart-safe · Celery/Redis</span></span>
+      <span class="pill">Observability <span>· metrics · logs · tracing</span></span>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-muted)">
+    <b style="color:var(--tech);font-family:var(--mono);font-size:10px">RUNS ON</b> = the technology behind each step &nbsp;·&nbsp; <span style="font-family:var(--mono)">mono labels</span> on arrows = the data that flows &nbsp;·&nbsp; blue frame = the operational layer wrapping it all
+  </div>
+
+</div>

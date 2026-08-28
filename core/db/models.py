@@ -53,6 +53,104 @@ class ModelRegistry(Base):
     activated_at = Column(DateTime(timezone=True))
     activated_by = Column(String(255))
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    # ── governance lifecycle (MLOps) ──────────────────────────────────────────────────────────────
+    # candidate → approved → active → retired, with an optional challenger running beside the active one.
+    # A version can only be APPROVED once its out-of-sample calibration clears the publish gate (r² ≥ 0.40) —
+    # the same honesty gate the product publishes on, now enforced as a promotion control. Every transition is
+    # recorded append-only in model_status_event (audit + rollback trail); superseded_by links to the version
+    # that replaced this one, so a rollback is just re-activating a prior model_id.
+    lifecycle_status = Column(String(20), nullable=False, default="candidate")
+    r2_oos = Column(Numeric(5, 4))              # out-of-sample calibration r² (the publish-gate metric)
+    calibration_note = Column(Text)
+    approved_at = Column(DateTime(timezone=True))
+    approved_by = Column(String(255))
+    retired_at = Column(DateTime(timezone=True))
+    superseded_by = Column(UUID(as_uuid=True))  # the model_id that replaced this one (rollback lineage)
+
+
+class ModelStatusEvent(Base):
+    """Append-only lifecycle audit for the model registry — every promotion/rollback/drift-driven change.
+
+    This is the governance trail: who moved which model version from what status to what, why, and the
+    calibration it carried at the time. Never updated or deleted — a rollback is a NEW event, not a rewrite.
+    """
+    __tablename__ = "model_status_event"
+
+    event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("model_registry.model_id"), nullable=False)
+    hazard_type = Column(String(50), nullable=False)
+    from_status = Column(String(20))
+    to_status = Column(String(20), nullable=False)
+    actor = Column(String(255))
+    reason = Column(Text)
+    r2_oos = Column(Numeric(5, 4))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ModelDriftObservation(Base):
+    """Append-only drift monitoring against the active model's baseline.
+
+    `kind` = input (feature distribution, e.g. PSI) · prediction (score distribution shift) ·
+    calibration (r² decay vs the approved figure). `breached` flags an observation past its threshold,
+    which is the trigger to review the active model against a challenger (or roll back).
+    """
+    __tablename__ = "model_drift_observation"
+
+    obs_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("model_registry.model_id"), nullable=False)
+    hazard_type = Column(String(50), nullable=False)
+    kind = Column(String(20), nullable=False)      # input | prediction | calibration
+    metric = Column(String(40), nullable=False)    # psi | ks | r2_delta | …
+    value = Column(Numeric(10, 5), nullable=False)
+    threshold = Column(Numeric(10, 5))
+    breached = Column(Boolean, nullable=False, default=False)
+    drift_window = Column(String(40))   # 'window' is a reserved word in SQL — name it explicitly
+    note = Column(Text)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ValidationRun(Base):
+    """A backtest result — the append-only, immutable validation track record.
+
+    One row per (model/approach × hazard × scope × horizon) validated against an INDEPENDENT observed
+    target. Immutable by DB trigger (no UPDATE/DELETE) so the record is audit-grade: every run carries its
+    full provenance (method, target source, sample size, code version, data vintage) and can be reproduced.
+    `kind` picks the honest metric family: 'regression' (R²-gated) vs 'discrimination' (rank/AUC-gated).
+    """
+    __tablename__ = "validation_run"
+
+    run_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("model_registry.model_id"))  # nullable: approach not yet registered
+    hazard_type = Column(String(50), nullable=False)
+    scope = Column(String(80))                 # region / commodity / 'global'
+    horizon = Column(String(20))               # 'current' / '2050' / … (nullable)
+    kind = Column(String(20), nullable=False)  # regression | discrimination
+    method = Column(String(30), nullable=False)  # in_sample | out_of_sample | temporal_holdout
+    target_source = Column(String(120), nullable=False)  # the independent truth (EMSC / IBTrACS / FAO / …)
+    n_samples = Column(Integer, nullable=False)
+    metrics = Column(JSONB, nullable=False)    # r2, spearman, auc, rmse, mae, bias, brier, bands, …
+    skill_grade = Column(String(20), nullable=False)  # strong | fair | weak | insufficient
+    passed_gate = Column(Boolean, nullable=False)
+    gate = Column(String(60))                  # which gate was applied
+    notes = Column(Text)
+    code_version = Column(String(60))
+    data_vintage = Column(String(60))
+    created_by = Column(String(255))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ValidationSample(Base):
+    """Per-sample (predicted, observed) pairs behind a run — full drill-down for auditors. Append-only.
+
+    Optional: a run can store aggregate metrics only, or persist every sample for complete traceability."""
+    __tablename__ = "validation_sample"
+
+    sample_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(UUID(as_uuid=True), ForeignKey("validation_run.run_id"), nullable=False)
+    label = Column(String(120))                # cell / event / commodity id
+    predicted = Column(Numeric(12, 4))
+    observed = Column(Numeric(12, 4))
+    meta = Column(JSONB)
 
 
 class CanonicalScore(Base):

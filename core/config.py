@@ -75,8 +75,22 @@ class Settings(BaseSettings):
     # Envelope-encryption key for secrets at rest (OIDC client secret, etc.). A dedicated Fernet key
     # (urlsafe-b64, 32 bytes) belongs in the environment / KMS; absent, one is derived from SECRET_KEY.
     APP_ENCRYPTION_KEY: str = ""
+    # KMS-backed envelope encryption (production). "" / "none" → env-derived data key (dev default);
+    # "aws" / "gcp" → the KMS decrypts the wrapped data key below into memory once at first use.
+    # See core/security/kms.py and bootstrap with scripts/kms_wrap_data_key.py.
+    KMS_PROVIDER: str = ""
+    KMS_KEY_ID: str = ""              # KEK id/ARN (AWS) or crypto-key resource name (GCP) — for wrapping
+    KMS_ENCRYPTED_DATA_KEY: str = ""  # base64 of the KMS-encrypted data key (the only stored key material)
+    KMS_REGION: str = ""             # AWS region for the KMS client (optional)
     # Optional error tracking; enabled only when a DSN is set and sentry-sdk is installed.
     SENTRY_DSN: str = ""
+    # Distributed tracing (OpenTelemetry). Traces export only when an OTLP endpoint is set AND the
+    # exporter/instrumentation extras are installed — otherwise tracing is a no-op (never breaks startup).
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
+    OTEL_SERVICE_NAME: str = "tellumen-api"
+    # SLO latency budget (seconds): a request slower than this counts as a "bad" latency SLI event, so the
+    # /metrics endpoint can drive an SLO dashboard + error budget. See docs/observability/slo.yaml.
+    SLO_LATENCY_BUDGET_S: float = 1.0
     # Billing: absent → internal/manual billing (plans, seats, invoices work; no card charge).
     # Set to a Stripe secret key to route charging through Stripe (external, gated).
     STRIPE_API_KEY: str = ""
