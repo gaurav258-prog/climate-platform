@@ -1,0 +1,252 @@
+<title>Tellumen Board Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#f5f7fa; --surface:#ffffff; --surface2:#eef1f6;
+    --ink:#0f1b2d; --mute:#54606f; --faint:#8b95a3; --line:#e2e7ee; --line2:#d3dae4;
+    --accent:#1b4f9c; --accent-bg:#e8effb; --teal:#0d7c86; --teal-bg:#dcf1f2;
+    --good:#1f7a4d; --good-bg:#e2f2ea; --warn:#a1620f; --warn-bg:#fbeeda; --bad:#b03a33; --bad-bg:#fbe4e2;
+  }
+  :root:not([data-theme=light]) { }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0a1220; --surface:#111d2e; --surface2:#0e1929;
+      --ink:#eaf1f8; --mute:#9fb0c4; --faint:#6c7d92; --line:#20304a; --line2:#2b3d59;
+      --accent:#7fb0ee; --accent-bg:#152540; --teal:#5cc6d4; --teal-bg:#0f2a30;
+      --good:#5fbf8a; --good-bg:#13301f; --warn:#e0a458; --warn-bg:#33260f; --bad:#e5837e; --bad-bg:#331817;
+    }
+  }
+  :root[data-theme=dark]{
+      --bg:#0a1220; --surface:#111d2e; --surface2:#0e1929;
+      --ink:#eaf1f8; --mute:#9fb0c4; --faint:#6c7d92; --line:#20304a; --line2:#2b3d59;
+      --accent:#7fb0ee; --accent-bg:#152540; --teal:#5cc6d4; --teal-bg:#0f2a30;
+      --good:#5fbf8a; --good-bg:#13301f; --warn:#e0a458; --warn-bg:#33260f; --bad:#e5837e; --bad-bg:#331817;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.62; -webkit-font-smoothing:antialiased; }
+  .doc{ max-width:840px; margin:0 auto; padding:46px 28px 72px; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); font-weight:500; }
+  h1{ font-family:var(--ser); font-weight:600; font-size:34px; line-height:1.12; letter-spacing:-.01em; margin:12px 0 0; text-wrap:balance; }
+  h2{ font-family:var(--ser); font-weight:600; font-size:23px; margin:52px 0 4px; letter-spacing:-.01em; }
+  h2 .num{ font-family:var(--mono); font-size:14px; color:var(--accent); font-weight:500; margin-right:10px; vertical-align:2px; }
+  h3{ font-family:var(--sans); font-weight:600; font-size:15.5px; margin:26px 0 8px; }
+  p{ margin:11px 0; color:var(--ink); }
+  .lead{ font-size:16.5px; color:var(--mute); }
+  a{ color:var(--accent); text-decoration:none; border-bottom:1px solid var(--line2); }
+  .rule{ height:1px; background:var(--line); margin:22px 0; }
+  .meta{ font-family:var(--mono); font-size:11.5px; color:var(--faint); letter-spacing:.03em; display:flex; gap:8px 18px; flex-wrap:wrap; margin-top:18px; }
+  .meta b{ color:var(--mute); font-weight:500; }
+
+  /* callouts */
+  .verdict{ display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--line2); border-radius:14px; overflow:hidden; margin:22px 0 6px; }
+  .verdict > div{ padding:18px 20px; }
+  .verdict .lead-col{ background:var(--good-bg); }
+  .verdict .lag-col{ background:var(--warn-bg); border-left:1px solid var(--line2); }
+  .vh{ font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; font-weight:500; margin-bottom:9px; }
+  .verdict .lead-col .vh{ color:var(--good); } .verdict .lag-col .vh{ color:var(--warn); }
+  .verdict ul{ margin:0; padding-left:17px; } .verdict li{ margin:5px 0; font-size:13.5px; color:var(--ink); }
+  .moves{ border:1px solid var(--accent); background:var(--accent-bg); border-radius:14px; padding:18px 20px; margin:16px 0; }
+  .moves .vh{ color:var(--accent); }
+  .moves ol{ margin:6px 0 0; padding-left:20px; } .moves li{ margin:7px 0; }
+  .moves b{ color:var(--ink); }
+
+  /* market map */
+  .mmap{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0; }
+  .mcol{ border:1px solid var(--line); border-radius:12px; background:var(--surface); padding:13px 14px; }
+  .mcol .t{ font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--teal); margin-bottom:8px; }
+  .mcol .n{ font-size:13px; margin:5px 0; color:var(--ink); } .mcol .n span{ color:var(--faint); font-size:11.5px; }
+
+  /* tables */
+  .tw{ overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:12px; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; min-width:600px; }
+  th,td{ text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ font-family:var(--mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); font-weight:500; background:var(--surface2); }
+  tr:last-child td{ border-bottom:none; }
+  td b{ color:var(--ink); font-weight:600; }
+  .dim{ font-weight:600; color:var(--ink); }
+  td small{ color:var(--mute); font-size:12px; }
+
+  /* rating chips */
+  .chip{ font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.04em; padding:2px 8px; border-radius:5px; white-space:nowrap; display:inline-block; }
+  .c-lead{ color:var(--good); background:var(--good-bg); } .c-uniq{ color:var(--teal); background:var(--teal-bg); }
+  .c-par{ color:var(--accent); background:var(--accent-bg); } .c-behind{ color:var(--warn); background:var(--warn-bg); }
+  .c-gap{ color:var(--bad); background:var(--bad-bg); }
+  .eff{ font-family:var(--mono); font-size:10.5px; color:var(--mute); font-weight:500; }
+  .ws{ font-family:var(--mono); font-size:9.5px; letter-spacing:.06em; padding:1px 6px; border-radius:4px; background:var(--surface2); color:var(--mute); }
+
+  /* horizon roadmap headers */
+  .hz{ font-family:var(--mono); font-size:12px; letter-spacing:.1em; color:var(--accent); font-weight:500; margin:22px 0 2px; }
+  .hz b{ color:var(--ink); } .hz span{ color:var(--faint); }
+
+  footer{ margin-top:44px; border-top:1px solid var(--line); padding-top:16px; font-size:12px; color:var(--faint); }
+  footer .src{ font-family:var(--mono); font-size:11px; line-height:2; }
+  .note{ background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:13px 16px; font-size:12.5px; color:var(--mute); margin-top:14px; }
+  @media (max-width:680px){ .verdict,.mmap{ grid-template-columns:1fr; } .verdict .lag-col{ border-left:none; border-top:1px solid var(--line2); } h1{ font-size:27px; } }
+</style>
+
+<div class="doc">
+
+  <!-- ══ MASTHEAD ══ -->
+  <div class="eyebrow">Tellumen · Board Briefing</div>
+  <h1>Competitive &amp; Architectural Benchmark</h1>
+  <p class="lead" style="margin-top:10px">Where we stand against the best-of-breed, the gap to world-class, and how we close it.</p>
+  <div class="meta"><span><b>Prepared</b> 28 Aug 2026</span><span><b>Audience</b> Board of Directors</span><span><b>Classification</b> Confidential</span><span><b>Basis</b> product build v2.45 · cited market research</span></div>
+  <div class="rule"></div>
+
+  <!-- ══ 1 · EXECUTIVE SUMMARY ══ -->
+  <h2><span class="num">01</span>Executive summary</h2>
+  <p>Tellumen occupies the <b>join between two large, well-funded markets</b> — physical-climate-risk analytics (Jupiter, First Street, Moody's RMS, S&amp;P, MSCI, XDI) and EU regulatory reporting (Regnology, Workiva, Wolters Kluwer). Almost every incumbent leads <i>one</i> side and partners across the gap. Our defensible bet is the single audited pipeline from <b>hazard → decision → filing</b>, sharpened by two things competitors don't market: an <b>honesty gate</b> (publish only when calibrated to reality) and an <b>agriculture supply-chain COGS-at-risk</b> wedge in white space left open by Gro Intelligence's collapse.</p>
+  <p>On <b>engineering</b>, the picture is unusually favourable for our stage: our identity stack, data-integrity model, and audit-defensibility are <b>ahead of the curve</b> — precisely the things regulated buyers demand and the hardest to retrofit. What we lack is not product architecture but <b>operational maturity and market proof</b>: certifications, redundancy, provable reliability, scientific pedigree, brand, and scale.</p>
+
+  <div class="verdict">
+    <div class="lead-col">
+      <div class="vh">Where we lead / are unique</div>
+      <ul>
+        <li><b>The join</b> — one engine, hazard → decision → EU filing, audited end-to-end</li>
+        <li><b>Honesty gate</b> — r²≥0.40, "not produced yet" over a fabricated number</li>
+        <li><b>Agri COGS-at-risk</b> — genuine white space, our clearest wedge</li>
+        <li><b>Realized exposure</b> — real past events matched to a client's own assets</li>
+        <li><b>Identity &amp; data integrity</b> — SSO/SCIM/passkeys, append-only golden source, immutable snapshots</li>
+      </ul>
+    </div>
+    <div class="lag-col">
+      <div class="vh">Where we lag</div>
+      <ul>
+        <li><b>Science depth</b> — cat-model / CMIP6 pedigree of RMS, S&amp;P, First Street</li>
+        <li><b>Forward projections</b> — parametric warming-shift vs CMIP6/NGFS ensembles</li>
+        <li><b>Coverage &amp; impact-function library</b> — MSCI / S&amp;P scale</li>
+        <li><b>Brand, distribution, track record</b> — incumbents' decades of FI trust</li>
+        <li><b>Operational assurance</b> — no SOC 2, no DR/HA, no SLA, KMS/WAF, tracing</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="moves">
+    <div class="vh">The three moves that matter most</div>
+    <ol>
+      <li><b>Assurance &amp; reliability program</b> — SOC 2 Type II (controls ~80% already built), multi-region DR/HA with a real SLA, managed KMS + edge WAF. <i>Unlocks regulated-sector revenue that is otherwise a hard stop.</i></li>
+      <li><b>Scientific credibility</b> — CMIP6/NGFS-aligned projections, a deeper calibrated impact-function library, and independent/peer-reviewed validation. <i>Neutralises the trust gap vs S&amp;P / RMS / Jupiter.</i></li>
+      <li><b>Own the agriculture wedge</b> — deepen COGS-at-risk with backtests and a lighthouse customer <i>before the Gro vacuum is contested.</i></li>
+    </ol>
+  </div>
+
+  <!-- ══ 2 · PRODUCT ══ -->
+  <h2><span class="num">02</span>How we stack up — product</h2>
+  <p>The field splits into three arenas. Incumbents dominate one each; the seam between them is ours to own.</p>
+  <div class="mmap">
+    <div class="mcol"><div class="t">Physical-risk analytics</div>
+      <div class="n">Jupiter <span>· investment-grade projections</span></div>
+      <div class="n">First Street <span>· 30m, peer-reviewed</span></div>
+      <div class="n">Moody's RMS <span>· cat-model lineage</span></div>
+      <div class="n">S&amp;P Climanomics <span>· 270+ impact fns</span></div>
+      <div class="n">MSCI · XDI <span>· scale &amp; distribution</span></div>
+    </div>
+    <div class="mcol"><div class="t">Agri · nature</div>
+      <div class="n">Gro Intelligence <span>· shut down 2023 (verify)</span></div>
+      <div class="n">Kanop <span>· nature MRV, EUDR</span></div>
+      <div class="n">Sylvera <span>· carbon-credit ratings</span></div>
+      <div class="n">EUDR specialists <span>· TraceX, osapiens…</span></div>
+      <div class="n" style="color:var(--teal)">↳ COGS-at-risk: open</div>
+    </div>
+    <div class="mcol"><div class="t">Reg-reporting last-mile</div>
+      <div class="n">Regnology <span>· prudential / Pillar 3</span></div>
+      <div class="n">Workiva <span>· iXBRL/ESEF, CSRD</span></div>
+      <div class="n">Wolters Kluwer <span>· risk + ESG</span></div>
+      <div class="n">Persefoni · Watershed <span>· carbon-led</span></div>
+      <div class="n" style="color:var(--teal)">↳ hazard→filing join: rare</div>
+    </div>
+  </div>
+
+  <div class="tw"><table>
+    <tr><th>Capability</th><th>Best-of-breed benchmark</th><th>Tellumen today</th><th>Verdict</th></tr>
+    <tr><td class="dim">Hazard breadth &amp; science</td><td><small>RMS cat-models · MSCI 31 hazards · S&amp;P CMIP6</small></td><td><small>~8–9 hazards, physics + ML, agency feeds</small></td><td><span class="chip c-behind">BEHIND</span></td></tr>
+    <tr><td class="dim">Any-address, on-demand</td><td><small>First Street 30m · MSCI 2bn structures</small></td><td><small>H3-cell, any address, 8/9 hazards</small></td><td><span class="chip c-par">AT PAR</span></td></tr>
+    <tr><td class="dim">Calibration / validation honesty</td><td><small>peer-review (First Street, XDI); most publish everywhere</small></td><td><small>r²≥0.40 gate · "not produced yet" · append-only</small></td><td><span class="chip c-uniq">UNIQUE</span></td></tr>
+    <tr><td class="dim">Forward projections</td><td><small>RMS/S&amp;P/Jupiter — CMIP6/RCP/NGFS to 2100</small></td><td><small>parametric warming-shift (not CMIP6)</small></td><td><span class="chip c-behind">BEHIND</span></td></tr>
+    <tr><td class="dim">Financial translation (€-at-risk)</td><td><small>S&amp;P 270+ impact fns · RMS full loss/BI</small></td><td><small>vuln-differentiated damage core, 4 €-paths</small></td><td><span class="chip c-behind">NARROWING</span></td></tr>
+    <tr><td class="dim">Multi-vertical from one engine</td><td><small>leaders own 1–2 verticals</small></td><td><small>5 verticals + shared decision spine</small></td><td><span class="chip c-lead">LEADS</span></td></tr>
+    <tr><td class="dim">Agri supply-chain COGS-at-risk</td><td><small>no strong FI-grade incumbent (Gro gone)</small></td><td><small>COGS-at-risk + origin/supplier/buffer decisions</small></td><td><span class="chip c-uniq">UNIQUE</span></td></tr>
+    <tr><td class="dim">Reg filing last-mile</td><td><small>Workiva (iXBRL/ESRS) · Regnology · EUDR specialists</small></td><td><small>CSRD/Taxonomy/EUDR/SFDR/Pillar 3/iXBRL in-house</small></td><td><span class="chip c-par">AT PAR / DEPTH BEHIND</span></td></tr>
+    <tr><td class="dim">Continuous reg-change (CRCS)</td><td><small>WK/Regnology human reg-content teams</small></td><td><small>live EUR-Lex detection → per-org impact → alerts</small></td><td><span class="chip c-par">AT PAR / LEADS (verify)</span></td></tr>
+    <tr><td class="dim">Realized / observed exposure</td><td><small>few expose "your assets × real past events"</small></td><td><small>IBTrACS/USGS/EMSC/crop shocks × own book</small></td><td><span class="chip c-uniq">UNIQUE</span></td></tr>
+    <tr><td class="dim">Data-sourcing model</td><td><small>proprietary/licensed cat &amp; hazard data (moat + cost)</small></td><td><small>open sources (GLEIF/Climate TRACE/GEM), no license</small></td><td><span class="chip c-uniq">COST EDGE</span></td></tr>
+  </table></div>
+
+  <!-- ══ 3 · PLATFORM ══ -->
+  <h2><span class="num">03</span>How we stack up — platform</h2>
+  <p>Assessed against world-class enterprise-SaaS standards. The engineering is <b>materially ahead on identity, data integrity, and audit-defensibility</b>; it lags on operational assurance and provable reliability — an operations program, not a re-architecture.</p>
+  <div class="tw"><table>
+    <tr><th>Dimension</th><th>World-class benchmark</th><th>Tellumen today</th><th>Maturity</th></tr>
+    <tr><td class="dim">Identity &amp; access</td><td><small>SSO (OIDC/SAML), SCIM, RBAC, SoD</small></td><td><small>OIDC+SAML (real DSig), SCIM 2.0, four-eyes, passkeys</small></td><td><span class="chip c-lead">LEADING</span></td></tr>
+    <tr><td class="dim">Data governance &amp; lineage</td><td><small>immutable audit, lineage, retention/residency</small></td><td><small>append-only golden source, immutable snapshots, audit</small></td><td><span class="chip c-par">SOLID</span></td></tr>
+    <tr><td class="dim">Security (app / authN)</td><td><small>MFA, encryption, WAF, secret mgmt, SOC 2 controls</small></td><td><small>MFA/passkeys, refresh-reuse detection, Fernet, rate-limit</small></td><td><span class="chip c-par">SOLID</span></td></tr>
+    <tr><td class="dim">Observability / SRE</td><td><small>MELT + OpenTelemetry, SLOs, error budgets, on-call</small></td><td><small>Prometheus metrics, JSON logs, optional Sentry</small></td><td><span class="chip c-behind">DEVELOPING</span></td></tr>
+    <tr><td class="dim">Scalability &amp; performance</td><td><small>documented SLOs, load-tested, autoscaling</small></td><td><small>async (Celery/Redis), stateless API — unproven at scale</small></td><td><span class="chip c-behind">DEVELOPING</span></td></tr>
+    <tr><td class="dim">MLOps &amp; model governance</td><td><small>registry, drift monitoring, challenger + rollback</small></td><td><small>calibration gates + backtests; no registry/drift automation</small></td><td><span class="chip c-behind">DEVELOPING</span></td></tr>
+    <tr><td class="dim">Reliability / HA / DR</td><td><small>99.9%+ SLA, multi-region, RTO&lt;4h / RPO&lt;1h</small></td><td><small>single region, no HA/DR, no stated SLA/RTO/RPO</small></td><td><span class="chip c-gap">GAP</span></td></tr>
+    <tr><td class="dim">Compliance &amp; certifications</td><td><small>SOC 2 Type II and/or ISO 27001, pen-test</small></td><td><small>controls largely built · no attestation yet</small></td><td><span class="chip c-gap">GAP</span></td></tr>
+  </table></div>
+
+  <!-- ══ 4 · THE GAP ══ -->
+  <h2><span class="num">04</span>The gap, honestly</h2>
+  <h3>Product</h3>
+  <p>We are a young challenger against decades-deep incumbents. The substantive deltas: <b>scientific pedigree</b> (peer-reviewed / cat-model / CMIP6 methods), <b>forward-projection defensibility</b>, a <b>far larger calibrated impact-function library</b> (S&amp;P's 270+ asset types), and <b>coverage scale</b> (MSCI's millions of locations). Underneath sits the softer but decisive gap — <b>brand, distribution, and a published validation track record</b> that regulated buyers and their auditors trust.</p>
+  <h3>Platform</h3>
+  <p>We hold the <b>controls</b> of an enterprise platform but not yet the <b>attestations, redundancy, and provable reliability</b> a bank or insurer's vendor review demands. In priority order, a security review will flag: no DR/HA + single region + no SLA; no SOC 2 / ISO / pen-test; no managed KMS + no WAF; half-built observability (no tracing/SLOs/on-call); schema managed by <code>create_all</code> over a drifted migration chain; and — for a company whose product <i>is</i> model output — no model registry or drift monitoring.</p>
+
+  <!-- ══ 5 · ROADMAP ══ -->
+  <h2><span class="num">05</span>How we close it</h2>
+  <p>One 12–18-month program, three workstreams — <b>Assurance &amp; Reliability</b>, <b>Scientific Credibility</b>, <b>Category Ownership</b> — sequenced so the enterprise-revenue unblockers land first. Effort: <span class="eff">S</span> weeks · <span class="eff">M</span> 1–2 months · <span class="eff">L</span> a quarter+.</p>
+
+  <div class="hz">NOW · <b>0–3 months</b> <span>— unblock the enterprise sale, protect the wedge</span></div>
+  <div class="tw"><table>
+    <tr><th>Move</th><th>Why it matters</th><th>Effort</th></tr>
+    <tr><td><span class="ws">ASSURE</span> <b>SOC 2 Type II readiness</b> — auditor engaged, 6-mo window started</td><td>The #1 procurement gate; controls ~80% already built</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">RELY</span> <b>Managed KMS</b> — retire local Fernet</td><td>Key custody is table-stakes; code is already KMS-pluggable</td><td class="eff">S</td></tr>
+    <tr><td><span class="ws">RELY</span> <b>Edge WAF + DDoS</b></td><td>Closes the most-cited perimeter finding</td><td class="eff">S</td></tr>
+    <tr><td><span class="ws">RELY</span> <b>Publish an SLA + define SLOs/RTO/RPO</b></td><td>Buyers need a number to sign; forces the DR design</td><td class="eff">S</td></tr>
+    <tr><td><span class="ws">PLAT</span> <b>Fix schema management</b> — repair Alembic, retire <code>create_all</code>, gate migrations in CI</td><td>Change-control blocker; enables safe scaling</td><td class="eff">M</td></tr>
+    <tr><td><span class="ws">OWN</span> <b>Deepen agri COGS-at-risk backtests + secure a lighthouse customer</b></td><td>Converts the Gro vacuum into a defensible category lead</td><td class="eff">M</td></tr>
+  </table></div>
+
+  <div class="hz">NEXT · <b>3–9 months</b> <span>— prove reliability, close the science gap</span></div>
+  <div class="tw"><table>
+    <tr><th>Move</th><th>Why it matters</th><th>Effort</th></tr>
+    <tr><td><span class="ws">RELY</span> <b>Multi-region DR / HA</b> — Postgres replica, failover, restore drills</td><td>Delivers the SLA; removes the single biggest reliability gap</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">RELY</span> <b>Observability uplift</b> — OpenTelemetry tracing, SLO dashboards, on-call</td><td>Turns "we're reliable" into a provable, operable claim</td><td class="eff">M</td></tr>
+    <tr><td><span class="ws">SCI</span> <b>CMIP6/NGFS-aligned projections</b> (or publish downscaling + benchmark vs CLIMADA)</td><td>Lets scenario outputs survive scientific &amp; supervisory scrutiny</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">SCI</span> <b>Expand calibrated impact-function library</b> — top 30–50 asset types / vertical</td><td>More €-at-risk clears the gate instead of "not produced yet"</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">RELY</span> <b>Load / capacity testing + published throughput</b></td><td>Fills the explicit "no verified benchmarks" gap</td><td class="eff">M</td></tr>
+    <tr><td><span class="ws">COMMS</span> <b>Production integrations</b> — Stripe, ESP, DocuSign, geocoder, EU data-residency</td><td>Converts internal-mode ops to real commercial &amp; GDPR footing</td><td class="eff">M</td></tr>
+  </table></div>
+
+  <div class="hz">LATER · <b>9–18 months</b> <span>— best-in-class &amp; durable moat</span></div>
+  <div class="tw"><table>
+    <tr><th>Move</th><th>Why it matters</th><th>Effort</th></tr>
+    <tr><td><span class="ws">ASSURE</span> <b>ISO 27001 (+ 27701)</b></td><td>Global recognition beyond US-centric SOC 2; ~80% control reuse</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">SCI</span> <b>Independent / peer-reviewed validation</b> + published backtests</td><td>Neutralises the trust gap; auditor / Big-4 methodology endorsement</td><td class="eff">M</td></tr>
+    <tr><td><span class="ws">MLOPS</span> <b>Model registry + drift monitoring + challenger/rollback</b></td><td>Enterprise ML governance for a product that <i>is</i> model output</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">OWN</span> <b>Scale coverage &amp; resolution</b> — structure/parcel level, selective</td><td>Approaches the MSCI / First Street bar where it counts</td><td class="eff">L</td></tr>
+    <tr><td><span class="ws">ASSURE</span> <b>Annual pen-test + bug bounty</b></td><td>Ongoing assurance expected by mature buyers</td><td class="eff">M</td></tr>
+  </table></div>
+
+  <!-- ══ 6 · RECOMMENDATION ══ -->
+  <h2><span class="num">06</span>Recommendation to the Board</h2>
+  <p>Fund the three-workstream program above as a single <b>"path to enterprise-grade &amp; category leadership"</b> initiative, front-loading the <b>Assurance &amp; Reliability</b> track (SOC 2, DR/HA + SLA, KMS/WAF). These are the lowest-effort, highest-leverage moves — none require re-architecture, most reuse controls we already have — and they convert a technically strong platform into one a regulated institution can actually buy. In parallel, protect the <b>agriculture wedge</b> while the category is open, and begin the <b>scientific-credibility</b> track that a longer sales cycle will demand.</p>
+  <p><b>The decision sought:</b> approve the program and its sequencing, and the budget for (i) a SOC 2 / evidence-automation engagement and (ii) multi-region cloud + managed KMS/WAF — the two items that most directly open regulated-sector revenue.</p>
+
+  <div class="note"><b>Method &amp; honesty note.</b> Competitor capabilities are cited to company / press sources (see below) and current as of Aug 2026. Items marked "(verify)" — Gro Intelligence's shutdown, the CRCS "leads-vs-incumbents" claim, and several vendor specifics — should be confirmed before wider circulation. Tellumen's current state is drawn from the product build (v2.45) and cross-checked against the software description document, which independently confirms the key honesty flags (e.g. "no verified SLAs / throughput / scaling benchmarks yet"). No revenue, customer-count, or uptime figures were asserted for any party.</div>
+
+  <footer>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--faint);margin-bottom:10px">SOURCES</div>
+    <div class="src">
+      Physical risk — <a href="https://www.jupiterintel.com/">Jupiter</a> · <a href="https://firststreet.org/methodology">First Street</a> · <a href="https://www.rms.com/">Moody's RMS</a> · <a href="https://www.spglobal.com/sustainable1/en/solutions/physical-climate-risk-solutions">S&amp;P Climanomics</a> · <a href="https://www.msci.com/data-and-analytics/climate-solutions/physical-risk-solutions">MSCI</a> · <a href="https://xdi.systems/">XDI</a><br>
+      Agri / reporting — <a href="https://www.kanop.io/">Kanop</a> · <a href="https://tracextech.com/eu-traces-eudr-compliance-dds-submission/">EUDR/TRACES</a> · <a href="https://www.regnology.net/en/">Regnology</a> · <a href="https://www.workiva.com/solutions/csrd-reporting">Workiva</a> · <a href="https://www.wolterskluwer.com/en/solutions/onesumx-for-finance-risk-and-regulatory-reporting/onesumx-for-esg">Wolters Kluwer</a> · <a href="https://www.persefoni.com/">Persefoni</a><br>
+      SaaS standards — <a href="https://secureframe.com/blog/soc-2-vs-iso-27001">SOC 2 vs ISO 27001</a> · <a href="https://learn.microsoft.com/en-us/azure/well-architected/reliability/metrics">Azure reliability metrics</a> · <a href="https://oneuptime.com/blog/post/2026-02-06-slo-monitoring-opentelemetry-metrics/view">SLOs / OpenTelemetry</a> · <a href="https://mlflow.org/articles/ml-lifecycle-management-explained-for-engineers/">MLflow model lifecycle</a>
+    </div>
+    <div style="margin-top:16px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);display:flex;justify-content:space-between"><span>TELLUMEN</span><span>CONFIDENTIAL · BOARD</span></div>
+  </footer>
+
+</div>
