@@ -63,3 +63,25 @@ def test_monotonic():
     assert m.monotonic_nondecreasing([1, 2, 2, 3]) is True
     assert m.monotonic_nondecreasing([3, 1]) is False
     assert m.monotonic_nondecreasing([None, 1]) is None
+
+
+def test_applicability_guard_flags_saturation_not_failure():
+    # a wide/frequent hazard where nearly every location has an event → NOT testable, not "failed"
+    pred = np.arange(0, 100, 1.0)                      # 100 samples, full score spread
+    saturated = np.ones(len(pred))                     # every location has an event (prevalence 100%)
+    ok, reason = m.discrimination_applicable(pred, saturated)
+    assert ok is False and "saturated" in reason
+    # too sparse is also not testable
+    sparse = np.zeros(len(pred)); sparse[0] = 1        # 1% prevalence (< 2% floor)
+    ok2, _ = m.discrimination_applicable(pred, sparse)
+    assert ok2 is False
+    # a healthy spread of events IS testable
+    healthy = (np.arange(len(pred)) % 2).astype(float)  # 50% prevalence
+    ok3, _ = m.discrimination_applicable(pred, healthy)
+    assert ok3 is True
+
+
+def test_continuous_applicable():
+    assert m.continuous_applicable([10, 20, 30], [1, 2, 3])[0] is True
+    assert m.continuous_applicable([10, 20, 30], [5, 5, 5])[0] is False  # observed no variance
+    assert m.continuous_applicable([10, 10, 10], [1, 2, 3])[0] is False  # score no spread

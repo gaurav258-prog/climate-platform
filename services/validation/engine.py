@@ -62,32 +62,53 @@ def _compute(res: ValidationResult):
     pred = np.asarray(res.predicted, float)
     obs = np.asarray(res.observed, float)
     n = int(len(pred))
-    if res.kind == "regression":
-        r2 = M.r2_oos(pred, obs)
-        metrics = {"r2_oos": r2, "rmse": M.rmse(pred, obs), "mae": M.mae(pred, obs), "bias": M.bias(pred, obs)}
-        grade = M.grade_regression(r2)
-        passed = M.passes_regression_gate(r2)
-        gate = f"regression_r2>={M.REGRESSION_GATE_R2}"
-    elif res.kind == "discrimination":
-        sp = M.spearman(pred, obs)
-        a = M.auc(pred, obs > 0)
-        # Fixed severity bands (0–25 / 25–50 / 50–75 / 75–100) — the product's own risk buckets, so
-        # "do observed events rise with the score band?" is measured on meaningful, stable edges rather
-        # than data-dependent quantiles (which go non-monotone on noise even at strong rank skill).
-        bands: list = []
+
+    def _bands():
+        # Fixed severity bands (0–25 / 25–50 / 50–75 / 75–100) — the product's own risk buckets, so "does the
+        # observed target rise with the score band?" is measured on meaningful, stable edges rather than
+        # data-dependent quantiles (which go non-monotone on noise even at strong rank skill).
+        b: list = []
         if n >= 8:
             for lo, hi in ((0, 25), (25, 50), (50, 75), (75, 100.01)):
                 mask = (pred >= lo) & (pred < hi)
-                bands.append(_round(float(obs[mask].mean())) if mask.any() else None)
+                b.append(_round(float(obs[mask].mean())) if mask.any() else None)
+        return b
+
+    if res.kind == "regression":
+        applicable, reason = M.continuous_applicable(pred, obs)
+        r2 = M.r2_oos(pred, obs)
+        metrics = {"r2_oos": r2, "rmse": M.rmse(pred, obs), "mae": M.mae(pred, obs), "bias": M.bias(pred, obs)}
+        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_regression(r2)
+        passed = applicable and M.passes_regression_gate(r2)
+        gate = f"regression_r2>={M.REGRESSION_GATE_R2}"
+    elif res.kind == "discrimination":
+        # score vs an EVENT (occurrence/count) — subject to the saturation guard
+        applicable, reason = M.discrimination_applicable(pred, obs)
+        sp, a = M.spearman(pred, obs), M.auc(pred, obs > 0)
+        bands = _bands()
         mono = M.monotonic_nondecreasing(bands) if bands else None
-        metrics = {"spearman": sp, "auc": a, "band_mean_observed": bands, "monotonic": mono}
-        grade = M.grade_discrimination(sp, mono)
-        passed = M.passes_discrimination_gate(sp, mono)
+        metrics = {"spearman": sp, "auc": a, "band_mean_observed": bands, "monotonic": mono,
+                   "event_prevalence": _round(M.event_prevalence(obs))}
+        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
+        passed = applicable and M.passes_discrimination_gate(sp, mono)
         gate = "discrimination_spearman>=0.35+monotone"
+    elif res.kind == "rank":
+        # score vs a CONTINUOUS observed quantity (intensity, loss) — rank skill; no occurrence/AUC/saturation
+        applicable, reason = M.continuous_applicable(pred, obs)
+        sp = M.spearman(pred, obs)
+        bands = _bands()
+        mono = M.monotonic_nondecreasing(bands) if bands else None
+        metrics = {"spearman": sp, "band_mean_observed": bands, "monotonic": mono}
+        grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
+        passed = applicable and M.passes_discrimination_gate(sp, mono)
+        gate = "rank_spearman>=0.35+monotone"
     else:
         raise ValueError(f"unknown validation kind '{res.kind}'")
+
     metrics = {k: _round(v) for k, v in metrics.items()}
     metrics["n"] = n
+    metrics["applicable"] = applicable
+    metrics["applicability_reason"] = reason or None
     return metrics, grade, passed, gate
 
 

@@ -35,5 +35,7 @@ def _near_field(peril: str, source: str):
     return run
 
 
+# Seismic is a POINT event (sharp epicentre) → near-field counting is the right, discriminating test.
+# Storm is a WIDE, frequent, track-based hazard → near-field counting saturates (see storm_severity.py for
+# the severity-appropriate test). The applicability guard would flag a storm-COUNT run as not-testable.
 register("seismic")(_near_field("seismic", "USGS/EMSC seismic catalogue (M≥5)"))
-register("storm")(_near_field("storm", "NOAA IBTrACS storm tracks"))

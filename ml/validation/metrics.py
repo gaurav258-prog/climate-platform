@@ -151,3 +151,45 @@ def passes_regression_gate(r2: Optional[float]) -> bool:
 def passes_discrimination_gate(sp: Optional[float], monotonic: Optional[bool]) -> bool:
     """The publish gate for a score-vs-event model: rank skill ≥ 0.35 and bands rise with the score."""
     return sp is not None and sp >= 0.35 and bool(monotonic)
+
+
+# ── applicability guard — is the test even CAPABLE of judging this model? ─────────────────────────
+# The rule for "such cases": a weak number must first be diagnosed — model, or test? When the observed
+# target is saturated (nearly everywhere has an event, e.g. a wide/frequent hazard tested by near-field
+# counting) or has no variance, or the score has no spread, the test cannot discriminate. Such a run is
+# NOT-TESTABLE (→ Insufficient), never "weak/fail" — so we never mislabel a sound model as bad.
+SATURATION_HI = 0.85   # ≥85% of locations having an event → nothing left to discriminate
+SATURATION_LO = 0.02   # ≤2% → too few events to discriminate
+
+
+def event_prevalence(obs: np.ndarray) -> float:
+    a = np.asarray(obs, float)
+    return float(np.mean(a > 0)) if len(a) else 0.0
+
+
+def discrimination_applicable(pred: np.ndarray, obs: np.ndarray) -> tuple[bool, str]:
+    """Can a score-vs-EVENT (occurrence/count) test discriminate here?"""
+    pred = np.asarray(pred, float)
+    if len(pred) < MIN_N:
+        return False, "too few samples"
+    if np.ptp(pred) == 0:
+        return False, "score has no spread"
+    prev = event_prevalence(obs)
+    if prev >= SATURATION_HI:
+        return False, (f"target saturated — {prev:.0%} of locations have an event; near-field counting "
+                       f"cannot discriminate a wide/frequent hazard (use a severity-based test instead)")
+    if prev <= SATURATION_LO:
+        return False, f"target too sparse — only {prev:.1%} of locations have an event to discriminate"
+    return True, ""
+
+
+def continuous_applicable(pred: np.ndarray, obs: np.ndarray) -> tuple[bool, str]:
+    """Can a continuous test (regression, or rank vs a continuous observed quantity like intensity) run?"""
+    pred, obs = np.asarray(pred, float), np.asarray(obs, float)
+    if len(pred) < MIN_N or len(pred) != len(obs):
+        return False, "too few or mismatched samples"
+    if np.ptp(pred) == 0:
+        return False, "score has no spread"
+    if np.var(obs) == 0:
+        return False, "observed values have no variance"
+    return True, ""

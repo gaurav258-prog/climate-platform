@@ -11,7 +11,8 @@ from __future__ import annotations
 import sys
 
 from core.db.session import get_session
-import services.validation.validators.near_field_events  # noqa: F401 — registers seismic + storm
+import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
+import services.validation.validators.storm_severity     # noqa: F401 — registers storm (severity)
 from services.validation import engine
 
 
@@ -24,9 +25,11 @@ def main() -> int:
                 continue
             r = engine.run_validation(s, key, actor="scripts.run_validation")
             m = r["metrics"]
-            skill = (f"spearman={m.get('spearman')} auc={m.get('auc')}" if r["kind"] == "discrimination"
-                     else f"r2_oos={m.get('r2_oos')}")
-            print(f"  {r['hazard']:>10} · {r['skill_grade']:>12} · gate {'PASS' if r['passed_gate'] else 'FAIL'} "
+            skill = (f"r2_oos={m.get('r2_oos')}" if r["kind"] == "regression"
+                     else f"spearman={m.get('spearman')}")
+            if not m.get("applicable", True):
+                skill += f"  [not testable: {m.get('applicability_reason')}]"
+            print(f"  {r['hazard']:>10} · {r['grade']:>12} · gate {'PASS' if r['passed_gate'] else 'FAIL'} "
                   f"· n={r['n']} · {skill} · {r['method']} · {r['target_source']}")
     return 0
 

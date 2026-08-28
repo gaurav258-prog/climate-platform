@@ -35,3 +35,21 @@ def test_discrimination_no_skill_fails():
     obs = [3, 0, 4, 1, 0, 5, 2, 0]          # observed unrelated to score
     metrics, grade, passed, gate = _compute(_res("discrimination", pred, obs))
     assert passed is False
+
+
+def test_saturated_discrimination_is_insufficient_not_weak():
+    # the storm case: nearly every location has an event → the run is NOT-TESTABLE, graded INSUFFICIENT
+    # (not "weak/fail"), so a sound model is never mislabelled as bad.
+    pred = list(range(10, 90, 5))
+    obs = [1] * len(pred)                    # saturated (every location hit)
+    metrics, grade, passed, gate = _compute(_res("discrimination", pred, obs))
+    assert grade.value == "insufficient" and passed is False
+    assert metrics["applicable"] is False and "saturated" in metrics["applicability_reason"]
+
+
+def test_rank_on_continuous_target_passes():
+    # severity-appropriate test: score vs a continuous observed intensity → rank skill, no saturation guard
+    pred = [10, 15, 30, 35, 55, 60, 85, 92]
+    obs = [40, 45, 60, 62, 80, 85, 120, 130]   # observed intensity rises with score
+    metrics, grade, passed, gate = _compute(_res("rank", pred, obs))
+    assert metrics["spearman"] is not None and passed is True and gate.startswith("rank")
