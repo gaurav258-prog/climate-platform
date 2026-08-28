@@ -49,8 +49,9 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
     <div className="relative w-full h-full">
       <MapContainer center={[lat, lon]} zoom={12} minZoom={2} maxZoom={16} scrollWheelZoom worldCopyJump
         style={{ width: '100%', height: '100%', background: '#0b1524' }}>
-        <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO"
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" subdomains="abcd" />
+        {/* Keyless, label-free dark base (Esri Dark Gray Canvas) — no API key, no baked-in local-language labels */}
+        <TileLayer attribution="Tiles &copy; Esri" maxZoom={16}
+          url="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}" />
         <ZoomWatch onZoom={setZoom} />
 
         {/* Risk texture: the scored neighbour ring, drawn UNDER the asset hexes. Only shown zoomed-in

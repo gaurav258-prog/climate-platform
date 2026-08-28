@@ -33,14 +33,17 @@ const resForZoom = (z: number) => Math.max(2, Math.min(7, Math.round(0.72 * z - 
 // sky-blue ground, so land and sea read as soft blues. Everything on top (place names, plots, and the
 // H3 hex grid) is drawn as a DOM/SVG overlay — maplibre-6 can leave its own vector layers unrendered
 // until the user's first gesture, but overlays projected via map.project() paint on load, reliably.
-const TILES = ['a', 'b', 'c', 'd'].map(s => `https://${s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png`)
+// Keyless, LABEL-FREE light base (Esri Light Gray Canvas) — no API key, and no baked-in place names, so the
+// only labels are the app's own English ones below (plain OSM bakes in local-language labels; CARTO's
+// no-label base now needs a key). Attribution required.
+const TILES = ['https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}']
 const SKY = '#a9d3ef'        // ocean blue behind everything (shows through the sea)
 const INK = '#12314f'        // deep navy for labels on the light land
 
 function baseStyle(): maplibregl.StyleSpecification {
   return {
     version: 8,
-    sources: { base: { type: 'raster', tiles: TILES, tileSize: 256, attribution: '© OpenStreetMap © CARTO' } },
+    sources: { base: { type: 'raster', tiles: TILES, tileSize: 256, maxzoom: 16, attribution: 'Tiles © Esri' } },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': SKY } },
       // full-strength, lightly-cooled Voyager with a contrast boost — clear blue sea vs light land,
@@ -48,6 +51,25 @@ function baseStyle(): maplibregl.StyleSpecification {
       { id: 'base', type: 'raster', source: 'base', paint: { 'raster-saturation': -0.15, 'raster-brightness-min': 0.06, 'raster-brightness-max': 1, 'raster-contrast': 0.18, 'raster-opacity': 1 } },
     ],
   }
+}
+
+// Sovereign-boundary overlay. Global basemaps render the de-facto / UN view, which does NOT match the
+// Survey of India's official depiction (J&K, Ladakh incl. Aksai Chin, Arunachal Pradesh) — a legal
+// requirement for maps shown in India. This draws an AUTHORITATIVE boundary GeoJSON on top when one is
+// present at /geo/official_boundaries.geojson; it is a graceful no-op until that (licensed) file is supplied,
+// so we never render a fabricated official boundary. See web/public/geo/README.md.
+async function addOfficialBoundaries(m: maplibregl.Map) {
+  try {
+    const res = await fetch('/geo/official_boundaries.geojson')
+    if (!res.ok) return                       // no authoritative file yet → no-op (never fabricate)
+    const geo = await res.json()
+    if (m.getSource('official-boundaries')) return
+    m.addSource('official-boundaries', { type: 'geojson', data: geo })
+    m.addLayer({
+      id: 'official-boundaries', type: 'line', source: 'official-boundaries',
+      paint: { 'line-color': '#12314f', 'line-width': 1.1 },
+    })
+  } catch { /* overlay is optional — never break the map */ }
 }
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
@@ -116,7 +138,7 @@ export default function RiskMap() {
       canvasContextAttributes: { preserveDrawingBuffer: true, antialias: true },
     })
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-    m.on('style.load', () => { m.resize(); setReady(true) })
+    m.on('style.load', () => { m.resize(); setReady(true); addOfficialBoundaries(m) })
     m.on('render', drawHexes)   // keep the SVG grid aligned to the map every frame
     const ro = new ResizeObserver(() => m.resize())
     ro.observe(el.current)
