@@ -1,0 +1,45 @@
+# Tellumen — Service Level Objectives (SLOs)
+# Machine-readable target spec. These are INTERNAL design targets we build to; they become a published,
+# contractual SLA only when the product is client-ready. SLIs are emitted by api/observability.py to
+# /metrics (http_slo_events_total{sli,outcome} and http_request_duration_seconds); an error budget is
+# 1 - objective over the rolling window. See RUNBOOK.md for alerting and incident response.
+
+service: tellumen-api
+window: 30d            # rolling compliance window
+owner: platform-oncall
+
+slos:
+  - name: availability
+    description: Core app/API returns non-5xx.
+    sli: http_slo_events_total{sli="availability"}          # good/bad per request
+    objective: 0.999                                         # 99.9% (~43 min/mo)
+    error_budget: 0.001
+    filing_window_objective: 0.9995                          # heightened posture during reg deadlines
+
+  - name: latency_api
+    description: General API requests complete within the latency budget.
+    sli: http_slo_events_total{sli="latency"}               # bad when dur > SLO_LATENCY_BUDGET_S
+    budget_seconds: 1.0                                      # matches settings.SLO_LATENCY_BUDGET_S
+    objective: 0.99                                          # 99% within budget
+
+  # Targets tracked from the latency histogram (http_request_duration_seconds) per surface:
+  latency_targets:
+    any_address_score:   { p95_s: 3.0,  p99_s: 6.0 }         # interactive scoring must feel instant
+    api_read:            { p95_s: 0.4 }
+    filing_export:       { p95_s: 10.0 }
+    async_hazard_jobs:   best_effort: true                   # CDS/FIRMS provider-latency-bound — no hard SLA
+
+recovery:
+  rto_hours: 4                # normal; 1h during a filing window
+  rto_hours_filing_window: 1
+  rpo_minutes: 15             # general
+  rpo_minutes_golden_source: 5   # near-zero for canonical scores + filed report snapshots
+
+support_response:
+  p1_filing_blocking_in_window: { ack: 1h, workaround: 4h }
+  p2: { ack: 4h }             # business hours
+  p3: { ack: 1_business_day }
+
+release_policy:
+  error_budget_freeze: true   # halt non-critical releases when the budget is exhausted
+  filing_window_freeze: true  # change-freeze during declared CSRD / SFDR / EUDR / Pillar 3 deadlines

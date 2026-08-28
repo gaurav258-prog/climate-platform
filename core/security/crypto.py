@@ -11,28 +11,28 @@ env-based to KMS-backed encryption without touching call sites.
 """
 from __future__ import annotations
 
-import base64
-import hashlib
-
 from cryptography.fernet import Fernet, InvalidToken
 
-from core.config import settings
+from core.security.kms import get_key_provider, reset_provider_cache
 
 _PREFIX = "enc:v1:"
+_fernet_cache: Fernet | None = None
 
 
 def _fernet() -> Fernet:
-    raw = (settings.APP_ENCRYPTION_KEY or "").strip()
-    if raw:
-        # accept either a proper 44-char urlsafe-b64 Fernet key, or any passphrase (hashed to one)
-        try:
-            Fernet(raw.encode())
-            return Fernet(raw.encode())
-        except Exception:  # noqa: BLE001
-            key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
-            return Fernet(key)
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
-    return Fernet(key)
+    """The Fernet built from the active key provider's data key. Cached — a KMS provider must not be
+    re-hit per encrypt/decrypt; env-derived is cheap either way."""
+    global _fernet_cache
+    if _fernet_cache is None:
+        _fernet_cache = Fernet(get_key_provider().data_key())
+    return _fernet_cache
+
+
+def reset_crypto_cache() -> None:
+    """Drop the cached Fernet + key provider (tests / after a key/provider change)."""
+    global _fernet_cache
+    _fernet_cache = None
+    reset_provider_cache()
 
 
 def encrypt(plaintext: str | None) -> str | None:

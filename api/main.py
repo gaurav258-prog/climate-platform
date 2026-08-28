@@ -153,9 +153,11 @@ try:
         ObservabilityMiddleware,
         SecurityHeadersMiddleware,
         init_sentry,
+        init_tracing,
         metrics_response,
     )
     init_sentry()
+    init_tracing(app)   # OpenTelemetry — no-op unless an OTLP endpoint + exporter are configured
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
 

@@ -32,6 +32,11 @@ jobs:
         # time — [dev] alone only brings the test tooling.
         run: pip install -e ".[all,dev]"
 
+      - name: Check migration graph (single head, no dangling links)
+        # Static change-control guard — fails the build if the Alembic chain ever
+        # splits into multiple heads again (the drift that forced create_all). No DB needed.
+        run: python -m scripts.check_migrations
+
       - name: Run unit tests
         run: pytest tests/unit/ -m "not integration" -q --tb=short
 
