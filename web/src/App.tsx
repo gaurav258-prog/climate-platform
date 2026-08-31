@@ -55,6 +55,7 @@ const RiskMap = lazy(() => import('./pages/RiskMap'))
 const TrackRecord = lazy(() => import('./pages/TrackRecord'))
 const UnderwritingReview = lazy(() => import('./pages/UnderwritingReview'))
 const ModelValidation = lazy(() => import('./pages/ModelValidation'))
+const Coverage = lazy(() => import('./pages/Coverage'))
 const DetailView = lazy(() => import('./pages/DetailView'))
 const CommodityDetail = lazy(() => import('./pages/CommodityDetail'))
 const Support = lazy(() => import('./pages/Support'))
@@ -125,6 +126,7 @@ function Workspace() {
         <Route path="/track-record" element={<TrackRecord />} />
         <Route path="/underwriting" element={<UnderwritingReview />} />
         <Route path="/model-validation" element={<ModelValidation />} />
+        <Route path="/coverage" element={<Coverage />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/funds/:id" element={<FundDetail />} />
         <Route path="/compliance" element={<Compliance />} />

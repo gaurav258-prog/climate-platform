@@ -43,6 +43,49 @@ def summarize_coverage(per_hazard: list[dict], resolutions: list[int], scenarios
     }
 
 
+def eu_taxonomy_coverage() -> dict:
+    """Our coverage of the EU Taxonomy's 28 physical climate hazards, each stamped with a maturity tier.
+
+    Pure — derived from the canonical registry in `core.hazard_taxonomy` (no DB). This is the completeness
+    scoreboard a supervisor / auditor scores climate-risk coverage against: the 28 grouped by family, plus the
+    honest counts, plus the channels we carry BEYOND the list (seismic/volcanic/pollution). Coverage ≠
+    calibration — the tier on each hazard says which claim we're making.
+    """
+    from core.hazard_taxonomy import (
+        EU_TAXONOMY, EXTRA_CHANNELS, HazardFamily, coverage_summary, eu_hazards_by_family,
+    )
+
+    def _ser(h) -> dict:
+        return {
+            "id": h.id, "name": h.name, "family": h.family.value, "nature": h.nature,
+            "tier": h.tier.value, "phase": h.phase, "source": h.source,
+            "internal": [c.value for c in h.internal],
+        }
+
+    grouped = eu_hazards_by_family()
+    family_labels = {
+        "temperature": "Temperature-related", "wind": "Wind-related",
+        "water": "Water-related", "solid_mass": "Solid-mass-related",
+    }
+    return {
+        "reference": "EU Taxonomy Climate Delegated Act (2021/2139), Appendix A",
+        "summary": coverage_summary(),
+        "families": [
+            {"family": f.value, "label": family_labels[f.value],
+             "hazards": [_ser(h) for h in grouped[f.value]]}
+            for f in HazardFamily
+        ],
+        "extra_channels": [_ser(h) for h in EXTRA_CHANNELS],
+        "tiers": [
+            {"tier": "calibrated", "label": "Calibrated", "note": "backtested, passes the honesty gate — publishes scores"},
+            {"tier": "screening", "label": "Screening", "note": "authoritative indicator, disclosed as not-yet-calibrated"},
+            {"tier": "reference", "label": "Reference", "note": "zone / geophysical layer — no climate projection"},
+            {"tier": "roadmap", "label": "Roadmap", "note": "planned channel, not built yet"},
+        ],
+        "note": "coverage ≠ calibration; a channel moves up a tier only when it earns it (see model validation)",
+    }
+
+
 def coverage_report(session: Session, horizon: str = "current") -> dict:
     """DB-backed coverage report over canonical_scores (the standing golden source)."""
     per_hazard = [dict(r) for r in session.execute(text("""
