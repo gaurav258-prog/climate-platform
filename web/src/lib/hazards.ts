@@ -14,6 +14,7 @@ export const HAZARD_LABEL: Record<string, string> = {
   pollution: 'Air pollution',
   frost: 'Frost & cold snaps',
   soil_water: 'Soil-water stress',
+  heavy_precip: 'Heavy rainfall (extreme downpours)',
 }
 
 export const hazardLabel = (h?: string | null): string =>
