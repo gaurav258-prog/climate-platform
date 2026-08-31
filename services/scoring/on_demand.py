@@ -11,6 +11,7 @@ import logging
 import threading
 
 from ml.features.heat_chronic_point import score_heat_chronic_point
+from ml.scoring.climate_change_point import score_changing_precip_point, score_changing_temp_point
 from ml.scoring.climate_variability_point import score_precip_variability_point, score_temp_variability_point
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
 from ml.scoring.frost_point import score_frost_point
@@ -34,6 +35,9 @@ SYNC_ON_DEMAND_SCORERS = {
     "landslide": score_landslide_point,
     "temp_variability": score_temp_variability_point,
     "precip_variability": score_precip_variability_point,
+    # projection-based change channels — real under a projection scenario, insufficient at baseline/current
+    "changing_temp": score_changing_temp_point,
+    "changing_precip": score_changing_precip_point,
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).

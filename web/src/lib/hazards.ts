@@ -18,6 +18,8 @@ export const HAZARD_LABEL: Record<string, string> = {
   landslide: 'Landslides & slope failure',
   temp_variability: 'Temperature swings (seasonal variability)',
   precip_variability: 'Erratic rainfall (variability)',
+  changing_temp: 'Warming trend (projected)',
+  changing_precip: 'Shifting rainfall (projected)',
 }
 
 export const hazardLabel = (h?: string | null): string =>

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from core.types import HazardType, normalize_hazard
+from ml.scoring.climate_change_point import changing_precip_score as cps
+from ml.scoring.climate_change_point import changing_temp_score as cts
 from ml.scoring.climate_variability_point import precip_variability_score as pv
 from ml.scoring.climate_variability_point import temp_variability_score as tv
 from ml.scoring.landslide_point import CLASS_SCORE
@@ -34,9 +36,21 @@ def test_bounded():
         assert 0.0 <= f(*args) <= 100.0
 
 
+def test_changing_temp_monotonic_banded():
+    assert cts(1) < cts(2) < cts(3.5) < cts(5)
+    assert 45 <= cts(2) <= 55        # +2°C ≈ 50
+    assert cts(5) >= 80
+
+
+def test_changing_precip_symmetric_in_magnitude():
+    assert cps(0.5) == cps(-0.5)     # drying and wetting equally hazardous
+    assert 45 <= cps(0.25) <= 55     # ±25% ≈ 50
+
+
 def test_hazard_types_registered():
-    for v in ("landslide", "temp_variability", "precip_variability"):
+    for v in ("landslide", "temp_variability", "precip_variability", "changing_temp", "changing_precip"):
         assert v in {h.value for h in HazardType}
     assert normalize_hazard("temperature variability") is HazardType.TEMP_VARIABILITY
     assert normalize_hazard("hydrological_variability") is HazardType.PRECIP_VARIABILITY
     assert normalize_hazard("slope failure") is HazardType.LANDSLIDE
+    assert normalize_hazard("changing temperature") is HazardType.CHANGING_TEMP

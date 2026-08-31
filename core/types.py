@@ -73,6 +73,9 @@ class HazardType(str, Enum):
     # Chronic climate-variability indicators (EU Taxonomy) from the 1991–2020 monthly climatology:
     TEMP_VARIABILITY = "temp_variability"      # seasonal temperature amplitude + interannual spread
     PRECIP_VARIABILITY = "precip_variability"  # rainfall seasonal concentration + interannual spread
+    # Projected-change magnitude (EU Taxonomy chronic) from the CMIP6 ensemble — forward-looking only:
+    CHANGING_TEMP = "changing_temp"            # ensemble-mean warming magnitude vs 1995–2014
+    CHANGING_PRECIP = "changing_precip"        # |ensemble-mean fractional precip change|
 
 
 class RiskScenario(str, Enum):
@@ -204,6 +207,11 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "temp_variability": HazardType.TEMP_VARIABILITY, "temperature_variability": HazardType.TEMP_VARIABILITY,
     "precip_variability": HazardType.PRECIP_VARIABILITY, "precipitation_variability": HazardType.PRECIP_VARIABILITY,
     "hydrological_variability": HazardType.PRECIP_VARIABILITY,
+    # projected change magnitude
+    "changing_temp": HazardType.CHANGING_TEMP, "changing_temperature": HazardType.CHANGING_TEMP,
+    "temperature_change": HazardType.CHANGING_TEMP,
+    "changing_precip": HazardType.CHANGING_PRECIP, "changing_precipitation": HazardType.CHANGING_PRECIP,
+    "precipitation_change": HazardType.CHANGING_PRECIP,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {
