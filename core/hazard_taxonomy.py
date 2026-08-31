@@ -86,13 +86,13 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, SCR, "now",
              "seasonal temperature amplitude + interannual spread (1991–2020 climatology)", (H.TEMP_VARIABILITY,)),
-    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, ROAD, "p4", "→ Reference · ESA CCI, high-latitude"),
+    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, ROAD, "p4", "blocked: ESA CCI permafrost — registration-gated, few assets in zone"),
 
     # Wind-related (4)
     EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now", "storm severity backtest (Spearman 0.47)", (H.STORM,)),
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
-    EUHazard("changing_wind", W, "Changing wind patterns", C, ROAD, "p3", "→ Screening · trend indicator"),
-    EUHazard("tornado", W, "Tornado", A, ROAD, "p4", "→ Reference · regional catalogues"),
+    EUHazard("changing_wind", W, "Changing wind patterns", C, ROAD, "p3", "blocked: no global wind field ingested yet"),
+    EUHazard("tornado", W, "Tornado", A, ROAD, "p4", "blocked: regional catalogues only (US SPC) — no global asset layer"),
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),
@@ -103,23 +103,23 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "IPCC AR6 SLR projection via the coastal-flood freeboard model (elevation + distance-to-coast)", (H.COASTAL_FLOOD,)),
     EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, SCR, "now",
              "wettest-month precip climatology (1991–2020) + CC warming", (H.HEAVY_PRECIP,)),
-    EUHazard("saline_intrusion", WA, "Saline intrusion", C, ROAD, "p2", "→ Screening · coastal, regional"),
+    EUHazard("saline_intrusion", WA, "Saline intrusion", C, ROAD, "p2", "blocked: coastal-aquifer data — regional, no global layer"),
     EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, SCR, "now",
              "CMIP6 ensemble |precip change| (projection scenarios)", (H.CHANGING_PRECIP,)),
     EUHazard("precipitation_variability", WA, "Precipitation / hydrological variability", C, SCR, "now",
              "rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
-    EUHazard("ocean_acidification", WA, "Ocean acidification", C, ROAD, "p4", "→ Reference · marine, niche"),
-    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, ROAD, "p4", "→ Reference · regional"),
+    EUHazard("ocean_acidification", WA, "Ocean acidification", C, ROAD, "p4", "blocked: marine — not land-asset-relevant"),
+    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, ROAD, "p4", "blocked: regional lake inventories (Himalaya/Andes) — no global layer"),
 
     # Solid-mass-related (7)
     EUHazard("landslide", S, "Landslide", A, SCR, "now",
              "NASA/LHASA global susceptibility (slope/geology/roads/faults) — geophysical", (H.LANDSLIDE,)),
-    EUHazard("subsidence", S, "Land subsidence", A, ROAD, "p1", "→ Screening · Copernicus EGMS (InSAR)"),
-    EUHazard("coastal_erosion", S, "Coastal erosion", C, ROAD, "p2", "→ Screening · satellite shoreline"),
-    EUHazard("soil_erosion", S, "Soil erosion", C, ROAD, "p2", "→ Screening · ESDAC / RUSLE (ESRS E4)"),
-    EUHazard("soil_degradation", S, "Soil degradation", C, ROAD, "p2", "→ Screening · ESDAC (ESRS E4)"),
-    EUHazard("avalanche", S, "Avalanche", A, ROAD, "p4", "→ Reference · mountain, regional"),
-    EUHazard("solifluction", S, "Solifluction", C, ROAD, "p4", "→ Reference · niche"),
+    EUHazard("subsidence", S, "Land subsidence", A, ROAD, "p1", "blocked: Copernicus EGMS InSAR — Europe-only + registration-gated"),
+    EUHazard("coastal_erosion", S, "Coastal erosion", C, ROAD, "p2", "blocked: satellite shoreline-change — regional, no global asset layer"),
+    EUHazard("soil_erosion", S, "Soil erosion", C, ROAD, "p2", "blocked: GloSEM/ESDAC RUSLE — registration-gated download (ESRS E4)"),
+    EUHazard("soil_degradation", S, "Soil degradation", C, ROAD, "p2", "blocked: ESDAC land-degradation — registration-gated (ESRS E4)"),
+    EUHazard("avalanche", S, "Avalanche", A, ROAD, "p4", "blocked: mountain-regional — no global asset-level layer"),
+    EUHazard("solifluction", S, "Solifluction", C, ROAD, "p4", "blocked: niche periglacial — no global dataset"),
 )
 
 # Channels we carry that sit OUTSIDE the EU climate list (geophysical / nature) — coverage beyond Appendix A.
