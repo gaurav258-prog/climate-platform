@@ -187,9 +187,19 @@ _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=
 6. **ESRS** — E3-4 stress-proxy label BUILT; the EFRAG element map / ESEF is the external XBRL blocker (see workstream ④).
 7. **EUDR** — Annex II fields BUILT (§7); TRACES schema alignment is external (sandbox credentials).
 
-**So the form-fidelity build (①②) is essentially complete and wired.** The genuine remaining reg-deepening is
-cross-cutting: **③ wire the customer's SAVED provided-data (EPC ratings, IFRS-9 staging, alignment) through into the
-forms so it populates automatically**, and **④ XBRL/iXBRL (ESEF/EFRAG) tagging** (part external). Honesty rules below unchanged.
+**All four reg-deepening workstreams are BUILT & WIRED** (verified end-to-end in code, Sept 2026):
+- **① Correctness bugs** — fixed (REIT `_reit_annex`, insurer `_insurer_annex`).
+- **② Official-form fidelity** — Pillar 3 T1/T5/GAR grids + SFDR 18-indicator Table 1 (+n-1), all wired.
+- **③ Saved provided-data → forms** — the customer's uploaded per-loan attributes (`residual_maturity_years`,
+  `ifrs9_stage`, `epc_label`, `emission_intensity`) land on `ext_banking`, flow through `build_disclosure_snapshot`
+  into the assets, and are consumed by the grids/annex (template5_grid, filing_annex EPC section, transition_alignment
+  IEA Template 3). Live: 132 loans carry maturity/EPC/IFRS-9. Populates automatically as more data is provided.
+- **④ XBRL/iXBRL** — `ml/regulatory/xbrl.py` → valid XBRL 2.1 instance for ESRS E1-9 (EFRAG Set 1 taxonomy, Del. Reg.
+  2023/2772), served at `/v1/packages/{id}/xbrl`; `sfdr_xbrl.py` tags the SFDR PAI, served via funds.
+
+**Genuinely remaining = EXTERNAL / verification only:** EFRAG official element-map validation to certify the ESRS
+XBRL element IDs cell-perfect; TRACES DDS schema alignment (sandbox credentials); IFRS-S2 / SASB / finest GAR
+sub-column wording verified-to-the-letter (behind OAuth walls). No further in-house build is blocked on us.
 
 Honesty rules unchanged: computed cells labelled (`book`/`calc`), customer cells `integrated` (never fabricated),
 credit-quality / alignment / GHG stay customer-provided, and the in-app form is a preparation aid.
