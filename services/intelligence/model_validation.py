@@ -26,6 +26,8 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ml.validation.fidelity import fidelity
+
 # catalogued peril -> near-field radius (km) at which the score's ordering is testable without saturating,
 # and a label. The near field ≈ the cell and its immediate surroundings, not the wide asset felt radius.
 # near-field radius is PERIL-SPECIFIC — it must match the hazard's physical footprint, or the test measures
@@ -202,6 +204,7 @@ def model_validation(session: Session, peril: str) -> dict:
         "auc": round(auc, 3) if auc is not None else None,
         "monotonic": monotonic,
         "passed": passed,
+        "fidelity": fidelity("discrimination", spearman=spearman, auc=auc),
         "bands": bands,
         "verdict": verdict,
         "note": ("A consistency backtest: every scored cell is matched against the real event catalogue "
@@ -245,7 +248,8 @@ def crop_impact_validation(session: Session) -> dict:
         fits.append({"region": r["region_key"], "crop": r["crop"], "hazard_driver": r["hazard_driver"],
                      "r2": round(r["r2"], 3) if r["r2"] is not None else None,
                      "r2_oos": round(r["r2_oos"], 3), "n_years": int(r["n_years"]) if r["n_years"] else None,
-                     "passed": r["r2_oos"] >= _R2_GATE})
+                     "passed": r["r2_oos"] >= _R2_GATE,
+                     "fidelity": fidelity("regression", r2_oos=r["r2_oos"])})
     n_pass = sum(1 for f in fits if f["passed"])
 
     ev = session.execute(text("""
