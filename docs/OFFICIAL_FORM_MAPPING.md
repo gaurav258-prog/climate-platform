@@ -134,19 +134,21 @@ customer datapoint ("metered water consumption (m³) + intensity"), and `water_t
 map** — a drop-in `config/efrag_esrs_binding.json` the code already accepts.
 _Source: EFRAG delegated-act annexes [E1](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E1%20Delegated-act-2023-5303-annex-1_en.pdf) / [E3](https://www.efrag.org/sites/default/files/media/document/2024-08/ESRS%20E3%20Delegated-act-2023-5303-annex-1_en.pdf) / E4; [CELEX:32023R2772](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772)._
 
-## 6. Insurer — climate / NatCat · `insurer_climate`  ❗ builder mismatch
+## 6. Insurer — climate / NatCat · `insurer_climate`  ✅ own IFRS-S2 annex (builder mismatch FIXED)
 **Governing text.** **No fixed EU quantitative NatCat disclosure template.** Layer 1 = **IFRS S2** (Governance /
 Strategy / Risk mgmt / Metrics & targets) with **insurance industry metrics (SASB FN-IN-450a)**: **450a.1 PML from
 weather-related natural catastrophes**; **450a.2 cat monetary losses by event type & geographic segment, net &
 gross of reinsurance**; **450a.3 underwriting/risk-integration narrative**. Layer 2 = **Solvency II ORSA**
 (principles-based scenario narrative) + the **SCR NatCat sub-module** (a capital grid, not a disclosure template).
 *(Exact FN-IN-450a code wording behind an IFRS OAuth wall → unverified-to-the-letter.)*
-**We render today.** `insurer_climate` routes through **`_located_annex`** — the **bank TCFD builder** — so it shows
-GAR / PCAF / value-at-risk-by-hazard, and the catalog's `natcat_eal` / `sum_insured_at_risk` may **not surface**
-(the builder keys off `hazard.*`/`taxonomy.*`).
-**Gap & build.** Give the insurer its **own annex**: **PML by peril & geography** (we compute sum-insured-at-risk +
-EAL), **cat loss by event type / geography**, and an **underwriting-integration** narrative — mapped to the IFRS S2
-metric headings. Stop reusing the bank GAR/PCAF layout.
+**Bug (FIXED).** `insurer_climate` used to route through `_located_annex` — the **bank TCFD builder** — so it showed
+GAR / PCAF, which an insurer must never file. **Fix:** `build_annex` now dispatches `insurer_climate → _insurer_annex`
+(filing_annex.py:1004; `_located_annex` is now bank-only, line 1008). The insurer annex renders the underwriting
+metrics on the IFRS S2 / SASB FN-IN-450a headings: **NatCat underwriting summary**, **sum insured at risk by peril
+(event type)** and **by geography**, **EAL by severity band**, **catastrophe accumulation (AEP/OEP + PML)**,
+**Solvency II NatCat SCR (99.5% VaR)**, **net-vs-gross of reinsurance** (450a.2), and **investment-side climate VaR**
+(the asset half). No GAR/PCAF. Tested: `tests/unit/test_insurer_annex.py`; `test_located_annex_gar.py` guards that the
+bank GAR path is unchanged. Verified live on Iberia Mutual (insurer demo).
 
 ## 7. EUDR — Due Diligence Statement · `eudr_dds`  ✅ Annex II fields complete
 **Governing text.** Reg. **(EU) 2023/1115**, **Art. 4(2)** + **Art. 33** (TRACES/EUDR IS) + **Annex II** — DDS content:
@@ -170,8 +172,9 @@ _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=
 ---
 
 ## Build order (regulatory value × computability)
-1. **Fix correctness bugs first:** REIT → non-financial Turnover/CapEx/OpEx template (not GAR); insurer → own
-   IFRS-S2 annex (not the bank builder).
+1. **Correctness bugs — ✅ BOTH FIXED:** REIT → non-financial Turnover/CapEx/OpEx template, not GAR (`_reit_annex`,
+   commit 5635275); insurer → own IFRS-S2 annex, not the bank builder (`_insurer_annex`, dispatch filing_annex.py:1004).
+   Both tested and verified live.
 2. **Pillar 3 Template 5** — real NACE × maturity × chronic/acute/both grid (gross carrying amount basis);
    credit-quality columns = customer. *Mostly computable now — top build.*
 3. **Pillar 3 Template 1** — NACE × maturity × PCAF-emissions grid.
