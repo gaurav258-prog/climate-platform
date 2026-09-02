@@ -175,13 +175,21 @@ _Source: [CELEX:32023R1115](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=
 1. **Correctness bugs — ✅ BOTH FIXED:** REIT → non-financial Turnover/CapEx/OpEx template, not GAR (`_reit_annex`,
    commit 5635275); insurer → own IFRS-S2 annex, not the bank builder (`_insurer_annex`, dispatch filing_annex.py:1004).
    Both tested and verified live.
-2. **Pillar 3 Template 5** — real NACE × maturity × chronic/acute/both grid (gross carrying amount basis);
-   credit-quality columns = customer. *Mostly computable now — top build.*
-3. **Pillar 3 Template 1** — NACE × maturity × PCAF-emissions grid.
-4. **Taxonomy GAR** — T0 Summary + T3 stock by objective (eligibility computed, alignment customer); Art. 7 exclusion.
-5. **SFDR** — exact Table 1 (6 cols, 18 rows, verbatim wording) + year n-1 + narrative persistence + Tables 2–3 menu.
-6. **ESRS** — label E3-4 as stress-proxy vs metered m³; EFRAG element map is the external ESEF blocker.
-7. **EUDR** — add the two missing Annex II fields; TRACES schema alignment (external).
+2. **Pillar 3 Template 5** — ✅ BUILT & WIRED: real NACE-section × physical-risk grid (`template5_grid`,
+   filing_annex.py:802); maturity buckets + IFRS-9 credit-quality fill from customer-provided per-loan attributes
+   (`residual_maturity_years`, `ifrs9_stage`) where present, else blank + declared.
+3. **Pillar 3 Template 1** — ✅ BUILT & WIRED: NACE-section transition-risk grid (`template1_grid`,
+   filing_annex.py:688); maturity/%-company-reported columns customer-supplied, declared blank.
+4. **Taxonomy GAR** — ✅ BUILT & WIRED: T0 Summary + T3 stock-by-objective + Templates 6–8 counterparty grid
+   (`gar_grid`), Art. 7 exclusion; eligibility computed, alignment customer.
+5. **SFDR** — ✅ BUILT & WIRED: Annex I Table 1 all 18 mandatory indicators (investee 1–14 + sovereign 15–16 +
+   real-estate 17–18), prior-year (n-1) comparative (`_attach_prior_year`), `ml/regulatory/sfdr_pai.py`.
+6. **ESRS** — E3-4 stress-proxy label BUILT; the EFRAG element map / ESEF is the external XBRL blocker (see workstream ④).
+7. **EUDR** — Annex II fields BUILT (§7); TRACES schema alignment is external (sandbox credentials).
+
+**So the form-fidelity build (①②) is essentially complete and wired.** The genuine remaining reg-deepening is
+cross-cutting: **③ wire the customer's SAVED provided-data (EPC ratings, IFRS-9 staging, alignment) through into the
+forms so it populates automatically**, and **④ XBRL/iXBRL (ESEF/EFRAG) tagging** (part external). Honesty rules below unchanged.
 
 Honesty rules unchanged: computed cells labelled (`book`/`calc`), customer cells `integrated` (never fabricated),
 credit-quality / alignment / GHG stay customer-provided, and the in-app form is a preparation aid.
