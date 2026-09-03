@@ -4,6 +4,7 @@ import { FlaskConical, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-
 import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
 import ReviewTabs from '../components/ReviewTabs'
+import { FidelityBadge, type Fidelity } from '../components/FidelityBadge'
 
 // Model validation — the credibility layer. Tests Tellumen's own hazard scores against the observed event
 // catalogues it holds (seismic, storm): do higher-scored locations actually carry more observed near-field
@@ -16,9 +17,9 @@ interface Peril {
   available: boolean; peril: string; label: string; near_field_km: number
   n_cells_scored: number; n_events_observed: number; observed_window_years: number
   pct_cells_with_event: number; spearman: number | null; auc: number | null
-  monotonic: boolean | null; passed: boolean; bands: Band[]; verdict: string; note: string
+  monotonic: boolean | null; passed: boolean; bands: Band[]; verdict: string; note: string; fidelity?: Fidelity
 }
-interface CropFit { region: string; crop: string | null; hazard_driver: string; r2: number | null; r2_oos: number; n_years: number | null; passed: boolean }
+interface CropFit { region: string; crop: string | null; hazard_driver: string; r2: number | null; r2_oos: number; n_years: number | null; passed: boolean; fidelity?: Fidelity }
 interface CropEvent { event: string; commodity: string; hazard: string; observed_shock_pct: number | null; model_shock_pct: number | null; tolerance_pct: number | null; passed: boolean }
 interface Economic {
   available: boolean; gate_r2_oos: number; n_fits: number; n_pass: number; hazards_covered: string[]
@@ -55,10 +56,13 @@ function PerilCard({ p }: { p: Peril }) {
           <h3 className="display text-[22px] font-semibold text-[var(--color-ink)] capitalize">{p.peril === 'seismic' ? 'Earthquakes' : 'Storms'}</h3>
           <span className="text-[12px] text-[var(--color-faint)]">{num(p.n_cells_scored)} locations · last {p.observed_window_years} years</span>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold"
-          style={{ background: ok ? '#7BBF8F22' : '#E8B24C22', color: ok ? '#4FA46E' : '#C68A1E' }}>
-          {ok ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}{ok ? 'Score matches reality' : 'Needs a look'}
-        </span>
+        <div className="flex items-center gap-2">
+          <FidelityBadge f={p.fidelity} />
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+            style={{ background: ok ? '#7BBF8F22' : '#E8B24C22', color: ok ? '#4FA46E' : '#C68A1E' }}>
+            {ok ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}{ok ? 'Score matches reality' : 'Needs a look'}
+          </span>
+        </div>
       </div>
 
       <p className="text-[14.5px] leading-relaxed text-[var(--color-mute)] max-w-2xl mb-5">{headline}</p>
@@ -128,6 +132,7 @@ function EconomicCard({ e }: { e: Economic }) {
         <div className="h-full rounded-md" style={{ width: `${Math.max(3, 100 * f.r2_oos)}%`, background: f.passed ? '#4FA46E' : '#C68A1E', opacity: 0.9 }} />
       </div>
       <span className="w-10 shrink-0 text-right text-[12.5px] font-semibold tabular-nums" style={{ color: f.passed ? '#4FA46E' : 'var(--color-mute)' }}>{f.r2_oos.toFixed(2)}</span>
+      <span className="shrink-0"><FidelityBadge f={f.fidelity} /></span>
     </div>
   )
   return (
