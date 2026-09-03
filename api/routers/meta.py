@@ -31,3 +31,12 @@ def projection_coverage(ctx: dict = Depends(require_permission("modules.view")))
     view access only."""
     from ml.scoring.projection_coverage import projection_coverage as _pc
     return _pc()
+
+
+@router.get("/model-limitations", summary="What the engine deliberately does not model yet — evidence + unlock feed")
+def model_limitations(ctx: dict = Depends(require_permission("modules.view"))):
+    """The disclosed-limitations registry: each deliberately-bounded gap as a tracked decision — tested &
+    rejected (with the numbers), deferred pending a named authoritative feed, or a stated scope boundary. The
+    honest counterpart to the coverage and projection maps. Static registry — view access only."""
+    from ml.scoring.model_limitations import model_limitations as _ml
+    return _ml()
