@@ -18,19 +18,14 @@ from sqlalchemy import text
 from core.db.session import get_session
 from ml.features.challenger import CHALLENGER_VERSION, isotonic_challenger
 from ml.features.crop_cycle import decompose
-from scripts.fit_ranged_crop import _drought_scores, _heat_scores, _soil_water_scores
+from ml.features.crop_panel import scores_for
 
 
 def _panel(session, commodity: str, origin: str, driver: str, region: str,
            months: list, spei_scale: int) -> list:
     """Rebuild the champion's (hazard_score, climate_loss_pct) pairs from the golden panel."""
-    if driver == "drought":
-        scores = _drought_scores(region, spei_scale or 6, months)
-    elif driver == "heat":
-        scores = _heat_scores(region, months)
-    elif driver == "soil_water":
-        scores = _soil_water_scores(region, months)
-    else:
+    scores = scores_for(region, driver, months, spei_scale or 6)
+    if not scores:
         return []
     rows = session.execute(text("""
         SELECT season_year, production_tonnes FROM crop_yield_observations

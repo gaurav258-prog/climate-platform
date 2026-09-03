@@ -598,9 +598,13 @@ def compute(commodities: list[dict], total_cogs_eur: float, overrides: Optional[
                 if cr.calibration == "ranged":
                     _f = _cal_any["fit"]
                     _chal = _cal_any.get("challenger")
+                    _chal_oos = _cal_any.get("challenger_oos")
                     _g = _grade(tier="ranged", r2_oos=_f.get("r2_oos"),
                                 n_years=_f.get("n_years"), band_cov68=_f.get("band_cov68"),
-                                corroboration=(_chal.get("verdict") if _chal else None))
+                                corroboration=(_chal.get("verdict") if _chal else None),
+                                oos_corroboration=(_chal_oos.get("verdict") if _chal_oos else None),
+                                oos_corroborates_publish=(_chal_oos.get("corroborates_publish")
+                                                          if _chal_oos else None))
                     cr.challenger = _chal
                 else:
                     _b = _cal_any["backtest"]
@@ -767,6 +771,41 @@ def get_calibrations(session) -> dict:
         origin = out.get(ch["commodity"], {}).get(ch["origin"])
         if origin is not None and origin.get("hazard_driver") == ch["hazard_driver"]:
             origin["challenger"] = dict(ch)
+
+    # Out-of-sample challenger — the harder, forecast-oriented second opinion, read from the audit ledger.
+    oos = load_oos_challengers(session)
+    for (name, orig, driver), oc in oos.items():
+        origin = out.get(name, {}).get(orig)
+        if origin is not None and origin.get("hazard_driver") == driver:
+            origin["challenger_oos"] = oc
+    return out
+
+
+def load_oos_challengers(session) -> dict:
+    """Latest out-of-sample challenger per (commodity name, origin, driver), read from the audit ledger
+    (validation_run, method 'loo_cv_challenger'). Shared by the calibration loader and the validation router so
+    every surface shows the SAME out-of-sample corroboration. Scope is 'Name/Origin'; hazard_type
+    ('crop_<driver>') disambiguates two-driver crops. Value: {verdict, corroborates_publish, challenger_r2_oos,
+    champion_r2_oos}."""
+    from sqlalchemy import text
+    out: dict = {}
+    for r in session.execute(text("""
+        SELECT DISTINCT ON (scope, hazard_type) scope, replace(hazard_type, 'crop_', '') AS driver,
+               (metrics->>'challenger_verdict') AS verdict,
+               (metrics->>'corroborates_publish') AS corroborates_publish,
+               (metrics->>'challenger_r2_oos')::float AS challenger_r2_oos,
+               (metrics->>'champion_r2_oos')::float AS champion_r2_oos
+        FROM validation_run
+        WHERE method = 'loo_cv_challenger' AND scope LIKE '%/%'
+        ORDER BY scope, hazard_type, created_at DESC
+    """)).mappings().all():
+        name, _, orig = r["scope"].partition("/")
+        cp = r["corroborates_publish"]
+        out[(name, orig, r["driver"])] = {
+            "verdict": r["verdict"],
+            "corroborates_publish": (cp == "true") if cp is not None else None,
+            "challenger_r2_oos": r["challenger_r2_oos"], "champion_r2_oos": r["champion_r2_oos"],
+        }
     return out
 
 
