@@ -42,11 +42,14 @@ function fmt(v: number | string | null, f: string): string {
 const dpLabel = (d: Dp) => d.key.startsWith('hazard.') ? hazardLabel(d.label) : d.label
 const EDITABLE_STATUS = ['draft', 'returned', 'in_review', 'approved']  // never edit a submitted/accepted/superseded filing
 
+// a pending manual grid-cell entry awaiting 4-eyes approval (task #56)
+interface GridPending { value: string; reason?: string; request_id?: string; proposed_by?: string }
+
 export default function FilingForm({ filingId }: { filingId: string }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['filing-form', filingId], queryFn: () => api.get<Form>(`/v1/filings/${filingId}/form`) })
-  const cellsQ = useQuery({ queryKey: ['p3-cells'], queryFn: () => api.get<{ cells: Record<string, string> }>('/v1/filings/structured/p3esg-cells'),
+  const cellsQ = useQuery({ queryKey: ['p3-cells'], queryFn: () => api.get<{ cells: Record<string, string>; pending: Record<string, GridPending> }>('/v1/filings/structured/p3esg-cells'),
     enabled: q.data?.framework === 'bank_p3esg' })
   const [edit, setEdit] = useState<string | null>(null)
   const [view, setView] = useState<'official' | 'datapoints'>('official')
@@ -79,9 +82,9 @@ export default function FilingForm({ filingId }: { filingId: string }) {
       {view !== 'official'
         ? <DatapointList groups={d.groups} {...editProps} />
         : d.framework === 'bank_p3esg'
-          ? <P3FormTabs annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+          ? <P3FormTabs annex={d.annex!} cells={cellsQ.data?.cells ?? {}} pending={cellsQ.data?.pending ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
           : hasAnnex
-            ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
+            ? <AnnexView annex={d.annex!} cells={cellsQ.data?.cells ?? {}} pending={cellsQ.data?.pending ?? {}} onCells={() => qc.invalidateQueries({ queryKey: ['p3-cells'] })} {...editProps} />
             : <DatapointList groups={d.groups} {...editProps} />}
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
@@ -116,25 +119,51 @@ function SrcLegend({ sources }: { sources: string[] }) {
   )
 }
 
-// A bank-fed ('integrated') cell with no connected feed shows '—'; a preparer may enter an aggregate value
-// manually here (audited overlay on the frozen annex). Saved values carry a violet 'manual' dot.
-function ManualCell({ cellKey, saved, placeholder, canEdit, onSaved }:
-  { cellKey: string; saved?: string; placeholder: string; canEdit: boolean; onSaved: () => void }) {
+// A bank-fed ('integrated') grid cell with no connected feed shows '—'. A preparer may enter an aggregate value
+// by hand — but (task #56) it is a change to a regulatory figure, so it is NOT written directly: it needs a
+// short reason and goes through 4-eyes approval. An APPROVED value shows with a violet 'manual' dot; a value
+// still AWAITING approval shows amber with a clock. The frozen snapshot is never mutated.
+function ManualCell({ cellKey, saved, pending, placeholder, canEdit, onSaved }:
+  { cellKey: string; saved?: string; pending?: GridPending; placeholder: string; canEdit: boolean; onSaved: () => void }) {
   const [val, setVal] = useState(saved ?? '')
+  const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
-  const save = async () => {
-    if ((val || '') === (saved ?? '')) return
+  const dirty = (val || '') !== (saved ?? '')
+  const submit = async () => {
+    if (!dirty) return
+    if (!reason.trim()) { toast.error('Add a short reason — it goes to the approver (4-eyes).'); return }
     setBusy(true)
-    try { await api.patch('/v1/filings/structured/p3esg-cells', { key: cellKey, value: val }); onSaved() }
-    catch { toast.error('Could not save this entry.'); setVal(saved ?? '') } finally { setBusy(false) }
+    try {
+      await api.patch('/v1/filings/structured/p3esg-cells', { key: cellKey, value: val, reason: reason.trim() })
+      toast.success('Sent for 4-eyes approval.'); setReason(''); onSaved()
+    } catch { toast.error('Could not submit this entry.') } finally { setBusy(false) }
   }
-  if (!canEdit) return <span className="inline-flex items-center gap-1 justify-end w-full">
-    {saved ? <><span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />{saved}</> : <span className="text-[var(--color-faint)]">{placeholder}</span>}</span>
+  // read-only view (no edit rights, or filing locked)
+  if (!canEdit) {
+    if (pending) return <span title={`Awaiting 4-eyes approval${pending.proposed_by ? ' · proposed by ' + pending.proposed_by : ''}`}
+      className="inline-flex items-center gap-1 justify-end w-full mono text-[10px]" style={{ color: 'var(--color-warn)' }}><Clock size={9} />{pending.value}</span>
+    return <span className="inline-flex items-center gap-1 justify-end w-full">
+      {saved ? <><span className="w-[5px] h-[5px] rounded-full" style={{ background: 'var(--color-viz,#a78bfa)' }} />{saved}</> : <span className="text-[var(--color-faint)]">{placeholder}</span>}</span>
+  }
+  // editable
   return (
-    <input value={val} onChange={e => setVal(e.target.value)} onBlur={save} disabled={busy}
-      placeholder={placeholder} title="Manual entry — no bank feed connected for this cell"
-      className="w-16 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] focus:border-solid placeholder:text-[var(--color-faint)]"
-      style={saved ? { color: 'var(--color-viz,#a78bfa)' } : undefined} />
+    <div className="inline-flex flex-col items-end gap-1">
+      <input value={val} onChange={e => setVal(e.target.value)} disabled={busy}
+        placeholder={pending ? pending.value : placeholder}
+        title={pending ? `${pending.value} is awaiting 4-eyes approval — enter a new value to replace it` : 'Manual entry — no bank feed for this cell; needs 4-eyes approval'}
+        className="w-16 text-right mono tabular-nums text-[11px] bg-transparent border-0 border-b border-dashed border-[var(--color-line)] px-0.5 py-0 text-[var(--color-ink)] outline-none focus:border-[var(--color-sky)] focus:border-solid placeholder:text-[var(--color-faint)]"
+        style={saved ? { color: 'var(--color-viz,#a78bfa)' } : pending ? { color: 'var(--color-warn)' } : undefined} />
+      {pending && !dirty && <span className="mono text-[8.5px] inline-flex items-center gap-0.5" style={{ color: 'var(--color-warn)' }}><Clock size={8} />pending</span>}
+      {dirty && (
+        <div className="flex items-center gap-1">
+          <input value={reason} onChange={e => setReason(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit() }}
+            placeholder="reason…" disabled={busy}
+            className="w-24 text-[10px] bg-transparent border-b border-[var(--color-line)] px-0.5 outline-none text-[var(--color-ink)] placeholder:text-[var(--color-faint)]" />
+          <button onClick={submit} disabled={busy} className="text-[9px] mono px-1.5 py-0.5 rounded"
+            style={{ background: 'color-mix(in oklab, var(--color-sky) 16%, transparent)', color: 'var(--color-sky)' }}>send</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -156,7 +185,7 @@ const P3_TABS: { k: P3Group; label: string; sub: string }[] = [
   { k: 'tax', label: 'Taxonomy & GAR', sub: 'Templates 6–10' },
 ]
 
-function P3FormTabs({ annex, cells, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void } & EditProps) {
+function P3FormTabs({ annex, cells, pending, onCells, ...ep }: { annex: Annex; cells: Record<string, string>; pending: Record<string, GridPending>; onCells: () => void } & EditProps) {
   const [tab, setTab] = useState<P3Group>('qual')
   const qual = useQuery({ queryKey: ['p3-qualitative'], queryFn: () => api.get<QData>('/v1/filings/qualitative/p3esg') })
   const sectionsOf = (g: P3Group): Annex => ({ ...annex, sections: annex.sections.filter(s => p3Group(s.title) === g) })
@@ -195,14 +224,14 @@ function P3FormTabs({ annex, cells, onCells, ...ep }: { annex: Annex; cells: Rec
         })}
       </div>
       {tab === 'qual' && <P3Qualitative canEdit={ep.canEdit} />}
-      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} cells={cells} onCells={onCells} hideName {...ep} />}
-      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} cells={cells} onCells={onCells} hideName {...ep} />}
-      {tab === 'tax' && <div className="space-y-3"><AnnexView annex={sectionsOf('tax')} cells={cells} onCells={onCells} hideName {...ep} /><P3Template10 canEdit={ep.canEdit} /></div>}
+      {tab === 'trans' && <AnnexView annex={sectionsOf('trans')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} />}
+      {tab === 'phys' && <AnnexView annex={sectionsOf('phys')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} />}
+      {tab === 'tax' && <div className="space-y-3"><AnnexView annex={sectionsOf('tax')} cells={cells} pending={pending} onCells={onCells} hideName {...ep} /><P3Template10 canEdit={ep.canEdit} /></div>}
     </div>
   )
 }
 
-function AnnexView({ annex, cells: cellVals, onCells, hideName, ...ep }: { annex: Annex; cells: Record<string, string>; onCells: () => void; hideName?: boolean } & EditProps) {
+function AnnexView({ annex, cells: cellVals, pending: pendingVals, onCells, hideName, ...ep }: { annex: Annex; cells: Record<string, string>; pending?: Record<string, GridPending>; onCells: () => void; hideName?: boolean } & EditProps) {
   return (
     <Card className="p-0 overflow-hidden">
       {!hideName && (
@@ -247,7 +276,7 @@ function AnnexView({ annex, cells: cellVals, onCells, hideName, ...ep }: { annex
                           // an integrated / manual grid cell in a keyed section → preparer can enter a value by hand
                           if (s.key && (c.source === 'integrated' || c.source === 'manual')) {
                             const ck = `${s.key}.${ri}.${ci}`
-                            return <td key={ci} className="px-4 py-1.5 align-top text-right"><ManualCell cellKey={ck} saved={cellVals[ck]} placeholder={c.text ?? '—'} canEdit={ep.canEdit} onSaved={onCells} /></td>
+                            return <td key={ci} className="px-4 py-1.5 align-top text-right"><ManualCell cellKey={ck} saved={cellVals[ck]} pending={pendingVals?.[ck]} placeholder={c.text ?? '—'} canEdit={ep.canEdit} onSaved={onCells} /></td>
                           }
                           return <td key={ci} className={`px-4 py-1.5 align-top ${c.num ? 'text-right mono tabular-nums text-[11.5px] text-[var(--color-ink)]' : last ? 'text-right mono text-[11px] text-[var(--color-faint)]' : 'text-[var(--color-ink)]'}`}>{c.text}</td>
                         })}

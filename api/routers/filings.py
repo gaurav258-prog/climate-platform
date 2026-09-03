@@ -67,39 +67,38 @@ def set_p3esg_qualitative(body: QualitativePatch, session: DbSession,
 class CellPatch(BaseModel):
     key: str = Field(..., min_length=1, max_length=64)   # '<template>.<row>.<col>', e.g. 't2.3.8'
     value: str = Field(..., max_length=64)                # the manually-entered value ('' clears it)
+    reason: str = Field("", max_length=280)              # why — required (4-eyes audit)
 
 
-@router.get("/filings/structured/p3esg-cells", summary="Manually-entered values for integrated Pillar 3 cells")
+@router.get("/filings/structured/p3esg-cells", summary="Manual entries for integrated Pillar 3 cells (approved + pending)")
 def get_p3esg_cells(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    """`cells` = APPROVED manual values (rendered on the form); `pending` = proposals awaiting 4-eyes."""
     import json as _json
+    from services.governance.filing_overrides import pending_grid_cells
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()
     saved = (_json.loads(row) if isinstance(row, str) else row) or {}
-    return {"cells": saved.get("cells") or {}}
+    return {"cells": saved.get("cells") or {}, "pending": pending_grid_cells(session, ctx["org"]["org_id"])}
 
 
-@router.patch("/filings/structured/p3esg-cells", summary="Manually enter a value into an integrated Pillar 3 cell")
+@router.patch("/filings/structured/p3esg-cells", summary="Propose a manual value for an integrated Pillar 3 cell (needs 4-eyes)")
 def set_p3esg_cell(body: CellPatch, session: DbSession,
                    ctx: dict = Depends(require_permission("approvals.create"))):
     """A preparer enters an aggregate value into an 'integrated' (bank-fed) cell that has no connected feed yet.
-    Stored as an audited overlay on the frozen annex (the computed snapshot is never mutated), keyed by cell."""
-    import json as _json
-    row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
-                          {"o": ctx["org"]["org_id"]}).scalar()
-    cur = (_json.loads(row) if isinstance(row, str) else row) or {}
-    cells = dict(cur.get("cells") or {})
-    if body.value.strip():
-        cells[body.key] = body.value.strip()
-    else:
-        cells.pop(body.key, None)          # empty clears the manual entry (reverts to the fed '—')
-    cur["cells"] = cells
-    session.execute(text("UPDATE organizations SET p3esg_narratives = CAST(:n AS jsonb) WHERE org_id = CAST(:o AS uuid)"),
-                    {"n": _json.dumps(cur), "o": ctx["org"]["org_id"]})
+    Task #56: this is a change to a regulatory figure, so it is NOT written directly — it raises a 4-eyes
+    approval request and only lands on the form once a second person approves it (same maker-checker path as a
+    datapoint override). The frozen snapshot is never mutated; the approved value is an audited overlay."""
+    from services.governance import filing_overrides as O
+    try:
+        result = O.propose_grid_cell(session, ctx["org"]["org_id"], ctx["user"]["id"],
+                                     cell_key=body.key, value=body.value, reason=body.reason)
+    except O.OverrideError as e:
+        raise HTTPException(409, {"error": "override_error", "message": str(e)})
     session.commit()
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
-                action="p3esg.cell.manual_entry", target_type="organization", target_id=ctx["org"]["org_id"],
-                detail={"cell": body.key, "value": body.value.strip()})
-    return {"cells": cells}
+                action="p3esg.cell.manual_entry.propose", target_type="organization", target_id=ctx["org"]["org_id"],
+                detail={"cell": body.key, "value": body.value.strip(), "request_id": result["approval_request_id"]})
+    return result
 
 
 class Template10Patch(BaseModel):
