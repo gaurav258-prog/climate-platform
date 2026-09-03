@@ -62,6 +62,20 @@ class HazardType(str, Enum):
     # and is the validated driver for dryland cereals (Spanish durum wheat). Kept as its own
     # hazard_type, not blended into drought, so a cell can carry both (olive→drought, wheat→soil_water).
     SOIL_WATER = "soil_water"
+    # Extreme-rainfall exposure (acute) — EU Taxonomy "heavy precipitation". Screening-tier indicator
+    # from the wettest-month precipitation climatology + its variability (climatology_baseline, 1991–2020),
+    # intensified for warming via Clausius–Clapeyron (~7%/°C). Distinct from FLOOD (the routed/inundation
+    # consequence): this is the rainfall driver itself, answerable anywhere the climatology has coverage.
+    HEAVY_PRECIP = "heavy_precip"
+    # Landslide terrain predisposition (acute) — NASA/LHASA global susceptibility (slope, geology, roads,
+    # fault zones, forest loss). Geophysical, so it does not vary with the climate scenario (like seismic).
+    LANDSLIDE = "landslide"
+    # Chronic climate-variability indicators (EU Taxonomy) from the 1991–2020 monthly climatology:
+    TEMP_VARIABILITY = "temp_variability"      # seasonal temperature amplitude + interannual spread
+    PRECIP_VARIABILITY = "precip_variability"  # rainfall seasonal concentration + interannual spread
+    # Projected-change magnitude (EU Taxonomy chronic) from the CMIP6 ensemble — forward-looking only:
+    CHANGING_TEMP = "changing_temp"            # ensemble-mean warming magnitude vs 1995–2014
+    CHANGING_PRECIP = "changing_precip"        # |ensemble-mean fractional precip change|
 
 
 class RiskScenario(str, Enum):
@@ -182,6 +196,22 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
 
     "frost": HazardType.FROST, "cold": HazardType.FROST, "freeze": HazardType.FROST,
     "extreme_cold": HazardType.FROST, "cold_wave": HazardType.FROST, "frost_days": HazardType.FROST,
+    # heavy precipitation / extreme rainfall (the driver, not the flood consequence)
+    "heavy_precip": HazardType.HEAVY_PRECIP, "heavy_precipitation": HazardType.HEAVY_PRECIP,
+    "extreme_rainfall": HazardType.HEAVY_PRECIP, "extreme_precipitation": HazardType.HEAVY_PRECIP,
+    "heavy_rain": HazardType.HEAVY_PRECIP, "intense_rainfall": HazardType.HEAVY_PRECIP,
+    # landslide (terrain susceptibility)
+    "landslide": HazardType.LANDSLIDE, "landslides": HazardType.LANDSLIDE,
+    "mass_movement": HazardType.LANDSLIDE, "slope_failure": HazardType.LANDSLIDE,
+    # climate variability
+    "temp_variability": HazardType.TEMP_VARIABILITY, "temperature_variability": HazardType.TEMP_VARIABILITY,
+    "precip_variability": HazardType.PRECIP_VARIABILITY, "precipitation_variability": HazardType.PRECIP_VARIABILITY,
+    "hydrological_variability": HazardType.PRECIP_VARIABILITY,
+    # projected change magnitude
+    "changing_temp": HazardType.CHANGING_TEMP, "changing_temperature": HazardType.CHANGING_TEMP,
+    "temperature_change": HazardType.CHANGING_TEMP,
+    "changing_precip": HazardType.CHANGING_PRECIP, "changing_precipitation": HazardType.CHANGING_PRECIP,
+    "precipitation_change": HazardType.CHANGING_PRECIP,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {

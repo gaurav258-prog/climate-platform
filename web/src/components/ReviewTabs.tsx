@@ -11,6 +11,7 @@ const TABS: { to: string; label: string; sectors?: string[] }[] = [
   { to: '/track-record', label: 'Climate track record' },
   { to: '/underwriting', label: 'Underwriting review', sectors: ['insurer'] },
   { to: '/model-validation', label: 'Model validation' },
+  { to: '/coverage', label: 'Hazard coverage' },
   { to: '/models', label: 'How we score', sectors: ['manufacturer'] },
 ]
 
