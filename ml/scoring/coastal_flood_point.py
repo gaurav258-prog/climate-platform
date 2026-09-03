@@ -31,7 +31,11 @@ from ml.scoring.sea_level import (
 
 COASTLINE_CACHE = "data/coastline/ne_10m_coastline.geojson"   # fine coastline — resolves estuaries/deltas
 COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson"
+from ml.scoring.sea_level_regional import regional_dynamic_offset_m
+
 _ZERO = SlrProjection(0.0, 0.0, 0.0, 0.0)   # baseline / current: today's sea level, no band
+# years of land subsidence accumulated by each horizon (from ~2020 present)
+HORIZON_YEARS = {"2030": 10, "2050": 30, "2100": 80}
 
 
 @lru_cache(maxsize=1)
@@ -59,13 +63,14 @@ def _elevation(lat: float, lon: float):
 
 
 def _ensure_coastal_exposure(cell: str, lat: float, lon: float):
-    """Return (elevation_m, dist_to_coast_km, is_coastal), fetching + upserting if the cell is new."""
+    """Return (elevation_m, dist_to_coast_km, is_coastal, subsidence_mm_yr), fetching + upserting if new.
+    subsidence_mm_yr is NULL until an InSAR feed populates it — the model then treats it as 0."""
     with get_session() as s:
         row = s.execute(text("""
-            SELECT elevation_m, dist_to_coast_km, is_coastal FROM coastal_exposure WHERE h3_cell=:c
+            SELECT elevation_m, dist_to_coast_km, is_coastal, subsidence_mm_yr FROM coastal_exposure WHERE h3_cell=:c
         """), {"c": cell}).mappings().first()
     if row:
-        return row["elevation_m"], row["dist_to_coast_km"], row["is_coastal"]
+        return row["elevation_m"], row["dist_to_coast_km"], row["is_coastal"], row["subsidence_mm_yr"]
     from shapely.geometry import Point
     from shapely.ops import nearest_points
     elev = _elevation(lat, lon)
@@ -84,7 +89,7 @@ def _ensure_coastal_exposure(cell: str, lat: float, lon: float):
                 source=:src, fetched_at=:now
         """), {"c": cell, "lat": lat, "lon": lon, "el": elev, "d": round(dist, 2), "coastal": is_coastal,
                "src": "Open-Meteo GLO-90 DEM + Natural Earth 110m coastline (on-demand)", "now": now})
-    return elev, round(dist, 2), is_coastal
+    return elev, round(dist, 2), is_coastal, None
 
 
 def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline",
@@ -99,7 +104,7 @@ def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline"
         if ex:
             return {"status": "cached_hit", "h3_cell": cell, "risk_score": ex["rs"], "risk_bucket": ex["risk_bucket"]}
 
-    elev, dist, is_coastal = _ensure_coastal_exposure(cell, lat, lon)
+    elev, dist, is_coastal, subs_rate = _ensure_coastal_exposure(cell, lat, lon)
     if elev is None:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "no elevation available for this point"}
@@ -110,14 +115,19 @@ def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline"
     slr = slr_projection(scenario, horizon)
     if slr is None:                                  # baseline / current — today's exposure, no band
         sc, _, _ = coastal_flood_score(elev, dist, _ZERO); lo = hi = None
+        reg_off = subs_m = 0.0
     else:
-        sc, lo, hi = coastal_flood_score(elev, dist, slr)
+        # v2 local corrections: ocean-dynamic regional offset (CMIP6 zos) + accumulated land subsidence
+        reg_off = regional_dynamic_offset_m(lat, lon, scenario, horizon)
+        subs_m = (float(subs_rate) * HORIZON_YEARS.get(horizon, 0) / 1000.0) if subs_rate is not None else 0.0
+        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m)
     if sc is None:
         return {"status": "insufficient_data", "h3_cell": cell}
     now = datetime.now(timezone.utc)
-    stress = coastal_flood_stress(elev, dist, slr) if slr is not None else None
+    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m) if slr is not None else None
     shap = {"elevation_m": elev, "dist_to_coast_km": dist, "on_demand": True,
             "method": "freeboard vs AR6 SLR (screen; hazard not defences)",
+            "regional_dynamic_offset_m": round(reg_off, 3), "subsidence_m_to_horizon": round(subs_m, 3),
             "slr_stress_m": (slr.stress_m if slr else None), "score_under_slr_stress": stress,
             "note": "stress = low-likelihood ice-sheet-collapse tail, not in the headline/band"}
     with get_session() as s:
