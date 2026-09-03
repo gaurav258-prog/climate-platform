@@ -40,6 +40,8 @@ class ValidationResult:
     data_vintage: Optional[str] = None
     notes: Optional[str] = None
     labels: Optional[list] = None   # per-sample ids, for the drill-down
+    extra: Optional[dict] = None    # extra structured metrics merged into the run's metrics jsonb (e.g. a
+    #                                 challenger's verdict), so downstream reads them without parsing notes
 
 
 Validator = Callable[[Session], ValidationResult]
@@ -129,6 +131,8 @@ def record_result(session: Session, res: ValidationResult, *, actor: Optional[st
     one validator) or was assembled in a batch (e.g. the per-crop champion out-of-sample runs, one row per
     calibrated fit). Same metric selection, same gate, same append-only ledger for both paths."""
     metrics, grade, passed, gate = _compute(res)
+    if res.extra:
+        metrics.update(res.extra)   # structured extras (e.g. challenger verdict) travel in the metrics jsonb
     run_id = session.execute(text("""
         INSERT INTO validation_run (run_id, model_id, hazard_type, scope, horizon, kind, method,
             target_source, n_samples, metrics, skill_grade, passed_gate, gate, notes, code_version,

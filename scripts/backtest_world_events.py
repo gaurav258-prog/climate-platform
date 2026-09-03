@@ -24,7 +24,7 @@ import statistics as st
 from sqlalchemy import text
 
 from core.db.session import get_session
-from scripts.fit_ranged_crop import _drought_scores, _heat_scores
+from ml.features.crop_panel import drought_scores as _drought_scores, heat_scores as _heat_scores
 
 # crop → {lag, origins:[(iso, region_key, driver, season_months, world_share)]}. driver: 'drought'|'heat'|'hd'(max).
 CROPS = {

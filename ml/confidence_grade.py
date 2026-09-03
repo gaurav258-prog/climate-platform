@@ -52,14 +52,22 @@ def grade(*, tier: str,
           r2_oos: Optional[float] = None, n_years: Optional[int] = None,
           band_cov68: Optional[float] = None,
           reproduction_err_pct: Optional[float] = None, n_events: Optional[int] = None,
-          corroboration: Optional[str] = None) -> GradeResult:
+          corroboration: Optional[str] = None,
+          oos_corroboration: Optional[str] = None,
+          oos_corroborates_publish: Optional[bool] = None) -> GradeResult:
     """Compute the grade for one published crop. `tier` is 'backtested' or 'ranged'; the metrics
     used depend on it (see module docstring). Missing inputs score Weak, never silently pass.
 
     corroboration: the independent-challenger verdict ('agree'/'partial'/'diverge'/'insufficient')
     when a second method cross-checked the fit. It is surfaced as a check but NOT added to the /8
     total (so an existing grade is never silently upgraded by corroboration); a DIVERGENCE is a red
-    flag that caps the letter at C, exactly like weak predictive power."""
+    flag that caps the letter at C, exactly like weak predictive power.
+
+    oos_corroboration / oos_corroborates_publish: the OUT-OF-SAMPLE second opinion (the independent
+    method run under the same leave-one-out). When present it is PREFERRED over the in-sample
+    `corroboration` — an out-of-sample cross-check is the honest one. `oos_corroborates_publish` True
+    means the independent method also clears the out-of-sample publish floor (the strongest statement);
+    shape-agreement without clearing it keeps the champion but is stated as such, not oversold."""
     checks = []
 
     if tier == "backtested":
@@ -105,16 +113,33 @@ def grade(*, tier: str,
         letter, capped = "C", True
 
     # Independent-challenger corroboration — surfaced (not additive), and a divergence caps at C.
-    if corroboration:
-        pts = {"agree": STRONG, "partial": FAIR}.get(corroboration, WEAK)
-        detail = {
-            "agree": "an independent method (isotonic) corroborates the fit",
-            "partial": "an independent method partly corroborates the fit",
-            "diverge": "an independent method DISAGREES with the fit — treat with caution",
-            "insufficient": "independent cross-check inconclusive (too few years)",
-        }.get(corroboration, str(corroboration))
+    # The OUT-OF-SAMPLE second opinion is preferred over the in-sample one when available (it is the
+    # honest cross-check); the in-sample verdict is the fallback for older records with no OOS run.
+    use_oos = oos_corroboration is not None
+    verdict = oos_corroboration if use_oos else corroboration
+    if verdict:
+        if use_oos and oos_corroborates_publish:
+            pts = STRONG
+            detail = "an independent method also clears the out-of-sample gate — corroborated out-of-sample"
+        elif use_oos:
+            pts = {"agree": FAIR, "partial": FAIR}.get(verdict, WEAK)
+            detail = {
+                "agree": "an independent method corroborates the shape out-of-sample; the parsimonious "
+                         "champion is retained (it generalises better out-of-sample)",
+                "partial": "an independent method partly corroborates the fit out-of-sample",
+                "diverge": "an independent method DISAGREES out-of-sample — treat with caution",
+                "insufficient": "out-of-sample cross-check inconclusive (too few years)",
+            }.get(verdict, str(verdict))
+        else:
+            pts = {"agree": STRONG, "partial": FAIR}.get(verdict, WEAK)
+            detail = {
+                "agree": "an independent method (isotonic) corroborates the fit",
+                "partial": "an independent method partly corroborates the fit",
+                "diverge": "an independent method DISAGREES with the fit — treat with caution",
+                "insufficient": "independent cross-check inconclusive (too few years)",
+            }.get(verdict, str(verdict))
         checks.append({"key": "corroboration", "points": pts, "label": _LABEL.get(pts, "weak"),
-                       "detail": detail, "additive": False})
-        if corroboration == "diverge" and letter in ("A", "B"):
+                       "detail": detail, "additive": False, "out_of_sample": use_oos})
+        if verdict == "diverge" and letter in ("A", "B"):
             letter, capped = "C", True
     return GradeResult(grade=letter, total=total, capped=capped, checks=checks)

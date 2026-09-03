@@ -1069,7 +1069,8 @@ def models(session: DbSession, org_id: OrgId):
     # This is the honest counterpart to the single-event backtests on /validation — it says
     # exactly what we tried and how well it worked, including the crops we withhold.
     from ml.confidence_grade import grade as _grade
-    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR
+    from services.intelligence.supply_cogs import RANGED_PUBLISH_FLOOR, load_oos_challengers
+    _oos = load_oos_challengers(session)
     fits = session.execute(text("""
         SELECT co.name AS commodity, f.origin, f.hazard_driver,
                CAST(f.r2 AS FLOAT) AS r2, CAST(f.r2_oos AS FLOAT) AS r2_oos,
@@ -1092,8 +1093,11 @@ def models(session: DbSession, org_id: OrgId):
         publishes = (r["r2_oos"] or 0) >= RANGED_PUBLISH_FLOOR   # gate on out-of-sample r² (audit F2)
         # a published fit carries its Confidence Grade — now including the independent challenger's
         # corroboration verdict; a below-floor (tested-held) fit is shown WITHOUT a grade.
+        _oc = _oos.get((r["commodity"], r["origin"], r["hazard_driver"]))
         g = (_grade(tier="ranged", r2_oos=r["r2_oos"], n_years=r["n_years"], band_cov68=r["band_cov68"],
-                    corroboration=r.get("challenger_verdict"))
+                    corroboration=r.get("challenger_verdict"),
+                    oos_corroboration=(_oc.get("verdict") if _oc else None),
+                    oos_corroborates_publish=(_oc.get("corroborates_publish") if _oc else None))
              if publishes else None)
         fit_rows.append({**dict(r), "publishes": publishes,
                          "confidence_grade": g.grade if g else None,

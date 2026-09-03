@@ -79,6 +79,8 @@ def build_result(session: Session, fit) -> Optional[dict]:
                f"the identical panel — champion OOS r²={cf.r2_oos}, challenger OOS r²={chal_oos}. "
                f"Path verdict: {verdict} (mean out-of-sample divergence {mad}pp vs tolerance {tol}pp). "
                f"Publish corroboration: {corrob}. {CHALLENGER_VERSION}."),
+        extra={"challenger_verdict": verdict, "champion_r2_oos": cf.r2_oos, "challenger_r2_oos": chal_oos,
+               "corroborates_publish": (chal_pub if champ_pub else None)},
     )
     return {"result": res, "scope": scope, "verdict": verdict, "champ_oos": cf.r2_oos, "chal_oos": chal_oos,
             "mad": mad, "tol": tol, "champ_pub": champ_pub, "chal_pub": chal_pub}

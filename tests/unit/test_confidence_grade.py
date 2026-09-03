@@ -53,3 +53,48 @@ def test_backtested_needs_a_reproduction_figure():
     """A 'backtested' claim with no reproduction error can't score strong on predictive power."""
     g = grade(tier="backtested", reproduction_err_pct=None, n_events=1)
     assert g.checks[0]["label"] == "weak"
+
+
+# ── out-of-sample challenger corroboration (preferred over in-sample) ─────────────────────────────
+def _corr(g):
+    return next(c for c in g.checks if c["key"] == "corroboration")
+
+
+def test_oos_corroboration_is_preferred_over_in_sample():
+    """When an out-of-sample challenger verdict is supplied it drives the corroboration check, and the
+    check is flagged as out-of-sample."""
+    g = grade(tier="ranged", r2_oos=0.55, n_years=34, band_cov68=0.68,
+              corroboration="agree", oos_corroboration="agree", oos_corroborates_publish=False)
+    c = _corr(g)
+    assert c["out_of_sample"] is True
+    assert "out-of-sample" in c["detail"]
+
+
+def test_oos_corroborated_when_challenger_clears_gate():
+    """The independent method also clearing the out-of-sample gate is the strongest corroboration."""
+    g = grade(tier="ranged", r2_oos=0.55, n_years=34, band_cov68=0.68,
+              oos_corroboration="agree", oos_corroborates_publish=True)
+    c = _corr(g)
+    assert c["label"] == "strong" and "corroborated out-of-sample" in c["detail"]
+
+
+def test_oos_shape_only_is_fair_not_oversold():
+    """Shape agreement without clearing the gate keeps the champion but is stated as fair, not strong."""
+    g = grade(tier="ranged", r2_oos=0.44, n_years=31, band_cov68=0.70,
+              oos_corroboration="agree", oos_corroborates_publish=False)
+    c = _corr(g)
+    assert c["label"] == "fair" and "champion is retained" in c["detail"]
+
+
+def test_oos_divergence_caps_the_grade():
+    """An out-of-sample DISAGREEMENT is a red flag that caps an otherwise-A grade at C."""
+    g = grade(tier="ranged", r2_oos=0.65, n_years=34, band_cov68=0.70,
+              oos_corroboration="diverge")
+    assert g.grade == "C" and g.capped is True
+
+
+def test_in_sample_corroboration_still_used_when_no_oos():
+    """Backward compatible: with no OOS verdict, the in-sample verdict drives the check as before."""
+    g = grade(tier="ranged", r2_oos=0.55, n_years=34, band_cov68=0.68, corroboration="agree")
+    c = _corr(g)
+    assert c["out_of_sample"] is False and c["label"] == "strong"
