@@ -64,7 +64,7 @@ FRAMEWORKS = {
 EXPORT_FORMATS = {
     "bank_tcfd": ("json", "xlsx", "xbrl"),
     "bank_p3esg": ("json", "xlsx", "xbrl"),
-    "sfdr_pai":  ("json", "xlsx", "xbrl"),
+    "sfdr_pai":  ("json", "xlsx", "xbrl", "ixbrl"),
     "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),

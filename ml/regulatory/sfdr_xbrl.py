@@ -1,24 +1,26 @@
-"""Machine-readable SFDR PAI export — XBRL instance.
+"""Machine-readable SFDR PAI export — XBRL instance + Inline XBRL (iXBRL).
 
-Regulators are moving disclosures to structured, tagged formats (ESEF/iXBRL). SFDR
-PAI does not yet have an official public XBRL taxonomy, so this emits a valid XBRL
-*instance* against a documented Tellumen PAI taxonomy: proper xbrli contexts
-(entity = manager LEI, reference period), units (tCO₂e, EUR, pure), and one tagged
-fact per mandatory indicator that carries a value.
+Regulators are moving disclosures to structured, tagged formats (ESEF/iXBRL). SFDR PAI does not yet have an
+official public XBRL taxonomy, so this emits valid documents against a documented Tellumen PAI taxonomy: proper
+xbrli contexts (entity = manager LEI, reference period), units (tCO₂e, EUR, pure), and one tagged fact per
+mandatory indicator that carries a value.
 
-Honest scope: the STRUCTURE is real XBRL and machine-consumable today; the taxonomy
-namespace is ours as a placeholder — swap `TPAI_NS`/`schemaRef` for ESMA's official
-SFDR taxonomy the moment it is published, and the instance is submission-shaped.
+Honest scope: the STRUCTURE is real XBRL and machine-consumable today; the taxonomy namespace is ours as a
+placeholder — swap `TPAI_NS`/`schemaRef` for ESMA's official SFDR taxonomy the moment it is published, and the
+instance is submission-shaped. Both the plain instance and the inline form share ONE serialization core
+(services/intelligence/xbrl_core), the same core the ESRS tagger uses — so the XBRL plumbing lives in one place.
 """
 from __future__ import annotations
 
 from xml.sax.saxutils import escape
 
-XBRLI_NS = "http://www.xbrl.org/2003/instance"
-LINK_NS = "http://www.xbrl.org/2003/linkbase"
-XLINK_NS = "http://www.w3.org/1999/xlink"
-ISO4217_NS = "http://www.xbrl.org/2003/iso4217"
-LEI_SCHEME = "http://standards.iso.org/iso/17442"
+from services.intelligence import xbrl_core
+
+XBRLI_NS = xbrl_core.XBRLI
+LINK_NS = xbrl_core.LINK
+XLINK_NS = xbrl_core.XLINK
+ISO4217_NS = xbrl_core.ISO4217
+LEI_SCHEME = xbrl_core.LEI_SCHEME
 # Placeholder Tellumen PAI taxonomy — replace with the official ESMA SFDR namespace.
 TPAI_NS = "https://taxonomy.tellumen.eu/sfdr/pai/2022"
 TPAI_SCHEMA = "https://taxonomy.tellumen.eu/sfdr/pai/2022/pai.xsd"
@@ -41,81 +43,77 @@ _ELEMENT = {
     14: ("ControversialWeaponsPct", "uPure"),
 }
 
+_UNITS = [
+    xbrl_core.unit("uPure", "xbrli:pure"),
+    xbrl_core.unit("uEUR", "iso4217:EUR"),
+    xbrl_core.unit("uCO2e", "tpai:tCO2e"),
+    xbrl_core.unit("uCO2ePerMEUR", "tpai:tCO2ePerMEUR"),
+    xbrl_core.unit("uCO2ePerMEURRevenue", "tpai:tCO2ePerMEURRevenue"),
+    xbrl_core.unit("uGWhPerMEUR", "tpai:GWhPerMEUR"),
+    xbrl_core.unit("uTonnesPerMEUR", "tpai:tonnesPerMEUR"),
+]
 
-def _fact(name, ctx, unit, value, decimals="2"):
-    return (f'  <tpai:{name} contextRef="{ctx}"'
-            + (f' unitRef="{unit}"' if unit else "")
-            + f' decimals="{decimals}">{value}</tpai:{name}>')
 
-
-def sfdr_pai_xbrl(statement: dict) -> str:
-    """Serialize a PAI statement (fund- or entity-level) to an XBRL instance string."""
-    ent = statement.get("entity", {})
-    lei = ent.get("manager_lei") or "LEIUNAVAILABLE00000"
+def _lei_period(statement: dict) -> tuple[str, str]:
+    ent = statement.get("entity", {}) or {}
+    lei = escape(str(ent.get("manager_lei") or "LEIUNAVAILABLE00000"))
     ref_year = (statement.get("summary", {}) or {}).get("reference_year")
-    period = f"{ref_year}" if ref_year else "2023"
-    scheme = escape(LEI_SCHEME, {'"': "&quot;"})
-    lei_x = escape(str(lei))
+    return lei, (f"{ref_year}" if ref_year else "2023")
 
-    # Duration context over the reference year (period-type facts) + an instant.
-    ctx_dur = "d0"
-    contexts = [
-        f'  <xbrli:context id="{ctx_dur}">',
-        '    <xbrli:entity>',
-        f'      <xbrli:identifier scheme="{scheme}">{lei_x}</xbrli:identifier>',
-        '    </xbrli:entity>',
-        '    <xbrli:period>',
-        f'      <xbrli:startDate>{period}-01-01</xbrli:startDate>',
-        f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
-        '    </xbrli:period>',
-        '  </xbrli:context>',
-    ]
 
-    units = [
-        '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uEUR"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uCO2e"><xbrli:measure>tpai:tCO2e</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uCO2ePerMEUR"><xbrli:measure>tpai:tCO2ePerMEUR</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uCO2ePerMEURRevenue"><xbrli:measure>tpai:tCO2ePerMEURRevenue</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uGWhPerMEUR"><xbrli:measure>tpai:GWhPerMEUR</xbrli:measure></xbrli:unit>',
-        '  <xbrli:unit id="uTonnesPerMEUR"><xbrli:measure>tpai:tonnesPerMEUR</xbrli:measure></xbrli:unit>',
-    ]
-
-    facts = []
+def _facts(statement: dict) -> list[tuple]:
+    """(localname, unit_ref, value, decimals, label) per reportable PAI/Taxonomy fact — the ONE source of
+    truth both the plain XBRL and the inline form tag from."""
+    out: list[tuple] = []
     for ind in statement.get("indicators", []):
-        num = ind.get("number")
-        val = ind.get("value")
+        num, val = ind.get("number"), ind.get("value")
         if num not in _ELEMENT or val is None:
             continue
         name, unit = _ELEMENT[num]
-        if num == 1 and isinstance(val, dict):
-            # PAI 1 has scope 1/2/3 + total — emit each as its own fact.
-            for scope_key, suffix in (("scope_1", "Scope1"), ("scope_2", "Scope2"),
-                                      ("scope_3", "Scope3"), ("total", "Total")):
-                v = val.get(scope_key)
+        label = ind.get("metric") or name
+        if num == 1 and isinstance(val, dict):            # PAI 1: scope 1/2/3 + total, each its own fact
+            for sk, suffix in (("scope_1", "Scope1"), ("scope_2", "Scope2"), ("scope_3", "Scope3"), ("total", "Total")):
+                v = val.get(sk)
                 if v is not None:
-                    facts.append(_fact(name + suffix, ctx_dur, "uCO2e", int(round(v)), decimals="0"))
+                    out.append((name + suffix, "uCO2e", int(round(v)), "0", f"{label} — {suffix}"))
         elif isinstance(val, (int, float)):
-            facts.append(_fact(name, ctx_dur, unit, val))
-
-    # Taxonomy alignment/eligibility facts, where present.
+            out.append((name, unit, val, "2", label))
     tax = statement.get("taxonomy", {}) or {}
-    for key, elem in (("taxonomy_eligible_pct", "TaxonomyEligiblePct"),
-                      ("taxonomy_aligned_pct", "TaxonomyAlignedPct")):
+    for key, elem in (("taxonomy_eligible_pct", "TaxonomyEligiblePct"), ("taxonomy_aligned_pct", "TaxonomyAlignedPct")):
         if tax.get(key) is not None:
-            facts.append(_fact(elem, ctx_dur, "uPure", tax[key]))
+            out.append((elem, "uPure", tax[key], "2", elem))
+    return out
 
-    header = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<xbrli:xbrl',
-        f'    xmlns:xbrli="{XBRLI_NS}"',
-        f'    xmlns:link="{LINK_NS}"',
-        f'    xmlns:xlink="{XLINK_NS}"',
-        f'    xmlns:iso4217="{ISO4217_NS}"',
-        f'    xmlns:tpai="{TPAI_NS}">',
-        f'  <link:schemaRef xlink:type="simple" xlink:href="{TPAI_SCHEMA}"/>',
-        f'  <!-- Tellumen SFDR PAI XBRL instance. Reference period FY{period}. Entity LEI {lei_x}.',
-        '       Taxonomy namespace is a placeholder; swap for ESMA official when published. -->',
-    ]
-    body = header + contexts + units + facts + ["</xbrli:xbrl>"]
-    return "\n".join(body) + "\n"
+
+def sfdr_pai_xbrl(statement: dict) -> str:
+    """Serialize a PAI statement (fund- or entity-level) to a plain XBRL instance string."""
+    lei, period = _lei_period(statement)
+    ctx = xbrl_core.context_duration("d0", LEI_SCHEME, lei, f"{period}-01-01", f"{period}-12-31")
+    facts = [f'  <tpai:{n} contextRef="d0"' + (f' unitRef="{u}"' if u else "") + f' decimals="{d}">{v}</tpai:{n}>'
+             for n, u, v, d, _ in _facts(statement)]
+    comment = (f"Tellumen SFDR PAI XBRL instance. Reference period FY{period}. Entity LEI {lei}. "
+               f"Taxonomy namespace is a placeholder; swap for ESMA official when published.")
+    return xbrl_core.xbrl_instance({"tpai": TPAI_NS}, TPAI_SCHEMA, [ctx], _UNITS, facts, comment)
+
+
+def sfdr_pai_ixbrl(statement: dict) -> str:
+    """The same PAI facts as an Inline XBRL (iXBRL/ESEF-shaped) report — human-readable + machine-parseable,
+    sharing the ESRS tagger's serialization core."""
+    lei, period = _lei_period(statement)
+    ent = statement.get("entity", {}) or {}
+    name = escape(str(ent.get("manager_name") or ent.get("name") or "Reporting entity"))
+    ctx = xbrl_core.context_duration("d0", LEI_SCHEME, lei, f"{period}-01-01", f"{period}-12-31")
+    rows = []
+    for n, u, v, d, label in _facts(statement):
+        tag = xbrl_core.ix_nonfraction(f"tpai:{n}", "d0", u, d, v)
+        rows.append(f'    <tr><td class="dr">SFDR</td><td>{escape(str(label))}</td>'
+                    f'<td class="num" title="tpai:{n}">{v} <span class="ix">{tag}</span></td></tr>')
+    body = (f'  <h1>{name} — SFDR Principal Adverse Impacts</h1>\n'
+            f'  <p class="meta">Reference period FY{period} · entity {lei} (LEI) · '
+            f'taxonomy namespace provisional (swap for ESMA official when published)</p>\n\n'
+            f'  <table>\n    <thead><tr><th>Framework</th><th>Indicator</th><th class="num">Value (inline-tagged)</th></tr></thead>\n'
+            f'    <tbody>\n' + "\n".join(rows) + '\n    </tbody>\n  </table>\n\n'
+            f'  <p class="note"><b>Honesty &amp; binding:</b> the structure is real XBRL; the tpai: namespace is a '
+            f"placeholder for ESMA's official SFDR taxonomy, bound in the filing tool once published.</p>")
+    return xbrl_core.ixbrl_document(title=f"{name} — SFDR PAI (Inline XBRL)", extra_ns={"tpai": TPAI_NS},
+                                    schema_ref=TPAI_SCHEMA, contexts=[ctx], units=_UNITS, body_html=body)

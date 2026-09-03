@@ -173,7 +173,10 @@ def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: 
         from services.intelligence.esrs_xbrl import build_ixbrl
         return build_ixbrl(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
                            period_end=(basis or {}).get("reporting_period_end"))
-    raise ExportError(f"no iXBRL renderer for '{framework}' (available for ESRS filings)")
+    if framework == "sfdr_pai":
+        from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
+        return sfdr_pai_ixbrl(payload)
+    raise ExportError(f"no iXBRL renderer for '{framework}' (available for ESRS + SFDR filings)")
 
 
 # ── compact TCFD/EU-Taxonomy XBRL instance from the frozen bank payload ──────────────────────────

@@ -759,6 +759,22 @@ def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
+@router.get("/funds/{fund_id}/sfdr-statement.ixbrl", summary="SFDR PAI statement as an Inline XBRL (iXBRL) report — human + machine readable")
+def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    statement = sfdr_pai_statement(session, fund_id)
+    if statement.get("error"):
+        return statement
+    from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
+    doc = sfdr_pai_ixbrl(statement)
+    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}.xhtml"
+    return StreamingResponse(
+        iter([doc]), media_type="application/xhtml+xml",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
 @router.get("/entity/sfdr-statement.xbrl", summary="Entity-level SFDR PAI statement as a machine-readable XBRL instance")
 def entity_statement_xbrl(session: DbSession, org_id: OrgId):
     statement = entity_pai_statement(session, org_id)
