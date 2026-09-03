@@ -118,6 +118,16 @@ def run_validation(session: Session, key: str, *, actor: Optional[str] = None,
     if key not in REGISTRY:
         raise KeyError(f"no validator registered under '{key}' (have: {sorted(REGISTRY)})")
     res = REGISTRY[key](session)
+    return record_result(session, res, actor=actor, persist_samples=persist_samples)
+
+
+def record_result(session: Session, res: ValidationResult, *, actor: Optional[str] = None,
+                  persist_samples: bool = False) -> dict:
+    """Score a ValidationResult with the honest metric for its kind and write the immutable run record.
+
+    Split out of run_validation so a result can be recorded whether it came from the registry (one hazard,
+    one validator) or was assembled in a batch (e.g. the per-crop champion out-of-sample runs, one row per
+    calibrated fit). Same metric selection, same gate, same append-only ledger for both paths."""
     metrics, grade, passed, gate = _compute(res)
     run_id = session.execute(text("""
         INSERT INTO validation_run (run_id, model_id, hazard_type, scope, horizon, kind, method,
