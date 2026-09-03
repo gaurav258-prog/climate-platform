@@ -94,3 +94,38 @@ def test_iso_construction_classes_map_to_families():
     assert (df.vulnerability_factor("wildfire", {"construction_type": "frame"})[0]
             > df.vulnerability_factor("wildfire", {"construction_type": "fire_resistive"})[0])
 
+
+# ── WS3: water + previously-unmapped perils are now first-class in df-v1.0 ─────────────────────────
+def test_ws3_perils_have_monotone_peril_schedules():
+    for hz in ("soil_water", "frost", "landslide", "heavy_precip"):
+        s = df.PERIL_DISCOUNT_PCT[hz]
+        assert s["L"] == 0.0 and s["L"] <= s["M"] <= s["H"] <= s["VH"]
+
+
+def test_ws3_peril_specific_stays_within_band():
+    high_vuln = {"construction_type": "unreinforced masonry", "year_built": 1955, "number_of_stories": 1}
+    for hz in ("soil_water", "frost", "landslide", "heavy_precip"):
+        cap = df.PERIL_DISCOUNT_PCT[hz]["VH"]
+        hc = df.collateral_haircut_pct(100, "VH", hazard=hz, severity_model="peril_specific", attrs=high_vuln)
+        assert hc <= cap + 1e-9
+
+
+def test_landslide_uses_ground_failure_vulnerability():
+    # landslide maps to the seismic (ground-failure) family: old masonry worse than modern concrete
+    urm = {"construction_type": "masonry", "year_built": 1960}
+    rc = {"construction_type": "reinforced concrete", "year_built": 2018}
+    assert df.vulnerability_factor("landslide", urm)[0] > df.vulnerability_factor("landslide", rc)[0]
+
+
+def test_heavy_precip_is_flood_like_storey_driven():
+    # pluvial flooding (flood family): construction material neutral, storeys matter
+    assert df.vulnerability_factor("heavy_precip", {"construction_type": "masonry"})[0] == 1.0
+    low = df.vulnerability_factor("heavy_precip", {"number_of_stories": 1})[0]
+    high = df.vulnerability_factor("heavy_precip", {"number_of_stories": 10})[0]
+    assert low > high
+
+
+def test_structural_ws3_peril_skews_higher_than_chronic_water():
+    # a mass-movement loss must exceed chronic water stress at the same severity
+    assert (df.collateral_haircut_pct(80, "VH", hazard="landslide", severity_model="peril_specific")
+            > df.collateral_haircut_pct(80, "VH", hazard="soil_water", severity_model="peril_specific"))

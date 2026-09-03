@@ -58,6 +58,14 @@ PERIL_DISCOUNT_PCT = {
     "heat_acute":   {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
     "heat_chronic": {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},
     "pollution":    {"L": 0.0, "M": 2.0, "H": 5.0,  "VH": 10.0},
+    # WS3 — perils previously scored but with no peril-specific severity (fell back to the universal
+    # schedule). soil_water/frost are chronic value drags (crop/asset stress, low structural loss);
+    # landslide is a mass-movement / ground-failure peril skewing to total loss like seismic; heavy_precip
+    # is pluvial (surface-water) flooding, shaped like flood but slightly shallower on average.
+    "soil_water":   {"L": 0.0, "M": 3.0, "H": 8.0,  "VH": 15.0},  # root-zone water stress (chronic)
+    "frost":        {"L": 0.0, "M": 3.0, "H": 9.0,  "VH": 16.0},  # cold-snap / freeze damage (chronic)
+    "landslide":    {"L": 0.0, "M": 7.0, "H": 22.0, "VH": 42.0},  # slope failure — structural/total loss
+    "heavy_precip": {"L": 0.0, "M": 5.0, "H": 15.0, "VH": 28.0},  # surface-water (pluvial) flooding
 }
 
 # Insurance / NOI mean-damage-ratio anchor — Emanuel(2011)/CLIMADA sigmoid half-damage point.
@@ -74,6 +82,8 @@ _FIRE, _SEISMIC, _WIND, _FLOOD, _CHRONIC = "fire", "seismic", "wind", "flood", "
 _HAZARD_FAMILY = {
     "wildfire": _FIRE, "seismic": _SEISMIC, "volcanic": _SEISMIC, "storm": _WIND, "flood": _FLOOD,
     "coastal_flood": _FLOOD,  # storey/elevation vulnerability — same family as pluvial/riverine flood
+    "heavy_precip": _FLOOD,   # surface-water flooding — storey/elevation-driven, same as riverine flood
+    "landslide": _SEISMIC,    # ground failure — foundation/structural fragility, closest to the seismic family
     "heat_acute": _CHRONIC, "heat_chronic": _CHRONIC, "drought": _CHRONIC,
     "pollution": _CHRONIC, "frost": _CHRONIC, "soil_water": _CHRONIC,
 }
