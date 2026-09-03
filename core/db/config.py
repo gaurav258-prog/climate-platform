@@ -62,14 +62,33 @@ def get_db() -> Session:
         db.close()
 
 
+def run_migrations() -> None:
+    """Bring the database to head via the Alembic migration chain — the SINGLE source of truth for schema.
+
+    This replaces the legacy ``create_all`` boot path. ``create_all`` only ever knew the subset of tables
+    registered on the imported ORM ``Base.metadata`` (and none of the immutability triggers / functions /
+    security columns that live only in migrations), so it produced a stale, partial schema. ``alembic upgrade
+    head`` reproduces the FULL application schema on an empty database and is idempotent (a no-op once at head).
+    """
+    import sys
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))  # so alembic env.py can import `core.*`
+    cfg = Config(str(repo_root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(repo_root / "core" / "db" / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", DATABASE_URL)  # target the same DB the request path reads
+    command.upgrade(cfg, "head")
+    logger.info("Database migrated to head (alembic)")
+
+
 def init_db():
-    """Initialize database (create any missing tables — checkfirst, never alters existing ones)."""
-    # Import the full model modules so EVERY table is registered on Base.metadata before create_all —
-    # otherwise a model defined in a not-yet-imported module is silently skipped.
-    import core.db.models_regulatory_complete  # noqa: F401
-    from core.db.models import Base
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables initialized")
+    """Initialize the database schema by migrating to head. Migrations are the source of truth (not create_all)."""
+    run_migrations()
 
 
 def check_db_connection() -> bool:
