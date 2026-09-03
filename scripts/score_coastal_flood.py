@@ -23,9 +23,11 @@ from ml.scoring.sea_level import (
     coastal_flood_stress,
     slr_projection,
 )
+from ml.scoring.sea_level_regional import regional_dynamic_offset_m
 
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["current", "2030", "2050", "2100"]
+HORIZON_YEARS = {"2030": 10, "2050": 30, "2100": 80}   # subsidence accumulation to each horizon
 HAZARD = "coastal_flood"
 _ZERO = SlrProjection(0.0, 0.0, 0.0, 0.0)   # today's sea level (baseline/current: no added SLR)
 
@@ -34,7 +36,7 @@ def main():
     now = datetime.now(timezone.utc)
     with get_session() as s:
         cells = s.execute(text("""
-            SELECT h3_cell, elevation_m, dist_to_coast_km
+            SELECT h3_cell, latitude, longitude, elevation_m, dist_to_coast_km, subsidence_mm_yr
             FROM coastal_exposure WHERE is_coastal = true AND elevation_m IS NOT NULL
         """)).mappings().all()
 
@@ -46,22 +48,28 @@ def main():
 
         rows, banded = [], 0
         for c in cells:
-            elev, dist = c["elevation_m"], c["dist_to_coast_km"]
+            elev, dist, lat, lon, subs_rate = (c["elevation_m"], c["dist_to_coast_km"],
+                                               c["latitude"], c["longitude"], c["subsidence_mm_yr"])
             for scen in SCENARIOS:
                 for horz in HORIZONS:
                     slr = slr_projection(scen, horz)
                     if slr is None:                              # baseline / current — today, no band
                         sc, _, _ = coastal_flood_score(elev, dist, _ZERO)
-                        lo = hi = None
+                        lo = hi = None; reg_off = subs_m = 0.0
                     else:
-                        sc, lo, hi = coastal_flood_score(elev, dist, slr)
+                        reg_off = (regional_dynamic_offset_m(lat, lon, scen, horz)
+                                   if lat is not None and lon is not None else 0.0)
+                        subs_m = (float(subs_rate) * HORIZON_YEARS.get(horz, 0) / 1000.0) if subs_rate is not None else 0.0
+                        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m)
                     if sc is None:
                         continue
                     if lo is not None:
                         banded += 1
                     # low-confidence ice-sheet-collapse stress case — carried in provenance, NEVER the headline
-                    stress = coastal_flood_stress(elev, dist, slr) if slr is not None else None
+                    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m) if slr is not None else None
                     shap = json.dumps({"elevation_m": elev, "dist_to_coast_km": dist,
+                                       "regional_dynamic_offset_m": round(reg_off, 3),
+                                       "subsidence_m_to_horizon": round(subs_m, 3),
                                        "slr_stress_m": (slr.stress_m if slr else None),
                                        "score_under_slr_stress": stress,
                                        "note": "stress = low-likelihood ice-sheet-collapse tail, not in the headline/band"})

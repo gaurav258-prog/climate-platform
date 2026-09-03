@@ -46,32 +46,35 @@ _LIMITATIONS = [
         "id": "regional_sea_level",
         "area": "Coastal · sea-level rise",
         "status": "deferred_needs_data",
-        "title": "Coastal projection uses global-mean, not regional, sea-level rise",
-        "summary": ("Coastal-flood projections apply IPCC AR6 GLOBAL-MEAN sea-level rise. The regional "
-                    "deviation from global mean — ocean dynamics, the gravitational 'fingerprint' of melting "
-                    "ice, and glacial isostatic adjustment — is not yet applied per cell."),
-        "evidence": ("ml/scoring/sea_level.py carries the AR6 global-mean SLR table (median + likely range) "
-                     "by scenario × horizon; the freeboard screen is driven by that global-mean figure."),
-        "current_treatment": ("Global-mean SLR is the honest, defensible central estimate and is disclosed as "
-                              "such; the coastal score is explicitly a SCREEN (hazard, not sea-defences)."),
-        "unlock": ("IPCC AR6 regional sea-level projection grid (or the NASA Sea Level Projection Tool) keyed "
-                   "to the asset cell, replacing the global-mean term with the local one."),
+        "title": "Regional SLR now carries the ocean-dynamic term; the ice-fingerprint + GIA remainder is pending",
+        "summary": ("Coastal-flood projections apply IPCC AR6 global-mean SLR PLUS the ocean-DYNAMIC regional "
+                    "deviation (from CMIP6 `zos`), the largest spatially-varying piece — so local sea level now "
+                    "differs from the global mean. The gravitational 'fingerprint' of ice-mass loss and glacial "
+                    "isostatic adjustment are the remaining regional terms, not yet applied per cell."),
+        "evidence": ("ml/scoring/sea_level.py (v2) + sea_level_regional.py add the CMIP6 zos ensemble offset "
+                     "(built by scripts/build_cmip6_zos.py) — e.g. the US East coast and NW Europe read ~+0.1 m "
+                     "above the global mean, matching AR6's documented amplification there."),
+        "current_treatment": ("The dominant ocean-dynamic pattern is now local and disclosed; the fingerprint + "
+                              "GIA terms default to the global-mean rise until the full field is ingested."),
+        "unlock": ("The full IPCC AR6 regional SLR grid (~9 GB Zenodo archive, which also carries VLM) for the "
+                   "gravitational-fingerprint + GIA components — a bounded bulk-data pull."),
     },
     {
         "id": "land_subsidence",
         "area": "Coastal · vertical land motion",
         "status": "deferred_needs_data",
-        "title": "Coastal freeboard omits local land subsidence",
-        "summary": ("Effective coastal exposure depends on RELATIVE sea level = sea-level rise PLUS local land "
-                    "subsidence. In several major deltas (Jakarta, the US Gulf, parts of the North Sea coast) "
-                    "the land is sinking faster than the sea is rising. The freeboard screen does not yet "
-                    "subtract that vertical land motion."),
-        "evidence": ("ml/scoring/sea_level.py freeboard = elevation − (surge allowance + SLR); no subsidence "
-                     "term. Disclosed in the module as a follow-on."),
-        "current_treatment": ("Omitting subsidence is CONSERVATIVE-optimistic (understates risk in subsiding "
-                              "zones) and is disclosed — not silently assumed zero without saying so."),
+        "title": "Coastal freeboard is now subsidence-aware; the InSAR rate feed is pending",
+        "summary": ("Effective coastal exposure = SLR + local land subsidence. In several major deltas (Jakarta, "
+                    "the US Gulf, parts of the North Sea coast) the land sinks faster than the sea rises. The "
+                    "freeboard screen now SUBTRACTS a per-cell subsidence rate accumulated to the horizon; the "
+                    "rate is populated only where an InSAR feed provides it."),
+        "evidence": ("ml/scoring/sea_level.py (v2) subtracts subsidence_m = rate × years-to-horizon; "
+                     "coastal_exposure.subsidence_mm_yr (migration coastal_subsidence_20260903) holds the rate, "
+                     "NULL until fed → treated as 0."),
+        "current_treatment": ("The model handles subsidence; with no rate the term is 0 "
+                              "(conservative-optimistic in subsiding zones) and disclosed — never silently assumed."),
         "unlock": ("Copernicus EGMS (European Ground Motion Service, InSAR vertical velocity) for EU coasts, "
-                   "or a global InSAR subsidence-rate product, added as a per-cell freeboard reduction."),
+                   "or a global InSAR VLM product, to populate coastal_exposure.subsidence_mm_yr."),
     },
     {
         "id": "financial_euro_basis",
