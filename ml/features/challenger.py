@@ -55,3 +55,35 @@ def isotonic_challenger(pts: list, champion_slope: float, champion_intercept: fl
         "challenger_at_ref_pct": round(float(iso.predict([rs])[0]), 2),
         "version": CHALLENGER_VERSION,
     }
+
+
+def isotonic_loo(pts: list, increasing: bool):
+    """Leave-one-out out-of-sample predictions from the isotonic challenger.
+
+    pts: [(hazard_score, climate_loss_pct), ...] — the SAME panel the champion used. For each point, an
+    isotonic regression is fitted on every OTHER point and used to predict it, so every prediction is made by
+    a model that never saw its own year. Returns the per-point predictions aligned to `pts` (list), or None if
+    too few points. `increasing` is the monotone direction (a hazard drives loss down → False), set from the
+    champion's slope sign so champion and challenger are compared under the same physical orientation — the
+    ONLY thing borrowed from the champion; the challenger's shape is fitted purely from the (score, loss) pairs.
+    This is the out-of-sample analogue of `isotonic_challenger`, so the second opinion is recorded on the same
+    footing as the champion's leave-one-out."""
+    n = len(pts)
+    if n < _MIN_YEARS:
+        return None
+
+    import numpy as np
+    from sklearn.isotonic import IsotonicRegression
+
+    xs = np.array([float(p[0]) for p in pts])
+    ys = np.array([float(p[1]) for p in pts])
+    if np.ptp(xs) == 0:
+        return None
+    preds = np.empty(n)
+    keep = np.ones(n, dtype=bool)
+    for i in range(n):
+        keep[i] = False
+        iso = IsotonicRegression(increasing=increasing, out_of_bounds="clip").fit(xs[keep], ys[keep])
+        preds[i] = float(iso.predict([xs[i]])[0])
+        keep[i] = True
+    return preds.tolist()

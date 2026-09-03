@@ -74,9 +74,18 @@ def _production_by_source(session: Session, commodity: str, origin: str) -> dict
     return out
 
 
-def build_result(session: Session, fit) -> Optional[Outcome]:
-    """Reconstruct one published fit's champion leave-one-out. Returns an Outcome (result + reconciliation),
-    or None when the region's ERA5 panel isn't on disk / no source yields a fittable panel."""
+@dataclass
+class Recon:
+    cf: CropFit                 # the reconstructed champion fit (carries slope, rmse, loo_samples)
+    scores: dict                # {year: hazard score} — the predictor panel
+    source: str                 # production series that best reproduces the stored fit
+    gap: float                  # |recomputed r2_oos − stored|
+
+
+def reconstruct(session: Session, fit) -> Optional[Recon]:
+    """Rebuild one published fit's champion panel + leave-one-out from current ERA5 + observed production,
+    picking the production source that best reproduces the stored fit. Shared by the champion recorder and the
+    challenger (which must run on the identical panel). None when no ERA5 panel / no fittable source."""
     region, driver = fit["region_key"], fit["hazard_driver"]
     months = list(fit["season_months"] or [])
     if not months or not os.path.exists(NC_MONTHLY.format(region=region)):
@@ -87,18 +96,27 @@ def build_result(session: Session, fit) -> Optional[Outcome]:
     allow_cycle = is_alternate_bearing(fit["name"])
     stored_oos = float(fit["r2_oos"]) if fit["r2_oos"] is not None else None
 
-    best: Optional[tuple[float, str, CropFit]] = None
+    best: Optional[Recon] = None
     for src, prod in _production_by_source(session, fit["name"], fit["origin"]).items():
         cf = fit_climate_on_score(prod, scores, driver, allow_cycle=allow_cycle)
         if cf is None or not cf.loo_samples:
             continue
         gap = abs((cf.r2_oos or 0.0) - (stored_oos if stored_oos is not None else (cf.r2_oos or 0.0)))
-        if best is None or gap < best[0]:
-            best = (gap, src, cf)
-    if best is None:
-        return None
+        if best is None or gap < best.gap:
+            best = Recon(cf=cf, scores=scores, source=src, gap=gap)
+    return best
 
-    gap, src, cf = best
+
+def build_result(session: Session, fit) -> Optional[Outcome]:
+    """Reconstruct one published fit's champion leave-one-out. Returns an Outcome (result + reconciliation),
+    or None when the region's ERA5 panel isn't on disk / no source yields a fittable panel."""
+    region, driver = fit["region_key"], fit["hazard_driver"]
+    months = list(fit["season_months"] or [])
+    stored_oos = float(fit["r2_oos"]) if fit["r2_oos"] is not None else None
+    rec = reconstruct(session, fit)
+    if rec is None:
+        return None
+    gap, src, cf = rec.gap, rec.source, rec.cf
     reconciled = stored_oos is not None and gap <= RECONCILE_TOL
     scope = f"{fit['name']}/{fit['origin']}"
     years = [y for (y, _p, _o) in cf.loo_samples]
