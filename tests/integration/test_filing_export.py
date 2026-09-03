@@ -98,3 +98,37 @@ def test_pillar3_xbrl_export_is_well_formed_with_gar_and_emissions():
         assert {"FinancedEmissionsScope3", "PhysicalRiskSensitiveExposure"} <= facts
         # every fact carries a unit reference (valid xbrli instance)
         assert all(el.get("unitRef") for el in root if el.get("contextRef"))
+
+
+TERRA_ORG = "55555555-5555-4555-8555-555555555555"
+
+
+@pytest.mark.integration
+def test_esrs_pack_tags_the_pack_as_xbrl_and_ixbrl():
+    """ESRS filings now export through the shared iXBRL engine, tagged from the (frozen) pack — WORM-faithful,
+    like the bank path — under the official-intent EFRAG profile."""
+    import xml.dom.minidom as minidom
+    from services.governance.filing_export import _ixbrl, _xbrl
+    from services.intelligence.esrs_nature import build_esrs_pack
+    from services.intelligence.esrs_xbrl import build_facts
+    with get_session() as s:
+        pack = build_esrs_pack(s, TERRA_ORG)
+        facts = build_facts(s, TERRA_ORG, pack=pack)["facts"]
+        if not facts:
+            pytest.skip("no ESRS facts for Terra Foods")
+        basis = {"reporting_period_end": "2024-12-31"}
+        val = str(facts[0]["value"])                      # a frozen figure that must survive into the tags
+        xml = _xbrl(s, TERRA_ORG, "esrs_pack", pack, basis)
+        minidom.parseString(xml)                          # well-formed XBRL
+        assert "esrs:" in xml and val in xml and "2024-12-31" in xml
+        doc = _ixbrl(s, TERRA_ORG, "esrs_pack", pack, basis)
+        minidom.parseString(doc)                          # iXBRL is well-formed XHTML
+        assert val in doc                                 # the frozen figure is inline-tagged, human + machine
+
+
+@pytest.mark.integration
+def test_ixbrl_is_offered_for_esrs_and_refused_elsewhere():
+    from services.governance.filing_export import _ixbrl, formats_for
+    assert "ixbrl" in formats_for("esrs_pack") and "xbrl" in formats_for("esrs_pack")
+    with pytest.raises(ExportError):
+        _ixbrl(None, "x", "bank_tcfd", {}, {})            # only ESRS emits iXBRL today

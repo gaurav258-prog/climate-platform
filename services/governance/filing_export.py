@@ -67,6 +67,10 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
         xml = _xbrl(session, org_id, filing["framework"], payload, basis)
         return f"{stem}.xbrl", "application/xml", xml.encode("utf-8")
 
+    if fmt == "ixbrl":
+        doc = _ixbrl(session, org_id, filing["framework"], payload, basis)
+        return f"{stem}.xhtml", "application/xhtml+xml", doc.encode("utf-8")
+
     raise ExportError(f"unknown format '{fmt}'")
 
 
@@ -140,6 +144,12 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 
+# ESRS filings tag under the official-intent EFRAG Set 1 profile: it emits the official esrs: QNames and
+# lights up as a validated ESEF filing the day the EFRAG element map is dropped in (config/efrag_esrs_binding.json)
+# — zero code change. Until then it is honestly labelled pending. See services/intelligence/esrs_taxonomy.py.
+_ESRS_PROFILE = "efrag_set1"
+
+
 def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
     if framework == "sfdr_pai":
         from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
@@ -148,7 +158,22 @@ def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: d
         return _bank_tcfd_xbrl(session, org_id, payload, basis)
     if framework == "bank_p3esg":
         return _bank_p3esg_xbrl(session, org_id, payload, basis)
+    if framework == "esrs_pack":                     # tag the FROZEN pack via the shared iXBRL engine (WORM-faithful)
+        from services.intelligence.esrs_xbrl import build_xbrl_instance
+        return build_xbrl_instance(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
+                                   period_end=(basis or {}).get("reporting_period_end"))
     raise ExportError(f"no XBRL renderer for '{framework}'")
+
+
+def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
+    """Inline XBRL (iXBRL/ESEF): one document a person reads and a machine parses, tagged from the FROZEN
+    snapshot so the filed bytes are exactly what was reproducible-by-hash. ESRS only for now (the one engine
+    that emits iXBRL); other frameworks export XBRL/xlsx."""
+    if framework == "esrs_pack":
+        from services.intelligence.esrs_xbrl import build_ixbrl
+        return build_ixbrl(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
+                           period_end=(basis or {}).get("reporting_period_end"))
+    raise ExportError(f"no iXBRL renderer for '{framework}' (available for ESRS filings)")
 
 
 # ── compact TCFD/EU-Taxonomy XBRL instance from the frozen bank payload ──────────────────────────

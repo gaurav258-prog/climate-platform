@@ -69,7 +69,7 @@ EXPORT_FORMATS = {
     "reit_tcfd": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
-    "esrs_pack": ("json",),
+    "esrs_pack": ("json", "xbrl", "ixbrl"),
 }
 
 # lifecycle: action -> (allowed from-states, resulting to-state)
