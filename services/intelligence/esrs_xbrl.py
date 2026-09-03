@@ -17,6 +17,7 @@ from xml.dom.minidom import parseString
 
 from sqlalchemy.orm import Session
 
+from services.intelligence import xbrl_core
 from services.intelligence.esrs_nature import build_esrs_pack
 from services.intelligence.esrs_taxonomy import (
     CONCEPTS,
@@ -153,25 +154,14 @@ def build_xbrl_instance(session: Session, org_id: str, scenario: str = "baseline
         facts_xml.append(
             f'  <{q} contextRef="{ctx}" unitRef="{unit}" decimals="{dec}">{f["value"]}</{q}>'
             f'  <!-- {f["dr"]}: {html.escape(f["label"])} -->')
-    facts_block = "\n".join(facts_xml)
     tax = d["taxonomy"]
-
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-<!-- Tellumen ESRS Climate & Nature — tagged facts, generated {stamped}.
-     Taxonomy profile: {profile.key} ({tax["status"]}). {html.escape(tax["note"])}
-     A euro is a firm figure only where the hazard->yield/asset chain is validated; otherwise exposure
-     is mapped and the euro withheld. -->
-<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"
-            xmlns:link="http://www.xbrl.org/2003/linkbase"
-            xmlns:xlink="http://www.w3.org/1999/xlink"
-            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
-            xmlns:{profile.prefix}="{profile.namespace}">
-  <link:schemaRef xlink:type="simple" xlink:href="{profile.schema_ref}"/>
-{_contexts_xml(scheme, ident, dur_start, period)}
-{_units_xml(profile.prefix)}
-{facts_block}
-</xbrli:xbrl>
-'''
+    comment = (f'Tellumen ESRS Climate & Nature — tagged facts, generated {stamped}. '
+               f'Taxonomy profile: {profile.key} ({tax["status"]}). {html.escape(tax["note"])} '
+               f'A euro is a firm figure only where the hazard->yield/asset chain is validated; otherwise '
+               f'exposure is mapped and the euro withheld.')
+    return xbrl_core.xbrl_instance({profile.prefix: profile.namespace}, profile.schema_ref,
+                                   [_contexts_xml(scheme, ident, dur_start, period)],
+                                   [_units_xml(profile.prefix)], facts_xml, comment)
 
 
 # --- Inline XBRL (iXBRL / ESEF) -------------------------------------------------------------------
@@ -211,63 +201,28 @@ def build_ixbrl(session: Session, org_id: str, scenario: str = "baseline", horiz
         c = CONCEPTS[f["concept"]]
         ctx = "c_instant" if c["period_type"] == "instant" else "c_duration"
         unit, dec = _UNIT[c["item_type"]], _DEC[c["item_type"]]
-        tag = (f'<ix:nonFraction name="{f["qname"]}" contextRef="{ctx}" unitRef="{unit}" '
-               f'decimals="{dec}">{f["value"]}</ix:nonFraction>')
+        tag = xbrl_core.ix_nonfraction(f["qname"], ctx, unit, dec, f["value"])
         rows.append(
             f'    <tr><td class="dr">{html.escape(f["dr"])}</td>'
             f'<td>{html.escape(f["label"])}</td>'
             f'<td class="num" title="{html.escape(f["qname"])}">{_fmt(f)} <span class="ix">{tag}</span></td></tr>')
     rows_html = "\n".join(rows)
 
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:ix="http://www.xbrl.org/2013/inlineXBRL"
-      xmlns:xbrli="http://www.xbrl.org/2003/instance"
-      xmlns:link="http://www.xbrl.org/2003/linkbase"
-      xmlns:xlink="http://www.w3.org/1999/xlink"
-      xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
-      xmlns:{profile.prefix}="{profile.namespace}">
-<head>
-  <meta charset="UTF-8"/>
-  <title>{name} — ESRS Climate &amp; Nature (Inline XBRL)</title>
-  <style>
-    body{{font-family:system-ui,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#1c241f}}
-    h1{{font-size:1.4rem}} .meta{{color:#555;font-size:.85rem}}
-    table{{border-collapse:collapse;width:100%;margin-top:1rem}}
-    td,th{{border-bottom:1px solid #e2ddd0;padding:.5rem;text-align:left;font-size:.9rem}}
-    td.dr{{font-family:monospace;font-size:.75rem;color:#777;white-space:nowrap}}
-    td.num{{text-align:right;font-variant-numeric:tabular-nums}}
-    .ix{{display:none}} .note{{background:#fff7e6;border:1px solid #e0c98a;padding:.7rem;border-radius:6px;font-size:.8rem;margin-top:1rem}}
-  </style>
-</head>
-<body>
-  <div style="display:none">
-    <ix:header>
-      <ix:references><link:schemaRef xlink:type="simple" xlink:href="{profile.schema_ref}"/></ix:references>
-      <ix:resources>
-{_contexts_xml(scheme, ident, dur_start, period)}
-{_units_xml(profile.prefix)}
-      </ix:resources>
-    </ix:header>
-  </div>
-
-  <h1>{name} — ESRS Climate &amp; Nature disclosures</h1>
-  <p class="meta">Reporting period ending {period} · basis {html.escape(str(basis.get("scenario")))}/{html.escape(str(basis.get("horizon")))} ·
-     materiality ≥ {html.escape(str(basis.get("materiality_threshold")))} · entity {ident} ({scheme.rsplit("/",1)[-1].upper()}) ·
-     taxonomy profile <b>{profile.key}</b> ({tax["status"]}) · generated {stamped[:19]}Z</p>
-
-  <table>
-    <thead><tr><th>Disclosure</th><th>Datapoint</th><th class="num">Value (inline-tagged)</th></tr></thead>
-    <tbody>
-{rows_html}
-    </tbody>
-  </table>
-
-  <p class="note"><b>Honesty &amp; binding:</b> {html.escape(tax["note"])} A euro is a firm figure only where the
-     hazard→yield/asset chain is validated; otherwise exposure is mapped and the euro withheld.</p>
-</body>
-</html>
-'''
+    body = (f'  <h1>{name} — ESRS Climate &amp; Nature disclosures</h1>\n'
+            f'  <p class="meta">Reporting period ending {period} · basis {html.escape(str(basis.get("scenario")))}/'
+            f'{html.escape(str(basis.get("horizon")))} · materiality ≥ {html.escape(str(basis.get("materiality_threshold")))} · '
+            f'entity {ident} ({scheme.rsplit("/", 1)[-1].upper()}) · taxonomy profile <b>{profile.key}</b> ({tax["status"]}) · '
+            f'generated {stamped[:19]}Z</p>\n\n'
+            f'  <table>\n'
+            f'    <thead><tr><th>Disclosure</th><th>Datapoint</th><th class="num">Value (inline-tagged)</th></tr></thead>\n'
+            f'    <tbody>\n{rows_html}\n    </tbody>\n  </table>\n\n'
+            f'  <p class="note"><b>Honesty &amp; binding:</b> {html.escape(tax["note"])} A euro is a firm figure only '
+            f'where the hazard→yield/asset chain is validated; otherwise exposure is mapped and the euro withheld.</p>')
+    return xbrl_core.ixbrl_document(
+        title=f"{name} — ESRS Climate &amp; Nature (Inline XBRL)",
+        extra_ns={profile.prefix: profile.namespace}, schema_ref=profile.schema_ref,
+        contexts=[_contexts_xml(scheme, ident, dur_start, period)], units=[_units_xml(profile.prefix)],
+        body_html=body)
 
 
 # --- Validation -----------------------------------------------------------------------------------

@@ -53,3 +53,27 @@ def test_xbrl_is_wellformed_and_tags_waci():
             s.execute(text("DELETE FROM securities WHERE isin='DE00XBRL0001'"))
             s.execute(text("DELETE FROM issuers WHERE issuer_id=:i"), {"i": created["iid"]})
             s.execute(text("DELETE FROM organizations WHERE org_id=:o"), {"o": created["org"]})
+
+
+@pytest.mark.integration
+def test_sfdr_ixbrl_is_wellformed_and_inline_tags_waci():
+    """SFDR now also emits Inline XBRL (iXBRL) — one document a person reads and a machine parses — sharing
+    the ESRS tagger's serialization core."""
+    from xml.dom import minidom
+    from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl, sfdr_pai_xbrl
+    with get_session() as s:
+        fid = s.execute(text("SELECT fund_id::text FROM funds LIMIT 1")).scalar()
+        if not fid:
+            pytest.skip("no fund")
+        st = sfdr_pai_statement(s, fid)
+        if st.get("error"):
+            pytest.skip("no SFDR statement")
+        doc = sfdr_pai_ixbrl(st)
+        dom = minidom.parseString(doc)                     # well-formed XHTML
+        assert dom.documentElement.localName == "html"
+        assert "ix:nonFraction" in doc and "tpai:" in doc  # facts are inline-tagged
+        # the plain XBRL and the inline form tag the SAME value for a given indicator
+        xml = sfdr_pai_xbrl(st)
+        waci = next((i["value"] for i in st.get("indicators", []) if i.get("number") == 3 and i.get("value") is not None), None)
+        if waci is not None:
+            assert f">{waci}<" in xml and f">{waci}<" in doc
