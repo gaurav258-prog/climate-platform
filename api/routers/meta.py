@@ -21,3 +21,13 @@ def hazard_coverage(ctx: dict = Depends(require_permission("modules.view"))):
     only view access. Coverage ≠ calibration; the tier says which claim we're making."""
     from services.intelligence.coverage import eu_taxonomy_coverage
     return eu_taxonomy_coverage()
+
+
+@router.get("/projection-coverage", summary="How each hazard is projected forward (2030/2050/2100), by mechanism")
+def projection_coverage(ctx: dict = Depends(require_permission("modules.view"))):
+    """The forward-projection posture per hazard: the cited mechanism (CMIP6 / Clausius–Clapeyron / AR6 sea-level
+    rise / parametric per-°C shift), whether it carries a model-disagreement band, and any disclosed follow-on
+    gap. Geophysical perils and terrain susceptibility are flat BY DESIGN, stated as a choice. Static registry —
+    view access only."""
+    from ml.scoring.projection_coverage import projection_coverage as _pc
+    return _pc()
