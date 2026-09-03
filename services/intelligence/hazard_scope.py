@@ -10,8 +10,11 @@ from __future__ import annotations
 # ACUTE = event-driven; CHRONIC = gradual. Their union is the climate-hazard scope.
 # coastal_flood (sea-level rise) and frost (cold-wave) are climate-attributable temperature/sea
 # extremes and are explicitly acute climate hazards under ESRS E1 AR.11 → ACUTE (NOT geophysical).
-ACUTE = {"flood", "coastal_flood", "storm", "wildfire", "heat_acute", "frost"}
-CHRONIC = {"drought", "heat_chronic", "soil_water", "water_stress"}
+# heavy_precip (extreme rainfall) and landslide (rainfall-triggered mass movement) are acute EU-Taxonomy
+# climate hazards; temperature/precipitation variability and the projected-change channels are chronic ones.
+ACUTE = {"flood", "coastal_flood", "storm", "wildfire", "heat_acute", "frost", "heavy_precip", "landslide"}
+CHRONIC = {"drought", "heat_chronic", "soil_water", "water_stress",
+           "temp_variability", "precip_variability", "changing_temp", "changing_precip"}
 CLIMATE = ACUTE | CHRONIC
 
 
