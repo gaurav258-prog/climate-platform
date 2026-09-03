@@ -38,6 +38,8 @@ class CropFit:
     years: list                 # the years used, for provenance
     r2_oos: float = 0.0         # leave-one-out cross-validated r² — the HONEST predictive number
     band_cov68: float = 0.0     # fraction of years inside the 1σ prediction interval (~0.68 if honest)
+    loo_samples: Optional[list] = None  # per-year (year, loo_predicted, observed) — the OOS pairs behind r2_oos,
+    #                                     so the audit ledger can record the SAME number with drill-down
 
     def predict(self, score: float, z: float = 1.0) -> tuple[float, float, float]:
         """Predicted climate anomaly at `hazard_score`, as (low, mid, high) in %.
@@ -95,6 +97,7 @@ def fit_climate_on_score(production: dict[int, float],
     # and if it collapses the fit was overfit.
     ss_t = syy
     loo_sq = 0.0
+    loo_samples = []                 # (year, out-of-sample prediction, observed) per held-out year
     for i in range(n):
         xt = xs[:i] + xs[i + 1:]
         yt = ys[:i] + ys[i + 1:]
@@ -103,11 +106,13 @@ def fit_climate_on_score(production: dict[int, float],
         myi = sum(yt) / m
         sxxi = sum((x - mxi) ** 2 for x in xt)
         if sxxi == 0:
-            loo_sq += (ys[i] - myi) ** 2
-            continue
-        bi = sum((x - mxi) * (y - myi) for x, y in zip(xt, yt)) / sxxi
-        ai = myi - bi * mxi
-        loo_sq += (ys[i] - (ai + bi * xs[i])) ** 2
+            pred_i = myi             # no predictor spread in the fold → fall back to the fold mean
+        else:
+            bi = sum((x - mxi) * (y - myi) for x, y in zip(xt, yt)) / sxxi
+            ai = myi - bi * mxi
+            pred_i = ai + bi * xs[i]
+        loo_sq += (ys[i] - pred_i) ** 2
+        loo_samples.append((pts[i][2], pred_i, ys[i]))
     r2_oos = 1.0 - loo_sq / ss_t if ss_t else 0.0
 
     # Band calibration: fraction of the training years that fall inside the 1σ prediction interval
@@ -122,4 +127,5 @@ def fit_climate_on_score(production: dict[int, float],
         r2=r * r, rmse=rmse, score_mean=mx, score_sxx=sxx,
         years=sorted(p[2] for p in pts),
         r2_oos=round(r2_oos, 4), band_cov68=round(band_cov68, 4),
+        loo_samples=loo_samples,
     )
