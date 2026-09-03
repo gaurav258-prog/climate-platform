@@ -232,7 +232,7 @@ def crop_impact_validation(session: Session) -> dict:
     catalogue test this is genuinely out-of-sample skill, not in-sample faithfulness. Honest: fits below the
     r²≥0.40 bar are shown as held, never published as a euro."""
     rows = session.execute(text("""
-        SELECT f.region_key, f.hazard_driver, c.name AS crop, CAST(f.r2 AS FLOAT) AS r2,
+        SELECT f.region_key, f.origin, f.hazard_driver, c.name AS crop, CAST(f.r2 AS FLOAT) AS r2,
                CAST(f.r2_oos AS FLOAT) AS r2_oos, f.n_years
         FROM sc_commodity_fit f LEFT JOIN sc_commodities c ON c.commodity_id = f.commodity_id
         WHERE f.r2_oos IS NOT NULL
@@ -243,13 +243,27 @@ def crop_impact_validation(session: Session) -> dict:
         k = (r["region_key"], r["hazard_driver"])
         if k not in best or r["r2_oos"] > best[k]["r2_oos"]:
             best[k] = r
+
+    # The independent challenger's OUT-OF-SAMPLE second opinion, per crop — from the audit ledger.
+    from services.intelligence.supply_cogs import load_oos_challengers
+    oos_chal = load_oos_challengers(session)
+
     fits = []
     for r in sorted(best.values(), key=lambda x: -x["r2_oos"]):
+        oc = oos_chal.get((r["crop"], r["origin"], r["hazard_driver"]))
+        challenger = None
+        if oc is not None:
+            challenger = {
+                "challenger_r2_oos": (round(oc["challenger_r2_oos"], 3)
+                                      if oc["challenger_r2_oos"] is not None else None),
+                "verdict": oc["verdict"], "corroborates_publish": oc["corroborates_publish"],
+            }
         fits.append({"region": r["region_key"], "crop": r["crop"], "hazard_driver": r["hazard_driver"],
                      "r2": round(r["r2"], 3) if r["r2"] is not None else None,
                      "r2_oos": round(r["r2_oos"], 3), "n_years": int(r["n_years"]) if r["n_years"] else None,
                      "passed": r["r2_oos"] >= _R2_GATE,
-                     "fidelity": fidelity("regression", r2_oos=r["r2_oos"])})
+                     "fidelity": fidelity("regression", r2_oos=r["r2_oos"]),
+                     "challenger": challenger})
     n_pass = sum(1 for f in fits if f["passed"])
 
     ev = session.execute(text("""

@@ -19,7 +19,8 @@ interface Peril {
   pct_cells_with_event: number; spearman: number | null; auc: number | null
   monotonic: boolean | null; passed: boolean; bands: Band[]; verdict: string; note: string; fidelity?: Fidelity
 }
-interface CropFit { region: string; crop: string | null; hazard_driver: string; r2: number | null; r2_oos: number; n_years: number | null; passed: boolean; fidelity?: Fidelity }
+interface Challenger { challenger_r2_oos: number | null; verdict: string | null; corroborates_publish: boolean | null }
+interface CropFit { region: string; crop: string | null; hazard_driver: string; r2: number | null; r2_oos: number; n_years: number | null; passed: boolean; fidelity?: Fidelity; challenger?: Challenger | null }
 interface CropEvent { event: string; commodity: string; hazard: string; observed_shock_pct: number | null; model_shock_pct: number | null; tolerance_pct: number | null; passed: boolean }
 interface Economic {
   available: boolean; gate_r2_oos: number; n_fits: number; n_pass: number; hazards_covered: string[]
@@ -123,18 +124,38 @@ function EconomicCard({ e }: { e: Economic }) {
   const pass = e.fits.filter(f => f.passed)
   const held = e.fits.filter(f => !f.passed)
   // scale bars 0..1 r² across the full [0,1] range so the 0.40 gate sits at a fixed, readable spot
-  const CropRow = ({ f }: { f: CropFit }) => (
+  const CropRow = ({ f }: { f: CropFit }) => {
+    const ch = f.challenger
+    const chR2 = ch?.challenger_r2_oos
+    return (
     <div className="flex items-center gap-3 py-1.5">
       <span className="w-36 shrink-0 text-[13px] capitalize text-[var(--color-ink)] truncate">{prettyRegion(f.region)}</span>
       <span className="w-16 shrink-0 text-[11.5px] text-[var(--color-faint)] truncate">{f.crop ?? f.hazard_driver}</span>
       <div className="flex-1 h-6 rounded-md bg-[var(--color-panel-2)] overflow-hidden relative min-w-[80px]">
         <div className="absolute top-0 bottom-0 w-0.5 bg-[var(--color-faint)] z-10" style={{ left: `${100 * gate}%` }} title={`publish bar: r²≥${gate.toFixed(2)}`} />
         <div className="h-full rounded-md" style={{ width: `${Math.max(3, 100 * f.r2_oos)}%`, background: f.passed ? '#4FA46E' : '#C68A1E', opacity: 0.9 }} />
+        {/* the independent challenger, run out-of-sample: a marker showing how far a DIFFERENT method reaches */}
+        {chR2 != null && (
+          <div className="absolute top-0 bottom-0 z-20 -translate-x-1/2 flex items-center" style={{ left: `${Math.max(1, Math.min(99, 100 * chR2))}%` }}
+               title={`Independent challenger (isotonic), out-of-sample: r²=${chR2.toFixed(2)} — ${ch?.corroborates_publish ? 'also clears the publish bar (corroborated)' : ch?.verdict === 'diverge' ? 'disagrees with the champion' : 'corroborates the shape; champion retained'}`}>
+            <div className="w-[3px] h-4 rounded-sm" style={{ background: 'var(--color-ink)', opacity: 0.65 }} />
+          </div>
+        )}
       </div>
       <span className="w-10 shrink-0 text-right text-[12.5px] font-semibold tabular-nums" style={{ color: f.passed ? '#4FA46E' : 'var(--color-mute)' }}>{f.r2_oos.toFixed(2)}</span>
+      {/* second-opinion chip: only where a euro publishes (that is where corroboration matters) */}
+      <span className="w-16 shrink-0 text-right">
+        {f.passed && ch && (
+          ch.corroborates_publish
+            ? <span className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-semibold" style={{ background: '#7BBF8F22', color: '#4FA46E' }} title="A second, independent method also clears the publish bar out-of-sample.">✓ 2nd</span>
+            : ch.verdict === 'diverge'
+              ? <span className="inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold" style={{ background: '#C9524622', color: '#C65246' }} title="The independent method disagrees out-of-sample.">≠ 2nd</span>
+              : <span className="inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium text-[var(--color-faint)] bg-[var(--color-panel-2)]" title={`Independent method corroborates the shape (r²=${chR2?.toFixed(2)}) but the parsimonious champion generalises better out-of-sample and is retained.`}>2nd {chR2?.toFixed(2)}</span>
+        )}
+      </span>
       <span className="shrink-0"><FidelityBadge f={f.fidelity} /></span>
     </div>
-  )
+  )}
   return (
     <Card className="p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -154,7 +175,7 @@ function EconomicCard({ e }: { e: Economic }) {
       {/* the wins — prominent */}
       <div className="text-[12px] font-medium mb-2" style={{ color: '#4FA46E' }}>Good enough to publish — the score explains real yield swings</div>
       <div className="space-y-0.5 mb-1">{pass.map(f => <CropRow key={f.region + f.hazard_driver} f={f} />)}</div>
-      <div className="text-[11px] text-[var(--color-faint)] mt-1">Bar = r² (0–1, how much of real yield the score explains). The vertical line is the r²≥{gate.toFixed(2)} publish bar.</div>
+      <div className="text-[11px] text-[var(--color-faint)] mt-1">Bar = r² (0–1, how much of real yield the score explains). The pale line is the r²≥{gate.toFixed(2)} publish bar; the dark tick is an <b className="font-semibold text-[var(--color-mute)]">independent second method</b> (isotonic) run out-of-sample — how far it reaches corroborates the champion. <span style={{ color: '#4FA46E' }}>✓ 2nd</span> = the second method independently clears the bar too.</div>
 
       {/* the held ones — collapsed by default */}
       {held.length > 0 && (
