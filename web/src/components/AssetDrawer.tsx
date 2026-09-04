@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
 import { Card, Button, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
+import { actionLabel } from '../lib/actionLabels'
 
 // The per-asset drill for the four financial books — the depth the agri /detail/* pages already had, plus
 // the actions an analyst needs: override the model's valuation discount (bank / asset-mgr / REIT), or set a
@@ -198,7 +199,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
                       <div key={i} className="flex gap-2 text-[12px]">
                         <Clock size={12} className="mt-0.5 text-[var(--color-faint)] shrink-0" />
                         <div className="min-w-0">
-                          <span className="text-[var(--color-ink)]">{a.action.replace(/[._]/g, ' ')}</span>
+                          <span className="text-[var(--color-ink)]" title={a.action}>{actionLabel(a.action)}</span>
                           <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{new Date(a.created_at).toLocaleString('en-GB')}</span>
                           {a.detail && (a.detail.from_pct != null || a.detail.to_pct != null) &&
                             <div className="mono text-[10.5px] text-[var(--color-mute)]">{String(a.detail.from_pct ?? '—')}% → {a.detail.to_pct == null ? 'recommended' : `${a.detail.to_pct}%`}{typeof a.detail.reason === 'string' ? ` · “${a.detail.reason}”` : ''}</div>}

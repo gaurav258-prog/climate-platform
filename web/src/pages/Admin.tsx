@@ -9,6 +9,7 @@ import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
+import { actionLabel } from '../lib/actionLabels'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
@@ -401,7 +402,7 @@ function Webhooks() {
               <tbody>
                 {dels.slice(0, 12).map(d => (
                   <tr key={d.delivery_id} className="border-b border-[var(--color-line)] last:border-0">
-                    <td className="py-2 px-4 mono text-[11.5px] text-[var(--color-mute)]">{d.event_type}</td>
+                    <td className="py-2 px-4 text-[12.5px] text-[var(--color-mute)]" title={d.event_type}>{actionLabel(d.event_type)}</td>
                     <td className="px-4 text-[var(--color-faint)]">{d.endpoint_name ?? '—'}</td>
                     <td className="px-4">{d.status === 'delivered'
                       ? <span className="text-[var(--color-good)]">delivered · {d.http_status}</span>

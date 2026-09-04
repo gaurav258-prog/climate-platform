@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
+import { actionLabel } from '../lib/actionLabels'
 
 interface Req {
   id: string; request_type: string; title: string | null; payload: Record<string, unknown>
@@ -14,12 +15,6 @@ interface Req {
 }
 interface Decider { user_id: string; email: string; name: string | null }
 
-const TYPE_LABEL: Record<string, string> = {
-  'supply.site.update': 'Edit site', 'supply.site.delete': 'Delete site',
-  'supply.plot.update': 'Edit plot', 'supply.plot.delete': 'Delete plot',
-  'submission.release': 'Release submission', 'report.publish': 'Publish report',
-  'config.reporting_settings': 'Change reporting basis', 'supply.eudr.determine': 'Run EUDR determination',
-}
 const badge = (s: string) => s === 'approved' ? 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]'
   : s === 'rejected' ? 'text-[var(--color-bad)] bg-[color-mix(in_oklab,var(--color-bad)_14%,transparent)]'
   : s === 'returned' ? 'text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_14%,transparent)]'
@@ -99,8 +94,7 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
             <Card key={r.id} className="p-5">
               {/* header */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-[15px] font-semibold">{TYPE_LABEL[r.request_type] ?? r.request_type}</span>
-                <span className="mono text-[10px] text-[var(--color-faint)]">{r.request_type}</span>
+                <span className="text-[15px] font-semibold">{actionLabel(r.request_type)}</span>
                 <span className={`mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide ${badge(r.status)}`}>{r.status}</span>
               </div>
               {r.title && <div className="text-[13px] text-[var(--color-mute)] mt-1">{r.title}</div>}

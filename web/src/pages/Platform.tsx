@@ -6,6 +6,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import OperatorTabs from '../components/OperatorTabs'
+import { actionLabel } from '../lib/actionLabels'
 
 interface Tenant {
   org_id: string; name: string; type: string; country: string; created_at: string | null
@@ -254,7 +255,7 @@ function TenantDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
               {d.recent_activity.length === 0 && <div className="text-[12px] text-[var(--color-faint)]">no activity</div>}
               {d.recent_activity.map((a, i) => (
                 <div key={i} className="flex items-center justify-between text-[11.5px]">
-                  <span className="mono text-[var(--color-mute)]">{a.action}</span>
+                  <span className="text-[var(--color-mute)]" title={a.action}>{actionLabel(a.action)}</span>
                   <span className="text-[var(--color-faint)]">{a.email ?? '—'} · {ago(a.created_at)}</span>
                 </div>
               ))}
