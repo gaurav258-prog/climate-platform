@@ -17,10 +17,19 @@ TCFD convention — acute = event-driven perils, chronic = gradual shifts — do
 """
 from __future__ import annotations
 
-# TCFD/EBA physical-climate split. ACUTE = sudden event-driven; CHRONIC = long-term/gradual shifts. Non-climate
-# perils (seismic, volcanic) and out-of-scope pollution are excluded from Template 5 (climate physical risk only).
-ACUTE_HAZARDS = frozenset({"flood", "storm", "wildfire", "heat_acute", "frost"})
-CHRONIC_HAZARDS = frozenset({"drought", "heat_chronic", "soil_water", "coastal_flood", "water_stress"})
+from services.intelligence.hazard_scope import ACUTE as _HAZARD_ACUTE
+from services.intelligence.hazard_scope import CHRONIC as _HAZARD_CHRONIC
+
+# TCFD/EBA physical-climate split. ACUTE = sudden event-driven; CHRONIC = long-term/gradual shifts.
+# SOURCED FROM THE SINGLE CLIMATE-HAZARD CLASSIFIER (services.intelligence.hazard_scope) so Template 5 sees
+# EVERY climate hazard the engine scores — the full EU-Taxonomy set — not a drifting hardcoded subset. Non-
+# climate perils (seismic, volcanic) and out-of-scope pollution are classed 'other' in hazard_scope and so are
+# excluded here (Template 5 is climate physical risk only).
+# ONE EBA methodology override (ITS Annex XL leaves the split to the institution): coastal flooding / sea-level
+# rise is disclosed here as CHRONIC (a gradual sea-level shift), whereas ESRS E1 books the same peril as acute.
+_EBA_CHRONIC_OVERRIDE = frozenset({"coastal_flood"})
+ACUTE_HAZARDS = frozenset(_HAZARD_ACUTE) - _EBA_CHRONIC_OVERRIDE
+CHRONIC_HAZARDS = frozenset(_HAZARD_CHRONIC) | _EBA_CHRONIC_OVERRIDE
 _HIGH_BUCKETS = frozenset({"H", "VH"})
 
 # NACE section (letter) → official title (Reg (EC) 1893/2006, Annex I section headers). Template 5 rows are by

@@ -4,8 +4,9 @@ Two SCREENING-tier chronic indicators built from the same global monthly climato
 1991–2020: per H3 cell × month temp_mean/std, precip_mean/std). Disclosed methodology, never backtested skill:
 
   • temperature variability — the annual SEASONAL AMPLITUDE (warmest-month minus coldest-month mean) plus the
-    typical interannual spread. Continental interiors (large seasonal swings) read high; maritime/tropical
-    climates read low. Mapped 0–100 by a saturating curve (≈40 °C range → ~90, ≈10 °C → ~44, ≈2 °C → ~11).
+    typical interannual spread, scored BASELINE-RELATIVE: mapped 0–100 through the empirical percentiles of
+    seasonal amplitude across the land climatology, so "High" means elevated vs other land (top quartile) and
+    "Very High" the top decile — a normal continental season is no longer automatically High.
   • precipitation / hydrological variability — the SEASONAL CONCENTRATION of rainfall (coefficient of variation
     of the monthly means: monsoonal / strongly-seasonal regimes read high, evenly-wet climates low) plus the
     interannual spread, damped where annual rainfall is negligible so a bone-dry desert isn't lifted by noise.
@@ -26,18 +27,37 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 
-TEMP_VAR_VERSION = "temp-variability-climatology-v1"
+TEMP_VAR_VERSION = "temp-variability-climatology-v2-baseline-relative"
 PRECIP_VAR_VERSION = "precip-variability-climatology-v1"
 _BOX = 0.75
 
-# saturating scales (disclosed): seasonal temperature range (°C) and precip seasonal CV (dimensionless).
-_TEMP_RANGE_K = 17.4     # 40°C→90, 10°C→44, 2°C→11
-_PRECIP_CV_K = 0.70      # cv 1.4→86, 0.7→63, 0.3→35
+# Baseline-relative anchoring (disclosed). "High"/"Very High" mean the seasonal temperature amplitude is
+# ELEVATED vs the LAND distribution of the 1991–2020 climatology — not merely large in absolute terms. The
+# breakpoints are the empirical percentiles of seasonal amplitude (warmest- minus coldest-month mean) across the
+# land cells (rng>2°C) of climatology_baseline: median land ≈11°C → mid-M, top quartile (≈24°C) enters High, top
+# decile (≈30°C) enters Very High. So a normal continental season is no longer automatically "High" and the
+# screen discriminates. Anchors are (seasonal_range_c, score); derived by scripts/calibrate_variability_anchors.py.
+_TEMP_VAR_ANCHORS = [(0.0, 0.0), (3.4, 8.0), (4.9, 20.0), (11.0, 38.0), (24.4, 50.0),
+                     (29.8, 74.0), (41.0, 88.0), (46.5, 95.0), (60.0, 100.0)]
+_PRECIP_CV_K = 0.70      # cv 1.4→86, 0.7→63, 0.3→35 (precip variability reads 27% H/VH — already selective)
+
+
+def _anchor(value: float, anchors: list) -> float:
+    """Piecewise-linear map of a driver value through empirical (value, score) percentile anchors, clamped to
+    the end scores outside the anchored range. Monotone non-decreasing in value."""
+    if value <= anchors[0][0]:
+        return anchors[0][1]
+    if value >= anchors[-1][0]:
+        return anchors[-1][1]
+    for (x0, y0), (x1, y1) in zip(anchors, anchors[1:]):
+        if value <= x1:
+            return y0 + (y1 - y0) * (value - x0) / (x1 - x0)
+    return anchors[-1][1]
 
 
 def temp_variability_score(seasonal_range_c: float, interannual_c: float = 0.0) -> float:
-    base = 100.0 * (1.0 - math.exp(-max(0.0, seasonal_range_c) / _TEMP_RANGE_K))
-    add = min(10.0, max(0.0, interannual_c) * 3.0)
+    base = _anchor(max(0.0, seasonal_range_c), _TEMP_VAR_ANCHORS)
+    add = min(6.0, max(0.0, interannual_c) * 2.0)   # gentle interannual nudge (does not re-saturate the scale)
     return round(max(0.0, min(100.0, base + add)), 2)
 
 
@@ -104,7 +124,9 @@ def score_temp_variability_point(lat: float, lon: float, scenario: str = "baseli
     _insert(cell, "temp_variability", risk, TEMP_VAR_VERSION, scenario, horizon,
             {"seasonal_range_c": round(seasonal_range, 2), "interannual_std_c": round(interannual, 2),
              "on_demand": True, "tier": "screening",
-             "method": "annual seasonal temperature amplitude + interannual spread (1991–2020 climatology)"})
+             "method": "annual seasonal temperature amplitude + interannual spread (1991–2020 climatology), "
+                       "baseline-relative: percentile-anchored vs the land amplitude distribution (top quartile → "
+                       "High, top decile → Very High)"})
     return {"status": "scored", "h3_cell": cell, "risk_score": risk, "risk_bucket": score_to_bucket(risk).value}
 
 
