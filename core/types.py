@@ -80,8 +80,16 @@ class HazardType(str, Enum):
     # Solid-mass EU-Taxonomy hazards from authoritative global layers (screening-tier predisposition/projection):
     SUBSIDENCE = "subsidence"          # Herrera-García 2021 Global Subsidence Susceptibility (geophysical, ~1km)
     PERMAFROST = "permafrost"          # Obu 2019 permafrost probability (NH, thaw exposure) — data via fetch script
-    SOIL_EROSION = "soil_erosion"      # GloSEM (Borrelli) soil displacement by water — data via ESDAC (gated)
+    SOIL_EROSION = "soil_erosion"      # GloSEM (Borrelli) soil displacement by water — data via figshare (infra-scale)
     COASTAL_EROSION = "coastal_erosion"  # Vousdoukas 2020 JRC shoreline-retreat projection (scenario×horizon)
+    # The long-tail EU-Taxonomy hazards — honest proxies / niche global layers (all screening-tier):
+    SALINE_INTRUSION = "saline_intrusion"        # low-elevation-coastal-zone × SLR proxy (reuses coastal machinery)
+    GLACIAL_LAKE_OUTBURST = "glacial_lake_outburst"  # GIGLak global glacial-lake inventory → downstream zones
+    OCEAN_ACIDIFICATION = "ocean_acidification"  # global surface-ocean pH grid — marine screening (coastal/aquaculture)
+    AVALANCHE = "avalanche"            # on-demand slope × cold-climate proxy (mountain terrain)
+    SOLIFLUCTION = "solifluction"      # permafrost probability × gentle slope (periglacial, derived)
+    SOIL_DEGRADATION = "soil_degradation"        # FAO GSOCmap soil-organic-carbon soil-health screening
+    SEVERE_CONVECTIVE = "severe_convective"      # CAPE × deep-layer shear convective-storm potential (tornado/hail environment)
 
 
 class RiskScenario(str, Enum):

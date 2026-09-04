@@ -94,7 +94,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
-    EUHazard("tornado", W, "Tornado", A, ROAD, "p4", "blocked: regional catalogues only (US SPC) — no global asset layer"),
+    EUHazard("tornado", W, "Tornado", A, ROAD, "p4",
+             "engine + build script ready (ERA5 CAPE × 0–6 km shear convective potential, Taszarek 2021); ERA5-CDS climatology is an infra build — severe_convective channel lights up on drop-in"),
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),
@@ -105,13 +106,16 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "IPCC AR6 SLR projection via the coastal-flood freeboard model (elevation + distance-to-coast)", (H.COASTAL_FLOOD,)),
     EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, SCR, "now",
              "wettest-month precip climatology (1991–2020) + CC warming", (H.HEAVY_PRECIP,)),
-    EUHazard("saline_intrusion", WA, "Saline intrusion", C, ROAD, "p2", "blocked: coastal-aquifer data — regional, no global layer"),
+    EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",
+             "low-elevation-coastal-zone × AR6 SLR proxy (reuses the coastal DEM + distance-to-coast machinery)", (H.SALINE_INTRUSION,)),
     EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, SCR, "now",
              "CMIP6 ensemble |precip change| (projection scenarios)", (H.CHANGING_PRECIP,)),
     EUHazard("precipitation_variability", WA, "Precipitation / hydrological variability", C, SCR, "now",
              "rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
-    EUHazard("ocean_acidification", WA, "Ocean acidification", C, ROAD, "p4", "blocked: marine — not land-asset-relevant"),
-    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, ROAD, "p4", "blocked: regional lake inventories (Himalaya/Andes) — no global layer"),
+    EUHazard("ocean_acidification", WA, "Ocean acidification", C, SCR, "now",
+             "OceanSODA-ETHZ global surface-ocean pH; marine screening for coastal/aquaculture/fisheries exposure (not-applicable for inland land assets)", (H.OCEAN_ACIDIFICATION,)),
+    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, SCR, "now",
+             "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure zones", (H.GLACIAL_LAKE_OUTBURST,)),
 
     # Solid-mass-related (7)
     EUHazard("landslide", S, "Landslide", A, SCR, "now",
@@ -122,9 +126,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon)", (H.COASTAL_EROSION,)),
     EUHazard("soil_erosion", S, "Soil erosion", C, ROAD, "p2",
              "engine + fetch script ready (GloSEM, open on figshare); ~16.5 GB raster is an infra-scale fetch — lights up on drop-in"),
-    EUHazard("soil_degradation", S, "Soil degradation", C, ROAD, "p2", "blocked: ESDAC land-degradation — registration-gated (ESRS E4)"),
-    EUHazard("avalanche", S, "Avalanche", A, ROAD, "p4", "blocked: mountain-regional — no global asset-level layer"),
-    EUHazard("solifluction", S, "Solifluction", C, ROAD, "p4", "blocked: niche periglacial — no global dataset"),
+    EUHazard("soil_degradation", S, "Soil degradation", C, ROAD, "p2",
+             "engine + fetch script ready (ISRIC GLADA / FAO land-degradation, NDVI-trend); clean global raster pending — lights up on drop-in"),
+    EUHazard("avalanche", S, "Avalanche", A, SCR, "now",
+             "terrain release-angle (on-demand DEM slope) × elevation/latitude snow-climate proxy", (H.AVALANCHE,)),
+    EUHazard("solifluction", S, "Solifluction", C, SCR, "now",
+             "Obu (2019) permafrost probability × gentle-slope window (derived periglacial susceptibility)", (H.SOLIFLUCTION,)),
 )
 
 # Channels we carry that sit OUTSIDE the EU climate list (geophysical / nature) — coverage beyond Appendix A.

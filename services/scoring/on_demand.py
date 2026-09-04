@@ -20,10 +20,17 @@ from ml.scoring.climate_variability_point import score_precip_variability_point,
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
 from ml.scoring.frost_point import score_frost_point
 from ml.scoring.heavy_precip_point import score_heavy_precip_point
+from ml.scoring.avalanche_point import score_avalanche_point
 from ml.scoring.coastal_erosion_point import score_coastal_erosion_point
+from ml.scoring.glacial_lake_point import score_glacial_lake_point
 from ml.scoring.landslide_point import score_landslide_point
+from ml.scoring.ocean_acidification_point import score_ocean_acidification_point
 from ml.scoring.permafrost_point import score_permafrost_point
+from ml.scoring.saline_intrusion_point import score_saline_intrusion_point
+from ml.scoring.severe_convective_point import score_severe_convective_point
+from ml.scoring.soil_degradation_point import score_soil_degradation_point
 from ml.scoring.soil_erosion_point import score_soil_erosion_point
+from ml.scoring.solifluction_point import score_solifluction_point
 from ml.scoring.subsidence_point import score_subsidence_point
 from ml.scoring.water_stress_point import score_water_stress_point
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
@@ -53,6 +60,15 @@ SYNC_ON_DEMAND_SCORERS = {
     "coastal_erosion": score_coastal_erosion_point,
     "permafrost": score_permafrost_point,
     "soil_erosion": score_soil_erosion_point,
+    # long-tail EU-Taxonomy hazards (saline/GLOF/ocean/avalanche/solifluction live; soil_degradation +
+    # severe_convective return insufficient_data until their infra-scale/CDS data lands — wired-ready)
+    "saline_intrusion": score_saline_intrusion_point,
+    "glacial_lake_outburst": score_glacial_lake_point,
+    "ocean_acidification": score_ocean_acidification_point,
+    "avalanche": score_avalanche_point,
+    "solifluction": score_solifluction_point,
+    "soil_degradation": score_soil_degradation_point,
+    "severe_convective": score_severe_convective_point,
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).

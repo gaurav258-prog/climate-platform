@@ -25,6 +25,13 @@ export const HAZARD_LABEL: Record<string, string> = {
   coastal_erosion: 'Coastal erosion (shoreline retreat)',
   permafrost: 'Permafrost thaw',
   soil_erosion: 'Soil erosion',
+  saline_intrusion: 'Saltwater intrusion (coastal aquifers)',
+  glacial_lake_outburst: 'Glacial-lake outburst flood',
+  ocean_acidification: 'Ocean acidification (marine)',
+  avalanche: 'Avalanche',
+  solifluction: 'Solifluction (periglacial soil creep)',
+  soil_degradation: 'Soil degradation',
+  severe_convective: 'Severe convective storm (tornado / hail)',
 }
 
 export const hazardLabel = (h?: string | null): string =>

@@ -13,10 +13,11 @@ from __future__ import annotations
 # heavy_precip (extreme rainfall) and landslide (rainfall-triggered mass movement) are acute EU-Taxonomy
 # climate hazards; temperature/precipitation variability and the projected-change channels are chronic ones.
 ACUTE = {"flood", "coastal_flood", "storm", "wildfire", "heat_acute", "frost", "heavy_precip", "landslide",
-         "subsidence"}
+         "subsidence", "glacial_lake_outburst", "avalanche", "severe_convective"}
 CHRONIC = {"drought", "heat_chronic", "soil_water", "water_stress",
            "temp_variability", "precip_variability", "changing_temp", "changing_precip", "changing_wind",
-           "coastal_erosion", "permafrost", "soil_erosion"}
+           "coastal_erosion", "permafrost", "soil_erosion",
+           "saline_intrusion", "ocean_acidification", "solifluction", "soil_degradation"}
 CLIMATE = ACUTE | CHRONIC
 
 
