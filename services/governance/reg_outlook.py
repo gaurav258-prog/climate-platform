@@ -110,7 +110,10 @@ def outlook(org_type: str | None, session=None, org_id: str | None = None) -> di
     checked_at = None
     if session is not None:
         try:
-            from services.regulatory_monitoring.eurlex_detector import verified_dates, detected_changes
+            from services.regulatory_monitoring.eurlex_detector import (
+                detected_changes,
+                verified_dates,
+            )
             verified = verified_dates(session)
             detected = detected_changes(session)
             checked_at = next((v.get("checked_at") for v in verified.values() if v.get("checked_at")), None)

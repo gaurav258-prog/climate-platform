@@ -69,8 +69,8 @@ try:
     from api.routers import meta as meta_router
     from api.routers import notifications as notifications_router
     from api.routers import onboarding_intake as onboarding_intake_router
-    from api.routers import passkeys_esign as passkeys_esign_router
     from api.routers import ops_console as ops_console_router
+    from api.routers import passkeys_esign as passkeys_esign_router
     from api.routers import portal as portal_router
     from api.routers import prices as prices_router
     from api.routers import prior_filings as prior_filings_router

@@ -32,6 +32,8 @@ class Cmip6Delta(NamedTuple):
     n_models: int        # ensemble size behind these means
     dtas_std_c: float    # across-model spread (°C) — an honest uncertainty input
     dpr_std: float       # across-model spread (fractional precip)
+    dwind_frac: float = float("nan")   # ensemble-mean fractional near-surface wind change (NaN if wind field not built)
+    dwind_std: float = float("nan")    # across-model spread (fractional wind)
 
 
 @lru_cache(maxsize=1)
@@ -63,6 +65,7 @@ def has_coverage() -> bool:
 
 # ── global (lat/lon) delta field — the worldwide analogue of the belt table ──────────────────────
 GLOBAL_NPZ = "data/cmip6/cmip6_global_deltas.npz"
+WIND_NPZ = "data/cmip6/cmip6_wind_deltas.npz"   # separate sfcWind field (build_cmip6_wind.py), co-registered 2° grid
 
 
 @lru_cache(maxsize=1)
@@ -73,6 +76,17 @@ def _global():
         return None
     import numpy as np
     z = np.load(GLOBAL_NPZ)
+    return {k: z[k] for k in z.files}
+
+
+@lru_cache(maxsize=1)
+def _wind():
+    """Lazy-load the global 2° near-surface wind-change field (build_cmip6_wind.py). Same grid as _global().
+    Returns the dict or None if not built yet — an older deployment without it simply reports wind as NaN."""
+    if not os.path.exists(WIND_NPZ):
+        return None
+    import numpy as np
+    z = np.load(WIND_NPZ)
     return {k: z[k] for k in z.files}
 
 
@@ -100,4 +114,16 @@ def cmip6_delta_latlon(lat: Optional[float], lon: Optional[float],
         return None
     dpr = 0.0 if (dpr is None or np.isnan(dpr)) else float(dpr)          # temp always defined; precip
     dpr_std = 0.0 if (dpr_std is None or np.isnan(dpr_std)) else float(dpr_std)  # frac may be NaN (desert)
-    return Cmip6Delta(dtas, dpr, int(g["n_models"]), dtas_std, dpr_std)
+
+    # near-surface wind change from the co-registered wind field (same 2° grid), NaN if not built / gap
+    dwind = dwind_std = float("nan")
+    w = _wind()
+    wkey = f"{key}|dwind_mean"
+    if w is not None and wkey in w:
+        wi = int(np.abs(w["lat"] - float(lat)).argmin())
+        wj = int(np.abs(w["lon"] - float(lon)).argmin())
+        wv = float(w[wkey][wi, wj])
+        if not np.isnan(wv):
+            dwind = wv
+            dwind_std = float(w[f"{key}|dwind_std"][wi, wj])
+    return Cmip6Delta(dtas, dpr, int(g["n_models"]), dtas_std, dpr_std, dwind, dwind_std)

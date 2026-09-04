@@ -8,7 +8,7 @@ already built and tested**; this file exists so none of these is forgotten when 
 Companion docs: agri last-mile detail is in [`AGRI_OPS_READINESS.md`](AGRI_OPS_READINESS.md). Every item below
 degrades honestly in-product today (shows "pending" / "prepared" / withholds the figure) — nothing is faked.
 
-_Last reviewed: 2026-08-13._
+_Last reviewed: 2026-09-03._
 
 ## Status at a glance
 
@@ -19,6 +19,7 @@ _Last reviewed: 2026-08-13._
 | 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
+| 6 | WDPA global protected-area layer | Agri / ESRS E4-5 | dataset-agnostic overlap engine + ingest script + E4 filing wiring | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it, non-EU assets light up (no code change) |
 
 ---
 
@@ -67,3 +68,20 @@ _Last reviewed: 2026-08-13._
   customer outcome data) — must be a climate-attributable target (a cyclical crop can't be validated against a raw world shock).
 - **Owner:** data sourcing is external; us runs the fit + out-of-sample validation.
 - **When it lands:** fit + validate; it either calibrates (tier lights up) or is honestly held. Withholding is the design, not a defect.
+
+## 6 · WDPA global protected-area layer  *(external data + licence, then us)*
+- **Hook:** `services/intelligence/protected_area.py` — `protected_area_exposure()` is a dataset-agnostic
+  H3-cell membership test against `protected_h3_cell`; it de-dups across datasets and reports per-dataset
+  cell counts, so **any** loaded protected-area layer lights up with zero code change. Wired into the ESRS
+  **E4-5** filing (`services/intelligence/esrs_nature.py:biodiversity_topic`), tagged in the XBRL/iXBRL export
+  (4 E4-5 concepts), and surfaced on the ESRS pack UI with an honest per-dataset coverage note.
+- **Loaded today:** `natura2000` (EU-27, 405,872 cells) + `osm` (community, 54,818 cells). Overlap outside the
+  EU is disclosed as a **coverage gap**, never as "no overlap".
+- **Needed:** the authoritative global layer — **WDPA** (World Database on Protected Areas). The free
+  Protected Planet API (`scripts/ingest_wdpa_api.py`, `--token $PP_TOKEN`) is **non-commercial licence only**;
+  a paying customer's filing needs a **commercial WDPA export via IBAT**, loaded through the file path
+  (`scripts/ingest_natura2000.py`-style loader, tagged `--dataset wdpa`).
+- **Owner:** licence is external (IBAT); obtaining + loading it is us — one ingest run, no code change.
+- **When it lands:** run the loader; non-EU sites/plots start reporting protected-area overlap and the
+  coverage note flips to "backed by the WDPA global layer". **Do not load the non-commercial API export into a
+  paying customer's tenant.**

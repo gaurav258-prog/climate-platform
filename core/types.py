@@ -76,6 +76,20 @@ class HazardType(str, Enum):
     # Projected-change magnitude (EU Taxonomy chronic) from the CMIP6 ensemble — forward-looking only:
     CHANGING_TEMP = "changing_temp"            # ensemble-mean warming magnitude vs 1995–2014
     CHANGING_PRECIP = "changing_precip"        # |ensemble-mean fractional precip change|
+    CHANGING_WIND = "changing_wind"            # |ensemble-mean fractional near-surface wind change|
+    # Solid-mass EU-Taxonomy hazards from authoritative global layers (screening-tier predisposition/projection):
+    SUBSIDENCE = "subsidence"          # Herrera-García 2021 Global Subsidence Susceptibility (geophysical, ~1km)
+    PERMAFROST = "permafrost"          # Obu 2019 permafrost probability (NH, thaw exposure) — data via fetch script
+    SOIL_EROSION = "soil_erosion"      # GloSEM (Borrelli) soil displacement by water — data via figshare (infra-scale)
+    COASTAL_EROSION = "coastal_erosion"  # Vousdoukas 2020 JRC shoreline-retreat projection (scenario×horizon)
+    # The long-tail EU-Taxonomy hazards — honest proxies / niche global layers (all screening-tier):
+    SALINE_INTRUSION = "saline_intrusion"        # low-elevation-coastal-zone × SLR proxy (reuses coastal machinery)
+    GLACIAL_LAKE_OUTBURST = "glacial_lake_outburst"  # GIGLak global glacial-lake inventory → downstream zones
+    OCEAN_ACIDIFICATION = "ocean_acidification"  # global surface-ocean pH grid — marine screening (coastal/aquaculture)
+    AVALANCHE = "avalanche"            # on-demand slope × cold-climate proxy (mountain terrain)
+    SOLIFLUCTION = "solifluction"      # permafrost probability × gentle slope (periglacial, derived)
+    SOIL_DEGRADATION = "soil_degradation"        # FAO GSOCmap soil-organic-carbon soil-health screening
+    SEVERE_CONVECTIVE = "severe_convective"      # CAPE × deep-layer shear convective-storm potential (tornado/hail environment)
 
 
 class RiskScenario(str, Enum):
@@ -212,6 +226,27 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "temperature_change": HazardType.CHANGING_TEMP,
     "changing_precip": HazardType.CHANGING_PRECIP, "changing_precipitation": HazardType.CHANGING_PRECIP,
     "precipitation_change": HazardType.CHANGING_PRECIP,
+    "changing_wind": HazardType.CHANGING_WIND, "changing_wind_patterns": HazardType.CHANGING_WIND,
+    "wind_change": HazardType.CHANGING_WIND,
+    # solid-mass / erosion EU-Taxonomy channels
+    "subsidence": HazardType.SUBSIDENCE, "land_subsidence": HazardType.SUBSIDENCE,
+    "ground_subsidence": HazardType.SUBSIDENCE,
+    "permafrost": HazardType.PERMAFROST, "permafrost_thaw": HazardType.PERMAFROST,
+    "permafrost_thawing": HazardType.PERMAFROST,
+    "soil_erosion": HazardType.SOIL_EROSION,
+    "coastal_erosion": HazardType.COASTAL_EROSION, "shoreline_retreat": HazardType.COASTAL_EROSION,
+    "shoreline_erosion": HazardType.COASTAL_EROSION,
+    "saline_intrusion": HazardType.SALINE_INTRUSION, "saltwater_intrusion": HazardType.SALINE_INTRUSION,
+    "salinisation": HazardType.SALINE_INTRUSION, "salinization": HazardType.SALINE_INTRUSION,
+    "glacial_lake_outburst": HazardType.GLACIAL_LAKE_OUTBURST, "glof": HazardType.GLACIAL_LAKE_OUTBURST,
+    "glacial_lake_outburst_flood": HazardType.GLACIAL_LAKE_OUTBURST,
+    "ocean_acidification": HazardType.OCEAN_ACIDIFICATION, "acidification": HazardType.OCEAN_ACIDIFICATION,
+    "avalanche": HazardType.AVALANCHE, "avalanches": HazardType.AVALANCHE, "snow_avalanche": HazardType.AVALANCHE,
+    "solifluction": HazardType.SOLIFLUCTION,
+    "soil_degradation": HazardType.SOIL_DEGRADATION, "land_degradation": HazardType.SOIL_DEGRADATION,
+    "severe_convective": HazardType.SEVERE_CONVECTIVE, "tornado": HazardType.SEVERE_CONVECTIVE,
+    "convective_storm": HazardType.SEVERE_CONVECTIVE, "large_hail": HazardType.SEVERE_CONVECTIVE,
+    "severe_convective_storm": HazardType.SEVERE_CONVECTIVE,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {

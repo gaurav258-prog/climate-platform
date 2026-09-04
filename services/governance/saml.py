@@ -20,6 +20,8 @@ from urllib.parse import urlencode
 from lxml import etree
 from signxml import XMLVerifier
 
+from core.config import settings
+
 # hardened parser — no entity expansion, no DTD, no network: blocks XXE / billion-laughs on untrusted IdP XML
 _SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, dtd_validation=False)
 
@@ -27,7 +29,6 @@ _SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd
 def safe_fromstring(raw: bytes):
     return etree.fromstring(raw, parser=_SAFE_PARSER)
 
-from core.config import settings
 
 NS = {
     "samlp": "urn:oasis:names:tc:SAML:2.0:protocol",

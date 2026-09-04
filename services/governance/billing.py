@@ -8,7 +8,7 @@ Legacy tenants without a subscription row are unlimited (enforcement applies onl
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session

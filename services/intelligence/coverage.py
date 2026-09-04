@@ -9,13 +9,12 @@ on-demand path already gives global reach today.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # hazards answerable on demand for any address (volcanic needs a hazard-zone methodology → not on-demand)
-ON_DEMAND_HAZARDS = ["flood", "wildfire", "drought", "storm", "seismic", "heat_acute", "soil_water", "coastal_flood"]
+ON_DEMAND_HAZARDS = ["flood", "wildfire", "drought", "storm", "seismic", "heat_acute", "soil_water",
+                     "coastal_flood", "subsidence"]
 THIN_THRESHOLD = 1000   # a standing layer below this many cells is flagged for deepening
 
 
@@ -52,7 +51,10 @@ def eu_taxonomy_coverage() -> dict:
     calibration — the tier on each hazard says which claim we're making.
     """
     from core.hazard_taxonomy import (
-        EU_TAXONOMY, EXTRA_CHANNELS, HazardFamily, coverage_summary, eu_hazards_by_family,
+        EXTRA_CHANNELS,
+        HazardFamily,
+        coverage_summary,
+        eu_hazards_by_family,
     )
 
     def _ser(h) -> dict:

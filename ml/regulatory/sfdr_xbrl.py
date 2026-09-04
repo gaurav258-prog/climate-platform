@@ -113,7 +113,7 @@ def sfdr_pai_ixbrl(statement: dict) -> str:
             f'taxonomy namespace provisional (swap for ESMA official when published)</p>\n\n'
             f'  <table>\n    <thead><tr><th>Framework</th><th>Indicator</th><th class="num">Value (inline-tagged)</th></tr></thead>\n'
             f'    <tbody>\n' + "\n".join(rows) + '\n    </tbody>\n  </table>\n\n'
-            f'  <p class="note"><b>Honesty &amp; binding:</b> the structure is real XBRL; the tpai: namespace is a '
-            f"placeholder for ESMA's official SFDR taxonomy, bound in the filing tool once published.</p>")
+            '  <p class="note"><b>Honesty &amp; binding:</b> the structure is real XBRL; the tpai: namespace is a '
+            "placeholder for ESMA's official SFDR taxonomy, bound in the filing tool once published.</p>")
     return xbrl_core.ixbrl_document(title=f"{name} — SFDR PAI (Inline XBRL)", extra_ns={"tpai": TPAI_NS},
                                     schema_ref=TPAI_SCHEMA, contexts=[ctx], units=_UNITS, body_html=body)

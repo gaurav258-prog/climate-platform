@@ -11,6 +11,9 @@ backtested skill.
     +3.5 °C ≈ 70, +5 °C ≈ 85).
   • changing precipitation — |ensemble-mean fractional precip change| → 0–100 (both drying and wetting are
     hazards; ±25 % ≈ 50, ±50 % ≈ 75). None where the CMIP6 precip field is a gap (some desert/ocean cells).
+  • changing wind — |ensemble-mean fractional near-surface wind-speed change| → 0–100 (both a rise in wind
+    loading/storminess and a fall in wind-energy yield are hazards; ±20 % ≈ 50, ±40 % ≈ 75). None where the
+    CMIP6 wind field is not built or a gap.
 """
 from __future__ import annotations
 
@@ -28,8 +31,10 @@ from ml.scoring.cmip6 import cmip6_delta_latlon
 
 CHG_TEMP_VERSION = "changing-temp-cmip6-v1"
 CHG_PRECIP_VERSION = "changing-precip-cmip6-v1"
+CHG_WIND_VERSION = "changing-wind-cmip6-v1"
 _TEMP_K = 2.9      # +2°C→50, +3.5°C→70, +5°C→85
 _PRECIP_K = 0.36   # ±25%→50, ±50%→75
+_WIND_K = 0.29     # ±20%→50, ±40%→75
 
 
 def changing_temp_score(dtas_c: float) -> float:
@@ -38,6 +43,10 @@ def changing_temp_score(dtas_c: float) -> float:
 
 def changing_precip_score(dpr_frac: float) -> float:
     return round(max(0.0, min(100.0, 100.0 * (1.0 - math.exp(-abs(float(dpr_frac)) / _PRECIP_K)))), 2)
+
+
+def changing_wind_score(dwind_frac: float) -> float:
+    return round(max(0.0, min(100.0, 100.0 * (1.0 - math.exp(-abs(float(dwind_frac)) / _WIND_K)))), 2)
 
 
 def _cached(cell: str, hazard: str, scenario: str, horizon: str):
@@ -91,4 +100,20 @@ def score_changing_precip_point(lat: float, lon: float, scenario: str = "baselin
     _insert(cell, "changing_precip", risk, CHG_PRECIP_VERSION, scenario, horizon,
             {"precip_change_frac": round(d.dpr_frac, 3), "across_model_std": round(d.dpr_std, 3), "n_models": d.n_models,
              "on_demand": True, "tier": "screening", "method": "CMIP6 ensemble-mean |fractional precip change| vs 1995–2014"})
+    return {"status": "scored", "h3_cell": cell, "risk_score": risk, "risk_bucket": score_to_bucket(risk).value}
+
+
+def score_changing_wind_point(lat: float, lon: float, scenario: str = "baseline", horizon: str = "current") -> dict:
+    cell = h3.latlng_to_cell(lat, lon, 8)
+    hit = _cached(cell, "changing_wind", scenario, horizon)
+    if hit:
+        return hit
+    d = cmip6_delta_latlon(lat, lon, scenario, horizon)
+    if d is None or d.dwind_frac != d.dwind_frac:   # None, or NaN wind (field not built / gap)
+        return {"status": "insufficient_data", "h3_cell": cell,
+                "reason": "no CMIP6 near-surface wind delta here (baseline/current, or the wind field is unbuilt/a gap)"}
+    risk = changing_wind_score(d.dwind_frac)
+    _insert(cell, "changing_wind", risk, CHG_WIND_VERSION, scenario, horizon,
+            {"wind_change_frac": round(d.dwind_frac, 3), "across_model_std": round(d.dwind_std, 3), "n_models": d.n_models,
+             "on_demand": True, "tier": "screening", "method": "CMIP6 ensemble-mean |fractional near-surface wind change| vs 1995–2014"})
     return {"status": "scored", "h3_cell": cell, "risk_score": risk, "risk_bucket": score_to_bucket(risk).value}

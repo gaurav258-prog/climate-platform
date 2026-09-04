@@ -1,0 +1,235 @@
+<title>Calibration Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f6f9fc; --ink:#0e2237; --ink2:#3d5266; --mute:#6a7d8f; --line:#d9e2ec;
+    --sky:#2f7fd6; --sky-soft:#e4f0fd; --teal:#0e93a0; --teal-soft:#e2f4f6;
+    --good:#2e9e5b; --good-soft:#e4f5eb; --warn:#c9862a; --warn-soft:#faf0dd; --bad:#c34637; --bad-soft:#fae7e4;
+    --heat:#d0603a; --heat-soft:#f9e6de; --slate:#5a6b7a; --slate-soft:#eef2f6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --heat:#e08a63; --heat-soft:#2c1810; --slate:#8ba0b4; --slate-soft:#18242f;
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --heat:#e08a63; --heat-soft:#2c1810; --slate:#8ba0b4; --slate-soft:#18242f;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:44px 24px 80px; }
+  .mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  .eyebrow{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); }
+  h1{ font-family:var(--ser); font-weight:600; font-size:46px; line-height:1.04; letter-spacing:-.015em; margin:10px 0 12px; text-wrap:balance; }
+  .lede{ font-size:19px; color:var(--ink2); max-width:70ch; }
+  .meta{ font-family:var(--mono); font-size:12px; color:var(--mute); margin-top:14px; }
+
+  h2{ font-family:var(--ser); font-weight:600; font-size:27px; letter-spacing:-.01em; margin:52px 0 6px; }
+  h2 .n{ font-family:var(--mono); font-size:15px; font-weight:500; color:var(--teal); margin-right:12px; }
+  .sec-sub{ color:var(--mute); font-size:15px; margin:0 0 20px; max-width:76ch; }
+
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:26px 0 6px; }
+  @media (max-width:760px){ .stats{ grid-template-columns:repeat(2,1fr) } }
+  .stat{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .stat .v{ font-family:var(--mono); font-weight:600; font-size:32px; letter-spacing:-.02em; color:var(--ink); }
+  .stat .v small{ font-size:15px; color:var(--mute) }
+  .stat .k{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); margin-top:4px; }
+  .stat.g .v{ color:var(--good) }
+
+  /* hazard grid */
+  .hz{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:860px){ .hz{ grid-template-columns:repeat(2,1fr) } }
+  @media (max-width:520px){ .hz{ grid-template-columns:1fr } }
+  .hcard{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 15px; border-top:3px solid var(--slate); }
+  .hcard.acute{ border-top-color:var(--heat) } .hcard.chronic{ border-top-color:var(--sky) } .hcard.geo{ border-top-color:var(--slate) }
+  .hcard .hn{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .hcard h4{ margin:0; font-size:15.5px; font-weight:700; }
+  .hcard .nat{ font-family:var(--mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); }
+  .hcard .line{ font-size:12.5px; color:var(--ink2); margin-top:7px; } .hcard .line b{ color:var(--ink) }
+  .hcard .proj{ font-family:var(--mono); font-size:10.5px; color:var(--mute); margin-top:8px; }
+
+  .chip{ font-family:var(--mono); font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; letter-spacing:.02em; }
+  .c-val{ background:var(--good-soft); color:var(--good) } .c-fair{ background:var(--teal-soft); color:var(--teal) }
+  .c-held{ background:var(--warn-soft); color:var(--warn) } .c-thin{ background:var(--bad-soft); color:var(--bad) }
+  .c-geo{ background:var(--sky-soft); color:var(--sky) } .c-refine{ background:var(--slate-soft); color:var(--slate) }
+
+  /* filter */
+  .filter{ display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 14px; }
+  .fbtn{ font-family:var(--mono); font-size:12px; font-weight:600; padding:7px 14px; border-radius:20px; border:1px solid var(--line); background:var(--panel); color:var(--ink2); cursor:pointer; }
+  .fbtn.on{ background:var(--ink); color:var(--panel); border-color:var(--ink); }
+
+  /* belt table */
+  .tbl-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:16px; }
+  table.belts{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:720px; }
+  .belts th,.belts td{ padding:11px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .belts thead th{ background:var(--panel2); font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--mute); position:sticky; top:0; }
+  .belts tbody tr:last-child td{ border-bottom:none }
+  .belts tbody tr:hover{ background:var(--panel2) }
+  .crop{ font-weight:600; color:var(--ink) } .geo{ font-family:var(--mono); font-size:11px; color:var(--mute) }
+  .dtag{ font-family:var(--mono); font-size:10px; font-weight:600; padding:3px 7px; border-radius:6px; }
+  .d-spei{ background:var(--sky-soft); color:var(--sky) } .d-heat{ background:var(--heat-soft); color:var(--heat) }
+  .sign{ font-family:var(--mono); font-weight:600; font-size:13px } .s-pos{ color:var(--good) } .s-neg{ color:var(--bad) }
+  .rho{ font-family:var(--mono); font-weight:600; font-variant-numeric:tabular-nums }
+  .why{ color:var(--mute); font-size:12px; max-width:34ch }
+  /* season strip */
+  .season{ display:inline-flex; gap:2px; }
+  .season i{ width:8px; height:14px; border-radius:2px; background:var(--line); display:inline-block; }
+  .season i.on{ background:var(--teal) }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px 22px; margin:14px 0; }
+  .legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--ink2); margin-top:12px; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .assume{ background:var(--panel2); border:1px dashed var(--line); border-radius:14px; padding:16px 20px; font-size:13.5px; color:var(--ink2); margin-top:16px; }
+  .assume b{ color:var(--ink) }
+  .foot{ margin-top:42px; padding-top:18px; border-top:1px solid var(--line); font-size:12.5px; color:var(--mute) }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Tellumen · Methodology</div>
+  <h1>Calibration Atlas</h1>
+  <p class="lede">Every risk figure we publish stands on a cited, backtested physical mechanism — a specific driver, season, and direction, tested against decades of real outcomes. This is that layer, in full: the passes <i>and</i> the honest holds. The 80% under the number.</p>
+  <p class="meta">Grounded in the live engine · core/types.py (12 hazards) + agri_yield.py (22 belts) · backtest n≈34 yrs</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">12</div><div class="k">Hazard channels</div></div>
+    <div class="stat"><div class="v">22</div><div class="k">Agri crop belts</div></div>
+    <div class="stat g"><div class="v">11<small>/22</small></div><div class="k">Belts pass the honesty gate</div></div>
+    <div class="stat"><div class="v">11<small>/22</small></div><div class="k">Honestly held back</div></div>
+  </div>
+
+  <!-- HAZARDS -->
+  <h2><span class="n">01</span>The 12 hazard channels</h2>
+  <p class="sec-sub">Each hazard is a distinct physical channel with its own data, validation method, and projection basis. Where coverage or validation is thin, we say so — a supervisor should see the gaps, not just the wins.</p>
+  <div class="hz" id="hazards"></div>
+  <div class="legend">
+    <span><span class="chip c-val">validated</span> backtested, passes gate</span>
+    <span><span class="chip c-fair">fair</span> passes, moderate skill</span>
+    <span><span class="chip c-geo">geophysical</span> no climate projection (correct)</span>
+    <span><span class="chip c-thin">thin</span> coverage/validation limited — disclosed</span>
+  </div>
+
+  <!-- AGRI MATRIX -->
+  <h2><span class="n">02</span>The 22-belt calibration matrix</h2>
+  <p class="sec-sub">For every crop belt: which driver, which growing-season window, which direction, and whether it clears the backtest. The wheat/cocoa/olive belts pass; the irrigated and Southern-Hemisphere ones are held or pending refinement — <b>shown, not hidden.</b></p>
+  <div class="filter" id="filter">
+    <button class="fbtn on" data-f="all">All 22</button>
+    <button class="fbtn" data-f="validated">✓ Validated (11)</button>
+    <button class="fbtn" data-f="held">Held / refine (11)</button>
+  </div>
+  <div class="tbl-wrap">
+    <table class="belts">
+      <thead><tr>
+        <th>Crop · geography</th><th>Driver</th><th>Growing season</th><th>Sign</th><th>Backtest ρ</th><th>Status</th><th>Mechanism</th>
+      </tr></thead>
+      <tbody id="belts"></tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><span class="dtag d-spei">SPEI</span> drought / moisture index</span>
+    <span><span class="dtag d-heat">HEAT</span> temperature anomaly °C</span>
+    <span><span class="sign s-pos">＋</span> wetter/cooler → higher yield</span>
+    <span><span class="sign s-neg">－</span> hotter → lower yield</span>
+    <span><i class="season" style="vertical-align:middle"><i class="on"></i></i> growing-season month</span>
+  </div>
+
+  <div class="assume">
+    <b>How to read this — and its limits (a scientist should hold us to these):</b> ρ is the <b>out-of-sample</b> rank correlation of the growing-season hazard signal against the <b>detrended</b> observed yield (technology trend removed), n≈34 years. Headline belts carry their live backtested ρ; the rest show status from the 22-belt run. The gate is deliberately domain-calibrated (climate is one of several yield drivers), and where a driver explains yield only partly we publish a <b>band</b>, not a point. Held belts fail honestly for physical reasons — irrigation buffers the drought signal (US maize ρ=−0.06), or a Southern-Hemisphere harvest-year needs re-alignment (Brazil coffee ρ=−0.44). Correlation on a pre-stated mechanism is evidence for that mechanism, not proof of causation — we label everything as disclosed methodology.
+  </div>
+
+  <div class="foot">
+    Tellumen — physical &amp; nature climate-risk intelligence. Every cell is reproducible from the live engine; this Atlas is the audit surface behind the score.
+  </div>
+</div>
+
+<script>
+  var HAZARDS = [
+    {name:"Drought", nat:"chronic", cls:"chronic", val:["c-val","validated"], line:"Growing-season SPEI vs detrended yield across many belts — our strongest agri evidence.", proj:"projection · climatology shift"},
+    {name:"Soil-water", nat:"chronic", cls:"chronic", val:["c-val","validated"], line:"Root-zone moisture anomaly — a distinct channel from SPEI. Global baseline 12.3M rows.", proj:"projection · climatology shift"},
+    {name:"Seismic", nat:"acute", cls:"geo", val:["c-val","strong"], line:"Score vs USGS/EMSC catalogue (M≥5): Spearman <b>0.81</b>, AUC <b>0.96</b>; OOS 0.83.", proj:"geophysical · no projection"},
+    {name:"Storm", nat:"acute", cls:"acute", val:["c-fair","fair"], line:"Score vs observed peak wind over hits: Spearman <b>0.47</b> — passes as severity.", proj:"projection · CMIP6 elasticity + band"},
+    {name:"Heat — acute", nat:"acute", cls:"acute", val:["c-val","validated"], line:"Validated on the agri heat channel (West-Africa cocoa harmattan, ρ 0.60).", proj:"projection · climatology shift"},
+    {name:"Frost", nat:"acute", cls:"acute", val:["c-fair","covered"], line:"Global frost baseline built (3.1M rows); feeds the agri frost channel.", proj:"projection · climatology shift"},
+    {name:"Flood — fluvial", nat:"acute", cls:"acute", val:["c-thin","thin"], line:"Standing + on-demand coverage; validation via event reproduction is still N-limited.", proj:"projection · CMIP6 elasticity (no SLR term)"},
+    {name:"Wildfire", nat:"acute", cls:"acute", val:["c-fair","covered"], line:"On-demand coverage globally; heat + short-window dryness driven.", proj:"projection · CMIP6 elasticity"},
+    {name:"Coastal flood", nat:"acute", cls:"acute", val:["c-thin","thin"], line:"On-demand; flagged thin — no sea-level-rise term yet in the projection.", proj:"projection · limited"},
+    {name:"Heat — chronic", nat:"chronic", cls:"chronic", val:["c-thin","thin"], line:"Chronic-heat exposure channel; coverage flagged thin, disclosed in the coverage report.", proj:"projection · climatology shift"},
+    {name:"Volcanic", nat:"acute", cls:"geo", val:["c-geo","geophysical"], line:"Geophysical hazard; the one remaining gap in any-address coverage (zone methodology pending).", proj:"geophysical · no projection"},
+    {name:"Pollution", nat:"chronic", cls:"chronic", val:["c-thin","thin"], line:"Nature/pollution channel; thin coverage today, disclosed — not presented as validated.", proj:"projection · n/a"}
+  ];
+
+  var BELTS = [
+    {crop:"Wheat", geo:"MA · Maghreb", d:"spei", sign:1, m:[2,3,4], rho:0.67, st:"validated", why:"Rainfed Maghreb wheat — moisture-limited"},
+    {crop:"Wheat", geo:"AU · winter-spring", d:"spei", sign:1, m:[6,7,8,9], rho:0.64, st:"validated", why:"Australian dryland wheat"},
+    {crop:"Cocoa", geo:"CI · GH", d:"heat", sign:-1, m:[1,2,3], rho:0.60, st:"validated", why:"Jan–Mar harmattan heat"},
+    {crop:"Wheat", geo:"TR · Anatolia", d:"spei", sign:1, m:[3,4,5], rho:0.40, st:"validated", why:"Winter-wheat spring grain-fill moisture"},
+    {crop:"Olive oil", geo:"ES", d:"spei", sign:1, m:[4,5,6,7,8,9], rho:0.36, st:"validated", why:"Drought-driven; ranged tier r²≈0.51"},
+    {crop:"Wheat", geo:"IR · rainfed", d:"spei", sign:1, m:[2,3,4], rho:null, st:"validated", why:"Iran rainfed wheat"},
+    {crop:"Wheat", geo:"TN · rainfed", d:"spei", sign:1, m:[2,3,4], rho:null, st:"validated", why:"Tunisia rainfed wheat"},
+    {crop:"Wheat", geo:"DZ · rainfed", d:"spei", sign:1, m:[2,3,4], rho:null, st:"validated", why:"Algeria rainfed wheat"},
+    {crop:"Wheat", geo:"SY · rainfed", d:"spei", sign:1, m:[3,4,5], rho:null, st:"validated", why:"Syria rainfed wheat"},
+    {crop:"Wheat", geo:"KZ · spring", d:"spei", sign:1, m:[5,6,7], rho:null, st:"validated", why:"Kazakh dryland spring wheat"},
+    {crop:"Barley", geo:"ES · central", d:"spei", sign:1, m:[3,4,5], rho:null, st:"validated", why:"Central Spain rainfed barley"},
+    {crop:"Maize", geo:"US · cornbelt", d:"spei", sign:1, m:[6,7,8], rho:-0.06, st:"held", why:"Irrigated cornbelt buffers drought — honest fail"},
+    {crop:"Coffee", geo:"BR", d:"spei", sign:1, m:[10,11,12,1,2,3], rho:-0.44, st:"refine", why:"SH harvest-year alignment; frost-driven, refit pending"},
+    {crop:"Soybean", geo:"BR", d:"spei", sign:1, m:[12,1,2], rho:null, st:"refine", why:"SH summer — harvest-year alignment pending"},
+    {crop:"Maize", geo:"ZA", d:"spei", sign:1, m:[12,1,2], rho:null, st:"refine", why:"SH summer — alignment pending"},
+    {crop:"Wheat", geo:"AR · winter-spring", d:"spei", sign:1, m:[7,8,9,10], rho:null, st:"refine", why:"SH — alignment pending"},
+    {crop:"Wine grapes", geo:"FR · Bordeaux", d:"heat", sign:-1, m:[6,7,8,9], rho:null, st:"refine", why:"Single-event vintage heat — structurally hard"},
+    {crop:"Wheat", geo:"CA · prairies", d:"spei", sign:1, m:[5,6,7], rho:null, st:"held", why:"Temperate prairies — moisture rarely limiting"},
+    {crop:"Rice", geo:"IN · kharif", d:"spei", sign:1, m:[6,7,8,9], rho:null, st:"held", why:"Monsoon-fed & irrigated — humid buffer"},
+    {crop:"Cane sugar", geo:"IN", d:"spei", sign:1, m:[6,7,8,9], rho:null, st:"held", why:"Irrigated — drought signal buffered"},
+    {crop:"Sugar beet", geo:"ES", d:"spei", sign:1, m:[5,6,7,8], rho:null, st:"held", why:"Irrigated — drought signal buffered"},
+    {crop:"Sorghum", geo:"NG · wet-season", d:"spei", sign:1, m:[6,7,8,9], rho:null, st:"held", why:"Humid tropics — not drought-limited"}
+  ];
+
+  function hazardCard(h){
+    return '<div class="hcard '+h.cls+'"><div class="hn"><h4>'+h.name+'</h4><span class="chip '+h.val[0]+'">'+h.val[1]+'</span></div>'+
+      '<div class="nat">'+h.nat+'</div><div class="line">'+h.line+'</div><div class="proj">'+h.proj+'</div></div>';
+  }
+  function seasonStrip(m){
+    var s='<span class="season">';
+    for(var i=1;i<=12;i++){ s+='<i class="'+(m.indexOf(i)>=0?'on':'')+'"></i>'; }
+    return s+'</span>';
+  }
+  function statusChip(st){
+    if(st==="validated") return '<span class="chip c-val">validated</span>';
+    if(st==="held") return '<span class="chip c-held">held</span>';
+    return '<span class="chip c-refine">refine</span>';
+  }
+  function beltRow(b){
+    var pass = (b.st==="validated");
+    return '<tr data-pass="'+(pass?"1":"0")+'">'+
+      '<td><span class="crop">'+b.crop+'</span><br><span class="geo">'+b.geo+'</span></td>'+
+      '<td><span class="dtag '+(b.d==="spei"?"d-spei\">SPEI":"d-heat\">HEAT")+'</span></td>'+
+      '<td>'+seasonStrip(b.m)+'</td>'+
+      '<td><span class="sign '+(b.sign>0?"s-pos\">＋":"s-neg\">－")+'</span></td>'+
+      '<td><span class="rho">'+(b.rho===null?'<span style="color:var(--mute)">·</span>':(b.rho>0?'':'')+b.rho.toFixed(2))+'</span></td>'+
+      '<td>'+statusChip(b.st)+'</td>'+
+      '<td class="why">'+b.why+'</td></tr>';
+  }
+
+  document.getElementById('hazards').innerHTML = HAZARDS.map(hazardCard).join('');
+  var body = document.getElementById('belts');
+  body.innerHTML = BELTS.map(beltRow).join('');
+
+  document.getElementById('filter').addEventListener('click', function(e){
+    var btn = e.target.closest('.fbtn'); if(!btn) return;
+    [].forEach.call(this.querySelectorAll('.fbtn'), function(b){ b.classList.remove('on'); });
+    btn.classList.add('on');
+    var f = btn.getAttribute('data-f');
+    [].forEach.call(body.querySelectorAll('tr'), function(tr){
+      var pass = tr.getAttribute('data-pass')==="1";
+      tr.style.display = (f==="all" || (f==="validated"&&pass) || (f==="held"&&!pass)) ? "" : "none";
+    });
+  });
+</script>

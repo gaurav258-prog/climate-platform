@@ -80,6 +80,14 @@ def _facts(pack: dict) -> list[dict]:
             {"concept": "NonCompliantPlots", "dr": "ESRS E4-5", "label": "Non-compliant plots (post-cutoff forest loss)", "value": e4["non_compliant"], "unit": "pure", "kind": "count"},
             {"concept": "PostCutoffForestLossHa", "dr": "ESRS E4-5", "label": "Post-cutoff forest loss", "value": e4["post_cutoff_forest_loss_ha"], "unit": "hectare", "kind": "area"},
         ]
+        pa = e4.get("protected_areas")
+        if pa:
+            out += [
+                {"concept": "SitesInProtectedArea", "dr": "ESRS E4-5", "label": "Own sites in or near a protected area", "value": pa["sites_in_protected"], "unit": "pure", "kind": "count"},
+                {"concept": "SourcingPlotsInProtectedArea", "dr": "ESRS E4-5", "label": "Sourcing plots in or near a protected area", "value": pa["plots_in_protected"], "unit": "pure", "kind": "count"},
+                {"concept": "SiteValueInProtectedAreaEUR", "dr": "ESRS E4-5", "label": "Annual site value in or near a protected area", "value": round(pa["site_value_in_protected_eur"]), "unit": "eur", "kind": "monetary"},
+                {"concept": "SourcingSpendInProtectedAreaEUR", "dr": "ESRS E4-5", "label": "Annual sourcing spend in or near a protected area", "value": round(pa["plot_spend_in_protected_eur"]), "unit": "eur", "kind": "monetary"},
+            ]
     return out
 
 

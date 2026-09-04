@@ -1,0 +1,227 @@
+<title>Path to Twenty-Eight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f6f9fc; --ink:#0e2237; --ink2:#3d5266; --mute:#6a7d8f; --line:#d9e2ec;
+    --sky:#2f7fd6; --sky-soft:#e4f0fd; --teal:#0e93a0; --teal-soft:#e2f4f6;
+    --good:#2e9e5b; --good-soft:#e4f5eb; --warn:#c9862a; --warn-soft:#faf0dd; --bad:#c34637; --bad-soft:#fae7e4;
+    --heat:#d0603a; --heat-soft:#f9e6de; --slate:#5a6b7a; --slate-soft:#eef2f6;
+    --p1:#0e93a0; --p2:#2f7fd6; --p3:#7a6bd0; --p4:#94a3b0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --heat:#e08a63; --heat-soft:#2c1810; --slate:#8ba0b4; --slate-soft:#18242f;
+      --p1:#43c0cd; --p2:#6fb0f0; --p3:#a094e0; --p4:#7d8b98;
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --heat:#e08a63; --heat-soft:#2c1810; --slate:#8ba0b4; --slate-soft:#18242f;
+      --p1:#43c0cd; --p2:#6fb0f0; --p3:#a094e0; --p4:#7d8b98;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:44px 24px 80px; }
+  .mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  .eyebrow{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); }
+  h1{ font-family:var(--ser); font-weight:600; font-size:46px; line-height:1.04; letter-spacing:-.015em; margin:10px 0 12px; text-wrap:balance; }
+  .lede{ font-size:19px; color:var(--ink2); max-width:70ch; }
+  .meta{ font-family:var(--mono); font-size:12px; color:var(--mute); margin-top:14px; }
+
+  h2{ font-family:var(--ser); font-weight:600; font-size:27px; letter-spacing:-.01em; margin:52px 0 6px; }
+  h2 .n{ font-family:var(--mono); font-size:15px; font-weight:500; color:var(--teal); margin-right:12px; }
+  .sec-sub{ color:var(--mute); font-size:15px; margin:0 0 20px; max-width:76ch; }
+
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:26px 0 6px; }
+  @media (max-width:760px){ .stats{ grid-template-columns:repeat(2,1fr) } }
+  .stat{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .stat .v{ font-family:var(--mono); font-weight:600; font-size:32px; letter-spacing:-.02em; color:var(--ink); }
+  .stat .v small{ font-size:15px; color:var(--mute) }
+  .stat .k{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); margin-top:4px; }
+  .stat.g .v{ color:var(--good) }
+
+  /* tiers */
+  .tiers{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:760px){ .tiers{ grid-template-columns:1fr } }
+  .tier{ border:1px solid var(--line); border-radius:14px; padding:15px 17px; background:var(--panel); }
+  .tier .tt{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; }
+  .tier.c .tt{ color:var(--good) } .tier.s .tt{ color:var(--warn) } .tier.r .tt{ color:var(--sky) }
+  .tier h4{ margin:5px 0 5px; font-size:16px; } .tier p{ margin:0; font-size:13px; color:var(--ink2) }
+
+  /* 28 grid */
+  .fam{ margin-top:20px; }
+  .fam h3{ font-family:var(--sans); font-weight:700; font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--mute); margin:0 0 10px; }
+  .hgrid{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+  @media (max-width:680px){ .hgrid{ grid-template-columns:1fr } }
+  .hz{ display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:9px 12px; }
+  .hz .nm{ flex:1; font-size:14px; font-weight:500; }
+  .hz .nm small{ display:block; font-family:var(--mono); font-size:10px; color:var(--mute); font-weight:400; }
+  .badge{ font-family:var(--mono); font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+  .b-now{ background:var(--good-soft); color:var(--good) }
+  .b-p1{ background:color-mix(in srgb,var(--p1) 16%, transparent); color:var(--p1) }
+  .b-p2{ background:color-mix(in srgb,var(--p2) 16%, transparent); color:var(--p2) }
+  .b-p3{ background:color-mix(in srgb,var(--p3) 18%, transparent); color:var(--p3) }
+  .b-p4{ background:var(--slate-soft); color:var(--slate) }
+  .nat{ font-family:var(--mono); font-size:9px; color:var(--mute); border:1px solid var(--line); border-radius:5px; padding:1px 4px; }
+
+  /* phases */
+  .phase{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin:12px 0; border-left:4px solid var(--line); }
+  .phase.p0{ border-left-color:var(--slate) } .phase.p1{ border-left-color:var(--p1) } .phase.p2{ border-left-color:var(--p2) } .phase.p3{ border-left-color:var(--p3) } .phase.p4{ border-left-color:var(--p4) }
+  .phase .ph{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .phase .pw{ font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); }
+  .phase h4{ font-family:var(--ser); font-size:19px; font-weight:600; margin:0; }
+  .phase .cnt{ font-family:var(--mono); font-size:12px; color:var(--mute); }
+  .phase .items{ margin:11px 0 0; font-size:14px; color:var(--ink2); }
+  .phase .items b{ color:var(--ink) }
+  .phase .src{ font-family:var(--mono); font-size:11.5px; color:var(--mute); margin-top:9px; }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px 22px; margin:14px 0; }
+  ul.clean{ margin:8px 0; padding-left:20px; } ul.clean li{ margin:7px 0; font-size:14.5px; }
+  .assume{ background:var(--panel2); border:1px dashed var(--line); border-radius:14px; padding:16px 20px; font-size:13.5px; color:var(--ink2); margin-top:16px; }
+  .assume b{ color:var(--ink) }
+  .foot{ margin-top:42px; padding-top:18px; border-top:1px solid var(--line); font-size:12.5px; color:var(--mute) }
+  code{ font-family:var(--mono); font-size:12.5px; background:var(--panel2); padding:1px 5px; border-radius:5px; }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Tellumen · Coverage Roadmap</div>
+  <h1>Path to twenty-eight</h1>
+  <p class="lede">A plan to carry every one of the EU Taxonomy's 28 physical climate hazards in the software — each at a <i>declared maturity tier</i>, so coverage becomes complete without ever presenting an uncalibrated channel as validated.</p>
+  <p class="meta">Reference: EU Taxonomy Climate Delegated Act, Appendix A · mapped against the live engine's 12 channels</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">28</div><div class="k">EU Taxonomy hazards</div></div>
+    <div class="stat g"><div class="v">9</div><div class="k">Covered today (some partial)</div></div>
+    <div class="stat"><div class="v">19</div><div class="k">To add across 4 phases</div></div>
+    <div class="stat"><div class="v">+3</div><div class="k">Extra: seismic · volcanic · pollution</div></div>
+  </div>
+
+  <!-- 0 · the honesty spine -->
+  <h2><span class="n">00</span>The rule: coverage ≠ calibration</h2>
+  <p class="sec-sub">Every channel ships with a maturity tier stamped on it. That is how we reach "all 28" honestly — some are backtested, some are disclosed indicators, and the label always says which. A channel graduates upward only when it passes the backtest, never before.</p>
+  <div class="tiers">
+    <div class="tier c"><div class="tt">◆ TIER C — CALIBRATED</div><h4>Backtested &amp; gated</h4><p>Passes the honesty gate (r²/rank skill on real outcomes). Publishes scores &amp; € figures. E.g. drought, cyclone-severity, seismic.</p></div>
+    <div class="tier s"><div class="tt">◆ TIER S — SCREENING</div><h4>Disclosed indicator</h4><p>A real authoritative EO/agency exposure indicator, labelled "indicator, not yet calibrated." Flags risk; never dressed as skill.</p></div>
+    <div class="tier r"><div class="tt">◆ TIER R — REFERENCE</div><h4>Zone / geophysical</h4><p>Static hazard-zone or geophysical layer where a climate projection doesn't apply (or data is regional). Coverage for completeness, clearly bounded.</p></div>
+  </div>
+
+  <!-- 1 · the 28 mapped -->
+  <h2><span class="n">01</span>The 28, mapped to our status</h2>
+  <p class="sec-sub">The full Appendix-A list across its four families. Green = covered today; P1–P4 = the phase that adds it. <b>A</b> = acute, <b>C</b> = chronic.</p>
+  <div id="grid"></div>
+  <p class="src" style="font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:14px">Note: EU "Flood" is one hazard spanning coastal / fluvial / pluvial / groundwater — we cover coastal + fluvial today; pluvial (P1) and groundwater (P2) complete it. Seismic, volcanic and pollution sit <i>outside</i> the 28 (geophysical / nature) — coverage we carry beyond the list.</p>
+
+  <!-- 2 · the phased plan -->
+  <h2><span class="n">02</span>The build plan</h2>
+  <p class="sec-sub">Adding a hazard is already a repeatable pattern — a <code>HazardType</code> entry, a data-ingest job, a scoring channel, a validator, and an Atlas row. The long pole is data acquisition for a few sources, not code. Phases are ordered by relevance × feasibility, not calendar.</p>
+
+  <div class="phase p0">
+    <div class="ph"><span class="pw">Phase 0</span><h4>Make coverage first-class</h4><span class="cnt">foundation · small</span></div>
+    <p class="items">Add a <b>maturity-tier field</b> to every <code>HazardType</code> and a <b>coverage registry</b> keyed to the Appendix-A 28. Surface it as the <b>“Coverage vs EU Taxonomy”</b> panel (the Atlas view). This alone lets us honestly show all 28 — populated where we're live, roadmap where we're not — before a single new hazard is built.</p>
+    <p class="src">deliverable · the completeness scoreboard a regulator / ING asks for</p>
+  </div>
+
+  <div class="phase p1">
+    <div class="ph"><span class="pw">Phase 1</span><h4>High-value climate adds</h4><span class="cnt">6 channels · Tier S→C</span></div>
+    <p class="items"><b>Sea-level rise</b>, <b>water stress</b> (upgrade), <b>heavy precipitation</b>, <b>pluvial flood</b>, <b>landslide</b>, <b>land subsidence</b>. These close the gaps a supervisor scrutinises most (water + ground movement + surface flood + coastal completion).</p>
+    <p class="src">data · Copernicus altimetry · WRI Aqueduct · ERA5/IMERG · NASA landslide susceptibility · Copernicus EGMS (free EU InSAR)</p>
+  </div>
+
+  <div class="phase p2">
+    <div class="ph"><span class="pw">Phase 2</span><h4>Complete acute + solid-mass chronic</h4><span class="cnt">6 channels · Tier S</span></div>
+    <p class="items"><b>Groundwater flood</b>, <b>cold-wave</b> (extend frost), <b>coastal erosion</b>, <b>soil erosion</b>, <b>soil degradation</b>, <b>saline intrusion</b>. Many double as ESRS <b>E3 (water)</b> and <b>E4 (nature)</b> coverage.</p>
+    <p class="src">data · satellite shoreline · ESDAC / RUSLE soil · ERA5 · regional coastal models</p>
+  </div>
+
+  <div class="phase p3">
+    <div class="ph"><span class="pw">Phase 3</span><h4>Chronic trend &amp; variability indicators</h4><span class="cnt">5 channels · Tier S</span></div>
+    <p class="items"><b>Changing temperature</b>, <b>temperature variability</b>, <b>changing precipitation patterns</b>, <b>precipitation/hydrological variability</b>, <b>changing wind patterns</b>. These are honestly <i>indicators</i> — reanalysis + CMIP6 trend signals, never event models. Tier S by nature.</p>
+    <p class="src">data · ERA5 reanalysis trends · CMIP6 deltas (already in the engine)</p>
+  </div>
+
+  <div class="phase p4">
+    <div class="ph"><span class="pw">Phase 4</span><h4>Niche &amp; geophysical tail</h4><span class="cnt">6 channels · Tier R</span></div>
+    <p class="items"><b>Permafrost thaw</b>, <b>tornado</b>, <b>ocean acidification</b>, <b>glacial-lake outburst</b>, <b>avalanche</b>, <b>solifluction</b>. Low EU-portfolio relevance or regional; carried as reference layers, flagged "limited / regional" — completeness without over-claiming.</p>
+    <p class="src">data · ESA CCI permafrost · lake inventories + DEM · regional catalogues (where they exist)</p>
+  </div>
+
+  <div class="assume">
+    <b>The two roadmaps run at different speeds — on purpose.</b> The <i>coverage</i> roadmap (all 28 present, each tiered) can move fast: most new channels launch at <b>Tier S (screening)</b> from authoritative data. The <i>calibration</i> roadmap underneath is slower and honest: a channel graduates <b>S → C</b> only when it passes a real backtest, exactly like the 22 crop belts. So we can truthfully say "all 28 EU hazards covered" long before "all 28 backtested" — and we'll always show which is which. That gap, disclosed, is the credibility a regulator and a physical-risk PhD reward.
+  </div>
+
+  <h2><span class="n">03</span>What it buys us</h2>
+  <div class="panel">
+    <ul class="clean">
+      <li><b>Full EU-Taxonomy alignment</b> on the completeness axis — the scoreboard a supervisor and a bank's model team judge coverage by.</li>
+      <li><b>ESRS E1/E3/E4 breadth</b> in one engine — the water and nature channels land climate + nature disclosure together.</li>
+      <li><b>The honesty tiering is itself the differentiator</b> — "28 covered, N calibrated, here's the ladder" beats a competitor's round number with no provenance.</li>
+      <li><b>Harder to leapfrog</b> — a cloner can copy one channel; matching 28 tiered, sourced, and graduating channels is the compounding moat.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    Tellumen — physical &amp; nature climate-risk intelligence. Internal coverage roadmap; sequencing by relevance × data-feasibility, not committed dates.
+  </div>
+</div>
+
+<script>
+  var H = [
+    // family, name, sub, nat, status(now/p1/p2/p3/p4)
+    ["Temperature-related",[
+      ["Heat wave","Calibrated · agri","A","now"],
+      ["Heat stress","Screening→Calibrated","C","now"],
+      ["Cold wave / frost","frost baseline live","A","now"],
+      ["Wildfire","screening, global","A","now"],
+      ["Changing temperature","reanalysis/CMIP6 trend","C","p3"],
+      ["Temperature variability","trend indicator","C","p3"],
+      ["Permafrost thawing","ESA CCI · high-latitude","C","p4"]
+    ]],
+    ["Wind-related",[
+      ["Cyclone / hurricane / typhoon","Calibrated · severity","A","now"],
+      ["Storm (blizzard, dust, sand)","screening, global","A","now"],
+      ["Changing wind patterns","trend indicator","C","p3"],
+      ["Tornado","regional · reference","A","p4"]
+    ]],
+    ["Water-related",[
+      ["Drought","Calibrated · multi-belt","A","now"],
+      ["Flood (coastal/fluvial/pluvial/gw)","live: coastal+fluvial; pluvial P1, gw P2","A","now"],
+      ["Water stress","partial → upgrade P1","C","now"],
+      ["Sea-level rise","Copernicus altimetry","C","p1"],
+      ["Heavy precipitation","ERA5 / IMERG","A","p1"],
+      ["Saline intrusion","coastal · regional","C","p2"],
+      ["Changing precipitation patterns","trend indicator","C","p3"],
+      ["Precipitation / hydrological variability","trend indicator","C","p3"],
+      ["Ocean acidification","marine · reference","C","p4"],
+      ["Glacial-lake outburst","regional · reference","A","p4"]
+    ]],
+    ["Solid-mass-related",[
+      ["Landslide","NASA susceptibility","A","p1"],
+      ["Land subsidence","Copernicus EGMS (InSAR)","A","p1"],
+      ["Coastal erosion","satellite shoreline","C","p2"],
+      ["Soil erosion","ESDAC / RUSLE · E4","C","p2"],
+      ["Soil degradation","ESDAC · E4","C","p2"],
+      ["Avalanche","mountain · reference","A","p4"],
+      ["Solifluction","niche · reference","C","p4"]
+    ]]
+  ];
+  var LBL = {now:["b-now","✓ live"], p1:["b-p1","Phase 1"], p2:["b-p2","Phase 2"], p3:["b-p3","Phase 3"], p4:["b-p4","Phase 4"]};
+  var out = "";
+  H.forEach(function(fam){
+    out += '<div class="fam"><h3>'+fam[0]+' · '+fam[1].length+'</h3><div class="hgrid">';
+    fam[1].forEach(function(h){
+      var l = LBL[h[3]];
+      out += '<div class="hz"><span class="nat">'+h[2]+'</span><span class="nm">'+h[0]+'<small>'+h[1]+'</small></span><span class="badge '+l[0]+'">'+l[1]+'</span></div>';
+    });
+    out += '</div></div>';
+  });
+  document.getElementById('grid').innerHTML = out;
+</script>

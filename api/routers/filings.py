@@ -74,6 +74,7 @@ class CellPatch(BaseModel):
 def get_p3esg_cells(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     """`cells` = APPROVED manual values (rendered on the form); `pending` = proposals awaiting 4-eyes."""
     import json as _json
+
     from services.governance.filing_overrides import pending_grid_cells
     row = session.execute(text("SELECT p3esg_narratives FROM organizations WHERE org_id = CAST(:o AS uuid)"),
                           {"o": ctx["org"]["org_id"]}).scalar()

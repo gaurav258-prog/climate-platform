@@ -15,7 +15,6 @@ import argparse
 import asyncio
 import json
 import time
-from typing import Optional
 
 try:
     import httpx

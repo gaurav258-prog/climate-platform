@@ -13,7 +13,11 @@
     "EUDRCoveredPlots": "ESRS E4-5",
     "DeforestationFreePlots": "ESRS E4-5",
     "NonCompliantPlots": "ESRS E4-5",
-    "PostCutoffForestLossHa": "ESRS E4-5"
+    "PostCutoffForestLossHa": "ESRS E4-5",
+    "SitesInProtectedArea": "ESRS E4-5",
+    "SourcingPlotsInProtectedArea": "ESRS E4-5",
+    "SiteValueInProtectedAreaEUR": "ESRS E4-5",
+    "SourcingSpendInProtectedAreaEUR": "ESRS E4-5"
   },
   "elements": {
     "AssetValueAtMaterialPhysicalRisk": null,
@@ -27,6 +31,10 @@
     "EUDRCoveredPlots": null,
     "DeforestationFreePlots": null,
     "NonCompliantPlots": null,
-    "PostCutoffForestLossHa": null
+    "PostCutoffForestLossHa": null,
+    "SitesInProtectedArea": null,
+    "SourcingPlotsInProtectedArea": null,
+    "SiteValueInProtectedAreaEUR": null,
+    "SourcingSpendInProtectedAreaEUR": null
   }
 }

@@ -60,6 +60,7 @@ def test_sfdr_ixbrl_is_wellformed_and_inline_tags_waci():
     """SFDR now also emits Inline XBRL (iXBRL) — one document a person reads and a machine parses — sharing
     the ESRS tagger's serialization core."""
     from xml.dom import minidom
+
     from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl, sfdr_pai_xbrl
     with get_session() as s:
         fid = s.execute(text("SELECT fund_id::text FROM funds LIMIT 1")).scalar()

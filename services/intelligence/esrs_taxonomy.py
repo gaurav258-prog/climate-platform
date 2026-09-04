@@ -37,6 +37,10 @@ CONCEPTS: dict[str, dict] = {
     "DeforestationFreePlots":            {"dr": "ESRS E4-5", "label": "Deforestation-free plots (determined)",   "item_type": "count",    "period_type": "instant"},
     "NonCompliantPlots":                 {"dr": "ESRS E4-5", "label": "Non-compliant plots (post-cutoff loss)",  "item_type": "count",    "period_type": "instant"},
     "PostCutoffForestLossHa":            {"dr": "ESRS E4-5", "label": "Post-cutoff forest loss",                 "item_type": "area",     "period_type": "duration"},
+    "SitesInProtectedArea":              {"dr": "ESRS E4-5", "label": "Own sites in or near a protected area",  "item_type": "count",    "period_type": "instant"},
+    "SourcingPlotsInProtectedArea":      {"dr": "ESRS E4-5", "label": "Sourcing plots in or near a protected area", "item_type": "count", "period_type": "instant"},
+    "SiteValueInProtectedAreaEUR":       {"dr": "ESRS E4-5", "label": "Annual site value in/near a protected area",  "item_type": "monetary", "period_type": "duration"},
+    "SourcingSpendInProtectedAreaEUR":   {"dr": "ESRS E4-5", "label": "Annual sourcing spend in/near a protected area", "item_type": "monetary", "period_type": "duration"},
 }
 
 PROVISIONAL_NS = "https://tellumen.example/xbrl/esrs-provisional"

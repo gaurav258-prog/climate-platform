@@ -14,6 +14,12 @@ interface Topic {
   upstream?: { plots: number; plots_water_stressed: number; spend_exposed_eur: number; peak_score: number | null }
   eudr_covered_plots?: number; eudr_commodities?: number; deforestation_free?: number; non_compliant?: number
   geolocation_incomplete?: number; not_determined?: number; deforestation_free_pct_of_determined?: number | null; post_cutoff_forest_loss_ha?: number
+  protected_areas?: {
+    sites_in_protected: number; sites_total: number; site_value_in_protected_eur: number
+    plots_in_protected: number; plots_total: number; plot_spend_in_protected_eur: number
+    coverage: { loaded: { dataset: string; label: string; geography: string; cells: number }[]; authoritative_global_loaded: boolean; note: string }
+    basis: string
+  }
   basis?: string; detail_ref?: string; metric_kind?: string; e3_4_note?: string
 }
 interface Pack {
@@ -41,7 +47,7 @@ export default function EsrsPack() {
       <ReportTabs />
       <PageHeader eyebrow="Compliance · corporate sustainability reporting"
         title="ESRS (European Sustainability Reporting Standards) Climate & Nature pack"
-        lead="The ESRS topics driven by our physical-climate & deforestation engine — climate physical risk (E1), water (E3) and biodiversity/deforestation (E4) — assembled filing-grade to slot into your wider CSRD statement. GHG accounting, social and governance stay with your other tools, by design."
+        lead="The ESRS topics driven by our physical-climate & deforestation engine — climate physical risk (E1), water (E3) and biodiversity — deforestation + protected areas (E4) — assembled filing-grade to slot into your wider CSRD statement. GHG accounting, social and governance stay with your other tools, by design."
         actions={<>
           <Button variant="ghost" onClick={() => download('/v1/supply/esrs-pack.xlsx', `tellumen-esrs-climate-nature-${d.reporting_basis.scenario}.xlsx`)}>
             <Download size={15} /> Excel
@@ -93,6 +99,11 @@ export default function EsrsPack() {
                   <span className="text-[var(--color-mute)]">Deforestation-free</span><span className="text-right font-medium text-[var(--color-good)]">{t.deforestation_free}{t.deforestation_free_pct_of_determined != null ? ` · ${t.deforestation_free_pct_of_determined}%` : ''}</span>
                   <span className="text-[var(--color-mute)]">Non-compliant</span><span className="text-right font-medium" style={{ color: t.non_compliant ? 'var(--color-bad)' : 'var(--color-ink)' }}>{t.non_compliant}</span>
                   <span className="text-[var(--color-mute)]">Post-cutoff forest loss</span><span className="text-right font-medium">{t.post_cutoff_forest_loss_ha} ha</span>
+                  {t.protected_areas && (<>
+                    <span className="col-span-2 mt-1.5 text-[11px] uppercase tracking-wide text-[var(--color-faint)]">Protected areas · E4-5</span>
+                    <span className="text-[var(--color-mute)]">Sites in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.sites_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.sites_in_protected}/{t.protected_areas.sites_total}{t.protected_areas.site_value_in_protected_eur ? ` · ${eur(t.protected_areas.site_value_in_protected_eur)}` : ''}</span>
+                    <span className="text-[var(--color-mute)]">Plots in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.plots_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.plots_in_protected}/{t.protected_areas.plots_total}{t.protected_areas.plot_spend_in_protected_eur ? ` · ${eur(t.protected_areas.plot_spend_in_protected_eur)}` : ''}</span>
+                  </>)}
                 </div>
               )}
 
@@ -102,6 +113,14 @@ export default function EsrsPack() {
                 </p>
               )}
               {t.basis && <p className="text-[11px] text-[var(--color-faint)] mt-3">{t.basis}</p>}
+              {t.topic === 'E4' && t.protected_areas && (
+                <p className="text-[11px] mt-2 leading-relaxed rounded-md px-2.5 py-1.5 border"
+                   style={t.protected_areas.coverage.authoritative_global_loaded
+                     ? { color: 'var(--color-faint)', borderColor: 'var(--color-line)' }
+                     : { color: 'var(--color-warn)', borderColor: 'color-mix(in oklab, var(--color-warn) 35%, var(--color-line))', background: 'color-mix(in oklab, var(--color-warn) 7%, transparent)' }}>
+                  <span className="font-semibold">Protected-area coverage:</span> {t.protected_areas.coverage.loaded.map(l => l.label).join(' · ') || 'none loaded'}. {t.protected_areas.coverage.note}
+                </p>
+              )}
               {t.topic === 'E1' && (
                 <Link to="/csrd" className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline">
                   Full ESRS E1 report <ArrowRight size={14} />
@@ -327,6 +346,7 @@ function FrozenDetail({ snapshotId, note, basis, version, reportType }: { snapsh
           {e3?.upstream && <div className="flex justify-between gap-2"><span>E3 plots water-stressed</span><span className="font-medium text-[var(--color-ink)]">{e3.upstream.plots_water_stressed}/{e3.upstream.plots}</span></div>}
           {e4 && <div className="flex justify-between gap-2"><span>E4 EUDR-covered plots</span><span className="font-medium text-[var(--color-ink)]">{e4.eudr_covered_plots}</span></div>}
           {e4 && <div className="flex justify-between gap-2"><span>E4 deforestation-free</span><span className="font-medium text-[var(--color-good)]">{e4.deforestation_free}</span></div>}
+          {e4?.protected_areas && <div className="flex justify-between gap-2"><span>E4 sites/plots in protected areas</span><span className="font-medium text-[var(--color-ink)]">{e4.protected_areas.sites_in_protected + e4.protected_areas.plots_in_protected}</span></div>}
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
