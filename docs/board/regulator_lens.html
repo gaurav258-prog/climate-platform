@@ -1,0 +1,315 @@
+<title>The Regulator's Climate Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f6f9fc; --ink:#0e2237; --ink2:#3d5266; --mute:#6a7d8f; --line:#d9e2ec;
+    --navy:#0A1220; --sky:#2f7fd6; --sky-soft:#e4f0fd; --teal:#0e93a0; --teal-soft:#e2f4f6;
+    --good:#2e9e5b; --good-soft:#e4f5eb; --warn:#c9862a; --warn-soft:#faf0dd; --bad:#c34637; --bad-soft:#fae7e4;
+    --gold:#b8862a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --navy:#060b12; --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --gold:#d6a94e;
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --navy:#060b12; --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+      --gold:#d6a94e;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:940px; margin:0 auto; padding:44px 24px 80px; }
+  .num{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  .eyebrow{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); }
+  h1{ font-family:var(--ser); font-weight:600; font-size:46px; line-height:1.04; letter-spacing:-.015em; margin:10px 0 12px; text-wrap:balance; }
+  .lede{ font-size:19px; color:var(--ink2); max-width:68ch; }
+  .meta{ font-family:var(--mono); font-size:12px; color:var(--mute); margin-top:14px; letter-spacing:.02em; }
+
+  h2{ font-family:var(--ser); font-weight:600; font-size:27px; letter-spacing:-.01em; margin:54px 0 6px; }
+  h2 .n{ font-family:var(--mono); font-size:15px; font-weight:500; color:var(--teal); margin-right:12px; }
+  .sec-sub{ color:var(--mute); font-size:15px; margin:0 0 20px; max-width:74ch; }
+  h3{ font-family:var(--sans); font-weight:700; font-size:15px; letter-spacing:.02em; margin:24px 0 10px; }
+
+  .thesis{ margin-top:26px; border-radius:20px; padding:26px 28px; background:linear-gradient(135deg, color-mix(in srgb,var(--teal) 15%, var(--panel)), var(--panel)); border:1px solid color-mix(in srgb,var(--teal) 32%, var(--line)); }
+  .thesis .tag{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--teal); }
+  .thesis .big{ font-family:var(--ser); font-size:24px; font-weight:600; line-height:1.3; margin:8px 0 0; }
+  .thesis .big b{ color:var(--teal); }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px 24px; margin:14px 0; }
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .four{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (max-width:760px){ .cols{ grid-template-columns:1fr } .four{ grid-template-columns:1fr } }
+  .matrix{ width:100%; border-collapse:separate; border-spacing:8px; margin:6px 0; }
+  .matrix th{ font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); background:transparent; padding:6px; text-align:center; font-weight:600; }
+  .matrix .rh{ text-align:right; width:110px; line-height:1.35; }
+  .matrix .cell{ padding:14px 15px; border-radius:12px; background:var(--panel2); border:1px solid var(--line); vertical-align:top; }
+  .matrix .cell b{ display:block; font-size:13.5px; margin-bottom:3px; color:var(--ink); }
+  .matrix .cell span{ color:var(--mute); font-size:12.5px; line-height:1.4; }
+  .matrix .cell.dead{ opacity:.5; }
+  .matrix .cell.star{ background:color-mix(in srgb,var(--teal) 14%, var(--panel)); border:1.5px solid var(--teal); }
+  .matrix .cell.star .stag{ font-family:var(--mono); font-size:10px; font-weight:600; color:var(--teal); letter-spacing:.09em; text-transform:uppercase; display:block; margin-bottom:4px; }
+  @media (max-width:760px){ .matrix .rh{ width:88px; font-size:9.5px } .matrix .cell{ padding:10px 11px } }
+  .obs{ font-weight:600; color:var(--teal); }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:17px 19px; }
+  .card .ic{ font-size:22px } .card h4{ margin:8px 0 5px; font-size:16px; font-weight:700; } .card p{ margin:0; font-size:14px; color:var(--ink2); }
+
+  figure{ margin:20px 0; }
+  figcaption{ font-size:13px; color:var(--mute); margin-top:10px; text-align:center; }
+  svg{ width:100%; height:auto; display:block; }
+
+  /* mock screen */
+  .mock{ border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--panel); box-shadow:0 20px 50px -30px rgba(15,40,70,.6); }
+  .mock .bar{ display:flex; align-items:center; gap:8px; padding:11px 16px; background:var(--navy); }
+  .mock .bar .dot{ width:10px; height:10px; border-radius:50%; background:#3a4a5c; } .mock .bar .dot.r{ background:#e0654f } .mock .bar .dot.y{ background:#e0aa4f } .mock .bar .dot.g{ background:#5fbf7f }
+  .mock .bar .t{ margin-left:8px; font-family:var(--mono); font-size:12px; color:#9fb2c4; letter-spacing:.03em; }
+  .mock .body{ padding:18px 20px; }
+  .mock .body .title{ font-family:var(--ser); font-size:18px; font-weight:600; margin:0 0 3px; }
+  .mock .body .sub{ font-size:12.5px; color:var(--mute); margin:0 0 14px; font-family:var(--mono); }
+  .mtbl{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mtbl th,.mtbl td{ padding:9px 10px; text-align:left; border-bottom:1px solid var(--line); }
+  .mtbl thead th{ font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--mute); }
+  .mtbl td.n,.mtbl th.n{ text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .mtbl tbody tr:last-child td{ border-bottom:none; }
+  .flag{ font-family:var(--mono); font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+  .flag.r{ background:var(--bad-soft); color:var(--bad); } .flag.y{ background:var(--warn-soft); color:var(--warn); } .flag.g{ background:var(--good-soft); color:var(--good); }
+  .gap.pos{ color:var(--bad); font-weight:600 } .gap.ok{ color:var(--good); font-weight:600 }
+
+  .risks{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px){ .risks{ grid-template-columns:1fr } }
+  .risk{ border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:12px; padding:15px 17px; background:var(--panel); }
+  .risk h4{ margin:0 0 5px; font-size:15px; font-weight:700; } .risk p{ margin:0; font-size:14px; color:var(--ink2); }
+  .risk .mit{ margin-top:8px; font-size:13px; color:var(--mute); } .risk .mit b{ color:var(--teal); font-weight:600; }
+
+  /* sequencing timeline */
+  .seq{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; margin:14px 0; }
+  @media (max-width:760px){ .seq{ grid-template-columns:1fr; gap:12px } }
+  .phase{ position:relative; padding:18px 20px; border:1px solid var(--line); background:var(--panel); }
+  .seq .phase:first-child{ border-radius:14px 0 0 14px } .seq .phase:last-child{ border-radius:0 14px 14px 0 } .seq .phase:not(:last-child){ border-right:none }
+  @media (max-width:760px){ .seq .phase{ border-radius:14px !important; border-right:1px solid var(--line) !important } }
+  .phase .when{ font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--teal); }
+  .phase h4{ margin:6px 0 6px; font-size:16px; font-weight:700; }
+  .phase p{ margin:0; font-size:13.5px; color:var(--ink2); }
+  .phase .stat{ margin-top:9px; font-family:var(--mono); font-size:11.5px; color:var(--mute); }
+
+  ul.clean{ margin:8px 0; padding-left:20px; } ul.clean li{ margin:7px 0; }
+  a{ color:var(--sky); text-decoration:none; } a:hover{ text-decoration:underline }
+  .assume{ background:var(--panel2); border:1px dashed var(--line); border-radius:14px; padding:16px 20px; font-size:13.5px; color:var(--ink2); }
+  .assume b{ color:var(--ink) }
+  .foot{ margin-top:42px; padding-top:18px; border-top:1px solid var(--line); font-size:12.5px; color:var(--mute); }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Tellumen · Strategy Concept</div>
+  <h1>The regulator's climate lens</h1>
+  <p class="lede">What if the supervisor is our customer too — regardless of what the banks under them use? They bring us the filings they already hold, and our engine independently computes where the climate risk really sits, for any FI, country, or region. We call it <span class="obs">Tellumen Observatory</span>: a supervisor's independent lens over the whole system. This is the move from <i>vendor</i> to <i>market infrastructure</i>.</p>
+  <p class="meta">Strategy concept · Aug 2026 · Regnology / BIS SupTech scan folded in · illustrative screens</p>
+
+  <div class="thesis">
+    <div class="tag">◆ The thesis</div>
+    <div class="big">Sell to the entity and you win one account through an 18-month cycle. Put the <b>supervisor</b> on the same golden source, and every entity it oversees gets <b>pulled onto our rails</b> to file. That flips distribution — and it's the one wedge that <b>escapes the "annual report" trap for good.</b></div>
+  </div>
+
+  <!-- 1 · THE FOUR SCENARIOS -->
+  <h2><span class="n">01</span>Four scenarios — and the one that unlocks it</h2>
+  <p class="sec-sub">Cross "does the FI use Tellumen?" with "does the regulator?" and you get four cells. Three are obvious. The fourth is the whole idea: <b>the regulator is our customer regardless of what the FI uses.</b></p>
+
+  <table class="matrix">
+    <thead><tr><th></th><th>FI uses Tellumen</th><th>FI does NOT</th></tr></thead>
+    <tbody>
+      <tr>
+        <th class="rh">Regulator uses Tellumen</th>
+        <td class="cell"><b>Full two-sided</b><span>Network compounds — the strongest position.</span></td>
+        <td class="cell star"><span class="stag">★ the unlock</span><b>Regulator is our customer anyway</b><span>A standalone sale, not gated on FI adoption.</span></td>
+      </tr>
+      <tr>
+        <th class="rh">Regulator does NOT</th>
+        <td class="cell"><b>Today's FI-only model</b><span>Our current plan — one serial deal at a time.</span></td>
+        <td class="cell dead"><b>No business</b><span>—</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="cols" style="margin-top:16px">
+    <div class="card"><div class="ic">🔁</div><h4>Why it works: we re-run our engine on their book</h4><p>An FI's filing is just a list of exposures and locations. The regulator brings that book into <b class="obs">Observatory</b> and we compute <i>our own</i> independent view of its climate risk — from our satellite history + backtested models. The FI can use Tellumen, a rival, or spreadsheets; our answer is unaffected. Like an independent stress-tester: "give me your book, I'll tell you the risk."</p></div>
+    <div class="card"><div class="ic">🧲</div><h4>The bonus: the regulator sale pulls FIs in</h4><p>When Observatory flags a gap in an FI's disclosure, that FI has to answer it — and the easiest way to answer the Tellumen lens is to adopt Tellumen. So cell 4 doesn't just stand alone; it migrates toward full two-sided over time — <i>without</i> waiting for the FI base first.</p></div>
+  </div>
+
+  <!-- 2 · THE FLIP -->
+  <h2><span class="n">02</span>How Observatory sits in the system</h2>
+  <p class="sec-sub">The supervisor sits on the shared golden source; independent satellite data flows in to cross-check filings; and over time the mandate pulls entities onto the same rails.</p>
+
+  <figure>
+    <svg viewBox="0 0 760 340" role="img" aria-label="Entities file into the Tellumen golden-source engine, which is fed independent satellite ground truth; the supervisor console receives live data and cross-checks it, and the supervisory mandate pulls entities onto the platform.">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 Z" fill="currentColor"/></marker>
+        <marker id="art" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 Z" fill="var(--teal)"/></marker>
+        <marker id="arg" markerWidth="10" markerHeight="10" refX="7" refY="3.4" orient="auto"><path d="M0,0 L7,3.4 L0,6.8 Z" fill="var(--gold)"/></marker>
+      </defs>
+
+      <!-- entities -->
+      <g font-family="var(--sans)" font-size="12" fill="var(--ink)">
+        <text x="70" y="24" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--mute)" letter-spacing="1">ENTITIES</text>
+        <g>
+          <rect x="18" y="36" width="104" height="30" rx="7" fill="var(--panel)" stroke="var(--line)"/><text x="70" y="55" text-anchor="middle">Bank</text>
+          <rect x="18" y="74" width="104" height="30" rx="7" fill="var(--panel)" stroke="var(--line)"/><text x="70" y="93" text-anchor="middle">Insurer</text>
+          <rect x="18" y="112" width="104" height="30" rx="7" fill="var(--panel)" stroke="var(--line)"/><text x="70" y="131" text-anchor="middle">Asset mgr</text>
+          <rect x="18" y="150" width="104" height="30" rx="7" fill="var(--panel)" stroke="var(--line)"/><text x="70" y="169" text-anchor="middle">Agri / REIT</text>
+        </g>
+      </g>
+
+      <!-- file arrows -->
+      <g stroke="currentColor" stroke-width="1.4" fill="none" color="var(--ink2)">
+        <line x1="122" y1="51" x2="300" y2="150" marker-end="url(#ar)"/>
+        <line x1="122" y1="89" x2="300" y2="160" marker-end="url(#ar)"/>
+        <line x1="122" y1="127" x2="300" y2="170" marker-end="url(#ar)"/>
+        <line x1="122" y1="165" x2="300" y2="180" marker-end="url(#ar)"/>
+      </g>
+      <text x="205" y="120" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mute)" transform="rotate(-14 205 120)">file · golden source</text>
+
+      <!-- engine -->
+      <rect x="300" y="128" width="150" height="76" rx="12" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="375" y="160" text-anchor="middle" font-family="var(--ser)" font-size="14" font-weight="600" fill="var(--ink)">Tellumen</text>
+      <text x="375" y="178" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--ink2)">golden-source engine</text>
+      <text x="375" y="193" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--teal)">validated · append-only</text>
+
+      <!-- EO ground truth -->
+      <rect x="286" y="250" width="178" height="46" rx="10" fill="var(--panel)" stroke="var(--sky)" stroke-width="1.3" stroke-dasharray="0"/>
+      <text x="375" y="270" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">🛰️ Authoritative EO data</text>
+      <text x="375" y="286" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--mute)">satellite · agency · backtested</text>
+      <line x1="375" y1="250" x2="375" y2="206" stroke="var(--teal)" stroke-width="1.6" fill="none" marker-end="url(#art)"/>
+      <text x="470" y="232" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--teal)">independent</text>
+      <text x="470" y="244" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--teal)">ground truth</text>
+
+      <!-- supervisor console -->
+      <rect x="590" y="120" width="150" height="92" rx="12" fill="var(--panel)" stroke="var(--gold)" stroke-width="1.7"/>
+      <text x="665" y="147" text-anchor="middle" font-size="15">⚖️</text>
+      <text x="665" y="168" text-anchor="middle" font-family="var(--ser)" font-size="14" font-weight="600" fill="var(--ink)">Supervisor</text>
+      <text x="665" y="184" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--ink2)">console</text>
+      <text x="665" y="200" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--gold)">receive · scan · stress</text>
+      <line x1="450" y1="166" x2="590" y2="166" stroke="var(--teal)" stroke-width="1.8" fill="none" marker-end="url(#art)"/>
+      <text x="520" y="158" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--teal)">live receive</text>
+      <text x="520" y="180" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--teal)">+ cross-check</text>
+
+      <!-- mandate pull (the flip) -->
+      <path d="M 665 212 C 665 322, 70 322, 70 190" stroke="var(--gold)" stroke-width="1.8" stroke-dasharray="6 5" fill="none" marker-end="url(#arg)"/>
+      <text x="367" y="335" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--gold)" font-weight="600">the mandate pulls every supervised entity onto our rails</text>
+    </svg>
+    <figcaption>The whole strategy in one picture: entities file into the golden source; independent satellite data flows in to <b>cross-check</b> them; the supervisor gets a live console — and the supervisory mandate (gold, dashed) closes the loop by <b>pulling entities in</b>.</figcaption>
+  </figure>
+
+  <!-- 3 · THE WEDGE (mock) -->
+  <h2><span class="n">03</span>The wedge only we have</h2>
+  <p class="sec-sub">Don't sell regulators reporting plumbing — the incumbents own that pipe. Sell them the thing no one else can: an <b>independent physical-risk lens</b> that checks whether a filing is actually <i>true</i>, against satellite ground truth and our backtested models.</p>
+
+  <figure>
+    <div class="mock" role="img" aria-label="Illustrative supervisor screen: reported climate exposure versus Tellumen's satellite-derived estimate, per entity, with the gap flagged as an outlier.">
+      <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="t">supervisor console — flood exposure · reported vs independent</span></div>
+      <div class="body">
+        <p class="title">Filing plausibility — outlier scan</p>
+        <p class="sub">Q2 2026 · physical risk · flood · 4 of 18 entities flagged</p>
+        <table class="mtbl">
+          <thead><tr><th>Supervised entity</th><th class="n">Reported €</th><th class="n">Our EO estimate €</th><th class="n">Gap</th><th>Assessment</th></tr></thead>
+          <tbody>
+            <tr><td>Meridian Bank</td><td class="n">120M</td><td class="n">310M</td><td class="n gap pos">+158%</td><td><span class="flag r">● understated — review</span></td></tr>
+            <tr><td>Corte Insurance</td><td class="n">280M</td><td class="n">305M</td><td class="n gap ok">+9%</td><td><span class="flag g">● plausible</span></td></tr>
+            <tr><td>Aleph Asset Mgmt</td><td class="n">64M</td><td class="n">102M</td><td class="n gap pos">+59%</td><td><span class="flag y">● query</span></td></tr>
+            <tr><td>Verde Agri Trading</td><td class="n">41M</td><td class="n">44M</td><td class="n gap ok">+7%</td><td><span class="flag g">● plausible</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <figcaption>Illustrative. The supervisor instantly sees which disclosures don't match physical reality — a greenwashing / under-reporting detector built on data the entity can't dispute.</figcaption>
+  </figure>
+
+  <h3>What the supervisor does on the platform</h3>
+  <div class="four">
+    <div class="card"><div class="ic">📥</div><h4>Receive, live</h4><p>Filed data lands in a structured, lineage-tracked console — not a stack of static PDFs to key in.</p></div>
+    <div class="card"><div class="ic">🎯</div><h4>Scan vs objectives</h4><p>Every filing auto-checked against the regulation's actual objectives (CSRD, Pillar 3 ESG, Taxonomy, EUDR) — gaps surfaced.</p></div>
+    <div class="card"><div class="ic">🌐</div><h4>System-wide stress</h4><p>Run one NGFS / ECB climate scenario across <i>all</i> supervised entities at once, on consistent data.</p></div>
+    <div class="card"><div class="ic">🧪</div><h4>Bring-your-own-model sandbox</h4><p>Regulators distrust black boxes. Let them run <i>their own</i> calcs on our golden data + disclosed, history-derived logic.</p></div>
+  </div>
+
+  <!-- 4 · VS INCUMBENTS -->
+  <h2><span class="n">04</span>Where this sits vs the incumbents</h2>
+  <p class="sec-sub">We checked. Regnology's Supervisory Hub and the BIS climate prototypes are all built on <b>submitted data</b> — none brings independent satellite ground truth to <i>challenge</i> a filing. The white space is real.</p>
+  <div class="cols">
+    <div class="panel">
+      <h3 style="margin-top:0">What they do today</h3>
+      <ul class="clean">
+        <li><b>Regnology Supervisory Hub</b> (EBA, ECB, PRA, BaFin, ACPR, Banco de España…) — collect, validate, aggregate, run analytics &amp; stress on <i>submitted</i> data. Its climate product helps <i>FIs produce</i> disclosures, not supervisors test them.</li>
+        <li><b>BIS Project Gaia</b> — LLMs extract climate metrics from corporate <i>disclosures</i>; no earth-observation, no ground truth.</li>
+        <li><b>BIS Project Ellipse</b> — analytics &amp; early-warning over <i>collected</i> reporting data.</li>
+      </ul>
+    </div>
+    <div class="panel" style="border-left:4px solid var(--teal)">
+      <h3 style="margin-top:0;color:var(--teal)">What none of them do</h3>
+      <p style="margin:0 0 10px;font-size:14.5px;color:var(--ink2)">Independently model the <b>physical</b> risk behind a filing — from <b>satellite ground truth + backtested attribution</b>, across the whole supervised population, regardless of the FI's vendor or the filing's origin. <b class="obs">That is Observatory.</b></p>
+      <p style="margin:0;font-size:12.5px;color:var(--mute)">Confirmed against Regnology RSH, BIS Gaia / Ellipse, and NGFS &amp; SUERF papers naming the physical-climate data gap.</p>
+    </div>
+  </div>
+  <div class="assume" style="margin-top:16px;border-color:color-mix(in srgb,var(--warn) 42%, var(--line))">
+    <b>Two honest cautions from the scan:</b> (1) <b>The gap is loudly documented</b> — NGFS, BIS and academics all name the satellite/EO gap, so this is a <i>lead, not a moat</i>: move before the concept is claimed. (2) <b>Regnology owns the supervisor pipes.</b> A regulator's path of least resistance is an EO feed <i>into</i> their existing hub — so the real choice is <b>embed vs compete</b>: feeding Observatory's lens into an RSH-style platform may beat selling a second one. Defensibility lives in the <b>independent-lens framing + backtested attribution + population-scale coverage</b>, not the raw satellite data, which is commoditising.
+  </div>
+
+  <!-- 5 · WHY POWERFUL -->
+  <h2><span class="n">05</span>Why this is worth chasing</h2>
+  <div class="cols">
+    <div class="card"><div class="ic">🕸️</div><h4>A regulatory network moat</h4><p>Once a supervisor standardizes on our data model, every entity is pulled in. Two-sided lock-in is the strongest moat there is — it's how the reporting incumbents were built.</p></div>
+    <div class="card"><div class="ic">🚪</div><h4>Escapes the commodity trap</h4><p>The "$90k for a yearly report" objection dies when the regulator is a live, continuous user of the same data. We become the substrate of the supervisory relationship.</p></div>
+    <div class="card"><div class="ic">🏗️</div><h4>Our architecture already fits</h4><p>Golden source, append-only scores, immutable snapshots, tenant/role scoping, model governance — exactly what a supervisor needs for lineage and non-repudiation.</p></div>
+    <div class="card"><div class="ic">📈</div><h4>Tailwind, not headwind</h4><p>The EU is already moving to granular / integrated supervisory reporting, and supervisors are data-starved on climate. We meet a demand that's forming anyway.</p></div>
+  </div>
+
+  <!-- 6 · RISKS -->
+  <h2><span class="n">06</span>The honest risks</h2>
+  <p class="sec-sub">This is a bigger, slower bet than the FI product. Four things make it hard — each has a real answer.</p>
+  <div class="risks">
+    <div class="risk"><h4>1 · Selling to regulators is brutal</h4><p>Tiny buyer set, public procurement, political, multi-year. Harder GTM than FIs, with the same chicken-and-egg.</p><p class="mit"><b>Answer:</b> enter via an innovation-hub / sandbox pilot, not a tender. Validate cheap before committing.</p></div>
+    <div class="risk"><h4>2 · Neutrality &amp; conflict</h4><p>If the entity and its supervisor both pay us, the regulator must trust we're not captured.</p><p class="mit"><b>Answer:</b> our independent EO ground truth means we're <i>not</i> just re-serving the bank's numbers — plus explicit governance walls.</p></div>
+    <div class="risk"><h4>3 · The incumbent owns the pipe</h4><p>Regnology already runs the central-bank reporting rails (and is a potential channel for us).</p><p class="mit"><b>Answer:</b> partner, don't rebuild. Ride their rails; supply the climate analytical + independent-lens layer on top.</p></div>
+    <div class="risk"><h4>4 · We're pre-lighthouse</h4><p>No central bank buys from a vendor with zero production customers, no SOC 2, no peer-reviewed validation.</p><p class="mit"><b>Answer:</b> this is precisely why it's Phase 3 — it rides on the FI base and credibility gates, not ahead of them.</p></div>
+  </div>
+
+  <!-- 7 · SEQUENCING -->
+  <h2><span class="n">07</span>How we actually get there</h2>
+  <p class="sec-sub">Not a pivot. A destination reached by seeds we plant now while building the FI business — so every session moves us toward it at near-zero extra cost.</p>
+  <div class="seq">
+    <div class="phase">
+      <div class="when">Now · seeds</div>
+      <h4>Regulator-grade posture</h4>
+      <p>Every filing already carries lineage + independent EO cross-check + immutable snapshot. Strengthens the <i>FI</i> pitch ("pre-audited, regulator-defensible") and seeds the supervisor product.</p>
+      <div class="stat">cost: ~0 · partly built</div>
+    </div>
+    <div class="phase">
+      <div class="when">Next · validate</div>
+      <h4>One supervisor sandbox pilot</h4>
+      <p>Enter a national regulator's or BIS innovation sandbox with the outlier-scan lens. Real supervisor feedback, no procurement, no bet-the-company commitment.</p>
+      <div class="stat">gate: 1 FI reference + the cross-check demo</div>
+    </div>
+    <div class="phase">
+      <div class="when">Phase 3 · scale</div>
+      <h4>Observatory, for real</h4>
+      <p>Full independent-lens platform — sold direct <i>or</i> embedded as a feed into an RSH-style hub (embed vs compete). The regulator sale stands alone and pulls FIs in over time.</p>
+      <div class="stat">gate: SOC 2 · peer-reviewed validation · 1 sandbox win</div>
+    </div>
+  </div>
+
+  <div class="assume" style="margin-top:26px">
+    <b>What "going with it" means today:</b> keep building the FI product, but bank the regulator-grade seeds deliberately (lineage, EO cross-check, immutable filings) and line up one sandbox conversation. We lose nothing if the supervisor play never lands — those same features make the entity product stronger. We gain an option on becoming infrastructure. All screens and figures here are illustrative concepts, not commitments.
+  </div>
+
+  <div class="foot">
+    Tellumen — physical &amp; nature climate-risk intelligence. Internal strategy concept; forward-looking and illustrative.
+  </div>
+
+</div>

@@ -1,0 +1,299 @@
+<title>Does One Customer Pay?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f6f9fc; --ink:#0e2237; --ink2:#3d5266; --mute:#6a7d8f; --line:#d9e2ec;
+    --navy:#0A1220; --sky:#2f7fd6; --sky-soft:#e4f0fd; --teal:#0e93a0; --teal-soft:#e2f4f6;
+    --good:#2e9e5b; --good-soft:#e4f5eb; --warn:#c9862a; --warn-soft:#faf0dd; --bad:#c34637; --bad-soft:#fae7e4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --navy:#060b12; --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --navy:#060b12; --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:920px; margin:0 auto; padding:44px 24px 80px; }
+  .num{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  /* header */
+  .eyebrow{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); }
+  h1{ font-family:var(--ser); font-weight:600; font-size:44px; line-height:1.05; letter-spacing:-.015em; margin:10px 0 12px; text-wrap:balance; }
+  .lede{ font-size:19px; color:var(--ink2); max-width:70ch; }
+  .meta{ font-family:var(--mono); font-size:12px; color:var(--mute); margin-top:14px; letter-spacing:.02em; }
+
+  h2{ font-family:var(--ser); font-weight:600; font-size:27px; letter-spacing:-.01em; margin:52px 0 6px; }
+  h2 .n{ font-family:var(--mono); font-size:15px; font-weight:500; color:var(--teal); margin-right:12px; }
+  .sec-sub{ color:var(--mute); font-size:15px; margin:0 0 20px; }
+  h3{ font-family:var(--sans); font-weight:700; font-size:15px; letter-spacing:.02em; margin:26px 0 10px; color:var(--ink); }
+
+  /* verdict banner */
+  .verdict{ margin-top:26px; border-radius:20px; padding:26px 28px; background:
+      linear-gradient(135deg, color-mix(in srgb,var(--good) 16%, var(--panel)), var(--panel));
+    border:1px solid color-mix(in srgb,var(--good) 34%, var(--line)); }
+  .verdict .tag{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--good); }
+  .verdict .big{ font-family:var(--ser); font-size:25px; font-weight:600; line-height:1.28; margin:8px 0 0; }
+  .verdict .big b{ color:var(--good); }
+
+  /* stat row */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:22px 0 6px; }
+  @media (max-width:760px){ .stats{ grid-template-columns:repeat(2,1fr) } }
+  .stat{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .stat .k{ font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); }
+  .stat .v{ font-family:var(--mono); font-weight:600; font-size:30px; letter-spacing:-.02em; margin-top:6px; color:var(--ink); }
+  .stat .v small{ font-size:15px; color:var(--mute); font-weight:500; }
+  .stat .d{ font-size:12.5px; color:var(--ink2); margin-top:4px; }
+  .stat.g .v{ color:var(--good) }
+
+  /* tables */
+  .tbl{ width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:14.5px; overflow:hidden; border-radius:14px; border:1px solid var(--line); }
+  .tbl.scroll{ display:block; overflow-x:auto; }
+  .tbl th,.tbl td{ padding:11px 14px; text-align:left; border-bottom:1px solid var(--line); }
+  .tbl thead th{ background:var(--panel2); font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); }
+  .tbl tbody tr:last-child td{ border-bottom:none; }
+  .tbl td.n,.tbl th.n{ text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .tbl tr.total td{ background:color-mix(in srgb,var(--sky) 8%, var(--panel)); font-weight:700; }
+  .tbl tr.total td.n{ color:var(--sky); }
+  .tbl .sub td{ color:var(--mute); }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px 24px; margin:14px 0; }
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .cols{ grid-template-columns:1fr } }
+  .three{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:12px 0 4px; }
+  @media (max-width:760px){ .three{ grid-template-columns:1fr } }
+  .anchor{ background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--teal); border-radius:14px; padding:16px 18px; }
+  .anchor .h{ font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--teal); }
+  .anchor h4{ margin:7px 0 6px; font-size:15.5px; font-weight:700; line-height:1.25; }
+  .anchor p{ margin:0; font-size:13.5px; color:var(--ink2); }
+
+  /* margin bar */
+  figure{ margin:18px 0; }
+  figcaption{ font-size:13px; color:var(--mute); margin-top:10px; }
+  .mbar{ display:flex; height:52px; border-radius:12px; overflow:hidden; border:1px solid var(--line); font-family:var(--mono); font-size:13px; font-weight:600; }
+  .mbar span{ display:flex; align-items:center; justify-content:center; color:#fff; padding:0 6px; text-align:center; }
+  .mbar .cogs{ background:var(--warn); } .mbar .gp{ background:var(--good); }
+
+  /* risk cards */
+  .risks{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px){ .risks{ grid-template-columns:1fr } }
+  .risk{ border:1px solid var(--line); border-left:4px solid var(--bad); border-radius:12px; padding:15px 17px; background:var(--panel); }
+  .risk h4{ margin:0 0 5px; font-size:15px; font-weight:700; }
+  .risk p{ margin:0; font-size:14px; color:var(--ink2); }
+  .risk .mit{ margin-top:8px; font-size:13px; color:var(--mute); } .risk .mit b{ color:var(--teal); font-weight:600; }
+
+  ul.clean{ margin:8px 0; padding-left:20px; } ul.clean li{ margin:6px 0; }
+  .src{ font-family:var(--mono); font-size:11px; color:var(--mute); }
+  a{ color:var(--sky); text-decoration:none; } a:hover{ text-decoration:underline; }
+  .foot{ margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:12.5px; color:var(--mute); }
+  .assume{ background:var(--panel2); border:1px dashed var(--line); border-radius:14px; padding:16px 20px; font-size:13.5px; color:var(--ink2); }
+  .assume b{ color:var(--ink); }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Tellumen · Board Business Case</div>
+  <h1>Does one customer pay for itself?</h1>
+  <p class="lede">The unit economics of a single mid-sized customer — what they'd pay for software like ours, what it costs us to run their data through the engine, and whether the whole exercise is worth building.</p>
+  <p class="meta">Modeled Aug 2026 · figures in US$ (€ ≈ $ for planning) · benchmarks cited, our numbers are conservative estimates</p>
+
+  <div class="verdict">
+    <div class="tag">◆ Verdict</div>
+    <div class="big">Yes — decisively. A mid-sized customer pays <b>~$90k/year</b> for software that costs us <b>~$15k/year</b> to serve. That's an <b>~83% gross margin</b>, ~6-month payback, and ~9× lifetime value on acquisition cost. The model isn't the risk — <b>go-to-market is.</b></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Blended ACV</div><div class="v">$90<small>k</small></div><div class="d">Conservative, below every market mid</div></div>
+    <div class="stat g"><div class="k">Gross margin</div><div class="v">83<small>%</small></div><div class="d">Infra near-zero; people is the cost</div></div>
+    <div class="stat g"><div class="k">CAC payback</div><div class="v">~6<small>mo</small></div><div class="d">On gross profit per customer</div></div>
+    <div class="stat g"><div class="k">LTV / CAC</div><div class="v">~9<small>×</small></div><div class="d">Bar for "good" is 3×</div></div>
+  </div>
+
+  <!-- 1 · WHAT THEY PAY -->
+  <h2><span class="n">01</span>What they'd pay us</h2>
+  <p class="sec-sub">Comparable software list prices, then our conservative challenger price set below each market mid-point.</p>
+
+  <table class="tbl scroll">
+    <thead><tr><th>Sector · mid-sized profile</th><th class="n">Market mid*</th><th class="n">Our target ACV</th><th>What the price anchors to</th></tr></thead>
+    <tbody>
+      <tr><td>Bank — regional / €5–50bn</td><td class="n">$150k</td><td class="n">$120k</td><td>OneSumX reg-reporting $50–500k by size + physical-risk add-on</td></tr>
+      <tr><td>Insurer — mid-tier P&amp;C</td><td class="n">$175k</td><td class="n">$140k</td><td>Reg reporting + cat / physical-risk data (RMS-class)</td></tr>
+      <tr><td>Asset manager — €5–50bn AUM</td><td class="n">$120k</td><td class="n">$95k</td><td>Persefoni/MSCI AUM- &amp; fund-driven; SFDR/Taxonomy</td></tr>
+      <tr><td>REIT / real estate — mid-cap</td><td class="n">$90k</td><td class="n">$70k</td><td>Asset-count physical risk (Jupiter/Climate X-class)</td></tr>
+      <tr><td>Agri / corporate — mid-cap</td><td class="n">$70k</td><td class="n">$55k</td><td>Watershed/Persefoni ($50–70k median) + EUDR/CSRD</td></tr>
+      <tr class="total"><td>Blended planning ACV</td><td class="n">$121k</td><td class="n">$90k</td><td>We plan on the conservative $90k, not the market mid</td></tr>
+    </tbody>
+  </table>
+  <p class="src">* Analyst / marketplace-sourced (Vendr, Capterra, Changeflow). Strongest anchors: Workiva $49k median · Watershed $70k · Wolters Kluwer OneSumX $50–500k+ · MetricStream $75k→$1M. Physical-risk pure-plays (Jupiter, Climate&nbsp;X) are consistently six-figure but don't publish. Plus a one-time onboarding fee of ~25% of Year-1 (~$22k), standard for this category.</p>
+
+  <div class="assume" style="margin-top:16px">
+    <b>Why we can charge this:</b> comparable vendors sell <i>either</i> physical-risk analytics <i>or</i> ESG/reg reporting. We sell the joined chain — hazard → decision → EU filing — with a validated, backtested engine and an honesty gate. That bundle sits at the <i>top</i> of these ranges, so a conservative $90k landing price is defensible, with room to expand.
+  </div>
+
+  <!-- 2 · IS IT JUSTIFIABLE -->
+  <h2><span class="n">02</span>Is $90k justifiable for a once-a-year report?</h2>
+  <p class="sec-sub">The regulatory filing is annual — but the price is not paid for the filing. That distinction is the whole company.</p>
+
+  <div class="cols">
+    <div class="panel" style="border-left:4px solid var(--bad)">
+      <h3 style="margin-top:0;color:var(--bad)">✗ Sold as a report generator</h3>
+      <p style="margin:0;color:var(--ink2);font-size:14.5px">A once-a-year form-filler is a commodity. Customers price it at the ESG-reporting median — <b>~$40k</b> — and margin pressure follows. This is the failure mode, not the plan.</p>
+    </div>
+    <div class="panel" style="border-left:4px solid var(--good)">
+      <h3 style="margin-top:0;color:var(--good)">✓ Sold as risk intelligence</h3>
+      <p style="margin:0;color:var(--ink2);font-size:14.5px">The report is the receipt. The product is continuous physical-risk intelligence that drives in-year decisions and stands up to a regulator. That earns <b>six figures</b> — and $90k is conservative.</p>
+    </div>
+  </div>
+
+  <h3>Three anchors for the price — none of them is "how often they file"</h3>
+  <div class="three">
+    <div class="anchor">
+      <div class="h">01 · Money at stake</div>
+      <h4>The decisions, not the document</h4>
+      <p>For a €5–50bn bank, repricing climate risk on a sliver of the book beats $90k many times over. One better sourcing call ahead of a bad harvest pays for us for years. The filing is annual; the decisions run all year.</p>
+    </div>
+    <div class="anchor">
+      <div class="h">02 · Cost of getting it wrong</div>
+      <h4>Priced to the downside</h4>
+      <p>EUDR non-compliance: fines up to ~4% of EU turnover + goods seized. SFDR/CSRD misstatement: greenwashing enforcement, audit qualification. CSRD now needs auditor assurance. $90k to de-risk a seven-figure exposure is cheap.</p>
+    </div>
+    <div class="anchor">
+      <div class="h">03 · The alternative is pricier</div>
+      <h4>Annual ≠ cheap</h4>
+      <p>A Big-4 CSRD / assurance engagement runs <b>€100–500k/yr</b> in fees. Bank supervisory reporting (OneSumX-class) is $50–500k — much of it annual too. Nobody prices audit or disclosure on how often you file.</p>
+    </div>
+  </div>
+
+  <div class="assume" style="margin-top:16px;border-color:color-mix(in srgb,var(--teal) 40%, var(--line))">
+    <b>The reframe that settles it:</b> value isn't login frequency. Insurance is "used" once — when you claim — yet priced on risk transferred, not clicks. We're paid for <b>being right about the risk and letting the customer prove it.</b> How often they file is irrelevant. <br><br>
+    <b>Verdict:</b> $90k is justifiable — but it's a <b>bet on positioning</b>. If we ever let ourselves be sold as "the annual report button," the price collapses to ~$40k and the plan needs 2× the customers. The defence is the thing competitors lack: validated, backtested physical-risk science + continuous monitoring, with the filing as the last mile. The early-warning sign of failure: customers who only ever log in at filing season.
+  </div>
+
+  <!-- 3 · WHAT IT COSTS US -->
+  <h2><span class="n">03</span>What it costs us to serve them</h2>
+  <p class="sec-sub">Processing ~10,000 assets: geocode once, look up hazards from free authoritative satellite/agency feeds, score, project, assemble filings.</p>
+
+  <div class="cols">
+    <div>
+      <h3>One-time onboarding</h3>
+      <table class="tbl">
+        <tbody>
+          <tr><td>Geocode 10k assets (stored)</td><td class="n">$2–50</td></tr>
+          <tr><td>Bulk hazard + first scoring run</td><td class="n">$5–75</td></tr>
+          <tr class="sub"><td>Infra subtotal</td><td class="n">~$100</td></tr>
+          <tr><td>Human setup / CS time</td><td class="n">$0.5–3k</td></tr>
+          <tr class="total"><td>One-time total</td><td class="n">~$1–3k</td></tr>
+        </tbody>
+      </table>
+      <p class="src">Technical onboarding is a rounding error; the real one-time cost is human setup labor — and it's covered by the ~$22k onboarding fee.</p>
+    </div>
+    <div>
+      <h3>Ongoing, per year</h3>
+      <table class="tbl">
+        <tbody>
+          <tr><td>Satellite / EO data</td><td class="n">$0*</td></tr>
+          <tr><td>Re-geocoding (asset churn)</td><td class="n">$1–15</td></tr>
+          <tr><td>Compute + DB + storage share</td><td class="n">$0.3–1k</td></tr>
+          <tr><td>Support / Customer Success (12% ARR)</td><td class="n">$10.8k</td></tr>
+          <tr><td>Attributable data / model-ops</td><td class="n">$3.2k</td></tr>
+          <tr class="total"><td>Cost to serve / year</td><td class="n">~$15k</td></tr>
+        </tbody>
+      </table>
+      <p class="src">* Free within the Copernicus (CDSE) quota. Satellite data and stored geocoding — the two inputs that could blow up COGS — are architected to near-zero.</p>
+    </div>
+  </div>
+
+  <figure>
+    <div class="mbar" role="img" aria-label="Of $90k revenue per customer, about $15k is cost to serve and about $75k is gross profit">
+      <span class="cogs" style="flex:15">COGS<br>$15k</span>
+      <span class="gp" style="flex:75">Gross profit · $75k · 83%</span>
+    </div>
+    <figcaption>Every $90k of customer revenue splits ~$15k cost-to-serve / ~$75k gross profit. The dominant cost is <b>people (support/CS)</b>, not compute or data — which is exactly why the margin holds.</figcaption>
+  </figure>
+
+  <!-- 4 · IS IT WORTH IT -->
+  <h2><span class="n">04</span>Is the whole exercise worth it?</h2>
+  <p class="sec-sub">Unit economics roll up into a company that reaches break-even at a very reachable customer count.</p>
+
+  <div class="cols">
+    <div class="panel">
+      <h3 style="margin-top:0">Per-customer economics</h3>
+      <table class="tbl">
+        <tbody>
+          <tr><td>Annual revenue (ACV)</td><td class="n">$90k</td></tr>
+          <tr><td>Gross profit (83%)</td><td class="n">$75k</td></tr>
+          <tr><td>Acquisition cost (CAC)</td><td class="n">~$40k</td></tr>
+          <tr><td>Gross-profit payback</td><td class="n">~6 mo</td></tr>
+          <tr><td>Retention (GRR / NRR)</td><td class="n">85% / 112%</td></tr>
+          <tr class="total"><td>Lifetime value / CAC</td><td class="n">~9×</td></tr>
+        </tbody>
+      </table>
+      <p class="src">CAC loaded for long financial-institution sales cycles ($25–60k range). NRR &gt;100% = existing customers grow as they add sectors &amp; modules.</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Company break-even</h3>
+      <figure style="margin:6px 0 4px">
+        <svg viewBox="0 0 360 170" role="img" aria-label="ARR climbs past a fixed cost base of about 2.5 to 3 million dollars at roughly 33 customers" style="width:100%;height:auto">
+          <line x1="40" y1="140" x2="350" y2="140" stroke="var(--line)" stroke-width="1"/>
+          <line x1="40" y1="18" x2="40" y2="140" stroke="var(--line)" stroke-width="1"/>
+          <!-- cost base line -->
+          <line x1="40" y1="86" x2="350" y2="86" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="345" y="80" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--bad)">fixed cost base ~$2.5–3M</text>
+          <!-- bars: Y1..Y4 ARR -->
+          <g font-family="var(--mono)" font-size="9" fill="var(--mute)">
+            <rect x="66" y="126" width="34" height="14" rx="2" fill="var(--sky)"/><text x="83" y="153" text-anchor="middle">Y1 · 8</text>
+            <rect x="140" y="104" width="34" height="36" rx="2" fill="var(--sky)"/><text x="157" y="153" text-anchor="middle">Y2 · 22</text>
+            <rect x="214" y="70" width="34" height="70" rx="2" fill="var(--good)"/><text x="231" y="153" text-anchor="middle">Y3 · 45</text>
+            <rect x="288" y="34" width="34" height="106" rx="2" fill="var(--good)"/><text x="305" y="153" text-anchor="middle">Y4 · 75</text>
+          </g>
+          <text x="83" y="122" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--ink2)">0.7M</text>
+          <text x="157" y="100" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--ink2)">2.0M</text>
+          <text x="231" y="66" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--ink2)">4.0M</text>
+          <text x="305" y="30" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--ink2)">6.8M</text>
+        </svg>
+        <figcaption style="margin-top:4px">Illustrative ARR ramp (customers × $90k). Break-even ≈ <b>33 customers</b> on gross profit.</figcaption>
+      </figure>
+      <p class="src">~33 mid-sized customers cover a lean $2.5–3M cost base (science + engineering + G&amp;A). Across 5 sectors in the EU+US, that's a small share of a large addressable base.</p>
+    </div>
+  </div>
+
+  <!-- 5 · WHAT KILLS IT -->
+  <h2><span class="n">05</span>What would kill it</h2>
+  <p class="sec-sub">The unit economics are not fragile; these four risks are where the plan actually lives or dies.</p>
+  <div class="risks">
+    <div class="risk"><h4>1 · Price compresses to commodity</h4><p>If we're seen as "just another ESG reporting tool," ACV falls to $30–40k. Margin still ~80%, but we'd need ~2× the customers.</p><p class="mit"><b>Mitigant:</b> physical-risk + validated, backtested science is the premium wedge — reporting is the last mile, not the product.</p></div>
+    <div class="risk"><h4>2 · Sales cycle / CAC blows out</h4><p>Financial-institution procurement runs 9–18 months. A new entrant without references can see CAC and payback double. <b>This is the #1 real risk.</b></p><p class="mit"><b>Mitigant:</b> 1–2 lighthouse customers, land-small-then-expand, and a distribution channel (e.g. Regnology).</p></div>
+    <div class="risk"><h4>3 · Support balloons into consulting</h4><p>If every customer needs bespoke science hand-holding, CS cost climbs and margin slides toward 70%.</p><p class="mit"><b>Mitigant:</b> productized outputs + the self-service data loop (upload → validate → decide → export) already built.</p></div>
+    <div class="risk"><h4>4 · The moat is expensive to keep</h4><p>Validated climate science is a real, ongoing R&amp;D cost — it raises the fixed base and the break-even count.</p><p class="mit"><b>Mitigant:</b> the same validation framework is the credibility that <i>justifies</i> the premium price — cost and moat are the same spend.</p></div>
+  </div>
+
+  <!-- 6 · Gate -->
+  <h2><span class="n">06</span>What has to be true first</h2>
+  <p class="sec-sub">The ~80% we can build ourselves is done. Worthiness now hinges on the external-gated ~20% — the trust layer that unlocks six-figure FI deals.</p>
+  <div class="panel">
+    <ul class="clean">
+      <li><b>1–2 lighthouse customers</b> — reference accounts that collapse CAC for everyone after them.</li>
+      <li><b>SOC 2 Type II / ISO 27001</b> — table stakes to pass FI procurement.</li>
+      <li><b>Independent / peer-reviewed validation</b> — turns our honesty gate from posture into a third-party-verified moat.</li>
+      <li><b>Production vendor integrations + EU data residency</b> — the last operational mile.</li>
+    </ul>
+    <p style="margin:2px 0 0;color:var(--ink2);font-size:14px">None of these change the unit economics above — they're the keys that let us <i>realize</i> them.</p>
+  </div>
+
+  <div class="assume" style="margin-top:30px">
+    <b>Key assumptions (flex these to stress-test):</b> blended ACV $90k · gross margin 83% (COGS = 12% support/CS + attributable model-ops + ~$1k infra) · CAC $40k · GRR 85% · NRR 112% · lean fixed cost base $2.5–3M · $ ≈ € for planning. Revenue benchmarks are market-sourced and cited; our ACV, CAC and cost-to-serve are conservative internal estimates, not commitments.
+  </div>
+
+  <div class="foot">
+    Tellumen — physical &amp; nature climate-risk intelligence for financial institutions and corporates. This is an internal planning document; all forward figures are estimates.
+  </div>
+
+</div>

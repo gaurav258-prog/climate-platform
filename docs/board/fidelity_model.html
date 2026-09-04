@@ -1,0 +1,211 @@
+<title>Ground-Truth Fidelity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ser:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#eef2f7; --panel:#ffffff; --panel2:#f6f9fc; --ink:#0e2237; --ink2:#3d5266; --mute:#6a7d8f; --line:#d9e2ec;
+    --sky:#2f7fd6; --sky-soft:#e4f0fd; --teal:#0e93a0; --teal-soft:#e2f4f6;
+    --good:#2e9e5b; --good-soft:#e4f5eb; --warn:#c9862a; --warn-soft:#faf0dd; --bad:#c34637; --bad-soft:#fae7e4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+    }
+  }
+  :root[data-theme="dark"]{
+      --bg:#0a121c; --panel:#111e2b; --panel2:#0e1a26; --ink:#eaf1f8; --ink2:#c0d0e0; --mute:#8ba0b4; --line:#24384c;
+      --sky:#6fb0f0; --sky-soft:#14283d; --teal:#43c0cd; --teal-soft:#102a2e;
+      --good:#57c483; --good-soft:#10261a; --warn:#e0ab5c; --warn-soft:#2a2110; --bad:#e8756a; --bad-soft:#2c1512;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.62; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:820px; margin:0 auto; padding:44px 24px 80px; }
+  .mono{ font-family:var(--mono) }
+
+  .eyebrow{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--teal); }
+  h1{ font-family:var(--ser); font-weight:600; font-size:44px; line-height:1.05; letter-spacing:-.015em; margin:10px 0 12px; text-wrap:balance; }
+  .lede{ font-size:19px; color:var(--ink2); max-width:68ch; }
+  .meta{ font-family:var(--mono); font-size:12px; color:var(--mute); margin-top:14px; }
+
+  h2{ font-family:var(--ser); font-weight:600; font-size:27px; letter-spacing:-.01em; margin:54px 0 6px; }
+  h2 .n{ font-family:var(--mono); font-size:15px; color:var(--teal); margin-right:12px; }
+  .sec-sub{ color:var(--mute); font-size:15px; margin:0 0 20px; max-width:74ch; }
+  h3{ font-weight:700; font-size:15px; margin:24px 0 8px; }
+  p{ max-width:70ch; } p b{ color:var(--ink) }
+
+  /* math block */
+  .math{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:14px 0;
+    font-family:var(--mono); font-size:15px; overflow-x:auto; }
+  .math .lbl{ font-family:var(--sans); font-size:12px; color:var(--mute); margin-bottom:8px; letter-spacing:.02em; }
+  .eq{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--ink); font-size:16px; }
+  .frac{ display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 2px; }
+  .frac .num{ padding:0 8px 3px; } .frac .den{ padding:3px 8px 0; border-top:1.5px solid currentColor; }
+  .where{ font-family:var(--sans); font-size:13.5px; color:var(--ink2); margin-top:12px; }
+  .where b{ font-family:var(--mono); color:var(--ink); font-weight:600 }
+  .teal{ color:var(--teal) } .good{ color:var(--good) } .warn{ color:var(--warn) }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin:14px 0; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:680px){ .grid2{ grid-template-columns:1fr } }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
+  .card h4{ margin:0 0 5px; font-size:15px; font-weight:700 } .card p{ margin:0; font-size:14px; color:var(--ink2) }
+
+  /* fidelity bar */
+  .fid{ margin:18px 0; }
+  .fid .track{ position:relative; height:34px; border-radius:10px; overflow:hidden; display:flex; font-family:var(--mono); font-size:11px; font-weight:600; color:#fff; }
+  .fid .b-held{ background:#9aa7b3; } .fid .b-dir{ background:var(--warn); } .fid .b-rel{ background:#3f9dd6; } .fid .b-str{ background:var(--good); }
+  .fid .track span{ display:flex; align-items:center; justify-content:center; }
+  .fid .floor{ position:absolute; top:-6px; bottom:-6px; width:2px; background:var(--ink); }
+  .fid .floor .tag{ position:absolute; top:-20px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:10px; color:var(--ink); white-space:nowrap; }
+  .fid .marker{ position:absolute; top:-6px; bottom:-6px; width:3px; background:var(--ink); }
+  .fid .scale{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--mute); margin-top:6px; }
+
+  .chip{ font-family:var(--mono); font-size:10.5px; font-weight:600; padding:3px 9px; border-radius:20px; }
+  .c-held{ background:#9aa7b333; color:var(--mute) } .c-dir{ background:var(--warn-soft); color:var(--warn) }
+  .c-rel{ background:var(--sky-soft); color:var(--sky) } .c-str{ background:var(--good-soft); color:var(--good) }
+
+  /* filing mock */
+  .mock{ border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 18px 40px -28px rgba(15,40,70,.5); }
+  .mock .bar{ background:#0A1220; color:#9fb2c4; font-family:var(--mono); font-size:11.5px; padding:9px 14px; }
+  .mock .body{ padding:18px 20px; background:var(--panel); }
+  .stmt{ font-size:15px; color:var(--ink2); } .stmt b{ color:var(--ink) }
+
+  .assume{ background:var(--panel2); border:1px dashed var(--line); border-radius:14px; padding:16px 20px; font-size:13.5px; color:var(--ink2); margin-top:16px }
+  .assume b{ color:var(--ink) }
+  .opt{ border-left:3px solid var(--line); padding-left:14px; margin:10px 0; }
+  .opt.rec{ border-left-color:var(--teal) } .opt .nm{ font-family:var(--ser); font-size:18px; font-weight:600 } .opt .nm .r{ font-size:12px; color:var(--teal); font-family:var(--mono); margin-left:8px }
+  .opt p{ margin:3px 0 0; font-size:14px; color:var(--ink2) }
+  .foot{ margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:12.5px; color:var(--mute) }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Tellumen · Validation Model</div>
+  <h1>Ground-Truth Fidelity</h1>
+  <p class="lede">The number a critic assumes when they see “R²” is the flattering, in-sample one. We don’t report that. We report how much of <i>independently-observed</i> reality our model actually explains, tested <i>out-of-sample</i> over decades — and we give it a name of our own, so it’s never mistaken for the textbook version.</p>
+  <p class="meta">Faithful to ml/validation/metrics.py · variables → observed outcome → cross-referenced fit</p>
+
+  <!-- 0 · plain language -->
+  <h2><span class="n">00</span>In plain words first</h2>
+  <p class="sec-sub">Before the equations — the whole idea in everyday language.</p>
+  <div class="panel">
+    <p style="margin:0 0 12px"><b>The question every model is really answering:</b> harvests (or losses) swing up and down every year. <b>How much of that real swing does our model actually explain?</b></p>
+    <p style="margin:0 0 12px"><b>Compared to what?</b> Imagine a lazy competitor who models nothing and just says “every year will be average.” That’s the bar.</p>
+    <ul class="clean" style="margin:0 0 12px;padding-left:20px">
+      <li><b>0</b> → we’re <b>no better</b> than that lazy “always average” guess.</li>
+      <li><b>100</b> → we explain <b>everything</b> — every year, nailed.</li>
+      <li><b>60</b> → we explain <b>60%</b> of the real swing; the rest is things no model captures (pests, prices, luck).</li>
+      <li><b>negative</b> → we’re <b>worse than the lazy guess</b> — so we bin it (that’s US irrigated maize).</li>
+    </ul>
+    <p style="margin:0 0 12px"><b>Why ours is the strict version:</b> the easy test lets the model peek at the answers, then draw its best line through them — of course it looks good. <b>Ours makes the call first, then checks it against decades of real outcomes it never saw.</b> No peeking. Much harder to pass.</p>
+    <p style="margin:0"><b>So what’s “Fidelity”?</b> It’s simply our honest name for that same number — <i>how faithfully our model matches real life.</i> We rename it because “R²” makes people picture the soft, peeking version, and assume we’re flattering ourselves. We’re not. <b>Fidelity = R², the strict, tested-against-reality kind.</b></p>
+  </div>
+
+  <!-- 1 · the model in math -->
+  <h2><span class="n">01</span>The model, in mathematical statements</h2>
+  <p class="sec-sub">For one hazard model, one scope (a crop belt, a hazard region), over N paired observations — years or locations.</p>
+
+  <div class="math">
+    <div class="lbl">The paired sample</div>
+    <div class="eq">{ ( x<sub>i</sub> , y<sub>i</sub> ) } , &nbsp; i = 1 … N</div>
+    <div class="where">
+      <b>x<sub>i</sub></b> — the model’s <b>predicted</b> hazard effect at unit i (e.g. the growing-season drought/heat index, oriented by its physical sign).<br>
+      <b>y<sub>i</sub></b> — the <b>independently observed</b> outcome at unit i (e.g. the real crop-yield anomaly from FAOSTAT, or the observed near-field event). This is the ground truth the model never saw.
+    </div>
+  </div>
+
+  <div class="math">
+    <div class="lbl">Detrending the outcome (agri targets) — isolate the climate signal from the technology trend</div>
+    <div class="eq">ŷ<sub>trend</sub>(t) = a·t + b &nbsp;<span class="mute">(OLS over years)</span> &nbsp;→&nbsp; y<sub>i</sub> = <span class="frac"><span class="num">yield(t<sub>i</sub>) − ŷ<sub>trend</sub>(t<sub>i</sub>)</span><span class="den">ŷ<sub>trend</sub>(t<sub>i</sub>)</span></span></div>
+    <div class="where">Yields rise ~1–2 %/yr from genetics &amp; inputs; we remove that linear trend and keep the fractional residual, so y<sub>i</sub> is the <b>climate-attributable</b> anomaly — not the harvest total.</div>
+  </div>
+
+  <div class="math">
+    <div class="lbl">The fit — out-of-sample R² (Nash–Sutcliffe form)</div>
+    <div class="eq">
+      R²<sub>oos</sub> &nbsp;=&nbsp; 1 − <span class="frac"><span class="num">SS<sub>res</sub></span><span class="den">SS<sub>tot</sub></span></span>
+      &nbsp;=&nbsp; 1 − <span class="frac"><span class="num teal">Σ<sub>i</sub> ( y<sub>i</sub> − x<sub>i</sub> )²</span><span class="den">Σ<sub>i</sub> ( y<sub>i</sub> − ȳ )²</span></span>
+      , &nbsp; ȳ = <span class="frac"><span class="num">1</span><span class="den">N</span></span> Σ<sub>i</sub> y<sub>i</sub>
+    </div>
+    <div class="where">
+      The numerator compares the observation to the model’s <b class="teal">prediction directly</b> — the predictions are <b>not refit</b> to this sample. That makes it the <b>out-of-sample</b> / Nash–Sutcliffe efficiency, <b>stricter</b> than the textbook in-sample R² (which would refit a best line and always flatter). It can go <b>negative</b> — worse than just guessing the mean ȳ — and we report that honestly, never clipped. Returns “insufficient”, not a number, when N &lt; 3 or the outcome has no variance.
+    </div>
+  </div>
+
+  <div class="math">
+    <div class="lbl">When the outcome is an event, not a continuous value — rank agreement instead of R²</div>
+    <div class="eq">ρ = corr( rank(x) , rank(y) ) &nbsp;&nbsp;·&nbsp;&nbsp; AUC = <span class="frac"><span class="num">Σ<sub>i∈pos</sub> rank(x<sub>i</sub>) − n₊(n₊+1)/2</span><span class="den">n₊ · n₋</span></span></div>
+    <div class="where">
+      Spearman <b>ρ</b> = does a higher score rank with a higher observed outcome. <b>AUC</b> = P( a location that had an event was scored above one that didn’t ). R² is <b>not meaningful</b> for occurrence data, so it is not computed — we don’t force one metric onto both.
+    </div>
+  </div>
+
+  <div class="math">
+    <div class="lbl">The publish gate + grade (the honesty rule)</div>
+    <div class="eq good">publish ⟺ &nbsp; R²<sub>oos</sub> ≥ 0.40 &nbsp;&nbsp;(continuous) &nbsp;&nbsp;or&nbsp;&nbsp; ρ ≥ 0.35 &nbsp;(event)</div>
+    <div class="where">
+      Grade: R² ≥ 0.60 <b class="good">strong</b> · ≥ 0.40 <b class="warn">fair</b> · below → <b>weak, withheld</b>. And an <b>applicability guard</b> runs first: if the test physically <i>can’t</i> judge the model — the event target is saturated (&gt; 85 % of places had one), too sparse (&lt; 2 %), or the score/outcome has no spread — the run is <b>“not testable”</b> (insufficient), never “weak”. A sound model is never mislabelled bad because the test was blind.
+    </div>
+  </div>
+
+  <!-- 2 · why not textbook -->
+  <h2><span class="n">02</span>Why this isn’t the R² they think it is</h2>
+  <div class="grid2">
+    <div class="card"><h4>Out-of-sample, not in-sample</h4><p>Textbook R² refits a line to the same data and reports how well that line fits itself. Ours compares fixed predictions to unseen observations (Nash–Sutcliffe). It can be negative. It is strictly harder to pass.</p></div>
+    <div class="card"><h4>Against independent ground truth</h4><p>y<sub>i</sub> is real, externally-observed outcome — FAOSTAT yields, USGS events — data the model never trained on. That’s the differentiator no black-box competitor can claim.</p></div>
+    <div class="card"><h4>A domain-calibrated floor</h4><p>Climate is one of several drivers of any outcome, so 0.40 is a deliberate “explains a real, material share” floor — not a claim of precision. Below it we publish nothing.</p></div>
+    <div class="card"><h4>Reported, not clipped</h4><p>Negative and weak values are shown as weak; “insufficient” is shown as insufficient. The metric’s job is to withhold, not to flatter.</p></div>
+  </div>
+
+  <!-- 3 · the name + presentation -->
+  <h2><span class="n">03</span>A Tellumen name &amp; presentation</h2>
+  <p class="sec-sub">Same statistic — presented in our terms, always with its context, so it reads as evidence, not jargon. My recommendation, with two alternatives:</p>
+
+  <div class="opt rec">
+    <div class="nm">Ground-Truth Fidelity <span class="r">◆ recommended · symbol Φ</span></div>
+    <p>Names the one thing that’s ours — the fit is against <i>independent ground truth</i>, out-of-sample. Dignified, hard to confuse with textbook R², and it travels to the event models too (“Ranking Fidelity” for ρ/AUC under the same family).</p>
+  </div>
+  <div class="opt"><div class="nm">Reality Match</div><p>Plainer and punchier for a non-technical reader; less obviously tied to the ground-truth moat.</p></div>
+  <div class="opt"><div class="nm">Proven Fraction</div><p>Literal — “the fraction of real outcomes our model provably accounts for.” Strong but reads a touch marketing.</p></div>
+
+  <h3>The presentation — a 0–100 scale with named bands and the floor always visible</h3>
+  <div class="fid">
+    <div class="track">
+      <span class="b-held" style="width:40%">HELD &lt; 40</span>
+      <span class="b-dir" style="width:20%">DIRECTIONAL</span>
+      <span class="b-rel" style="width:20%">RELIABLE</span>
+      <span class="b-str" style="width:20%">STRONG</span>
+      <div class="floor" style="left:40%"><span class="tag">publish floor · 40</span></div>
+      <div class="marker" style="left:60%"></div>
+    </div>
+    <div class="scale"><span>0</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h4><span class="chip c-held">Held</span> &nbsp;Φ &lt; 40</h4><p>Below the floor — <b>not published</b>. The model exists but hasn’t earned a number.</p></div>
+    <div class="card"><h4><span class="chip c-dir">Directional</span> &nbsp;40–59</h4><p>Published as a <b>band</b>, with the fidelity stated. Explains a real, material share.</p></div>
+    <div class="card"><h4><span class="chip c-rel">Reliable</span> &nbsp;60–79</h4><p>Point figures published with confidence; the score tracks reality closely.</p></div>
+    <div class="card"><h4><span class="chip c-str">Strong</span> &nbsp;80+</h4><p>High-confidence; the model explains most of the observed variation.</p></div>
+  </div>
+
+  <h3>How it reads on a filing — the statement always carries its context</h3>
+  <figure class="mock" style="margin:12px 0">
+    <div class="bar mono">model validation · cocoa · West Africa</div>
+    <div class="body">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-family:var(--ser);font-size:30px;font-weight:600">Φ 60</span>
+        <span class="chip c-dir">Directional</span>
+        <span class="mono" style="font-size:11px;color:var(--mute)">out-of-sample · n = 34 years</span>
+      </div>
+      <p class="stmt" style="margin:0">Over <b>34 years</b>, Tellumen’s cocoa-heat score accounts for <b>60 %</b> of the real, independently-observed variation in West-Africa harvests — tested <b>out-of-sample</b> against FAOSTAT yields, above the <b>40 %</b> publish floor. <span class="mute">(Textbook in-sample R² would read higher; we don’t report that.)</span></p>
+    </div>
+  </figure>
+
+  <div class="assume">
+    <b>What implementing this changes, concretely:</b> nothing about the maths — Φ <i>is</i> R²<sub>oos</sub>, unchanged. It’s a rename + a presentation layer: the model-validation page and the Calibration Atlas would show <b>Φ (Ground-Truth Fidelity)</b> with the band and the always-on context line, instead of a bare “R² = 0.60”. The event models keep ρ/AUC under the label <b>Ranking Fidelity</b>, same family. One glossary line maps Φ → out-of-sample R² for any statistician who asks.
+  </div>
+
+  <div class="foot">Tellumen — validation model. Every formula here is exactly what the engine computes; the name is a presentation choice, not a change to the number.</div>
+</div>
