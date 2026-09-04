@@ -226,6 +226,27 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "temperature_change": HazardType.CHANGING_TEMP,
     "changing_precip": HazardType.CHANGING_PRECIP, "changing_precipitation": HazardType.CHANGING_PRECIP,
     "precipitation_change": HazardType.CHANGING_PRECIP,
+    "changing_wind": HazardType.CHANGING_WIND, "changing_wind_patterns": HazardType.CHANGING_WIND,
+    "wind_change": HazardType.CHANGING_WIND,
+    # solid-mass / erosion EU-Taxonomy channels
+    "subsidence": HazardType.SUBSIDENCE, "land_subsidence": HazardType.SUBSIDENCE,
+    "ground_subsidence": HazardType.SUBSIDENCE,
+    "permafrost": HazardType.PERMAFROST, "permafrost_thaw": HazardType.PERMAFROST,
+    "permafrost_thawing": HazardType.PERMAFROST,
+    "soil_erosion": HazardType.SOIL_EROSION,
+    "coastal_erosion": HazardType.COASTAL_EROSION, "shoreline_retreat": HazardType.COASTAL_EROSION,
+    "shoreline_erosion": HazardType.COASTAL_EROSION,
+    "saline_intrusion": HazardType.SALINE_INTRUSION, "saltwater_intrusion": HazardType.SALINE_INTRUSION,
+    "salinisation": HazardType.SALINE_INTRUSION, "salinization": HazardType.SALINE_INTRUSION,
+    "glacial_lake_outburst": HazardType.GLACIAL_LAKE_OUTBURST, "glof": HazardType.GLACIAL_LAKE_OUTBURST,
+    "glacial_lake_outburst_flood": HazardType.GLACIAL_LAKE_OUTBURST,
+    "ocean_acidification": HazardType.OCEAN_ACIDIFICATION, "acidification": HazardType.OCEAN_ACIDIFICATION,
+    "avalanche": HazardType.AVALANCHE, "avalanches": HazardType.AVALANCHE, "snow_avalanche": HazardType.AVALANCHE,
+    "solifluction": HazardType.SOLIFLUCTION,
+    "soil_degradation": HazardType.SOIL_DEGRADATION, "land_degradation": HazardType.SOIL_DEGRADATION,
+    "severe_convective": HazardType.SEVERE_CONVECTIVE, "tornado": HazardType.SEVERE_CONVECTIVE,
+    "convective_storm": HazardType.SEVERE_CONVECTIVE, "large_hail": HazardType.SEVERE_CONVECTIVE,
+    "severe_convective_storm": HazardType.SEVERE_CONVECTIVE,
 }
 
 _SCENARIO_ALIASES: dict[str, RiskScenario] = {

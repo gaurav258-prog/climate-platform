@@ -18,7 +18,13 @@ def test_every_scored_hazard_has_a_declared_projection_posture():
 
 def test_flat_by_design_are_only_the_geophysical_and_susceptibility():
     flat = {it["hazard"] for it in projection_coverage()["items"] if not it["projects"]}
-    assert flat == {"seismic", "volcanic", "landslide"}
+    # geophysical (no climate response) + present-state susceptibility/environment layers that don't project
+    # forward by scenario: terrain/ground-failure predisposition, periglacial state, marine pH, convective env.
+    assert flat == {
+        "seismic", "volcanic", "landslide", "subsidence", "permafrost", "solifluction",
+        "avalanche", "glacial_lake_outburst", "soil_erosion", "soil_degradation",
+        "ocean_acidification", "severe_convective",
+    }
 
 
 def test_climate_perils_project_and_key_ones_carry_a_band():
