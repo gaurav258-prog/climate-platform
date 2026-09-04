@@ -155,8 +155,11 @@ class ValidationSample(Base):
 
 class CanonicalScore(Base):
     """
-    The Golden Source. Append-only — no UPDATEs, no DELETEs.
-    Partitioned by scored_at (TimescaleDB hypertable).
+    The Golden Source. Append-only — no UPDATEs, no DELETEs (enforced by trigger).
+    A plain table (NOT a TimescaleDB hypertable): the single-active-row invariant is enforced by the partial
+    UNIQUE index ux_canonical_active_key (…WHERE valid_to IS NULL), which cannot include the scored_at partition
+    column, so hypertable partitioning on scored_at is incompatible — correctness of that key wins. See the note
+    in migration 001_initial_schema.
     Only the Risk Scoring Engine writes to this table.
     """
     __tablename__ = "canonical_scores"

@@ -51,7 +51,7 @@ def upgrade() -> None:
                   server_default=sa.text("NOW()")),
     )
 
-    # ── canonical_scores (TimescaleDB hypertable) ─────────────────────────────
+    # ── canonical_scores (append-only golden source — plain table, see note after CREATE) ─────────────
     op.create_table(
         "canonical_scores",
         sa.Column("score_id", postgresql.UUID(as_uuid=True), nullable=False,
@@ -79,12 +79,15 @@ def upgrade() -> None:
         sa.CheckConstraint("risk_score BETWEEN 0 AND 100", name="ck_risk_score_range"),
     )
 
-    # Convert to TimescaleDB hypertable if available
-    if timescale:
-        op.execute(
-            "SELECT create_hypertable('canonical_scores', 'scored_at', "
-            "chunk_time_interval => INTERVAL '1 month')"
-        )
+    # canonical_scores is deliberately NOT a TimescaleDB hypertable. The append-only golden source needs a
+    # single ACTIVE row per (h3_cell, hazard_type, scenario, time_horizon, score_lane), enforced by the partial
+    # UNIQUE index ux_canonical_active_key (…WHERE valid_to IS NULL) that every scorer's INSERT … ON CONFLICT
+    # depends on (migration canonical_uniq_active_202608). A hypertable partitioned on scored_at requires every
+    # UNIQUE index to include the partition column — but adding scored_at to that key would allow two active
+    # rows for the same location/hazard, defeating the invariant. Correctness of the single-active key wins over
+    # time-chunking here; the partial index below keeps current-score lookups fast, and the immutability triggers
+    # (which work on a plain table too) preserve append-only. The ml_features_* tables below stay hypertables —
+    # they carry no such uniqueness requirement.
 
     # Performance index: current active scores per cell + hazard
     op.execute(
