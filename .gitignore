@@ -46,6 +46,7 @@ data/permafrost/
 data/soil_erosion/
 data/coastal_erosion/
 data/glacial_lakes/
-data/ocean_ph/
+data/ocean_ph/*
+!data/ocean_ph/ocean_ph_grid.npz
 data/soil_degradation/
 data/convective/
