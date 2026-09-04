@@ -9,8 +9,6 @@ on-demand path already gives global reach today.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -53,7 +51,10 @@ def eu_taxonomy_coverage() -> dict:
     calibration — the tier on each hazard says which claim we're making.
     """
     from core.hazard_taxonomy import (
-        EU_TAXONOMY, EXTRA_CHANNELS, HazardFamily, coverage_summary, eu_hazards_by_family,
+        EXTRA_CHANNELS,
+        HazardFamily,
+        coverage_summary,
+        eu_hazards_by_family,
     )
 
     def _ser(h) -> dict:

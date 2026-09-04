@@ -65,7 +65,7 @@ def xbrl_instance(extra_ns: dict, schema_ref: str, contexts: list[str], units: l
             f'            xmlns:iso4217="{ISO4217}"{_ns_lines(extra_ns, "            ")}>\n'
             f'  <link:schemaRef xlink:type="simple" xlink:href="{schema_ref}"/>\n'
             + "\n".join(contexts) + "\n" + "\n".join(units) + "\n" + "\n".join(facts) + "\n"
-            f'</xbrli:xbrl>\n')
+            '</xbrli:xbrl>\n')
 
 
 def ixbrl_document(*, title: str, extra_ns: dict, schema_ref: str, contexts: list[str], units: list[str],

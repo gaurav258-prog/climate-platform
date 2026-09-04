@@ -28,10 +28,10 @@ from ml.scoring.sea_level import (
     coastal_flood_stress,
     slr_projection,
 )
+from ml.scoring.sea_level_regional import regional_dynamic_offset_m
 
 COASTLINE_CACHE = "data/coastline/ne_10m_coastline.geojson"   # fine coastline — resolves estuaries/deltas
 COASTLINE_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson"
-from ml.scoring.sea_level_regional import regional_dynamic_offset_m
 
 _ZERO = SlrProjection(0.0, 0.0, 0.0, 0.0)   # baseline / current: today's sea level, no band
 # years of land subsidence accumulated by each horizon (from ~2020 present)

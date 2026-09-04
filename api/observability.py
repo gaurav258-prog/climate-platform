@@ -126,6 +126,7 @@ def init_tracing(app=None) -> bool:
             pass
     try:
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
         from core.db.config import engine as _engine
         SQLAlchemyInstrumentor().instrument(engine=_engine)
     except Exception:  # noqa: BLE001

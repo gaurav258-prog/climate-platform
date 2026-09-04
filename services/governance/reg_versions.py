@@ -38,10 +38,11 @@ def _milestones(eif: list[str]) -> dict:
 
 def versions(session: Session, org_type: str | None) -> dict:
     """Per applicable framework, the version lineage (base + amendments) with live effective-date milestones."""
+    from sqlalchemy import text
+
     from services.governance.filings import FRAMEWORKS
     from services.governance.reg_reference import REFERENCE
     from services.regulatory_monitoring.eurlex_detector import FRAMEWORK_CELEX
-    from sqlalchemy import text
 
     snaps = {r["celex"]: (r["signal"] or {}, r["checked_at"]) for r in
              session.execute(text("SELECT celex, signal, checked_at FROM reg_source_snapshot")).mappings()}

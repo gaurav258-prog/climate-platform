@@ -17,7 +17,6 @@ import json
 import math
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 import h3
 from sqlalchemy import text

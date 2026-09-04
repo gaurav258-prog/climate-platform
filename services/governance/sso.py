@@ -286,6 +286,7 @@ def handle_oidc_callback(session: Session, org_id: str, code: str) -> dict:
         raise SsoError("SSO is not enabled for this organization")
     meta = discover(cfg["oidc_issuer"])
     import requests
+
     from core.security.crypto import decrypt
     tok = requests.post(meta["token_endpoint"], timeout=10, data={
         "grant_type": "authorization_code", "code": code, "redirect_uri": _redirect_uri(),

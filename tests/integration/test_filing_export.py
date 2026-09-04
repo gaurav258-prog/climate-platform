@@ -108,6 +108,7 @@ def test_esrs_pack_tags_the_pack_as_xbrl_and_ixbrl():
     """ESRS filings now export through the shared iXBRL engine, tagged from the (frozen) pack — WORM-faithful,
     like the bank path — under the official-intent EFRAG profile."""
     import xml.dom.minidom as minidom
+
     from services.governance.filing_export import _ixbrl, _xbrl
     from services.intelligence.esrs_nature import build_esrs_pack
     from services.intelligence.esrs_xbrl import build_facts

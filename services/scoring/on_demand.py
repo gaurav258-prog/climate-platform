@@ -11,18 +11,21 @@ import logging
 import threading
 
 from ml.features.heat_chronic_point import score_heat_chronic_point
+from ml.scoring.avalanche_point import score_avalanche_point
 from ml.scoring.climate_change_point import (
     score_changing_precip_point,
     score_changing_temp_point,
     score_changing_wind_point,
 )
-from ml.scoring.climate_variability_point import score_precip_variability_point, score_temp_variability_point
+from ml.scoring.climate_variability_point import (
+    score_precip_variability_point,
+    score_temp_variability_point,
+)
+from ml.scoring.coastal_erosion_point import score_coastal_erosion_point
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
 from ml.scoring.frost_point import score_frost_point
-from ml.scoring.heavy_precip_point import score_heavy_precip_point
-from ml.scoring.avalanche_point import score_avalanche_point
-from ml.scoring.coastal_erosion_point import score_coastal_erosion_point
 from ml.scoring.glacial_lake_point import score_glacial_lake_point
+from ml.scoring.heavy_precip_point import score_heavy_precip_point
 from ml.scoring.landslide_point import score_landslide_point
 from ml.scoring.ocean_acidification_point import score_ocean_acidification_point
 from ml.scoring.permafrost_point import score_permafrost_point

@@ -119,6 +119,7 @@ def build_result(session: Session, fit) -> Optional[Outcome]:
     gap, src, cf = rec.gap, rec.source, rec.cf
     reconciled = stored_oos is not None and gap <= RECONCILE_TOL
     scope = f"{fit['name']}/{fit['origin']}"
+    allow_cycle = is_alternate_bearing(fit["name"])   # same cycle handling reconstruct() used
     years = [y for (y, _p, _o) in cf.loo_samples]
     preds = [p for (_y, p, _o) in cf.loo_samples]
     obs = [o for (_y, _p, o) in cf.loo_samples]

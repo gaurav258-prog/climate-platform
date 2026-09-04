@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from api.security import verify_password
 
-
 _LOCKOUT_THRESHOLD = 5
 _LOCKOUT_MINUTES = 15
 
