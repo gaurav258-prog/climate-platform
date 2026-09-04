@@ -20,6 +20,11 @@ export const HAZARD_LABEL: Record<string, string> = {
   precip_variability: 'Erratic rainfall (variability)',
   changing_temp: 'Warming trend (projected)',
   changing_precip: 'Shifting rainfall (projected)',
+  changing_wind: 'Shifting wind patterns (projected)',
+  subsidence: 'Land subsidence (ground sinking)',
+  coastal_erosion: 'Coastal erosion (shoreline retreat)',
+  permafrost: 'Permafrost thaw',
+  soil_erosion: 'Soil erosion',
 }
 
 export const hazardLabel = (h?: string | null): string =>

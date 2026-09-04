@@ -76,6 +76,12 @@ class HazardType(str, Enum):
     # Projected-change magnitude (EU Taxonomy chronic) from the CMIP6 ensemble — forward-looking only:
     CHANGING_TEMP = "changing_temp"            # ensemble-mean warming magnitude vs 1995–2014
     CHANGING_PRECIP = "changing_precip"        # |ensemble-mean fractional precip change|
+    CHANGING_WIND = "changing_wind"            # |ensemble-mean fractional near-surface wind change|
+    # Solid-mass EU-Taxonomy hazards from authoritative global layers (screening-tier predisposition/projection):
+    SUBSIDENCE = "subsidence"          # Herrera-García 2021 Global Subsidence Susceptibility (geophysical, ~1km)
+    PERMAFROST = "permafrost"          # Obu 2019 permafrost probability (NH, thaw exposure) — data via fetch script
+    SOIL_EROSION = "soil_erosion"      # GloSEM (Borrelli) soil displacement by water — data via ESDAC (gated)
+    COASTAL_EROSION = "coastal_erosion"  # Vousdoukas 2020 JRC shoreline-retreat projection (scenario×horizon)
 
 
 class RiskScenario(str, Enum):

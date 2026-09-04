@@ -86,12 +86,14 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, SCR, "now",
              "seasonal temperature amplitude + interannual spread (1991–2020 climatology)", (H.TEMP_VARIABILITY,)),
-    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, ROAD, "p4", "blocked: ESA CCI permafrost — registration-gated, few assets in zone"),
+    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, SCR, "now",
+             "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state", (H.PERMAFROST,)),
 
     # Wind-related (4)
     EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now", "storm severity backtest (Spearman 0.47)", (H.STORM,)),
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
-    EUHazard("changing_wind", W, "Changing wind patterns", C, ROAD, "p3", "blocked: no global wind field ingested yet"),
+    EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
+             "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, ROAD, "p4", "blocked: regional catalogues only (US SPC) — no global asset layer"),
 
     # Water-related (10)
@@ -114,9 +116,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Solid-mass-related (7)
     EUHazard("landslide", S, "Landslide", A, SCR, "now",
              "NASA/LHASA global susceptibility (slope/geology/roads/faults) — geophysical", (H.LANDSLIDE,)),
-    EUHazard("subsidence", S, "Land subsidence", A, ROAD, "p1", "blocked: Copernicus EGMS InSAR — Europe-only + registration-gated"),
-    EUHazard("coastal_erosion", S, "Coastal erosion", C, ROAD, "p2", "blocked: satellite shoreline-change — regional, no global asset layer"),
-    EUHazard("soil_erosion", S, "Soil erosion", C, ROAD, "p2", "blocked: GloSEM/ESDAC RUSLE — registration-gated download (ESRS E4)"),
+    EUHazard("subsidence", S, "Land subsidence", A, SCR, "now",
+             "Herrera-García et al. (2021) Global Subsidence Susceptibility (~1 km, geophysical predisposition)", (H.SUBSIDENCE,)),
+    EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
+             "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon)", (H.COASTAL_EROSION,)),
+    EUHazard("soil_erosion", S, "Soil erosion", C, ROAD, "p2",
+             "engine + fetch script ready (GloSEM, open on figshare); ~16.5 GB raster is an infra-scale fetch — lights up on drop-in"),
     EUHazard("soil_degradation", S, "Soil degradation", C, ROAD, "p2", "blocked: ESDAC land-degradation — registration-gated (ESRS E4)"),
     EUHazard("avalanche", S, "Avalanche", A, ROAD, "p4", "blocked: mountain-regional — no global asset-level layer"),
     EUHazard("solifluction", S, "Solifluction", C, ROAD, "p4", "blocked: niche periglacial — no global dataset"),

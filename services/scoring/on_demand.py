@@ -11,12 +11,20 @@ import logging
 import threading
 
 from ml.features.heat_chronic_point import score_heat_chronic_point
-from ml.scoring.climate_change_point import score_changing_precip_point, score_changing_temp_point
+from ml.scoring.climate_change_point import (
+    score_changing_precip_point,
+    score_changing_temp_point,
+    score_changing_wind_point,
+)
 from ml.scoring.climate_variability_point import score_precip_variability_point, score_temp_variability_point
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
 from ml.scoring.frost_point import score_frost_point
 from ml.scoring.heavy_precip_point import score_heavy_precip_point
+from ml.scoring.coastal_erosion_point import score_coastal_erosion_point
 from ml.scoring.landslide_point import score_landslide_point
+from ml.scoring.permafrost_point import score_permafrost_point
+from ml.scoring.soil_erosion_point import score_soil_erosion_point
+from ml.scoring.subsidence_point import score_subsidence_point
 from ml.scoring.water_stress_point import score_water_stress_point
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from services.tasks.hazard_tasks import HAZARD_TASKS
@@ -38,6 +46,13 @@ SYNC_ON_DEMAND_SCORERS = {
     # projection-based change channels — real under a projection scenario, insufficient at baseline/current
     "changing_temp": score_changing_temp_point,
     "changing_precip": score_changing_precip_point,
+    "changing_wind": score_changing_wind_point,
+    # EU-Taxonomy solid-mass / erosion channels (subsidence + coastal_erosion live; permafrost + soil_erosion
+    # return insufficient_data until their raster is fetched — wired-ready, no code change on drop-in)
+    "subsidence": score_subsidence_point,
+    "coastal_erosion": score_coastal_erosion_point,
+    "permafrost": score_permafrost_point,
+    "soil_erosion": score_soil_erosion_point,
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).

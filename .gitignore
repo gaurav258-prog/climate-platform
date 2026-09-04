@@ -39,3 +39,9 @@ data/natura2000/
 data/wdpa/
 data/wdoecm/
 data/kba/
+
+# EU-Taxonomy hazard source rasters/tables (large, reproducible via scripts/fetch_*.py / ingest_*.py)
+data/subsidence/
+data/permafrost/
+data/soil_erosion/
+data/coastal_erosion/
