@@ -135,6 +135,33 @@ def fetch_entities_with_risk(
                          if lo["ci_hi"] is not None and hi["ci_hi"] is not None else None,
             })
 
+    # Scenario-flat fallback. Susceptibility/state hazards that do not vary by scenario (subsidence, permafrost,
+    # severe-convective environment, the erosion/degradation/marine layers, …) are stored only at
+    # baseline/current. A forward-scenario report must still surface them — carried flat — otherwise a real
+    # physical hazard silently vanishes at 2050. Carry a hazard's baseline value forward ONLY where it has NO
+    # row under the requested scenario at ANY horizon, so scenario-VARYING hazards (and the interpolation
+    # coverage rule above) are never touched and nothing is double-counted.
+    if scenario != "baseline":
+        scen_pairs = {(r["entity_id"], r["hazard_type"]) for r in session.execute(text("""
+            SELECT DISTINCT entity_id::text AS entity_id, hazard_type
+            FROM v_portfolio_entity_physical_risk WHERE org_id = :o AND vertical = :v AND scenario = :s
+        """), {"o": org_id, "v": vertical, "s": scenario}).mappings().all()}
+        for r in session.execute(text("""
+            SELECT entity_id::text AS entity_id, hazard_type,
+                   physical_risk_score AS score, risk_bucket, model_version, scored_at,
+                   physical_risk_ci_lower AS ci_lo, physical_risk_ci_upper AS ci_hi
+            FROM v_portfolio_entity_physical_risk
+            WHERE org_id = :o AND vertical = :v AND scenario = 'baseline' AND time_horizon = 'current'
+        """), {"o": org_id, "v": vertical}).mappings().all():
+            if (r["entity_id"], r["hazard_type"]) in scen_pairs:
+                continue                              # varies by scenario — its own rows already handled it
+            by_entity[r["entity_id"]].append({
+                "hazard": r["hazard_type"], "score": round(r["score"], 1),
+                "bucket": r["risk_bucket"], "model_version": r["model_version"], "scored_at": r["scored_at"],
+                "ci_lo": round(r["ci_lo"], 1) if r["ci_lo"] is not None else None,
+                "ci_hi": round(r["ci_hi"], 1) if r["ci_hi"] is not None else None,
+            })
+
     valuations = session.execute(text("""
         SELECT entity_id::text AS entity_id, CAST(override_discount_pct AS FLOAT) AS override_discount_pct,
                overridden_by::text AS overridden_by, overridden_at, reason

@@ -1,7 +1,9 @@
 """On-demand chronic water-stress scoring for an arbitrary point, from the global soil-moisture baseline.
 
-Chronic root-zone aridity: how dry is this cell's 1991-2020 baseline root-zone soil water against a
-physical wet/dry scale. Warming dries the root zone (more evapotranspiration, less snowpack carryover),
+Chronic root-zone aridity: how dry is this cell's 1991-2020 baseline root-zone soil water, scored
+BASELINE-RELATIVE against the land soil-moisture distribution (driest quartile → High, driest decile → Very
+High), so a normally-moist cell is not automatically flagged. Warming dries the root zone (more
+evapotranspiration, less snowpack carryover),
 so forward horizons raise the score by a parametric per-°C term — the same parametric-warming approach
 heat/drought use for projections. It is a pure function of the already-built GLOBAL soil_moisture_baseline
 (no live fetch), so it scores anywhere synchronously — the counterpart to heat_chronic_point for water.
@@ -19,10 +21,28 @@ from core.db.session import get_session
 from core.types import score_to_bucket
 from ml.scoring.heat_climatology import HORIZON_FRACTION, SCENARIO_WARMING_C
 
-MODEL_VERSION = "soil-water-aridity-global-v1"
+MODEL_VERSION = "soil-water-aridity-global-v2-baseline-relative"
 BOX = 0.7
-SM_DRY, SM_WET = 0.12, 0.40   # root-zone volumetric water (m3/m3): field-dry vs field-wet anchors
 DRY_PER_C = 4.0               # extra chronic-stress score points per °C warming (parametric v0)
+
+# Baseline-relative anchoring (disclosed). Chronic water stress is scored against the LAND distribution of
+# 1991–2020 root-zone soil moisture, not an absolute wet/dry pair — so "High" means DRIER than most land (driest
+# quartile), "Very High" the driest decile, and a normally-moist cell is no longer automatically High. Anchors
+# are (sm_mean m3/m3, score), monotonically decreasing in moisture; land percentiles (sm>0.02): driest-decile
+# p10≈0.123 → 75, driest-quartile p25≈0.182 → 50, median p50≈0.242 → 38, wet p75≈0.332 → 20, p90≈0.390 → 8.
+_SM_ANCHORS = [(0.06, 100.0), (0.123, 75.0), (0.182, 50.0), (0.242, 38.0), (0.332, 20.0), (0.390, 8.0), (0.45, 0.0)]
+
+
+def _sm_anchor(sm: float) -> float:
+    """Piecewise-linear map of baseline soil moisture through the land-distribution percentile anchors, clamped."""
+    if sm <= _SM_ANCHORS[0][0]:
+        return _SM_ANCHORS[0][1]
+    if sm >= _SM_ANCHORS[-1][0]:
+        return _SM_ANCHORS[-1][1]
+    for (x0, y0), (x1, y1) in zip(_SM_ANCHORS, _SM_ANCHORS[1:]):
+        if sm <= x1:
+            return y0 + (y1 - y0) * (sm - x0) / (x1 - x0)
+    return _SM_ANCHORS[-1][1]
 
 
 def _sm_mean(lat: float, lon: float) -> float | None:
@@ -53,12 +73,13 @@ def score_water_stress_point(lat: float, lon: float, scenario: str = "baseline",
     if sm is None:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "no global soil-moisture baseline coverage near this point"}
-    base = max(0.0, min(1.0, (SM_WET - sm) / (SM_WET - SM_DRY))) * 100.0
+    base = _sm_anchor(sm)
     warming = SCENARIO_WARMING_C.get(scenario, 0.6) * HORIZON_FRACTION.get(horizon, 0.0)
     risk = round(max(0.0, min(100.0, base + warming * DRY_PER_C)), 1)
     now = datetime.now(timezone.utc)
     shap = {"sm_mean": round(sm, 3), "warming_c": round(warming, 2), "on_demand": True,
-            "method": "chronic root-zone aridity vs 0.12–0.40 wet/dry anchors + parametric warming drying"}
+            "method": "chronic root-zone aridity, baseline-relative: percentile-anchored vs the land soil-moisture "
+                      "distribution (driest quartile → High, driest decile → Very High) + parametric warming drying"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

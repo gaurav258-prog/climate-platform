@@ -32,8 +32,6 @@ _LOCAL_PATH = Path(__file__).resolve().parents[2] / "data" / "soil_degradation" 
 _COG_URL = "/vsicurl/https://zenodo.org/records/17079487/files/TrendsEarth_SDG15.3.1_2000-2023.tiff"
 _STATUS_BAND = 1
 
-# SDG 15.3.1 status → 0-100 degradation score.
-_STATUS_SCORE = {-1: 80.0, 0: 15.0, 1: 5.0}
 _src = None
 _band = _STATUS_BAND
 _is_local = False
@@ -56,12 +54,6 @@ def _dataset():
     return _src
 
 
-def _score_from_value(v: float) -> Optional[float]:
-    """Local raster may already be 0-100; the SDG COG is signed status (-1/0/1)."""
-    if _is_local and v > 1.5:
-        return max(0.0, min(100.0, v))
-    iv = int(round(v))
-    return _STATUS_SCORE.get(iv)
 
 
 def _sample(lat: float, lon: float) -> Optional[float]:
@@ -72,6 +64,7 @@ def _sample(lat: float, lon: float) -> Optional[float]:
     if not (b.left <= lon <= b.right and b.bottom <= lat <= b.top):
         return None
     try:
+        import numpy as np
         from rasterio.windows import Window
         row, col = src.index(lon, lat)
         a = src.read(_band, window=Window(col - 4, row - 4, 9, 9))   # ~2 km neighbourhood
@@ -82,9 +75,13 @@ def _sample(lat: float, lon: float) -> Optional[float]:
         flat = flat[flat != src.nodata]
     if flat.size == 0:
         return None
-    # screening: flag the most-degraded status in the neighbourhood (min = -1 degraded), then map
-    v = float(flat.min())
-    return _score_from_value(v)
+    if _is_local and float(flat.max()) > 1.5:
+        # a locally-materialised raster is a 0–100 degradation index → mean over the neighbourhood
+        return round(max(0.0, min(100.0, float(flat.mean()))), 2)
+    # SDG 15.3.1 status (-1 degraded / 0 stable / +1 improved). The indicator IS the PROPORTION of degraded
+    # land, so score = the degraded FRACTION of the neighbourhood × 100 — truthful (1% degraded → 1, not VH),
+    # never "any degraded pixel flags the whole cell".
+    return round(100.0 * float(np.mean(flat == -1)), 2)
 
 
 def score_soil_degradation_point(lat: float, lon: float, scenario: str = "baseline", horizon: str = "current") -> dict:
@@ -104,8 +101,8 @@ def score_soil_degradation_point(lat: float, lon: float, scenario: str = "baseli
     risk = round(risk, 2)
     now = datetime.now(timezone.utc)
     shap = {"on_demand": True, "tier": "screening",
-            "method": "UNCCD SDG 15.3.1 degraded-land status (Trends.Earth: ESA-CCI land cover + productivity + SoilGrids SOC); "
-                      "-1 degraded / 0 stable / +1 improved → 0-100; screening, not calibrated to €"}
+            "method": "UNCCD SDG 15.3.1 (Trends.Earth: ESA-CCI land cover + productivity + SoilGrids SOC); "
+                      "score = proportion of degraded land (status -1) in the ~2 km neighbourhood × 100; screening, not calibrated to €"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
