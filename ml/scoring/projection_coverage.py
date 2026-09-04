@@ -83,7 +83,7 @@ def projection_coverage() -> dict:
         _entry("permafrost", "susceptibility_flat", "permafrost probability is a present physical state, not a scenario response",
                "Obu et al. (2019) permafrost probability (1 km, NH); screening-tier state"),
         _entry("soil_erosion", "susceptibility_flat", "GloSEM present-day soil-loss rate is a mapped state, not scenario-varying here",
-               "GloSEM (Borrelli/Panagos) soil-loss rate; screening-tier (raster is an infra-scale fetch)"),
+               "GloSEM (Borrelli/Panagos) cropland soil-loss rate; screening-tier"),
         _entry("saline_intrusion", "projection_channel", "intrusion susceptibility is amplified by the AR6 SLR at scenario × horizon",
                "low-elevation-coastal-zone × SLR proxy; screening-tier"),
         _entry("glacial_lake_outburst", "susceptibility_flat", "proximity to a mapped glacial lake is a present exposure, not scenario-varying here",
