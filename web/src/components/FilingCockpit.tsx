@@ -15,6 +15,7 @@ import FilingCoverage from './FilingCoverage'
 import DisclosureFlags from './DisclosureFlags'
 import ProvidedData from './ProvidedData'
 import FilingForm from './FilingForm'
+import { actionLabel } from '../lib/actionLabels'
 
 // The reporting cockpit for a financial institution: the filing calendar (what's due), the filing register
 // (every filing and where it is in its lifecycle), and a drawer that runs the controlled lifecycle —
@@ -477,7 +478,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                   <div key={i} className="flex gap-3">
                     <div className="mt-1"><Clock size={13} className="text-[var(--color-faint)]" /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13px] text-[var(--color-ink)]"><Chip status={e.to} /> <span className="text-[var(--color-mute)] ml-1">{e.action.replace(/_/g, ' ')}</span></div>
+                      <div className="text-[13px] text-[var(--color-ink)]"><Chip status={e.to} /> <span className="text-[var(--color-mute)] ml-1" title={e.action}>{actionLabel(e.action)}</span></div>
                       <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5">{e.actor ?? '—'} · {new Date(e.at).toLocaleString('en-GB')}</div>
                       {typeof e.detail?.reason === 'string' && <div className="text-[12px] text-[var(--color-mute)] mt-1 italic">“{e.detail.reason}”</div>}
                       {typeof e.detail?.statement === 'string' && <div className="text-[12px] text-[var(--color-mute)] mt-1">✍ {e.detail.attestor_name as string}: “{e.detail.statement}”</div>}

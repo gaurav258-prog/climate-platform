@@ -7,6 +7,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import { actionLabel } from '../lib/actionLabels'
 
 // Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
 // chosen scenario/horizon; here an officer records what to do about each — reprice, engage, disclose, keep
@@ -193,7 +194,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focuse
             ? <button onClick={() => canAct && setOpen(o => !o)} title={proposed ? 'Proposed — awaiting a second approval' : `Approved · ${c.decision.by?.split('@')[0]}`}
                 className="mono text-[9px] uppercase tracking-wide px-2 py-1 rounded inline-flex items-center gap-1"
                 style={proposed ? { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 15%, transparent)' } : { color: dm?.tone, background: `color-mix(in oklab, ${dm?.tone} 15%, transparent)` }}>
-                {proposed ? <><Clock size={10} /> {dm?.label} · 4-eyes</> : <><Check size={11} /> {dm?.label ?? c.decision.action}</>}
+                {proposed ? <><Clock size={10} /> {dm?.label} · 4-eyes</> : <><Check size={11} /> {dm?.label ?? actionLabel(c.decision.action)}</>}
               </button>
             : canAct
               ? <Button variant="ghost" onClick={() => setOpen(o => !o)}>Decide</Button>
@@ -299,7 +300,7 @@ function DecisionsReference({ canAct, log }: { canAct: boolean; log: LogRow[] })
                 const m = actionMeta(d.action)
                 return (
                   <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-[12.5px]">
-                    <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? d.action}</span>
+                    <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: m?.tone, background: `color-mix(in oklab, ${m?.tone} 15%, transparent)` }}>{m?.label ?? actionLabel(d.action)}</span>
                     <span className="mono text-[9px] uppercase tracking-wide shrink-0" style={{ color: d.status === 'approved' ? 'var(--color-good)' : d.status === 'proposed' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{d.status}</span>
                     <span className="text-[var(--color-ink)] truncate flex-1">{d.entity_name ?? '—'}{d.rationale ? <span className="text-[var(--color-faint)]"> · {d.rationale}</span> : ''}</span>
                     <span className="mono text-[10px] text-[var(--color-faint)] shrink-0">{scLabel(d.scenario)} · {d.horizon} · {d.by?.split('@')[0]} · {new Date(d.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>

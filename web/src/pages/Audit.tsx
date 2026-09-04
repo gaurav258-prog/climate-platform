@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Card, PageHeader } from '../components/ui'
+import { actionLabel } from '../lib/actionLabels'
 
 interface Row {
   id: string; action: string; target_type: string | null; target_id: string | null
@@ -46,7 +47,7 @@ export default function Audit({ embedded = false }: { embedded?: boolean }) {
                 <tr key={r.id} className="border-b border-[var(--color-line)] last:border-0">
                   <td className="py-2.5 px-4 mono text-[11px] text-[var(--color-mute)] whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
                   <td className="px-4 text-[var(--color-ink)] whitespace-nowrap">{r.actor_email ?? '—'}</td>
-                  <td className={`px-4 mono text-[11.5px] whitespace-nowrap ${ACTION_TONE(r.action)}`}>{r.action}</td>
+                  <td className={`px-4 text-[12.5px] whitespace-nowrap ${ACTION_TONE(r.action)}`} title={r.action}>{actionLabel(r.action)}</td>
                   <td className="px-4 mono text-[11px] text-[var(--color-faint)] whitespace-nowrap">{r.target_type ?? ''}{r.target_id ? ` ${String(r.target_id).slice(0, 8)}` : ''}</td>
                   <td className="px-4 text-[var(--color-mute)]">{fmtDetail(r.detail)}</td>
                 </tr>
