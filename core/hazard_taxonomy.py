@@ -94,8 +94,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
-    EUHazard("tornado", W, "Tornado", A, ROAD, "p4",
-             "engine + build script ready (ERA5 CAPE × 0–6 km shear convective potential, Taszarek 2021); ERA5-CDS climatology is an infra build — severe_convective channel lights up on drop-in"),
+    EUHazard("tornado", W, "Tornado", A, SCR, "now",
+             "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR); the severe-convective environment (also covers large hail / damaging wind)", (H.SEVERE_CONVECTIVE,)),
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),

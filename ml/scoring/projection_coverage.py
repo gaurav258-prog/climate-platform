@@ -97,7 +97,7 @@ def projection_coverage() -> dict:
         _entry("soil_degradation", "susceptibility_flat", "UNCCD SDG 15.3.1 degraded-land status is a mapped present state",
                "Trends.Earth SDG 15.3.1 (on-demand COG read); screening-tier"),
         _entry("severe_convective", "susceptibility_flat", "the ERA5 CAPE×shear climatology is a standing environment field",
-               "ERA5 convective potential (Taszarek 2021); screening-tier (climatology is an infra build)"),
+               "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR); screening-tier"),
         _entry("seismic", "geophysical_flat", "earthquake hazard has no climate-scenario response",
                "geophysical — not climate-attributable"),
         _entry("volcanic", "geophysical_flat", "volcanic hazard has no climate-scenario response",

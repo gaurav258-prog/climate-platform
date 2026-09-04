@@ -49,4 +49,5 @@ data/glacial_lakes/
 data/ocean_ph/*
 !data/ocean_ph/ocean_ph_grid.npz
 data/soil_degradation/
-data/convective/
+data/convective/*
+!data/convective/convective_potential.npz
