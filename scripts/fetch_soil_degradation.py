@@ -1,36 +1,38 @@
-"""Fetch a global land-degradation raster (EU-Taxonomy solid-mass hazard: soil degradation).
+"""(Optional) materialise the SDG 15.3.1 land-degradation raster locally (EU-Taxonomy hazard: soil degradation).
 
-The authoritative global land-degradation layers are ISRIC GLADA / GLADIS (NDVI-trend based) and FAO's
-degradation assessments. Unlike GloSEM (erosion) or the subsidence map, there is no single clean anonymous
-GeoTIFF download for a *degradation index* — GLADA is distributed via ISRIC and FAO SOLAW channels. So this is
-WIRED-READY: obtain a global degradation index GeoTIFF (0–100 or classed), drop it at
-data/soil_degradation/degradation.tif, and the channel lights up (ml/scoring/soil_degradation_point.py) with
-zero code change. Set SOILDEG_URL to a direct GeoTIFF URL to have this fetch it for you.
+The soil-degradation channel is ALREADY LIVE: ml/scoring/soil_degradation_point.py reads the UNCCD SDG 15.3.1
+status straight from the Trends.Earth Cloud-Optimized GeoTIFF on demand (a range read of one tile — no bulk
+download). This script is only needed if you want a LOCAL copy on infrastructure (faster, offline): it fetches
+the 5.4 GB COG (Zenodo 10.5281/zenodo.17079487) so the scorer reads it from disk instead of over HTTP. The
+scorer prefers data/soil_degradation/degradation.tif when present.
 
-Run:  SOILDEG_URL="<direct GeoTIFF url>" .venv/bin/python -m scripts.fetch_soil_degradation
-Output: data/soil_degradation/degradation.tif (gitignored). Idempotent.
+Source (open) — Trends.Earth SDG Indicator 15.3.1 Datasets, Conservation International, Zenodo 17079487
+(ESA-CCI land cover + land-productivity dynamics + SoilGrids SOC; band 1 = degraded-land status).
+
+Run (only if you want a local copy):  SOILDEG_FETCH=1 .venv/bin/python -m scripts.fetch_soil_degradation
+Output: data/soil_degradation/degradation.tif (gitignored, ~5.4 GB).
 """
 from __future__ import annotations
 
 import os
-import urllib.request
+import subprocess
 
 DEST_DIR = "data/soil_degradation"
 TIF = os.path.join(DEST_DIR, "degradation.tif")
-SOILDEG_URL = os.getenv("SOILDEG_URL")
+URL = "https://zenodo.org/records/17079487/files/TrendsEarth_SDG15.3.1_2000-2023.tiff"
 
 
 def main() -> int:
     os.makedirs(DEST_DIR, exist_ok=True)
     if os.path.exists(TIF):
         print(f"{TIF} already present — nothing to do."); return 0
-    if not SOILDEG_URL:
-        print("SOILDEG_URL not set. Obtain a global land-degradation index GeoTIFF (ISRIC GLADA / FAO GLADIS)")
-        print("  → https://www.isric.org/projects/global-assessment-land-degradation-and-improvement-glada")
-        print(f"  and either set SOILDEG_URL=<direct url> or drop the GeoTIFF at {TIF}, then re-run.")
+    if os.getenv("SOILDEG_FETCH") != "1":
+        print("Soil degradation is already LIVE via the on-demand COG read — a local copy is optional.")
+        print("The SDG 15.3.1 COG is ~5.4 GB (Zenodo 17079487). To materialise it locally on infra, run:")
+        print("  SOILDEG_FETCH=1 .venv/bin/python -m scripts.fetch_soil_degradation")
         return 2
-    print(f"downloading land-degradation raster → {TIF} …", flush=True)
-    urllib.request.urlretrieve(SOILDEG_URL, TIF)
+    print("downloading SDG 15.3.1 COG (~5.4 GB, resumable) …", flush=True)
+    subprocess.run(["curl", "-sL", "-C", "-", "-o", TIF, URL], check=True)
     print(f"ready: {TIF}")
     return 0
 
