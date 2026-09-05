@@ -94,8 +94,10 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
-    EUHazard("tornado", W, "Tornado", A, SCR, "now",
-             "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR); the severe-convective environment (also covers large hail / damaging wind)", (H.SEVERE_CONVECTIVE,)),
+    EUHazard("tornado", W, "Tornado", A, CAL, "now",
+             "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR), backtested vs 70k NOAA SPC "
+             "tornadoes: ranking AUC 0.73 (EF2+ 0.74), US validation region (scripts/backtest_convective_spc.py); "
+             "environment index, also covers large hail / damaging wind", (H.SEVERE_CONVECTIVE,)),
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),
@@ -118,8 +120,9 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure zones", (H.GLACIAL_LAKE_OUTBURST,)),
 
     # Solid-mass-related (7)
-    EUHazard("landslide", S, "Landslide", A, SCR, "now",
-             "NASA/LHASA global susceptibility (slope/geology/roads/faults) — geophysical", (H.LANDSLIDE,)),
+    EUHazard("landslide", S, "Landslide", A, CAL, "now",
+             "NASA/LHASA global susceptibility, backtested vs the Global Landslide Catalog (9.5k events): "
+             "ranking ROC-AUC 0.95, 11× High+ lift (scripts/backtest_landslide_glc.py)", (H.LANDSLIDE,)),
     EUHazard("subsidence", S, "Land subsidence", A, SCR, "now",
              "Herrera-García et al. (2021) Global Subsidence Susceptibility (~1 km, geophysical predisposition)", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
