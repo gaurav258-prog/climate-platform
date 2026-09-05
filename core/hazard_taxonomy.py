@@ -90,12 +90,20 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state", (H.PERMAFROST,)),
 
     # Wind-related (4)
-    EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now", "storm severity backtest (Spearman 0.47)", (H.STORM,)),
-    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
+    EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, SCR, "now",
+             "physical Rankine-vortex wind field from IBTrACS best-tracks. IN-SAMPLE consistency only (near-field "
+             "ρ 0.47): the score is BUILT FROM the same IBTrACS catalogue it is checked against, so it is not "
+             "out-of-sample — an independent-target backtest (observed wind damage / insured loss) is pending.", (H.STORM,)),
+    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now",
+             "ERA5 instantaneous-10 m-wind-gust climatology (1991–2020, stormiest-month peak) — extratropical "
+             "windstorms / blizzards / dust-&-sand storms, the wind peril tropical-cyclone models miss (e.g. "
+             "European winter windstorms Kyrill/Lothar/Xynthia). Distinct channel from Cyclone.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
-    EUHazard("tornado", W, "Tornado", A, SCR, "now",
-             "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR); the severe-convective environment (also covers large hail / damaging wind)", (H.SEVERE_CONVECTIVE,)),
+    EUHazard("tornado", W, "Tornado", A, CAL, "now",
+             "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR), backtested vs 70k NOAA SPC "
+             "tornadoes: ranking AUC 0.73 (EF2+ 0.74), US validation region (scripts/backtest_convective_spc.py); "
+             "environment index, also covers large hail / damaging wind", (H.SEVERE_CONVECTIVE,)),
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),
@@ -114,12 +122,18 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
     EUHazard("ocean_acidification", WA, "Ocean acidification", C, SCR, "now",
              "OceanSODA-ETHZ global surface-ocean pH; marine screening for coastal/aquaculture/fisheries exposure (not-applicable for inland land assets)", (H.OCEAN_ACIDIFICATION,)),
-    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, SCR, "now",
-             "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure zones", (H.GLACIAL_LAKE_OUTBURST,)),
+    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, REF, "now",
+             "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure ZONE. Acute water "
+             "hazard (EBA/EU-Taxonomy); a geophysical proximity screen — not a hydraulically-routed inundation nor a "
+             "backtestable field (outbursts occur AT mapped lakes, so a proximity backtest is circular). Reference "
+             "tier, the same honest posture as volcanic / seismic zones.", (H.GLACIAL_LAKE_OUTBURST,)),
 
     # Solid-mass-related (7)
-    EUHazard("landslide", S, "Landslide", A, SCR, "now",
-             "NASA/LHASA global susceptibility (slope/geology/roads/faults) — geophysical", (H.LANDSLIDE,)),
+    EUHazard("landslide", S, "Landslide", A, CAL, "now",
+             "physical NASA/LHASA susceptibility (terrain/geology, independent of any event catalogue), validated "
+             "vs the INDEPENDENT Global Landslide Catalog (9.5k events): ranking ROC-AUC 0.95, 11× High+ lift "
+             "(scripts/backtest_landslide_glc.py). In-domain caveat: LHASA used the GLC in its development, so this "
+             "reproduces the published susceptibility's discrimination — not a fresh held-out out-of-sample test.", (H.LANDSLIDE,)),
     EUHazard("subsidence", S, "Land subsidence", A, SCR, "now",
              "Herrera-García et al. (2021) Global Subsidence Susceptibility (~1 km, geophysical predisposition)", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
@@ -136,10 +150,32 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
 
 # Channels we carry that sit OUTSIDE the EU climate list (geophysical / nature) — coverage beyond Appendix A.
 EXTRA_CHANNELS: tuple[EUHazard, ...] = (
-    EUHazard("seismic", S, "Seismic (earthquake)", A, CAL, "now", "USGS/EMSC backtest (Spearman 0.81, AUC 0.96)", (H.SEISMIC,)),
+    EUHazard("seismic", S, "Seismic (earthquake)", A, SCR, "now",
+             "Bakun-Wentworth IPE on the USGS/EMSC catalogue. IN-SAMPLE consistency only (near-field ρ 0.81, "
+             "AUC 0.96): the score is BUILT FROM the same catalogue it is checked against (see model_validation.py), "
+             "so it is not out-of-sample — an independent-target backtest is pending.", (H.SEISMIC,)),
     EUHazard("volcanic", S, "Volcanic", A, REF, "now", "geophysical hazard-zone (any-address gap)", (H.VOLCANIC,)),
     EUHazard("pollution", WA, "Pollution / air quality", C, SCR, "now", "nature channel, disclosed thin", (H.POLLUTION,)),
 )
+
+
+# ── The CALIBRATED gate: independent-target validation is REQUIRED ────────────────────────────────────────
+# A hazard may be tiered CALIBRATED ONLY if it is validated against an observed target that is INDEPENDENT of
+# the model's own inputs (no in-sample / circular skill — a score built from the same catalogue it is tested
+# against does NOT qualify, however strong the near-field consistency). Every CALIBRATED hazard MUST appear
+# here, naming its independent target + backtest; test_hazard_calibration_gate.py enforces the two-way match,
+# so a channel cannot be promoted to CALIBRATED without declaring how it earned it. See [[feedback_no_shortcuts]].
+CALIBRATED_VALIDATION: dict[str, dict] = {
+    "heat_wave": {"target": "observed cocoa production, FAO/ICCO (independent of ERA5 heat)",
+                  "script": "scripts/backtest_cocoa_drought.py", "out_of_sample": True},
+    "drought": {"target": "observed crop-production shock, FAO (independent of ERA5 SPEI)",
+                "script": "scripts/backtest_coffee_climate.py", "out_of_sample": True},
+    "tornado": {"target": "NOAA SPC observed tornadoes (independent of the ERA5 CAPE×shear field)",
+                "script": "scripts/backtest_convective_spc.py", "out_of_sample": True},
+    "landslide": {"target": "NASA Global Landslide Catalog (independent event inventory; physical susceptibility "
+                            "inputs). In-domain: LHASA used the GLC in development, so not a fresh held-out test",
+                  "script": "scripts/backtest_landslide_glc.py", "out_of_sample": False},
+}
 
 
 def eu_hazards_by_family() -> dict[str, list[EUHazard]]:

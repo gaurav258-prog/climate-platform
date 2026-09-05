@@ -49,6 +49,9 @@ def projection_coverage() -> dict:
                fl.basis, band=True, gaps=["mean-precip and coastal terms deliberately excluded (separate mechanisms)"]),
         _entry("storm", "cmip6_band", f"peak intensity ~{st.per_c*100:.0f}%/°C; severity scaled, not counts",
                st.basis, band=True),
+        _entry("windstorm", "susceptibility_flat", "ERA5 gust climatology is a standing extreme-wind field "
+               "(extratropical windstorm), sampled as present exposure — not scenario-varying here",
+               "ERA5 instantaneous-10m-wind-gust climatology (1991-2020)"),
         _entry("wildfire", "cmip6_band", f"fire weather ~{wf.per_c*100:.0f}%/°C warming plus a drying term",
                wf.basis, band=True),
         _entry("coastal_flood", "ar6_slr_band", "freeboard vs projected global-mean sea-level rise",

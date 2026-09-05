@@ -23,7 +23,7 @@ def test_flat_by_design_are_only_the_geophysical_and_susceptibility():
     assert flat == {
         "seismic", "volcanic", "landslide", "subsidence", "permafrost", "solifluction",
         "avalanche", "glacial_lake_outburst", "soil_erosion", "soil_degradation",
-        "ocean_acidification", "severe_convective",
+        "ocean_acidification", "severe_convective", "windstorm",
     }
 
 
