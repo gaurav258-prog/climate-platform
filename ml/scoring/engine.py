@@ -139,17 +139,22 @@ def _regulatory_fingerprint(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def _load_ensemble_scorer(model_version: str, hazard_type: str) -> Optional[EnsembleScorer]:
+def _load_ensemble_scorer(model_version: Optional[str], hazard_type: str) -> Optional[EnsembleScorer]:
     """
     Load a serialised EnsembleScorer from the MLflow artifact store, or
     return None if no trained model exists yet.
+
+    model_version=None (or "latest") resolves the most recent FINISHED run for the hazard — the
+    default for backtests and scoring, so they always test the current champion rather than a
+    pinned version. Pass an explicit version only to reproduce a specific historical model.
     """
     try:
         import mlflow
         mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
 
         client = mlflow.tracking.MlflowClient()
-        runs = client.search_runs(
+        # None/"latest" → skip the tag filter and take the most recent FINISHED run below.
+        runs = [] if model_version in (None, "latest") else client.search_runs(
             experiment_ids=[
                 e.experiment_id
                 for e in client.search_experiments()

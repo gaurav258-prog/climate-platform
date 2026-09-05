@@ -111,7 +111,7 @@ def features(ds, ev):
 
 def main():
     from ml.scoring.engine import _load_ensemble_scorer
-    scorer = _load_ensemble_scorer("flood-v202606271159", "flood")
+    scorer = _load_ensemble_scorer(None, "flood")   # always the latest trained flood model, never pinned
     if scorer is None:
         print("could not load flood model"); sys.exit(1)
     feats = ["precipitation_7d_mm", "soil_saturation_index", "glofas_discharge_m3s"]
