@@ -2,13 +2,17 @@
 
 DISTINCT from the tropical-cyclone channel (ml/scoring/storm_physics.py / H.STORM). Tropical-cyclone models
 (IBTrACS Rankine vortex) do not represent extratropical windstorms — the dominant wind peril for European
-(EBA) banks (Kyrill, Lothar, Xynthia) — nor blizzards / dust-&-sand storms. This reads the authoritative ERA5
-instantaneous-10 m-wind-gust climatology (1991-2020 stormiest-month peak, data/wind/windstorm_gust_climatology.npz,
-built by scripts/build_windstorm_climatology.py) and scores it BASELINE-RELATIVE: the gust field is a monthly
-mean (not an instantaneous return level), so an absolute damage scale would floor everything — instead we
-percentile-anchor against the climatology so 'High' = windier than ~75% of the globe and 'Very High' the top
-decile, a discriminating relative-exposure screen. Climatological, so it does not vary by scenario/horizon
-(carried flat into forward reports, like the other climatology channels). Screening tier until backtested.
+(EBA) banks (Kyrill, Lothar, Xynthia) — nor blizzards / dust-&-sand storms. This reads an ERA5 10 m-wind-gust
+climatology (data/wind/windstorm_gust_climatology.npz) and scores it BASELINE-RELATIVE (percentile-anchored so
+'High' = windier than ~75% of land, 'Very High' the top decile). Climatological, so it does not vary by
+scenario/horizon (carried flat into forward reports, like the other climatology channels).
+
+SCREENING — and honestly INTERIM. The first field used the monthly-MEAN gust (build_windstorm_climatology.py),
+which FAILED an independent NOAA Storm Events backtest (AUC 0.45, Spearman −0.21): mean gust measures persistent
+breeziness, not the episodic extremes a windstorm actually is. It is being replaced by the physically-correct
+EXTREME-gust climatology — per-cell annual-maximum daily gust → Gumbel return level (scripts/build_windstorm_
+hourly.py) — with the NOAA backtest re-run to set the tier. Until that field lands, the anchors below are the
+placeholder mean-gust anchors and are re-derived from the extreme distribution when it is built.
 """
 from __future__ import annotations
 
