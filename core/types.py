@@ -52,7 +52,8 @@ class HazardType(str, Enum):
     HEAT_CHRONIC = "heat_chronic"
     WILDFIRE = "wildfire"
     DROUGHT = "drought"
-    STORM = "storm"
+    STORM = "storm"                              # tropical cyclone / hurricane / typhoon (IBTrACS Rankine vortex)
+    WINDSTORM = "windstorm"                       # extratropical windstorm / blizzard / dust-sand storm (ERA5 gust climatology)
     SEISMIC = "seismic"
     VOLCANIC = "volcanic"
     POLLUTION = "pollution"
@@ -192,10 +193,18 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     # soil water (root-zone moisture — a distinct, deeper signal; the dryland-cereal driver)
     "soil_water": HazardType.SOIL_WATER, "soil_moisture": HazardType.SOIL_WATER,
     "root_zone_water": HazardType.SOIL_WATER,
-    # storm
+    # tropical cyclone (EU-Taxonomy "Cyclone / hurricane / typhoon") — IBTrACS Rankine-vortex channel.
+    # NOTE: HazardType.STORM's value is the string "storm" and the tropical-cyclone data is stored under it,
+    # so "storm"/"cyclone"/"hurricane"/"typhoon" stay mapped here for backward compatibility.
     "storm": HazardType.STORM, "extreme_weather": HazardType.STORM,
     "cyclone": HazardType.STORM, "hurricane": HazardType.STORM,
-    "typhoon": HazardType.STORM, "hail": HazardType.STORM, "wind": HazardType.STORM,
+    "typhoon": HazardType.STORM, "tropical_cyclone": HazardType.STORM,
+    # extratropical windstorm (EU-Taxonomy "Storm — blizzard, dust, sand") — the ERA5 gust-climatology channel,
+    # distinct from tropical cyclone; the EU "storm" hazard maps to this via the taxonomy registry.
+    "windstorm": HazardType.WINDSTORM, "wind": HazardType.WINDSTORM, "gale": HazardType.WINDSTORM,
+    "blizzard": HazardType.WINDSTORM, "dust_storm": HazardType.WINDSTORM, "sandstorm": HazardType.WINDSTORM,
+    "extratropical_storm": HazardType.WINDSTORM, "wind_gust": HazardType.WINDSTORM,
+    "hail": HazardType.SEVERE_CONVECTIVE,   # hail is a convective peril, not a windstorm
     # seismic
     "seismic": HazardType.SEISMIC, "earthquake": HazardType.SEISMIC,
     "quake": HazardType.SEISMIC,

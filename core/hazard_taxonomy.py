@@ -91,7 +91,10 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
 
     # Wind-related (4)
     EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now", "storm severity backtest (Spearman 0.47)", (H.STORM,)),
-    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now", "global", (H.STORM,)),
+    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now",
+             "ERA5 instantaneous-10 m-wind-gust climatology (1991–2020, stormiest-month peak) — extratropical "
+             "windstorms / blizzards / dust-&-sand storms, the wind peril tropical-cyclone models miss (e.g. "
+             "European winter windstorms Kyrill/Lothar/Xynthia). Distinct channel from Cyclone.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, CAL, "now",
@@ -116,8 +119,11 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
     EUHazard("ocean_acidification", WA, "Ocean acidification", C, SCR, "now",
              "OceanSODA-ETHZ global surface-ocean pH; marine screening for coastal/aquaculture/fisheries exposure (not-applicable for inland land assets)", (H.OCEAN_ACIDIFICATION,)),
-    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, SCR, "now",
-             "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure zones", (H.GLACIAL_LAKE_OUTBURST,)),
+    EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, REF, "now",
+             "GIGLak global glacial-lake inventory (117k lakes) → size-scaled proximity exposure ZONE. Acute water "
+             "hazard (EBA/EU-Taxonomy); a geophysical proximity screen — not a hydraulically-routed inundation nor a "
+             "backtestable field (outbursts occur AT mapped lakes, so a proximity backtest is circular). Reference "
+             "tier, the same honest posture as volcanic / seismic zones.", (H.GLACIAL_LAKE_OUTBURST,)),
 
     # Solid-mass-related (7)
     EUHazard("landslide", S, "Landslide", A, CAL, "now",

@@ -36,6 +36,7 @@ from ml.scoring.soil_erosion_point import score_soil_erosion_point
 from ml.scoring.solifluction_point import score_solifluction_point
 from ml.scoring.subsidence_point import score_subsidence_point
 from ml.scoring.water_stress_point import score_water_stress_point
+from ml.scoring.windstorm_point import score_windstorm_point
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from services.tasks.hazard_tasks import HAZARD_TASKS
 
@@ -46,7 +47,7 @@ from services.tasks.hazard_tasks import HAZARD_TASKS
 # water + frost picture on demand, exactly like the any-address lookup.
 SYNC_ON_DEMAND_SCORERS = {
     "seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point,
-    "storm": score_storm_point,
+    "storm": score_storm_point, "windstorm": score_windstorm_point,
     "soil_water": score_water_stress_point, "frost": score_frost_point,
     "coastal_flood": score_coastal_flood_point,
     "heavy_precip": score_heavy_precip_point,
