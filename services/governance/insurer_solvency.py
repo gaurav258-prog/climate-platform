@@ -64,12 +64,16 @@ def s2601_natcat(snapshot: dict) -> dict:
         },
         "perils": peril_rows,          # the natural-catastrophe sub-module lines driving the aggregate
         "note": scr.get("note"),
-        # the prescribed standard-formula cells we do not fabricate
+        # prescribed STANDARD-FORMULA windstorm CAT sub-module — EIOPA's own factors (Art. 121 + Annex V), cited
+        "standard_formula_windstorm": scr.get("standard_formula_windstorm"),
+        # standard-formula sub-modules still to ingest (each needs its own official Annex factor table)
         "declared": {
             "status": "declared_external",
-            "items": ["Standard-formula per-region catastrophe factors (Del. Reg. 2015/35 Annex)",
-                      "CRESTA-zone sum-insured weights", "man-made catastrophe sub-modules"],
-            "note": "Reported here on the internal-model basis; the prescribed standard-formula figures need the "
-                    "official EIOPA per-region factor tables (external input), like the bank EBA DPM binding.",
+            "items": ["Earthquake / flood / hail / subsidence standard-formula sub-modules (Del. Reg. 2015/35 Annex VI-VIII, X)",
+                      "CRESTA-zone sum-insured weights (Annex IX/X/XXII) for the exact zonal windstorm figure",
+                      "man-made catastrophe sub-modules"],
+            "note": "Windstorm standard-formula SCR is computed above from the official Annex V factors (cited). The "
+                    "other nat-cat perils and the intra-country zonal windstorm refinement need their own official "
+                    "Annex factor tables (external input), like the bank EBA DPM binding.",
         },
     }

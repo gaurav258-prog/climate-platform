@@ -187,11 +187,36 @@ def _insurer_solvency_form(payload: dict) -> list[dict]:
         "section": "Natural-catastrophe sub-modules (exposure driving the aggregate)",
         "rows": [{"label": p["peril"], "value": e(p["exposed_value_eur"]),
                   "note": f"{p['n_exposed']} exposures · {', '.join(p['channels'])}"} for p in s.get("perils", [])],
-    }, {
-        "section": "Prescribed standard-formula cells",
+    }, *_sf_windstorm_sections(s.get("standard_formula_windstorm"), e), {
+        "section": "Prescribed standard-formula cells (remaining)",
         "note": (s.get("declared") or {}).get("note"),
         "rows": [{"label": it, "value": "declared — official factor tables required"}
                  for it in (s.get("declared") or {}).get("items", [])],
+    }]
+
+
+def _sf_windstorm_sections(sf: dict | None, e) -> list[dict]:
+    """The prescribed STANDARD-FORMULA windstorm CAT SCR (Art. 121 + Annex V) — EIOPA's own factors, cited."""
+    if not sf or sf.get("available") is False:
+        return [{"section": "Windstorm CAT — standard formula (Art. 121)",
+                 "rows": [{"label": "Status", "value": (sf or {}).get("reason", "no windstorm-region exposure")}]}]
+    rows = [{"label": "Windstorm SCR — standard formula (gross, diversified across regions)",
+             "value": e(sf.get("scr_windstorm_eur"))},
+            {"label": "Undiversified (Σ per-region)", "value": e(sf.get("undiversified_scr_eur"))},
+            {"label": "Regional diversification benefit", "value": e(sf.get("regional_diversification_benefit_eur"))}]
+    if sf.get("other_regions_sum_insured_eur"):
+        rows.append({"label": "Sum insured outside Annex V regions (not in the SF charge)",
+                     "value": e(sf.get("other_regions_sum_insured_eur")), "note": "disclosed, Art. 121(8-9) premium charge not computed"})
+    per_region = [{"label": f"{pr['region']} · {pr['region_name']}", "value": e(pr["scr_windstorm_region_eur"]),
+                   "note": f"SI {e(pr['sum_insured_eur'])} · Q {pr['windstorm_factor_q']*100:.2f}%"}
+                  for pr in sf.get("per_region", [])]
+    return [{
+        "section": "Windstorm CAT — standard formula (Del. Reg. 2015/35, Art. 121 + Annex V)",
+        "note": f"{sf.get('citation')} · {sf.get('approximation')}",
+        "rows": rows,
+    }, {
+        "section": "Windstorm SCR by region (prescribed Annex V factors)",
+        "rows": per_region,
     }]
 
 
