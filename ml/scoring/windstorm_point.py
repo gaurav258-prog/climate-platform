@@ -7,12 +7,24 @@ climatology (data/wind/windstorm_gust_climatology.npz) and scores it BASELINE-RE
 'High' = windier than ~75% of land, 'Very High' the top decile). Climatological, so it does not vary by
 scenario/horizon (carried flat into forward reports, like the other climatology channels).
 
-SCREENING — and honestly INTERIM. The first field used the monthly-MEAN gust (build_windstorm_climatology.py),
-which FAILED an independent NOAA Storm Events backtest (AUC 0.45, Spearman −0.21): mean gust measures persistent
-breeziness, not the episodic extremes a windstorm actually is. It is being replaced by the physically-correct
-EXTREME-gust climatology — per-cell annual-maximum daily gust → Gumbel return level (scripts/build_windstorm_
-hourly.py) — with the NOAA backtest re-run to set the tier. Until that field lands, the anchors below are the
-placeholder mean-gust anchors and are re-derived from the extreme distribution when it is built.
+SCREENING — and it stays SCREENING because no gust reduction we have tried passes an independent skill test.
+Two fields were built and both FAILED an independent NOAA Storm Events backtest (non-convective, non-tropical
+wind: High Wind / Strong Wind / Blizzard / Dust Storm — the synoptic windstorm peril this channel represents):
+
+  · monthly-MEAN gust (build_windstorm_climatology.py):        occurrence AUC 0.45, Spearman −0.21  — FAILED
+  · EXTREME annual-max gust, 13yr CONUS (build_windstorm_hourly.py):
+        Gumbel 50-yr return level:                              occurrence AUC 0.504, ρ 0.098        — FAILED
+        raw mean-annual-max:                                    occurrence AUC 0.579, ρ 0.204        — FAILED
+    (ranking gate is ρ≥0.35; scripts/backtest_windstorm_noaa.py, US validation region)
+
+Root cause is structural, not sample size: the annual-MAXIMUM 10 m gust (i10fg) is dominated by CONVECTIVE and
+TROPICAL gusts — exactly the perils the extratropical-windstorm target excludes — so annual-max i10fg ranks the
+Gulf/SE coast highest and the wind-swept High Plains / mountain West low, the opposite of the synoptic-windstorm
+record. Neither breeziness (mean) nor peak-of-any-cause (annual max) isolates the extratropical peril. A
+validated windstorm ranker needs a synoptic-filtered field (cold-season large-scale wind, storm-track / gust
+factor), which is future work — until then windstorm publishes a screening RANKING only, never a calibrated €.
+The global monthly-mean field below is retained for worldwide coverage (the extreme rebuild is CONUS-only) and
+its anchors are unchanged; the tier is honestly SCREENING, not calibrated. See [[project_climate_platform_validation_protocol]].
 """
 from __future__ import annotations
 
@@ -85,10 +97,13 @@ def score_windstorm_point(lat: float, lon: float, scenario: str = "baseline", ho
                 "reason": "windstorm gust climatology not built (ERA5 i10fg — infra + CDS key)"}
     risk = round(_anchor(gust), 2)
     now = datetime.now(timezone.utc)
-    shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "screening",
+    shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "screening", "validated": False,
             "method": "ERA5 instantaneous-10m-wind-gust climatology (1991-2020 stormiest-month), baseline-relative "
                       "percentile-anchored vs the global climatology (top quartile → High, top decile → Very High); "
-                      "extratropical windstorm / blizzard / dust-sand storm — distinct from tropical cyclone"}
+                      "extratropical windstorm / blizzard / dust-sand storm — distinct from tropical cyclone. "
+                      "SCREENING ranking only — not calibrated: both the mean-gust and the extreme annual-max-gust "
+                      "rebuild fail an independent NOAA windstorm backtest (annual-max i10fg is convective/tropical-"
+                      "dominated, not the synoptic peril); no € is published for windstorm"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

@@ -95,9 +95,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "ρ 0.47): the score is BUILT FROM the same IBTrACS catalogue it is checked against, so it is not "
              "out-of-sample — an independent-target backtest (observed wind damage / insured loss) is pending.", (H.STORM,)),
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now",
-             "ERA5 instantaneous-10 m-wind-gust climatology (1991–2020, stormiest-month peak) — extratropical "
-             "windstorms / blizzards / dust-&-sand storms, the wind peril tropical-cyclone models miss (e.g. "
-             "European winter windstorms Kyrill/Lothar/Xynthia). Distinct channel from Cyclone.", (H.WINDSTORM,)),
+             "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
+             "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
+             "Xynthia). Distinct channel from Cyclone. SCREENING ranking only, NOT calibrated: both the mean-gust "
+             "field and an extreme annual-max-gust rebuild (13yr CONUS, Gumbel RL) FAIL an independent NOAA "
+             "Storm-Events backtest (AUC ≈0.5, ρ≤0.20 < 0.35 gate) — annual-max i10fg is convective/tropical-"
+             "dominated, not the synoptic windstorm peril; a synoptic-filtered field is future work.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
              "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, CAL, "now",
