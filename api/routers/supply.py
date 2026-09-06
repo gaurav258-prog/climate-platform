@@ -1211,18 +1211,19 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     import json as _json
     has_geo = "plot_geojson" in df.columns
     records, cell_coords, unknown_commodities = [], {}, set()
-    geometry_errors, needs_polygon = [], []
+    geometry_errors, needs_polygon, skipped = [], [], []
     for _, row in df.iterrows():
+        name = (str(row.get("plot_name")).strip() if pd.notna(row.get("plot_name")) else "") or "(unnamed)"
         try:
             spend = float(row["annual_spend_eur"])
         except (TypeError, ValueError):
+            skipped.append({"plot": name, "reason": "missing or unparseable annual_spend_eur"})
             continue
         commodity = str(row["commodity"])
         commodity_id = commodity_ids.get(commodity)
         if not commodity_id:
             unknown_commodities.add(commodity)
             continue
-        name = str(row["plot_name"])
 
         # Geolocation: a GeoJSON boundary (preferred, EUDR-grade) wins; else the lat/lon point.
         geojson = None
@@ -1242,6 +1243,11 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
             try:
                 lat, lon = float(row["latitude"]), float(row["longitude"])
             except (TypeError, ValueError):
+                skipped.append({"plot": name, "reason": "missing or unparseable coordinates"})
+                continue
+            # a blank cell parses to NaN — skip it, never let NaN reach h3 (which would 500 the whole upload)
+            if lat != lat or lon != lon:
+                skipped.append({"plot": name, "reason": "missing or unparseable coordinates"})
                 continue
             # A >4ha plot with only a point is EUDR-insufficient — flag it honestly.
             if area_ha is not None and area_ha > 4.0:
@@ -1261,7 +1267,8 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
         })
     if not records:
         raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
-            "unknown_commodities": list(unknown_commodities), "geometry_errors": geometry_errors})
+            "unknown_commodities": list(unknown_commodities), "geometry_errors": geometry_errors,
+            "skipped": skipped})
 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
@@ -1279,7 +1286,8 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
 
     schedule_scoring(cell_coords)  # background — a bulk upload spanning fresh cells shouldn't block the response
     return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
-            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon, "scoring": "queued"}
+            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
+            "skipped": skipped, "scoring": "queued"}
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")

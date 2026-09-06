@@ -28,6 +28,7 @@ class GenerateBody(BaseModel):
     framework: str = Field(..., min_length=1, max_length=60)
     note: Optional[str] = Field(None, max_length=500)
     confirmed: bool = False   # set by the confirm-data preflight step
+    entity_id: Optional[str] = None   # scope to one reporting entity; None = whole org (the default)
 
 
 class QualitativePatch(BaseModel):
