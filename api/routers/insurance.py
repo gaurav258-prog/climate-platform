@@ -34,6 +34,7 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
 from ml.scoring.cat_accumulation import catastrophe_accumulation
+from services.governance.solvency2_windstorm import standard_formula_windstorm
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
@@ -153,6 +154,8 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
     oep200 = (cat.get("oep_eur") or {}).get("rp_200")
     gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
     mean_al = cat.get("mean_annual_loss_eur")
+    # prescribed standard-formula windstorm CAT sub-module (Del. Reg. 2015/35 Art. 121, official Annex V factors)
+    sf_windstorm = standard_formula_windstorm(policies)
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
         "scr_basis": "internal_model_99_5_var",
@@ -160,11 +163,14 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
         "mean_annual_loss_eur": mean_al, "risk_load_eur": round((aep200 or 0) - (mean_al or 0)),
         "gross_sum_insured_eur": round(gross_si),
         "scr_pct_of_sum_insured": round(100 * aep200 / gross_si, 3) if gross_si and aep200 else None,
-        "n_zones": cat.get("n_zones"), "standard_formula_factors": "pending_official_ingest",
+        "n_zones": cat.get("n_zones"),
+        # prescribed standard-formula windstorm CAT sub-module — the regulator's own factors, cited (not our model)
+        "standard_formula_windstorm": sf_windstorm,
         "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
-                 "loss, from the common-shock cat engine (geographic accumulation already correlated). The prescribed "
-                 "STANDARD-FORMULA SCR uses EIOPA's per-region catastrophe factors (Delegated Regulation 2015/35) — a "
-                 "governed input to load from the official source, never fabricated here. Both bases are labelled."),
+                 "loss, from the common-shock cat engine (geographic accumulation already correlated). Alongside it, "
+                 "the prescribed STANDARD-FORMULA windstorm SCR is computed with EIOPA's own per-region factors "
+                 "(Del. Reg. 2015/35, Art. 121 + Annex V) — a cited regulatory calculation, not our hazard model. "
+                 "Both bases are labelled. Earthquake/flood/hail/subsidence standard-formula sub-modules pending."),
     }
 
 

@@ -51,3 +51,4 @@ data/ocean_ph/*
 data/soil_degradation/
 data/convective/*
 !data/convective/convective_potential.npz
+data/eiopa/
