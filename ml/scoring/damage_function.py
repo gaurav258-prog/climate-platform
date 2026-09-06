@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-DAMAGE_FUNCTION_VERSION = "df-v1.0"
+DAMAGE_FUNCTION_VERSION = "df-v2.0"  # v2.0: insurance/NOI mean-damage-ratio uses the disclosed peril severity
 
 # ── the disclosed collateral-haircut schedule (unchanged magnitudes, now anchors) ──
 # A real rule-of-thumb consistent with published climate-stress-test collateral-haircut
@@ -254,10 +254,20 @@ def collateral_haircut_pct(score: Optional[float], bucket: Optional[str], hazard
 
 
 def mean_damage_ratio(score: float, hazard: Optional[str] = None, attrs: Optional[dict] = None) -> float:
-    """Insurance / NOI scenario-loss fraction (PML-style): Emanuel(2011)/CLIMADA sigmoid
-    v³/(1+v³), v=score/HALF_DAMAGE_SCORE, times the bounded vulnerability factor, clamped to [0,1].
-    With no attrs the factor is 1.0, so the bare-sigmoid callers are unchanged."""
-    v = max(0.0, score) / HALF_DAMAGE_SCORE
-    base = v ** 3 / (1.0 + v ** 3)
+    """Insurance / NOI mean damage ratio — the fraction of value lost in the scored-severity event.
+
+    df-v2.0 FIX. The earlier version fed the 0–100 RELATIVE hazard score into an Emanuel(2011)/CLIMADA
+    intensity-sigmoid (v = score/65), i.e. it treated a hazard-tier SCORE as if it were an event INTENSITY
+    (wind speed, water depth). That produced physically-impossible mean damage ratios — 0.71 at a VH score,
+    0.9+ near 100 — so a whole property book was modelled as losing ~67% of its value in its scenario event.
+    Loss costs (EAL) and the modelled catastrophe SCR came out ~10× reality (a 1-in-200 at ~38% of TIV).
+
+    The correct quantity is the disclosed, peril-specific severity schedule (PERIL_DISCOUNT_PCT) — the SAME
+    bounded, literature-grounded damage magnitude the collateral path uses, capped at each peril's VH value
+    (storm 30%, flood 32%, seismic 45%, chronic frost/drought 15–16%). Continuous in the score, vulnerability-
+    adjusted, peril-differentiated (a frost score no longer implies structural total loss). Falls back to the
+    universal schedule only when the hazard is unknown. Bounded so a mean damage ratio can never exceed 1.0."""
+    schedule = PERIL_DISCOUNT_PCT.get(hazard or "", RECOMMENDED_DISCOUNT_PCT)
+    base = _interp(_score_from(score, None), _anchors(schedule)) / 100.0
     vf, _ = vulnerability_factor(hazard, attrs)
     return _clamp(base * vf, 0.0, 1.0)

@@ -77,20 +77,24 @@ from ml.scoring.damage_function import mean_damage_ratio as _core_mdr
 EXPENSE_RATIO = 0.25
 PROFIT_MARGIN = 0.05
 
-# Bucket -> assumed annual occurrence probability of the scored worst-case
-# scenario recurring (1/return-period-years). See module docstring, step 2.
-RETURN_PERIOD_YEARS = {"L": 200, "M": 50, "H": 20, "VH": 10}
+# Bucket -> annual occurrence probability of the scored SEVERE scenario recurring (1/return-period-years).
+# v2.0 re-anchor: the scenario loss is now the peril's SEVERE mean damage ratio (df-v2.0, ~15-45% at VH),
+# so its recurrence must be that of a severe event — NOT the old 1-in-10 for VH, which was calibrated for the
+# earlier (mis-scaled) frequent-small damage. A ~30% mean-damage event is roughly a 1-in-50 at a top-hazard
+# location; pairing it with 1-in-10 made loss costs (EAL) and the modelled catastrophe SCR ~3-5x too high.
+# Higher hazard tier -> more frequent severe event (shorter return period), monotonic. Disclosed assumption.
+RETURN_PERIOD_YEARS = {"L": 500, "M": 200, "H": 100, "VH": 50}
 
 PERIL_RETURN_PERIOD_YEARS = {
-    "seismic":       {"L": 1000, "M": 475, "H": 250, "VH": 100},
-    "volcanic":      {"L": 1000, "M": 475, "H": 250, "VH": 100},
-    "flood":         {"L": 250,  "M": 100, "H": 50,  "VH": 25},
-    "wildfire":      {"L": 200,  "M": 75,  "H": 30,  "VH": 12},
-    "storm":         {"L": 200,  "M": 60,  "H": 25,  "VH": 12},
-    "drought":       {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
-    "heat_acute":    {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
-    "heat_chronic":  {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
-    "pollution":     {"L": 100,  "M": 40,  "H": 15,  "VH": 7},
+    "seismic":       {"L": 2000, "M": 1000, "H": 475, "VH": 250},
+    "volcanic":      {"L": 2000, "M": 1000, "H": 475, "VH": 250},
+    "flood":         {"L": 500,  "M": 250,  "H": 100, "VH": 50},
+    "wildfire":      {"L": 500,  "M": 200,  "H": 80,  "VH": 40},
+    "storm":         {"L": 500,  "M": 200,  "H": 80,  "VH": 40},
+    "drought":       {"L": 300,  "M": 120,  "H": 50,  "VH": 25},
+    "heat_acute":    {"L": 300,  "M": 120,  "H": 50,  "VH": 25},
+    "heat_chronic":  {"L": 300,  "M": 120,  "H": 50,  "VH": 25},
+    "pollution":     {"L": 300,  "M": 120,  "H": 50,  "VH": 25},
 }
 
 
