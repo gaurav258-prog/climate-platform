@@ -86,12 +86,24 @@ _Last reviewed: 2026-09-03._
   coverage note flips to "backed by the WDPA global layer". **Do not load the non-commercial API export into a
   paying customer's tenant.**
 
-## 7 · Solvency II standard-formula EXACT zonal figure  *(external boundary geodata, then us)*
-- **Hook:** `services/governance/solvency2_natcat.py` — the standard-formula NatCat SCR (all five perils, Art. 120-125)
-  is computed at **country level**: the region factor `Q(peril,r)` and the inter-region correlation are the EXACT
-  official Annex V-VIII values; only the intra-country **risk zones** are approximated (one zone per country,
-  weight W=1, perfect within-country correlation). The flood/hail **motor** term (Art. 123(7)/124(7)) IS applied
-  where a policy carries `motor_sum_insured_eur`.
+## 7 · Solvency II standard-formula EXACT zonal figure  *(ENGINE BUILT — remaining is per-country data)*
+- **Status:** the **exact-zonal engine is built** (`services/governance/solvency2_natcat.py`, `_exact_zonal_loss`).
+  It is the vendor-standard design: keyed off a **`cresta_zone`** field on each policy (added to the SoV upload +
+  `ext_insurance.cresta_zone` column, migration `ext_ins_cresta_zone_20260906`) — because a Statement of Values
+  normally already carries the CRESTA/postcode zone per risk. For any region whose Annex tables are loaded AND whose
+  policies carry a zone, it computes `L_r = Q·sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j)` — the exact figure, with the
+  Annex X risk weights and Annex XXIII-XXVI within-country diversification. No boundary geodata is needed on this
+  path (the book carries the zone). Regions without loaded tables / zone tags use the country-level approximation.
+- **Loaded today:** Croatia earthquake (Annex IX/X/XXIII, 21 zones — extracted from the OJ PDF and validated:
+  complete weights + symmetric 21×21 matrix) in `data/reference/solvency2_zonal.json`.
+- **Remaining — per-country DATA (not blocked):** load each country's Annex IX zones + Annex X weights + Annex
+  XXIII-XXVI zone-correlation into the same JSON shape. Priority is the **postcode-zoned majors DE/FR/ES/IT/UK**
+  (where insurers' books and capital actually sit), extracted the same way from the OJ PDF we hold. Wide matrices
+  (e.g. RO 41×41) span PDF pages in column-blocks and need block-aware parsing; that is transcription effort, not an
+  external dependency.
+- **Optional fallback (coordinate-only books):** a book with lat/lon but no `cresta_zone` can be zoned by
+  point-in-polygon against boundary geodata (Eurostat NUTS for admin-unit countries — free; CRESTA/postcode layers
+  for the rest). This is only needed when the insurer did NOT provide the zone; the primary path does not require it.
 - **Needed for the exact figure:** the per-zone risk weights (**Annex X**) and the intra-country zone-correlation
   matrices (**Annex XXII windstorm / XXIII earthquake / XXIV flood / XXV hail / XXVI subsidence**) — all in the OJ,
   transcribable — PLUS the blocker: **Annex IX** defines the zones by **postcode area / administrative unit**, so

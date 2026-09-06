@@ -27,6 +27,7 @@ from functools import lru_cache
 
 _WINDSTORM_PATH = os.path.join("data", "reference", "solvency2_windstorm_annex_v.json")
 _NATCAT_PATH = os.path.join("data", "reference", "solvency2_natcat_annexes.json")
+_ZONAL_PATH = os.path.join("data", "reference", "solvency2_zonal.json")
 _SUBSIDENCE_FACTOR = 0.0005   # Art. 125: L_subsidence = 0.0005 · WSI (France only, residential LoB 7/19)
 _REGIONAL_PERILS = ("windstorm", "earthquake", "flood", "hail")
 # Motor sum-insured multiplier added to the zonal sum insured (LoB 5/17). Only flood and hail carry one:
@@ -61,6 +62,37 @@ def _natcat_file() -> dict | None:
         return json.load(f)
 
 
+@lru_cache(maxsize=1)
+def _zonal_file() -> dict | None:
+    if not os.path.exists(_ZONAL_PATH):
+        return None
+    with open(_ZONAL_PATH) as f:
+        return json.load(f)
+
+
+def _zonal_params(peril: str, region: str) -> dict | None:
+    """Exact-zonal tables {n_zones, zones:{num:{name,w}}, correlation} for a (peril, region), if loaded/verified."""
+    z = _zonal_file()
+    if not z or not z.get("verified"):
+        return None
+    return (z.get(peril) or {}).get(region)
+
+
+def _exact_zonal_loss(zonal: dict, zone_si: dict[int, float], q: float) -> float | None:
+    """Specified loss L_r = Q · sqrt(ΣΣ Corr(i,j)·WSI_i·WSI_j), WSI_z = W_z·SI_z (Art. 121-124(5)).
+    Returns None if any exposed zone is not in the region's table (so the caller can fall back honestly)."""
+    zones, corr = zonal["zones"], zonal["correlation"]
+    exposed = sorted(zone_si)
+    wsi = {}
+    for z in exposed:
+        zk = str(z)
+        if zk not in zones:
+            return None
+        wsi[z] = zones[zk]["w"] * zone_si[z]
+    var = sum(corr[i - 1][j - 1] * wsi[i] * wsi[j] for i in exposed for j in exposed)
+    return q * math.sqrt(var) if var > 0 else 0.0
+
+
 def _peril_params(peril: str) -> dict | None:
     """Unified params {region_order, regions, correlation, iso2_to_region, gross_factor, citation} for a peril."""
     if peril == "windstorm":
@@ -86,6 +118,8 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
 
     si_by_region: dict[str, float] = {}
     n_by_region: dict[str, int] = {}
+    zone_si: dict[str, dict[int, float]] = {}   # region -> {cresta_zone -> sum insured}
+    unzoned_si: dict[str, float] = {}           # region -> sum insured on policies with no cresta_zone
     other_si = 0.0
     motor_included = 0.0
     for pol in policies:
@@ -100,18 +134,41 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
             continue
         si_by_region[reg] = si_by_region.get(reg, 0.0) + si
         n_by_region[reg] = n_by_region.get(reg, 0) + 1
+        try:
+            zn = int(pol.get("cresta_zone"))
+        except (TypeError, ValueError):
+            zn = None
+        if zn is not None:
+            zone_si.setdefault(reg, {})[zn] = zone_si.setdefault(reg, {}).get(zn, 0.0) + si
+        else:
+            unzoned_si[reg] = unzoned_si.get(reg, 0.0) + si
 
     if not si_by_region:
         return {"available": False, "peril": peril, "reason": f"no sum insured in an Annex {peril} region",
                 "other_regions_sum_insured_eur": round(other_si), "citation": p["citation"]}
 
+    # per region: EXACT zonal (Annex IX/X/XXIII-XXVI) when the region's tables are loaded AND every policy there
+    # carries a cresta_zone — the vendor-standard path; otherwise the country-level approximation (Q·SI). Honest
+    # per-region method flag, and a fall-back if a policy cites a zone the table doesn't know.
     per_region, scr_r = [], {}
+    n_zonal_regions = 0
     for reg, si in sorted(si_by_region.items(), key=lambda kv: -kv[1]):
         q = regions_meta[reg]["q"]
-        scr = gross * q * si                       # SCR_r = gross · Q_r · SI_r
+        zonal = _zonal_params(peril, reg)
+        loss = None
+        method = "country_level"
+        if zonal and reg in zone_si and not unzoned_si.get(reg):
+            loss = _exact_zonal_loss(zonal, zone_si[reg], q)
+            if loss is not None:
+                method = "exact_zonal"
+        if loss is None:                            # fall back: L_r = Q · SI_r (one zone, W=1, perfect correlation)
+            loss = q * si
+        scr = gross * loss                          # SCR_r = gross · L_r
         scr_r[reg] = scr
+        n_zonal_regions += method == "exact_zonal"
         per_region.append({"region": reg, "region_name": regions_meta[reg]["name"], "sum_insured_eur": round(si),
-                           "n_policies": n_by_region[reg], "risk_factor_q": q, "scr_region_eur": round(scr)})
+                           "n_policies": n_by_region[reg], "risk_factor_q": q, "scr_region_eur": round(scr),
+                           "method": method})
 
     var = sum(corr[r][idx[s]] * scr_r[r] * scr_r[s] for r in scr_r for s in scr_r)
     scr_peril = math.sqrt(var) if var > 0 else 0.0
@@ -121,6 +178,8 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
         "scr_eur": round(scr_peril), "undiversified_scr_eur": round(undiversified),
         "regional_diversification_benefit_eur": round(undiversified - scr_peril),
         "per_region": per_region, "n_regions": len(per_region),
+        # how many regions used the EXACT zonal calc (Annex IX/X + zone-correlation) vs the country-level approximation
+        "n_exact_zonal_regions": n_zonal_regions,
         "other_regions_sum_insured_eur": round(other_si), "gross_factor": gross,
         # motor sum-insured included per Art. 123(7)/124(7) — 0 for a pure property book (LoB 6/7/18/19)
         "motor_component_eur": round(motor_included) if peril in _MOTOR_MULTIPLIER else None,
@@ -164,9 +223,10 @@ def natcat_scr(policies: list[dict]) -> dict:
         "note": ("Prescribed standard-formula NatCat SCR from EIOPA's own per-region factors (Del. Reg. 2015/35, "
                  "Annexes V-VIII + Art. 125), cited — not a model. Flood/hail include the Art. 123(7)/124(7) motor "
                  "term where a policy carries motor sum insured (0 for a pure property book). Gross of reinsurance; "
-                 "man-made catastrophe out of scope. The one remaining approximation is intra-country: sums insured "
-                 "are aggregated at COUNTRY level (region factor Q and inter-region correlation exact), not by the "
-                 "Annex IX risk zone — the exact zonal weights (Annex X) and zone-diversification (Annex XXII-XXVI) "
-                 "need postcode/administrative BOUNDARY geodata to assign each location to its zone, an external "
-                 "dependency; the country-level figure is a documented approximation of the exact zonal SCR."),
+                 "man-made catastrophe out of scope. Intra-country: the EXACT zonal calc (Annex IX zones, Annex X "
+                 "risk weights, Annex XXIII-XXVI zone-correlation) is used for any region whose zone tables are "
+                 "loaded AND whose policies carry a cresta_zone — the vendor-standard path (a Statement of Values "
+                 "normally already holds the CRESTA/postcode zone per risk). Regions without loaded tables or "
+                 "zone-tagged policies use the country-level approximation (Q·SI, perfect within-country "
+                 "correlation), a documented, cited upper bound on the exact zonal SCR."),
     }
