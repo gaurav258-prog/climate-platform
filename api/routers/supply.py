@@ -648,18 +648,32 @@ def _plots_with_hazard(session, org_id, scenario, horizon):
     return sorted(rows, key=lambda r: -(r["spend_eur"] or 0))
 
 
-@router.get("/signals", summary="Early warning — commodities under elevated hazard now")
-def signals(session: DbSession, org_id: OrgId,
-            scenario: str = Query("baseline"), horizon: str = Query("current")):
-    r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
+def early_warning_alerts(commodities) -> list[dict]:
+    """Elevated-hazard early-warning alerts, most severe first.
+
+    Fires on the physical HAZARD, not on whether the euro is publishable: a commodity whose € is 'held' by the
+    honesty gate (real hazard scored, but not-yet-backtested so the € is withheld) is exactly the exposure a
+    procurement team most needs warned about — so 'held' is included alongside 'scored'. Each alert carries
+    `euro_published` so a withheld € is never mistaken for a calibrated one. 'pending' (no hazard score yet)
+    raises no alert and is surfaced separately by the caller.
+    """
     def level(h):
         return "VH" if h >= 75 else "H" if h >= 55 else "M" if h >= 35 else "L"
     alerts = [{
         "commodity": c.commodity, "hazard": c.top_hazard, "avg_hazard": c.avg_hazard,
         "level": level(c.avg_hazard or 0), "spend_eur": c.annual_spend_eur,
         "cogs_at_risk_p50": c.cogs_at_risk_p50, "calibration": c.calibration,
-    } for c in r.commodities if c.status == "scored" and (c.avg_hazard or 0) >= 55]
+        "status": c.status, "euro_published": c.status == "scored",
+    } for c in commodities if c.status in ("scored", "held") and (c.avg_hazard or 0) >= 55]
     alerts.sort(key=lambda a: -(a["avg_hazard"] or 0))
+    return alerts
+
+
+@router.get("/signals", summary="Early warning — commodities under elevated hazard now")
+def signals(session: DbSession, org_id: OrgId,
+            scenario: str = Query("baseline"), horizon: str = Query("current")):
+    r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
+    alerts = early_warning_alerts(r.commodities)
     pending = [{"commodity": c.commodity, "spend_eur": c.annual_spend_eur}
                for c in r.commodities if c.status == "pending"]
     # name → commodity_id so the UI can open each alert's commodity detail page
