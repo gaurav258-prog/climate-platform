@@ -32,6 +32,24 @@ def test_san_marino_iso_maps_to_italy_region_for_earthquake():
     assert r["per_region"][0]["region"] == "IT"
 
 
+def test_motor_component_flood_hail_only():
+    # Art. 123(7): flood SI = property + 1.5·motor; Art. 124(7): hail SI = property + 5·motor; windstorm/EQ: none
+    pol = {"country": "DE", "sum_insured_eur": 1_000_000_000, "motor_sum_insured_eur": 1_000_000_000}
+    fl = standard_formula_peril([pol], "flood")
+    assert fl["per_region"][0]["scr_region_eur"] == round(1.10 * 0.0020 * (1e9 + 1.5 * 1e9))  # motor ×1.5
+    assert fl["motor_component_eur"] == round(1.5 * 1e9)
+    ha = standard_formula_peril([pol], "hail")
+    assert ha["motor_component_eur"] == round(5.0 * 1e9)                                        # motor ×5
+    ws = standard_formula_peril([pol], "windstorm")
+    assert ws["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0009 * 1e9)                  # property only, no motor
+    assert ws["motor_component_eur"] is None
+
+
+def test_property_book_has_zero_motor():
+    r = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9}], "flood")
+    assert r["motor_component_eur"] == 0   # no motor_sum_insured on a property Statement of Values
+
+
 def test_subsidence_is_france_only_fixed_factor():
     assert subsidence_scr([_pol("FR", 2e9)])["scr_eur"] == round(0.0005 * 2e9)   # 1,000,000
     assert subsidence_scr([_pol("DE", 2e9)])["available"] is False               # not France

@@ -85,3 +85,22 @@ _Last reviewed: 2026-09-03._
 - **When it lands:** run the loader; non-EU sites/plots start reporting protected-area overlap and the
   coverage note flips to "backed by the WDPA global layer". **Do not load the non-commercial API export into a
   paying customer's tenant.**
+
+## 7 · Solvency II standard-formula EXACT zonal figure  *(external boundary geodata, then us)*
+- **Hook:** `services/governance/solvency2_natcat.py` — the standard-formula NatCat SCR (all five perils, Art. 120-125)
+  is computed at **country level**: the region factor `Q(peril,r)` and the inter-region correlation are the EXACT
+  official Annex V-VIII values; only the intra-country **risk zones** are approximated (one zone per country,
+  weight W=1, perfect within-country correlation). The flood/hail **motor** term (Art. 123(7)/124(7)) IS applied
+  where a policy carries `motor_sum_insured_eur`.
+- **Needed for the exact figure:** the per-zone risk weights (**Annex X**) and the intra-country zone-correlation
+  matrices (**Annex XXII windstorm / XXIII earthquake / XXIV flood / XXV hail / XXVI subsidence**) — all in the OJ,
+  transcribable — PLUS the blocker: **Annex IX** defines the zones by **postcode area / administrative unit**, so
+  assigning each insured location to its EIOPA zone needs **postcode / admin boundary geodata** (per country) to
+  resolve a lat/lon → zone. That boundary geodata is the external dependency; without it, sum-insured-by-zone
+  cannot be computed and the exact zonal formula cannot run (faking zone assignments is not an option).
+- **Owner:** boundary geodata is external (national postcode boundaries / Eurostat NUTS for admin-unit countries);
+  transcribing Annex IX/X/XXII-XXVI + the lat/lon→zone lookup + the zonal aggregation is us.
+- **When it lands:** load the boundary layer, map each policy to its zone, apply W and the zone-correlation — the
+  country-level approximation is replaced by the exact zonal SCR (typically LOWER, as it takes within-country
+  diversification credit). Until then the country-level figure is a documented, cited approximation, disclosed on
+  the Solvency page and in the S.26.01 filing.

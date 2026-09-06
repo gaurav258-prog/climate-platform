@@ -29,6 +29,20 @@ _WINDSTORM_PATH = os.path.join("data", "reference", "solvency2_windstorm_annex_v
 _NATCAT_PATH = os.path.join("data", "reference", "solvency2_natcat_annexes.json")
 _SUBSIDENCE_FACTOR = 0.0005   # Art. 125: L_subsidence = 0.0005 · WSI (France only, residential LoB 7/19)
 _REGIONAL_PERILS = ("windstorm", "earthquake", "flood", "hail")
+# Motor sum-insured multiplier added to the zonal sum insured (LoB 5/17). Only flood and hail carry one:
+# Art. 123(7) SI = property + onshore-property + 1.5·motor;  Art. 124(7) SI = property + onshore-property + 5·motor.
+# Windstorm (Art.121(7)) and earthquake (Art.122(4)) have NO motor term. Our book is a property Statement of Values
+# (LoB 6/7/18/19), so motor is normally absent — but if a policy carries `motor_sum_insured_eur`, it is included here.
+_MOTOR_MULTIPLIER = {"flood": 1.5, "hail": 5.0}
+
+
+def _policy_si(pol: dict, peril: str) -> float:
+    """Sum insured for a peril: property TIV plus the prescribed motor multiple where the Article defines one."""
+    si = pol.get("sum_insured_eur") or 0
+    m = _MOTOR_MULTIPLIER.get(peril)
+    if m:
+        si += m * (pol.get("motor_sum_insured_eur") or 0)
+    return si
 
 
 @lru_cache(maxsize=1)
@@ -73,10 +87,13 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
     si_by_region: dict[str, float] = {}
     n_by_region: dict[str, int] = {}
     other_si = 0.0
+    motor_included = 0.0
     for pol in policies:
-        si = pol.get("sum_insured_eur") or 0
+        si = _policy_si(pol, peril)   # property TIV + prescribed motor multiple (flood 1.5×, hail 5×) where applicable
         if si <= 0:
             continue
+        if peril in _MOTOR_MULTIPLIER:
+            motor_included += _MOTOR_MULTIPLIER[peril] * (pol.get("motor_sum_insured_eur") or 0)
         reg = iso2region.get(str(pol.get("country") or "").strip().upper())
         if reg is None:
             other_si += si
@@ -105,6 +122,8 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
         "regional_diversification_benefit_eur": round(undiversified - scr_peril),
         "per_region": per_region, "n_regions": len(per_region),
         "other_regions_sum_insured_eur": round(other_si), "gross_factor": gross,
+        # motor sum-insured included per Art. 123(7)/124(7) — 0 for a pure property book (LoB 6/7/18/19)
+        "motor_component_eur": round(motor_included) if peril in _MOTOR_MULTIPLIER else None,
         "citation": p["citation"], "params_version": p.get("params_version"),
     }
 
@@ -143,6 +162,11 @@ def natcat_scr(policies: list[dict]) -> dict:
         "perils": perils,
         "aggregation": "SCR_natCAT = sqrt(Σ SCR_peril²) — the five nat-cat sub-modules are independent (Art. 120(2)).",
         "note": ("Prescribed standard-formula NatCat SCR from EIOPA's own per-region factors (Del. Reg. 2015/35, "
-                 "Annexes V-VIII + Art. 125), cited — not a model. Country-level approximation (intra-country zone "
-                 "weights/diversification not applied); gross of reinsurance; man-made catastrophe out of scope."),
+                 "Annexes V-VIII + Art. 125), cited — not a model. Flood/hail include the Art. 123(7)/124(7) motor "
+                 "term where a policy carries motor sum insured (0 for a pure property book). Gross of reinsurance; "
+                 "man-made catastrophe out of scope. The one remaining approximation is intra-country: sums insured "
+                 "are aggregated at COUNTRY level (region factor Q and inter-region correlation exact), not by the "
+                 "Annex IX risk zone — the exact zonal weights (Annex X) and zone-diversification (Annex XXII-XXVI) "
+                 "need postcode/administrative BOUNDARY geodata to assign each location to its zone, an external "
+                 "dependency; the country-level figure is a documented approximation of the exact zonal SCR."),
     }
