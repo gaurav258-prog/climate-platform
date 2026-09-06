@@ -99,6 +99,40 @@ def build_form(framework: str, payload: dict) -> list[dict]:
         return []
     if framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"):
         return _located_book_form(payload)
+    if framework == "reit_taxonomy":
+        return _reit_taxonomy_form(payload)
     if framework == "sfdr_pai":
         return _sfdr_form(payload)
     return _generic_form(payload)
+
+
+def _reit_taxonomy_form(payload: dict) -> list[dict]:
+    """Render the EU Taxonomy Article 8 KPI block (Del. Reg. 2021/2178) as filing sections."""
+    a = payload.get("art8") or {}
+    to = a.get("turnover_kpi") or {}
+    ev = to.get("alignment_evidence") or {}
+    sections: list[dict] = [{
+        "section": "Turnover KPI (Del. Reg. (EU) 2021/2178, Art. 8)",
+        "note": to.get("basis"),
+        "rows": [{"label": r["row"], "value": (f"€{r['eur']:,}" if r.get("eur") is not None else "—"),
+                  "pct": (f"{r['pct']}%" if r.get("pct") is not None else None), "note": r.get("note")}
+                 for r in to.get("rows", [])],
+    }, {
+        "section": "Alignment evidence (verifiable sub-signals — not an alignment claim)",
+        "rows": [
+            {"label": "Substantial contribution — EPC A/B (§7.7 TSC)", "pct": _fmt_pct(ev.get("substantial_contribution_epc_ab_pct"))},
+            {"label": "Climate-adaptation DNSH favourable (our physical-risk assessment, Art. 17)", "pct": _fmt_pct(ev.get("climate_adaptation_dnsh_favourable_pct"))},
+            {"label": "Minimum safeguards verified", "pct": _fmt_pct(ev.get("minimum_safeguards_verified_pct"))},
+        ],
+        "note": ev.get("note"),
+    }, {
+        "section": "CapEx / OpEx KPIs",
+        "note": (a.get("capex_kpi") or {}).get("note"),
+        "rows": [{"label": "CapEx KPI", "value": "declared — customer capex ledger required"},
+                 {"label": "OpEx KPI", "value": "declared — customer opex ledger required"}],
+    }]
+    return sections
+
+
+def _fmt_pct(v) -> str | None:
+    return f"{v}%" if v is not None else None

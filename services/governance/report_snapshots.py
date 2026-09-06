@@ -87,6 +87,8 @@ _BUILDERS = {
                   lambda s, o, sc, hz, m, ei, vw: _reit_tcfd(s, o, sc, hz, ei, vw), ("reit",)),
     "insurer_climate": ("Climate / NatCat exposure disclosure (underwriting book)",
                         lambda s, o, sc, hz, m, ei, vw: _insurer_climate(s, o, sc, hz, ei, vw), ("insurer",)),
+    "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
+                      lambda s, o, sc, hz, m, ei, vw: _reit_taxonomy(s, o, sc, hz, ei, vw), ("reit",)),
 }
 
 
@@ -123,6 +125,14 @@ def _reit_tcfd(session, org_id, scenario, horizon, entity_ids=None, value_weight
 def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
     from api.routers.insurance import build_disclosure_snapshot
     return build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
+
+
+def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+    """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot)."""
+    from api.routers.realestate import build_disclosure_snapshot
+    from services.governance.reit_taxonomy import art8_kpis
+    snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
+    return {"rollup": snap.get("rollup"), "art8": art8_kpis(snap.get("properties") or [])}
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
