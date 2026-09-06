@@ -26,6 +26,7 @@ const DEMOS = [
   { label: 'Asset manager', sub: 'holdings', tenant: 'nordkap' },
   { label: 'REIT', sub: 'properties', tenant: 'stellar' },
   { label: 'Agriculture', sub: 'sites & origins', tenant: 'terra' },
+  { label: 'Regulator', sub: 'supervised population', tenant: 'supervisor' },
 ]
 
 export default function Login() {

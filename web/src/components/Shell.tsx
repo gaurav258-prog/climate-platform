@@ -11,6 +11,7 @@ import { BrandMark } from './ui'
 // (undefined = every sector). This keeps a bank out of the Sourcing/EUDR pages, and agri out of Portfolio.
 const AGRI = ['manufacturer']
 const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
+const REG = ['regulator']
 const SECTOR_TAG: Record<string, string> = { manufacturer: 'AGRI', bank: 'BANK', insurer: 'INSURER', asset_manager: 'ASSET MGMT', reit: 'REIT' }
 
 type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[]; sectors?: string[] }
@@ -30,8 +31,9 @@ const GROUPS: Group[] = [
     { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
+    { to: '/supervised', label: 'Supervised population', icon: Scale, perm: 'modules.view', sectors: REG },
     // Your data hub: Our sites · Suppliers & crops · Data dictionary · Data sources · Transmission (SectionTabs)
-    { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view' },
+    { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
     { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },
     { to: '/early-warning', label: 'Early warning', icon: BellRing, perm: 'modules.view', sectors: AGRI },
   ] },
