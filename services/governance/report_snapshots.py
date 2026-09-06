@@ -89,6 +89,8 @@ _BUILDERS = {
                         lambda s, o, sc, hz, m, ei, vw: _insurer_climate(s, o, sc, hz, ei, vw), ("insurer",)),
     "reit_taxonomy": ("EU Taxonomy Article 8 KPIs (property book)",
                       lambda s, o, sc, hz, m, ei, vw: _reit_taxonomy(s, o, sc, hz, ei, vw), ("reit",)),
+    "insurer_solvency": ("Solvency II · Nat-Cat SCR (S.26.01)",
+                         lambda s, o, sc, hz, m, ei, vw: _insurer_solvency(s, o, sc, hz, ei, vw), ("insurer",)),
 }
 
 
@@ -133,6 +135,14 @@ def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_we
     from services.governance.reit_taxonomy import art8_kpis
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
     return {"rollup": snap.get("rollup"), "art8": art8_kpis(snap.get("properties") or [])}
+
+
+def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+    """Solvency II S.26.01.01 NatCat SCR, mapped from the insurer disclosure snapshot (no re-run)."""
+    from api.routers.insurance import build_disclosure_snapshot
+    from services.governance.insurer_solvency import s2601_natcat
+    snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
+    return {"rollup": snap.get("rollup"), "s2601": s2601_natcat(snap)}
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
