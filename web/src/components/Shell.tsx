@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope } from 'lucide-react'
+import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope, Building2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../lib/auth'
 import { useResizableWidth } from '../lib/resizable'
@@ -31,6 +31,7 @@ const GROUPS: Group[] = [
     { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
+    { to: '/solvency', label: 'Catastrophe capital', icon: Building2, perm: 'modules.view', sectors: ['insurer'] },
     { to: '/supervised', label: 'Supervised population', icon: Scale, perm: 'modules.view', sectors: REG },
     // Your data hub: Our sites · Suppliers & crops · Data dictionary · Data sources · Transmission (SectionTabs)
     { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
