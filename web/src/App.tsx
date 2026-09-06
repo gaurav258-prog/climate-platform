@@ -30,6 +30,7 @@ const SingleSignOn = lazy(() => import('./pages/SingleSignOn'))
 const Platform = lazy(() => import('./pages/Platform'))
 const Cogs = lazy(() => import('./pages/Cogs'))
 const Portfolio = lazy(() => import('./pages/Portfolio'))
+const Solvency = lazy(() => import('./pages/Solvency'))
 const Compliance = lazy(() => import('./pages/Compliance'))
 const PriorFilings = lazy(() => import('./pages/PriorFilings'))
 const DataHub = lazy(() => import('./pages/DataHub'))
@@ -125,6 +126,7 @@ function Workspace() {
         <Route path="/platform" element={<Platform />} />
         <Route path="/cogs" element={<Cogs />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/solvency" element={<Solvency />} />
         <Route path="/track-record" element={<TrackRecord />} />
         <Route path="/underwriting" element={<UnderwritingReview />} />
         <Route path="/model-validation" element={<ModelValidation />} />
