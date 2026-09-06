@@ -34,10 +34,10 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from core.types import HAZARD_VALUES
 from ml.scoring.cat_accumulation import catastrophe_accumulation
-from services.governance.solvency2_windstorm import standard_formula_windstorm
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
+from services.governance.solvency2_windstorm import standard_formula_windstorm
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
 from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
