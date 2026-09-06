@@ -54,6 +54,12 @@ FRAMEWORKS = {
     "reit_tcfd": {"label": "TCFD · EU-Taxonomy disclosure (property book)", "sectors": ("reit",),
                   "frequency": "annual", "due": (4, 30),
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
+    "reit_taxonomy": {"label": "EU Taxonomy Article 8 KPIs (property book)", "sectors": ("reit",),
+                      "frequency": "annual", "due": (4, 30),
+                      "regulator": "National competent authority", "basis": "Del. Reg. (EU) 2021/2178 Art. 8"},
+    "insurer_solvency": {"label": "Solvency II · Nat-Cat SCR (S.26.01)", "sectors": ("insurer",),
+                         "frequency": "annual", "due": (4, 30),
+                         "regulator": "EIOPA / national supervisor", "basis": "Del. Reg. (EU) 2015/35 · S.26.01.01"},
     "insurer_climate": {"label": "Climate / NatCat exposure disclosure", "sectors": ("insurer",),
                         "frequency": "annual", "due": (4, 30),
                         "regulator": "National competent authority / EIOPA", "basis": "Solvency II · IFRS S2"},
@@ -67,6 +73,8 @@ EXPORT_FORMATS = {
     "sfdr_pai":  ("json", "xlsx", "xbrl", "ixbrl"),
     "assetmgmt_tcfd": ("json", "xlsx"),
     "reit_tcfd": ("json", "xlsx"),
+    "reit_taxonomy": ("json", "xlsx"),
+    "insurer_solvency": ("json", "xlsx"),
     "insurer_climate": ("json", "xlsx"),
     "csrd_e1":   ("json",),
     "esrs_pack": ("json", "xbrl", "ixbrl"),
@@ -96,7 +104,7 @@ class FilingError(ValueError):
 # SFDR consolidates fund-side (the funds workspace — per-fund statements + the entity-level across-all-funds
 # aggregate), and agri CSRD/ESRS flows through an org/product COGS engine with no per-legal-entity attribution.
 # Offering a per-entity scope for those would silently mislabel a whole-org number, so generate_filing refuses it.
-_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate", "assetmgmt_tcfd"}
+_ENTITY_SCOPED = {"bank_tcfd", "bank_p3esg", "reit_tcfd", "reit_taxonomy", "insurer_climate", "insurer_solvency", "assetmgmt_tcfd"}
 
 
 def available_frameworks(org_type: str) -> list[dict]:
