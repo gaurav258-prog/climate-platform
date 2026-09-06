@@ -74,6 +74,7 @@ EXT_INSURANCE_COLUMNS = [
     "CAST(x.building_value_eur AS FLOAT) AS building_value_eur",
     "CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur",
     "CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur",
+    "CAST(x.cresta_zone AS INTEGER) AS cresta_zone",
 ]
 
 
@@ -113,6 +114,7 @@ def _map_policy_row(row):
         "deductible_pct": row["deductible_pct"], "building_value_eur": row["building_value_eur"],
         "contents_value_eur": row["contents_value_eur"],
         "business_interruption_value_eur": row["business_interruption_value_eur"],
+        "cresta_zone": row["cresta_zone"],
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
@@ -485,6 +487,7 @@ POLICY_TEMPLATE_FIELDS = [
     {"name": "deductible_pct", "required": False, "description": "Policy deductible, as a fraction (0.02 = 2%).", "example": "0.02"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Valencia"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "ES"},
+    {"name": "cresta_zone", "required": False, "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
 ]
 REQUIRED_POLICY_COLUMNS = [f["name"] for f in POLICY_TEMPLATE_FIELDS if f["required"]]
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
@@ -568,6 +571,7 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
             "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
             "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
             "deductible_pct": float(row["deductible_pct"]) if "deductible_pct" in df.columns and pd.notna(row.get("deductible_pct")) else 0.02,
+            "cresta_zone": int(row["cresta_zone"]) if "cresta_zone" in df.columns and pd.notna(row.get("cresta_zone")) else None,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
@@ -582,9 +586,9 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
     """), records)
     session.execute(text("""
         INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
-                                    business_interruption_value_eur)
+                                    business_interruption_value_eur, cresta_zone)
         VALUES (:policy_id, :deductible_pct, :building_value_eur, :contents_value_eur,
-                :business_interruption_value_eur)
+                :business_interruption_value_eur, :cresta_zone)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
                 target_type="insurance_policies", target_id=None,

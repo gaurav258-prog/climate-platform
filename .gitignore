@@ -52,3 +52,4 @@ data/soil_degradation/
 data/convective/*
 !data/convective/convective_potential.npz
 data/eiopa/
+data/reference/geo/

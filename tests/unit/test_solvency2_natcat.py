@@ -70,6 +70,41 @@ def test_natcat_available_false_when_no_eu_exposure():
     assert r["available"] is False and all(v == 0 for v in r["scr_by_peril_eur"].values())
 
 
+def _hr(zone, si):
+    p = {"country": "HR", "sum_insured_eur": si}
+    if zone is not None:
+        p["cresta_zone"] = zone
+    return p
+
+
+def test_exact_zonal_uses_weights_and_correlation_and_beats_country_level():
+    # Croatia earthquake tables are loaded (CR); zone-tagged policies use the exact zonal calc
+    zoned = standard_formula_peril([_hr(21, 1e9), _hr(8, 1e9)], "earthquake")
+    country = standard_formula_peril([_hr(None, 1e9), _hr(None, 1e9)], "earthquake")
+    assert zoned["per_region"][0]["method"] == "exact_zonal" and zoned["n_exact_zonal_regions"] == 1
+    assert country["per_region"][0]["method"] == "country_level"
+    # exact zonal takes within-country diversification credit -> strictly lower than the perfect-correlation approx
+    assert zoned["scr_eur"] < country["scr_eur"]
+
+
+def test_zonal_falls_back_when_a_policy_has_no_zone():
+    # if ANY policy in the region lacks a cresta_zone, that region uses the country-level approximation (honest)
+    r = standard_formula_peril([_hr(21, 1e9), _hr(None, 1e9)], "earthquake")
+    assert r["per_region"][0]["method"] == "country_level"
+
+
+def test_zonal_falls_back_on_unknown_zone():
+    # a cited zone the table doesn't know -> fall back, never fabricate
+    r = standard_formula_peril([_hr(999, 1e9)], "earthquake")
+    assert r["per_region"][0]["method"] == "country_level"
+
+
+def test_zonal_only_where_tables_loaded():
+    # Italy earthquake has no zonal table yet -> country-level even with a zone tag
+    r = standard_formula_peril([{"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 3}], "earthquake")
+    assert r["per_region"][0]["method"] == "country_level"
+
+
 def test_all_annex_matrices_symmetric_unit_diagonal():
     # transcription guard across every peril's official correlation matrix
     ws = json.load(open("data/reference/solvency2_windstorm_annex_v.json"))
