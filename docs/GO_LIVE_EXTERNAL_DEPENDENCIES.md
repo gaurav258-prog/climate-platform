@@ -98,9 +98,25 @@ _Last reviewed: 2026-09-03._
   assigning each insured location to its EIOPA zone needs **postcode / admin boundary geodata** (per country) to
   resolve a lat/lon → zone. That boundary geodata is the external dependency; without it, sum-insured-by-zone
   cannot be computed and the exact zonal formula cannot run (faking zone assignments is not an option).
-- **Owner:** boundary geodata is external (national postcode boundaries / Eurostat NUTS for admin-unit countries);
-  transcribing Annex IX/X/XXII-XXVI + the lat/lon→zone lookup + the zonal aggregation is us.
-- **When it lands:** load the boundary layer, map each policy to its zone, apply W and the zone-correlation — the
-  country-level approximation is replaced by the exact zonal SCR (typically LOWER, as it takes within-country
-  diversification credit). Until then the country-level figure is a documented, cited approximation, disclosed on
-  the Solvency page and in the S.26.01 filing.
+- **The zones (confirmed):** EIOPA uses **CRESTA-2010** zones, mostly **2-digit postcode areas** (e.g. Romania has
+  47 zones = 2-digit postcode areas), a few countries by **administrative unit**. The zone→geography mapping (which
+  postcode / admin unit is which zone) is **Annex IX** of Del. Reg. 2015/35 — free, in the OJ PDF we already hold
+  (`data/eiopa/delreg_2015_35_original.pdf`). What is missing is only the **polygons** to turn a lat/lon into a
+  2-digit postcode / admin unit.
+- **Concrete boundary-geodata sources (the external piece):**
+  - **Admin-unit countries (BG, HR, HU, RO) — FREE, do first:** Eurostat **GISCO NUTS** boundaries
+    (`https://ec.europa.eu/eurostat/web/gisco/geodata/statistical-units/territorial-units-statistics`), open with
+    attribution — their counties map straight onto the Annex IX admin-unit zones. Zero licence, closeable immediately.
+  - **Postcode countries (the majority: AT BE CH CZ DE DK ES FR IE IT NL NO PL SE UK) — 2-digit postcode polygons:**
+    free national/open sources where they exist — **UK ONS** postcode boundaries (Open Government Licence),
+    **DE/NL/etc.** OSM-derived 2-digit-postcode (PLZ) polygons (e.g. `suche-postleitzahl.org`/OSM, open) — and for
+    a single clean pan-EU layer, the **CRESTA** zone GIS layers (`cresta.org`, the reference the regulation is built
+    on): low-resolution CRESTA is free, the high-resolution (2-digit) layer is CRESTA-membership / licensed.
+- **Owner:** boundary geodata is external (Eurostat NUTS is free; postcode polygons free where published, else a
+  CRESTA/commercial layer). Transcribing Annex X weights + Annex XXII-XXVI zone-correlation, the point-in-polygon
+  lat/lon→zone lookup, and the zonal aggregation are us.
+- **When it lands (phased):** (1) load Eurostat NUTS → exact zonal figure for the admin-unit countries now, free;
+  (2) add free national postcode polygons (UK, DE, NL…) country-by-country; (3) a licensed CRESTA/commercial layer
+  closes the remainder. Each phase replaces the country-level approximation with the exact zonal SCR for those
+  countries (typically LOWER — it takes within-country diversification credit). Until then the country-level figure
+  is a documented, cited approximation, disclosed on the Solvency page and in the S.26.01 filing.
