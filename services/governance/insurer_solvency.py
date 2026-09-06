@@ -69,11 +69,13 @@ def s2601_natcat(snapshot: dict) -> dict:
         # what is still declared-external rather than computed
         "declared": {
             "status": "declared_external",
-            "items": ["Intra-country CRESTA-zone sum-insured weights (Annex IX/X/XXII-XXVI) for the EXACT zonal figures",
-                      "Flood/hail motor sum-insured component (LoB 5/17)",
+            "items": ["Intra-country risk-zone weights & diversification (Annex IX/X/XXII-XXVI) for the EXACT zonal "
+                      "figure — needs postcode/administrative boundary geodata to assign each location to its zone",
                       "Man-made catastrophe sub-modules (out of climate scope)"],
             "note": "All five nat-cat standard-formula sub-modules (windstorm, earthquake, flood, hail, subsidence) "
-                    "are computed above from the official OJ Annex factors (cited), at country level. The intra-"
-                    "country zonal refinement and the motor component need further official Annex tables / data.",
+                    "are computed above from the official OJ Annex factors (cited), at country level, INCLUDING the "
+                    "Art. 123(7)/124(7) flood/hail motor term where present. The only remaining approximation is "
+                    "intra-country: the exact zonal SCR needs external boundary geodata to map locations to the "
+                    "Annex IX risk zones — a bounded external dependency, like the bank EBA DPM binding.",
         },
     }
