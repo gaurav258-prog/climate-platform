@@ -187,37 +187,47 @@ def _insurer_solvency_form(payload: dict) -> list[dict]:
         "section": "Natural-catastrophe sub-modules (exposure driving the aggregate)",
         "rows": [{"label": p["peril"], "value": e(p["exposed_value_eur"]),
                   "note": f"{p['n_exposed']} exposures · {', '.join(p['channels'])}"} for p in s.get("perils", [])],
-    }, *_sf_windstorm_sections(s.get("standard_formula_windstorm"), e), {
+    }, *_sf_natcat_sections(s.get("standard_formula_natcat"), e), {
         "section": "Prescribed standard-formula cells (remaining)",
         "note": (s.get("declared") or {}).get("note"),
-        "rows": [{"label": it, "value": "declared — official factor tables required"}
+        "rows": [{"label": it, "value": "declared — official factor tables / data required"}
                  for it in (s.get("declared") or {}).get("items", [])],
     }]
 
 
-def _sf_windstorm_sections(sf: dict | None, e) -> list[dict]:
-    """The prescribed STANDARD-FORMULA windstorm CAT SCR (Art. 121 + Annex V) — EIOPA's own factors, cited."""
+_PERIL_LABEL = {"windstorm": "Windstorm", "earthquake": "Earthquake", "flood": "Flood",
+                "hail": "Hail", "subsidence": "Subsidence (France)"}
+
+
+def _sf_natcat_sections(sf: dict | None, e) -> list[dict]:
+    """The prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules (Art. 120-125), EIOPA's own factors, cited."""
     if not sf or sf.get("available") is False:
-        return [{"section": "Windstorm CAT — standard formula (Art. 121)",
-                 "rows": [{"label": "Status", "value": (sf or {}).get("reason", "no windstorm-region exposure")}]}]
-    rows = [{"label": "Windstorm SCR — standard formula (gross, diversified across regions)",
-             "value": e(sf.get("scr_windstorm_eur"))},
-            {"label": "Undiversified (Σ per-region)", "value": e(sf.get("undiversified_scr_eur"))},
-            {"label": "Regional diversification benefit", "value": e(sf.get("regional_diversification_benefit_eur"))}]
-    if sf.get("other_regions_sum_insured_eur"):
-        rows.append({"label": "Sum insured outside Annex V regions (not in the SF charge)",
-                     "value": e(sf.get("other_regions_sum_insured_eur")), "note": "disclosed, Art. 121(8-9) premium charge not computed"})
-    per_region = [{"label": f"{pr['region']} · {pr['region_name']}", "value": e(pr["scr_windstorm_region_eur"]),
-                   "note": f"SI {e(pr['sum_insured_eur'])} · Q {pr['windstorm_factor_q']*100:.2f}%"}
-                  for pr in sf.get("per_region", [])]
-    return [{
-        "section": "Windstorm CAT — standard formula (Del. Reg. 2015/35, Art. 121 + Annex V)",
-        "note": f"{sf.get('citation')} · {sf.get('approximation')}",
-        "rows": rows,
-    }, {
-        "section": "Windstorm SCR by region (prescribed Annex V factors)",
-        "rows": per_region,
+        return [{"section": "NatCat CAT — standard formula (Art. 120-125)",
+                 "rows": [{"label": "Status", "value": "no EEA nat-cat-region exposure"}]}]
+    by = sf.get("scr_by_peril_eur", {})
+    summary_rows = [{"label": "NatCat SCR — standard formula (gross, diversified across perils)",
+                     "value": e(sf.get("natcat_scr_eur")), "note": "√(Σ SCR_peril²), Art. 120(2)"}]
+    summary_rows += [{"label": f"· {_PERIL_LABEL.get(pk, pk)} SCR", "value": e(v)}
+                     for pk, v in sorted(by.items(), key=lambda kv: -kv[1])]
+    summary_rows.append({"label": "Cross-peril diversification benefit",
+                         "value": e(sf.get("cross_peril_diversification_benefit_eur"))})
+    sections = [{
+        "section": "NatCat CAT — standard formula (Del. Reg. 2015/35, Art. 120-125, official OJ Annex factors)",
+        "note": sf.get("note"),
+        "rows": summary_rows,
     }]
+    # per-region detail for the perils that have a regional breakdown (windstorm, earthquake, flood, hail)
+    for pk in ("windstorm", "earthquake", "flood", "hail"):
+        pr = (sf.get("perils") or {}).get(pk) or {}
+        if not pr.get("available") or not pr.get("per_region"):
+            continue
+        rows = [{"label": f"{r['region']} · {r['region_name']}", "value": e(r["scr_region_eur"]),
+                 "note": f"SI {e(r['sum_insured_eur'])} · Q {r['risk_factor_q']*100:.2f}%"} for r in pr["per_region"]]
+        if pr.get("other_regions_sum_insured_eur"):
+            rows.append({"label": "— outside Annex regions (not in the charge)",
+                         "value": e(pr["other_regions_sum_insured_eur"]), "note": "disclosed"})
+        sections.append({"section": f"{_PERIL_LABEL.get(pk, pk)} SCR by region · {pr.get('citation')}", "rows": rows})
+    return sections
 
 
 def _reit_taxonomy_form(payload: dict) -> list[dict]:

@@ -37,7 +37,7 @@ from ml.scoring.cat_accumulation import catastrophe_accumulation
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
-from services.governance.solvency2_windstorm import standard_formula_windstorm
+from services.governance.solvency2_natcat import natcat_scr
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
 from services.scoring.combined_var import combined_climate_var
 from services.scoring.on_demand import process_new_cells
@@ -154,8 +154,8 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
     oep200 = (cat.get("oep_eur") or {}).get("rp_200")
     gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
     mean_al = cat.get("mean_annual_loss_eur")
-    # prescribed standard-formula windstorm CAT sub-module (Del. Reg. 2015/35 Art. 121, official Annex V factors)
-    sf_windstorm = standard_formula_windstorm(policies)
+    # prescribed standard-formula NatCat SCR — ALL five sub-modules (Del. Reg. 2015/35 Art. 120-125, official factors)
+    sf_natcat = natcat_scr(policies)
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
         "scr_basis": "internal_model_99_5_var",
@@ -164,13 +164,14 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
         "gross_sum_insured_eur": round(gross_si),
         "scr_pct_of_sum_insured": round(100 * aep200 / gross_si, 3) if gross_si and aep200 else None,
         "n_zones": cat.get("n_zones"),
-        # prescribed standard-formula windstorm CAT sub-module — the regulator's own factors, cited (not our model)
-        "standard_formula_windstorm": sf_windstorm,
+        # prescribed STANDARD-FORMULA NatCat SCR (windstorm+earthquake+flood+hail+subsidence) — EIOPA's own factors, cited
+        "standard_formula_natcat": sf_natcat,
         "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
                  "loss, from the common-shock cat engine (geographic accumulation already correlated). Alongside it, "
-                 "the prescribed STANDARD-FORMULA windstorm SCR is computed with EIOPA's own per-region factors "
-                 "(Del. Reg. 2015/35, Art. 121 + Annex V) — a cited regulatory calculation, not our hazard model. "
-                 "Both bases are labelled. Earthquake/flood/hail/subsidence standard-formula sub-modules pending."),
+                 "the prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules (windstorm, earthquake, flood, "
+                 "hail, subsidence) — is computed with EIOPA's own per-region factors (Del. Reg. 2015/35, "
+                 "Art. 120-125 + Annexes V-VIII), a cited regulatory calculation, not our hazard model. Both bases "
+                 "are labelled; man-made catastrophe is out of scope."),
     }
 
 
