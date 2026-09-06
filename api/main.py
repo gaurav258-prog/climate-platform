@@ -79,6 +79,7 @@ try:
     from api.routers import reg_tasks as reg_tasks_router
     from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
+    from api.routers import supervisor as supervisor_router
     from api.routers import transmission as transmission_router
     from api.routers import webhooks as webhooks_router
     ADMIN_ROUTERS_AVAILABLE = True
@@ -213,6 +214,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
+    app.include_router(supervisor_router.router)
     app.include_router(onboarding_intake_router.router)
     app.include_router(sso_scim_router.router)
     app.include_router(sso_scim_router.scim_router)

@@ -27,6 +27,7 @@ MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
 STELLAR  = "33333333-3333-4333-8333-333333333333"
 NORDKAP  = "44444444-4444-4444-8444-444444444444"
+SUPERVISOR = "55555555-5555-4555-8555-555555555555"   # regulator / supervisor demo tenant
 
 ORGS = [
     # org_id, name, type, country, aum_eur, employees
@@ -34,6 +35,7 @@ ORGS = [
     (IBERIA,   "Iberia Mutual (demo)", "insurer",  "ES", 12_000_000_000, 1800),
     (STELLAR,  "Stellar Logistics REIT (demo)", "reit", "NL", 3_600_000_000, 210),
     (NORDKAP,  "Nordkap Asset Management (demo)", "asset_manager", "SE", 22_000_000_000, 340),
+    (SUPERVISOR, "EU Climate Supervisor (demo)", "regulator", "DE", None, 900),
 ]
 
 ENTITLEMENTS = {
@@ -41,6 +43,7 @@ ENTITLEMENTS = {
     IBERIA:   ["underwriting", "parametric", "trust"],
     STELLAR:  ["portfolio-risk", "trust"],
     NORDKAP:  ["portfolio-var", "trust", "securities"],
+    SUPERVISOR: ["supervision", "trust"],
 }
 
 # role name -> permission codes
@@ -81,6 +84,8 @@ USERS = [
     ("admin@nordkap.demo",     "Nils Admin (Nordkap)",     "Demo!admin1",   NORDKAP,  "admin"),
     ("analyst@nordkap.demo",   "Nora Analyst (Nordkap)",   "Demo!analyst1", NORDKAP,  "analyst"),
     ("approver@nordkap.demo",  "Erik Approver (Nordkap)",  "Demo!approve1", NORDKAP,  "approver"),
+    ("admin@supervisor.demo",   "Sofia Supervisor (EU Climate Supervisor)", "Demo!admin1",   SUPERVISOR, "admin"),
+    ("analyst@supervisor.demo", "Lars Examiner (EU Climate Supervisor)",    "Demo!analyst1", SUPERVISOR, "analyst"),
 ]
 
 
@@ -145,6 +150,16 @@ def main():
                 INSERT INTO user_roles (user_id, role_id) VALUES (:u, :r)
                 ON CONFLICT DO NOTHING
             """), {"u": user_id, "r": role_id})
+
+        # 5) supervision scope: the EU Climate Supervisor oversees the four financial tenants
+        for supervised, juris in [(MERIDIAN, "EU/SSM"), (IBERIA, "EU/EIOPA"),
+                                  (STELLAR, "EU/ESMA"), (NORDKAP, "EU/ESMA")]:
+            s.execute(text("""
+                INSERT INTO supervision_scope (regulator_org_id, supervised_org_id, jurisdiction, active)
+                VALUES (CAST(:r AS uuid), CAST(:s AS uuid), :j, TRUE)
+                ON CONFLICT (regulator_org_id, supervised_org_id) DO UPDATE
+                   SET jurisdiction = EXCLUDED.jurisdiction, active = TRUE
+            """), {"r": SUPERVISOR, "s": supervised, "j": juris})
 
         n_users = s.execute(text("SELECT count(*) FROM users WHERE hashed_password IS NOT NULL")).scalar()
         n_roles = s.execute(text("SELECT count(*) FROM roles")).scalar()
