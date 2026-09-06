@@ -42,6 +42,7 @@ from services.intelligence.supply_cogs import (
     project_org_supply,
 )
 from services.intelligence.supply_concentration import supply_concentration
+from services.reference.iso_country import is_valid_country
 from services.scoring.on_demand import schedule_scoring
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -1225,7 +1226,7 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     import json as _json
     has_geo = "plot_geojson" in df.columns
     records, cell_coords, unknown_commodities = [], {}, set()
-    geometry_errors, needs_polygon, skipped = [], [], []
+    geometry_errors, needs_polygon, skipped, invalid_country_codes = [], [], [], []
     for _, row in df.iterrows():
         name = (str(row.get("plot_name")).strip() if pd.notna(row.get("plot_name")) else "") or "(unnamed)"
         try:
@@ -1269,11 +1270,15 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
 
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
+        country = str(row["country"]).strip() if "country" in df.columns and pd.notna(row.get("country")) else None
+        if country and not is_valid_country(country):
+            invalid_country_codes.append({"plot": name, "country": country})
+            country = None   # a bogus ISO code is flagged and dropped, not stored silently
         records.append({
             "plot_id": str(uuid.uuid4()), "org_id": org_id, "commodity_id": commodity_id,
             "plot_name": name, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
+            "country": country,
             "annual_spend_eur": spend, "plot_area_ha": area_ha, "plot_geometry": geojson,
             # bulk upload supplies exact coordinates → exact precision, full confidence (audit T4b)
             "confidence": 1.0, "geocode_precision": "exact",
@@ -1282,7 +1287,7 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     if not records:
         raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
             "unknown_commodities": list(unknown_commodities), "geometry_errors": geometry_errors,
-            "skipped": skipped})
+            "skipped": skipped, "invalid_country_codes": invalid_country_codes})
 
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
@@ -1301,7 +1306,7 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     schedule_scoring(cell_coords)  # background — a bulk upload spanning fresh cells shouldn't block the response
     return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
             "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
-            "skipped": skipped, "scoring": "queued"}
+            "skipped": skipped, "invalid_country_codes": invalid_country_codes, "scoring": "queued"}
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")
