@@ -64,16 +64,16 @@ def s2601_natcat(snapshot: dict) -> dict:
         },
         "perils": peril_rows,          # the natural-catastrophe sub-module lines driving the aggregate
         "note": scr.get("note"),
-        # prescribed STANDARD-FORMULA windstorm CAT sub-module — EIOPA's own factors (Art. 121 + Annex V), cited
-        "standard_formula_windstorm": scr.get("standard_formula_windstorm"),
-        # standard-formula sub-modules still to ingest (each needs its own official Annex factor table)
+        # prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules from EIOPA's own factors (Art. 120-125), cited
+        "standard_formula_natcat": scr.get("standard_formula_natcat"),
+        # what is still declared-external rather than computed
         "declared": {
             "status": "declared_external",
-            "items": ["Earthquake / flood / hail / subsidence standard-formula sub-modules (Del. Reg. 2015/35 Annex VI-VIII, X)",
-                      "CRESTA-zone sum-insured weights (Annex IX/X/XXII) for the exact zonal windstorm figure",
-                      "man-made catastrophe sub-modules"],
-            "note": "Windstorm standard-formula SCR is computed above from the official Annex V factors (cited). The "
-                    "other nat-cat perils and the intra-country zonal windstorm refinement need their own official "
-                    "Annex factor tables (external input), like the bank EBA DPM binding.",
+            "items": ["Intra-country CRESTA-zone sum-insured weights (Annex IX/X/XXII-XXVI) for the EXACT zonal figures",
+                      "Flood/hail motor sum-insured component (LoB 5/17)",
+                      "Man-made catastrophe sub-modules (out of climate scope)"],
+            "note": "All five nat-cat standard-formula sub-modules (windstorm, earthquake, flood, hail, subsidence) "
+                    "are computed above from the official OJ Annex factors (cited), at country level. The intra-"
+                    "country zonal refinement and the motor component need further official Annex tables / data.",
         },
     }

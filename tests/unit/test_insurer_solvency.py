@@ -6,7 +6,11 @@ def _snap():
     return {
         "solvency_scr": {"available": True, "scr_basis": "internal_model_99_5_var", "natcat_scr_eur": 250_000_000,
                          "mean_annual_loss_eur": 37_000_000, "risk_load_eur": 213_000_000,
-                         "scr_pct_of_sum_insured": 38.5, "note": "internal-model basis"},
+                         "scr_pct_of_sum_insured": 38.5, "note": "internal-model basis",
+                         "standard_formula_natcat": {"available": True, "natcat_scr_eur": 12_000_000,
+                             "scr_by_peril_eur": {"windstorm": 3_000_000, "earthquake": 11_000_000, "flood": 2_000_000,
+                                                  "hail": 500_000, "subsidence": 500_000},
+                             "citation": "Del. Reg. (EU) 2015/35, Art. 120-125", "perils": {}}},
         "reinsurance": {"net": {"net_aep_eur": {"rp_200": 200_000_000}}},
         "by_hazard": {
             "severe_convective": {"exposed_value_eur": 466_000_000, "n_exposed": 40},
@@ -29,10 +33,20 @@ def test_only_natcat_perils_mapped():
     assert perils == {"Hail", "Subsidence", "Flood"}   # drought excluded (not a nat-cat peril line)
 
 
-def test_standard_formula_cells_declared_not_fabricated():
+def test_standard_formula_natcat_surfaced_and_cited():
+    s = s2601_natcat(_snap())
+    sf = s["standard_formula_natcat"]
+    assert sf and sf["available"] and sf["natcat_scr_eur"] == 12_000_000
+    assert "2015/35" in sf["citation"]
+    assert set(sf["scr_by_peril_eur"]) == {"windstorm", "earthquake", "flood", "hail", "subsidence"}
+
+
+def test_remaining_cells_still_declared_external():
+    # standard-formula perils are now computed; only the zonal refinement / motor / man-made stay declared
     s = s2601_natcat(_snap())
     assert s["declared"]["status"] == "declared_external"
-    assert any("standard-formula" in it.lower() for it in s["declared"]["items"])
+    items = " ".join(s["declared"]["items"]).lower()
+    assert "zone" in items and "man-made" in items
 
 
 def test_unavailable_when_no_scr():
