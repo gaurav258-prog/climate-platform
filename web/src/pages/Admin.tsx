@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <AdminEntities />}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1082,5 +1082,45 @@ function ThreshInput({ defaultValue, onCommit, disabled }: { defaultValue: numbe
     <input type="number" step="any" disabled={disabled} defaultValue={defaultValue ?? ''} placeholder="—"
       onBlur={e => { const raw = e.target.value.trim(); const v = raw === '' ? null : Number(raw); if (v !== defaultValue) onCommit(Number.isNaN(v as number) ? null : v) }}
       className="w-20 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[11.5px] mono outline-none focus:border-[var(--color-sky)]" />
+  )
+}
+
+
+// ── Supervisory access — what my regulator may see ──────────────────────────────────────────────────────
+// Regional aggregates (NUTS-3) reach the supervisor regardless (that is what filings carry). Individual site
+// locations are ours to open or close; the switch is audited on both sides.
+interface Sup { supervision_id: string; regulator_org_id: string; regulator: string; jurisdiction: string | null
+  site_access: boolean; site_access_granted_at: string | null; site_access_revoked_at: string | null }
+function SupervisoryAccess() {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['my-supervisors'], queryFn: () => api.get<{ supervisors: Sup[]; note: string }>('/v1/me/supervisors') })
+  const [busy, setBusy] = useState<string | null>(null)
+  const set = async (s: Sup, granted: boolean) => {
+    setBusy(s.supervision_id)
+    try { await api.post(`/v1/me/supervisors/${s.supervision_id}/site-access`, { granted }); await qc.invalidateQueries({ queryKey: ['my-supervisors'] }) }
+    finally { setBusy(null) }
+  }
+  const sups = q.data?.supervisors ?? []
+  if (!q.isLoading && sups.length === 0) return null
+  return (
+    <Card className="p-5">
+      <SectionHead hint="regional aggregates always · individual sites only while you grant it">Supervisory access</SectionHead>
+      <div className="text-[12.5px] text-[var(--color-mute)] mb-3">{q.data?.note}</div>
+      <div className="divide-y divide-[var(--color-line)]">
+        {sups.map(s => (
+          <div key={s.supervision_id} className="py-2.5 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-[13px] text-[var(--color-ink)]">{s.regulator}{s.jurisdiction ? <span className="mono text-[10.5px] text-[var(--color-faint)]"> · {s.jurisdiction}</span> : null}</div>
+              <div className="mono text-[10.5px] text-[var(--color-faint)]">
+                {s.site_access ? `individual sites visible since ${s.site_access_granted_at?.slice(0, 10)}` : s.site_access_revoked_at ? `site access revoked ${s.site_access_revoked_at.slice(0, 10)} · regional only` : 'regional aggregates only'}
+              </div>
+            </div>
+            <Button onClick={() => set(s, !s.site_access)} disabled={busy === s.supervision_id}>
+              {busy === s.supervision_id ? '…' : s.site_access ? 'Revoke site-level access' : 'Grant site-level access'}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
