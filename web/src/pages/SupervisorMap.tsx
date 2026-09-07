@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Card, PageHeader } from '../components/ui'
 import ExposureMap, { type Region, type Site } from '../components/ExposureMap'
@@ -12,6 +13,8 @@ interface MapResp { scenario: string; horizon: string; level: string; n_sites: n
 interface SitesResp { entity: { org_id: string; name: string }; n_sites: number; sites: Site[] }
 
 function ExposureCard() {
+  const [params] = useSearchParams()
+  const focusKey = params.get('region')
   const [entity, setEntity] = useState('all')
   const [showSites, setShowSites] = useState(false)
   const m = useQuery({ queryKey: ['supervisor-map', entity], queryFn: () => api.get<MapResp>(`/v1/supervisor/map?entity=${entity}`) })
@@ -42,6 +45,8 @@ function ExposureCard() {
           </label>
         </div>
       </div>
+      {focusKey && d && (() => { const r = d.regions.find(x => x.key === focusKey); return r ? (
+        <div className="mb-2 text-[12.5px] text-[var(--color-ink)]">Focused on <b>{r.name}</b>{r.country ? ` · ${r.country}` : ''}: {r.n_sites} sites · {eurS(r.value_eur)} · worst {r.max_score != null ? Math.round(r.max_score) : '—'}/100{r.worst_hazard ? ` (${r.worst_hazard.replace(/_/g, ' ')})` : ''} · {r.entities.join(', ')}</div>) : null })()}
       {d && (
         <div className="mono text-[11px] text-[var(--color-faint)] mb-2">
           {d.n_sites.toLocaleString()} sites · {eurS(d.value_eur)} · {d.n_regions} regions · {d.scenario} · {d.horizon}
@@ -49,7 +54,7 @@ function ExposureCard() {
         </div>
       )}
       {m.isLoading ? <div className="h-[480px] grid place-items-center text-[var(--color-faint)] text-sm">loading the population map…</div>
-        : d ? <ExposureMap regions={d.regions} sites={showSites && canSites ? sites.data?.sites : undefined} />
+        : d ? <ExposureMap regions={d.regions} sites={showSites && canSites ? sites.data?.sites : undefined} focusKey={focusKey} />
         : <div className="text-[13px] text-[var(--color-bad)]">Could not load the exposure map.</div>}
       {sites.isError && <div className="mt-2 text-[12px] text-[var(--color-bad)]">Site-level access is not granted (or was revoked) — regional view only.</div>}
     </Card>

@@ -21,11 +21,22 @@ const SCEN_LABEL: Record<string, string> = { baseline: 'Current policies', order
 const SCEN_COLOR: Record<string, string> = { baseline: '#888780', orderly_1_5c: '#1D9E75', disorderly_2c: '#EF9F27', hot_house_3_5c: '#E24B4A' }
 const FLAGC: Record<string, string> = { act: '#E24B4A', watch: '#EF9F27', ok: '#639922', na: '#B4B2A9' }
 
-function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; name?: string; max_score?: number | null; value?: number }) {
-  const { x = 0, y = 0, width = 0, height = 0, name = '', max_score = null, value = 0 } = p
+function downloadCsv(name: string, rows: Record<string, unknown>[]) {
+  if (!rows.length) return
+  const cols = Object.keys(rows[0])
+  const esc = (v: unknown) => { const t = v == null ? '' : String(v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n')
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `${name}.csv`; a.click(); URL.revokeObjectURL(a.href)
+}
+function CsvBtn({ name, rows }: { name: string; rows: Record<string, unknown>[] }) {
+  return <button onClick={() => downloadCsv(name, rows)} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-sky)]" title="Download this chart's data as CSV">CSV ↓</button>
+}
+
+function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; name?: string; max_score?: number | null; value?: number; key?: string; regionKey?: string; onOpen?: (key: string) => void }) {
+  const { x = 0, y = 0, width = 0, height = 0, name = '', max_score = null, value = 0, regionKey = '', onOpen } = p
   if (width < 4 || height < 4) return null
   return (
-    <g>
+    <g onClick={() => onOpen?.(regionKey)} style={{ cursor: 'pointer' }} data-region={regionKey}>
       <rect x={x} y={y} width={width} height={height} rx={3} fill={severityHex(max_score)} fillOpacity={0.85} stroke="var(--color-bg)" strokeWidth={1.5} />
       {width > 60 && height > 28 && <text x={x + 6} y={y + 16} fontSize={11} fill="#fff" style={{ pointerEvents: 'none' }}>{name.length > width / 6.5 ? name.slice(0, Math.max(3, width / 6.5 - 1)) + '…' : name}</text>}
       {width > 60 && height > 42 && <text x={x + 6} y={y + 30} fontSize={10} fill="#fff" opacity={0.85} style={{ pointerEvents: 'none' }}>{eur(value)}</text>}
@@ -37,7 +48,7 @@ export default function SupervisorAnalytics() {
   const [scenario, setScenario] = useState('baseline'); const [horizon, setHorizon] = useState('current')
   const q = useQuery({ queryKey: ['sup-analytics', scenario, horizon], queryFn: () => api.get<Resp>(`/v1/supervisor/analytics?scenario=${scenario}&horizon=${horizon}`) })
   const d = q.data
-  const tree = useMemo(() => (d?.concentration.by_region ?? []).slice(0, 40).map(r => ({ name: r.name, size: r.value_eur, value: r.value_eur, max_score: r.max_score, key: r.key })), [d])
+  const tree = useMemo(() => (d?.concentration.by_region ?? []).slice(0, 40).map(r => ({ name: r.name, size: r.value_eur, value: r.value_eur, max_score: r.max_score, regionKey: r.key })), [d])
   const shift = useMemo(() => {
     if (!d) return []
     return d.scenario_shift.horizons.map(h => {
@@ -69,16 +80,16 @@ export default function SupervisorAnalytics() {
 
         <div className="grid lg:grid-cols-[3fr_2fr] gap-6">
           <Card className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Concentration by region</div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">tile = exposure, colour = worst headline score in the region · click a tile to open the map</div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Concentration by region</div><CsvBtn name="concentration_by_region" rows={d.concentration.by_region.map(r => ({ region: r.key, name: r.name, country: r.country, kind: r.kind, value_eur: r.value_eur, n_sites: r.n_sites, max_score: r.max_score, worst_hazard: r.worst_hazard }))} /></div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">tile = exposure, colour = worst headline score in the region · click a tile to open the map on that region</div>
             <div style={{ height: 340 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <Treemap data={tree} dataKey="size" nameKey="name" content={<TreeTile />} isAnimationActive={false} onClick={() => nav('/supervisor/map')} />
+                <Treemap data={tree} dataKey="size" nameKey="name" content={<TreeTile onOpen={(k) => nav(`/supervisor/map?region=${encodeURIComponent(k)}`)} />} isAnimationActive={false} />
               </ResponsiveContainer>
             </div>
           </Card>
           <Card className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Concentration curve</div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Concentration curve</div><CsvBtn name="concentration_curve" rows={d.concentration.curve} /></div>
             <div className="text-[11.5px] text-[var(--color-mute)] mb-2">cumulative share of exposure by region rank — the steeper, the more concentrated</div>
             <div style={{ height: 340 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -97,7 +108,7 @@ export default function SupervisorAnalytics() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Scenario shift · share of exposure at high risk</div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Scenario shift · share of exposure at high risk</div><CsvBtn name="scenario_shift" rows={d.scenario_shift.cells} /></div>
             <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{d.scenario_shift.note}</div>
             <div style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -114,7 +125,7 @@ export default function SupervisorAnalytics() {
             <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">of the high-risk value under {SCEN_LABEL[scenario]} · {horizon === 'current' ? 'today' : horizon}: {d.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? '—'}% is headlined by a CMIP6-projected hazard (flood / storm / wildfire); the rest by climatology channels with their own anchors</div>
           </Card>
           <Card className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Exposure by headline hazard</div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Exposure by headline hazard</div><CsvBtn name="exposure_by_hazard" rows={d.concentration.by_hazard} /></div>
             <div className="text-[11.5px] text-[var(--color-mute)] mb-2">value whose biggest threat is each hazard · darker = at high risk</div>
             <div style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -133,15 +144,15 @@ export default function SupervisorAnalytics() {
 
         {Object.entries(d.distribution).map(([sec, s]) => (
           <Card key={sec} className="p-5">
-            <div className="text-[14px] font-semibold mb-1">Distribution · {s.label}</div>
-            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">each entity against your profile's expectations — amber watch, red act; the dashed line is the peer median</div>
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Distribution · {s.label}</div><CsvBtn name={`distribution_${sec}`} rows={s.metrics.flatMap(m => m.entities.map(e => ({ metric: m.id, entity: e.name, value: e.value, flag: e.flag })))} /></div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">each entity against your profile's expectations — amber watch, red act; the dashed line is the peer median · click a bar to open the entity file</div>
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
               {s.metrics.filter(m => m.direction !== 'neutral').map(m => (
                 <div key={m.id}>
                   <div className="text-[12px] text-[var(--color-ink)] mb-1">{m.label} <span className="mono text-[10px] text-[var(--color-faint)]">{m.watch_above != null ? `watch >${m.watch_above}` : m.watch_below != null ? `watch <${m.watch_below}` : ''}{m.act_above != null ? ` · act >${m.act_above}` : ''}</span></div>
                   <div style={{ height: 40 + 22 * Math.max(1, m.entities.length) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }}>
+                      <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag, org_id: e.org_id }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }} style={{ cursor: 'pointer' }}>
                         <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? eur(Number(v)) : `${v}%`} />
                         <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10.5, fill: 'var(--color-mute)' }} />
                         <Tooltip formatter={(v) => [m.unit === 'eur' ? eur(Number(v)) : `${v}%`, m.label]} />
@@ -149,7 +160,8 @@ export default function SupervisorAnalytics() {
                         {m.watch_above != null && <ReferenceLine x={m.watch_above} stroke="#EF9F27" />}
                         {m.act_above != null && <ReferenceLine x={m.act_above} stroke="#E24B4A" />}
                         {m.watch_below != null && <ReferenceLine x={m.watch_below} stroke="#EF9F27" />}
-                        <Bar dataKey="value" isAnimationActive={false}>{m.entities.map((e, i) => <Cell key={i} fill={FLAGC[e.flag]} />)}</Bar>
+                        <Bar dataKey="value" isAnimationActive={false} onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }}>
+                          {m.entities.map((e, i) => <Cell key={i} fill={FLAGC[e.flag]} className="dist-bar" />)}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
