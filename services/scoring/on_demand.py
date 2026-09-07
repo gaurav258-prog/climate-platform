@@ -35,6 +35,7 @@ from ml.scoring.soil_degradation_point import score_soil_degradation_point
 from ml.scoring.soil_erosion_point import score_soil_erosion_point
 from ml.scoring.solifluction_point import score_solifluction_point
 from ml.scoring.subsidence_point import score_subsidence_point
+from ml.scoring.volcanic_point import score_volcanic_point
 from ml.scoring.water_stress_point import score_water_stress_point
 from ml.scoring.windstorm_point import score_windstorm_point
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
@@ -73,6 +74,7 @@ SYNC_ON_DEMAND_SCORERS = {
     "solifluction": score_solifluction_point,
     "soil_degradation": score_soil_degradation_point,
     "severe_convective": score_severe_convective_point,
+    "volcanic": score_volcanic_point,
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).

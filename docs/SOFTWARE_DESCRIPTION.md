@@ -58,7 +58,7 @@ regulatory export.
 
 | Hazard | Approach | Scorer | Primary data | Backtest anchor |
 |---|---|---|---|---|
-| Volcanic | Physics (distance-decay + curated zones) | `ml/scoring/volcanic_physics.py` | GVP eruption catalog + `volcanic_hazard_zones` | Fuego 2018, Taal 2020 |
+| Volcanic | Physics (distance-decay + curated zones), any-address worldwide (SCREENING) | `ml/scoring/volcanic_physics.py`, `ml/scoring/volcanic_point.py` | Smithsonian GVP global Holocene catalogue (1,214 volcanoes, feed `volcanic_gvp`) + `volcanic_hazard_zones` | Fuego 2018, Taal 2020 (in-sample checks; no location-level occurrence backtest possible) |
 | Seismic | Physics (IPE attenuation) | `ml/scoring/seismic_physics.py` | EMSC WFS, USGS | — |
 | Storm | Physics (wind-decay) | `ml/scoring/storm_physics.py` | ERA5 wind, TC track data | — |
 | Flood | ML (XGBoost ensemble) | `ml/scoring/engine.py` + `ml/features/flood.py` | Sentinel-1 SAR, ERA5 precip, GloFAS | 2021 Ahr Valley |

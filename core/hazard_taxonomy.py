@@ -157,7 +157,12 @@ EXTRA_CHANNELS: tuple[EUHazard, ...] = (
              "Bakun-Wentworth IPE on the USGS/EMSC catalogue. IN-SAMPLE consistency only (near-field ρ 0.81, "
              "AUC 0.96): the score is BUILT FROM the same catalogue it is checked against (see model_validation.py), "
              "so it is not out-of-sample — an independent-target backtest is pending.", (H.SEISMIC,)),
-    EUHazard("volcanic", S, "Volcanic", A, REF, "now", "geophysical hazard-zone (any-address gap)", (H.VOLCANIC,)),
+    EUHazard("volcanic", S, "Volcanic", A, SCR, "now",
+             "Smithsonian GVP Holocene catalogue (all ~1,200 volcanoes + confirmed-eruption VEI history) scored by "
+             "radial proximal+ashfall physics; footprint from a curated hazard map where one exists, else VEI-scaled "
+             "defaults (VEI-3 assumed when GVP records none). Radially symmetric (no wind/topography); eruption "
+             "recency reported, not weighted. Eruptions are too rare for a location-level occurrence backtest → "
+             "SCREENING, never a €.", (H.VOLCANIC,)),
     EUHazard("pollution", WA, "Pollution / air quality", C, SCR, "now", "nature channel, disclosed thin", (H.POLLUTION,)),
 )
 

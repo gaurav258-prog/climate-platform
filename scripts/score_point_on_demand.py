@@ -24,10 +24,9 @@ observation, via the EXISTING Modified Rankine Vortex physics
 (ml/scoring/storm_physics.py) -- that physics already generalizes to any storm
 without per-storm hand-curation, unlike volcanic's hazard zones.
 
-Volcanic on-demand catalog checks are not built yet -- volcanic's hazard zones
-(proximal/ashfall radii) are hand-curated per-volcano from published papers, with
-no generic fallback formula decided yet, a genuinely different and harder problem
-than storm's fully-physics-based generalization.
+Volcanic on-demand scoring now lives in ml/scoring/volcanic_point.py (global GVP
+catalogue + radial physics, VEI-scaled default radii where no curated zone exists);
+it is registered in services/scoring/on_demand.py, not here.
 """
 from __future__ import annotations
 

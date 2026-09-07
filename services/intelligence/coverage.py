@@ -12,9 +12,9 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# hazards answerable on demand for any address (volcanic needs a hazard-zone methodology → not on-demand)
+# hazards answerable on demand for any address (volcanic: GVP global catalogue + radial physics, SCREENING)
 ON_DEMAND_HAZARDS = ["flood", "wildfire", "drought", "storm", "seismic", "heat_acute", "soil_water",
-                     "coastal_flood", "subsidence"]
+                     "coastal_flood", "subsidence", "volcanic"]
 THIN_THRESHOLD = 1000   # a standing layer below this many cells is flagged for deepening
 
 
