@@ -94,23 +94,23 @@ def compare(submitted: dict[str, dict], rebuilt_reg: dict[str, dict], rebuilt_ba
             row["gap"] = {"scope": round(sub_ratio * (reb_gross - sub_gross)), "coverage": round(-sub_ratio * unlocated),
                           "basis": round((ratio_reg - ratio_bank) * located), "scoring": round((ratio_bank - sub_ratio) * located), "unmatched": 0.0}
             if located <= 0:
-                row["flag"] = "question"; row["reason"] = "none of this cell's exposure could be located — unverifiable"
+                row["flag"] = "question"; row["reason"] = "None of this exposure could be located, so it cannot be verified."
             else:
                 share_gap = 100 * (ratio_reg - sub_ratio)
                 if abs(share_gap) >= FLAG_PCT_POINTS:
                     row["flag"] = "question"
                     dom = max(("scope", "basis", "scoring"), key=lambda g: abs(row["gap"][g]))
-                    row["reason"] = {"scope": "exposure in this cell differs from the granular data",
-                                     "basis": "the bank's stated scenario/horizon differs from yours",
-                                     "scoring": "sensitivity share differs at the same exposure and basis"}[dom]
+                    row["reason"] = {"scope": "Reported exposure differs from the granular data.",
+                                     "basis": "The entity's stated scenario or horizon differs from yours.",
+                                     "scoring": "The sensitivity share differs at the same exposure and basis."}[dom]
                     if unlocated > 0:
-                        row["reason"] += f" ({int(round(100 * located / reb_gross))}% of the cell located)"
+                        row["reason"] += f" ({int(round(100 * located / reb_gross))}% of this exposure located.)"
             tot["submitted"] += s["sensitive_physical_eur"]; tot["rebuilt"] += r["sensitive_physical_eur"]
         elif s and not r:
-            row["gap"]["unmatched"] = -float(s["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "no granular rows for this cell"
+            row["gap"]["unmatched"] = -float(s["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "No granular data for this geography and sector."
             tot["submitted"] += s["sensitive_physical_eur"]
         else:
-            row["gap"]["unmatched"] = float(r["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "cell not in the submission"
+            row["gap"]["unmatched"] = float(r["sensitive_physical_eur"]); row["flag"] = "question"; row["reason"] = "Not present in the submitted template."
             tot["rebuilt"] += r["sensitive_physical_eur"]
         for g in tot:
             if g in row["gap"]:

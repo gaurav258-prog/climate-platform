@@ -239,7 +239,7 @@ down; results feed back up.
 4. **The engine** — the hazard models, scoring, projections and the r² publish gate, then 4-eyes and freeze.
 5. **Output** — your portfolio book, disclosures, filings and evidence pack.
 
-## The spine that runs through all of it
+## The chain that runs through all of it
 Named golden source → validated input → locked model → governed decision (4-eyes) → immutable snapshot →
 auditable artifact. Every published figure is reproducible from its frozen, provenance-tracked snapshot.
 

@@ -64,7 +64,7 @@ export default function Disclosure() {
   })
 
   if (disc.isLoading) return <Center>loading disclosure…</Center>
-  if (disc.error || !disc.data) return <Center>Could not load. Is the API running on :8001?</Center>
+  if (disc.error || !disc.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = disc.data
   const s = d.eudr.summary
   const covered = d.eudr.plots.filter(p => p.eudr_covered)
@@ -73,7 +73,7 @@ export default function Disclosure() {
   return (
     <div className="fadeup space-y-7">
       <ReportTabs />
-      <PageHeader eyebrow="Agriculture · Sense → Score → Act"
+      <PageHeader eyebrow="Agriculture · Disclosure"
         title="Disclosure & EUDR (EU Deforestation Regulation)"
         lead="Physical volume-at-risk from your sourcing book, and the EUDR deforestation-free determination per plot — computed from satellite data, traceable end to end." />
 

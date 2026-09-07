@@ -33,7 +33,7 @@ const HORIZONS = ['current', '2030', '2050', '2100']
 export default function Csrd() {
   const q = useQuery({ queryKey: ['csrd-e1'], queryFn: () => api.get<E1>('/v1/supply/csrd-e1') })
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = q.data
   const fe = d.financial_effects
 
@@ -65,7 +65,7 @@ export default function Csrd() {
         lead="Assembled from your own sites and your sourcing book — a euro shows as a firm loss only where the hazard-to-yield chain is validated, otherwise exposure is mapped and the € withheld."
         stat={[
           { label: 'Asset value at material risk', value: eur(fe.asset_value_at_risk_eur), icon: Building2, tone: '#E8853C' },
-          { label: 'Business interruption (v0)', value: eur(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
+          { label: 'Business interruption (indicative)', value: eur(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
           { label: 'Sourcing COGS at risk (published)', value: eur(fe.cogs_at_risk_published_eur), icon: Sprout, tone: '#E8853C' },
           { label: 'Exposure mapped · € withheld', value: eur(fe.exposure_mapped_but_withheld_eur), icon: ShieldCheck, tone: 'var(--color-sky)' },
         ]} />
@@ -108,7 +108,7 @@ export default function Csrd() {
             <span className="text-[var(--color-mute)]">Asset value</span><span className="text-right font-medium">{eur(d.own_operations.asset_value_eur)}</span>
             <span className="text-[var(--color-mute)]">…at material risk</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.own_operations.asset_value_at_risk_eur)}</span>
             <span className="text-[var(--color-mute)]">Annual throughput</span><span className="text-right font-medium">{eur(d.own_operations.throughput_eur)}</span>
-            <span className="text-[var(--color-mute)]">Business interruption (v0)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.own_operations.business_interruption_eur)}</span>
+            <span className="text-[var(--color-mute)]">Business interruption (indicative)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.own_operations.business_interruption_eur)}</span>
           </div>
         </Card>
         <Card className="p-5">

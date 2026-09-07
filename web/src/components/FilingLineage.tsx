@@ -121,7 +121,7 @@ function ContributorRow({ c }: { c: Contributor }) {
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] text-[var(--color-ink)] truncate">{c.asset_name}{c.country ? <span className="text-[var(--color-faint)]"> · {c.country}</span> : null}</div>
           <button onClick={() => setRev(r => !r)} className="mono text-[10px] text-[var(--color-sky)] hover:underline inline-flex items-center gap-1">
-            <ArrowUpRight size={11} /> cell {c.h3_cell.slice(0, 10)}… · who else uses it
+            <ArrowUpRight size={11} /> grid cell {c.h3_cell.slice(0, 10)}… · who else uses it
           </button>
         </div>
         <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{eur(c.value_eur)}</div>

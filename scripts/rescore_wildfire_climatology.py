@@ -44,7 +44,7 @@ def main() -> int:
             lat, lon = h3.cell_to_latlng(cell)
             r = score_point_pure(lat, lon, PRODUCTION_VARIANT)
             risk = float(r["score"])
-            shap = {"tier": "calibrated", "model": MODEL_VERSION, "lane": "standing", "rescored_from_batch": True,
+            shap = {"tier": "calibrated", "model": MODEL_VERSION, "rescored_from_batch": True,
                     **{k: v for k, v in r.items() if k != "score"}}
             rows.append({"id": str(uuid.uuid4()), "c": cell, "sc": sc, "h": hz, "r": risk, "b": score_to_bucket(risk).value,
                          "mv": MODEL_VERSION, "now": now, "shap": json.dumps(shap)})

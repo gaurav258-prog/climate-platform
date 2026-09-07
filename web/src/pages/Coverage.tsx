@@ -168,7 +168,7 @@ function ProjectionView() {
       </div>
       <div className="space-y-3">
         <SectionHead hint="a deliberate choice, not an omission">Flat by design</SectionHead>
-        <PlainLead>A geophysical hazard has no climate-scenario response; a terrain-susceptibility layer is a predisposition, not a triggering nowcast. Held flat and stated as such.</PlainLead>
+        <PlainLead>A geophysical hazard has no climate-scenario response; a terrain-susceptibility layer is a predisposition, not a short-range forecast. Held flat and stated as such.</PlainLead>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{flat.map(it => <ProjTile key={it.hazard} it={it} />)}</div>
       </div>
     </>

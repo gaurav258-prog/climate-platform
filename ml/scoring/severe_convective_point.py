@@ -61,7 +61,7 @@ def score_severe_convective_point(lat: float, lon: float, scenario: str = "basel
     v = _potential(lat, lon)
     if v is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "convective-potential field not built (ERA5 CAPE×shear climatology — infra + CDS key)"}
+                "reason": "Convective-potential data is not available for this location."}
     risk = round(v, 2)
     now = datetime.now(timezone.utc)
     shap = {"convective_potential": risk, "on_demand": True, "tier": "screening",

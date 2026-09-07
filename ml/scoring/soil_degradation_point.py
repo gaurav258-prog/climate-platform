@@ -97,7 +97,7 @@ def score_soil_degradation_point(lat: float, lon: float, scenario: str = "baseli
     risk = _sample(lat, lon)
     if risk is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no SDG 15.3.1 land-degradation coverage at this point (ocean / nodata / source unreachable)"}
+                "reason": "no SDG 15.3.1 land-degradation coverage at this point (ocean — data is not currently available)"}
     risk = round(risk, 2)
     now = datetime.now(timezone.utc)
     shap = {"on_demand": True, "tier": "screening",

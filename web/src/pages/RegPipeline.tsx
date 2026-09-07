@@ -1,3 +1,4 @@
+import { frameworkLabel } from '../lib/hazards'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Plus, ExternalLink, X, Radar, CheckCircle2 } from 'lucide-react'
@@ -78,7 +79,7 @@ export default function RegPipeline() {
                   <div key={c.change_id} className="rounded-lg bg-[var(--color-bg-2)] border border-[var(--color-line)] p-2.5">
                     <button onClick={() => setSel(c)} className="text-[12px] text-[var(--color-ink)] hover:text-[var(--color-sky)] transition leading-snug text-left">{c.title}</button>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      {c.framework && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{c.framework}</span>}
+                      {c.framework && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-sky)]">{frameworkLabel(c.framework)}</span>}
                       <span className="mono text-[9px] text-[var(--color-faint)]">{c.is_platform ? 'platform' : 'your org'}</span>
                       {c.effective_date && <span className="mono text-[9px] text-[var(--color-faint)]">eff {c.effective_date.slice(0, 7)}</span>}
                       {c.citation && <span className="inline-flex items-center gap-0.5 mono text-[9px] text-[var(--color-faint)]"><ExternalLink size={9} />{c.citation}</span>}

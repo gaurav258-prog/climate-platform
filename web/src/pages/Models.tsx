@@ -29,7 +29,7 @@ const GRADE_CLS: Record<string, string> = {
 export default function Models() {
   const q = useQuery({ queryKey: ['models'], queryFn: () => api.get<Models>('/v1/supply/models') })
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const floor = q.data.ranged_publish_floor
   const fits = [...q.data.ranged_fits].sort((a, b) => b.r2 - a.r2)
   const published = fits.filter(f => f.publishes)

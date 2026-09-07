@@ -80,7 +80,7 @@ export default function Sourcing() {
   }
 
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const plots = [...q.data.plots].sort((a, b) => (b.spend_eur ?? 0) - (a.spend_eur ?? 0))
   const totalSpend = plots.reduce((s, p) => s + (p.spend_eur ?? 0), 0)
   const eudrPlots = plots.filter(p => p.eudr_covered).length

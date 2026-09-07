@@ -129,7 +129,7 @@ def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline"
             "method": "freeboard vs AR6 SLR (screen; hazard not defences)",
             "regional_dynamic_offset_m": round(reg_off, 3), "subsidence_m_to_horizon": round(subs_m, 3),
             "slr_stress_m": (slr.stress_m if slr else None), "score_under_slr_stress": stress,
-            "note": "stress = low-likelihood ice-sheet-collapse tail, not in the headline/band"}
+            "note": "The stress case reflects a low-likelihood ice-sheet-collapse scenario and is excluded from the headline score and band."}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores

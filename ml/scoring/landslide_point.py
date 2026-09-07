@@ -71,12 +71,12 @@ def score_landslide_point(lat: float, lon: float, scenario: str = "baseline", ho
     cls = _susceptibility_class(lat, lon)
     if cls is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no NASA landslide-susceptibility coverage at this point (ocean / out of 60°S–72°N / not fetched)"}
+                "reason": "No landslide-susceptibility coverage at this point (offshore, or outside the 60°S–72°N coverage area)."}
 
     risk = CLASS_SCORE[cls]
     now = datetime.now(timezone.utc)
     shap = {"susceptibility_class": cls, "on_demand": True, "tier": "screening",
-            "method": "NASA LHASA global landslide-susceptibility class (slope/geology/roads/faults/forest-loss); geophysical predisposition, not a rainfall-triggered nowcast"}
+            "method": "NASA LHASA global landslide-susceptibility class (slope/geology/roads/faults/forest-loss); geophysical predisposition, not a rainfall-triggered event forecast"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

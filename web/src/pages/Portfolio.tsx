@@ -9,6 +9,7 @@ import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner, StatGrid, type Stat
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
 import { BookWithMap } from '../components/SiteMap'
+import { modelLabel } from '../lib/hazards'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
 import ReportedHistoryRef from '../components/ReportedHistoryRef'
@@ -383,7 +384,7 @@ export default function Portfolio() {
                           <div key={h.hazard} className="flex items-center justify-between gap-3 text-[12.5px] border-b border-[var(--color-line)] py-1">
                             <span className="min-w-0">
                               <span className="text-[var(--color-mute)]">{hazardLabel(h.hazard)}</span>
-                              {h.model_version && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{h.model_version}{h.scored_at ? ` · ${h.scored_at.slice(0, 10)}` : ''}</span>}
+                              {h.model_version && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{modelLabel(h.model_version)}{h.scored_at ? ` · ${h.scored_at.slice(0, 10)}` : ''}</span>}
                             </span>
                             <span className="mono tabular-nums shrink-0 text-right" style={{ color: `rgb(${hr},${hg},${hb})` }}>
                               {Math.round(h.score)}/100 · {BUCKET[h.bucket] ?? h.bucket}
@@ -824,7 +825,7 @@ function EmptyBook({ cfg, onDone }: { cfg: Cfg; onDone: () => void }) {
     <div className="p-10 text-center">
       <FileSpreadsheet size={26} className="mx-auto mb-3 text-[var(--color-faint)]" />
       <div className="text-[14px] text-[var(--color-ink)] mb-1">No {cfg.noun} yet — import your {cfg.uploadNoun}</div>
-      <p className="text-[12.5px] text-[var(--color-mute)] max-w-md mx-auto mb-4">Upload a CSV and every row is placed on the H3 grid and scored against the golden source — the same engine an any-address lookup uses. Start from the template so the columns line up.</p>
+      <p className="text-[12.5px] text-[var(--color-mute)] max-w-md mx-auto mb-4">Upload a CSV and every row is placed on our hexagonal grid and scored against the golden source — the same engine an any-address lookup uses. Start from the template so the columns line up.</p>
       <div className="flex items-center justify-center gap-3">
         <FilePickButton busy={busy} onPick={send} big />
         <TemplateButton cfg={cfg} big />

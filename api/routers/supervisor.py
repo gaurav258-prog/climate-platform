@@ -254,7 +254,7 @@ def put_profile(body: ProfileUpdate, session: DbSession, ctx: dict = Depends(req
            "default_horizon": body.default_horizon if body.default_horizon is not None else cur.get("default_horizon"),
            "thresholds": body.thresholds if body.thresholds is not None else (cur.get("thresholds") or {})}
     if new["profile"] not in profile_ids():
-        raise HTTPException(status_code=422, detail={"error": "unknown_profile", "message": f"profile must be one of {profile_ids()}"})
+        raise HTTPException(status_code=422, detail={"error": "unknown_profile", "message": "Select a valid supervision profile."})
     resolve(None, new)   # validates
     session.execute(text("""
         INSERT INTO supervisor_settings (org_id, profile, default_scenario, default_horizon, thresholds, updated_at, updated_by)
@@ -335,7 +335,7 @@ def _intake_spec(session, reg: str, subject_org_id: str) -> dict:
     t = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": subject_org_id}).scalar()
     sec = sector_config(cfg, t)
     if not sec or not sec.get("intake"):
-        raise HTTPException(status_code=422, detail={"error": "no_intake_spec", "message": f"No Tier-2 intake is configured for sector {t!r} in profile {cfg['profile_id']!r}."})
+        raise HTTPException(status_code=422, detail={"error": "no_intake_spec", "message": "No granular intake is configured for this sector under your supervision profile."})
     return {"config": cfg, "sector_type": t, "intake": sec["intake"]}
 
 
@@ -360,14 +360,14 @@ async def intake_validate(org_id: str, kind: str, session: DbSession, ctx: Super
     if not _in_scope(session, reg, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     if kind not in ("submission", "granular"):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "kind must be 'submission' or 'granular'"})
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
     spec = _intake_spec(session, reg, org_id)["intake"][kind]
     fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
     raw = await file.read()
     try:
         cols = [str(c) for c in parse_table(raw, file.filename).columns]
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"error": "unreadable", "message": str(e)})
+        raise HTTPException(status_code=400, detail={"error": "unreadable", "message": "The file could not be read. Please upload a valid CSV or Excel file."}) from e
     m = json.loads(mapping) if mapping else suggest_mapping(cols, fields)
     rep = map_rows(raw, file.filename, fields, m)
     rep.pop("rows", None)
@@ -388,13 +388,13 @@ async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervi
     if not _in_scope(session, reg, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     if kind not in ("submission", "granular"):
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "kind must be 'submission' or 'granular'"})
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
     spec = _intake_spec(session, reg, org_id)["intake"][kind]
     fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
     raw = await file.read(); m = json.loads(mapping)
     rep = map_rows(raw, file.filename, fields, m)
     if not rep["ok"]:
-        raise HTTPException(status_code=422, detail={"error": "invalid_file", "message": "Fix the mapping / rows first.", "missing_required": rep["missing_required"], "n_error": rep["n_error"]})
+        raise HTTPException(status_code=422, detail={"error": "invalid_file", "message": "Please correct the column mapping and flagged rows before importing.", "missing_required": rep["missing_required"], "n_error": rep["n_error"]})
     if kind == "submission":
         cells = cells_from_rows(rep["rows"])
         res = save_submission(session, regulator_org_id=reg, subject_org_id=org_id, framework=spec["framework"], template=spec["template"],
@@ -424,12 +424,12 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     sub_spec = spec["intake"]["submission"]
     sub = load_submission(session, reg, org_id, sub_spec["framework"], sub_spec["template"], period_label)
     if not sub:
-        return {"status": "no_submission", "message": "No submitted template ingested for this entity yet — use Intake.", "tier": None}
+        return {"status": "no_submission", "message": "No template has been submitted for this entity yet. Upload one on the Intake screen.", "tier": None}
     cfg = spec["config"]
     out = build_lens(session, reg, org_id, sub, scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
                      spec["intake"]["granular"]["precision_label"])
     if out["shadow_book"]["n_rows"] == 0:
-        out["status"] = "no_shadow_book"; out["message"] = "No granular data ingested yet — the rebuild is empty, so every cell is unmatched."
+        out["status"] = "no_shadow_book"; out["message"] = "No granular data has been imported yet, so the rebuilt template is empty and every cell is unmatched."
     else:
         out["status"] = "ok"
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.access", target_type="organization",
@@ -452,7 +452,7 @@ def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool 
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     cells = shadow_cells(session, reg, org_id)
     if not cells:
-        raise HTTPException(status_code=422, detail={"error": "no_shadow_book", "message": "Build the shadow book first."})
+        raise HTTPException(status_code=422, detail={"error": "no_shadow_book", "message": "Build the shadow book for this entity before running projections."})
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.intake.project", target_type="organization",
                 target_id=org_id, detail={"n_cells": len(cells), "wait": wait})
     session.commit()

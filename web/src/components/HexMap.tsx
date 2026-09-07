@@ -98,7 +98,7 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
       )}
 
       <div className="absolute left-3 bottom-3 z-[500] mono text-[10.5px] text-[#cdd7e6] bg-[#070b13cc] backdrop-blur border border-[#26344f] rounded-lg px-3 py-2 leading-relaxed pointer-events-none">
-        H3 res-8 grid · ~0.7 km cells · {assets.length} asset{assets.length !== 1 ? 's' : ''} on the book<br />
+        ~0.7 km hexagonal grid · {assets.length} asset{assets.length !== 1 ? 's' : ''} on the book<br />
         {selCell
           ? <>selected: <b className="text-[#F4EFE6]">{Math.round(selCell.score)}/100</b> · {stateName(selCell.score)} · {horizon}
               {asHex

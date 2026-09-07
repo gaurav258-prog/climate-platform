@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Upload } from 'lucide-react'
 import { api } from '../lib/api'
+import { horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 
 // Tier-2 intake — the data steward's screen. Two files per entity and period, each mapped column-by-column to the
@@ -48,7 +49,7 @@ export default function SupervisorIntake() {
           <div className="text-[14px] font-semibold mb-2">On file</div>
           <div className="divide-y divide-[var(--color-line)]">{d.submissions.map((s, i) => (
             <div key={i} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]">
-              <span className="text-[var(--color-ink)]">{s.framework === 'granular' ? 'Granular extract (shadow book)' : `${s.framework} · ${s.template}`} <span className="mono text-[10.5px] text-[var(--color-faint)]">· {s.period_label}{s.basis?.scenario ? ` · stated basis ${s.basis.scenario} ${s.basis.horizon ?? ''}` : ''}</span></span>
+              <span className="text-[var(--color-ink)]">{s.framework === 'granular' ? 'Granular extract (shadow book)' : `${s.framework} · ${s.template}`} <span className="mono text-[10.5px] text-[var(--color-faint)]">· {s.period_label}{s.basis?.scenario ? ` · stated basis ${scenarioLabel(s.basis.scenario)} · ${horizonLabel(s.basis.horizon)}` : ''}</span></span>
               <span className="mono text-[11px] text-[var(--color-faint)]">{s.source_file ?? ''} · {s.created_at.slice(0, 16).replace('T', ' ')}</span>
             </div>))}</div>
           <Link to={`/supervised/${orgId}/lens`} className="inline-block mt-3 text-[12px] font-medium text-[var(--color-sky)] hover:underline">Open the independent lens →</Link>
@@ -83,7 +84,7 @@ function IntakeCard({ orgId, kind, title, basisFields, hint }:
       const fd = new FormData(); fd.append('file', file); fd.append('mapping', JSON.stringify(mapping)); fd.append('period_label', period)
       if (kind === 'submission') fd.append('basis', JSON.stringify(basis))
       const r = await api.post<{ n_valid: number; result: Record<string, unknown> }>(`/v1/supervisor/intake/${orgId}/${kind}`, fd)
-      setMsg({ tone: 'ok', text: kind === 'submission' ? `Saved ${r.n_valid} rows as template cells for ${period}.` : `Shadow book rebuilt: ${r.n_valid} rows · ${JSON.stringify((r.result as { located?: unknown }).located)} · scoring started.` })
+      setMsg({ tone: 'ok', text: kind === 'submission' ? `Saved ${r.n_valid} rows as template cells for ${period}.` : (() => { const loc = (r.result as { located?: Record<string, number> }).located ?? {}; const located = Object.entries(loc).filter(([k]) => k !== 'unlocated').reduce((a, [, v]) => a + v, 0); return `Shadow book rebuilt: ${r.n_valid} rows · ${located} located to a region · ${loc.unlocated ?? 0} unlocated · scoring started.` })() })
       await qc.invalidateQueries({ queryKey: ['sup-intake', orgId] })
     } catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }) } finally { setBusy(null) }
   }
@@ -111,7 +112,7 @@ function IntakeCard({ orgId, kind, title, basisFields, hint }:
           {kind === 'submission' && basisFields && (
             <div className="grid sm:grid-cols-3 gap-2 mt-3">
               {basisFields.map(b => <label key={b.id} className="text-[11.5px] text-[var(--color-mute)]">{b.label}
-                <input value={basis[b.id] ?? ''} onChange={e => setBasis({ ...basis, [b.id]: e.target.value })} placeholder={b.id === 'scenario' ? 'e.g. disorderly_2c' : b.id === 'horizon' ? 'e.g. 2030' : ''}
+                <input value={basis[b.id] ?? ''} onChange={e => setBasis({ ...basis, [b.id]: e.target.value })} placeholder={b.id === 'scenario' ? 'e.g. Disorderly 2°C' : b.id === 'horizon' ? 'e.g. 2030' : ''}
                   className="mt-0.5 w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] text-[var(--color-ink)] outline-none" /></label>)}
             </div>)}
           {rep.errors.length > 0 && (

@@ -48,7 +48,7 @@ def build_lens(session, regulator_org_id: str, subject_org_id: str, submission: 
                                "method_note": basis.get("method_note"),
                                "separable": (bank_cells is None) or separable,
                                "note": (None if separable else
-                                        f"forward anchors cover {cov.get('cells_complete', 0)} of {cov.get('cells', 0)} shadow cells — run the projections "
+                                        f"scenario projections cover {cov.get('cells_complete', 0)} of {cov.get('cells', 0)} locations — run the projections "
                                         "on the intake screen; until then the basis effect cannot be separated from scoring")},
                 "shadow_book": {"n_rows": len(pts), "n_located": n_loc, "n_scored": sum(1 for p in pts if p.get("score") is not None),
                                 "location_precision": prec},

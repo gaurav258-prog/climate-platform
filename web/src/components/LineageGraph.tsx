@@ -1,3 +1,4 @@
+import { modelLabel } from '../lib/hazards'
 // Static audit-trail graph — renders a filing cell's lineage as a branching node tree:
 //   Reported figure → contributing assets → the golden source → the source feeds.
 // Deterministic SVG (positions computed in JS, so no fragile measurement), colour-coded by node type.
@@ -17,7 +18,7 @@ const COL_X = [8, 220, 432, 620]   // reported · assets · golden · feeds
 export default function LineageGraph({ hazardLabel, exposed, contributors, sources }: Props) {
   const assets = contributors.slice(0, 6)
   const moreAssets = contributors.length - assets.length
-  const model = assets.find(a => a.granular?.model_version)?.granular?.model_version ?? 'canonical_scores'
+  const model = assets.find(a => a.granular?.model_version)?.granular?.model_version ?? 'current model'
 
   // node lists per column with their center-y
   const colY = (n: number, h: number) => {
@@ -65,7 +66,7 @@ export default function LineageGraph({ hazardLabel, exposed, contributors, sourc
         {assets.map((a, i) => <Node key={a.asset_id} x={cx(1)} y={aY[i]} fill="var(--color-panel-2)" stroke="var(--color-line-2)" label={a.asset_name} sub={eur(a.value_eur)} />)}
         {moreAssets > 0 && <Node x={cx(1)} y={aY[assets.length]} fill="transparent" stroke="var(--color-line)" label={`+ ${moreAssets} more`} sub="" />}
         {/* golden source */}
-        <Node x={cx(2)} y={goldY} fill="#15803d22" stroke="#34d399" label="canonical_scores" sub={model} />
+        <Node x={cx(2)} y={goldY} fill="#15803d22" stroke="#34d399" label="Scored hazard record" sub={modelLabel(model)} />
         {/* feeds */}
         {sources.length === 0
           ? <Node x={cx(3)} y={sY[0]} fill="transparent" stroke="var(--color-line)" label="not mapped" sub="" />

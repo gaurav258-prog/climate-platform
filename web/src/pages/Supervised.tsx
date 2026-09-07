@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Scale, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { frameworkLabel, statusLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 
 // Regulator portal — Phase 1. The supervised population and each entity's latest submission status per
@@ -57,7 +58,7 @@ export default function Supervised() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {e.frameworks.map(f => (
-                    <span key={f.framework} title={f.status ? `${f.status}${f.period_label ? ' · ' + f.period_label : ''}` : 'no filing on record'}
+                    <span key={f.framework} title={f.status ? `${statusLabel(f.status)}${f.period_label ? ' · ' + f.period_label : ''}` : 'no filing on record'}
                       className={`mono text-[10.5px] px-2 py-1 rounded ${CHIP[f.state]}`}>
                       {f.label}: {CHIP_LABEL[f.state]}
                     </span>
@@ -94,8 +95,8 @@ function EntityFilings({ orgId }: { orgId: string }) {
       <div className="flex flex-col gap-1.5">
         {rows.map(f => (
           <div key={f.filing_id} className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[12.5px]">
-            <span className="font-medium min-w-[220px]">{f.framework}</span>
-            <span className="mono text-[11px] text-[var(--color-good)]">{f.status}</span>
+            <span className="font-medium min-w-[220px]">{frameworkLabel(f.framework)}</span>
+            <span className="mono text-[11px] text-[var(--color-good)]">{statusLabel(f.status)}</span>
             {f.period_label && <span className="text-[var(--color-mute)]">{f.period_label}</span>}
             {f.submission_ref && <span className="mono text-[10.5px] text-[var(--color-faint)]">ref {f.submission_ref}</span>}
           </div>

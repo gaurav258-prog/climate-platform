@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceL
 import { api } from '../lib/api'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
+import { SCENARIO_LABEL } from '../lib/hazards'
 
 // The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
 // labelled; projections say which part of the high-risk value actually moves with the scenario.
@@ -17,7 +18,7 @@ interface Resp { scenario: string; horizon: string; profile_id: string; n_entiti
   distribution: Record<string, { label: string; n_entities: number; metrics: { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
     distribution: { n: number; median?: number }; entities: { org_id: string; name: string; value: number | null; flag: string }[] }[] }> }
 const eur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
-const SCEN_LABEL: Record<string, string> = { baseline: 'Current policies', orderly_1_5c: 'Orderly 1.5°C', disorderly_2c: 'Disorderly 2°C', hot_house_3_5c: 'Hot house 3.5°C' }
+const SCEN_LABEL = SCENARIO_LABEL
 const SCEN_COLOR: Record<string, string> = { baseline: '#888780', orderly_1_5c: '#1D9E75', disorderly_2c: '#EF9F27', hot_house_3_5c: '#E24B4A' }
 const FLAGC: Record<string, string> = { act: '#E24B4A', watch: '#EF9F27', ok: '#639922', na: '#B4B2A9' }
 

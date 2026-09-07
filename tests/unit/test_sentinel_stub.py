@@ -103,7 +103,7 @@ def test_sentinel1_grd_flood_feed_registered_and_honest():
     """The imagery feed must exist and stay 'planned' (nothing lands without credentials) — no overstatement."""
     from services.data.feeds import FEEDS
     f = next(x for x in FEEDS if x["key"] == "imagery")
-    assert f["maturity"] == "planned" and "SENTINEL_HUB" in f["note"]
+    assert f["maturity"] == "planned" and "credentials" in f["note"]
 
 
 def test_sentinel3_stub_returns_lst_observations(monkeypatch):

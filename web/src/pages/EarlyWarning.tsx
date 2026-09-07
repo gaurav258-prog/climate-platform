@@ -19,7 +19,7 @@ export default function EarlyWarning() {
   const nav = useNavigate()
   const q = useQuery({ queryKey: ['signals'], queryFn: () => api.get<Signals>('/v1/supply/signals') })
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = q.data
   const alerts = [...d.alerts].sort((a, b) => b.avg_hazard - a.avg_hazard)
   const open = (commodity: string) => { const id = d.commodity_ids?.[commodity]; if (id) nav(`/detail/commodity/${id}`) }
