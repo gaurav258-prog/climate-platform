@@ -60,12 +60,14 @@ def org_readiness(session: Session, org_id: str, org_type: str | None) -> dict:
         WHERE u.org_id=:o AND u.status='active' AND p.code='approvals.decide'
     """), {"o": org_id}).scalar()
 
-    from services.data.feeds import overdue_basis_feeds
-    overdue = overdue_basis_feeds(session)
+    from services.data.feeds import ensure_basis_fresh
+    fresh = ensure_basis_fresh(session)          # safety net: auto-refresh overdue basis feeds on read (throttled)
+    overdue = fresh["overdue"]
     golden_source_check = {
         "key": "golden_source_fresh", "label": "Golden source is fresh (no overdue basis feed)",
         "ok": not overdue,
-        "hint": (f"Refresh before filing — overdue: {', '.join(f['name'] for f in overdue)}." if overdue else None)}
+        "hint": ((f"Auto-refresh attempted; still overdue/failed: {', '.join(f['name'] for f in overdue)} — "
+                  "fix the source before filing.") if overdue else None)}
     second_approver_check = {
         "key": "second_approver", "label": "A second approver exists (4-eyes works)", "ok": (n_approvers or 0) >= 2,
         "hint": "Only one user can approve — 4-eyes needs a second. Add an approver." if (n_approvers or 0) < 2 else None}

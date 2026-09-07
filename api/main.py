@@ -16,6 +16,7 @@ Planned V1 Endpoints:
 
 Auth: X-Customer-Id header (Sprint 7 shim) → JWT/API-key auth (Sprint 8)
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -95,6 +96,39 @@ logger = logging.getLogger(__name__)
 
 
 # Lifespan management
+def _broker_reachable(timeout: float = 1.0) -> bool:
+    """Cheap TCP probe of the Celery/Redis broker (no redis client needed)."""
+    import socket
+    from urllib.parse import urlparse
+
+    from core.config import settings
+    try:
+        u = urlparse(settings.REDIS_URL)
+        with socket.create_connection((u.hostname or "localhost", u.port or 6379), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+async def _feed_refresh_fallback(interval_s: int = 3600, first_delay_s: int = 90) -> None:
+    from core.db.session import get_session
+    from services.data.feeds import run_scheduled_refreshes
+
+    def _tick():
+        with get_session() as s:
+            return run_scheduled_refreshes(s, force=False)
+
+    await asyncio.sleep(first_delay_s)
+    while True:
+        try:
+            done = await asyncio.to_thread(_tick)
+            n_fail = sum(1 for d in done if d.get("status") == "failed")
+            logger.info("feed-refresh fallback tick: %d refreshed, %d failed", len(done) - n_fail, n_fail)
+        except Exception as e:   # never let the ticker die on a transient error
+            logger.warning("feed-refresh fallback tick error: %s", e)
+        await asyncio.sleep(interval_s)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown"""
@@ -109,7 +143,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Startup warning: {e}")
 
+    # Feed-refresh FALLBACK scheduler: Celery beat (feeds.refresh_due, hourly) is the production scheduler; when its
+    # Redis broker is unreachable (dev/demo, or a worker outage) an in-process hourly ticker keeps the golden source
+    # fresh so nothing drifts stale. Never blocks startup; each tick runs in a thread; failures are logged, not raised.
+    ticker = None
+    if not _broker_reachable():
+        logger.warning("⏱  Celery broker unreachable — starting in-process hourly feed-refresh fallback")
+        ticker = asyncio.create_task(_feed_refresh_fallback())
+
     yield
+
+    if ticker:
+        ticker.cancel()
 
     logger.info("🛑 Climate Intelligence Platform shutting down...")
 
