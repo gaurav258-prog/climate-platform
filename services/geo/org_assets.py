@@ -7,6 +7,8 @@ rows in the other five tables). Headline = max hazard score at (scenario, horizo
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy import text
 
 from services.portfolio_engine import DEFAULT_HEADLINE_EXCLUDE
@@ -31,21 +33,25 @@ _AGRI_SOURCES = [
 ]
 
 
-def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: str = "current") -> list[dict]:
+def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: str = "current",
+                     source: str = "own", subject_org_id: Optional[str] = None) -> list[dict]:
     """[{id, name, kind, lat, lon, region, value_eur, score, hazard}] — one row per asset of the org across every
     sector table; headline = the sector engine's headline (worst standing hazard, nowcasts excluded). Unlocated
     assets are included (lat/lon None) so value-based metrics match the entity's own book; maps skip them."""
     from services.portfolio_engine import fetch_entities_with_risk
     out: list[dict] = []
     for vertical, label in _ENGINE_VERTICALS.items():
-        for r in fetch_entities_with_risk(session, org_id, vertical, scenario, horizon):
+        for r in fetch_entities_with_risk(session, org_id, vertical, scenario, horizon, source=source, subject_org_id=subject_org_id):
             out.append({"id": f"{vertical}:{r['entity_id']}", "name": r.get("entity_name") or r.get("name") or label, "kind": label,
                         "lat": (float(r["lat"]) if r.get("lat") is not None else None),
                         "lon": (float(r["lon"]) if r.get("lon") is not None else None),
                         "region": r.get("region") or r.get("country"),
                         "value_eur": float(r.get("primary_value_eur") or 0),
                         "score": (float(r["headline_score"]) if r.get("headline_score") is not None else None),
-                        "hazard": r.get("headline_hazard")})
+                        "hazard": r.get("headline_hazard"), "nace_code": r.get("nace_code"), "country": r.get("country"),
+                        "location_precision": r.get("location_precision") or ("point" if r.get("lat") is not None else "unlocated")})
+    if source != "own":
+        return out          # shadow books exist for the engine verticals only
     by_id: dict[str, dict] = {}
     agri_rows = [(kind, session.execute(text(sql), {"o": org_id, "sc": scenario, "h": horizon}).mappings().all())
                  for kind, sql in _AGRI_SOURCES]

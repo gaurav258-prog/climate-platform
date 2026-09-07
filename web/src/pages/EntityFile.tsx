@@ -41,6 +41,10 @@ export default function EntityFile() {
       <Link to="/supervised" className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Supervised population</Link>
       <PageHeader eyebrow={`Entity file · ${d.sector?.label ?? d.entity.type} · ${d.entity.country}`} title={d.entity.name}
         lead={`${d.entity.legal_name ?? ''}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''} — basis ${d.scenario} · ${d.horizon}. Every figure is the entity's own engine result; opening this file is written to the entity's audit trail.`} />
+      <div className="flex gap-4 text-[12.5px]">
+        <Link to={`/supervised/${orgId}/lens`} className="font-medium text-[var(--color-sky)] hover:underline">Independent lens →</Link>
+        <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake (submitted template · granular data) →</Link>
+      </div>
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}
 
       <StatGrid cols={4} items={[
