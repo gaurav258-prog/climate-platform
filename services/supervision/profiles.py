@@ -22,7 +22,7 @@ def registry() -> dict:
     d = json.loads(REGISTRY_PATH.read_text())
     strip = lambda m: {k: v for k, v in m.items() if not k.startswith("_")}  # noqa: E731
     return {"version": d["version"], "cycle": d["cycle"], "roles": strip(d["roles"]),
-            "sectors": strip(d["sectors"]), "profiles": strip(d["profiles"])}
+            "sectors": strip(d["sectors"]), "profiles": strip(d["profiles"]), "engagement": strip(d["engagement"])}
 
 
 def profile_ids() -> list[str]:
