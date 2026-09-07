@@ -281,3 +281,23 @@ def run_scheduled_refreshes(session: Session, force: bool = False) -> list[dict]
         if force or ds is None or ds >= f["cadence_days"]:
             done.append(refresh_one(session, f["key"], actor_user_id=None))
     return done
+
+
+def ensure_basis_fresh(session: Session, min_retry_hours: float = 1.0) -> dict:
+    """Pre-filing SAFETY NET (no scheduler needed): if any basis feed is overdue/failed, try its refresh right now
+    (scheduler actor), then re-evaluate. Throttled — a feed attempted within `min_retry_hours` is not retried, so a
+    broken adapter can't be hammered on every read; it stays honestly 'failed' and surfaced. Returns
+    {attempted: [keys], overdue: [feeds still overdue after the attempt]}. Celery beat remains the primary
+    scheduler in production; this makes a dev/demo stack — or a worker outage — self-healing at filing time."""
+    before = overdue_basis_feeds(session)
+    attempted: list[str] = []
+    for f in before:
+        ds = f.get("days_since")
+        if ds is not None and ds * 24.0 < min_retry_hours:
+            continue
+        try:
+            refresh_one(session, f["key"], actor_user_id=None)
+            attempted.append(f["key"])
+        except Exception:   # recorded as failed by the adapter path; surfaced by overdue_basis_feeds below
+            attempted.append(f["key"])
+    return {"attempted": attempted, "overdue": overdue_basis_feeds(session) if attempted else before}
