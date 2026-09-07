@@ -149,8 +149,8 @@ export default function IntakeForm() {
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen px-6 py-10" style={{ background: 'radial-gradient(1200px 600px at 50% -10%, #0e1a30 0%, var(--color-bg) 60%)' }}>
-      <div className="max-w-[620px] mx-auto">
+    <div className="public-page" style={{ justifyContent: 'flex-start' }}>
+      <div className="w-full max-w-[620px]">
         <div className="flex items-center gap-3 mb-8"><BrandMark size={34} />
           <div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
         </div>
