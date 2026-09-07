@@ -94,8 +94,8 @@ _Last reviewed: 2026-09-03._
   policies carry a zone, it computes `L_r = Q·sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j)` — the exact figure, with the
   Annex X risk weights and Annex XXIII-XXVI within-country diversification. No boundary geodata is needed on this
   path (the book carries the zone). Regions without loaded tables / zone tags use the country-level approximation.
-- **Loaded today:** Croatia earthquake (Annex IX/X/XXIII, 21 zones — extracted from the OJ PDF and validated:
-  complete weights + symmetric 21×21 matrix) in `data/reference/solvency2_zonal.json`.
+- **Loaded today:** **Germany — all four perils** (windstorm/earthquake/flood/hail; Annex IX/X/XXII-XXV, 95 zones each, keyed by 2-digit postcode — the four non-existent postcodes 05/11/43/62 are absent) and **Croatia earthquake** (21 admin-unit zones), in `data/reference/solvency2_zonal.json`. All extracted programmatically from the OJ PDF and validated: complete weights, symmetric matrices, unit diagonal, weight-zone set == matrix-zone set, and a unit test that reproduces the Art.121-124(5) formula from the tables. Correlation is stored **id-keyed** (dict-of-dicts) so non-contiguous zone ids (postcodes) work.
+- **Extraction recipe (reuse for the next country):** pdfplumber positional words grouped by y; the column-id header is a row of many integers (not a `ji` token); data rows are `int + many decimals`; stop at the next country's title row at ROW level (the next title can sit lower on the same page — a page-level stop silently drops the tail rows); Annex X weights use a sequential zone INDEX while the matrices use the Annex IX zone id — bridge via Annex IX (for postcode countries: index k = the k-th existing 2-digit postcode).
 - **Remaining — per-country DATA (not blocked):** load each country's Annex IX zones + Annex X weights + Annex
   XXIII-XXVI zone-correlation into the same JSON shape. Priority is the **postcode-zoned majors DE/FR/ES/IT/UK**
   (where insurers' books and capital actually sit), extracted the same way from the OJ PDF we hold. Wide matrices

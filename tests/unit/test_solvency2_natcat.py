@@ -125,3 +125,36 @@ def test_factors_and_regions_align():
     for p in ("earthquake", "flood", "hail"):
         assert set(nc[p]["regions"]) == set(nc[p]["region_order"])
         assert all(0 < nc[p]["regions"][r]["q"] < 0.1 for r in nc[p]["regions"])
+
+
+def _de(zone, si):
+    p = {"country": "DE", "sum_insured_eur": si}
+    if zone is not None:
+        p["cresta_zone"] = zone
+    return p
+
+
+def test_germany_exact_zonal_all_four_perils_matches_formula():
+    # Germany's zones are 2-digit postcodes (non-contiguous ids, id-keyed). Check the engine reproduces the exact
+    # Art.121-124(5) formula from the reference tables:  SCR = gross · Q_DE · sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j).
+    # (Not a directional check: real zone weights run up to 5.0, so exact can sit above OR below the W=1 approx.)
+    zonal = json.load(open("data/reference/solvency2_zonal.json"))
+    ws = json.load(open("data/reference/solvency2_windstorm_annex_v.json"))
+    nc = json.load(open("data/reference/solvency2_natcat_annexes.json"))
+    gross = {"windstorm": 1.20, "earthquake": 1.00, "flood": 1.10, "hail": 1.20}
+    book = {20: 1e9, 80: 1e9, 99: 5e8}   # Hamburg-ish, Munich-ish, Thuringia-ish postcodes
+    for peril in ("windstorm", "earthquake", "flood", "hail"):
+        q = (ws if peril == "windstorm" else nc[peril])["regions"]["DE"]["q"]
+        t = zonal[peril]["DE"]
+        wsi = {z: t["zones"][str(z)]["w"] * si for z, si in book.items()}
+        var = sum(t["correlation"][str(i)][str(j)] * wsi[i] * wsi[j] for i in wsi for j in wsi)
+        expected = gross[peril] * q * math.sqrt(var)
+        z = standard_formula_peril([_de(k, v) for k, v in book.items()], peril)
+        assert z["per_region"][0]["method"] == "exact_zonal", peril
+        assert abs(z["scr_eur"] - round(expected)) <= 1, (peril, z["scr_eur"], expected)
+
+
+def test_germany_nonexistent_postcode_falls_back():
+    # 05 / 11 / 43 / 62 are not German postcodes and are absent from Annex IX -> honest fall-back, never fabricated
+    r = standard_formula_peril([_de(5, 1e9)], "windstorm")
+    assert r["per_region"][0]["method"] == "country_level"
