@@ -28,6 +28,7 @@
    these vars at runtime via bg-[var(--color-*)], so overriding them here re-themes the whole app. ── */
 :root {
   color-scheme: light;
+  --color-halo: #d6e4f5;
   --color-bg: #eef2f8;
   --color-bg-2: #ffffff;
   --color-panel: #ffffff;
@@ -71,6 +72,7 @@
    own dark chrome even when the app is in light mode (the space globe is always a night visual). */
 [data-theme="dark"] {
   color-scheme: dark;
+  --color-halo: #0e1a30;
   --color-bg: #0a0f1c;
   --color-bg-2: #0e1728;
   --color-panel: #15213a;
@@ -135,6 +137,8 @@ select {
 /* utility bits */
 .mono { font-family: var(--font-mono); }
 .display { font-family: var(--font-display); }
+/* Public (signed-out) pages: themed halo, content centred but never clipped when the window is short. */
+.public-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 2.5rem 1.5rem; background: radial-gradient(1200px 600px at 50% -10%, var(--color-halo) 0%, var(--color-bg) 60%); }
 .card { background: var(--color-panel); border: 1px solid var(--color-line); border-radius: 14px; }
 .hairline { border-color: var(--color-line); }
 .glow { box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-sky) 30%, transparent),

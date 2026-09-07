@@ -23,7 +23,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-6 py-10" style={{ background: 'radial-gradient(1200px 600px at 50% -10%, #0e1a30 0%, var(--color-bg) 60%)' }}>
+    <div className="public-page">
       <div className="w-full max-w-[440px] fadeup">
         <div className="flex items-center gap-3 mb-6"><BrandMark size={36} />
           <div><div className="display text-xl font-semibold">Tel<span className="text-[var(--color-sky)]">lumen</span></div>
