@@ -680,7 +680,7 @@ export default function Horizon() {
           {/* granular drill — the H3 res-8 grid + basemap under this exact location */}
           <button onClick={() => setHexOpen(true)}
             className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">
-            <Grid3x3 size={14} /> View granular grid (H3 · ~0.7 km)</button>
+            <Grid3x3 size={14} /> View granular grid (~0.7 km cells)</button>
           {/* deeper drill — the full per-site record (agri has a dedicated detail page); others open the workspace */}
           <button onClick={() => nav((sel.kind === 'plot' || sel.kind === 'site') ? `/detail/${sel.kind}/${sel.id}` : '/home')}
             className="mt-4 w-full inline-flex items-center justify-center gap-2 mono text-[13px] text-[#F4EFE6] bg-[#0e1626] border border-[#2a3a50] rounded-full px-5 py-3.5 hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]">

@@ -135,7 +135,7 @@ def score_volcanic_point(lat: float, lon: float, scenario: str = "baseline", hor
     cat = _load_catalogue()
     if cat is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "GVP volcano catalogue not landed (run scripts/fetch_gvp_catalogue.py / feed 'volcanic_gvp')"}
+                "reason": "The volcano catalogue is not currently available."}
 
     with get_session() as s:
         out = volcanic_exposure(lat, lon, cat["volcanoes"], curated=lambda n: _curated_zones(s, n))

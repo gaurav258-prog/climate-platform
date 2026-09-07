@@ -55,7 +55,7 @@ export default function Home() {
 
       {/* the rich cockpit hero — narrative + live posture tiles */}
       <HeroBanner
-        eyebrow="Standing exposure"
+        eyebrow="Current exposure"
         title={(s?.rollup.volume_at_risk_eur ?? 0) > 0 || sitesElevated > 0 ? 'Climate is pressing on your book.' : 'Your book is running clear.'}
         lead="Your climate exposure across operations and sourcing, rolled to euros on the bill of materials — one glance at the whole book."
         stat={[

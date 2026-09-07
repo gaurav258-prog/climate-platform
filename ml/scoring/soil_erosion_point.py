@@ -73,7 +73,7 @@ def score_soil_erosion_point(lat: float, lon: float, scenario: str = "baseline",
     rate = _rate(lat, lon)
     if rate is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no GloSEM soil-erosion coverage at this point (ocean / nodata / ESDAC raster not fetched)"}
+                "reason": "No soil-erosion coverage at this point (offshore, or no data at this location)."}
 
     risk = soil_loss_score(rate)
     now = datetime.now(timezone.utc)

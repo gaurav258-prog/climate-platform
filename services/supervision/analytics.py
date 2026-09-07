@@ -67,8 +67,8 @@ def scenario_shift(session, entities: list[dict]) -> dict:
                         "high_risk_share_pct": (round(100.0 * high / tot, 1) if tot else None),
                         "projected_share_of_high_pct": (round(100.0 * high_proj / high, 1) if high else None)})
     return {"scenarios": SCENARIOS, "horizons": HORIZONS, "cells": out,
-            "note": "baseline and 'current' hold today's hazard; the three SSP-mapped pathways carry local CMIP6 change for "
-                    "flood/storm/wildfire and each scorer's own anchor for the climatology channels"}
+            "note": "Baseline and today reflect present-day hazard; the three scenario pathways apply local CMIP6 projected change "
+                    "for flood, storm and wildfire, and each model's own scenario response for the remaining hazards"}
 
 
 def distribution(session, cfg: dict, entities: list[dict], scenario: str, horizon: str) -> dict:
@@ -87,6 +87,6 @@ def analytics(session, cfg: dict, entities: list[dict], scenario: str, horizon: 
         for p in org_asset_points(session, e["org_id"], scenario, horizon):
             p["entity"] = e["name"]; p["sector"] = e["type"]; points.append(p)
     return {"scenario": scenario, "horizon": horizon, "profile_id": cfg["profile_id"], "n_entities": len(ents), "n_assets": len(points),
-            "precision": "point-resolved (entity books)",
+            "precision": "Point-resolved (entity portfolios)",
             "concentration": concentration(points), "scenario_shift": scenario_shift(session, ents),
             "distribution": distribution(session, cfg, ents, scenario, horizon)}

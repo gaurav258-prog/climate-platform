@@ -11,7 +11,7 @@ interface Scores { total_current_scores: number; hazards: { hazard_type: string;
 const AGRI_HAZARDS = ['drought', 'heat_acute', 'soil_water']
 
 const STEPS = [
-  { k: 'Locate', d: 'Each plot’s lat-lon snaps to one ~0.7 km² H3 cell — the key everything joins on.' },
+  { k: 'Locate', d: 'Each plot’s lat-lon snaps to one ~0.7 km² grid cell — the reference every dataset joins on.' },
   { k: 'Score', d: 'That cell gets a 0–100 drought / heat score, now and under warming scenarios.' },
   { k: 'Project', d: 'Score × crop sensitivity × your spend = the euros at risk, plus the EUDR check.' },
 ]
@@ -87,7 +87,7 @@ export default function DataFoundation() {
       <div className="grid sm:grid-cols-4 gap-4">
         <Stat big="51.4M" label="satellite observations" />
         <Stat big="1998–2026" label="28 years of history" />
-        <Stat big="H3 res-8" label="~0.7 km² cells" />
+        <Stat big="~0.7 km²" label="hexagonal grid cells" />
         <Stat big="append-only" label="immutable golden source" />
       </div>
       <p className="mono text-[11px] text-[var(--color-faint)]">The shared foundation underneath — one golden source, the same for every sector.</p>

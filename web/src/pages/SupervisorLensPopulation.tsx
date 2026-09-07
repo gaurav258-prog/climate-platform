@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 
 // Population view of the independent lens: who sits far from the rebuilt figure. Each row is one entity's
@@ -18,7 +19,7 @@ export default function SupervisorLensPopulation() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Independent lens" title="Submitted versus rebuilt, across the population"
-        lead={`Each entity's filed figure beside the same figure rebuilt independently from your own granular data${d ? ` under ${d.scenario} · ${d.horizon}` : ''}. Sorted by the size of the gap. A flag is a question, never a finding.`} />
+        lead={`Each entity's filed figure beside the same figure rebuilt independently from your own granular data${d ? ` under ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}` : ''}. Sorted by the size of the gap. A flag is a question, never a finding.`} />
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">rebuilding every entity's template…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the lens.</div> : (<>
         <StatGrid cols={3} items={[
           { label: 'Entities with a lens', value: `${d.n_with_lens} / ${d.entities.length}`, sub: 'submission + granular data ingested' },

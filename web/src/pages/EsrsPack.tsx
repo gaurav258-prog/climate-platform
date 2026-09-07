@@ -39,7 +39,7 @@ const materialPill = (m: boolean) => m
 export default function EsrsPack() {
   const q = useQuery({ queryKey: ['esrs-pack'], queryFn: () => api.get<Pack>('/v1/supply/esrs-pack') })
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = q.data
 
   return (

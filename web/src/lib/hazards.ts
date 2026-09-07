@@ -61,3 +61,41 @@ export const frameworkLabel = (f?: string | null): string =>
 // generic: turn an internal snake_case / colon code into a readable label (last resort for enums/fields)
 export const prettify = (s?: string | null): string =>
   !s ? '—' : s.replace(/[_:]/g, ' ').replace(/\s+/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
+
+// Scenario keys are engine identifiers; users see the NGFS-style names.
+export const SCENARIO_LABEL: Record<string, string> = {
+  baseline: 'Current policies', orderly_1_5c: 'Orderly 1.5°C', disorderly_2c: 'Disorderly 2°C', hot_house_3_5c: 'Hot house 3.5°C',
+}
+export const scenarioLabel = (s?: string | null): string => !s ? '—' : (SCENARIO_LABEL[s] ?? prettify(s))
+export const horizonLabel = (h?: string | null): string => !h ? '—' : h === 'current' ? 'today' : h
+
+// Filing / task status codes → words.
+export const STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft', in_review: 'In review', returned: 'Returned', approved: 'Approved', attested: 'Attested', submitted: 'Submitted',
+  accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded', released: 'Released', no_submission: 'Not submitted',
+  in_progress: 'In progress', none: 'Not filed', filed: 'Filed', pending: 'Awaiting approval', active: 'Active', expired: 'Expired',
+  terminated: 'Terminated', computing: 'Computing', done: 'Done', failed: 'Failed', not_assessed: 'Not assessed',
+}
+export const statusLabel = (s?: string | null): string => !s ? '—' : (STATUS_LABEL[s] ?? prettify(s))
+
+// Model identifiers are engine slugs; users see a name and a version.
+const MODEL_NAME: [RegExp, string][] = [
+  [/^wildfire-climatology/, 'Wildfire hazard climatology'], [/^wildfire-firms/, 'Wildfire fire-weather model'], [/^wildfire/, 'Wildfire model'],
+  [/^windstorm/, 'Windstorm gust climatology'], [/^soil-water/, 'Soil-water aridity'], [/^volcanic/, 'Volcanic proximity (GVP)'],
+  [/^landslide/, 'Landslide susceptibility (NASA)'], [/^subsidence/, 'Land subsidence susceptibility'], [/^permafrost/, 'Permafrost probability'],
+  [/^severe-convective/, 'Severe convective environment'], [/^soil-erosion/, 'Soil erosion (GloSEM)'], [/^soil-degradation/, 'Land degradation (SDG 15.3.1)'],
+  [/^solifluction/, 'Solifluction susceptibility'], [/^saline-intrusion/, 'Saline intrusion screen'], [/^glof/, 'Glacial-lake outburst proximity'],
+  [/^coastal-erosion/, 'Coastal erosion (JRC)'], [/^ocean-acidification/, 'Ocean acidification'], [/^avalanche/, 'Avalanche terrain screen'],
+  [/^frost/, 'Frost climatology'], [/^heavy-precip/, 'Heavy precipitation climatology'], [/^changing-temp/, 'Changing temperature (CMIP6)'],
+  [/^changing-precip/, 'Changing precipitation (CMIP6)'], [/^changing-wind/, 'Changing wind (CMIP6)'], [/^temp-variability/, 'Temperature variability'],
+  [/^precip-variability/, 'Precipitation variability'], [/^sea-level/, 'Sea-level rise (IPCC AR6)'], [/^pollution/, 'Air quality (WHO guideline)'],
+  [/^transition/, 'Transition risk (NGFS)'], [/^flood-multievent/, 'Flood multi-event model'], [/^flood/, 'Flood model'],
+  [/^heat-climatology/, 'Heat climatology'], [/^drought/, 'Drought (SPEI)'], [/^storm/, 'Cyclone wind field'], [/^seismic/, 'Seismic (USGS)'],
+  [/^fallback_rule_based/, 'Rule-based baseline'], [/^df-/, 'Damage function'],
+]
+export const modelLabel = (mv?: string | null): string => {
+  if (!mv) return '—'
+  const hit = MODEL_NAME.find(([re]) => re.test(mv))
+  const ver = mv.match(/v(\d+(?:\.\d+)?)/)?.[1]
+  return hit ? `${hit[1]}${ver ? ` v${ver}` : ''}` : prettify(mv)
+}

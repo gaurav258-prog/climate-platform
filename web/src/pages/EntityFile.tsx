@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
+import { horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
 
 // The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
 // what the entity lets me see, and my own access trail on it. Every field is computed by the same engine the
@@ -40,7 +41,7 @@ export default function EntityFile() {
     <div className="fadeup space-y-6">
       <Link to="/supervised" className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Supervised population</Link>
       <PageHeader eyebrow={`Entity file · ${d.sector?.label ?? d.entity.type} · ${d.entity.country}`} title={d.entity.name}
-        lead={`${d.entity.legal_name ?? ''}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''} — basis ${d.scenario} · ${d.horizon}. Every figure is the entity's own engine result; opening this file is written to the entity's audit trail.`} />
+        lead={`${d.entity.legal_name ?? ''}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''} — basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}. Every figure is the entity's own engine result; opening this file is written to the entity's audit trail.`} />
       <div className="flex gap-4 text-[12.5px]">
         <Link to={`/supervised/${orgId}/lens`} className="font-medium text-[var(--color-sky)] hover:underline">Independent lens →</Link>
         <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake (submitted template · granular data) →</Link>
@@ -59,7 +60,7 @@ export default function EntityFile() {
           <div className="text-[14px] font-semibold mb-2">Submissions</div>
           <div className="flex flex-wrap gap-2">
             {sub.frameworks.map(f => <span key={f.framework} className={`mono text-[10.5px] px-2 py-1 rounded ${CHIP[f.state]}`}
-              title={f.status ? `${f.status}${f.period_label ? ' · ' + f.period_label : ''}` : 'no filing on record'}>{f.label}: {f.state === 'filed' ? 'Filed' : f.state === 'in_progress' ? 'In progress' : 'Not filed'}</span>)}
+              title={f.status ? `${statusLabel(f.status)}${f.period_label ? ' · ' + f.period_label : ''}` : 'no filing on record'}>{f.label}: {f.state === 'filed' ? 'Filed' : f.state === 'in_progress' ? 'In progress' : 'Not filed'}</span>)}
           </div>
         </Card>
       )}
@@ -94,7 +95,7 @@ export default function EntityFile() {
           <div className="text-[14px] font-semibold mb-2">Where the book sits <span className="mono text-[10.5px] text-[var(--color-faint)] font-normal">· top regions</span></div>
           <div className="divide-y divide-[var(--color-line)]">{d.book.top_regions.map(r => (
             <div key={r.key} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]">
-              <span className="min-w-0 truncate text-[var(--color-ink)]">{r.name}{r.country ? <span className="text-[var(--color-faint)]"> · {r.country}</span> : null}{r.kind === 'h3' ? <span className="mono text-[10px] text-[var(--color-faint)]"> hex</span> : null}</span>
+              <span className="min-w-0 truncate text-[var(--color-ink)]">{r.name}{r.country ? <span className="text-[var(--color-faint)]"> · {r.country}</span> : null}{r.kind === 'h3' ? <span className="mono text-[10px] text-[var(--color-faint)]"> grid cell</span> : null}</span>
               <span className="mono text-[11.5px] text-[var(--color-mute)] shrink-0">{r.n_sites} · {eur(r.value_eur)}</span>
               <span className="mono text-[11.5px] shrink-0 w-24 text-right" style={{ color: severityHex(r.max_score) }}>{r.max_score != null ? `${Math.round(r.max_score)}/100 · ${(r.worst_hazard ?? '').replace(/_/g, ' ')}` : 'unscored'}</span>
             </div>))}</div>

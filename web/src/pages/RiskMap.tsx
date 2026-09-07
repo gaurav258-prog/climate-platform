@@ -227,7 +227,7 @@ export default function RiskMap() {
       <div className="flex flex-wrap items-center gap-4 text-[12px] text-[var(--color-mute)]">
         <Legend c="#34d399" l="low (<40)" /><Legend c="#f59e0b" l="medium (40–60)" />
         <Legend c="#fb7185" l="high (≥60)" /><Legend c="#64748b" l="not yet scored" />
-        <span className="text-[var(--color-faint)]">· filled hex = per-cell hazard · outline = grid extends here</span>
+        <span className="text-[var(--color-faint)]">· filled hexagon = hazard scored here · outline = grid coverage</span>
       </div>
 
       <Card className="p-0 overflow-hidden">
@@ -258,7 +258,7 @@ export default function RiskMap() {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: '#7f9cc0' }}>H3 cell · hazard</div>
+                    <div className="mono text-[9px] uppercase tracking-[0.18em]" style={{ color: '#7f9cc0' }}>Grid cell · hazard</div>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-[26px] font-semibold leading-none" style={{ color: '#f1f5f9' }}>{Math.round(selected.score as number)}</span>
                       <span className="text-[12px] font-medium" style={{ color: hazardColor(selected.score) }}>{bandLabel(selected.score)}</span>

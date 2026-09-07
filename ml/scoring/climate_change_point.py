@@ -95,7 +95,7 @@ def score_changing_precip_point(lat: float, lon: float, scenario: str = "baselin
     d = cmip6_delta_latlon(lat, lon, scenario, horizon)
     if d is None or d.dpr_frac != d.dpr_frac:   # None, or NaN precip gap
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no CMIP6 precip delta here (baseline/current, or a desert/ocean field gap)"}
+                "reason": "No CMIP6 precipitation projection is available for this location and scenario."}
     risk = changing_precip_score(d.dpr_frac)
     _insert(cell, "changing_precip", risk, CHG_PRECIP_VERSION, scenario, horizon,
             {"precip_change_frac": round(d.dpr_frac, 3), "across_model_std": round(d.dpr_std, 3), "n_models": d.n_models,
@@ -111,7 +111,7 @@ def score_changing_wind_point(lat: float, lon: float, scenario: str = "baseline"
     d = cmip6_delta_latlon(lat, lon, scenario, horizon)
     if d is None or d.dwind_frac != d.dwind_frac:   # None, or NaN wind (field not built / gap)
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no CMIP6 near-surface wind delta here (baseline/current, or the wind field is unbuilt/a gap)"}
+                "reason": "No CMIP6 wind projection is available for this location and scenario."}
     risk = changing_wind_score(d.dwind_frac)
     _insert(cell, "changing_wind", risk, CHG_WIND_VERSION, scenario, horizon,
             {"wind_change_frac": round(d.dwind_frac, 3), "across_model_std": round(d.dwind_std, 3), "n_models": d.n_models,

@@ -1,3 +1,4 @@
+import { bucketLabel } from '../lib/hazards'
 import { useState } from 'react'
 import { Search, Download, History, ShieldAlert } from 'lucide-react'
 import { api, download } from '../lib/api'
@@ -80,7 +81,7 @@ export default function TrackRecord() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
               <div className="mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-sky)]">{d.location.name || 'Location'}</div>
-              <div className="mono text-[11px] text-[var(--color-faint)]">{d.location.lat.toFixed(5)}, {d.location.lon.toFixed(5)} · H3 {d.location.h3_cell}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)]">{d.location.lat.toFixed(5)}, {d.location.lon.toFixed(5)} · grid cell {d.location.h3_cell}</div>
             </div>
             <button onClick={pdf} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)]"><Download size={13} /> Download dossier (PDF)</button>
           </div>
@@ -105,12 +106,12 @@ export default function TrackRecord() {
             <div>
               <div className="flex items-center gap-1.5 mb-2"><ShieldAlert size={14} className="text-[var(--color-sky)]" /><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Current physical risk · golden source</span></div>
               {d.current_risk.length === 0
-                ? <div className="text-[12.5px] text-[var(--color-mute)]">Not yet scored for this cell (scores on demand in production).</div>
+                ? <div className="text-[12.5px] text-[var(--color-mute)]">Not yet scored for this location — scoring runs on request.</div>
                 : <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                     {d.current_risk.slice(0, 8).map(h => (
                       <div key={h.hazard} className="flex items-center gap-2 py-1.5 text-[12.5px]">
                         <span className="text-[var(--color-ink)]">{h.label}</span>
-                        <span className="ml-auto mono text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: `${BUCKET_COLOR[h.bucket] || '#6d8299'}22`, color: BUCKET_COLOR[h.bucket] || '#6d8299' }}>{h.bucket} · {h.score}/100</span>
+                        <span className="ml-auto mono text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: `${BUCKET_COLOR[h.bucket] || '#6d8299'}22`, color: BUCKET_COLOR[h.bucket] || '#6d8299' }}>{bucketLabel(h.bucket)} · {h.score}/100</span>
                       </div>
                     ))}
                   </div>}

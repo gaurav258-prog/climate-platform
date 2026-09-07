@@ -74,7 +74,7 @@ def score_permafrost_point(lat: float, lon: float, scenario: str = "baseline", h
     p = _probability(lat, lon)
     if p is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no permafrost-probability coverage at this point (outside NH ≥25°N permafrost domain / nodata / not fetched)"}
+                "reason": "no permafrost-probability coverage at this point (outside NH ≥25°N permafrost domain — no data at this location)"}
 
     risk = round(100.0 * p, 2)
     now = datetime.now(timezone.utc)

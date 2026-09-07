@@ -32,7 +32,7 @@ export default function DataDictionary() {
     <div className="fadeup space-y-5">
       <SectionTabs tabs={DATA_TABS} />
       <PageHeader eyebrow="Foundation · golden model" title="Data dictionary"
-        lead="The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once on the H3 cell, reused everywhere." />
+        lead="The single canonical model behind every report — each field, the authoritative source it comes from, how current it is, and which filings consume it. Sourced once per grid cell, reused everywhere." />
 
       {d && (
         <HeroBanner

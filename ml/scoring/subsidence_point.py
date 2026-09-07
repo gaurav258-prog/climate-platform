@@ -71,12 +71,12 @@ def score_subsidence_point(lat: float, lon: float, scenario: str = "baseline", h
     cls = _susceptibility_class(lat, lon)
     if cls is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "no Global Subsidence Susceptibility coverage at this point (ocean / out of 60°S–90°N / nodata / not fetched)"}
+                "reason": "no Global Subsidence Susceptibility coverage at this point (ocean / out of 60°S–90°N — no data at this location)"}
 
     risk = CLASS_SCORE[cls]
     now = datetime.now(timezone.utc)
     shap = {"susceptibility_class": cls, "on_demand": True, "tier": "screening",
-            "method": "Herrera-García et al. (2021) Global Subsidence Susceptibility class (aquifer-system/lithology/groundwater/urban load); geophysical predisposition, not an InSAR settlement nowcast"}
+            "method": "Herrera-García et al. (2021) Global Subsidence Susceptibility class (aquifer-system/lithology/groundwater/urban load); geophysical predisposition, not a measured settlement rate"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

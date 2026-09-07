@@ -21,7 +21,7 @@ export default function AccountSecurity() {
     await api.del(`/v1/auth/sessions/${id}`); qc.invalidateQueries({ queryKey: ['sessions'] }); toast.success('Session revoked.')
   }
   async function logoutAll() {
-    await api.post('/v1/auth/logout-all'); toast.success('Signed out everywhere. Re-login required.'); setTimeout(() => { window.location.href = '/' }, 800)
+    await api.post('/v1/auth/logout-all'); toast.success('Signed out everywhere. Please sign in again.'); setTimeout(() => { window.location.href = '/' }, 800)
   }
   async function genCodes() {
     setBusy(true)

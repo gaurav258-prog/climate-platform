@@ -29,7 +29,7 @@ def test_no_stale_validation_entries():
 def test_each_validation_names_an_independent_target():
     for hz, v in CALIBRATED_VALIDATION.items():
         assert v.get("target"), f"{hz}: validation must name its independent observed target"
-        assert v.get("script"), f"{hz}: validation must reference its backtest script"
+        assert v.get("validation"), f"{hz}: validation must reference its backtest script"
         assert "out_of_sample" in v, f"{hz}: validation must state out_of_sample true/false"
 
 

@@ -138,7 +138,7 @@ def _load_events(session: Session, peril: str) -> tuple[np.ndarray, np.ndarray, 
 def model_validation(session: Session, peril: str) -> dict:
     """Score vs observed-record consistency backtest for one catalogued peril. Cached (static inputs)."""
     if peril not in _PERILS:
-        return {"available": False, "reason": "peril_not_catalogued"}
+        return {"available": False, "reason": "This peril has no observed event catalogue to validate against."}
     if peril in _CACHE:
         return _CACHE[peril]
 
@@ -146,7 +146,7 @@ def model_validation(session: Session, peril: str) -> dict:
     cell_lat, cell_lon, score, cells = _load_cells(session, peril)
     ev_lat, ev_lon, window = _load_events(session, peril)
     if len(cell_lat) == 0 or len(ev_lat) == 0:
-        return {"available": False, "reason": "no_data"}
+        return {"available": False, "reason": "No scored cells or observed events are available for this peril."}
 
     counts = _event_counts(cell_lat, cell_lon, ev_lat, ev_lon, radius)
     has_event = counts > 0
@@ -207,16 +207,13 @@ def model_validation(session: Session, peril: str) -> dict:
         "fidelity": fidelity("discrimination", spearman=spearman, auc=auc),
         "bands": bands,
         "verdict": verdict,
-        "note": ("A consistency backtest: every scored cell is matched against the real event catalogue "
-                 f"({_PERILS[peril]['label']}) within its near field ({round(radius)} km — sized to the hazard's "
-                 "physical footprint: a quake is a point source, a storm a wide wind-field system, so counting "
-                 "storm tracks at the quake's tight radius under-samples them and gives a false-weak result). "
-                 "Spearman (score vs observed event COUNT) is the honest metric here; for a frequent, wide peril "
-                 "that hits nearly every cell, the binary 'was it hit at all' (AUC) saturates and is suppressed. "
-                 "This is an IN-SAMPLE check — a catalogue-derived score tested against the record it is built "
-                 "from — so it validates FAITHFULNESS, not out-of-sample prediction (that needs scores frozen "
-                 "before a held-out period — roadmap). Weak results are reported as weak; every cell and event "
-                 "is real, nothing projected."),
+        "note": ("A consistency check: every scored cell is matched against the observed event catalogue "
+                 f"({_PERILS[peril]['label']}) within its near field ({round(radius)} km, sized to the hazard's "
+                 "physical footprint). Rank correlation between score and observed event count is the primary metric; "
+                 "for a frequent, wide peril that reaches nearly every cell, the binary hit/no-hit measure (AUC) saturates "
+                 "and is not reported. Because the score is derived from the same record it is tested against, this "
+                 "validates faithfulness to the observed record, not out-of-sample prediction; a true held-out test "
+                 "requires scores frozen ahead of a later period and is planned. Weak results are reported as weak."),
     }
     _CACHE[peril] = result
     return result
@@ -281,7 +278,7 @@ def crop_impact_validation(session: Session) -> dict:
 
     return {
         "available": bool(fits),
-        "method": "score regressed on ~31 years of observed crop yield; out-of-sample cross-validated r²",
+        "method": "Hazard score regressed on 31 years of observed crop yield; out-of-sample cross-validated r²",
         "gate_r2_oos": _R2_GATE,
         "n_fits": len(fits),
         "n_pass": n_pass,
@@ -290,9 +287,9 @@ def crop_impact_validation(session: Session) -> dict:
         "events": events,
         "note": ("The economic-impact validation. Each hazard score is regressed on ~31 years of observed crop "
                  "yield; the r² shown is OUT-OF-SAMPLE (cross-validated), and a crop euro is published only where "
-                 f"it clears the r²≥{_R2_GATE:.2f} bar — a non-configurable honesty floor. Because yield is not an "
+                 f"it clears the r²≥{_R2_GATE:.2f} bar — a fixed publication threshold. Because yield is not an "
                  "input to the hazard score, this measures genuine predictive SKILL, not the in-sample "
-                 "faithfulness the catalogue test measures. Fits below the bar are shown as held, not hidden; the "
+                 "faithfulness the catalogue test measures. Fits below the threshold are withheld from publication and shown as such; the "
                  "event rows check the same models against named production-shock events (observed vs modelled)."),
     }
 
@@ -305,11 +302,11 @@ def crop_impact_validation(session: Session) -> dict:
 _COVERAGE_PENDING = {
     "flood": "Observed record is a single approximate Copernicus EMS event (~22 cells). Needs the full EMS "
              "rapid-mapping catalogue + Sentinel-1 SAR inundation at scale before a credible backtest.",
-    "wildfire": "Hazard climatology validated vs the official EFFIS burn record 2022-24 held out in time: AUC 0.76, ρ 0.37 (marginal pass, Europe). The old day-of model failed (AUC 0.44).",
-    "coastal_flood": "Needs tide-gauge / storm-surge observations to backtest against.",
+    "wildfire": "Hazard climatology validated against the official EFFIS burn record 2022-24, held out in time: AUC 0.76, rank correlation 0.37 (a narrow pass, Europe only). An earlier same-day variant did not meet the threshold and is not in use.",
+    "coastal_flood": "Validation pending: requires tide-gauge / storm-surge observations to backtest against.",
     "volcanic": "Eruptions are too rare for a location-level occurrence backtest; GVP physics only.",
-    "pollution": "Needs an air-quality monitoring feed (EEA / OpenAQ) as the observed target.",
-    "frost": "Needs an observed frost / minimum-temperature record.",
+    "pollution": "Validation pending: requires an air-quality monitoring feed (EEA / OpenAQ) as the observed target.",
+    "frost": "Validation pending: requires an observed frost / minimum-temperature record.",
     "heat_chronic": "Chronic-heat trend needs a multi-decade station/reanalysis target (partial today via the "
                     "crop-yield heat fits).",
 }
@@ -336,12 +333,11 @@ def validation_coverage(session: Session) -> dict:
     return {
         "n_hazards": len(items), "n_validated": n_val, "n_pending": len(items) - n_val,
         "items": items,
-        "note": ("Every hazard is listed with its validation status. A hazard is marked validated only where we "
-                 "hold a credible observed target (an event catalogue, or 31 years of crop yield); where the "
-                 "observed record is too sparse or approximate to back a claim (flood, wildfire), it is shown as "
-                 "'not yet' with the exact feed that would unlock it — not dressed up as validated. A true "
-                 "out-of-sample temporal holdout is not yet possible: it needs hazard scores frozen before a "
-                 "held-out period, which we will only have once score snapshots accrue going forward."),
+        "note": ("Every hazard is listed with its validation status. A hazard is marked validated only where a "
+                 "credible observed target is held (an event catalogue, or 31 years of crop yield); where the "
+                 "observed record is too sparse or approximate to support a claim, it is shown as not yet validated "
+                 "together with the data source required. A true out-of-sample temporal holdout requires hazard scores "
+                 "frozen ahead of a later period and will become available as score snapshots accumulate."),
     }
 
 

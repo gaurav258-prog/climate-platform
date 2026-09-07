@@ -77,7 +77,7 @@ def score_ocean_acidification_point(lat: float, lon: float, scenario: str = "bas
 
     if _grid() is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "ocean pH field not built (run scripts/build_ocean_ph.py on the OceanSODA product)"}
+                "reason": "Surface-ocean pH data is not available for this location."}
     _elev, _dist, is_coastal, _subs = _ensure_coastal_exposure(cell, lat, lon)
     if not is_coastal:
         return {"status": "not_applicable", "h3_cell": cell, "risk_score": 0.0,

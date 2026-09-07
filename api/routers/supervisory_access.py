@@ -29,7 +29,7 @@ def _rows(session, org_id: str) -> list[dict]:
 @router.get("", summary="My supervisors and what each may see")
 def my_supervisors(session: DbSession, ctx: CurrentUser):
     return {"supervisors": _rows(session, ctx["org"]["org_id"]),
-            "note": "Regional aggregates (NUTS-3) are visible to your supervisor by default — the unit filings use. "
+            "note": "Regional aggregates (NUTS-3), the unit used in filings, are visible to your supervisor by default. "
                     "Individual site locations are shown only while you grant site-level access here."}
 
 

@@ -291,7 +291,7 @@ function SourceSystems() {
       <div className="grid sm:grid-cols-2 gap-3 mt-4 max-w-3xl">
         <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="Display name (e.g. Finacle core banking)"
           className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px]" />
-        <input value={f.key} onChange={e => setF({ ...f, key: e.target.value.replace(/[^a-z0-9_]/g, '') })} placeholder="key (e.g. core_banking)"
+        <input value={f.key} onChange={e => setF({ ...f, key: e.target.value.replace(/[^a-z0-9_]/g, '') })} placeholder="Short identifier (e.g. core-banking)"
           className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px] mono" />
         <select value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })}
           className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-[13px]">
@@ -730,7 +730,7 @@ function GoldenSourceFeeds() {
                       const auto = !!f.auto_refresh
                       const subline = auto
                         ? `auto · every ${f.cadence_days}d${f.last_refresh ? ` · refreshed ${f.days_since}d ago${f.next_due_days != null ? ` · next in ${f.next_due_days}d` : ''}` : ' · awaiting first auto-refresh'}`
-                        : (f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'adapter not yet wired' : 'derived — not a live feed')
+                        : (f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'integration not yet available' : 'derived — not a live feed')
                       const statusLabel = auto ? f.status.replace('_', ' ') : (MATURITY[f.maturity ?? '']?.label ?? '—')
                       const statusTone = auto ? (FEED_TONE[f.status] ?? 'var(--color-faint)') : (MATURITY[f.maturity ?? '']?.tone ?? 'var(--color-faint)')
                       return (

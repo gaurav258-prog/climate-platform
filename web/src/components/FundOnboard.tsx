@@ -63,7 +63,7 @@ export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: ()
       </div>
       {open && (
         <div className="mt-3 space-y-2">
-          <p className="text-[12px] text-[var(--color-mute)]">Upload a CSV of ISINs (+ market value). Each is resolved to its issuer, located on the H3 grid and value-weighted into the fund — filling the SFDR statement automatically. Start from the template.</p>
+          <p className="text-[12px] text-[var(--color-mute)]">Upload a CSV of ISINs (+ market value). Each is resolved to its issuer, located on our hexagonal grid and value-weighted into the fund — filling the SFDR statement automatically. Start from the template.</p>
           {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
           {res && (
             <div className="text-[12px] text-[var(--color-good)]">

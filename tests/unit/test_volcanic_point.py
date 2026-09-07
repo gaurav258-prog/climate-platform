@@ -90,4 +90,4 @@ def test_landed_catalogue_is_global_and_sane():
 
 def test_taxonomy_row_is_screening_with_real_disclosure():
     row = next(h for h in EXTRA_CHANNELS if h.id == "volcanic")
-    assert row.tier == MaturityTier.SCREENING and "GVP" in row.source and "never a €" in row.source
+    assert row.tier == MaturityTier.SCREENING and "GVP" in row.source and "no euro figure" in row.source

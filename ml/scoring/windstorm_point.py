@@ -94,16 +94,15 @@ def score_windstorm_point(lat: float, lon: float, scenario: str = "baseline", ho
     gust = _gust(lat, lon)
     if gust is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "windstorm gust climatology not built (ERA5 i10fg — infra + CDS key)"}
+                "reason": "Windstorm gust climatology is not available for this location."}
     risk = round(_anchor(gust), 2)
     now = datetime.now(timezone.utc)
     shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "screening", "validated": False,
             "method": "ERA5 instantaneous-10m-wind-gust climatology (1991-2020 stormiest-month), baseline-relative "
                       "percentile-anchored vs the global climatology (top quartile → High, top decile → Very High); "
                       "extratropical windstorm / blizzard / dust-sand storm — distinct from tropical cyclone. "
-                      "SCREENING ranking only — not calibrated: both the mean-gust and the extreme annual-max-gust "
-                      "rebuild fail an independent NOAA windstorm backtest (annual-max i10fg is convective/tropical-"
-                      "dominated, not the synoptic peril); no € is published for windstorm"}
+                      "Screening ranking only, not calibrated: neither the mean-gust nor the annual-maximum-gust variant "
+                      "passes an independent NOAA windstorm backtest, so no euro figure is published for windstorm"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

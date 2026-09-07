@@ -49,6 +49,6 @@ def test_unlocated_exposure_is_unverifiable_not_a_scoring_gap():
     c = compare(submitted, rebuilt)["cells"][0]
     assert c["rebuilt_share_pct"] == 100.0 and c["coverage_pct"] == 50
     assert c["gap"]["coverage"] == -50 and c["gap"]["scoring"] == 50 and sum(c["gap"].values()) == 0
-    assert "50% of the cell located" in c["reason"]
+    assert "50% of this exposure located" in c["reason"]
     none_located = compare(submitted, rebuild_cells([{"value_eur": 200, "score": None, "lat": None, "country": "ES", "nace": "C"}], lambda p: p["country"], lambda p: p["nace"]))["cells"][0]
-    assert none_located["flag"] == "question" and "unverifiable" in none_located["reason"] and none_located["gap"]["coverage"] == -100
+    assert none_located["flag"] == "question" and "cannot be verified" in none_located["reason"] and none_located["gap"]["coverage"] == -100

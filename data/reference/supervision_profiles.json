@@ -1,8 +1,8 @@
 {
-  "_about": "Supervision profiles — what a regulator/supervisor customer supervises and how the platform serves it. CONFIGURATION, not code: a new sector supervisor is a new profile entry (or a per-org override in supervisor_settings), never a code path that names a sector. Loaded by services/supervision/profiles.py. Metric ids resolve to sector adapters registered in services/supervision/metrics.py; region units to services/geo/regions.py; framework ids to services/governance/filings.",
+  "_about": "Supervision profiles: what a regulator or supervisor customer supervises and how the platform serves it. A new sector supervisor is a new profile entry; per-organisation overrides are stored in the regulator's settings.",
   "version": "1.0",
   "roles": {
-    "_about": "Role templates seeded for every regulator organization (RBAC roles are DB rows; these are the defaults). Permission codes are the supervisor.* family plus platform basics.",
+    "_about": "Default role templates seeded for every regulator organisation.",
     "supervisor": {
       "label": "Line supervisor",
       "stages": [
@@ -114,7 +114,7 @@
     "follow_up"
   ],
   "sectors": {
-    "_about": "Per supervised org type: the frameworks the supervisor expects, the regional unit it works in, and the benchmark metrics (id → adapter) used for peer comparison. Thresholds are supervisory-expectation defaults, overridable per regulator.",
+    "_about": "Per supervised sector: the frameworks the supervisor expects, the regional unit it works in, and the benchmark metrics used for peer comparison. Thresholds are supervisory-expectation defaults, overridable per regulator.",
     "bank": {
       "label": "Credit institutions",
       "authorities_example": [
@@ -178,7 +178,7 @@
         }
       ],
       "intake": {
-        "_about": "Tier-2 intake for a banking supervisor: the submitted template + the supervisor's own granular data. Field ids are canonical; the steward maps the file's columns to them (validate-before-save).",
+        "_about": "Tier-2 intake for a banking supervisor: the submitted template and the supervisor's own granular data. Map your file's columns to the fields below; the mapping is validated before saving.",
         "submission": {
           "framework": "pillar3_esg",
           "template": "template_5",
@@ -241,7 +241,7 @@
         },
         "granular": {
           "source": "anacredit",
-          "label": "AnaCredit-style loan-level extract (collateral region)",
+          "label": "AnaCredit loan-level extract (collateral region)",
           "row_fields": [
             {
               "id": "instrument_id",
@@ -292,8 +292,8 @@
               "type": "number"
             }
           ],
-          "location_rule": "nuts3 → representative point; else postcode → NUTS-3 (Eurostat TERCET) → point; country-only stays unlocated (reported, never fabricated)",
-          "precision_label": "region-resolved (NUTS-3)"
+          "location_rule": "Locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
+          "precision_label": "Region-resolved (NUTS-3)"
         }
       }
     },
@@ -525,7 +525,7 @@
     }
   },
   "profiles": {
-    "_about": "A regulator organization picks ONE profile (its customer class); overrides live in supervisor_settings. Banking first; the others are the same shape.",
+    "_about": "Each regulator organisation selects one profile (its customer class).",
     "banking_supervisor": {
       "label": "Banking supervisor",
       "sectors": [

@@ -128,13 +128,13 @@ def score_wildfire_point(lat: float, lon: float, scenario: str = "baseline", hor
     r = score_point_pure(lat, lon, PRODUCTION_VARIANT)
     if r is None:
         return {"status": "insufficient_data", "h3_cell": cell,
-                "reason": "wildfire climatologies not built (scripts/build_fwi_climatology.py, build_burned_area_climatology.py)"}
+                "reason": "Wildfire hazard climatology is not available for this location."}
     risk = float(r["score"])
     now = datetime.now(timezone.utc)
-    shap = {"on_demand": True, "tier": "screening", "model": MODEL_VERSION, "lane": "standing",
-            "method": "fire-weather climatology (CEMS/ECMWF FWI extreme days 2006-2020) x burnable-land fraction "
+    shap = {"on_demand": True, "tier": "screening", "model": MODEL_VERSION,
+            "method": "fire-weather climatology (Copernicus Fire Weather Index extreme-danger days 2006-2020) × burnable-land fraction "
                       + ("+ observed burn history (C3S ESA-CCI 2001-2019)" if PRODUCTION_VARIANT == "with_history" else
-                         "(no burn observation used)") + "; disclosed fixed-scale formula, validated on EFFIS 2022-24 scars",
+                         "(no burn observation used)") + "; fixed disclosed formula, validated against EFFIS burnt-area records 2022-24",
             **{k: v for k, v in r.items() if k != "score"}}
     with get_session() as s:
         if ex:

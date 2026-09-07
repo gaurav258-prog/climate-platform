@@ -312,7 +312,7 @@ def override_valuation(asset_id: str, body: ValuationOverrideRequest, session: D
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
     org_id = get_entity_org(session, asset_id)
     if not org_id:
-        raise HTTPException(status_code=404, detail="asset not found")
+        raise HTTPException(status_code=404, detail="Asset not found.")
     if org_id != ctx["org"]["org_id"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Asset does not belong to your organization"})
 
@@ -384,7 +384,7 @@ async def validate_assets(ctx: CurrentUser, file: UploadFile = File(...)):
     try:
         rep = _report(await file.read(), file.filename)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
     if not rep["ok"]:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
@@ -399,7 +399,7 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
     try:
         rep = _report(await file.read(), file.filename)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
     if not rep["ok"]:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
     if rep["n_valid"] == 0:
@@ -441,7 +441,7 @@ async def validate_attributes(ctx: CurrentUser, file: UploadFile = File(...)):
     try:
         rep = parse_and_validate(await file.read(), file.filename, ATTR_TEMPLATE_FIELDS)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
     if not rep["ok"]:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
@@ -456,7 +456,7 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
     try:
         rep = parse_and_validate(await file.read(), file.filename, ATTR_TEMPLATE_FIELDS)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
     if not rep["ok"]:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
     if rep["n_valid"] == 0:

@@ -233,7 +233,7 @@ def lookup_score(
                     """), {"id": job_id})
                 results.append(HazardLookupResult(
                     hazard_type=hazard, status="insufficient_data",
-                    reason="scoring worker unavailable — this hazard could not be dispatched; retry later",
+                    reason="This hazard could not be scored right now. Please try again shortly.",
                 ))
                 continue
             results.append(HazardLookupResult(hazard_type=hazard, status="pending", lookup_id=job_id))
@@ -241,7 +241,7 @@ def lookup_score(
 
         results.append(HazardLookupResult(
             hazard_type=hazard, status="insufficient_data",
-            reason="on-demand scoring for this hazard isn't available yet outside pre-scored regions",
+            reason="This hazard is not yet available for on-demand scoring in this region.",
         ))
 
     session.execute(text("""
@@ -274,7 +274,7 @@ def poll_lookup(lookup_id: str, session: DbSession):
         SELECT status, h3_cell_r8 FROM public_lookups WHERE lookup_id=:id
     """), {"id": lookup_id}).mappings().first()
     if not job:
-        raise HTTPException(status_code=404, detail=f"No lookup job {lookup_id!r}")
+        raise HTTPException(status_code=404, detail=f"No lookup found for reference {lookup_id}.")
 
     cell = job["h3_cell_r8"]
 
@@ -284,7 +284,7 @@ def poll_lookup(lookup_id: str, session: DbSession):
 
     if job["status"] == "failed":
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
-                                     reason="the background fetch/scoring job failed", lookup_id=lookup_id)
+                                     reason="Scoring did not complete for this hazard. Please try again.", lookup_id=lookup_id)
         return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
     # status == 'done' — find whichever hazard just got written for this cell
@@ -296,7 +296,7 @@ def poll_lookup(lookup_id: str, session: DbSession):
     """), {"c": cell}).mappings().first()
     if not score:
         hazard = HazardLookupResult(hazard_type="unknown", status="failed",
-                                     reason="job finished but no score was written", lookup_id=lookup_id)
+                                     reason="Scoring completed but no result is available for this location.", lookup_id=lookup_id)
         return PollResponse(hazard=hazard, **_poll_context(session, cell))
 
     hazard = HazardLookupResult(

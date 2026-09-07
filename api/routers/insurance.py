@@ -151,7 +151,7 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
     """Solvency II NatCat SCR (internal-model 99.5% basis) derived from an already-run cat distribution — the
     single source shared by the /solvency-scr endpoint and the frozen disclosure snapshot."""
     if not cat or not cat.get("available"):
-        return {"available": False, "reason": (cat or {}).get("reason", "no_scored_policies")}
+        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book.")}
     aep200 = (cat.get("aep_eur") or {}).get("rp_200")
     oep200 = (cat.get("oep_eur") or {}).get("rp_200")
     gross_si = sum(p["sum_insured_eur"] or 0 for p in policies if p.get("sum_insured_eur"))
@@ -169,18 +169,18 @@ def _scr_from_cat(cat: dict, policies: list, scenario: str, horizon: str) -> dic
         # prescribed STANDARD-FORMULA NatCat SCR (windstorm+earthquake+flood+hail+subsidence) — EIOPA's own factors, cited
         "standard_formula_natcat": sf_natcat,
         "note": ("Internal-model-basis NatCat SCR = the modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
-                 "loss, from the common-shock cat engine (geographic accumulation already correlated). Alongside it, "
-                 "the prescribed STANDARD-FORMULA NatCat SCR — all five sub-modules (windstorm, earthquake, flood, "
+                 "loss from the catastrophe accumulation model (geographic accumulation correlated). Alongside it, "
+                 "the prescribed standard-formula NatCat SCR — all five sub-modules (windstorm, earthquake, flood, "
                  "hail, subsidence) — is computed with EIOPA's own per-region factors (Del. Reg. 2015/35, "
-                 "Art. 120-125 + Annexes V-VIII), a cited regulatory calculation, not our hazard model. Both bases "
-                 "are labelled; man-made catastrophe is out of scope."),
+                 "Art. 120-125 and Annexes V-VIII), a cited regulatory calculation rather than a platform hazard model. "
+                 "Both bases are labelled; man-made catastrophe is out of scope."),
     }
 
 
 def _reinsurance_from_cat(cat: dict, program: dict, scenario: str, horizon: str) -> dict:
     """Gross-vs-net retention derived from a cat distribution already run WITH the reinsurance program."""
     if not cat or not cat.get("available"):
-        return {"available": False, "reason": (cat or {}).get("reason", "no_scored_policies")}
+        return {"available": False, "reason": (cat or {}).get("reason", "No scored policies in this book.")}
     return {
         "available": True, "scenario": scenario, "horizon": horizon,
         "pml_return_period": cat.get("pml_return_period"),
@@ -197,7 +197,7 @@ def _investments_block(session, org_id, scenario, horizon, _st) -> dict:
     dependence = ((_st.get("interpretation") or {}).get("climate_var_dependence")) or "independent"
     rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"])
     if not rows:
-        return {"available": False, "reason": "no_investment_book"}
+        return {"available": False, "reason": "No investment portfolio has been uploaded."}
     holdings = [{**r, "position_value_eur": r.get("primary_value_eur")} for r in rows]
     total = sum(h.get("primary_value_eur") or 0 for h in holdings)
     n_scored = sum(1 for h in holdings if h.get("headline_bucket"))
@@ -440,14 +440,14 @@ def set_trigger_config(policy_id: str, body: TriggerConfigRequest, session: DbSe
     if "pricing.approve" not in ctx["permissions"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
     if body.hazard_type not in HAZARD_VALUES:
-        raise HTTPException(status_code=400, detail=f"unknown hazard '{body.hazard_type}'. Canonical values: {HAZARD_VALUES}")
+        raise HTTPException(status_code=400, detail="Unrecognised hazard type. Choose one of the supported hazards.")
     if body.exhaustion_score <= body.attachment_score:
         raise HTTPException(status_code=400, detail="exhaustion_score must be greater than attachment_score")
     policy = session.execute(text(
         "SELECT org_id::text AS org_id FROM portfolio_entities WHERE entity_id = :p AND vertical = 'insurance'"
     ), {"p": policy_id}).mappings().first()
     if not policy:
-        raise HTTPException(status_code=404, detail="policy not found")
+        raise HTTPException(status_code=404, detail="Policy not found.")
     if policy["org_id"] != ctx["org"]["org_id"]:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Policy does not belong to your organization"})
 
@@ -507,7 +507,7 @@ async def validate_policies(ctx: CurrentUser, file: UploadFile = File(...)):
     try:
         rep = parse_and_validate(await file.read(), file.filename, POLICY_TEMPLATE_FIELDS)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
     if not rep["ok"]:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
@@ -525,7 +525,7 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
     try:
         df = parse_table(raw, file.filename)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
 
     missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
     if missing:

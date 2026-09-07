@@ -37,7 +37,7 @@ export default function Cogs() {
   const nav = useNavigate()
   const q = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
   if (q.isLoading) return <Center>loading…</Center>
-  if (q.error || !q.data) return <Center>Could not load — is the API on :8001?</Center>
+  if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = q.data
   const rows = [...d.commodities].sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))
 

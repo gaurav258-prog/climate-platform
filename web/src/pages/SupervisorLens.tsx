@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { api } from '../lib/api'
+import { horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 
 // The independent lens: the submitted template beside the same template rebuilt from the shadow book, cell by
@@ -41,7 +42,7 @@ export default function SupervisorLens() {
     <div className="fadeup space-y-6">
       <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
       <PageHeader eyebrow={`Independent lens · Tier ${d.tier} · ${d.precision}`} title={`Submitted vs rebuilt · ${d.period_label}`}
-        lead={`Your basis ${d.regulator_basis.scenario} · ${d.regulator_basis.horizon}${d.bank_basis.stated ? `; the entity states ${d.bank_basis.scenario} · ${d.bank_basis.horizon}` : '; the entity stated no basis'}. Rebuilt from ${d.shadow_book.n_rows.toLocaleString()} granular rows, ${d.shadow_book.n_located.toLocaleString()} region-located, ${d.shadow_book.n_scored.toLocaleString()} scored. A flag is a question, not a finding.`} />
+        lead={`Your basis ${scenarioLabel(d.regulator_basis.scenario)} · ${horizonLabel(d.regulator_basis.horizon)}${d.bank_basis.stated ? `; the entity states ${scenarioLabel(d.bank_basis.scenario)} · ${horizonLabel(d.bank_basis.horizon)}` : '; the entity stated no basis'}. Rebuilt from ${d.shadow_book.n_rows.toLocaleString()} granular rows, ${d.shadow_book.n_located.toLocaleString()} region-located, ${d.shadow_book.n_scored.toLocaleString()} scored. A flag is a question, not a finding.`} />
       {d.status === 'no_shadow_book' && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">{d.message}</Card>}
       {d.bank_basis.note && <Card className="p-4 text-[12.5px] text-[var(--color-mute)]">Basis: {d.bank_basis.note}.</Card>}
       <StatGrid cols={4} items={[

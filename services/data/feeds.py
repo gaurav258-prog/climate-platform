@@ -33,17 +33,17 @@ from sqlalchemy.orm import Session
 FEEDS: list[dict] = [
     {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5 / ERA5-Land", "category": "hazard",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "live",
-     "note": "GLOBAL climate reanalysis — heat / drought / frost / soil-water / wind. Global baselines built "
-             "(climatology_baseline temp+precip, soil_moisture_baseline, frost_baseline) so scoring is worldwide."},
+     "note": "Global climate reanalysis — heat, drought, frost, soil-water and wind. Global baselines are in place "
+             "(temperature, precipitation, soil-moisture and frost climatologies), so scoring is worldwide."},
     {"key": "flood", "name": "ERA5-Land runoff (flood proxy)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "proxy",
-     "note": "GloFAS was withdrawn from the CDS in 2025; we currently proxy flood from ERA5-Land total "
-             "runoff (source_provider='era5_total_runoff'). River-gauge/DEM terrain not yet landed."},
+     "note": "GloFAS was withdrawn from the CDS in 2025; flood is currently derived from ERA5-Land total "
+             "runoff. River-gauge and terrain-elevation inputs are not yet integrated."},
     {"key": "fire_thermal", "name": "NASA FIRMS (VIIRS active fire)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Active fire real. Sentinel-3 SLSTR heat integration is now LIVE via the CDSE Sentinel Hub "
              "Statistical API (per-H3-cell S8 10.85µm thermal-IR brightness temperature → lst_kelvin heat "
-             "feature; activates on SENTINEL_HUB_CLIENT_ID/SECRET). It is brightness temperature, not the "
+             "feature; activates once Copernicus Data Space credentials are configured). It is brightness temperature, not the "
              "emissivity-corrected L2 LST product (that is the raw-scene Path-B upgrade)."},
     {"key": "atmosphere", "name": "Copernicus CAMS", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "on_demand",
@@ -51,31 +51,28 @@ FEEDS: list[dict] = [
              "E2 pollution is out of filing scope."},
     {"key": "imagery", "name": "Sentinel-1/2 (SAR + optical)", "category": "hazard",
      "cadence_days": 6, "invalidates_basis": True, "maturity": "planned",
-     "note": "Sentinel-1 SAR flood adapter is CODE-COMPLETE via the CDSE Sentinel Hub Statistical API "
-             "(per-H3-cell terrain-corrected VV gamma0, no SNAP / no scene downloads) — it lands "
-             "sar_backscatter_db + a 7-day anomaly into the flood ML feature set and runs in the daily "
-             "ingestion pipeline. It activates on SENTINEL_HUB_CLIENT_ID/SECRET (free CDSE account); until "
-             "those land production rows the feed stays 'planned' (stub-only for dev). Sentinel-2 NDVI "
-             "adapter is still stub. When SAR lands, flood upgrades from the ERA5-runoff proxy to observed."},
+     "note": "Sentinel-1 SAR flood integration is built and awaiting activation via the Copernicus Data Space "
+             "Statistical API (per-cell terrain-corrected VV backscatter and a 7-day anomaly feeding the flood "
+             "model). It activates once Copernicus Data Space credentials are configured; until production rows "
+             "land, the feed is shown as Planned. Sentinel-2 NDVI integration is not yet in production. When SAR "
+             "data is in production, flood moves from the ERA5 runoff proxy to observed inundation."},
     {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
-     "note": "Tropical-cyclone tracks real (→ storm_events); Copernicus Marine sea-state not yet landed."},
+     "note": "Tropical-cyclone tracks are in production; Copernicus Marine sea-state is not yet integrated."},
     {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
-     "note": "Seismic scores from the GLOBAL USGS M>=5.0 catalog (seismic_events, worldwide) + physics; the "
+     "note": "Seismic scores from the global USGS M>=5.0 catalogue plus physics; the "
              "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP per-volcano "
-             "event rows (volcanic_events) for the curated backtest volcanoes; the global volcano catalogue is its "
-             "own feed (volcanic_gvp). Geophysical, not climate-attributable → out of CSRD/EUDR filing scope."},
+             "event records for the curated backtest volcanoes; the global volcano catalogue is its own feed. "
+             "Geophysical, not climate-attributable, therefore out of CSRD/EUDR filing scope."},
     {"key": "fire_climatology", "name": "Copernicus CEMS/ECMWF Fire Weather Index (EWDS) · C3S ESA-CCI burned area", "category": "hazard",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "live",
-     "note": "Standing wildfire hazard climatology: GEFF Fire Weather Index extreme-danger days 2006-2020 (EWDS, "
-             "cems-fire-historical-v1) + ESA-CCI burned-area history 2001-2019 (CDS) → data/wildfire/*.npz "
-             "(scripts/build_fwi_climatology.py, build_burned_area_climatology.py). Annual rebuild."},
+     "note": "Wildfire hazard climatology: Fire Weather Index extreme-danger days 2006-2020 combined with ESA-CCI "
+             "burned-area history 2001-2019. Rebuilt annually."},
     {"key": "volcanic_gvp", "name": "Smithsonian GVP — Volcanoes of the World (Holocene catalogue, WFS)", "category": "hazard",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
-     "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) landed to "
-             "data/reference/gvp_holocene_volcanoes.json; drives the any-address volcanic screening score. "
-             "Geophysical → out of CSRD/EUDR filing scope."},
+     "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) drives the "
+             "any-address volcanic screening score. Geophysical, therefore out of CSRD/EUDR filing scope."},
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
@@ -88,15 +85,14 @@ FEEDS: list[dict] = [
     {"key": "osm_protected", "name": "OpenStreetMap protected areas", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "partial",
      "attribution": "© OpenStreetMap contributors (ODbL)",
-     "note": "FREE, commercially-usable (ODbL + attribution) global coverage layer for non-EU protected areas, "
-             "where the authoritative WDPA is licence-gated. Fetched per-country via Overpass. Community-sourced "
-             "(uneven coverage) — an honest screening layer, not an authoritative agency feed; labelled as such."},
+     "note": "Global coverage layer for protected areas outside the EU where the authoritative WDPA is "
+             "licence-restricted. Community-sourced with uneven coverage: a screening layer, not an authoritative "
+             "agency feed, and labelled as such."},
     {"key": "wdpa", "name": "WDPA (World Database on Protected Areas)", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
      "attribution": "UNEP-WCMC and IUCN — Protected Planet: WDPA (licensed via IBAT)",
-     "note": "Global protected areas — the non-EU counterpart to Natura 2000. COMMERCIAL USE: the free Protected "
-             "Planet download is NON-commercial only; a paid IBAT licence (ibat-alliance.org) is required to use "
-             "WDPA in the product. IBAT delivers GeoPackage/Shapefile (→ the file loader) + an API."},
+     "note": "Global protected areas — the non-EU counterpart to Natura 2000. Available under an IBAT licence; "
+             "integration pending."},
     {"key": "wdoecm", "name": "WD-OECM (other conservation measures)", "category": "nature",
      "cadence_days": 30, "invalidates_basis": True, "maturity": "planned",
      "attribution": "UNEP-WCMC and IUCN — Protected Planet: WD-OECM (licensed via IBAT)",
@@ -112,18 +108,18 @@ FEEDS: list[dict] = [
      "note": "Legal-entity identifiers; changes rename entities, not risk scores."},
     {"key": "reference_assets", "name": "Sector-intensity estimates (NACE)", "category": "reference",
      "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
-     "note": "Emissions are sector-average intensity × revenue (source='estimated'), NOT a Climate TRACE / GEM "
-             "facility feed — no such client is wired. Labelled estimated throughout."},
+     "note": "Emissions are sector-average intensity × revenue, not a facility-level emissions feed; values are "
+             "labelled as estimated throughout."},
     {"key": "commodity_prices_wb", "name": "World Bank Pink Sheet (commodity prices)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
      "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)",
-     "note": "Monthly commodity + fertiliser prices (1960→), keyless. Feeds the input-cost-pressure panel AND "
-             "the COGS-validation series — 33 commodities. Updates monthly; refreshed automatically."},
+     "note": "Monthly commodity + fertiliser prices (1960→), keyless. Used for input-cost pressure and cost-of-goods "
+             "validation — 33 commodities. Updates monthly; refreshed automatically."},
     {"key": "commodity_prices_eu", "name": "EU agri-food data portal (olive oil · wine · dairy)", "category": "reference",
      "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
      "attribution": "© European Commission — agri-food data portal (CC BY 4.0)",
      "note": "Weekly EU prices the Pink Sheet lacks — olive oil, wine, and dairy — aggregated to a monthly EU "
-             "mean, keyless. Updates weekly; refreshed automatically. Almonds remain gated on a free USDA key."},
+             "mean, keyless. Updates weekly; refreshed automatically. Almond prices are not yet included."},
 ]
 _BY_KEY = {f["key"]: f for f in FEEDS}
 
