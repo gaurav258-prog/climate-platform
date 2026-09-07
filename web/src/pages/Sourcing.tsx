@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, SectionHead, PlainLead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
+import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
@@ -30,6 +31,7 @@ export default function Sourcing() {
   const [chosen, setChosen] = useState<Place | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
+  const [sel, setSel] = useState<string | null>(null)   // the plot ringed on the map
   const hasCoords = form.latitude.trim() !== '' && form.longitude.trim() !== ''
 
   const add = async () => {
@@ -176,6 +178,9 @@ export default function Sourcing() {
 
       <Card className="p-5">
         {plots.length === 0 ? <div className="py-8 text-center text-[var(--color-faint)] text-sm flex flex-col items-center gap-2"><Sprout size={20} /> No plots yet — add your first above.</div> : (
+        <BookWithMap noun="plots" color={severityHex} selectedId={sel} onSelect={(id) => setSel(prev => (prev === id ? null : id))}
+          points={plots.map(p => ({ id: p.plot_id, name: p.plot_name, lat: p.lat, lon: p.lon, score: p.hazard_score,
+                                    sub: [p.commodity, p.country].filter(Boolean).join(' · '), value: eur(p.spend_eur) }))}>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
@@ -187,9 +192,12 @@ export default function Sourcing() {
             </thead>
             <tbody>
               {plots.map(p => (
-                <tr key={p.plot_id} onClick={() => window.open(`/detail/plot/${p.plot_id}`, '_blank')}
-                  className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition">
-                  <td className="py-2.5 pr-3 text-[var(--color-ink)] hover:text-[var(--color-sky)]">{p.plot_name}</td>
+                <tr key={p.plot_id} onClick={() => setSel(prev => (prev === p.plot_id ? null : p.plot_id))}
+                  className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition ${sel === p.plot_id ? 'bg-[var(--color-panel)]' : ''}`}>
+                  <td className="py-2 pr-3 text-[var(--color-ink)]">
+                    <a href={`/detail/plot/${p.plot_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                       className="hover:text-[var(--color-sky)] hover:underline" title="Open the plot's full detail">{p.plot_name}</a>
+                  </td>
                   <td className="pr-3 text-[var(--color-mute)]">{p.commodity}</td>
                   <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{p.region ?? '—'} · {p.country ?? '—'}</td>
                   <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(p.spend_eur)}</td>
@@ -204,6 +212,7 @@ export default function Sourcing() {
             </tbody>
           </table>
         </div>
+        </BookWithMap>
         )}
       </Card>
     </div>

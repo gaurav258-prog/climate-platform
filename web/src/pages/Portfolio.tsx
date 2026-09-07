@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner, StatGrid, type StatItem } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
-import SiteMap from '../components/SiteMap'
+import { BookWithMap } from '../components/SiteMap'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
 import ReportedHistoryRef from '../components/ReportedHistoryRef'
@@ -338,9 +338,16 @@ export default function Portfolio() {
             {shown.length === 0
               ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">No {cfg.noun} match — adjust your search or filters.</div>
               : (
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,40%)]">
+          <BookWithMap noun={cfg.noun} color={(s) => { const [r, g, b] = col(s); return `rgb(${r},${g},${b})` }} selectedId={open}
+            onSelect={(id) => setOpen(prev => (prev === id ? null : id))}
+            points={shown.map(a => ({
+              id: String(a[cfg.idKey] ?? ''), name: String(a[cfg.nameKey] ?? '—'),
+              lat: a.lat as number, lon: a.lon as number, score: a.headline_score ?? null,
+              sub: [a.region, a[cfg.typeKey] ? String(a[cfg.typeKey]).replace(/_/g, ' ') : null].filter(Boolean).join(' · ') || undefined,
+              value: eur(a[cfg.valueKey] as number | null),
+            }))}>
           {/* the book — compact rows; the map beside it shows exactly these sites */}
-          <div className="divide-y divide-[var(--color-line)] min-w-0">
+          <div className="divide-y divide-[var(--color-line)]">
             {shown.map((a) => {
               const id = String(a[cfg.idKey] ?? '')
               const name = String(a[cfg.nameKey] ?? '—')
@@ -410,19 +417,7 @@ export default function Portfolio() {
               )
             })}
           </div>
-          <div className="hidden lg:block p-3 border-l border-[var(--color-line)]">
-            <div className="sticky top-3 h-[520px]">
-              <SiteMap color={col} selectedId={open}
-                onSelect={(id) => setOpen(prev => (prev === id ? null : id))}
-                points={shown.map(a => ({
-                  id: String(a[cfg.idKey] ?? ''), name: String(a[cfg.nameKey] ?? '—'),
-                  lat: a.lat as number, lon: a.lon as number, score: a.headline_score ?? null,
-                  sub: [a.region, a[cfg.typeKey] ? String(a[cfg.typeKey]).replace(/_/g, ' ') : null].filter(Boolean).join(' · ') || undefined,
-                  value: eur(a[cfg.valueKey] as number | null),
-                }))} />
-            </div>
-          </div>
-          </div>
+          </BookWithMap>
               )}
           </>
         )}
