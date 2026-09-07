@@ -2,9 +2,10 @@
   "_about": "Supervision profiles: what a regulator or supervisor customer supervises and how the platform serves it. A new sector supervisor is a new profile entry; per-organisation overrides are stored in the regulator's settings.",
   "version": "1.0",
   "roles": {
-    "_about": "Default role templates seeded for every regulator organisation.",
+    "_about": "Default role templates seeded for every regulator organisation. 'scope' says what a user with this role sees: 'assigned' = only the entities assigned to them (their case list); 'population' = every entity the organisation supervises. A user with several roles gets the widest scope among them.",
     "supervisor": {
       "label": "Line supervisor",
+      "scope": "assigned",
       "stages": [
         "analyse",
         "engage",
@@ -22,6 +23,7 @@
     },
     "risk_analyst": {
       "label": "Horizontal risk analyst",
+      "scope": "population",
       "stages": [
         "analyse",
         "challenge",
@@ -38,6 +40,7 @@
     },
     "data_steward": {
       "label": "Data & reporting",
+      "scope": "population",
       "stages": [
         "collect",
         "validate"
@@ -51,6 +54,7 @@
     },
     "inspector": {
       "label": "Inspector",
+      "scope": "assigned",
       "stages": [
         "engage",
         "follow_up"
@@ -68,6 +72,7 @@
     },
     "policy": {
       "label": "Policy & methodology",
+      "scope": "population",
       "stages": [
         "challenge",
         "report"
@@ -81,6 +86,7 @@
     },
     "head": {
       "label": "Head of division",
+      "scope": "population",
       "stages": [
         "report"
       ],
@@ -89,18 +95,21 @@
         "supervisor.population.view",
         "supervisor.benchmark.view",
         "supervisor.entity.view",
-        "supervisor.dashboard.view"
+        "supervisor.dashboard.view",
+        "supervisor.assignments.manage"
       ]
     },
     "admin": {
       "label": "Platform admin",
+      "scope": "population",
       "stages": [],
       "permissions": [
         "modules.view",
         "admin.users.manage",
         "admin.roles.manage",
         "admin.audit.view",
-        "supervisor.population.view"
+        "supervisor.population.view",
+        "supervisor.assignments.manage"
       ]
     }
   },

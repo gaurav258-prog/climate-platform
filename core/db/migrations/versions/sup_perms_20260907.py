@@ -28,6 +28,7 @@ NEW = [
     ("supervisor.dashboard.view", "See the division-head dashboard"),
     ("supervisor.export", "Export population analyses"),
     ("supervisor.evidence.export", "Export an evidence pack for a case"),
+    ("supervisor.assignments.manage", "Assign supervised entities to the people who work them"),
 ]
 
 

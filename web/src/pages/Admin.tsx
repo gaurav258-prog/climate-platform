@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisionProfile /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisionProfile /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1186,6 +1186,69 @@ function SupervisionProfile() {
               </div>))}
           </div>
         </div>))}
+    </Card>
+  )
+}
+
+// ── Who works which entity — a person whose role works a case list sees only the entities assigned here ───────
+interface AssignResp { entities: { org_id: string; name: string; type: string; jurisdiction: string | null }[]
+  people: { user_id: string; full_name: string; email: string; status: string; roles: string[]; scope: 'assigned' | 'population' }[]
+  assignments: { assignment_id: string; supervised_org_id: string; user_id: string; full_name: string; email: string; capacity: string }[]
+  roles: Record<string, { label: string; scope: string }> }
+function SupervisionAssignments() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const can = profile?.org?.type === 'regulator' && (profile?.permissions ?? []).includes('supervisor.assignments.manage')
+  const q = useQuery({ queryKey: ['supervision-assignments'], enabled: !!can, queryFn: () => api.get<AssignResp>('/v1/supervisor/assignments') })
+  const [pick, setPick] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  if (!can || !q.data) return null
+  const d = q.data
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['supervision-assignments'] }), qc.invalidateQueries({ queryKey: ['supervisor-workflow'] })])
+  const add = async (org: string) => {
+    const uid = pick[org]; if (!uid) return
+    setBusy(true)
+    try { await api.put('/v1/supervisor/assignments', { supervised_org_id: org, user_id: uid, capacity: 'lead' }); setPick(p => ({ ...p, [org]: '' })); await refresh() } finally { setBusy(false) }
+  }
+  const end = async (id: string) => { setBusy(true); try { await api.del(`/v1/supervisor/assignments/${id}`); await refresh() } finally { setBusy(false) } }
+  const caseWorkers = d.people.filter(p => p.status === 'active')
+  return (
+    <Card className="p-5">
+      <SectionHead hint="a person whose role works a case list sees only the entities assigned to them; horizontal roles see the whole population">Who works which entity</SectionHead>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {d.people.map(p => (
+          <span key={p.user_id} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-line)] px-2.5 py-1 text-[12px]">
+            <span className="text-[var(--color-ink)]">{p.full_name}</span>
+            <span className="mono text-[10px] text-[var(--color-faint)]">{p.roles.map(r => d.roles[r]?.label ?? r).join(' · ') || 'no role'}</span>
+            <span className={`mono text-[9.5px] uppercase px-1 rounded ${p.scope === 'population' ? 'bg-[var(--color-sky)]/15 text-[var(--color-sky)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{p.scope === 'population' ? 'whole population' : 'assigned only'}</span>
+          </span>))}
+      </div>
+      <div className="divide-y divide-[var(--color-line)]">
+        {d.entities.map(e => {
+          const mine = d.assignments.filter(a => a.supervised_org_id === e.org_id)
+          const free = caseWorkers.filter(p => !mine.some(a => a.user_id === p.user_id))
+          return (
+            <div key={e.org_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+              <span className="text-[var(--color-ink)] min-w-[220px]">{e.name}<span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{e.jurisdiction ?? ''}</span></span>
+              <span className="flex flex-wrap gap-1.5">
+                {mine.length === 0 && <span className="text-[var(--color-faint)]">nobody assigned</span>}
+                {mine.map(a => (
+                  <span key={a.assignment_id} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-panel-2)] px-2 py-0.5">
+                    {a.full_name}<span className="mono text-[10px] text-[var(--color-faint)]">{a.capacity}</span>
+                    <button disabled={busy} onClick={() => end(a.assignment_id)} className="text-[var(--color-faint)] hover:text-[var(--color-bad)]" title="End this assignment">×</button>
+                  </span>))}
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <select value={pick[e.org_id] ?? ''} onChange={ev => setPick(p => ({ ...p, [e.org_id]: ev.target.value }))} disabled={busy}
+                  className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] text-[var(--color-mute)] outline-none">
+                  <option value="">Assign a person…</option>
+                  {free.map(p => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
+                </select>
+                <Button variant="ghost" disabled={busy || !pick[e.org_id]} onClick={() => add(e.org_id)}>Assign</Button>
+              </span>
+            </div>)
+        })}
+      </div>
     </Card>
   )
 }
