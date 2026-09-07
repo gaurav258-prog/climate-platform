@@ -1,5 +1,46 @@
 # Backtest data — status and runbook
 
+## Update (2026-09-07): independent official targets are now reachable — and used
+
+The two blockers below ("official footprints" and "feature backfill") are closed for the panel we already
+hold. Three independent, authoritative targets were re-established and landed by script (no manual GIS):
+
+| target | source | script | landed |
+|---|---|---|---|
+| Wildfire burnt area | EFFIS burnt-area mapping (JRC/Copernicus EMS), WFS `ms:modis.ba.poly`; bbox is LAT-first, CQL is refused, 500s on large boxes → quadrant split | `scripts/fetch_effis_burnt_area.py` | `data/wildfire_val/effis_*.geojson`, all 8 fires |
+| Flood observed extent | Copernicus EMS rapid mapping `observedEventA` — dashboard API (`/backend/dashboard-api/public-activations/?code=`, ≈EMSR660+) with per-product layer JSON, and the S3 delineation vector packages for older activations; activations verified by AOI geometry + date, never by name | `scripts/fetch_ems_flood_footprints.py` | `data/flood_val/ems_*.geojson` (EMS-era events, 2013→) |
+| Coastal extreme water level | NOAA CO-OPS verified monthly highest water levels, 2014-2023, per gauge vs MHHW/MSL datums | `scripts/fetch_coops_extremes.py` | `data/coastal_val/coops_monthly_extremes.csv` (234 gauges) |
+
+Labels are applied at the panel's own resolution: an ERA5-Land 0.1° node counts as burned/flooded when the
+official polygon intersects its grid box (testing only the ~0.7 km² node cell missed almost every scar).
+
+**Wildfire — FAILS (`scripts/backtest_wildfire_effis.py`).** Live model (ERA5-Land fire weather + fuel, trained on
+FIRMS hotspots), each of the 8 fires held out, judged on the EFFIS scars: pooled ROC-AUC **0.440**, AP 0.103
+(base 0.122), rank ρ −0.07. Trained-and-judged on EFFIS: AUC 0.433. The FIRMS-on-FIRMS reference re-run on the
+same panel: AUC 0.421 — the registry's 0.568 does not reproduce on the current panel either. Conclusion: day-of
+fire weather does not locate where a fire burns; ignition and fuel-continuity data would be needed. Wildfire
+stays SCREENING (taxonomy row + `model_registry.validation_note` updated with the number).
+
+**Coastal — calibration check, not a skill claim (`scripts/backtest_coastal_coops.py`).** 169 CONUS gauges with
+≥60 verified months. The generic `SURGE_ALLOWANCE_M = 2.0` m above MSL sits at the **80th percentile** of observed
+10-year gauge maxima (median 1.43 m, p90 2.27 m; 20% of gauges saw more — Gulf of Maine tides, Boston, TX/LA
+surge). Ranking: ρ = **−0.32** — the score carries elevation only, so it ranks flat low coasts high while
+observed extremes peak on steep macro-tidal / surge coasts. Coastal stays SCREENING; a site-specific
+extreme-water-level term (these gauges, or a global equivalent) is the disclosed gap.
+
+**Flood — real but modest skill, below the calibration gate (`scripts/backtest_flood_ems.py`).** EMS observed
+extents landed for the 6 EMS-era events (Ahr 2021 EMSR517, Spain DANA 2019 EMSR388, Storm Alex 2020 EMSR467,
+Emilia-Romagna 2023 EMSR664, Storm Boris 2024 EMSR756+757, Valencia 2024 EMSR773; 2013/2014/2016 activations
+exist but their old-format packages ship shapefiles without GeoJSON — not yet parsed). Production model
+(trained on corridor labels), each event held out, judged on the EMS extent: pooled ROC-AUC **0.677**, AP 0.161
+(base 0.084, ~2×), rank ρ 0.17; 5 of 6 events 0.71-0.85, the Storm Alex flash flood 0.42. Trained-and-judged on
+EMS extents: AUC 0.733, AP 0.194 — the official labels are cleaner than the corridors (Storm Boris 0.48→0.80).
+Riverine skill is real; flash floods are not resolved by 0.1° daily ERA5-Land. Flood stays SCREENING: ρ is far
+below the 0.35 ranking floor (a rare binary target at 8% base rate caps ρ, but the gate is the gate).
+
+
+---
+
 ## Update (2026-06-27): multi-event model now validated
 
 The single-event model did not generalise — scored two unseen floods (2002, 2013)

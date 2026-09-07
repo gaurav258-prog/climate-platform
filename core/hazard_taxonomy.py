@@ -81,7 +81,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agri heat channel (W-Africa cocoa, ρ 0.60)", (H.HEAT_ACUTE,)),
     EUHazard("heat_stress", T, "Heat stress", C, SCR, "now", "chronic-heat exposure channel", (H.HEAT_CHRONIC,)),
     EUHazard("cold_wave_frost", T, "Cold wave / frost", A, SCR, "now", "global frost baseline (3.1M rows)", (H.FROST,)),
-    EUHazard("wildfire", T, "Wildfire", A, SCR, "now", "on-demand, global", (H.WILDFIRE,)),
+    EUHazard("wildfire", T, "Wildfire", A, SCR, "now",
+             "ERA5-Land fire-weather + fuel model (wind/RH/days-since-rain/LAI/soil water), on-demand global. SCREENING "
+             "only, NOT calibrated: judged on the INDEPENDENT official EFFIS burnt-area record with each of 8 European "
+             "fires held out, it has no skill (pooled AUC 0.44, rank ρ −0.07 < 0.35 gate; scripts/backtest_wildfire_effis.py) "
+             "— day-of fire weather does not locate where a fire burns; ignition/fuel-continuity data would be needed.",
+             (H.WILDFIRE,)),
     EUHazard("changing_temperature", T, "Changing temperature", C, SCR, "now",
              "CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, SCR, "now",
@@ -98,7 +103,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
              "Xynthia). Distinct channel from Cyclone. SCREENING ranking only, NOT calibrated: both the mean-gust "
-             "field and an extreme annual-max-gust rebuild (13yr CONUS, Gumbel RL) FAIL an independent NOAA "
+             "field and an extreme annual-max-gust rebuild (15yr CONUS 2009-2023, Gumbel RL) FAIL an independent NOAA "
              "Storm-Events backtest (AUC ≈0.5, ρ≤0.20 < 0.35 gate) — annual-max i10fg is convective/tropical-"
              "dominated, not the synoptic windstorm peril; a synoptic-filtered field is future work.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
@@ -111,10 +116,17 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-belt SPEI backtest", (H.DROUGHT,)),
     EUHazard("flood", WA, "Flood (coastal / fluvial / pluvial / groundwater)", A, SCR, "now",
-             "coastal + fluvial live; pluvial P1, groundwater P2", (H.FLOOD, H.COASTAL_FLOOD)),
+             "ERA5-Land multi-event model (16 European floods, precip/soil/runoff), coastal + fluvial live; pluvial P1, groundwater "
+             "P2. Judged on INDEPENDENT official Copernicus EMS observed flood extents with each of 6 EMS-era floods held out "
+             "(scripts/backtest_flood_ems.py): pooled ROC-AUC 0.68 (5 of 6 events 0.71-0.85; Storm Alex flash flood 0.42), AP 2x base "
+             "— real but modest skill; rank ρ 0.17 < 0.35 gate → SCREENING, not calibrated", (H.FLOOD, H.COASTAL_FLOOD)),
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now", "partial via soil-water; WRI Aqueduct upgrade P1", (H.SOIL_WATER,)),
     EUHazard("sea_level_rise", WA, "Sea-level rise", C, SCR, "now",
-             "IPCC AR6 SLR projection via the coastal-flood freeboard model (elevation + distance-to-coast)", (H.COASTAL_FLOOD,)),
+             "IPCC AR6 SLR projection via the coastal-flood freeboard model (elevation + distance-to-coast). Checked against "
+             "INDEPENDENT observed NOAA CO-OPS tide-gauge extremes (169 CONUS gauges, 2014-2023; scripts/backtest_coastal_coops.py): "
+             "the generic 2.0 m surge allowance sits at the 80th percentile of observed 10-yr maxima (20% of gauges saw more), "
+             "and the score has no site surge/tide term (ρ −0.32 vs observed extremes) → SCREENING, a site-specific "
+             "extreme-water-level term is the disclosed gap", (H.COASTAL_FLOOD,)),
     EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, SCR, "now",
              "wettest-month precip climatology (1991–2020) + CC warming", (H.HEAVY_PRECIP,)),
     EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",

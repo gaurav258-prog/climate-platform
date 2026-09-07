@@ -19,6 +19,7 @@ Ranking-family gate (ρ/AUC). Run:  PYTHONPATH=. .venv/bin/python scripts/backte
 from __future__ import annotations
 
 import glob
+import os
 
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ import shapefile
 from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 
-GRID = "data/wind/windstorm_gust_climatology.npz"
+GRID = os.environ.get("WINDSTORM_GRID", "data/wind/windstorm_gust_climatology.npz")   # e.g. data/wind/windstorm_gust_conus.npz (extreme annual-max rebuild)
 FILES = "data/windstorm_val/*.csv.gz"
 ZONE_SHP = glob.glob("data/windstorm_val/z_*.shp")
 WINDSTORM_TYPES = {"High Wind", "Strong Wind", "Blizzard", "Dust Storm", "Marine High Wind", "Marine Strong Wind"}

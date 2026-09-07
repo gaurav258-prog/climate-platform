@@ -53,3 +53,8 @@ data/convective/*
 !data/convective/convective_potential.npz
 data/eiopa/
 data/reference/geo/
+
+# independent backtest targets (re-fetched by scripts/fetch_*.py; see docs/BACKTEST_DATA.md)
+data/coastal_val/
+data/wildfire_val/
+data/flood_val/
