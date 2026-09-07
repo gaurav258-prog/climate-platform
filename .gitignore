@@ -65,3 +65,5 @@ data/wildfire/fwi_*.npz
 data/wildfire/burnable_fraction.npz
 !data/wildfire/fwi_climatology.npz
 !data/wildfire/burned_area_climatology.npz
+!data/reference/geo/
+!data/reference/geo/nuts3_eu_20m_2021.geojson
