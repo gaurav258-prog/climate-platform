@@ -46,12 +46,17 @@ from ml.scoring.valuation_discount import valuation_block
 VERTICALS = ("banking", "insurance", "realestate", "assetmgmt")
 
 
+# Hazards never used as an asset's HEADLINE (they are nowcast signals, not standing risk). One definition, shared
+# with the cross-sector reader the supervisor portal uses, so an entity and its supervisor see the same headline.
+DEFAULT_HEADLINE_EXCLUDE: tuple = ("heat_acute",)
+
+
 def fetch_entities_with_risk(
     session, org_id: str, vertical: str, scenario: str, horizon: str,
     severity_model: str = "universal",
     ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
     extra_calc: Optional[Callable] = None,
-    exclude_headline_hazards: tuple = ("heat_acute",),
+    exclude_headline_hazards: tuple = DEFAULT_HEADLINE_EXCLUDE,
     valuation_kwargs: Optional[Callable] = None,
     entity_ids: Optional[list] = None,
     value_weights: Optional[dict] = None,
@@ -211,7 +216,7 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
                           severity_model: str = "universal",
                           ext_table: Optional[str] = None, ext_columns: Optional[list] = None,
                           extra_calc: Optional[Callable] = None,
-                          exclude_headline_hazards: tuple = ("heat_acute",),
+                          exclude_headline_hazards: tuple = DEFAULT_HEADLINE_EXCLUDE,
                           valuation_kwargs: Optional[Callable] = None,
                           scope_headline_to_query: bool = True):
     """One entity, any scenario/horizon it's been scored for -- the '/asset/{id}'-

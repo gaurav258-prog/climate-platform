@@ -1,0 +1,93 @@
+{
+  "_about": "Supervision profiles — what a regulator/supervisor customer supervises and how the platform serves it. CONFIGURATION, not code: a new sector supervisor is a new profile entry (or a per-org override in supervisor_settings), never a code path that names a sector. Loaded by services/supervision/profiles.py. Metric ids resolve to sector adapters registered in services/supervision/metrics.py; region units to services/geo/regions.py; framework ids to services/governance/filings.",
+  "version": "1.0",
+  "roles": {
+    "_about": "Role templates seeded for every regulator organization (RBAC roles are DB rows; these are the defaults). Permission codes are the supervisor.* family plus platform basics.",
+    "supervisor":   {"label": "Line supervisor",       "stages": ["analyse", "engage", "follow_up"], "permissions": ["modules.view", "supervisor.population.view", "supervisor.entity.view", "supervisor.entity.file", "supervisor.sites.view", "supervisor.requests.manage", "supervisor.findings.manage"]},
+    "risk_analyst": {"label": "Horizontal risk analyst", "stages": ["analyse", "challenge", "report"], "permissions": ["modules.view", "supervisor.population.view", "supervisor.benchmark.view", "supervisor.entity.view", "supervisor.entity.file", "supervisor.export"]},
+    "data_steward": {"label": "Data & reporting",     "stages": ["collect", "validate"],           "permissions": ["modules.view", "supervisor.population.view", "supervisor.intake.manage", "supervisor.validation.manage"]},
+    "inspector":    {"label": "Inspector",            "stages": ["engage", "follow_up"],           "permissions": ["modules.view", "supervisor.population.view", "supervisor.entity.view", "supervisor.entity.file", "supervisor.sites.view", "supervisor.requests.manage", "supervisor.findings.manage", "supervisor.evidence.export"]},
+    "policy":       {"label": "Policy & methodology", "stages": ["challenge", "report"],           "permissions": ["modules.view", "supervisor.population.view", "supervisor.benchmark.view", "supervisor.methodology.view"]},
+    "head":         {"label": "Head of division",     "stages": ["report"],                        "permissions": ["modules.view", "supervisor.population.view", "supervisor.benchmark.view", "supervisor.entity.view", "supervisor.dashboard.view"]},
+    "admin":        {"label": "Platform admin",       "stages": [],                                "permissions": ["modules.view", "admin.users.manage", "admin.roles.manage", "admin.audit.view", "supervisor.population.view"]}
+  },
+  "cycle": ["collect", "validate", "analyse", "challenge", "engage", "report", "follow_up"],
+  "sectors": {
+    "_about": "Per supervised org type: the frameworks the supervisor expects, the regional unit it works in, and the benchmark metrics (id → adapter) used for peer comparison. Thresholds are supervisory-expectation defaults, overridable per regulator.",
+    "bank": {
+      "label": "Credit institutions", "authorities_example": ["ECB/SSM", "national competent authority"],
+      "frameworks": ["pillar3_esg", "eba_climate_stress", "csrd_esrs"],
+      "region_unit": "nuts3",
+      "book_noun": "financed assets",
+      "metrics": [
+        {"id": "book_value_eur",       "label": "Book value",                 "unit": "eur",  "adapter": "portfolio.book_value",       "direction": "neutral"},
+        {"id": "high_risk_share_pct",  "label": "Share of book at high risk", "unit": "pct",  "adapter": "portfolio.high_risk_share",  "direction": "lower_is_better", "watch_above": 25, "act_above": 40},
+        {"id": "money_at_high_risk_eur","label": "Money at high risk",        "unit": "eur",  "adapter": "portfolio.high_risk_value",  "direction": "lower_is_better"},
+        {"id": "top_hazard_concentration_pct", "label": "Concentration in worst hazard", "unit": "pct", "adapter": "portfolio.top_hazard_share", "direction": "lower_is_better", "watch_above": 50},
+        {"id": "top_region_concentration_pct", "label": "Concentration in worst region", "unit": "pct", "adapter": "portfolio.top_region_share", "direction": "lower_is_better", "watch_above": 35},
+        {"id": "scored_coverage_pct",  "label": "Assets with a score",        "unit": "pct",  "adapter": "portfolio.scored_share",     "direction": "higher_is_better", "watch_below": 90}
+      ]
+    },
+    "insurer": {
+      "label": "Insurance undertakings", "authorities_example": ["EIOPA", "national insurance supervisor"],
+      "frameworks": ["solvency2_qrt", "orsa_climate", "csrd_esrs"],
+      "region_unit": "nuts3",
+      "book_noun": "insured locations",
+      "metrics": [
+        {"id": "book_value_eur",       "label": "Sum insured",                "unit": "eur",  "adapter": "portfolio.book_value",       "direction": "neutral"},
+        {"id": "high_risk_share_pct",  "label": "Share of sum insured at high risk", "unit": "pct", "adapter": "portfolio.high_risk_share", "direction": "lower_is_better", "watch_above": 25, "act_above": 40},
+        {"id": "money_at_high_risk_eur","label": "Sum insured at high risk",  "unit": "eur",  "adapter": "portfolio.high_risk_value",  "direction": "lower_is_better"},
+        {"id": "top_hazard_concentration_pct", "label": "Concentration in worst peril", "unit": "pct", "adapter": "portfolio.top_hazard_share", "direction": "lower_is_better", "watch_above": 50},
+        {"id": "top_region_concentration_pct", "label": "Concentration in worst region", "unit": "pct", "adapter": "portfolio.top_region_share", "direction": "lower_is_better", "watch_above": 35},
+        {"id": "scored_coverage_pct",  "label": "Locations with a score",     "unit": "pct",  "adapter": "portfolio.scored_share",     "direction": "higher_is_better", "watch_below": 90}
+      ]
+    },
+    "asset_manager": {
+      "label": "Asset managers / funds", "authorities_example": ["ESMA", "national securities regulator"],
+      "frameworks": ["sfdr", "eu_taxonomy_art8", "csrd_esrs"],
+      "region_unit": "nuts3",
+      "book_noun": "holdings",
+      "metrics": [
+        {"id": "book_value_eur",       "label": "Assets under management (located)", "unit": "eur", "adapter": "portfolio.book_value", "direction": "neutral"},
+        {"id": "high_risk_share_pct",  "label": "Share of holdings at high risk", "unit": "pct", "adapter": "portfolio.high_risk_share", "direction": "lower_is_better", "watch_above": 25, "act_above": 40},
+        {"id": "money_at_high_risk_eur","label": "Holdings value at high risk", "unit": "eur", "adapter": "portfolio.high_risk_value", "direction": "lower_is_better"},
+        {"id": "top_hazard_concentration_pct", "label": "Concentration in worst hazard", "unit": "pct", "adapter": "portfolio.top_hazard_share", "direction": "lower_is_better", "watch_above": 50},
+        {"id": "scored_coverage_pct",  "label": "Holdings with a score",      "unit": "pct",  "adapter": "portfolio.scored_share",     "direction": "higher_is_better", "watch_below": 90}
+      ]
+    },
+    "reit": {
+      "label": "Real-estate companies / REITs", "authorities_example": ["national securities or property regulator"],
+      "frameworks": ["csrd_esrs", "eu_taxonomy_art8"],
+      "region_unit": "nuts3",
+      "book_noun": "properties",
+      "metrics": [
+        {"id": "book_value_eur",       "label": "Property value",             "unit": "eur",  "adapter": "portfolio.book_value",       "direction": "neutral"},
+        {"id": "high_risk_share_pct",  "label": "Share of property value at high risk", "unit": "pct", "adapter": "portfolio.high_risk_share", "direction": "lower_is_better", "watch_above": 25, "act_above": 40},
+        {"id": "money_at_high_risk_eur","label": "Property value at high risk", "unit": "eur", "adapter": "portfolio.high_risk_value", "direction": "lower_is_better"},
+        {"id": "top_region_concentration_pct", "label": "Concentration in worst region", "unit": "pct", "adapter": "portfolio.top_region_share", "direction": "lower_is_better", "watch_above": 35},
+        {"id": "scored_coverage_pct",  "label": "Properties with a score",    "unit": "pct",  "adapter": "portfolio.scored_share",     "direction": "higher_is_better", "watch_below": 90}
+      ]
+    },
+    "manufacturer": {
+      "label": "Agri-food operators", "authorities_example": ["EUDR competent authority", "national food-chain agency"],
+      "frameworks": ["eudr", "csrd_esrs"],
+      "region_unit": "nuts3",
+      "book_noun": "sites & sourcing plots",
+      "metrics": [
+        {"id": "book_value_eur",       "label": "Sites + annual sourcing spend", "unit": "eur", "adapter": "portfolio.book_value",    "direction": "neutral"},
+        {"id": "high_risk_share_pct",  "label": "Share of value at high risk", "unit": "pct", "adapter": "portfolio.high_risk_share", "direction": "lower_is_better", "watch_above": 25, "act_above": 40},
+        {"id": "top_hazard_concentration_pct", "label": "Concentration in worst hazard", "unit": "pct", "adapter": "portfolio.top_hazard_share", "direction": "lower_is_better", "watch_above": 50},
+        {"id": "top_region_concentration_pct", "label": "Concentration in worst origin region", "unit": "pct", "adapter": "portfolio.top_region_share", "direction": "lower_is_better", "watch_above": 35},
+        {"id": "scored_coverage_pct",  "label": "Sites/plots with a score",   "unit": "pct",  "adapter": "portfolio.scored_share",     "direction": "higher_is_better", "watch_below": 90}
+      ]
+    }
+  },
+  "profiles": {
+    "_about": "A regulator organization picks ONE profile (its customer class); overrides live in supervisor_settings. Banking first; the others are the same shape.",
+    "banking_supervisor":   {"label": "Banking supervisor",            "sectors": ["bank"],                                  "default_scenario": "baseline", "default_horizon": "current"},
+    "insurance_supervisor": {"label": "Insurance supervisor",          "sectors": ["insurer"],                               "default_scenario": "baseline", "default_horizon": "current"},
+    "markets_supervisor":   {"label": "Securities / markets supervisor","sectors": ["asset_manager", "reit"],                 "default_scenario": "baseline", "default_horizon": "current"},
+    "agrifood_authority":   {"label": "Agri-food / EUDR authority",    "sectors": ["manufacturer"],                          "default_scenario": "baseline", "default_horizon": "current"},
+    "integrated_supervisor":{"label": "Integrated financial supervisor","sectors": ["bank", "insurer", "asset_manager", "reit"], "default_scenario": "baseline", "default_horizon": "current"}
+  }
+}

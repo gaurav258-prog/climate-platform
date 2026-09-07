@@ -13,12 +13,14 @@ Phase 2/3 (system-wide aggregation, independent EO lens) build on this foundatio
 """
 from __future__ import annotations
 
+import json
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import text
 
-from api.deps import CurrentUser, DbSession
+from api.deps import CurrentUser, DbSession, require_permission
 from api.services.rbac import write_audit
 from services.governance import filings as F
 
@@ -29,11 +31,21 @@ FILED = ("submitted", "accepted", "approved", "attested", "released")
 
 
 def require_supervisor(ctx: CurrentUser) -> dict:
-    """403 unless the caller's organization is a regulator/supervisor."""
+    """403 unless the caller's organization is a regulator/supervisor AND the user holds the base supervisory
+    permission. Finer rights (sites, benchmark, entity file …) are checked per endpoint via `_need`."""
     if (ctx.get("org") or {}).get("type") != "regulator":
         raise HTTPException(status_code=403,
                             detail={"error": "forbidden", "message": "Regulator/supervisor access only."})
+    if "supervisor.population.view" not in (ctx.get("permissions") or []):
+        raise HTTPException(status_code=403, detail={"error": "forbidden",
+                            "message": "Your role has no supervisory permissions (supervisor.population.view)."})
     return ctx
+
+
+def _need(ctx: dict, code: str) -> None:
+    """Per-endpoint RBAC check — the codes come from the supervision-profile role templates."""
+    if code not in (ctx.get("permissions") or []):
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": f"Missing permission {code}."})
 
 
 Supervisor = Annotated[dict, Depends(require_supervisor)]
@@ -105,6 +117,7 @@ def population(session: DbSession, ctx: Supervisor):
 
 @router.get("/entity/{org_id}", summary="One supervised entity — its released filings (read-only, audited)")
 def entity(org_id: str, session: DbSession, ctx: Supervisor):
+    _need(ctx, "supervisor.entity.view")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, reg, org_id):
         # do not confirm existence of an out-of-scope entity
@@ -181,6 +194,7 @@ def exposure_map(session: DbSession, ctx: Supervisor, entity: Optional[str] = No
 
 @router.get("/sites", summary="Individual sites of ONE supervised entity — only where that entity granted site-level access")
 def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str = "baseline", horizon: str = "current"):
+    _need(ctx, "supervisor.sites.view")
     from services.geo.org_assets import org_asset_points
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, reg, entity):
@@ -196,3 +210,112 @@ def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str
     session.commit()
     name = session.execute(text("SELECT name FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": entity}).scalar()
     return {"entity": {"org_id": entity, "name": name}, "scenario": scenario, "horizon": horizon, "n_sites": len(pts), "sites": pts}
+
+
+# ── Supervision profile (configuration) · peer benchmark · entity file ─────────────────────────────────────
+# The profile says which customer class this regulator is (banking, insurance, markets, agri-food, integrated),
+# which sectors/frameworks/metrics/thresholds apply — all from data/reference/supervision_profiles.json plus the
+# regulator's own overrides in supervisor_settings. No sector is named in the code below.
+def _overrides(session, reg_org_id: str) -> dict:
+    row = session.execute(text("""SELECT profile, default_scenario, default_horizon, thresholds FROM supervisor_settings
+                                  WHERE org_id = CAST(:o AS uuid)"""), {"o": reg_org_id}).mappings().first()
+    return dict(row) if row else {}
+
+
+def _config(session, reg_org_id: str) -> dict:
+    from services.supervision.profiles import resolve
+    return resolve(None, _overrides(session, reg_org_id))
+
+
+@router.get("/profile", summary="This regulator's effective supervision configuration (profile + overrides)")
+def get_profile(session: DbSession, ctx: Supervisor):
+    from services.supervision.profiles import profile_ids, registry
+    cfg = _config(session, ctx["org"]["org_id"])
+    return {"config": cfg, "overrides": _overrides(session, ctx["org"]["org_id"]),
+            "available_profiles": {pid: registry()["profiles"][pid]["label"] for pid in profile_ids()}}
+
+
+class ProfileUpdate(BaseModel):
+    profile: Optional[str] = None
+    default_scenario: Optional[str] = None
+    default_horizon: Optional[str] = None
+    thresholds: Optional[dict] = None
+
+
+@router.put("/profile", summary="Set this regulator's profile / defaults / threshold overrides (org admin)")
+def put_profile(body: ProfileUpdate, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    if (ctx.get("org") or {}).get("type") != "regulator":
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Regulator/supervisor access only."})
+    from services.supervision.profiles import profile_ids, resolve
+    reg = ctx["org"]["org_id"]
+    cur = _overrides(session, reg)
+    new = {"profile": body.profile or cur.get("profile") or "banking_supervisor",
+           "default_scenario": body.default_scenario if body.default_scenario is not None else cur.get("default_scenario"),
+           "default_horizon": body.default_horizon if body.default_horizon is not None else cur.get("default_horizon"),
+           "thresholds": body.thresholds if body.thresholds is not None else (cur.get("thresholds") or {})}
+    if new["profile"] not in profile_ids():
+        raise HTTPException(status_code=422, detail={"error": "unknown_profile", "message": f"profile must be one of {profile_ids()}"})
+    resolve(None, new)   # validates
+    session.execute(text("""
+        INSERT INTO supervisor_settings (org_id, profile, default_scenario, default_horizon, thresholds, updated_at, updated_by)
+        VALUES (CAST(:o AS uuid), :p, :sc, :h, CAST(:t AS jsonb), now(), CAST(:u AS uuid))
+        ON CONFLICT (org_id) DO UPDATE SET profile = EXCLUDED.profile, default_scenario = EXCLUDED.default_scenario,
+            default_horizon = EXCLUDED.default_horizon, thresholds = EXCLUDED.thresholds, updated_at = now(), updated_by = EXCLUDED.updated_by
+    """), {"o": reg, "p": new["profile"], "sc": new["default_scenario"], "h": new["default_horizon"],
+           "t": json.dumps(new["thresholds"]), "u": ctx["user"]["id"]})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.profile.updated",
+                target_type="supervisor_settings", target_id=reg, detail=new)
+    session.commit()
+    return get_profile(session, ctx)
+
+
+@router.get("/benchmark", summary="Peer benchmark of the supervised population, per sector in the profile")
+def get_benchmark(session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    _need(ctx, "supervisor.benchmark.view")
+    from services.supervision.benchmark import benchmark
+    reg = ctx["org"]["org_id"]
+    cfg = _config(session, reg)
+    return benchmark(session, cfg, _supervised(session, reg), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+
+
+@router.get("/entity/{org_id}/file", summary="The entity file — what a line supervisor opens: identity, submissions, exposure, peer position, access")
+def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    _need(ctx, "supervisor.entity.file")
+    from services.geo.org_assets import org_asset_points
+    from services.geo.regions import aggregate_by_region
+    from services.supervision.benchmark import benchmark, entity_position
+    from services.supervision.profiles import sector_config
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    cfg = _config(session, reg)
+    sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
+    org = session.execute(text("SELECT org_id::text AS org_id, name, type, country, lei, legal_name FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": org_id}).mappings().first()
+    pop = population(session, ctx)
+    submissions = next((e for e in pop["entities"] if e["org_id"] == org_id), None)
+    pts = org_asset_points(session, org_id, sc, hz)
+    regions = aggregate_by_region(pts)
+    hazards: dict[str, dict] = {}
+    for p in pts:
+        h = hazards.setdefault(p["hazard"] or "unscored", {"hazard": p["hazard"] or "unscored", "n": 0, "value_eur": 0.0})
+        h["n"] += 1; h["value_eur"] += p["value_eur"]
+    for h in hazards.values():
+        h["value_eur"] = round(h["value_eur"])
+    ents = _supervised(session, reg)
+    bench = benchmark(session, cfg, ents, sc, hz)
+    accesses = session.execute(text("""
+        SELECT action, created_at, detail FROM access_audit_log
+        WHERE org_id = CAST(:o AS uuid) AND action LIKE 'supervisor.%' ORDER BY created_at DESC LIMIT 10
+    """), {"o": org_id}).mappings().all()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.file.access",
+                target_type="organization", target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})
+    session.commit()
+    return {"entity": dict(org), "in_profile": sector_config(cfg, org["type"]) is not None,
+            "sector": sector_config(cfg, org["type"]), "scenario": sc, "horizon": hz,
+            "submissions": submissions, "book": {"n_assets": len(pts), "value_eur": round(sum(p["value_eur"] for p in pts)),
+                                                 "n_regions": len(regions), "top_regions": [{k: v for k, v in r.items() if k != "geometry"} for r in regions[:8]],
+                                                 "hazards": sorted(hazards.values(), key=lambda h: -h["value_eur"])},
+            "peer_position": entity_position(bench, org_id), "peers_in_sector": bench["sectors"].get(org["type"], {}).get("n_entities"),
+            "site_access": _site_access(session, reg, org_id),
+            "my_recent_accesses": [{"action": a["action"], "at": a["created_at"].isoformat(), "detail": a["detail"]} for a in accesses]}
