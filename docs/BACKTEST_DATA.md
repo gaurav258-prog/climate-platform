@@ -28,6 +28,18 @@ surge). Ranking: ρ = **−0.32** — the score carries elevation only, so it ra
 observed extremes peak on steep macro-tidal / surge coasts. Coastal stays SCREENING; a site-specific
 extreme-water-level term (these gauges, or a global equivalent) is the disclosed gap.
 
+**Wildfire REBUILT as a hazard climatology — passes (`scripts/backtest_wildfire_climatology.py`).** The failure above
+was the wrong question (day-of weather cannot locate a burn). The scored lane is now a standing climatology:
+Copernicus CEMS/ECMWF Fire Weather Index extreme-danger days 2006-2020 (EWDS `cems-fire-historical-v1`; the
+account's EWDS terms of use were accepted 2026-09-07) × burnable-land fraction + C3S ESA-CCI burned-area history
+2001-2019 (`satellite-fire-burned-area`, ends 2019). Fixed formula, no fitted parameters. Target held out in
+TIME: all 41,513 EFFIS scars 2022-2024 in Europe (`scripts/fetch_effis_europe.py`), case-control vs random
+burnable land. Weather×fuel alone: AUC 0.679, ρ 0.22 (below gate). With history: **AUC 0.757, High+ lift 2.2×,
+ρ 0.367** — passes the 0.35 floor, marginally. History alone: AUC 0.795, ρ 0.48 — the burn record carries most
+of the skill (in-domain, the landslide/LHASA caveat); the weather term is kept because it is the climate driver
+and the only path to a warming-shifted projection. Wildfire → CALIBRATED, Europe-validated (screen elsewhere).
+The old day-of model stays registered as a nowcast signal, retired as the address score.
+
 **Flood — real but modest skill, below the calibration gate (`scripts/backtest_flood_ems.py`).** EMS observed
 extents landed for the 6 EMS-era events (Ahr 2021 EMSR517, Spain DANA 2019 EMSR388, Storm Alex 2020 EMSR467,
 Emilia-Romagna 2023 EMSR664, Storm Boris 2024 EMSR756+757, Valencia 2024 EMSR773; 2013/2014/2016 activations

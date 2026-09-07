@@ -66,6 +66,11 @@ FEEDS: list[dict] = [
              "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP per-volcano "
              "event rows (volcanic_events) for the curated backtest volcanoes; the global volcano catalogue is its "
              "own feed (volcanic_gvp). Geophysical, not climate-attributable → out of CSRD/EUDR filing scope."},
+    {"key": "fire_climatology", "name": "Copernicus CEMS/ECMWF Fire Weather Index (EWDS) · C3S ESA-CCI burned area", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "live",
+     "note": "Standing wildfire hazard climatology: GEFF Fire Weather Index extreme-danger days 2006-2020 (EWDS, "
+             "cems-fire-historical-v1) + ESA-CCI burned-area history 2001-2019 (CDS) → data/wildfire/*.npz "
+             "(scripts/build_fwi_climatology.py, build_burned_area_climatology.py). Annual rebuild."},
     {"key": "volcanic_gvp", "name": "Smithsonian GVP — Volcanoes of the World (Holocene catalogue, WFS)", "category": "hazard",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
      "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) landed to "
@@ -141,7 +146,7 @@ HAZARD_FEEDS: dict[str, list[str]] = {
     "drought":       ["climate_reanalysis"],                # ERA5-Land SPEI/soil-moisture
     "soil_water":    ["climate_reanalysis"],
     "frost":         ["climate_reanalysis"],                # ERA5 min-temperature
-    "wildfire":      ["fire_thermal", "climate_reanalysis"],# NASA FIRMS + fire-weather
+    "wildfire":      ["fire_climatology", "climate_reanalysis"],  # standing FWI/burn climatology; ERA5 nowcast signal
     "storm":         ["storms_ocean", "climate_reanalysis"],# IBTrACS + reanalysis
     "seismic":       ["geophysical"],                       # USGS
     "volcanic":      ["volcanic_gvp", "geophysical"],       # GVP global catalogue (+ curated zones)

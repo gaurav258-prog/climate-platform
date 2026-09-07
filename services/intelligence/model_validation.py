@@ -305,7 +305,7 @@ def crop_impact_validation(session: Session) -> dict:
 _COVERAGE_PENDING = {
     "flood": "Observed record is a single approximate Copernicus EMS event (~22 cells). Needs the full EMS "
              "rapid-mapping catalogue + Sentinel-1 SAR inundation at scale before a credible backtest.",
-    "wildfire": "Backtested vs the official EFFIS burnt-area record, 8 fires held out: no skill (AUC 0.44). Stays screening.",
+    "wildfire": "Hazard climatology validated vs the official EFFIS burn record 2022-24 held out in time: AUC 0.76, ρ 0.37 (marginal pass, Europe). The old day-of model failed (AUC 0.44).",
     "coastal_flood": "Needs tide-gauge / storm-surge observations to backtest against.",
     "volcanic": "Eruptions are too rare for a location-level occurrence backtest; GVP physics only.",
     "pollution": "Needs an air-quality monitoring feed (EEA / OpenAQ) as the observed target.",

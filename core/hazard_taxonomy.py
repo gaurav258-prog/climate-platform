@@ -81,12 +81,14 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agri heat channel (W-Africa cocoa, ρ 0.60)", (H.HEAT_ACUTE,)),
     EUHazard("heat_stress", T, "Heat stress", C, SCR, "now", "chronic-heat exposure channel", (H.HEAT_CHRONIC,)),
     EUHazard("cold_wave_frost", T, "Cold wave / frost", A, SCR, "now", "global frost baseline (3.1M rows)", (H.FROST,)),
-    EUHazard("wildfire", T, "Wildfire", A, SCR, "now",
-             "ERA5-Land fire-weather + fuel model (wind/RH/days-since-rain/LAI/soil water), on-demand global. SCREENING "
-             "only, NOT calibrated: judged on the INDEPENDENT official EFFIS burnt-area record with each of 8 European "
-             "fires held out, it has no skill (pooled AUC 0.44, rank ρ −0.07 < 0.35 gate; scripts/backtest_wildfire_effis.py) "
-             "— day-of fire weather does not locate where a fire burns; ignition/fuel-continuity data would be needed.",
-             (H.WILDFIRE,)),
+    EUHazard("wildfire", T, "Wildfire", A, CAL, "now",
+             "Standing wildfire hazard climatology (ml/scoring/wildfire_climatology.py): Copernicus CEMS/ECMWF Fire Weather "
+             "Index extreme-danger days 2006-2020 × burnable-land fraction + C3S ESA-CCI observed burn history 2001-2019, "
+             "fixed disclosed formula. Validated on the INDEPENDENT official EFFIS burn record 2022-2024 held out in time "
+             "(41k scars, Europe): occurrence AUC 0.76 (2.2× High+ lift), magnitude ρ 0.37 — passes the 0.35 gate, marginally; "
+             "the fire-weather×fuel term alone is AUC 0.68 / ρ 0.22 (below gate), burn history carries most of the skill "
+             "(in-domain, as landslide/LHASA). Europe-validated; elsewhere the same layer is a screen. The day-of ERA5 "
+             "fire-weather model failed the same target (AUC 0.44) and is a nowcast signal only.", (H.WILDFIRE,)),
     EUHazard("changing_temperature", T, "Changing temperature", C, SCR, "now",
              "CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, SCR, "now",
@@ -192,6 +194,10 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                 "script": "scripts/backtest_coffee_climate.py", "out_of_sample": True},
     "tornado": {"target": "NOAA SPC observed tornadoes (independent of the ERA5 CAPE×shear field)",
                 "script": "scripts/backtest_convective_spc.py", "out_of_sample": True},
+    "wildfire": {"target": "official EFFIS burnt-area record 2022-2024 (41k JRC-mapped scars, Europe), held out in TIME: "
+                           "every input ends 2020. Fire-weather×fuel term fully independent; the burn-history term reuses "
+                           "the 2001-2019 record (in-domain). ρ 0.37 is marginal vs the 0.35 floor; Europe region only",
+                 "script": "scripts/backtest_wildfire_climatology.py", "out_of_sample": True},
     "landslide": {"target": "NASA Global Landslide Catalog (independent event inventory; physical susceptibility "
                             "inputs). In-domain: LHASA used the GLC in development, so not a fresh held-out test",
                   "script": "scripts/backtest_landslide_glc.py", "out_of_sample": False},

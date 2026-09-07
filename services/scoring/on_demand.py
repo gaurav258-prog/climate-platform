@@ -37,6 +37,7 @@ from ml.scoring.solifluction_point import score_solifluction_point
 from ml.scoring.subsidence_point import score_subsidence_point
 from ml.scoring.volcanic_point import score_volcanic_point
 from ml.scoring.water_stress_point import score_water_stress_point
+from ml.scoring.wildfire_climatology import score_wildfire_point
 from ml.scoring.windstorm_point import score_windstorm_point
 from scripts.score_point_on_demand import score_seismic_point, score_storm_point
 from services.tasks.hazard_tasks import HAZARD_TASKS
@@ -75,10 +76,13 @@ SYNC_ON_DEMAND_SCORERS = {
     "soil_degradation": score_soil_degradation_point,
     "severe_convective": score_severe_convective_point,
     "volcanic": score_volcanic_point,
+    "wildfire": score_wildfire_point,   # standing hazard climatology (the day-of ERA5 model is a nowcast signal only)
 }
 
 # Hazards that need a real data fetch, run as a Celery job (see services/tasks/).
-GRIDDED_ON_DEMAND_SCORERS = HAZARD_TASKS
+# wildfire is scored synchronously from its standing climatology (above); the Celery day-of fire-weather job is
+# NOT an address score any more — it failed the EFFIS backtest (AUC 0.44) and stays a nowcast signal.
+GRIDDED_ON_DEMAND_SCORERS = {k: v for k, v in HAZARD_TASKS.items() if k != "wildfire"}
 
 
 def process_new_cells(cell_coords: dict) -> dict:
