@@ -198,13 +198,14 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
         nace = (r.get("nace_section") or "").strip().upper()
         session.execute(text("""
             INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, sector, nace_code, latitude, longitude,
-                                            h3_cell, country, region, primary_value_eur, source, subject_org_id, location_precision, source_ref)
+                                            h3_cell, country, region, primary_value_eur, source, subject_org_id, location_precision, source_ref, external_ref)
             VALUES (CAST(:id AS uuid), CAST(:o AS uuid), 'banking', :name, 'loan', :sector, :nace, :lat, :lon, :cell, :country, :region,
-                    :val, 'supervisor_shadow', CAST(:subj AS uuid), :prec, :ref)
+                    :val, 'supervisor_shadow', CAST(:subj AS uuid), :prec, :ref, :xref)
         """), {"id": eid, "o": regulator_org_id, "name": (r.get("counterparty_name") or r.get("instrument_id") or "instrument")[:200],
                "sector": nace[:100] or None, "nace": nace[:10] or None, "lat": lat, "lon": lon, "cell": cell,
                "country": (r.get("collateral_country") or "")[:2].upper() or None,
-               "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id, "prec": prec, "ref": batch})
+               "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id, "prec": prec, "ref": batch,
+               "xref": (str(r.get("instrument_id"))[:120] if r.get("instrument_id") else None)})
         session.execute(text("""INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, residual_maturity_years, data_source)
                                 VALUES (CAST(:id AS uuid), :bal, :rm, :src)"""),
                         {"id": eid, "bal": val, "rm": _residual_years(r.get("maturity_date")), "src": f"supervisor_shadow:{batch}"})

@@ -544,3 +544,56 @@ def population_workflow(session: DbSession, ctx: Supervisor):
             "steps": [{"key": k, "label": STEP_LABEL[k]} for k in STEPS],
             "criteria": ["sector", "jurisdiction", "stage", "submissions", "high_risk_share_pct", "lens_gap_pct", "site_access"],
             "entities": rows}
+
+
+@router.get("/entity/{org_id}/lens/cell", summary="Drill into one lens cell: the submitted figure, every granular row behind the rebuilt one, and the gap arithmetic")
+def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx: Supervisor,
+              scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from core.types import score_to_bucket
+    from services.supervision.intake import load_submission
+    from services.supervision.lens import cell_key
+    from services.supervision.lens_build import _geo, _sector, rebuilt_cells
+    _need(ctx, "supervisor.entity.file")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    spec = _intake_spec(session, reg, org_id)
+    cfg = spec["config"]; sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
+    ss = spec["intake"]["submission"]
+    sub = load_submission(session, reg, org_id, ss["framework"], ss["template"])
+    key = cell_key(geography, sector)
+    submitted = (sub or {}).get("cells", {}).get(key)
+    reb, pts = rebuilt_cells(session, reg, org_id, sc, hz)
+    rows = []
+    for p in pts:
+        if cell_key(_geo(p) or "", _sector(p) or "") != key:
+            continue
+        b = score_to_bucket(float(p["score"])).value if p.get("score") is not None else None
+        rows.append({"instrument_id": p.get("external_ref"), "name": p["name"], "outstanding_eur": round(p["value_eur"]),
+                     "collateral_country": p.get("country"), "region": p.get("region_name"), "location_precision": p.get("location_precision"),
+                     "lat": p.get("lat"), "lon": p.get("lon"), "nace_code": p.get("nace_code"),
+                     "headline_hazard": p.get("hazard"), "headline_score": p.get("score"), "bucket": b,
+                     "counts_as_sensitive": b in ("H", "VH")})
+    rows.sort(key=lambda r: -r["outstanding_eur"])
+    rc = reb.get(key)
+    located = float((rc or {}).get("located_value_eur") or 0); gross = float((rc or {}).get("gross_carrying_amount_eur") or 0)
+    sens = float((rc or {}).get("sensitive_physical_eur") or 0)
+    sub_ratio = (float(submitted["sensitive_physical_eur"]) / float(submitted["gross_carrying_amount_eur"])) if submitted and submitted.get("gross_carrying_amount_eur") else None
+    reb_ratio = (sens / located) if located else None
+    arithmetic = {
+        "submitted_sensitive_eur": submitted["sensitive_physical_eur"] if submitted else None,
+        "rebuilt_sensitive_eur": round(sens) if rc else None,
+        "submitted_share_pct": round(100 * sub_ratio, 1) if sub_ratio is not None else None,
+        "rebuilt_share_pct": round(100 * reb_ratio, 1) if reb_ratio is not None else None,
+        "located_value_eur": round(located), "unlocated_value_eur": round(gross - located),
+        "n_rows": len(rows), "n_located": sum(1 for r in rows if r["lat"] is not None),
+        "n_sensitive": sum(1 for r in rows if r["counts_as_sensitive"]),
+        "rule": "A row counts as sensitive to physical risk when its headline hazard score is in the High or Very high band. "
+                "The rebuilt share is sensitive value ÷ located value; unlocated rows cannot be judged and are shown separately.",
+    }
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.cell.access", target_type="organization",
+                target_id=org_id, detail={"regulator_org_id": reg, "cell": key, "n_rows": len(rows)})
+    session.commit()
+    return {"cell": {"geography": geography.upper(), "sector": sector.upper(), "key": key}, "scenario": sc, "horizon": hz,
+            "submitted": ({**submitted, "period_label": sub["period_label"], "source_file": sub.get("source_file"), "basis": sub.get("basis")} if submitted else None),
+            "rebuilt": {"rows": rows, **arithmetic}}

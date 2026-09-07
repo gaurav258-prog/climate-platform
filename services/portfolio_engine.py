@@ -90,7 +90,7 @@ def fetch_entities_with_risk(
                e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
                e.construction_type, e.year_built, e.number_of_stories,
                e.borrower_entity_id, e.minimum_safeguards_status,
-               e.reporting_entity_id::text AS reporting_entity_id, e.location_precision
+               e.reporting_entity_id::text AS reporting_entity_id, e.location_precision, e.external_ref
                {ext_select}
         FROM portfolio_entities e
         {ext_join}

@@ -49,6 +49,7 @@ def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: 
                         "value_eur": float(r.get("primary_value_eur") or 0),
                         "score": (float(r["headline_score"]) if r.get("headline_score") is not None else None),
                         "hazard": r.get("headline_hazard"), "nace_code": r.get("nace_code"), "country": r.get("country"),
+                        "external_ref": r.get("external_ref"), "region_name": r.get("region"),
                         "location_precision": r.get("location_precision") or ("point" if r.get("lat") is not None else "unlocated")})
     if source != "own":
         return out          # shadow books exist for the engine verticals only
