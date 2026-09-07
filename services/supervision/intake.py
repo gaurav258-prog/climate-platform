@@ -216,8 +216,13 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
             scoring = process_new_cells(cell_coords)
         except Exception as e:   # scoring is best-effort here exactly as in the bank's own upload path
             scoring = {"status": "deferred", "error": str(e)[:200]}
+    if score and cell_coords:
+        # forward anchors (scenarios × horizons) take the same two paths a bank's own cells take — in the background
+        from services.supervision.projection import schedule_projection
+        schedule_projection(list(cell_coords))
     summary = {"batch": batch, "n_rows": len(rows), "located": n_loc, "coverage_value_pct": round(100.0 * value_located / value_total, 1) if value_total else None,
-               "value_total_eur": round(value_total), "n_cells": len(cell_coords), "scoring": scoring}
+               "value_total_eur": round(value_total), "n_cells": len(cell_coords), "scoring": scoring,
+               "projection": "scheduled" if (score and cell_coords) else "none"}
     save_submission(session, regulator_org_id=regulator_org_id, subject_org_id=subject_org_id, framework="granular", template="anacredit",
                     period_label=period_label, basis={}, cells=summary, raw=raw, filename=filename, mapping=mapping, user_id=user_id)
     return summary
@@ -234,7 +239,9 @@ def shadow_status(session, regulator_org_id: str, subject_org_id: str) -> dict:
         SELECT framework, template, period_label, n_cells, source_file, created_at, basis FROM supervisor_submissions
         WHERE regulator_org_id = CAST(:r AS uuid) AND subject_org_id = CAST(:s AS uuid) ORDER BY created_at DESC
     """), {"r": regulator_org_id, "s": subject_org_id}).mappings().all()
+    from services.supervision.projection import projection_coverage, shadow_cells
     return {"shadow_book": {"n_rows": int(row["n"]), "n_located": int(row["n_located"]), "value_eur": round(float(row["value_eur"])),
-                            "coverage_value_pct": round(100.0 * float(row["value_located"]) / float(row["value_eur"]), 1) if row["value_eur"] else None},
+                            "coverage_value_pct": round(100.0 * float(row["value_located"]) / float(row["value_eur"]), 1) if row["value_eur"] else None,
+                            "projection": projection_coverage(session, shadow_cells(session, regulator_org_id, subject_org_id))},
             "submissions": [dict(s) | {"created_at": s["created_at"].isoformat()} for s in subs],
             "as_of": datetime.now(timezone.utc).isoformat(timespec="seconds")}
