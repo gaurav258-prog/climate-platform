@@ -51,7 +51,8 @@ def _need(ctx: dict, code: str) -> None:
 Supervisor = Annotated[dict, Depends(require_supervisor)]
 
 
-def _supervised(session, reg_org_id: str) -> list[dict]:
+def _org_scope(session, reg_org_id: str) -> list[dict]:
+    """Everything the ORGANISATION supervises (supervision_scope, active rows)."""
     rows = session.execute(text("""
         SELECT o.org_id::text AS org_id, o.name, o.type, o.country, ss.jurisdiction
         FROM supervision_scope ss
@@ -62,19 +63,34 @@ def _supervised(session, reg_org_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def _in_scope(session, reg_org_id: str, target_org_id: str) -> bool:
-    return session.execute(text("""
+def _supervised(session, ctx: dict) -> list[dict]:
+    """What THIS PERSON sees: the organisation's scope, narrowed to their assignments when their roles work a
+    case list rather than the whole population (services.supervision.assignments)."""
+    from services.supervision.assignments import visible_entity_ids
+    ents = _org_scope(session, ctx["org"]["org_id"])
+    keep = set(visible_entity_ids(session, ctx, [e["org_id"] for e in ents]))
+    return [e for e in ents if e["org_id"] in keep]
+
+
+def _in_scope(session, ctx: dict, target_org_id: str) -> bool:
+    """Same rule as _supervised for one entity — an entity outside the person's view 404s (never leaks)."""
+    from services.supervision.assignments import visible_entity_ids
+    reg = ctx["org"]["org_id"]
+    ok = session.execute(text("""
         SELECT 1 FROM supervision_scope
         WHERE regulator_org_id = CAST(:r AS uuid) AND supervised_org_id = CAST(:t AS uuid) AND active
-    """), {"r": reg_org_id, "t": target_org_id}).first() is not None
+    """), {"r": reg, "t": target_org_id}).first() is not None
+    return ok and bool(visible_entity_ids(session, ctx, [target_org_id]))
 
 
 @router.get("/population", summary="Supervised entities × frameworks — latest submission status")
 def population(session: DbSession, ctx: Supervisor):
-    reg = ctx["org"]["org_id"]
-    entities = _supervised(session, reg)
+    from services.supervision.assignments import visibility
+    entities = _supervised(session, ctx)
+    vis = visibility(session, ctx)
     if not entities:
-        return {"regulator": ctx["org"].get("name"), "entities": [], "summary": {"entities": 0}}
+        return {"regulator": ctx["org"].get("name"), "entities": [], "visibility": vis,
+                "summary": {"entities": 0, "frameworks_expected": 0, "frameworks_filed": 0, "coverage_pct": None}}
 
     ids = [e["org_id"] for e in entities]
     # latest filing per (entity, framework)
@@ -109,6 +125,7 @@ def population(session: DbSession, ctx: Supervisor):
     return {
         "regulator": ctx["org"].get("name"),
         "entities": out_entities,
+        "visibility": vis,
         "summary": {"entities": len(entities), "frameworks_expected": n_expected,
                     "frameworks_filed": n_filed,
                     "coverage_pct": round(100.0 * n_filed / n_expected, 1) if n_expected else None},
@@ -119,7 +136,7 @@ def population(session: DbSession, ctx: Supervisor):
 def entity(org_id: str, session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.entity.view")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         # do not confirm existence of an out-of-scope entity
         raise HTTPException(status_code=404, detail={"error": "not_found",
                             "message": "No such supervised entity in your population."})
@@ -171,9 +188,9 @@ def exposure_map(session: DbSession, ctx: Supervisor, entity: Optional[str] = No
     from services.geo.org_assets import org_asset_points
     from services.geo.regions import aggregate_by_region
     reg = ctx["org"]["org_id"]
-    ents = _supervised(session, reg)
+    ents = _supervised(session, ctx)
     if entity and entity != "all":
-        if not _in_scope(session, reg, entity):
+        if not _in_scope(session, ctx, entity):
             raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
         ents = [e for e in ents if e["org_id"] == entity]
     points: list[dict] = []
@@ -197,7 +214,7 @@ def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str
     _need(ctx, "supervisor.sites.view")
     from services.geo.org_assets import org_asset_points
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, entity):
+    if not _in_scope(session, ctx, entity):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     if not _site_access(session, reg, entity):
         raise HTTPException(status_code=403, detail={"error": "site_access_not_granted",
@@ -275,7 +292,7 @@ def get_benchmark(session: DbSession, ctx: Supervisor, scenario: Optional[str] =
     from services.supervision.benchmark import benchmark
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
-    return benchmark(session, cfg, _supervised(session, reg), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+    return benchmark(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
 
 
 @router.get("/entity/{org_id}/file", summary="The entity file — what a line supervisor opens: identity, submissions, exposure, peer position, access")
@@ -286,7 +303,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
     from services.supervision.benchmark import benchmark, entity_position
     from services.supervision.profiles import sector_config
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     cfg = _config(session, reg)
     sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
@@ -302,7 +319,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
         h["n"] += 1; h["value_eur"] += p["value_eur"]
     for h in hazards.values():
         h["value_eur"] = round(h["value_eur"])
-    ents = _supervised(session, reg)
+    ents = _supervised(session, ctx)
     bench = benchmark(session, cfg, ents, sc, hz)
     accesses = session.execute(text("""
         SELECT action, created_at, detail FROM access_audit_log
@@ -344,7 +361,7 @@ def intake_status(org_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.intake import shadow_status
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     spec = _intake_spec(session, reg, org_id)
     return {"entity": org_id, "sector_type": spec["sector_type"], "intake": spec["intake"], **shadow_status(session, reg, org_id)}
@@ -357,7 +374,7 @@ async def intake_validate(org_id: str, kind: str, session: DbSession, ctx: Super
     from services.supervision.intake import map_rows, suggest_mapping
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     if kind not in ("submission", "granular"):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
@@ -385,7 +402,7 @@ async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervi
     )
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     if kind not in ("submission", "granular"):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Select either the submitted template or the granular extract."})
@@ -418,7 +435,7 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     from services.supervision.lens_build import build_lens
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     spec = _intake_spec(session, reg, org_id)
     sub_spec = spec["intake"]["submission"]
@@ -448,7 +465,7 @@ def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool 
     )
     _need(ctx, "supervisor.intake.manage")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     cells = shadow_cells(session, reg, org_id)
     if not cells:
@@ -474,7 +491,7 @@ def population_lens(session: DbSession, ctx: Supervisor, scenario: Optional[str]
     cfg = _config(session, reg)
     sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
     rows = []
-    for e in _supervised(session, reg):
+    for e in _supervised(session, ctx):
         sec = sector_config(cfg, e["type"])
         if not sec or not sec.get("intake"):
             rows.append({**e, "status": "out_of_profile"}); continue
@@ -500,7 +517,7 @@ def population_analytics(session: DbSession, ctx: Supervisor, scenario: Optional
     _need(ctx, "supervisor.benchmark.view")
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
-    return analytics(session, cfg, _supervised(session, reg), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+    return analytics(session, cfg, _supervised(session, ctx), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
 
 
 @router.get("/population/workflow", summary="The population with each entity's stage in the supervisory process, sorting criteria and next action")
@@ -514,7 +531,7 @@ def population_workflow(session: DbSession, ctx: Supervisor):
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
     pop = population(session, ctx)
-    ents = _supervised(session, reg)
+    ents = _supervised(session, ctx)
     sc, hz = cfg["default_scenario"], cfg["default_horizon"]
     bench = benchmark(session, cfg, ents, sc, hz)
     can_bench = "supervisor.benchmark.view" in (ctx.get("permissions") or [])
@@ -540,7 +557,8 @@ def population_workflow(session: DbSession, ctx: Supervisor):
                 nflag = L["n_flagged"]
         wf = entity_workflow(session, reg, e, in_profile, sub, shadow, proj, _site_access(session, reg, e["org_id"]), headline, gap, nflag)
         rows.append({**e, "in_profile": in_profile, "sector_label": (sec or registry()["sectors"].get(e["type"]) or {}).get("label") or e["type"].replace("_", " "), **wf})
-    return {"regulator": pop["regulator"], "summary": pop["summary"], "scenario": sc, "horizon": hz,
+    return {"regulator": pop["regulator"], "summary": pop["summary"], "visibility": pop["visibility"],
+            "scenario": sc, "horizon": hz,
             "steps": [{"key": k, "label": STEP_LABEL[k]} for k in STEPS],
             "criteria": ["sector", "jurisdiction", "stage", "submissions", "high_risk_share_pct", "lens_gap_pct", "site_access"],
             "entities": rows}
@@ -555,7 +573,7 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
     from services.supervision.lens_build import _geo, _sector, rebuilt_cells
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
-    if not _in_scope(session, reg, org_id):
+    if not _in_scope(session, ctx, org_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
     spec = _intake_spec(session, reg, org_id)
     cfg = spec["config"]; sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
@@ -597,3 +615,52 @@ def lens_cell(org_id: str, geography: str, sector: str, session: DbSession, ctx:
     return {"cell": {"geography": geography.upper(), "sector": sector.upper(), "key": key}, "scenario": sc, "horizon": hz,
             "submitted": ({**submitted, "period_label": sub["period_label"], "source_file": sub.get("source_file"), "basis": sub.get("basis")} if submitted else None),
             "rebuilt": {"rows": rows, **arithmetic}}
+
+
+# ── Assignments: who works which entity ────────────────────────────────────────────────────────────────────
+class AssignBody(BaseModel):
+    supervised_org_id: str
+    user_id: str
+    capacity: str = "lead"
+
+
+@router.get("/assignments", summary="Who works which supervised entity (people, roles, their scope)")
+def get_assignments(session: DbSession, ctx: Supervisor):
+    from services.supervision.assignments import list_assignments, team
+    from services.supervision.profiles import role_templates
+    _need(ctx, "supervisor.assignments.manage")
+    reg = ctx["org"]["org_id"]
+    return {"entities": _org_scope(session, reg), "people": team(session, reg),
+            "assignments": list_assignments(session, reg),
+            "roles": {k: {"label": v["label"], "scope": v.get("scope", "assigned")} for k, v in role_templates().items()}}
+
+
+@router.put("/assignments", summary="Assign a person to a supervised entity (idempotent)")
+def put_assignment(body: AssignBody, session: DbSession, ctx: Supervisor):
+    from services.supervision.assignments import assign
+    _need(ctx, "supervisor.assignments.manage")
+    reg = ctx["org"]["org_id"]
+    if not any(e["org_id"] == body.supervised_org_id for e in _org_scope(session, reg)):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your supervised population."})
+    cap = (body.capacity or "lead").strip()[:40]
+    aid = assign(session, reg, body.supervised_org_id, body.user_id, ctx["user"]["id"], cap)
+    if aid is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Person is not in your organisation."})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.assignment.set",
+                target_type="organization", target_id=body.supervised_org_id,
+                detail={"user_id": body.user_id, "capacity": cap})
+    session.commit()
+    return {"assignment_id": aid}
+
+
+@router.delete("/assignments/{assignment_id}", summary="End a person's assignment to an entity")
+def delete_assignment(assignment_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.assignments import revoke
+    _need(ctx, "supervisor.assignments.manage")
+    reg = ctx["org"]["org_id"]
+    if not revoke(session, reg, assignment_id, ctx["user"]["id"]):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active assignment."})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.assignment.end",
+                target_type="supervision_assignment", target_id=assignment_id, detail={})
+    session.commit()
+    return {"ok": True}

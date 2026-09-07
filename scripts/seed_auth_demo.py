@@ -28,7 +28,7 @@ MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
 STELLAR  = "33333333-3333-4333-8333-333333333333"
 NORDKAP  = "44444444-4444-4444-8444-444444444444"
-SUPERVISOR = "55555555-5555-4555-8555-555555555555"   # regulator / supervisor demo tenant
+SUPERVISOR = "88888888-8888-4888-8888-888888888888"   # regulator / supervisor demo tenant (55555555-… is Terra Foods)
 
 ORGS = [
     # org_id, name, type, country, aum_eur, employees
@@ -52,7 +52,7 @@ ENTITLEMENTS = {
 EXTRA_USER_ROLES = {
     "admin@supervisor.demo":    ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
     "analyst@supervisor.demo":  ["risk_analyst"],
-    "approver@supervisor.demo": ["supervisor"],
+    "approver@supervisor.demo": ["supervisor"],   # line supervisor: sees only the entities assigned to them
 }
 
 # role name -> permission codes
@@ -93,8 +93,10 @@ USERS = [
     ("admin@nordkap.demo",     "Nils Admin (Nordkap)",     "Demo!admin1",   NORDKAP,  "admin"),
     ("analyst@nordkap.demo",   "Nora Analyst (Nordkap)",   "Demo!analyst1", NORDKAP,  "analyst"),
     ("approver@nordkap.demo",  "Erik Approver (Nordkap)",  "Demo!approve1", NORDKAP,  "approver"),
+    # supervisory body: base roles are the supervision-profile templates, not the tenant admin/analyst/approver trio
     ("admin@supervisor.demo",   "Sofia Supervisor (EU Climate Supervisor)", "Demo!admin1",   SUPERVISOR, "admin"),
-    ("analyst@supervisor.demo", "Lars Examiner (EU Climate Supervisor)",    "Demo!analyst1", SUPERVISOR, "analyst"),
+    ("analyst@supervisor.demo", "Lars Examiner (EU Climate Supervisor)",    "Demo!analyst1", SUPERVISOR, "risk_analyst"),
+    ("approver@supervisor.demo", "Mina Case Lead (EU Climate Supervisor)",  "Demo!approve1", SUPERVISOR, "supervisor"),
 ]
 
 
@@ -157,6 +159,8 @@ def main():
             role_id = s.execute(text(
                 "SELECT role_id FROM roles WHERE org_id = :o AND name = :n"
             ), {"o": org_id, "n": role_name}).scalar()
+            if role_id is None:
+                raise SystemExit(f"role {role_name!r} does not exist for {email}'s organisation — fix the USERS table")
             s.execute(text("""
                 INSERT INTO user_roles (user_id, role_id) VALUES (:u, :r)
                 ON CONFLICT DO NOTHING
@@ -176,6 +180,15 @@ def main():
                 ON CONFLICT (regulator_org_id, supervised_org_id) DO UPDATE
                    SET jurisdiction = EXCLUDED.jurisdiction, active = TRUE
             """), {"r": SUPERVISOR, "s": supervised, "j": juris})
+
+        # 6) assignments: the line supervisor (approver persona) works two of the four; horizontal roles see all
+        for email, supervised, cap in [("approver@supervisor.demo", MERIDIAN, "lead"), ("approver@supervisor.demo", IBERIA, "lead")]:
+            s.execute(text("""
+                INSERT INTO supervision_assignment (regulator_org_id, supervised_org_id, user_id, capacity)
+                SELECT CAST(:r AS uuid), CAST(:s AS uuid), u.user_id, :c FROM users u WHERE u.email = :e
+                  AND NOT EXISTS (SELECT 1 FROM supervision_assignment a WHERE a.regulator_org_id = CAST(:r AS uuid)
+                                  AND a.supervised_org_id = CAST(:s AS uuid) AND a.user_id = u.user_id AND a.revoked_at IS NULL)
+            """), {"r": SUPERVISOR, "s": supervised, "c": cap, "e": email})
 
         n_users = s.execute(text("SELECT count(*) FROM users WHERE hashed_password IS NOT NULL")).scalar()
         n_roles = s.execute(text("SELECT count(*) FROM roles")).scalar()

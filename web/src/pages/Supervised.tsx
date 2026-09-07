@@ -11,7 +11,7 @@ interface Fw { framework: string; label: string; state: 'filed' | 'in_progress' 
 interface Row { org_id: string; name: string; type: string; sector_label: string; country: string; jurisdiction: string | null; in_profile: boolean
   frameworks: Fw[]; filed: number; expected: number; steps: Step[]; stage: string; next: { label: string; to: string }
   site_access: boolean; high_risk_share_pct: number | null; high_risk_flag: string | null; lens_gap_pct: number | null; n_questions: number | null }
-interface Resp { regulator: string; summary: { entities: number; frameworks_expected: number; frameworks_filed: number; coverage_pct: number | null }
+interface Resp { regulator: string; visibility: { scope: 'assigned' | 'population'; assigned: number | null }; summary: { entities: number; frameworks_expected: number; frameworks_filed: number; coverage_pct: number | null }
   scenario: string; horizon: string; steps: { key: string; label: string }[]; entities: Row[] }
 const STAGE_LABEL: Record<string, string> = { collect: 'Awaiting filings', submitted: 'Filings received', ingested: 'Data ingested', rebuilt: 'Rebuilt & projected', reviewed: 'Reviewed', out_of_profile: 'Outside profile' }
 const STAGE_ORDER: Record<string, number> = { out_of_profile: -1, collect: 0, submitted: 1, ingested: 2, rebuilt: 3, reviewed: 4 }
@@ -44,8 +44,12 @@ export default function Supervised() {
       <PageHeader eyebrow="Population" title="Supervised population"
         lead="Every entity you supervise, where it stands in the supervisory process, and its next action. Sort and filter on the criteria that matter to you. Read-only: each entity is notified in its own audit trail when you open its file." />
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">assessing every entity's position in the process…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the population.</div> : (<>
+        {d.visibility?.scope === 'assigned' && (
+          <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel-2)] px-4 py-2.5 text-[12.5px] text-[var(--color-mute)]">
+            You see the {d.summary.entities} {d.summary.entities === 1 ? 'entity' : 'entities'} assigned to you. Other entities in your organisation's population are worked by colleagues; your head of division manages assignments in Settings.
+          </div>)}
         <StatGrid cols={4} items={[
-          { label: 'Supervised entities', value: String(d.summary.entities), sub: `${d.entities.filter(e => e.in_profile).length} in your profile` },
+          { label: d.visibility?.scope === 'assigned' ? 'Your entities' : 'Supervised entities', value: String(d.summary.entities), sub: `${d.entities.filter(e => e.in_profile).length} in your profile` },
           { label: 'Submission coverage', value: d.summary.coverage_pct != null ? `${d.summary.coverage_pct}%` : '—', sub: `${d.summary.frameworks_filed}/${d.summary.frameworks_expected} framework-periods filed` },
           { label: 'Reviewed', value: `${stageCounts.reviewed ?? 0} / ${d.entities.filter(e => e.in_profile).length}`, sub: 'independent lens run', accent: (stageCounts.reviewed ?? 0) ? 'var(--color-good)' : undefined },
           { label: 'Open questions', value: String(d.entities.reduce((a, e) => a + (e.n_questions ?? 0), 0)), sub: 'flagged cells across the population', accent: d.entities.some(e => (e.n_questions ?? 0) > 0) ? 'var(--color-warn)' : undefined },
