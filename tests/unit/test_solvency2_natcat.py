@@ -100,8 +100,8 @@ def test_zonal_falls_back_on_unknown_zone():
 
 
 def test_zonal_only_where_tables_loaded():
-    # Italy earthquake has no zonal table yet -> country-level even with a zone tag
-    r = standard_formula_peril([{"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 3}], "earthquake")
+    # Austria earthquake has no zonal table loaded -> country-level even with a zone tag
+    r = standard_formula_peril([{"country": "AT", "sum_insured_eur": 1e9, "cresta_zone": 3}], "earthquake")
     assert r["per_region"][0]["method"] == "country_level"
 
 
@@ -158,3 +158,46 @@ def test_germany_nonexistent_postcode_falls_back():
     # 05 / 11 / 43 / 62 are not German postcodes and are absent from Annex IX -> honest fall-back, never fabricated
     r = standard_formula_peril([_de(5, 1e9)], "windstorm")
     assert r["per_region"][0]["method"] == "country_level"
+
+
+def test_zone_ids_are_labels_numeric_or_alpha_and_normalised():
+    # "20", 20 and "020" all address German postcode zone 20; the table key is the normalised label
+    a = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9, "cresta_zone": "20"}], "windstorm")
+    b = standard_formula_peril([{"country": "DE", "sum_insured_eur": 1e9, "cresta_zone": 20}], "windstorm")
+    assert a["scr_eur"] == b["scr_eur"] and a["per_region"][0]["method"] == "exact_zonal"
+
+
+def test_france_all_five_perils_exact_incl_subsidence():
+    zonal = json.load(open("data/reference/solvency2_zonal.json"))
+    book = {"6": 1e9, "13": 1e9, "75": 5e8}   # Alpes-Maritimes, Bouches-du-Rhône, Paris
+    pols = [{"country": "FR", "sum_insured_eur": si, "cresta_zone": z} for z, si in book.items()]
+    for peril in ("windstorm", "earthquake", "flood", "hail"):
+        assert standard_formula_peril(pols, peril)["per_region"][0]["method"] == "exact_zonal", peril
+    s = subsidence_scr(pols)
+    t = zonal["subsidence"]["FR"]
+    wsi = {z: t["zones"][z]["w"] * si for z, si in book.items()}
+    expected = 0.0005 * math.sqrt(sum(t["correlation"][i][j] * wsi[i] * wsi[j] for i in wsi for j in wsi))
+    assert s["method"] == "exact_zonal" and abs(s["scr_eur"] - round(expected)) <= 1
+    assert subsidence_scr([{"country": "FR", "sum_insured_eur": 1e9}])["method"] == "country_level"
+
+
+def test_spain_and_italy_exact_zonal():
+    es = standard_formula_peril([{"country": "ES", "sum_insured_eur": 1e9, "cresta_zone": 8},
+                                 {"country": "ES", "sum_insured_eur": 1e9, "cresta_zone": 28}], "windstorm")
+    it = standard_formula_peril([{"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 0},    # Rome CAP 00
+                                 {"country": "IT", "sum_insured_eur": 1e9, "cresta_zone": 20}], "earthquake")
+    assert es["per_region"][0]["method"] == "exact_zonal" and it["per_region"][0]["method"] == "exact_zonal"
+
+
+def test_uk_letter_zones_exact_zonal_incl_symmetry_filled_sn():
+    # UK zones are postcode-area LETTERS; SN's flood column is symmetry-reconstructed from the printed OJ row
+    book = [{"country": "GB", "sum_insured_eur": 1e9, "cresta_zone": "AB"},
+            {"country": "GB", "sum_insured_eur": 1e9, "cresta_zone": "sn"},   # case-normalised
+            {"country": "GB", "sum_insured_eur": 5e8, "cresta_zone": "YO"}]
+    for peril in ("windstorm", "flood"):
+        r = standard_formula_peril(book, peril)
+        assert r["per_region"][0]["method"] == "exact_zonal", peril
+    zonal = json.load(open("data/reference/solvency2_zonal.json"))["flood"]["UK"]
+    assert zonal["correlation"]["SN"]["SN"] == 1.0
+    assert zonal["correlation"]["AB"]["SN"] == zonal["correlation"]["SN"]["AB"]
+    assert "symmetry" in zonal.get("source_note", "")

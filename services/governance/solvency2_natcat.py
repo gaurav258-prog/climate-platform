@@ -78,18 +78,17 @@ def _zonal_params(peril: str, region: str) -> dict | None:
     return (z.get(peril) or {}).get(region)
 
 
-def _exact_zonal_loss(zonal: dict, zone_si: dict[int, float], q: float) -> float | None:
+def _exact_zonal_loss(zonal: dict, zone_si: dict[str, float], q: float) -> float | None:
     """Specified loss L_r = Q · sqrt(ΣΣ Corr(i,j)·WSI_i·WSI_j), WSI_z = W_z·SI_z (Art. 121-124(5)).
     Returns None if any exposed zone is not in the region's table (so the caller can fall back honestly)."""
     zones, corr = zonal["zones"], zonal["correlation"]
     exposed = sorted(zone_si)
     wsi = {}
     for z in exposed:
-        zk = str(z)
-        if zk not in zones:
+        if z not in zones:
             return None
-        wsi[z] = zones[zk]["w"] * zone_si[z]
-    var = sum(corr[str(i)][str(j)] * wsi[i] * wsi[j] for i in exposed for j in exposed)
+        wsi[z] = zones[z]["w"] * zone_si[z]
+    var = sum(corr[i][j] * wsi[i] * wsi[j] for i in exposed for j in exposed)
     return q * math.sqrt(var) if var > 0 else 0.0
 
 
@@ -118,7 +117,7 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
 
     si_by_region: dict[str, float] = {}
     n_by_region: dict[str, int] = {}
-    zone_si: dict[str, dict[int, float]] = {}   # region -> {cresta_zone -> sum insured}
+    zone_si: dict[str, dict[str, float]] = {}   # region -> {cresta_zone label -> sum insured}
     unzoned_si: dict[str, float] = {}           # region -> sum insured on policies with no cresta_zone
     other_si = 0.0
     motor_included = 0.0
@@ -134,10 +133,10 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
             continue
         si_by_region[reg] = si_by_region.get(reg, 0.0) + si
         n_by_region[reg] = n_by_region.get(reg, 0) + 1
-        try:
-            zn = int(pol.get("cresta_zone"))
-        except (TypeError, ValueError):
-            zn = None
+        raw = pol.get("cresta_zone")
+        zn = str(raw).strip().upper() if raw not in (None, "") else None   # a LABEL: "20", "AB", "07" — never parsed as a number
+        if zn is not None and zn.isdigit():
+            zn = str(int(zn))   # normalise numeric labels ("07" -> "7") to match the table keys
         if zn is not None:
             zone_si.setdefault(reg, {})[zn] = zone_si.setdefault(reg, {}).get(zn, 0.0) + si
         else:
@@ -188,18 +187,38 @@ def standard_formula_peril(policies: list[dict], peril: str) -> dict:
 
 
 def subsidence_scr(policies: list[dict]) -> dict:
-    """Art. 125 — subsidence risk, FRANCE only, single instantaneous scenario: SCR = 0.0005 · SI(France).
-    Approximation: applied to all French property sum insured (the exact cell is residential LoB 7/19 in French
-    subsidence zones with Annex X weights) — disclosed."""
-    si_fr = sum((pol.get("sum_insured_eur") or 0) for pol in policies
-                if str(pol.get("country") or "").strip().upper() in ("FR", "MC", "AD"))
+    """Art. 125 — subsidence risk, FRANCE only, single instantaneous scenario. EXACT zonal when the Annex IX/X/XXVI
+    France table is loaded and every French policy carries a cresta_zone: L = 0.0005 · sqrt(ΣΣ Corr(i,j)·W_i·SI_i·W_j·SI_j);
+    otherwise the country-level approximation 0.0005 · SI(France) (residential LoB 7/19 not separated) — disclosed."""
+    fr = [pol for pol in policies if str(pol.get("country") or "").strip().upper() in ("FR", "MC", "AD")]
+    si_fr = sum((pol.get("sum_insured_eur") or 0) for pol in fr)
     if si_fr <= 0:
         return {"available": False, "peril": "subsidence", "reason": "no French sum insured (subsidence is France-only)"}
+    zonal = _zonal_params("subsidence", "FR")
+    zone_si: dict[str, float] = {}
+    unzoned = 0.0
+    for pol in fr:
+        raw = pol.get("cresta_zone")
+        zn = str(raw).strip().upper() if raw not in (None, "") else None
+        if zn is not None and zn.isdigit():
+            zn = str(int(zn))
+        if zn is None:
+            unzoned += pol.get("sum_insured_eur") or 0
+        else:
+            zone_si[zn] = zone_si.get(zn, 0.0) + (pol.get("sum_insured_eur") or 0)
+    loss, method = None, "country_level"
+    if zonal and zone_si and not unzoned:
+        loss = _exact_zonal_loss(zonal, zone_si, _SUBSIDENCE_FACTOR)
+        if loss is not None:
+            method = "exact_zonal"
+    if loss is None:
+        loss = _SUBSIDENCE_FACTOR * si_fr
     return {"available": True, "peril": "subsidence", "basis": "solvency_ii_standard_formula",
-            "scr_eur": round(_SUBSIDENCE_FACTOR * si_fr), "french_sum_insured_eur": round(si_fr),
-            "gross_factor": _SUBSIDENCE_FACTOR, "citation": "Del. Reg. (EU) 2015/35, Art. 125",
-            "approximation": "0.0005 × all French property sum insured (exact cell: residential LoB 7/19 in French "
-                             "subsidence zones with Annex X/XXVI weights & zone-correlation — not applied)."}
+            "scr_eur": round(loss), "french_sum_insured_eur": round(si_fr), "method": method,
+            "gross_factor": _SUBSIDENCE_FACTOR, "citation": "Del. Reg. (EU) 2015/35, Art. 125 + Annexes IX, X, XXVI",
+            "approximation": ("exact zonal (Annex X weights + Annex XXVI zone-correlation)" if method == "exact_zonal" else
+                              "0.0005 × all French property sum insured — the exact cell is residential LoB 7/19 by "
+                              "subsidence zone; tag policies with cresta_zone for the exact zonal figure")}
 
 
 def natcat_scr(policies: list[dict]) -> dict:
