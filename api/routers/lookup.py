@@ -184,6 +184,18 @@ def lookup_score(
     results: list[HazardLookupResult] = []
 
     for hazard in HAZARD_VALUES:
+        # Synchronous scorers own their cache (lane- and model-version-aware, retiring a superseded model's row);
+        # reading the raw cache first would hand back a retired model's score — seen live with wildfire.
+        sync_scorer = SYNC_ON_DEMAND_SCORERS.get(hazard)
+        if sync_scorer:
+            outcome = sync_scorer(lat, lon)
+            results.append(HazardLookupResult(
+                hazard_type=hazard, status=outcome["status"],
+                risk_score=outcome.get("risk_score"), risk_bucket=outcome.get("risk_bucket"),
+                reason=outcome.get("reason"),
+            ))
+            continue
+
         cached = session.execute(text("""
             SELECT CAST(risk_score AS FLOAT) risk_score, risk_bucket
             FROM canonical_scores
@@ -195,16 +207,6 @@ def lookup_score(
             results.append(HazardLookupResult(
                 hazard_type=hazard, status="cached_hit",
                 risk_score=cached["risk_score"], risk_bucket=cached["risk_bucket"],
-            ))
-            continue
-
-        sync_scorer = SYNC_ON_DEMAND_SCORERS.get(hazard)
-        if sync_scorer:
-            outcome = sync_scorer(lat, lon)
-            results.append(HazardLookupResult(
-                hazard_type=hazard, status=outcome["status"],
-                risk_score=outcome.get("risk_score"), risk_bucket=outcome.get("risk_bucket"),
-                reason=outcome.get("reason"),
             ))
             continue
 

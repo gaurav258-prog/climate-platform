@@ -62,7 +62,7 @@ regulatory export.
 | Seismic | Physics (IPE attenuation) | `ml/scoring/seismic_physics.py` | EMSC WFS, USGS | — |
 | Storm | Physics (wind-decay) | `ml/scoring/storm_physics.py` | ERA5 wind, TC track data | — |
 | Flood | ML (XGBoost ensemble) | `ml/scoring/engine.py` + `ml/features/flood.py` | Sentinel-1 SAR, ERA5 precip, GloFAS | 2021 Ahr Valley |
-| Wildfire | ML | `ml/scoring/engine.py` + `ml/features/wildfire.py` | Sentinel-3 LST, ERA5, NASA FIRMS | 2022 Gironde |
+| Wildfire | Standing hazard climatology (fixed formula: FWI extreme days × burnable land + burn history); day-of ERA5 model kept as nowcast signal only | `ml/scoring/wildfire_climatology.py` | Copernicus CEMS/ECMWF Fire Weather Index 2006-2020 (EWDS), C3S ESA-CCI burned area 2001-2019 | EFFIS scars 2022-2024 held out in time: AUC 0.76, ρ 0.37 (Europe) |
 | Heat | ML | `ml/scoring/engine.py` + `ml/features/heat.py` | ERA5, Sentinel-3 LST | 2003 European heatwave |
 | Drought | ML | `ml/scoring/engine.py` + `ml/features/drought.py` | ERA5 precip, SPEI, GloFAS | — |
 | Pollution | ML (WHO AQG-anchored) | `ml/scoring/pollution_aqi.py` | Copernicus CAMS | — |

@@ -58,3 +58,10 @@ data/reference/geo/
 data/coastal_val/
 data/wildfire_val/
 data/flood_val/
+
+# wildfire climatology per-year caches (rebuilt by scripts/build_*_climatology.py); the two final *_climatology.npz are tracked
+data/wildfire/ba_*.npz
+data/wildfire/fwi_*.npz
+data/wildfire/burnable_fraction.npz
+!data/wildfire/fwi_climatology.npz
+!data/wildfire/burned_area_climatology.npz
