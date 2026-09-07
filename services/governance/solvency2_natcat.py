@@ -89,7 +89,7 @@ def _exact_zonal_loss(zonal: dict, zone_si: dict[int, float], q: float) -> float
         if zk not in zones:
             return None
         wsi[z] = zones[zk]["w"] * zone_si[z]
-    var = sum(corr[i - 1][j - 1] * wsi[i] * wsi[j] for i in exposed for j in exposed)
+    var = sum(corr[str(i)][str(j)] * wsi[i] * wsi[j] for i in exposed for j in exposed)
     return q * math.sqrt(var) if var > 0 else 0.0
 
 
