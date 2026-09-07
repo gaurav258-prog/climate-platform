@@ -42,6 +42,7 @@ dedicated `docs/*_METHODOLOGY.md` files, linked in §11), brand/visual identity 
 |---|---|---|
 | API | `api/` | FastAPI REST service — auth (API keys + JWT), RBAC enforcement, scoring/data endpoints, admin console |
 | Ingestion | `services/ingestion/` | Satellite/reanalysis adapters (NASA FIRMS, Copernicus Sentinel-1/3, ERA5, GloFAS, EMSC) and pipeline orchestration |
+| Supervisor map | `api/routers/supervisor.py` (`/map`, `/sites`), `services/geo/` | Regulator sees exposure of its supervised population as a REGIONAL heat map (NUTS-3 from Eurostat GISCO 2021 inside the EU, H3 res-4 hexagons elsewhere — the unit filings use). Individual sites only for an entity that granted site-level access (`/v1/me/supervisors/{id}/site-access`, org-admin, audited on both sides) |
 | Scoring | `ml/scoring/` | Physics-based (volcanic, seismic, storm) and ML-based (flood, wildfire, heat, drought, pollution) hazard scorers |
 | Features | `ml/features/` | Feature engineering per hazard for the ML scorers |
 | Intelligence | `services/intelligence/` | Vertical-specific logic — agriculture yield risk, supply-chain COGS, insurance pricing/loss curves, benchmarking |

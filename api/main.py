@@ -81,11 +81,13 @@ try:
     from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
     from api.routers import supervisor as supervisor_router
+    from api.routers import supervisory_access as supervisory_access_router
     from api.routers import transmission as transmission_router
     from api.routers import webhooks as webhooks_router
     ADMIN_ROUTERS_AVAILABLE = True
-except ImportError:
+except ImportError as _e:   # never silent: one broken router import must not quietly remove every admin route
     ADMIN_ROUTERS_AVAILABLE = False
+    logging.getLogger(__name__).error("ADMIN ROUTERS DISABLED — import failed: %s", _e, exc_info=True)
 
 # Configure logging
 logging.basicConfig(
@@ -260,6 +262,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
     app.include_router(supervisor_router.router)
+    app.include_router(supervisory_access_router.router)
     app.include_router(onboarding_intake_router.router)
     app.include_router(sso_scim_router.router)
     app.include_router(sso_scim_router.scim_router)

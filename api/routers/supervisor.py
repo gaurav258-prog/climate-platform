@@ -13,7 +13,7 @@ Phase 2/3 (system-wide aggregation, independent EO lens) build on this foundatio
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
@@ -136,3 +136,63 @@ def summary(session: DbSession, ctx: Supervisor):
     s = pop["summary"]
     overdue = sum(1 for e in pop["entities"] for f in e["frameworks"] if f["state"] != "filed")
     return {"regulator": pop["regulator"], **s, "gaps": overdue}
+
+
+# ── Where the supervised exposure sits ────────────────────────────────────────────────────────────────────
+# Two levels, matching what a supervisor is entitled to:
+#   • REGIONAL heat map — always available for the whole population: exposures rolled up to NUTS-3 (the unit of
+#     EBA Pillar 3 Template 5 / ESRS E1-9), H3 res-4 hexagons outside the EU. No site is identifiable.
+#   • INDIVIDUAL SITES — only for an entity that has GRANTED site-level access on its scope row
+#     (supervision_scope.site_access_granted_at, not revoked). Each site read is audited on the entity's log.
+def _site_access(session, reg_org_id: str, target_org_id: str) -> bool:
+    return session.execute(text("""
+        SELECT 1 FROM supervision_scope
+        WHERE regulator_org_id = CAST(:r AS uuid) AND supervised_org_id = CAST(:t AS uuid) AND active
+          AND site_access_granted_at IS NOT NULL AND site_access_revoked_at IS NULL
+    """), {"r": reg_org_id, "t": target_org_id}).first() is not None
+
+
+@router.get("/map", summary="Regional heat map of the supervised population's exposure (NUTS-3 / H3, never sites)")
+def exposure_map(session: DbSession, ctx: Supervisor, entity: Optional[str] = None,
+                 scenario: str = "baseline", horizon: str = "current"):
+    from services.geo.org_assets import org_asset_points
+    from services.geo.regions import aggregate_by_region
+    reg = ctx["org"]["org_id"]
+    ents = _supervised(session, reg)
+    if entity and entity != "all":
+        if not _in_scope(session, reg, entity):
+            raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+        ents = [e for e in ents if e["org_id"] == entity]
+    points: list[dict] = []
+    per_entity = []
+    for e in ents:
+        pts = org_asset_points(session, e["org_id"], scenario, horizon)
+        for p in pts:
+            p["entity"] = e["name"]
+        points += pts
+        per_entity.append({"org_id": e["org_id"], "name": e["name"], "type": e["type"], "n_sites": len(pts),
+                           "value_eur": round(sum(p["value_eur"] for p in pts)),
+                           "site_access": _site_access(session, reg, e["org_id"])})
+    regions = aggregate_by_region(points)
+    return {"scenario": scenario, "horizon": horizon, "level": "NUTS-3 (EU, Eurostat GISCO 2021) · H3 res-4 hexagon elsewhere",
+            "n_sites": len(points), "value_eur": round(sum(p["value_eur"] for p in points)),
+            "n_regions": len(regions), "entities": per_entity, "regions": regions}
+
+
+@router.get("/sites", summary="Individual sites of ONE supervised entity — only where that entity granted site-level access")
+def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str = "baseline", horizon: str = "current"):
+    from services.geo.org_assets import org_asset_points
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, entity):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    if not _site_access(session, reg, entity):
+        raise HTTPException(status_code=403, detail={"error": "site_access_not_granted",
+                            "message": "This entity has not granted site-level access to its supervisor. Regional aggregates remain available."})
+    pts = org_asset_points(session, entity, scenario, horizon)
+    write_audit(session, org_id=entity, actor_user_id=ctx["user"]["id"], action="supervisor.sites.access",
+                target_type="organization", target_id=entity,
+                detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "sites_seen": len(pts),
+                        "scenario": scenario, "horizon": horizon})
+    session.commit()
+    name = session.execute(text("SELECT name FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": entity}).scalar()
+    return {"entity": {"org_id": entity, "name": name}, "scenario": scenario, "horizon": horizon, "n_sites": len(pts), "sites": pts}
