@@ -11,7 +11,8 @@ interface Field { id: string; label: string; required?: boolean; type?: string }
 interface Spec { submission: { framework: string; template: string; label: string; cell_fields: Field[]; basis_fields: Field[] }
   granular: { source: string; label: string; row_fields: Field[]; location_rule: string; precision_label: string } }
 interface Status { entity: string; sector_type: string; intake: Spec
-  shadow_book: { n_rows: number; n_located: number; value_eur: number; coverage_value_pct: number | null }
+  shadow_book: { n_rows: number; n_located: number; value_eur: number; coverage_value_pct: number | null
+    projection: { cells: number; anchors_total: number; anchors_covered_mean: number; cells_complete?: number; complete: boolean } }
   submissions: { framework: string; template: string; period_label: string; n_cells: number; source_file: string | null; created_at: string; basis: Record<string, string> }[] }
 interface Report { kind: string; fields: Field[]; mapping: Record<string, string | null>; columns: string[]; n_total: number; n_valid: number; n_error: number
   errors: { row: number; problems: string[] }[]; missing_required: string[]; ok: boolean }
@@ -29,11 +30,15 @@ export default function SupervisorIntake() {
       <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
       <PageHeader eyebrow="Intake · Tier 2" title="What you hold about this entity"
         lead="The template the entity submitted, and your own granular data. Each file is mapped to the canonical fields your profile declares; rows that cannot be placed are listed, never dropped silently. Your data only — the entity never sees it." />
-      <StatGrid cols={3} items={[
+      <StatGrid cols={4} items={[
         { label: 'Shadow book', value: sb.n_rows.toLocaleString(), sub: sb.n_rows ? `${eur(sb.value_eur)} · ${sb.n_located} located` : 'no granular data yet' },
         { label: 'Value with a location', value: sb.coverage_value_pct != null ? `${sb.coverage_value_pct}%` : '—', sub: d.intake.granular.precision_label },
+        { label: 'Scenario projections', value: sb.projection.cells ? `${sb.projection.cells_complete ?? 0} / ${sb.projection.cells} cells` : '—',
+          accent: sb.projection.complete ? 'var(--color-good)' : sb.projection.cells ? 'var(--color-warn)' : undefined,
+          sub: sb.projection.cells ? `${sb.projection.anchors_covered_mean} of ${sb.projection.anchors_total} anchors on average` : 'build the shadow book first' },
         { label: 'Submissions on file', value: String(d.submissions.filter(s => s.framework !== 'granular').length), sub: d.intake.submission.label },
       ]} />
+      {sb.projection.cells > 0 && !sb.projection.complete && <ProjectButton orgId={orgId} />}
       <IntakeCard orgId={orgId} kind="submission" title={d.intake.submission.label} fields={d.intake.submission.cell_fields} basisFields={d.intake.submission.basis_fields}
         hint="the cells as filed — geography × sector, gross amount, of which sensitive" />
       <IntakeCard orgId={orgId} kind="granular" title={d.intake.granular.label} fields={d.intake.granular.row_fields}
@@ -121,4 +126,25 @@ function IntakeCard({ orgId, kind, title, basisFields, hint }:
       {msg && <div className={`mt-3 text-[12.5px] ${msg.tone === 'ok' ? 'text-[var(--color-good)]' : 'text-[var(--color-bad)]'}`}>{msg.text}</div>}
     </Card>
   )
+}
+
+
+function ProjectButton({ orgId }: { orgId: string }) {
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const run = async () => {
+    setBusy(true); setMsg(null)
+    try {
+      const r = await api.post<{ status: string; n_cells?: number }>(`/v1/supervisor/intake/${orgId}/projections/run`, {})
+      setMsg(`Projections ${r.status} for ${r.n_cells ?? ''} cells — every scenario × horizon anchor, the same two paths a bank's own cells take. Refresh in a minute.`)
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['sup-intake', orgId] }), 30000)
+    } catch (e) { setMsg((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Card className="p-4 flex items-center justify-between gap-3 flex-wrap">
+      <div className="text-[12.5px] text-[var(--color-mute)]">Forward scenarios are not complete for this shadow book, so the lens cannot yet separate a basis effect from scoring.</div>
+      <Button onClick={run} disabled={busy}>{busy ? 'Starting…' : 'Run scenario projections'}</Button>
+      {msg && <div className="w-full text-[12px] text-[var(--color-good)]">{msg}</div>}
+    </Card>)
 }

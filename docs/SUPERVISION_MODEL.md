@@ -69,3 +69,12 @@ Lens (`/v1/supervisor/entity/{id}/lens`): cell by cell, the gap on "sensitive to
 scope · coverage (unlocated, unverifiable) · basis · scoring · unmatched — parts that add up exactly
 (`services/supervision/lens.py`). If the shadow book has no scenario projections yet the basis term is declared
 not separable, never a silent zero. The shadow book is the regulator's data: never visible to the entity.
+
+### Scenario projections for shadow books (2026-09-07)
+
+A shadow book gets its forward anchors (4 scenarios × 4 horizons minus today) by the same two paths a bank's own
+cells take: every fetch-free point scorer is run at each anchor (`services/supervision/projection.py`), and
+flood / storm / wildfire are projected through local CMIP6 deltas (`scripts/project_scenarios.project_cells`,
+now cell-scoped). Scheduled automatically after a granular import (daemon thread); re-runnable from the intake
+screen (`POST /v1/supervisor/intake/{entity}/projections/run`). The intake screen shows anchor coverage per cell;
+the lens declares the basis term "not separable" until the anchors exist, then splits it.

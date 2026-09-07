@@ -47,64 +47,71 @@ def _asset_cells(s) -> list:
     return list(cells)
 
 
-def main():
-    now = datetime.now(timezone.utc)
-    with get_session() as s:
-        cells = _asset_cells(s)
-        base = s.execute(text("""
-            SELECT h3_cell, hazard_type, CAST(risk_score AS FLOAT) AS score,
-                   model_version, data_vintage, COALESCE(h3_resolution, 8) AS res
-            FROM   canonical_scores
-            WHERE  scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
-              AND  COALESCE(score_lane,'standing')='standing'
-              AND  hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
-        """), {"hz": HAZARDS, "cells": cells}).mappings().all()
+def project_cells(s, cells: list, now=None) -> dict:
+    """Project flood/storm/wildfire for THESE cells only (retire their prior projections, insert fresh). Used by the
+    global batch below and, cell-scoped, by a supervisor's shadow book right after it is built."""
+    now = now or datetime.now(timezone.utc)
+    if not cells:
+        return {"rows": 0, "base": 0, "cells": 0, "banded": 0}
+    base = s.execute(text("""
+        SELECT h3_cell, hazard_type, CAST(risk_score AS FLOAT) AS score,
+               model_version, data_vintage, COALESCE(h3_resolution, 8) AS res
+        FROM   canonical_scores
+        WHERE  scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
+          AND  COALESCE(score_lane,'standing')='standing'
+          AND  hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
+    """), {"hz": HAZARDS, "cells": list(cells)}).mappings().all()
 
-        # retire previous projections (everything that isn't the real baseline/current) for these hazards
+    # retire previous projections (everything that isn't the real baseline/current) for these cells + hazards
+    s.execute(text("""
+        UPDATE canonical_scores SET valid_to = :now
+        WHERE  valid_to IS NULL AND hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
+          AND  COALESCE(score_lane,'standing')='standing'
+          AND  NOT (scenario='baseline' AND time_horizon='current')
+    """), {"now": now, "hz": HAZARDS, "cells": list(cells)})
+
+    rows, banded = [], 0
+    for b in base:
+        lat, lon = h3.cell_to_latlng(b["h3_cell"])
+        for scen in SCENARIOS:
+            for horz in HORIZONS:
+                if scen == "baseline" and horz == "current":
+                    continue  # the real scored value — never overwrite
+                # baseline (no SSP) and 'current' (0 warming) are held at today's hazard, no band
+                delta = cmip6_delta_latlon(lat, lon, scen, horz)
+                score, lo, hi = project(b["score"], b["hazard_type"], delta)
+                if lo is not None:
+                    banded += 1
+                # stamp HOW this forward value was produced (base row carries only the hazard's mv)
+                shap = json.dumps({"projection": PROJECTION_VERSION, "base_score": b["score"],
+                                   "cmip6_covered": delta is not None,
+                                   "method": "local CMIP6 warming/precip × cited per-hazard elasticity"
+                                   if delta is not None else "held flat (no CMIP6 SSP mapping)"})
+                rows.append({
+                    "id": str(uuid.uuid4()), "h3": b["h3_cell"], "res": b["res"],
+                    "hz": b["hazard_type"], "scen": scen, "horz": horz,
+                    "score": round(score, 2), "bucket": score_to_bucket(score).value,
+                    "lo": lo, "hi": hi, "mv": b["model_version"], "dv": b["data_vintage"],
+                    "shap": shap, "now": now,
+                })
+
+    for i in range(0, len(rows), 2000):
         s.execute(text("""
-            UPDATE canonical_scores SET valid_to = :now
-            WHERE  valid_to IS NULL AND hazard_type = ANY(:hz)
-              AND  COALESCE(score_lane,'standing')='standing'
-              AND  NOT (scenario='baseline' AND time_horizon='current')
-        """), {"now": now, "hz": HAZARDS})
+            INSERT INTO canonical_scores
+                (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
+                 risk_score, risk_bucket, score_ci_lower, score_ci_upper,
+                 model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to, score_lane)
+            VALUES
+                (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:dv,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
+        """), rows[i:i + 2000])
+    return {"rows": len(rows), "base": len(base), "cells": len(cells), "banded": banded}
 
-        rows, banded = [], 0
-        for b in base:
-            lat, lon = h3.cell_to_latlng(b["h3_cell"])
-            for scen in SCENARIOS:
-                for horz in HORIZONS:
-                    if scen == "baseline" and horz == "current":
-                        continue  # the real scored value — never overwrite
-                    # baseline (no SSP) and 'current' (0 warming) are held at today's hazard, no band
-                    delta = cmip6_delta_latlon(lat, lon, scen, horz)
-                    score, lo, hi = project(b["score"], b["hazard_type"], delta)
-                    if lo is not None:
-                        banded += 1
-                    # stamp HOW this forward value was produced (base row carries only the hazard's mv)
-                    shap = json.dumps({"projection": PROJECTION_VERSION, "base_score": b["score"],
-                                       "cmip6_covered": delta is not None,
-                                       "method": "local CMIP6 warming/precip × cited per-hazard elasticity"
-                                       if delta is not None else "held flat (no CMIP6 SSP mapping)"})
-                    rows.append({
-                        "id": str(uuid.uuid4()), "h3": b["h3_cell"], "res": b["res"],
-                        "hz": b["hazard_type"], "scen": scen, "horz": horz,
-                        "score": round(score, 2), "bucket": score_to_bucket(score).value,
-                        "lo": lo, "hi": hi, "mv": b["model_version"], "dv": b["data_vintage"],
-                        "shap": shap, "now": now,
-                    })
 
-        for i in range(0, len(rows), 2000):
-            s.execute(text("""
-                INSERT INTO canonical_scores
-                    (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, score_ci_lower, score_ci_upper,
-                     model_version, data_vintage, shap_factors, scored_at, valid_from, valid_to, score_lane)
-                VALUES
-                    (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:dv,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
-            """), rows[i:i + 2000])
-
-    print(f"projected {len(rows)} rows over {len(base)} (cell×hazard) from {len(cells)} exposure cells; "
-          f"{banded} carry a CMIP6 model-disagreement band")
+def main():
+    with get_session() as s:
+        r = project_cells(s, _asset_cells(s))
+    print(f"projected {r['rows']} rows over {r['base']} (cell×hazard) from {r['cells']} exposure cells; "
+          f"{r['banded']} carry a CMIP6 model-disagreement band")
 
 
 if __name__ == "__main__":

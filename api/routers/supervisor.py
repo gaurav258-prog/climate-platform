@@ -436,3 +436,28 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
                 target_id=org_id, detail={"regulator_org_id": reg, "period_label": sub["period_label"], "n_flagged": out["n_flagged"]})
     session.commit()
     return out
+
+
+@router.post("/intake/{org_id}/projections/run", summary="(Re)run scenario × horizon projections for this entity's shadow book")
+def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool = False):
+    from services.supervision.projection import (
+        project_cells_now,
+        projection_coverage,
+        schedule_projection,
+        shadow_cells,
+    )
+    _need(ctx, "supervisor.intake.manage")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    cells = shadow_cells(session, reg, org_id)
+    if not cells:
+        raise HTTPException(status_code=422, detail={"error": "no_shadow_book", "message": "Build the shadow book first."})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.intake.project", target_type="organization",
+                target_id=org_id, detail={"n_cells": len(cells), "wait": wait})
+    session.commit()
+    if wait:
+        res = project_cells_now(cells)
+        return {"status": "done", **res, "coverage": projection_coverage(session, cells)}
+    schedule_projection(cells)
+    return {"status": "scheduled", "n_cells": len(cells), "coverage": projection_coverage(session, cells)}
