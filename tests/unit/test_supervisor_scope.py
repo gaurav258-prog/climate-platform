@@ -16,8 +16,14 @@ def _ctx(org_type: str) -> dict:
 
 
 def test_regulator_passes_the_gate():
-    ctx = _ctx("regulator")
+    ctx = _ctx("regulator"); ctx["permissions"] = ["supervisor.population.view"]
     assert require_supervisor(ctx) is ctx
+
+
+def test_regulator_without_supervisory_permission_is_forbidden():
+    with pytest.raises(HTTPException) as e:
+        require_supervisor(_ctx("regulator"))      # right org type, no supervisory role
+    assert e.value.status_code == 403 and "supervisor.population.view" in str(e.value.detail)
 
 
 @pytest.mark.parametrize("t", ["bank", "insurer", "asset_manager", "reit", "manufacturer", "", None])

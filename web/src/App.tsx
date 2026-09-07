@@ -15,6 +15,7 @@ const Csrd = lazy(() => import('./pages/Csrd'))
 const EsrsPack = lazy(() => import('./pages/EsrsPack'))
 const Approvals = lazy(() => import('./pages/Approvals'))
 const Supervised = lazy(() => import('./pages/Supervised'))
+const EntityFile = lazy(() => import('./pages/EntityFile'))
 const Audit = lazy(() => import('./pages/Audit'))
 const Admin = lazy(() => import('./pages/Admin'))
 const Contracts = lazy(() => import('./pages/Contracts'))
@@ -115,6 +116,7 @@ function Workspace() {
         <Route path="/filings" element={<Filings />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/supervised" element={<Supervised />} />
+        <Route path="/supervised/:orgId" element={<EntityFile />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/contracts" element={<Contracts />} />

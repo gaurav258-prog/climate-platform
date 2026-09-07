@@ -12,7 +12,7 @@ from __future__ import annotations
 from sqlalchemy import text
 
 from core.db.session import get_session
-from services.governance.tenant_provisioning import DEFAULT_ROLE_PERMS
+from services.governance.tenant_provisioning import role_templates_for
 
 # Catalog descriptions for codes the matrix may reference that aren't guaranteed present yet.
 CATALOG = {
@@ -29,12 +29,19 @@ def main() -> None:
             s.execute(text("INSERT INTO permissions (code, description) VALUES (:c, :d) "
                            "ON CONFLICT (code) DO NOTHING"), {"c": code, "d": desc})
 
-        # 2) grant each system role its full matrix (additive)
-        granted = 0
-        for role_name, perms in DEFAULT_ROLE_PERMS.items():
-            role_ids = [r[0] for r in s.execute(
-                text("SELECT role_id FROM roles WHERE name = :n"), {"n": role_name}).all()]
-            for rid in role_ids:
+        # 2) per tenant, by ORG TYPE: create any template role that is missing, then grant its matrix (additive).
+        #    Supervisory bodies take their templates from the supervision-profile registry; others DEFAULT_ROLE_PERMS.
+        granted = created = 0
+        orgs = s.execute(text("SELECT org_id::text AS org_id, type FROM organizations WHERE type <> 'platform'")).mappings().all()
+        for o in orgs:
+            for role_name, perms in role_templates_for(o["type"]).items():
+                rid = s.execute(text("SELECT role_id FROM roles WHERE org_id = CAST(:o AS uuid) AND name = :n"),
+                                {"o": o["org_id"], "n": role_name}).scalar()
+                if rid is None:
+                    rid = s.execute(text("""INSERT INTO roles (org_id, name, description, is_system)
+                                            VALUES (CAST(:o AS uuid), :n, :d, true) RETURNING role_id"""),
+                                    {"o": o["org_id"], "n": role_name, "d": f"{role_name} role"}).scalar()
+                    created += 1
                 for code in perms:
                     res = s.execute(text("""
                         INSERT INTO role_permissions (role_id, permission_id)
@@ -43,9 +50,7 @@ def main() -> None:
                     """), {"r": rid, "c": code})
                     granted += res.rowcount or 0
         s.commit()
-        n_roles = s.execute(text("SELECT count(*) FROM roles WHERE name = ANY(:names)"),
-                            {"names": list(DEFAULT_ROLE_PERMS.keys())}).scalar()
-        print(f"reconciled {n_roles} system role(s) across all tenants — {granted} new grant(s) added")
+        print(f"reconciled {len(orgs)} tenant(s) — {created} role(s) created, {granted} new grant(s) added")
 
 
 if __name__ == "__main__":

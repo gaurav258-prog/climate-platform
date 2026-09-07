@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from api.security import hash_password
 from core.db.session import get_session
+from services.governance.tenant_provisioning import role_templates_for
 
 MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
@@ -44,6 +45,14 @@ ENTITLEMENTS = {
     STELLAR:  ["portfolio-risk", "trust"],
     NORDKAP:  ["portfolio-var", "trust", "securities"],
     SUPERVISOR: ["supervision", "trust"],
+}
+
+# Supervisory bodies: roles come from the supervision-profile registry (configuration), and the demo users carry
+# the supervisory roles a real authority would give them — admin as the all-round demo persona.
+EXTRA_USER_ROLES = {
+    "admin@supervisor.demo":    ["supervisor", "risk_analyst", "inspector", "head"],
+    "analyst@supervisor.demo":  ["risk_analyst"],
+    "approver@supervisor.demo": ["supervisor"],
 }
 
 # role name -> permission codes
@@ -110,7 +119,9 @@ def main():
 
         # 3) roles + permission matrix (per org)
         for org_id, *_ in ORGS:
-            for role_name, perms in ROLE_PERMS.items():
+            org_type = next(o[2] for o in ORGS if o[0] == org_id)
+            templates = role_templates_for(org_type) if org_type == 'regulator' else ROLE_PERMS
+            for role_name, perms in templates.items():
                 s.execute(text("""
                     INSERT INTO roles (org_id, name, description, is_system)
                     VALUES (:o, :n, :d, true)
@@ -150,6 +161,11 @@ def main():
                 INSERT INTO user_roles (user_id, role_id) VALUES (:u, :r)
                 ON CONFLICT DO NOTHING
             """), {"u": user_id, "r": role_id})
+            for extra in EXTRA_USER_ROLES.get(email, []):
+                s.execute(text("""
+                    INSERT INTO user_roles (user_id, role_id)
+                    SELECT :u, role_id FROM roles WHERE org_id = :o AND name = :n ON CONFLICT DO NOTHING
+                """), {"u": user_id, "o": org_id, "n": extra})
 
         # 5) supervision scope: the EU Climate Supervisor oversees the four financial tenants
         for supervised, juris in [(MERIDIAN, "EU/SSM"), (IBERIA, "EU/EIOPA"),

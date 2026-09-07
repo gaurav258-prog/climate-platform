@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisionProfile /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1121,6 +1121,71 @@ function SupervisoryAccess() {
           </div>
         ))}
       </div>
+    </Card>
+  )
+}
+
+
+// ── Supervision profile — the regulator's customer class and its expectations (configuration, not code) ────
+interface ProfResp { config: { profile_id: string; label: string; default_scenario: string; default_horizon: string
+  sectors: Record<string, { label: string; metrics: { id: string; label: string; unit: string; watch_above?: number; act_above?: number; watch_below?: number }[] }> }
+  overrides: { profile?: string; thresholds?: Record<string, Record<string, Record<string, number>>> }
+  available_profiles: Record<string, string> }
+function SupervisionProfile() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const isReg = profile?.org?.type === 'regulator'
+  const q = useQuery({ queryKey: ['supervision-profile'], enabled: isReg, queryFn: () => api.get<ProfResp>('/v1/supervisor/profile') })
+  const [busy, setBusy] = useState(false)
+  if (!isReg || !q.data) return null
+  const d = q.data
+  const save = async (body: Record<string, unknown>) => {
+    setBusy(true)
+    try { await api.put('/v1/supervisor/profile', body); await qc.invalidateQueries({ queryKey: ['supervision-profile'] }); await qc.invalidateQueries({ queryKey: ['supervisor-benchmark'] }) }
+    finally { setBusy(false) }
+  }
+  const setThreshold = (sector: string, metric: string, key: string, raw: string) => {
+    const t = JSON.parse(JSON.stringify(d.overrides.thresholds ?? {}))
+    t[sector] = t[sector] ?? {}; t[sector][metric] = t[sector][metric] ?? {}
+    if (raw === '') delete t[sector][metric][key]; else t[sector][metric][key] = Number(raw)
+    return save({ thresholds: t })
+  }
+  return (
+    <Card className="p-5">
+      <SectionHead hint="your customer class · sectors, frameworks and expectations follow from it">Supervision profile</SectionHead>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <label className="text-[12px] text-[var(--color-mute)]">Profile
+          <select value={d.config.profile_id} disabled={busy} onChange={e => save({ profile: e.target.value })}
+            className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
+            {Object.entries(d.available_profiles).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select></label>
+        <label className="text-[12px] text-[var(--color-mute)]">Default scenario
+          <select value={d.config.default_scenario} disabled={busy} onChange={e => save({ default_scenario: e.target.value })}
+            className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
+            {['baseline', 'orderly_2c', 'disorderly_2c', 'hot_house_3_5c'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select></label>
+        <label className="text-[12px] text-[var(--color-mute)]">Default horizon
+          <select value={d.config.default_horizon} disabled={busy} onChange={e => save({ default_horizon: e.target.value })}
+            className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
+            {['current', '2030', '2050', '2100'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select></label>
+      </div>
+      {Object.entries(d.config.sectors).map(([sec, s]) => (
+        <div key={sec} className="mb-3">
+          <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1">{s.label} · supervisory expectations (leave blank for the profile default)</div>
+          <div className="divide-y divide-[var(--color-line)]">
+            {s.metrics.filter(m => m.watch_above != null || m.watch_below != null || m.act_above != null).map(m => (
+              <div key={m.id} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]">
+                <span className="text-[var(--color-ink)]">{m.label}</span>
+                <span className="flex items-center gap-2 mono text-[11px] text-[var(--color-mute)]">
+                  {m.watch_above != null && <label>watch &gt; <input className="w-16 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-1.5 py-0.5 text-right" defaultValue={m.watch_above} disabled={busy} onBlur={e => Number(e.target.value) !== m.watch_above && setThreshold(sec, m.id, 'watch_above', e.target.value)} /></label>}
+                  {m.act_above != null && <label>act &gt; <input className="w-16 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-1.5 py-0.5 text-right" defaultValue={m.act_above} disabled={busy} onBlur={e => Number(e.target.value) !== m.act_above && setThreshold(sec, m.id, 'act_above', e.target.value)} /></label>}
+                  {m.watch_below != null && <label>watch &lt; <input className="w-16 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-1.5 py-0.5 text-right" defaultValue={m.watch_below} disabled={busy} onBlur={e => Number(e.target.value) !== m.watch_below && setThreshold(sec, m.id, 'watch_below', e.target.value)} /></label>}
+                  <span className="text-[var(--color-faint)]">{m.unit === 'pct' ? '%' : '€'}</span>
+                </span>
+              </div>))}
+          </div>
+        </div>))}
     </Card>
   )
 }

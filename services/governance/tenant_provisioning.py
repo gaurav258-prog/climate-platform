@@ -42,7 +42,7 @@ DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
     "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use", "oversight.view"],
 }
 
-VALID_ORG_TYPES = {"bank", "insurer", "asset_manager", "reit", "manufacturer"}
+VALID_ORG_TYPES = {"bank", "insurer", "asset_manager", "reit", "manufacturer", "regulator"}
 
 # Sensible default entitlements per sector (the offerings a tenant of this type gets out of the box). Callers
 # may override with an explicit list. Every tenant gets 'trust' (the reporting/governance trust layer).
@@ -52,7 +52,18 @@ DEFAULT_ENTITLEMENTS: dict[str, list[str]] = {
     "asset_manager": ["portfolio-var", "securities", "trust"],
     "reit":          ["portfolio-risk", "trust"],
     "manufacturer":  ["supply-chain", "reporting", "trust"],
+    "regulator":     ["supervision", "trust"],
 }
+
+
+def role_templates_for(org_type: str) -> dict[str, list[str]]:
+    """Role → permission matrix for a tenant of this type. Supervisory bodies take their templates from the
+    supervision-profile registry (data/reference/supervision_profiles.json — configuration, not code); every
+    other tenant type uses DEFAULT_ROLE_PERMS."""
+    if org_type == "regulator":
+        from services.supervision.profiles import role_templates
+        return {name: list(r["permissions"]) for name, r in role_templates().items()}
+    return DEFAULT_ROLE_PERMS
 
 
 class TenantError(ValueError):
@@ -100,7 +111,7 @@ def create_tenant(session: Session, *, actor_user_id: str | None, name: str, org
         """), {"o": org_id, "off": off})
 
     # 3) roles + permission matrix (per tenant)
-    for role_name, perms in DEFAULT_ROLE_PERMS.items():
+    for role_name, perms in role_templates_for(org_type).items():
         rid = session.execute(text("""
             INSERT INTO roles (org_id, name, description, is_system) VALUES (CAST(:o AS uuid), :n, :d, true)
             RETURNING role_id
