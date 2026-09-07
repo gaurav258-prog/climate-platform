@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner, StatGrid, type StatItem } from '../components/ui'
 import RealizedExposure from '../components/RealizedExposure'
 import AssetDrawer from '../components/AssetDrawer'
+import SiteMap from '../components/SiteMap'
 import HorizonSelect, { DEFAULT_HORIZON } from '../components/HorizonSelect'
 import ExpectedLossCard from '../components/ExpectedLossCard'
 import ReportedHistoryRef from '../components/ReportedHistoryRef'
@@ -337,7 +338,9 @@ export default function Portfolio() {
             {shown.length === 0
               ? <div className="p-8 text-center text-[13px] text-[var(--color-faint)]">No {cfg.noun} match — adjust your search or filters.</div>
               : (
-          <div className="divide-y divide-[var(--color-line)]">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,40%)]">
+          {/* the book — compact rows; the map beside it shows exactly these sites */}
+          <div className="divide-y divide-[var(--color-line)] min-w-0">
             {shown.map((a) => {
               const id = String(a[cfg.idKey] ?? '')
               const name = String(a[cfg.nameKey] ?? '—')
@@ -349,16 +352,16 @@ export default function Portfolio() {
               const isOpen = open === id
               return (
                 <div key={id}>
-                  <button onClick={() => setOpen(isOpen ? null : id)} className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-[var(--color-bg-2)] transition">
-                    <ChevronRight size={15} className={`shrink-0 text-[var(--color-faint)] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[14px] text-[var(--color-ink)] truncate">{name}</div>
-                      <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[a.region, atype?.replace(/_/g, ' ')].filter(Boolean).join(' · ') || '—'}</div>
+                  <button onClick={() => setOpen(isOpen ? null : id)} className={`w-full text-left px-4 py-1.5 flex items-center gap-3 hover:bg-[var(--color-bg-2)] transition ${isOpen ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                    <ChevronRight size={13} className={`shrink-0 text-[var(--color-faint)] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    <div className="min-w-0 flex-1 flex items-baseline gap-2">
+                      <div className="text-[13px] text-[var(--color-ink)] truncate">{name}</div>
+                      <div className="mono text-[10.5px] text-[var(--color-faint)] truncate">{[a.region, atype?.replace(/_/g, ' ')].filter(Boolean).join(' · ') || '—'}</div>
                     </div>
-                    <div className="mono text-[13px] text-[var(--color-mute)] tabular-nums shrink-0 w-24 text-right">{eur(value)}</div>
-                    <div className="shrink-0 w-36 flex justify-end">
-                      {sc == null ? <span className="mono text-[12px] text-[var(--color-faint)]">—</span>
-                        : <span className="inline-flex items-center gap-1.5 mono text-[12px] whitespace-nowrap" style={{ color: `rgb(${rr},${gg},${bb})` }}>
+                    <div className="mono text-[12px] text-[var(--color-mute)] tabular-nums shrink-0 w-20 text-right">{eur(value)}</div>
+                    <div className="shrink-0 w-32 flex justify-end">
+                      {sc == null ? <span className="mono text-[11.5px] text-[var(--color-faint)]">—</span>
+                        : <span className="inline-flex items-center gap-1.5 mono text-[11.5px] whitespace-nowrap" style={{ color: `rgb(${rr},${gg},${bb})` }}>
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: `rgb(${rr},${gg},${bb})` }} />
                             {Math.round(sc)}/100{bk ? ` · ${bk}` : ''}
                           </span>}
@@ -406,6 +409,19 @@ export default function Portfolio() {
                 </div>
               )
             })}
+          </div>
+          <div className="hidden lg:block p-3 border-l border-[var(--color-line)]">
+            <div className="sticky top-3 h-[520px]">
+              <SiteMap color={col} selectedId={open}
+                onSelect={(id) => setOpen(prev => (prev === id ? null : id))}
+                points={shown.map(a => ({
+                  id: String(a[cfg.idKey] ?? ''), name: String(a[cfg.nameKey] ?? '—'),
+                  lat: a.lat as number, lon: a.lon as number, score: a.headline_score ?? null,
+                  sub: [a.region, a[cfg.typeKey] ? String(a[cfg.typeKey]).replace(/_/g, ' ') : null].filter(Boolean).join(' · ') || undefined,
+                  value: eur(a[cfg.valueKey] as number | null),
+                }))} />
+            </div>
+          </div>
           </div>
               )}
           </>
