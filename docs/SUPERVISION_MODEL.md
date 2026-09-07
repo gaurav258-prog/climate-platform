@@ -54,3 +54,18 @@ model serves insurance, securities, real-estate and agri-food authorities by **c
 3. Requests & findings workflow (regulator → entity, tracked to closure, both sides audited).
 4. Supervisor-side intake validation and data-quality feedback.
 5. Head dashboard falls out of 1 + 2.
+
+## The independent lens — three precision tiers (built 2026-09-07: Tier 2)
+
+| Tier | What the supervisor holds | What Tellumen computes | Precision stamped on every figure |
+|---|---|---|---|
+| 1 | the submitted template only | a plausibility band per cell from the regional hazard layers | regional band — a flag is a question |
+| 2 | + its own granular data (AnaCredit-style: collateral NUTS-3 / postcode) | a SHADOW BOOK (`portfolio_entities`, `source='supervisor_shadow'`, `subject_org_id`) located by `services/geo/region_points` and run through the SAME portfolio engine; the template rebuilt bottom-up | region-resolved (NUTS-3); unlocated exposure shown as unverifiable |
+| 3 | the entity on Tellumen, with consent | exact | point-resolved |
+
+Intake (`/v1/supervisor/intake/{entity}/{submission|granular}` + `/validate`): column mapping to the canonical
+fields the profile declares (`sectors.<type>.intake`), validate-before-save, provenance (file, sha256, who, when).
+Lens (`/v1/supervisor/entity/{id}/lens`): cell by cell, the gap on "sensitive to physical risk" split into
+scope · coverage (unlocated, unverifiable) · basis · scoring · unmatched — parts that add up exactly
+(`services/supervision/lens.py`). If the shadow book has no scenario projections yet the basis term is declared
+not separable, never a silent zero. The shadow book is the regulator's data: never visible to the entity.

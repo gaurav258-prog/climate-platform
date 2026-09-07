@@ -50,7 +50,7 @@ ENTITLEMENTS = {
 # Supervisory bodies: roles come from the supervision-profile registry (configuration), and the demo users carry
 # the supervisory roles a real authority would give them — admin as the all-round demo persona.
 EXTRA_USER_ROLES = {
-    "admin@supervisor.demo":    ["supervisor", "risk_analyst", "inspector", "head"],
+    "admin@supervisor.demo":    ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
     "analyst@supervisor.demo":  ["risk_analyst"],
     "approver@supervisor.demo": ["supervisor"],
 }

@@ -60,6 +60,8 @@ def fetch_entities_with_risk(
     valuation_kwargs: Optional[Callable] = None,
     entity_ids: Optional[list] = None,
     value_weights: Optional[dict] = None,
+    source: str = "own",
+    subject_org_id: Optional[str] = None,
 ) -> list:
     """All of an org's entities for one vertical (metadata + extension fields)
     + their per-hazard projected risk + shared valuation block. exclude_headline_hazards
@@ -73,20 +75,26 @@ def fetch_entities_with_risk(
     # entity_ids scopes the book to a set of reporting entities (a legal entity, or a group's whole subtree)
     # for per-entity / consolidated reporting; None = the whole org (the implicit top scope).
     scope = "AND e.reporting_entity_id = ANY(:eids)" if entity_ids else ""
-    params = {"o": org_id, "v": vertical}
+    params = {"o": org_id, "v": vertical, "src": source}
     if entity_ids:
         params["eids"] = list(entity_ids)
+    # source='own' (default) = the org's own book; 'supervisor_shadow' = a regulator's rebuild of a supervised
+    # entity's book from granular supervisory data, scoped to that subject — never mixed with anyone's own rows.
+    subject = ""
+    if subject_org_id:
+        params["subj"] = subject_org_id
+        subject = "AND e.subject_org_id = CAST(:subj AS uuid)"
     entities = session.execute(text(f"""
         SELECT e.entity_id::text AS entity_id, e.entity_name, e.entity_type, e.sector, e.nace_code,
                CAST(e.latitude AS FLOAT) AS lat, CAST(e.longitude AS FLOAT) AS lon, e.h3_cell,
                e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
                e.construction_type, e.year_built, e.number_of_stories,
                e.borrower_entity_id, e.minimum_safeguards_status,
-               e.reporting_entity_id::text AS reporting_entity_id
+               e.reporting_entity_id::text AS reporting_entity_id, e.location_precision
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
-        WHERE e.org_id = :o AND e.vertical = :v {scope}
+        WHERE e.org_id = :o AND e.vertical = :v AND e.source = :src {subject} {scope}
         ORDER BY e.primary_value_eur DESC
     """), params).mappings().all()
 

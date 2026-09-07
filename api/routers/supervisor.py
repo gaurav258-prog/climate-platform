@@ -319,3 +319,120 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
             "peer_position": entity_position(bench, org_id), "peers_in_sector": bench["sectors"].get(org["type"], {}).get("n_entities"),
             "site_access": _site_access(session, reg, org_id),
             "my_recent_accesses": [{"action": a["action"], "at": a["created_at"].isoformat(), "detail": a["detail"]} for a in accesses]}
+
+
+# ── Tier-2 intake + the independent lens ────────────────────────────────────────────────────────────────
+# The supervisor ingests (1) the entity's SUBMITTED template and (2) its own GRANULAR data (AnaCredit-style),
+# mapped to the canonical fields the profile declares for that sector; the granular rows become a SHADOW BOOK on
+# the regulator's org and the SAME engine rebuilds the template. The lens compares, cell by cell, and splits the
+# gap into scope / basis / scoring / unmatched. Region-resolved precision is stamped on every result.
+from fastapi import File, Form, UploadFile  # noqa: E402
+
+
+def _intake_spec(session, reg: str, subject_org_id: str) -> dict:
+    from services.supervision.profiles import sector_config
+    cfg = _config(session, reg)
+    t = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": subject_org_id}).scalar()
+    sec = sector_config(cfg, t)
+    if not sec or not sec.get("intake"):
+        raise HTTPException(status_code=422, detail={"error": "no_intake_spec", "message": f"No Tier-2 intake is configured for sector {t!r} in profile {cfg['profile_id']!r}."})
+    return {"config": cfg, "sector_type": t, "intake": sec["intake"]}
+
+
+@router.get("/intake/{org_id}", summary="Intake status for one supervised entity: spec, shadow book, submissions")
+def intake_status(org_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.intake import shadow_status
+    _need(ctx, "supervisor.intake.manage")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    spec = _intake_spec(session, reg, org_id)
+    return {"entity": org_id, "sector_type": spec["sector_type"], "intake": spec["intake"], **shadow_status(session, reg, org_id)}
+
+
+@router.post("/intake/{org_id}/{kind}/validate", summary="Dry run: parse + suggest/apply a column mapping, report row problems — saves nothing")
+async def intake_validate(org_id: str, kind: str, session: DbSession, ctx: Supervisor, file: UploadFile = File(...),
+                          mapping: Optional[str] = Form(None)):
+    from services.ingest.upload_validation import parse_table
+    from services.supervision.intake import map_rows, suggest_mapping
+    _need(ctx, "supervisor.intake.manage")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    if kind not in ("submission", "granular"):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "kind must be 'submission' or 'granular'"})
+    spec = _intake_spec(session, reg, org_id)["intake"][kind]
+    fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
+    raw = await file.read()
+    try:
+        cols = [str(c) for c in parse_table(raw, file.filename).columns]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"error": "unreadable", "message": str(e)})
+    m = json.loads(mapping) if mapping else suggest_mapping(cols, fields)
+    rep = map_rows(raw, file.filename, fields, m)
+    rep.pop("rows", None)
+    return {"kind": kind, "fields": fields, "mapping": m, **rep}
+
+
+@router.post("/intake/{org_id}/{kind}", summary="Import: save the submitted template cells, or build the shadow book from granular rows")
+async def intake_import(org_id: str, kind: str, session: DbSession, ctx: Supervisor, file: UploadFile = File(...),
+                        mapping: str = Form(...), period_label: str = Form(...), basis: Optional[str] = Form(None)):
+    from services.supervision.intake import (
+        build_shadow_book,
+        cells_from_rows,
+        map_rows,
+        save_submission,
+    )
+    _need(ctx, "supervisor.intake.manage")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    if kind not in ("submission", "granular"):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "kind must be 'submission' or 'granular'"})
+    spec = _intake_spec(session, reg, org_id)["intake"][kind]
+    fields = spec["cell_fields"] if kind == "submission" else spec["row_fields"]
+    raw = await file.read(); m = json.loads(mapping)
+    rep = map_rows(raw, file.filename, fields, m)
+    if not rep["ok"]:
+        raise HTTPException(status_code=422, detail={"error": "invalid_file", "message": "Fix the mapping / rows first.", "missing_required": rep["missing_required"], "n_error": rep["n_error"]})
+    if kind == "submission":
+        cells = cells_from_rows(rep["rows"])
+        res = save_submission(session, regulator_org_id=reg, subject_org_id=org_id, framework=spec["framework"], template=spec["template"],
+                              period_label=period_label, basis=json.loads(basis) if basis else {}, cells=cells, raw=raw,
+                              filename=file.filename, mapping=m, user_id=ctx["user"]["id"])
+        action = "supervisor.intake.submission"
+    else:
+        res = build_shadow_book(session, regulator_org_id=reg, subject_org_id=org_id, period_label=period_label, rows=rep["rows"],
+                                raw=raw, filename=file.filename, mapping=m, user_id=ctx["user"]["id"])
+        action = "supervisor.intake.granular"
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action=action, target_type="organization", target_id=org_id,
+                detail={"period_label": period_label, "file": file.filename, "n_valid": rep["n_valid"], "n_error": rep["n_error"]})
+    session.commit()
+    return {"kind": kind, "period_label": period_label, "n_valid": rep["n_valid"], "n_error": rep["n_error"], "result": res}
+
+
+@router.get("/entity/{org_id}/lens", summary="The independent lens: submitted template vs the same template rebuilt from the shadow book")
+def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: Optional[str] = None,
+                scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from services.supervision.intake import load_submission
+    from services.supervision.lens_build import build_lens
+    _need(ctx, "supervisor.entity.file")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, reg, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    spec = _intake_spec(session, reg, org_id)
+    sub_spec = spec["intake"]["submission"]
+    sub = load_submission(session, reg, org_id, sub_spec["framework"], sub_spec["template"], period_label)
+    if not sub:
+        return {"status": "no_submission", "message": "No submitted template ingested for this entity yet — use Intake.", "tier": None}
+    cfg = spec["config"]
+    out = build_lens(session, reg, org_id, sub, scenario or cfg["default_scenario"], horizon or cfg["default_horizon"],
+                     spec["intake"]["granular"]["precision_label"])
+    if out["shadow_book"]["n_rows"] == 0:
+        out["status"] = "no_shadow_book"; out["message"] = "No granular data ingested yet — the rebuild is empty, so every cell is unmatched."
+    else:
+        out["status"] = "ok"
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.lens.access", target_type="organization",
+                target_id=org_id, detail={"regulator_org_id": reg, "period_label": sub["period_label"], "n_flagged": out["n_flagged"]})
+    session.commit()
+    return out
