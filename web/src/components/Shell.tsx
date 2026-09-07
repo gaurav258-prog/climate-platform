@@ -14,7 +14,7 @@ const FIN = ['bank', 'insurer', 'asset_manager', 'reit']
 const REG = ['regulator']
 const SECTOR_TAG: Record<string, string> = { manufacturer: 'AGRI', bank: 'BANK', insurer: 'INSURER', asset_manager: 'ASSET MGMT', reit: 'REIT' }
 
-type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[]; sectors?: string[] }
+type Item = { to: string; label: string; icon: typeof Home; end?: boolean; perm?: string; anyPerm?: string[]; sectors?: string[]; planned?: string }
 // The sidebar reads as the operational loop the platform runs: Sense → Assess → Decide → Disclose →
 // Operate, then Set up. `flow` groups are the numbered stages; each carries one identifying stage hue
 // (`color`, a CSS var) used on its header dot/label and on the active item's accent — so any page
@@ -26,13 +26,31 @@ type Group = { label: string | null; color?: string; flow?: boolean; items: Item
 // analysis → ReviewTabs; Reports & filings → ReportTabs; Settings & team + Help → SectionTabs), so nothing is
 // buried in a "More" drawer. Visibility is gated two ways, both strict: `sectors` scopes an item to org types,
 // and `perm`/`anyPerm` scopes it to what the signed-in role may do — a role simply doesn't see what it can't use.
+// The regulator's menu is NOT the entity spine with a badge on it. A supervisor's day is: the population, where
+// its exposure sits, the analytics, the peers, the independent challenge, the requests and findings, settings —
+// seven lines, each gated by the supervisor.* permission its role carries. Nothing else.
+const REG_GROUPS: Group[] = [
+  { label: '', items: [
+    { to: '/supervised', label: 'Population', icon: Scale, perm: 'supervisor.population.view', sectors: REG },
+    { to: '/supervisor/map', label: 'Exposure map', icon: MapIcon, perm: 'supervisor.population.view', sectors: REG },
+    { to: '/supervisor/analytics', label: 'Analytics', icon: Gauge, perm: 'supervisor.benchmark.view', sectors: REG },
+    { to: '/supervisor/benchmark', label: 'Peer benchmark', icon: Layers, perm: 'supervisor.benchmark.view', sectors: REG },
+    { to: '/supervisor/lens', label: 'Independent lens', icon: Telescope, perm: 'supervisor.entity.file', sectors: REG },
+    { to: '/supervisor/requests', label: 'Requests & findings', icon: ClipboardCheck, perm: 'supervisor.requests.manage', sectors: REG,
+      planned: 'next: information requests, findings and remediation, regulator → entity' },
+  ] },
+  { label: 'Settings', color: 'var(--stage-setup)', items: [
+    { to: '/admin', label: 'Settings', icon: Settings, anyPerm: ['admin.users.manage', 'admin.roles.manage', 'admin.audit.view', 'modules.view'], sectors: REG },
+    { to: '/account-security', label: 'My security', icon: Fingerprint, perm: 'modules.view', sectors: REG },
+  ] },
+]
+
 const GROUPS: Group[] = [
   { label: 'Sense', color: 'var(--stage-sense)', flow: true, items: [
     { to: '/horizon', label: 'Horizon', icon: Globe, perm: 'modules.view' },
     { to: '/home', label: 'Overview', icon: Home, end: true, perm: 'modules.view', sectors: AGRI },
     { to: '/portfolio', label: 'Portfolio', icon: Landmark, perm: 'modules.view', sectors: FIN },
     { to: '/solvency', label: 'Catastrophe capital', icon: Building2, perm: 'modules.view', sectors: ['insurer'] },
-    { to: '/supervised', label: 'Supervised population', icon: Scale, perm: 'modules.view', sectors: REG },
     // Your data hub: Our sites · Suppliers & crops · Data dictionary · Data sources · Transmission (SectionTabs)
     { to: '/data', label: 'Your data', icon: Database, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
     { to: '/riskmap', label: 'Risk map', icon: MapIcon, perm: 'modules.view', sectors: AGRI },
@@ -163,6 +181,12 @@ export default function Shell({ children }: { children: ReactNode }) {
                 </>)}
               </NavLink>
             )
+            const plannedItem = (it: Item) => (
+              <div key={it.to} title={it.planned} aria-disabled className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] text-[var(--color-faint)] cursor-default ${collapsed ? 'justify-center' : ''}`}>
+                <it.icon size={17} className="shrink-0 opacity-60" />
+                {!collapsed && <span className="truncate">{it.label} <span className="mono text-[9.5px] uppercase tracking-wide ml-1">planned</span></span>}
+              </div>
+            )
 
             const visible = (it: Item) =>
               (!it.perm || profile?.permissions?.includes(it.perm)) &&
@@ -170,7 +194,7 @@ export default function Shell({ children }: { children: ReactNode }) {
               (!it.sectors || it.sectors.includes(sector))
 
             let stageNo = 0  // number only the operational-flow stages, contiguously, after filtering
-            return GROUPS.map((g, gi) => {
+            return (sector === 'regulator' ? REG_GROUPS : GROUPS).map((g, gi) => {
               const items = g.items.filter(visible)
               const hue = g.color ?? 'var(--color-sky)'
               if (items.length === 0) return null
@@ -186,7 +210,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                         </span>
                       </div>
                   )}
-                  <div className="space-y-0.5">{items.map(it => Row(it, hue))}</div>
+                  <div className="space-y-0.5">{items.map(it => (it.planned ? plannedItem(it) : Row(it, hue)))}</div>
                 </div>
               )
             })

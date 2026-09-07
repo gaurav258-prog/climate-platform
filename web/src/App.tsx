@@ -18,6 +18,11 @@ const Supervised = lazy(() => import('./pages/Supervised'))
 const EntityFile = lazy(() => import('./pages/EntityFile'))
 const SupervisorIntake = lazy(() => import('./pages/SupervisorIntake'))
 const SupervisorLens = lazy(() => import('./pages/SupervisorLens'))
+const SupervisorMap = lazy(() => import('./pages/SupervisorMap'))
+const SupervisorBenchmark = lazy(() => import('./pages/SupervisorBenchmark'))
+const SupervisorLensPopulation = lazy(() => import('./pages/SupervisorLensPopulation'))
+const SupervisorAnalytics = lazy(() => import('./pages/SupervisorAnalytics'))
+const SupervisorRequests = lazy(() => import('./pages/SupervisorRequests'))
 const Audit = lazy(() => import('./pages/Audit'))
 const Admin = lazy(() => import('./pages/Admin'))
 const Contracts = lazy(() => import('./pages/Contracts'))
@@ -121,6 +126,11 @@ function Workspace() {
         <Route path="/supervised/:orgId" element={<EntityFile />} />
         <Route path="/supervised/:orgId/intake" element={<SupervisorIntake />} />
         <Route path="/supervised/:orgId/lens" element={<SupervisorLens />} />
+        <Route path="/supervisor/map" element={<SupervisorMap />} />
+        <Route path="/supervisor/benchmark" element={<SupervisorBenchmark />} />
+        <Route path="/supervisor/lens" element={<SupervisorLensPopulation />} />
+        <Route path="/supervisor/analytics" element={<SupervisorAnalytics />} />
+        <Route path="/supervisor/requests" element={<SupervisorRequests />} />
         <Route path="/audit" element={<Audit />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/contracts" element={<Contracts />} />

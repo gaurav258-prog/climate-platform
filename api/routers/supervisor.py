@@ -461,3 +461,43 @@ def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool 
         return {"status": "done", **res, "coverage": projection_coverage(session, cells)}
     schedule_projection(cells)
     return {"status": "scheduled", "n_cells": len(cells), "coverage": projection_coverage(session, cells)}
+
+
+# ── Population-level lens + analytics ───────────────────────────────────────────────────────────────────
+@router.get("/lens", summary="Independent lens across the population: who sits far from the rebuilt figure")
+def population_lens(session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from services.supervision.intake import load_submission
+    from services.supervision.lens_build import build_lens
+    from services.supervision.profiles import sector_config
+    _need(ctx, "supervisor.entity.file")
+    reg = ctx["org"]["org_id"]
+    cfg = _config(session, reg)
+    sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
+    rows = []
+    for e in _supervised(session, reg):
+        sec = sector_config(cfg, e["type"])
+        if not sec or not sec.get("intake"):
+            rows.append({**e, "status": "out_of_profile"}); continue
+        ss = sec["intake"]["submission"]
+        sub = load_submission(session, reg, e["org_id"], ss["framework"], ss["template"])
+        if not sub:
+            rows.append({**e, "status": "no_submission"}); continue
+        L = build_lens(session, reg, e["org_id"], sub, sc, hz, sec["intake"]["granular"]["precision_label"])
+        t = L["totals"]
+        rows.append({**e, "status": "ok" if L["shadow_book"]["n_rows"] else "no_shadow_book", "period_label": sub["period_label"],
+                     "n_cells": L["n_cells"], "n_flagged": L["n_flagged"], "totals": t, "total_gap": L["total_gap"],
+                     "gap_pct": (round(100.0 * L["total_gap"] / t["submitted"], 1) if t["submitted"] else None),
+                     "precision": L["precision"], "basis_separable": L["basis_separable"],
+                     "coverage_pct": (round(100.0 * L["shadow_book"]["n_located"] / L["shadow_book"]["n_rows"], 0) if L["shadow_book"]["n_rows"] else None)})
+    rows.sort(key=lambda r: -abs(r.get("gap_pct") or 0))
+    return {"scenario": sc, "horizon": hz, "entities": rows,
+            "n_with_lens": sum(1 for r in rows if r["status"] == "ok")}
+
+
+@router.get("/analytics", summary="Population analytics: concentration, scenario shift, metric distributions")
+def population_analytics(session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from services.supervision.analytics import analytics
+    _need(ctx, "supervisor.benchmark.view")
+    reg = ctx["org"]["org_id"]
+    cfg = _config(session, reg)
+    return analytics(session, cfg, _supervised(session, reg), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
