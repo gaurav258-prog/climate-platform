@@ -159,14 +159,40 @@ secondary target should a future session want to extend the ashfall calibration.
   override on `sc_commodities`/`sc_sourcing_plots`), out of scope for this pass.
 - **GVP eruption-episode granularity** (§2) — coarse start/end dates for long-running eruptions
   like Fuego; the specific backtest date is carried as external knowledge, not read from GVP.
-- **No unified global hazard-zone API** — curated per-volcano, not live-fetched at scale. Fine
-  for the two backtest volcanoes here; would become a real blocker if scope ever expanded to
-  "score all ~1,500 Holocene volcanoes."
+- **No unified global hazard-zone API** — curated per-volcano, not live-fetched at scale. The
+  any-address scorer (§7) therefore falls back to VEI-scaled default radii for every volcano
+  without a curated row, and says so in `shap_factors.radii_source`.
+
+## 7. Any-address screening (added 2026-09-07)
+
+Volcanic is now answerable for ANY coordinate worldwide, at SCREENING tier, by
+`ml/scoring/volcanic_point.py` (registered in `services/scoring/on_demand.py`):
+
+- **Catalogue** — `data/reference/gvp_holocene_volcanoes.json`, landed by
+  `scripts/fetch_gvp_catalogue.py` from the two GVP WFS layers (Holocene volcanoes + eruptions):
+  1,214 volcanoes, 9,916 confirmed eruptions. Per volcano we keep location, type, last eruption
+  year, and the max VEI of *confirmed* eruptions (Holocene / since 1900) plus counts. Registered
+  as feed `volcanic_gvp` (30-day cadence, scheduler-refreshed; a truncated response raises and
+  the feed shows *failed* rather than overwriting a good catalogue).
+- **Score** — every volcano within 150 km; the worst one wins (max, §1). Radii: curated
+  `volcanic_hazard_zones` row if present → else `vei_to_zone_radii(max_vei)` → else, when GVP
+  records no VEI at all (529 of 1,214 volcanoes), the VEI-3 default, labelled
+  `vei_unknown_default3`.
+- **Recency is reported, not weighted.** `last_eruption_year` and `eruptions_since_1900` are in
+  the shap for the reader; they do not scale the score. Weighting them would need a recurrence
+  model we cannot backtest at location level (eruptions are too rare), so we do not invent one.
+- **"No Holocene volcano within 150 km" is a scored 0**, with the nearest volcano named — a real
+  answer, distinct from `insufficient_data` (which is returned only if the catalogue file is
+  missing).
+- **Tier: SCREENING, never a €.** Radial symmetry (§5) and the VEI-default fallback are the
+  disclosed approximations; `core/hazard_taxonomy.py` carries the same text.
 
 ## 6. Files
 
 - `ml/scoring/volcanic_physics.py` — the physics (proximal/ashfall/blend/VEI-scaled defaults).
-- `scripts/ingest_gvp_volcanic.py` — GVP WFS → `volcanic_events`.
+- `scripts/ingest_gvp_volcanic.py` — GVP WFS → `volcanic_events` (curated backtest volcanoes).
+- `scripts/fetch_gvp_catalogue.py` — GVP WFS → global Holocene catalogue JSON (feed `volcanic_gvp`).
+- `ml/scoring/volcanic_point.py` — any-address screening scorer (§7).
 - `scripts/score_volcanic_event.py` — physics → `canonical_scores` (`hazard_type='volcanic'`),
   mirrors `scripts/score_seismic_event.py`.
 - `scripts/wire_guatemala_volcanic_demo.py` — Guatemala coffee plot under the existing Coffee commodity.

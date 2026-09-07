@@ -63,9 +63,14 @@ FEEDS: list[dict] = [
     {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
      "note": "Seismic scores from the GLOBAL USGS M>=5.0 catalog (seismic_events, worldwide) + physics; the "
-             "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP volcanic "
-             "real (→ volcanic_events) but hazard zones are curated per-volcano (no global fallback yet). "
-             "Geophysical, not climate-attributable → out of CSRD/EUDR filing scope."},
+             "EMSC/ESHM20 European raster is a secondary background layer, not the scoring path. GVP per-volcano "
+             "event rows (volcanic_events) for the curated backtest volcanoes; the global volcano catalogue is its "
+             "own feed (volcanic_gvp). Geophysical, not climate-attributable → out of CSRD/EUDR filing scope."},
+    {"key": "volcanic_gvp", "name": "Smithsonian GVP — Volcanoes of the World (Holocene catalogue, WFS)", "category": "hazard",
+     "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
+     "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) landed to "
+             "data/reference/gvp_holocene_volcanoes.json; drives the any-address volcanic screening score. "
+             "Geophysical → out of CSRD/EUDR filing scope."},
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
@@ -139,7 +144,7 @@ HAZARD_FEEDS: dict[str, list[str]] = {
     "wildfire":      ["fire_thermal", "climate_reanalysis"],# NASA FIRMS + fire-weather
     "storm":         ["storms_ocean", "climate_reanalysis"],# IBTrACS + reanalysis
     "seismic":       ["geophysical"],                       # USGS
-    "volcanic":      ["geophysical"],                       # Smithsonian GVP
+    "volcanic":      ["volcanic_gvp", "geophysical"],       # GVP global catalogue (+ curated zones)
     "pollution":     ["atmosphere"],                        # Copernicus CAMS
 }
 
@@ -249,6 +254,12 @@ def _hook_commodity_prices_eu(session: Session) -> None:
     refresh(session)
 
 
+def _hook_volcanic_gvp(session: Session) -> None:
+    from scripts.fetch_gvp_catalogue import refresh
+    refresh()
+
+
+register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)
 

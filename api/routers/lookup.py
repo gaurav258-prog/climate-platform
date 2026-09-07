@@ -35,10 +35,9 @@ cost:
     ocean basins, last 10 years, tropical-storm-strength and up, 966 storms/35,846
     track points), replacing the single-storm Hurricane Maria backtest data that used
     to be all that existed in storm_events.
-  - volcanic outside its curated backtest regions still reports 'insufficient_data' —
-    unlike storm, its hazard zones (proximal/ashfall radii) are hand-curated per-volcano
-    from published papers with no generic fallback formula decided yet, a genuinely
-    harder problem than storm's fully-physics-based generalization.
+  - volcanic is on-demand worldwide (ml/scoring/volcanic_point.py): the global GVP
+    Holocene catalogue + radial proximal/ashfall physics, curated hazard-map radii where
+    they exist, VEI-scaled defaults elsewhere. SCREENING tier, disclosed.
 
 The response carries THREE risk figures, not one — a genuine hot day in a mild-climate
 city (e.g. heat_acute spiking Zurich) used to silently set the whole place's headline
@@ -60,6 +59,7 @@ customers' data.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Optional
 
@@ -79,6 +79,8 @@ from core.db.session import get_session
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
 from services.scoring.on_demand import GRIDDED_ON_DEMAND_SCORERS, SYNC_ON_DEMAND_SCORERS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 
@@ -219,7 +221,19 @@ def lookup_score(
                     INSERT INTO public_lookups (lookup_id, raw_address, latitude, longitude, h3_cell_r8, hazard_type, status)
                     VALUES (:id, :addr, :lat, :lon, :cell, :hazard, 'computing')
                 """), {"id": job_id, "addr": address, "lat": lat, "lon": lon, "cell": cell, "hazard": hazard})
-            gridded_job.delay(job_id, lat, lon)
+            try:
+                gridded_job.delay(job_id, lat, lon)
+            except Exception as e:  # broker/worker down: this hazard is unavailable, the rest of the lookup is not
+                logger.warning("gridded lookup dispatch failed for %s: %s", hazard, e)
+                with get_session() as immediate:
+                    immediate.execute(text("""
+                        UPDATE public_lookups SET status='failed', completed_at=now() WHERE lookup_id=:id
+                    """), {"id": job_id})
+                results.append(HazardLookupResult(
+                    hazard_type=hazard, status="insufficient_data",
+                    reason="scoring worker unavailable — this hazard could not be dispatched; retry later",
+                ))
+                continue
             results.append(HazardLookupResult(hazard_type=hazard, status="pending", lookup_id=job_id))
             continue
 
