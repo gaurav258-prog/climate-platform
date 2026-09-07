@@ -24,7 +24,14 @@ export default function SupervisorIntake() {
   const q = useQuery({ queryKey: ['sup-intake', orgId], queryFn: () => api.get<Status>(`/v1/supervisor/intake/${orgId}`) })
   const d = q.data
   if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">loading intake…</div>
-  if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">No Tier-2 intake is configured for this entity's sector in your profile.</div>
+  if (!d) return (
+    <div className="fadeup space-y-4">
+      <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
+      <Card className="p-6 text-[13px] text-[var(--color-mute)]">
+        <div className="text-[14px] font-semibold text-[var(--color-ink)] mb-1">This entity's sector is outside your supervision profile</div>
+        Granular intake is configured per sector in your profile. To supervise this sector, switch to a profile that includes it (for example an integrated financial supervisor) in <Link to="/admin" className="text-[var(--color-sky)] hover:underline">Settings</Link>. Its regional exposure and filings remain visible on the entity file.
+      </Card>
+    </div>)
   const sb = d.shadow_book
   return (
     <div className="fadeup space-y-6">
