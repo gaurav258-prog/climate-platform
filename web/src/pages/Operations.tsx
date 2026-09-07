@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
+import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
@@ -33,6 +34,7 @@ export default function Operations() {
   const [form, setForm] = useState({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
+  const [sel, setSel] = useState<string | null>(null)   // the site ringed on the map
   const [nameErr, setNameErr] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const [chosen, setChosen] = useState<Place | null>(null)
@@ -151,6 +153,9 @@ export default function Operations() {
       <Card className="p-5">
         {q.isLoading ? <div className="py-8 text-center text-[var(--color-faint)] text-sm">loading…</div> :
           sites.length === 0 ? <div className="py-8 text-center text-[var(--color-faint)] text-sm">No sites yet — add your first above.</div> : (
+            <BookWithMap color={severityHex} selectedId={sel} onSelect={(id) => setSel(prev => (prev === id ? null : id))}
+              points={sites.map(s => ({ id: s.site_id, name: s.name, lat: s.lat as number, lon: s.lon as number, score: s.hazard_score,
+                                        sub: [s.country, typeLabel(s.site_type)].filter(Boolean).join(' · '), value: eur(s.value_eur) }))}>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
@@ -163,9 +168,12 @@ export default function Operations() {
                 </thead>
                 <tbody>
                   {sites.map(s => (
-                    <tr key={s.site_id} onClick={() => window.open(`/detail/site/${s.site_id}`, '_blank')}
-                      className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition">
-                      <td className="py-2.5 pr-3 text-[var(--color-ink)] hover:text-[var(--color-sky)]">{s.name}</td>
+                    <tr key={s.site_id} onClick={() => setSel(prev => (prev === s.site_id ? null : s.site_id))}
+                      className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)] transition ${sel === s.site_id ? 'bg-[var(--color-panel)]' : ''}`}>
+                      <td className="py-2 pr-3 text-[var(--color-ink)]">
+                        <a href={`/detail/site/${s.site_id}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                           className="hover:text-[var(--color-sky)] hover:underline" title="Open the site's full detail">{s.name}</a>
+                      </td>
                       <td className="pr-3"><span className="inline-flex items-center gap-1.5 text-[var(--color-mute)]"><TypeIcon t={s.site_type} />{typeLabel(s.site_type)}</span></td>
                       <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{s.country ?? '—'} · {s.lat?.toFixed(2)}, {s.lon?.toFixed(2)}</td>
                       <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(s.value_eur)}</td>
@@ -181,6 +189,7 @@ export default function Operations() {
                 </tbody>
               </table>
             </div>
+            </BookWithMap>
           )}
       </Card>
     </div>
