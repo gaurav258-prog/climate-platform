@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
+import StageStrip, { type Step } from '../components/StageStrip'
 import { horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
 
 // The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
@@ -33,6 +34,8 @@ const CHIP: Record<Fw['state'], string> = { filed: 'bg-[var(--color-good)]/15 te
 export default function EntityFile() {
   const { orgId = '' } = useParams()
   const q = useQuery({ queryKey: ['entity-file', orgId], queryFn: () => api.get<FileResp>(`/v1/supervisor/entity/${orgId}/file`) })
+  const wf = useQuery({ queryKey: ['supervisor-workflow'], queryFn: () => api.get<{ entities: { org_id: string; steps: Step[]; stage: string; next: { label: string; to: string } }[] }>('/v1/supervisor/population/workflow') })
+  const mine = wf.data?.entities.find(e => e.org_id === orgId)
   const d = q.data
   if (q.isLoading) return <div className="h-[60vh] grid place-items-center text-[var(--color-faint)] text-sm">opening the entity file…</div>
   if (!d) return <div className="h-[60vh] grid place-items-center text-[var(--color-bad)] text-sm">Could not open this entity — it may be outside your supervised population.</div>
@@ -42,10 +45,16 @@ export default function EntityFile() {
       <Link to="/supervised" className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Supervised population</Link>
       <PageHeader eyebrow={`Entity file · ${d.sector?.label ?? d.entity.type} · ${d.entity.country}`} title={d.entity.name}
         lead={`${d.entity.legal_name ?? ''}${d.entity.lei ? ` · LEI ${d.entity.lei}` : ''} — basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}. Every figure is the entity's own engine result; opening this file is written to the entity's audit trail.`} />
-      <div className="flex gap-4 text-[12.5px]">
-        <Link to={`/supervised/${orgId}/lens`} className="font-medium text-[var(--color-sky)] hover:underline">Independent lens →</Link>
-        <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake (submitted template · granular data) →</Link>
-      </div>
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {mine ? <StageStrip steps={mine.steps} /> : <span className="text-[12px] text-[var(--color-faint)]">assessing this entity's position in the process…</span>}
+          {mine && <Link to={mine.next.to} className="text-[12.5px] font-medium text-[var(--color-sky)] hover:underline whitespace-nowrap">Next: {mine.next.label} →</Link>}
+        </div>
+        <div className="flex gap-4 text-[12px] mt-3">
+          <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
+          <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens →</Link>
+        </div>
+      </Card>
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}
 
       <StatGrid cols={4} items={[

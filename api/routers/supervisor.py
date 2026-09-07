@@ -501,3 +501,46 @@ def population_analytics(session: DbSession, ctx: Supervisor, scenario: Optional
     reg = ctx["org"]["org_id"]
     cfg = _config(session, reg)
     return analytics(session, cfg, _supervised(session, reg), scenario or cfg["default_scenario"], horizon or cfg["default_horizon"])
+
+
+@router.get("/population/workflow", summary="The population with each entity's stage in the supervisory process, sorting criteria and next action")
+def population_workflow(session: DbSession, ctx: Supervisor):
+    from services.supervision.benchmark import benchmark
+    from services.supervision.intake import load_submission, shadow_status
+    from services.supervision.lens_build import build_lens
+    from services.supervision.profiles import registry, sector_config
+    from services.supervision.projection import projection_coverage, shadow_cells
+    from services.supervision.workflow import STEP_LABEL, STEPS, entity_workflow
+    reg = ctx["org"]["org_id"]
+    cfg = _config(session, reg)
+    pop = population(session, ctx)
+    ents = _supervised(session, reg)
+    sc, hz = cfg["default_scenario"], cfg["default_horizon"]
+    bench = benchmark(session, cfg, ents, sc, hz)
+    can_bench = "supervisor.benchmark.view" in (ctx.get("permissions") or [])
+    can_lens = "supervisor.entity.file" in (ctx.get("permissions") or [])
+    rows = []
+    for e in pop["entities"]:
+        sec = sector_config(cfg, e["type"])
+        in_profile = sec is not None
+        headline = None
+        if in_profile and can_bench:
+            for m in bench["sectors"].get(e["type"], {}).get("metrics", []):
+                if m["id"] == "high_risk_share_pct":
+                    headline = next((x for x in m["entities"] if x["org_id"] == e["org_id"]), None)
+        sub = None; shadow = {"n_rows": 0}; proj = {"complete": False, "cells": 0, "cells_complete": 0}; gap = None; nflag = None
+        if in_profile and sec.get("intake"):
+            ss = sec["intake"]["submission"]
+            sub = load_submission(session, reg, e["org_id"], ss["framework"], ss["template"])
+            st = shadow_status(session, reg, e["org_id"]); shadow = st["shadow_book"]
+            proj = projection_coverage(session, shadow_cells(session, reg, e["org_id"]))
+            if sub and shadow["n_rows"] and can_lens:
+                L = build_lens(session, reg, e["org_id"], sub, sc, hz, sec["intake"]["granular"]["precision_label"])
+                gap = round(100.0 * L["total_gap"] / L["totals"]["submitted"], 1) if L["totals"]["submitted"] else None
+                nflag = L["n_flagged"]
+        wf = entity_workflow(session, reg, e, in_profile, sub, shadow, proj, _site_access(session, reg, e["org_id"]), headline, gap, nflag)
+        rows.append({**e, "in_profile": in_profile, "sector_label": (sec or registry()["sectors"].get(e["type"]) or {}).get("label") or e["type"].replace("_", " "), **wf})
+    return {"regulator": pop["regulator"], "summary": pop["summary"], "scenario": sc, "horizon": hz,
+            "steps": [{"key": k, "label": STEP_LABEL[k]} for k in STEPS],
+            "criteria": ["sector", "jurisdiction", "stage", "submissions", "high_risk_share_pct", "lens_gap_pct", "site_access"],
+            "entities": rows}
