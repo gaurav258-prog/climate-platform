@@ -36,8 +36,7 @@ const REG_GROUPS: Group[] = [
     { to: '/supervisor/analytics', label: 'Analytics', icon: Gauge, perm: 'supervisor.benchmark.view', sectors: REG },
     { to: '/supervisor/benchmark', label: 'Peer benchmark', icon: Layers, perm: 'supervisor.benchmark.view', sectors: REG },
     { to: '/supervisor/lens', label: 'Independent lens', icon: Telescope, perm: 'supervisor.entity.file', sectors: REG },
-    { to: '/supervisor/requests', label: 'Requests & findings', icon: ClipboardCheck, perm: 'supervisor.requests.manage', sectors: REG,
-      planned: 'next: information requests, findings and remediation, regulator → entity' },
+    { to: '/supervisor/requests', label: 'Requests & findings', icon: ClipboardCheck, perm: 'supervisor.requests.manage', sectors: REG },
   ] },
   { label: 'Settings', color: 'var(--stage-setup)', items: [
     { to: '/admin', label: 'Settings', icon: Settings, anyPerm: ['admin.users.manage', 'admin.roles.manage', 'admin.audit.view', 'modules.view'], sectors: REG },

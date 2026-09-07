@@ -579,5 +579,86 @@
       "default_scenario": "baseline",
       "default_horizon": "current"
     }
+  },
+  "engagement": {
+    "_about": "Regulator → entity engagement. Each kind has an ordered status flow; 'entity_sets' are the statuses the supervised entity may move to, 'supervisor_sets' the supervisor's. Findings carry a severity. Due-date defaults are working assumptions a regulator overrides per organisation.",
+    "kinds": {
+      "information_request": {
+        "label": "Information request",
+        "statuses": [
+          "open",
+          "responded",
+          "closed"
+        ],
+        "entity_sets": [
+          "responded"
+        ],
+        "supervisor_sets": [
+          "closed",
+          "open"
+        ],
+        "closed": "closed",
+        "default_due_days": 20,
+        "severities": []
+      },
+      "site_access_request": {
+        "label": "Site-level access request",
+        "statuses": [
+          "open",
+          "responded",
+          "closed"
+        ],
+        "entity_sets": [
+          "responded"
+        ],
+        "supervisor_sets": [
+          "closed",
+          "open"
+        ],
+        "closed": "closed",
+        "default_due_days": 10,
+        "severities": []
+      },
+      "finding": {
+        "label": "Finding",
+        "statuses": [
+          "open",
+          "remediation_planned",
+          "remediated",
+          "closed"
+        ],
+        "entity_sets": [
+          "remediation_planned",
+          "remediated"
+        ],
+        "supervisor_sets": [
+          "closed",
+          "open"
+        ],
+        "closed": "closed",
+        "default_due_days": 60,
+        "severities": [
+          "low",
+          "medium",
+          "high"
+        ]
+      }
+    },
+    "status_labels": {
+      "open": "Open",
+      "responded": "Responded",
+      "remediation_planned": "Remediation planned",
+      "remediated": "Remediated",
+      "closed": "Closed"
+    },
+    "task_criticality": {
+      "information_request": "normal",
+      "site_access_request": "normal",
+      "finding": {
+        "low": "normal",
+        "medium": "high",
+        "high": "critical"
+      }
+    }
   }
 }

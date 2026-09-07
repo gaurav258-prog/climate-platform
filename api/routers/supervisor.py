@@ -664,3 +664,93 @@ def delete_assignment(assignment_id: str, session: DbSession, ctx: Supervisor):
                 target_type="supervision_assignment", target_id=assignment_id, detail={})
     session.commit()
     return {"ok": True}
+
+
+# ── Requests & findings: engage the entity and follow up ───────────────────────────────────────────────────
+class RequestCreate(BaseModel):
+    supervised_org_id: str
+    kind: str
+    title: str
+    body: Optional[str] = None
+    severity: Optional[str] = None
+    due_date: Optional[str] = None
+    source: Optional[dict] = None
+
+
+class RequestMessage(BaseModel):
+    body: Optional[str] = None
+    status_to: Optional[str] = None
+
+
+def _need_engage(ctx: dict, kind: Optional[str]) -> None:
+    _need(ctx, "supervisor.findings.manage" if kind == "finding" else "supervisor.requests.manage")
+
+
+@router.get("/requests", summary="Requests and findings across the entities you see")
+def list_requests(session: DbSession, ctx: Supervisor, status: Optional[str] = None, kind: Optional[str] = None,
+                  entity: Optional[str] = None):
+    from services.supervision.engagement import kinds, status_label
+    from services.supervision.engagement import list_requests as _list
+    if not ({"supervisor.requests.manage", "supervisor.findings.manage"} & set(ctx.get("permissions") or [])):
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission supervisor.requests.manage."})
+    reg = ctx["org"]["org_id"]
+    ents = _supervised(session, ctx)
+    rows = _list(session, regulator_org_id=reg, supervised_org_ids=[e["org_id"] for e in ents], status=status, kind=kind,
+                 supervised_org_id=entity)
+    return {"requests": rows, "entities": ents,
+            "kinds": {k: {"label": v["label"], "statuses": [{"key": st, "label": status_label(st)} for st in v["statuses"]],
+                          "supervisor_sets": v["supervisor_sets"], "severities": v["severities"]} for k, v in kinds().items()},
+            "summary": {"open": sum(1 for r in rows if r["status"] != "closed"), "overdue": sum(1 for r in rows if r["overdue"]),
+                        "findings_open": sum(1 for r in rows if r["kind"] == "finding" and r["status"] != "closed")}}
+
+
+@router.post("/requests", status_code=201, summary="Raise an information request, site-access request or finding with an entity")
+def create_request(body: RequestCreate, session: DbSession, ctx: Supervisor):
+    from services.supervision.engagement import create
+    _need_engage(ctx, body.kind)
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, body.supervised_org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your view."})
+    try:
+        req = create(session, regulator_org_id=reg, supervised_org_id=body.supervised_org_id, kind=body.kind, title=body.title,
+                     body=body.body, raised_by=ctx["user"]["id"], severity=body.severity, due_date=body.due_date, source=body.source)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    for audited in (reg, body.supervised_org_id):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervisor.request.raised",
+                    target_type="supervision_request", target_id=req["request_id"],
+                    detail={"kind": body.kind, "title": req["title"], "regulator_org_id": reg, "supervised_org_id": body.supervised_org_id})
+    session.commit()
+    return req
+
+
+@router.get("/requests/{request_id}", summary="One request or finding with its thread")
+def get_request(request_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.engagement import allowed_next, get, status_label
+    req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
+    if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+    _need_engage(ctx, req["kind"])
+    req["can_set"] = [{"key": st, "label": status_label(st)} for st in allowed_next(req["kind"], "supervisor") if st != req["status"]]
+    return req
+
+
+@router.post("/requests/{request_id}/messages", summary="Add to the thread and/or move the status (supervisor side)")
+def post_request_message(request_id: str, body: RequestMessage, session: DbSession, ctx: Supervisor):
+    from services.supervision.engagement import add_message, get
+    req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
+    if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+    _need_engage(ctx, req["kind"])
+    if not (body.body or "").strip() and not body.status_to:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Write a message or choose a status."})
+    try:
+        out = add_message(session, request_id, side="supervisor", author_id=ctx["user"]["id"], body=body.body, status_to=body.status_to)
+    except PermissionError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    action = "supervisor.request.status" if body.status_to else "supervisor.request.message"
+    for audited in (ctx["org"]["org_id"], req["supervised_org_id"]):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action=action, target_type="supervision_request",
+                    target_id=request_id, detail={"status_to": body.status_to, "regulator_org_id": ctx["org"]["org_id"]})
+    session.commit()
+    return out

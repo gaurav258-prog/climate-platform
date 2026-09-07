@@ -73,7 +73,7 @@ export default function SupervisorLens() {
                 <td className="pr-3 text-right mono" style={{ color: c.flag === 'question' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{c.rebuilt_share_pct != null ? `${c.rebuilt_share_pct}%` : '—'}</td>
                 <td className="pr-3 text-right mono text-[var(--color-faint)]">{c.coverage_pct != null ? `${c.coverage_pct}%` : '—'}</td>
                 <td className="pr-3"><GapBar gap={c.gap} /></td>
-                <td className="text-[11.5px] text-[var(--color-mute)]">{c.flag === 'question' ? c.reason : <span className="text-[var(--color-faint)]">within tolerance</span>}</td>
+                <td className="text-[11.5px] text-[var(--color-mute)]">{c.flag === 'question' ? <>{c.reason} <Link onClick={e => e.stopPropagation()} to={`/supervisor/requests?new=1&entity=${orgId}&kind=information_request&geography=${encodeURIComponent(c.geography)}&sector=${encodeURIComponent(c.sector)}&title=${encodeURIComponent(`${c.geography} · ${c.sector}: ${c.reason}`)}`} className="text-[var(--color-sky)] hover:underline whitespace-nowrap">raise with the entity →</Link></> : <span className="text-[var(--color-faint)]">within tolerance</span>}</td>
               </tr>
               {open === c.key && <tr key={c.key + '-drill'}><td colSpan={8} className="p-0"><CellDrill orgId={orgId} geography={c.geography} sector={c.sector} /></td></tr>}
             </>))}</tbody>

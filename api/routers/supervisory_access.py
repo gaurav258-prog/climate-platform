@@ -3,6 +3,8 @@ individual sites to them. Regional aggregates (NUTS-3) flow to the supervisor re
 carry; SITE-level access is the entity's own decision, granted/revoked by an org admin, audited on both sides."""
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -61,3 +63,49 @@ def set_site_access(supervision_id: str, body: SiteAccess, session: DbSession,
                     detail={"supervised_org_id": org_id, "regulator_org_id": row["reg"]})
     session.commit()
     return {"ok": True, "supervisors": _rows(session, org_id)}
+
+
+# ── Requests from my supervisor: read for anyone with reports.view, respond with reports.publish ────────────
+class EntityMessage(BaseModel):
+    body: Optional[str] = None
+    status_to: Optional[str] = None
+
+
+@router.get("/requests", summary="Requests and findings my supervisors have raised with us")
+def my_requests(session: DbSession, ctx: dict = Depends(require_permission("reports.view")), status: Optional[str] = None):
+    from services.supervision.engagement import kinds, list_requests, status_label
+    rows = list_requests(session, supervised_org_id=ctx["org"]["org_id"], status=status)
+    return {"requests": rows, "can_respond": "reports.publish" in (ctx.get("permissions") or []),
+            "kinds": {k: {"label": v["label"], "entity_sets": [{"key": st, "label": status_label(st)} for st in v["entity_sets"]]}
+                      for k, v in kinds().items()},
+            "summary": {"open": sum(1 for r in rows if r["status"] != "closed"), "overdue": sum(1 for r in rows if r["overdue"])}}
+
+
+@router.get("/requests/{request_id}", summary="One request from my supervisor with its thread")
+def my_request(request_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.supervision.engagement import allowed_next, get, status_label
+    req = get(session, request_id, supervised_org_id=ctx["org"]["org_id"])
+    if not req:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request for your organisation."})
+    req["can_set"] = [{"key": st, "label": status_label(st)} for st in allowed_next(req["kind"], "entity") if st != req["status"]]
+    return req
+
+
+@router.post("/requests/{request_id}/messages", summary="Respond to my supervisor and/or report progress")
+def respond(request_id: str, body: EntityMessage, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.supervision.engagement import add_message, get
+    req = get(session, request_id, supervised_org_id=ctx["org"]["org_id"])
+    if not req:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request for your organisation."})
+    if not (body.body or "").strip() and not body.status_to:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Write a message or choose a status."})
+    try:
+        out = add_message(session, request_id, side="entity", author_id=ctx["user"]["id"], body=body.body, status_to=body.status_to)
+    except PermissionError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    action = "supervisor.request.status" if body.status_to else "supervisor.request.message"
+    for audited in (ctx["org"]["org_id"], req["regulator_org_id"]):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action=action, target_type="supervision_request",
+                    target_id=request_id, detail={"status_to": body.status_to, "side": "entity", "supervised_org_id": ctx["org"]["org_id"]})
+    session.commit()
+    return out

@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisionProfile /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1248,6 +1248,59 @@ function SupervisionAssignments() {
               </span>
             </div>)
         })}
+      </div>
+    </Card>
+  )
+}
+
+// ── Requests from my supervisor — respond and report remediation; the supervisor closes ───────────────────
+interface InReq { request_id: string; regulator: string; kind_label: string; title: string; body: string | null; status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string }
+interface InDetail extends InReq { messages: { message_id: string; side: string; body: string | null; status_label: string | null; created_at: string; author: string | null }[]; can_set: { key: string; label: string }[] }
+function SupervisorRequestsInbox() {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['my-supervisor-requests'], queryFn: () => api.get<{ requests: InReq[]; can_respond: boolean; summary: { open: number; overdue: number } }>('/v1/me/supervisors/requests') })
+  const [sel, setSel] = useState<string | null>(null)
+  const det = useQuery({ queryKey: ['my-supervisor-request', sel], enabled: !!sel, queryFn: () => api.get<InDetail>(`/v1/me/supervisors/requests/${sel}`) })
+  const [body, setBody] = useState(''); const [busy, setBusy] = useState(false)
+  if (!q.data || q.data.requests.length === 0) return null
+  const d = q.data
+  const send = async (status_to?: string) => {
+    if (!sel) return
+    setBusy(true)
+    try { await api.post(`/v1/me/supervisors/requests/${sel}/messages`, { body: body || null, status_to: status_to ?? null }); setBody(''); await qc.invalidateQueries({ queryKey: ['my-supervisor-request', sel] }); await qc.invalidateQueries({ queryKey: ['my-supervisor-requests'] }) }
+    catch (e) { toast.error((e as Error).message || 'Could not send.') } finally { setBusy(false) }
+  }
+  return (
+    <Card className="p-5">
+      <SectionHead hint={`${d.summary.open} open${d.summary.overdue ? ` · ${d.summary.overdue} overdue` : ''} · you respond and report progress, your supervisor closes`}>Requests from your supervisor</SectionHead>
+      <div className="divide-y divide-[var(--color-line)]">
+        {d.requests.map(r => (
+          <div key={r.request_id} className="py-2">
+            <button onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className="w-full text-left flex items-center gap-3 flex-wrap text-[12.5px]">
+              <span className="mono text-[10px] uppercase text-[var(--color-faint)] w-36">{r.kind_label}</span>
+              <span className="text-[var(--color-ink)] flex-1">{r.title}</span>
+              {r.severity && <span className="mono text-[10px]" style={{ color: r.severity === 'high' ? 'var(--color-bad)' : r.severity === 'medium' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{r.severity}</span>}
+              <span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span>
+              <span className="mono text-[10.5px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-faint)' }}>due {r.due_date ?? '—'}</span>
+            </button>
+            {sel === r.request_id && det.data && (
+              <div className="mt-2 ml-2 pl-3 border-l border-[var(--color-line)]">
+                <div className="mono text-[10.5px] text-[var(--color-faint)] mb-2">from {det.data.regulator} · raised {det.data.raised_at.slice(0, 10)}</div>
+                <div className="space-y-1.5 mb-3">
+                  {det.data.messages.map(m => (
+                    <div key={m.message_id} className={`rounded-lg px-3 py-1.5 text-[12.5px] ${m.side === 'entity' ? 'bg-[var(--color-panel-2)] ml-6' : 'bg-[var(--color-bg-2)] mr-6'}`}>
+                      <div className="mono text-[10px] text-[var(--color-faint)]">{m.side === 'entity' ? 'you' : det.data!.regulator} · {m.author ?? '—'} · {m.created_at.slice(0, 16).replace('T', ' ')}{m.status_label ? ` · set to ${m.status_label}` : ''}</div>
+                      {m.body && <div className="text-[var(--color-ink)] whitespace-pre-wrap">{m.body}</div>}
+                    </div>))}
+                </div>
+                {d.can_respond ? (<>
+                  <textarea value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="Respond to your supervisor…" className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)] mb-2" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={() => send()} disabled={busy || !body.trim()}>Send</Button>
+                    {det.data.can_set.map(s => <Button key={s.key} onClick={() => send(s.key)} disabled={busy}>Mark {s.label.toLowerCase()}</Button>)}
+                  </div></>) : <div className="text-[12px] text-[var(--color-faint)]">Responding needs the release permission in your organisation.</div>}
+              </div>)}
+          </div>))}
       </div>
     </Card>
   )

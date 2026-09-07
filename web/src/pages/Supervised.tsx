@@ -57,7 +57,7 @@ export default function Supervised() {
         <Card className="p-5">
           <div className="flex items-center gap-4 mb-3 flex-wrap">
             <div className="text-[13px] text-[var(--color-mute)]">The process, per entity:</div>
-            <StageStrip steps={d.steps.map((s, i) => ({ key: s.key, label: s.label, done: false, partial: false, planned: i === 4 }))} />
+            <StageStrip steps={d.steps.map(s => ({ key: s.key, label: s.label, done: false, partial: false }))} />
           </div>
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search entities…" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] min-w-[180px]" />
