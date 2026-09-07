@@ -103,7 +103,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
              "Xynthia). Distinct channel from Cyclone. SCREENING ranking only, NOT calibrated: both the mean-gust "
-             "field and an extreme annual-max-gust rebuild (13yr CONUS, Gumbel RL) FAIL an independent NOAA "
+             "field and an extreme annual-max-gust rebuild (15yr CONUS 2009-2023, Gumbel RL) FAIL an independent NOAA "
              "Storm-Events backtest (AUC ≈0.5, ρ≤0.20 < 0.35 gate) — annual-max i10fg is convective/tropical-"
              "dominated, not the synoptic windstorm peril; a synoptic-filtered field is future work.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",

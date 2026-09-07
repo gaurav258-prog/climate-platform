@@ -12,8 +12,8 @@ Two fields were built and both FAILED an independent NOAA Storm Events backtest 
 wind: High Wind / Strong Wind / Blizzard / Dust Storm — the synoptic windstorm peril this channel represents):
 
   · monthly-MEAN gust (build_windstorm_climatology.py):        occurrence AUC 0.45, Spearman −0.21  — FAILED
-  · EXTREME annual-max gust, 13yr CONUS (build_windstorm_hourly.py):
-        Gumbel 50-yr return level:                              occurrence AUC 0.504, ρ 0.098        — FAILED
+  · EXTREME annual-max gust, 15yr CONUS 2009-2023 (build_windstorm_hourly.py):
+        Gumbel 50-yr return level:                              occurrence AUC 0.495, ρ 0.079        — FAILED  (13yr: 0.504 / 0.098)
         raw mean-annual-max:                                    occurrence AUC 0.579, ρ 0.204        — FAILED
     (ranking gate is ρ≥0.35; scripts/backtest_windstorm_noaa.py, US validation region)
 
