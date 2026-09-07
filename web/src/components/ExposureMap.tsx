@@ -22,22 +22,24 @@ function useDark() {
   return dark
 }
 
-function Fit({ regions }: { regions: Region[] }) {
+function Fit({ regions, focusKey }: { regions: Region[]; focusKey?: string | null }) {
   const map = useMap()
-  const key = regions.map(r => r.key).join('|')
+  const key = regions.map(r => r.key).join('|') + '#' + (focusKey ?? '')
   useEffect(() => {
+    const focus = focusKey ? regions.filter(r => r.key === focusKey) : []
+    const target = focus.length ? focus : regions
     const pts: [number, number][] = []
-    for (const r of regions) {
+    for (const r of target) {
       const g = r.geometry as { type: string; coordinates: unknown }
       const rings = g.type === 'Polygon' ? [(g.coordinates as number[][][])[0]] : (g.coordinates as number[][][][]).map(p => p[0])
       for (const ring of rings) for (const [x, y] of ring) pts.push([y, x])
     }
-    if (pts.length) map.fitBounds(pts, { padding: [24, 24], maxZoom: 8 })
+    if (pts.length) map.fitBounds(pts, { padding: [24, 24], maxZoom: focus.length ? 10 : 8 })
   }, [key])   // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
 
-export default function ExposureMap({ regions, sites, height = 480 }: { regions: Region[]; sites?: Site[]; height?: number }) {
+export default function ExposureMap({ regions, sites, height = 480, focusKey }: { regions: Region[]; sites?: Site[]; height?: number; focusKey?: string | null }) {
   const dark = useDark()
   const fc = useMemo(() => ({ type: 'FeatureCollection' as const,
     features: regions.map(r => ({ type: 'Feature' as const, geometry: r.geometry, properties: r })) }), [regions])
@@ -46,10 +48,10 @@ export default function ExposureMap({ regions, sites, height = 480 }: { regions:
       <MapContainer center={[48, 8]} zoom={4} minZoom={2} maxZoom={14} scrollWheelZoom={false} worldCopyJump
         style={{ width: '100%', height: '100%', background: dark ? '#0b1524' : '#e8eef4' }}>
         <TileLayer key={dark ? 'd' : 'l'} attribution="Tiles &copy; Esri · NUTS &copy; EuroGeographics" url={dark ? DARK : LIGHT} />
-        <Fit regions={regions} />
-        <GeoJSON key={fc.features.length + (dark ? 'd' : 'l')} data={fc}
-          style={(f) => { const r = f?.properties as Region; const c = severityHex(r.max_score)
-            return { color: c, weight: r.kind === 'h3' ? 1 : 1.2, dashArray: r.kind === 'h3' ? '4 3' : undefined, fillColor: c, fillOpacity: r.max_score == null ? 0.15 : 0.45 } }}
+        <Fit regions={regions} focusKey={focusKey} />
+        <GeoJSON key={fc.features.length + (dark ? 'd' : 'l') + (focusKey ?? '')} data={fc}
+          style={(f) => { const r = f?.properties as Region; const c = severityHex(r.max_score); const hot = focusKey && r.key === focusKey
+            return { color: hot ? (dark ? '#fff' : '#0f172a') : c, weight: hot ? 3 : r.kind === 'h3' ? 1 : 1.2, dashArray: r.kind === 'h3' ? '4 3' : undefined, fillColor: c, fillOpacity: r.max_score == null ? 0.15 : 0.45 } }}
           onEachFeature={(f, layer) => { const r = f.properties as Region
             layer.bindTooltip(`<b>${r.name}</b>${r.country ? ' · ' + r.country : ''}${r.kind === 'h3' ? ' (hexagon, outside NUTS)' : ''}<br/>` +
               `${r.n_sites} site${r.n_sites === 1 ? '' : 's'} · ${eur(r.value_eur)}<br/>` +
