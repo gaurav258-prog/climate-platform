@@ -35,14 +35,25 @@ def clips_at(resolution: int) -> bool:
 
 @lru_cache(maxsize=1)
 def _land():
+    """STRtree over land polygons. Countries are EXPLODED into their single polygons (a multipolygon such as France
+    with its overseas territories has a world-spanning bounding box, which defeats the tree) and PREPARED, so a
+    point or cell test costs microseconds, not tens of milliseconds. Each part keeps its country code."""
+    import shapely
     from shapely.geometry import shape
     from shapely.strtree import STRtree
     if not COUNTRIES_PATH.exists():
         return None
     with gzip.open(COUNTRIES_PATH, "rt") as f:
         feats = json.load(f)["features"]
-    geoms = [shape(x["geometry"]).buffer(0) for x in feats]
-    codes = [x["properties"].get("CNTR_ID") for x in feats]
+    geoms, codes = [], []
+    for x in feats:
+        g = shape(x["geometry"]).buffer(0)
+        for part in (g.geoms if g.geom_type == "MultiPolygon" else [g]):
+            if part.is_empty:
+                continue
+            geoms.append(part); codes.append(x["properties"].get("CNTR_ID"))
+    for g in geoms:
+        shapely.prepare(g)
     return STRtree(geoms), geoms, codes
 
 

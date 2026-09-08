@@ -52,7 +52,8 @@ export default function EntityFile() {
         </div>
         <div className="flex gap-4 text-[12px] mt-3">
           <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
-          <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens →</Link>
+          <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Plausibility band (Tier 1) →</Link>
+          <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens (Tier 2) →</Link>
         </div>
       </Card>
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}

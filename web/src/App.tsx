@@ -18,6 +18,7 @@ const Supervised = lazy(() => import('./pages/Supervised'))
 const EntityFile = lazy(() => import('./pages/EntityFile'))
 const SupervisorIntake = lazy(() => import('./pages/SupervisorIntake'))
 const SupervisorLens = lazy(() => import('./pages/SupervisorLens'))
+const SupervisorPlausibility = lazy(() => import('./pages/SupervisorPlausibility'))
 const SupervisorMap = lazy(() => import('./pages/SupervisorMap'))
 const SupervisorBenchmark = lazy(() => import('./pages/SupervisorBenchmark'))
 const SupervisorLensPopulation = lazy(() => import('./pages/SupervisorLensPopulation'))
@@ -126,6 +127,7 @@ function Workspace() {
         <Route path="/supervised/:orgId" element={<EntityFile />} />
         <Route path="/supervised/:orgId/intake" element={<SupervisorIntake />} />
         <Route path="/supervised/:orgId/lens" element={<SupervisorLens />} />
+        <Route path="/supervised/:orgId/plausibility" element={<SupervisorPlausibility />} />
         <Route path="/supervisor/map" element={<SupervisorMap />} />
         <Route path="/supervisor/benchmark" element={<SupervisorBenchmark />} />
         <Route path="/supervisor/lens" element={<SupervisorLensPopulation />} />

@@ -796,3 +796,38 @@ def end_scope(supervision_id: str, session: DbSession, ctx: Supervisor):
                     target_type="supervision_scope", target_id=supervision_id, detail={"regulator_org_id": reg, "supervised_org_id": ent})
     session.commit()
     return {"ok": True}
+
+
+# ── Tier 1: plausibility of the submitted template, no granular data needed ────────────────────────────────
+@router.get("/entity/{org_id}/plausibility", summary="Tier-1 plausibility band of the submitted template against the geography priors")
+def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from services.supervision.geo_prior import bases_available
+    from services.supervision.intake import load_submission
+    from services.supervision.plausibility import assess
+    _need(ctx, "supervisor.entity.file")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    ss = _intake_spec(session, reg, org_id)["intake"]["submission"]
+    sub = load_submission(session, reg, org_id, ss["framework"], ss["template"])
+    if not sub:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No submitted template on file for this entity — ingest it first."})
+    cfg = _config(session, reg)
+    basis = sub.get("basis") or {}
+    stated = bool(basis.get("scenario") and basis.get("horizon"))
+    sc = scenario or (basis.get("scenario") if stated else None) or cfg["default_scenario"]
+    hz = horizon or (basis.get("horizon") if stated else None) or cfg["default_horizon"]
+    available = bases_available(session)
+    if (sc, hz) not in available and available:
+        fallback = (cfg["default_scenario"], cfg["default_horizon"]) if (cfg["default_scenario"], cfg["default_horizon"]) in available else available[0]
+        basis_note = f"No reference at {sc} · {hz}; judged at {fallback[0]} · {fallback[1]} instead."
+        sc, hz = fallback
+    else:
+        basis_note = ("Judged at the basis the entity stated." if stated and not (scenario or horizon) else "Judged at the basis shown.")
+    result = assess(session, sub["cells"], sc, hz)
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.plausibility.access", target_type="organization",
+                target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})
+    session.commit()
+    return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
+            "stated_basis": basis if stated else None, "scenario": sc, "horizon": hz, "basis_note": basis_note,
+            "bases_available": [{"scenario": a, "horizon": b} for a, b in available], "template": ss, **result}
