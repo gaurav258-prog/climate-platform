@@ -52,15 +52,9 @@ Supervisor = Annotated[dict, Depends(require_supervisor)]
 
 
 def _org_scope(session, reg_org_id: str) -> list[dict]:
-    """Everything the ORGANISATION supervises (supervision_scope, active rows)."""
-    rows = session.execute(text("""
-        SELECT o.org_id::text AS org_id, o.name, o.type, o.country, ss.jurisdiction
-        FROM supervision_scope ss
-        JOIN organizations o ON o.org_id = ss.supervised_org_id
-        WHERE ss.regulator_org_id = CAST(:r AS uuid) AND ss.active
-        ORDER BY o.name
-    """), {"r": reg_org_id}).mappings().all()
-    return [dict(r) for r in rows]
+    """Everything the ORGANISATION supervises that its profile covers (services.supervision.scope)."""
+    from services.supervision.scope import org_scope
+    return org_scope(session, reg_org_id, _config(session, reg_org_id))
 
 
 def _supervised(session, ctx: dict) -> list[dict]:
@@ -754,3 +748,51 @@ def post_request_message(request_id: str, body: RequestMessage, session: DbSessi
                     target_id=request_id, detail={"status_to": body.status_to, "regulator_org_id": ctx["org"]["org_id"]})
     session.commit()
     return out
+
+
+# ── Scope: which entities this authority supervises (scope respects the profile) ────────────────────────────
+class ScopeAdd(BaseModel):
+    supervised_org_id: str
+    jurisdiction: Optional[str] = None
+
+
+@router.get("/scope", summary="The entities this authority supervises, and any that fall outside its profile")
+def get_scope(session: DbSession, ctx: Supervisor, q: Optional[str] = None):
+    from services.supervision.scope import candidates, health
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]; cfg = _config(session, reg)
+    return {**health(session, reg, cfg), "candidates": candidates(session, reg, cfg, q)}
+
+
+@router.post("/scope", status_code=201, summary="Add an entity to the supervised population (must be in the profile's sectors)")
+def add_scope(body: ScopeAdd, session: DbSession, ctx: Supervisor):
+    from services.supervision.scope import add
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]
+    try:
+        row = add(session, reg, body.supervised_org_id, body.jurisdiction, ctx["user"]["id"], _config(session, reg))
+    except KeyError:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such entity."})
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "outside_profile", "message": str(e)})
+    for audited in (reg, body.supervised_org_id):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.started",
+                    target_type="supervision_scope", target_id=row["supervision_id"],
+                    detail={"regulator_org_id": reg, "supervised_org_id": body.supervised_org_id, "jurisdiction": body.jurisdiction})
+    session.commit()
+    return row
+
+
+@router.delete("/scope/{supervision_id}", summary="End supervision of an entity (its assignments end with it)")
+def end_scope(supervision_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.scope import end
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]
+    ent = end(session, reg, supervision_id, ctx["user"]["id"])
+    if not ent:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+    for audited in (reg, ent):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.ended",
+                    target_type="supervision_scope", target_id=supervision_id, detail={"regulator_org_id": reg, "supervised_org_id": ent})
+    session.commit()
+    return {"ok": True}

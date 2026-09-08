@@ -26,7 +26,10 @@ const DEMOS = [
   { label: 'Asset manager', sub: 'holdings', tenant: 'nordkap' },
   { label: 'REIT', sub: 'properties', tenant: 'stellar' },
   { label: 'Agriculture', sub: 'sites & origins', tenant: 'terra' },
-  { label: 'Regulator', sub: 'supervised population', tenant: 'supervisor' },
+  { label: 'Banking supervisor', sub: 'credit institutions', tenant: 'supervisor' },
+  { label: 'Insurance supervisor', sub: 'insurance undertakings', tenant: 'insurance-supervisor' },
+  { label: 'Markets supervisor', sub: 'asset managers & REITs', tenant: 'markets-supervisor' },
+  { label: 'Agri-food authority', sub: 'agri-food operators', tenant: 'agrifood-authority' },
 ]
 
 export default function Login() {

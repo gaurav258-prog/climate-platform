@@ -96,7 +96,8 @@
         "supervisor.benchmark.view",
         "supervisor.entity.view",
         "supervisor.dashboard.view",
-        "supervisor.assignments.manage"
+        "supervisor.assignments.manage",
+        "supervisor.scope.manage"
       ]
     },
     "admin": {
@@ -109,7 +110,8 @@
         "admin.roles.manage",
         "admin.audit.view",
         "supervisor.population.view",
-        "supervisor.assignments.manage"
+        "supervisor.assignments.manage",
+        "supervisor.scope.manage"
       ]
     }
   },
