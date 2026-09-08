@@ -31,7 +31,7 @@ from core.db.config import check_db_connection, init_db
 # dependency (e.g. bs4 for the regulatory scraper) cannot take down the core API.
 try:
     from api.routers import assetmgmt as assetmgmt_router
-    from api.routers import auth, locations, lookup, packages, scores
+    from api.routers import auth, geo, locations, lookup, packages, scores
     from api.routers import bank as bank_router
     from api.routers import bank_submissions as bank_submissions_router
     from api.routers import calc_settings as calc_settings_router
@@ -148,6 +148,17 @@ async def lifespan(app: FastAPI):
     # Feed-refresh FALLBACK scheduler: Celery beat (feeds.refresh_due, hourly) is the production scheduler; when its
     # Redis broker is unreachable (dev/demo, or a worker outage) an in-process hourly ticker keeps the golden source
     # fresh so nothing drifts stale. Never blocks startup; each tick runs in a thread; failures are logged, not raised.
+    # Warm the land layer every map cell is clipped against (services.geo.cells) off the request path.
+    import threading
+
+    def _warm_land():
+        try:
+            from services.geo.cells import land_available
+            land_available()
+        except Exception as e:  # a missing layer degrades to unclipped cells; never blocks startup
+            logger.warning(f"land layer not warmed: {e}")
+    threading.Thread(target=_warm_land, name="warm-land-layer", daemon=True).start()
+
     ticker = None
     if not _broker_reachable():
         logger.warning("⏱  Celery broker unreachable — starting in-process hourly feed-refresh fallback")
@@ -233,6 +244,7 @@ if ROUTERS_AVAILABLE:
     app.include_router(realized_router.router)
     app.include_router(source_systems_router.router)
     app.include_router(lookup.router)
+    app.include_router(geo.router)
 
 if AUTH_USER_AVAILABLE:
     app.include_router(auth_user.router)

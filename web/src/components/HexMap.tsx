@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, useMapEvents } from 'react-leaflet'
-import { latLngToCell, cellToBoundary } from 'h3-js'
+import { latLngToCell } from 'h3-js'
 import 'leaflet/dist/leaflet.css'
 import { api } from '../lib/api'
 
@@ -12,7 +12,7 @@ import { api } from '../lib/api'
 // see the risk TEXTURE the site sits in, not just its own cell. A cell is coloured only where a real
 // score exists — nothing invented; cells still filling in show a faint outline. Dark Carto raster tiles.
 interface A { id: string; name: string; lat: number; lon: number; region?: string; traj: Record<string, number> }
-interface HexCell { cell: string; is_center: boolean; boundary: [number, number][]; score: number | null }
+interface HexCell { cell: string; is_center: boolean; rings: [number, number][][]; on_land: boolean; score: number | null }
 interface HexResp { center: string; n_cells: number; n_scored: number; computing: boolean; center_score: number | null; cells: HexCell[] }
 
 function col(l: number): [number, number, number] {
@@ -38,11 +38,18 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
   })
   const ringCells = ring.data?.cells ?? []
 
-  const cells = useMemo(() => assets.filter(a => a.lat != null && a.lon != null).map(a => {
-    const cell = latLngToCell(a.lat, a.lon, 8)
+  // Asset cells: the cell id is computed here, its SHAPE comes from the server (clipped to land, one source for
+  // every map) — the client never draws a raw hexagon.
+  const located = useMemo(() => assets.filter(a => a.lat != null && a.lon != null).map(a => ({ a, cell: latLngToCell(a.lat, a.lon, 8) })), [assets])
+  const cellIds = useMemo(() => Array.from(new Set(located.map(x => x.cell))).sort(), [located])
+  const shapes = useQuery({
+    queryKey: ['cell-shapes', cellIds.join(',')], enabled: cellIds.length > 0, staleTime: Infinity,
+    queryFn: () => api.get<{ cells: Record<string, { rings: [number, number][][]; on_land: boolean }> }>(`/v1/geo/cells?cells=${cellIds.join(',')}`),
+  })
+  const cells = useMemo(() => located.map(({ a, cell }) => {
     const score = a.traj?.[horizon] ?? a.traj?.current ?? 0
-    return { id: a.id, name: a.name, boundary: cellToBoundary(cell) as [number, number][], score, lat: a.lat, lon: a.lon, sel: a.id === selectedId }
-  }), [assets, horizon, selectedId])
+    return { id: a.id, name: a.name, rings: shapes.data?.cells[cell]?.rings ?? [], score, lat: a.lat, lon: a.lon, sel: a.id === selectedId }
+  }), [located, shapes.data, horizon, selectedId])
   const selCell = cells.find(c => c.sel)
 
   return (
@@ -59,12 +66,12 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
         {asHex && ringCells.map(c => {
           if (c.is_center) return null   // the site's own cell is drawn as an asset hex below
           if (c.score == null) return (
-            <Polygon key={c.cell} positions={c.boundary}
+            <Polygon key={c.cell} positions={c.rings}
               pathOptions={{ color: '#33415580', weight: 0.8, fill: false, dashArray: '3 4' }} />
           )
           const [r, g, b] = col(c.score)
           return (
-            <Polygon key={c.cell} positions={c.boundary}
+            <Polygon key={c.cell} positions={c.rings}
               pathOptions={{ color: `rgb(${r},${g},${b})`, weight: 0.8, fillColor: `rgb(${r},${g},${b})`, fillOpacity: 0.16 }}>
               <Tooltip sticky>neighbour cell · {Math.round(c.score)}/100 · {stateName(c.score)}</Tooltip>
             </Polygon>
@@ -75,8 +82,8 @@ export default function HexMap({ lat, lon, horizon = '2050', scenario = 'disorde
         {cells.map(c => {
           const [r, g, b] = col(c.score)
           const stroke = `rgb(${r},${g},${b})`
-          return asHex ? (
-            <Polygon key={c.id} positions={c.boundary}
+          return asHex && c.rings.length ? (
+            <Polygon key={c.id} positions={c.rings}
               pathOptions={{ color: stroke, weight: c.sel ? 3 : 1.4, fillColor: stroke, fillOpacity: c.sel ? 0.5 : 0.3 }}>
               <Tooltip sticky>{c.name} · {Math.round(c.score)}/100</Tooltip>
             </Polygon>
