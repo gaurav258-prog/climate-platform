@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1090,7 +1090,7 @@ function ThreshInput({ defaultValue, onCommit, disabled }: { defaultValue: numbe
 // Regional aggregates (NUTS-3) reach the supervisor regardless (that is what filings carry). Individual site
 // locations are ours to open or close; the switch is audited on both sides.
 interface Sup { supervision_id: string; regulator_org_id: string; regulator: string; jurisdiction: string | null
-  site_access: boolean; site_access_granted_at: string | null; site_access_revoked_at: string | null }
+  site_access: boolean; site_access_granted_at: string | null; site_access_revoked_at: string | null; since: string | null; acknowledged_at: string | null }
 function SupervisoryAccess() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['my-supervisors'], queryFn: () => api.get<{ supervisors: Sup[]; note: string }>('/v1/me/supervisors') })
@@ -1098,6 +1098,11 @@ function SupervisoryAccess() {
   const set = async (s: Sup, granted: boolean) => {
     setBusy(s.supervision_id)
     try { await api.post(`/v1/me/supervisors/${s.supervision_id}/site-access`, { granted }); await qc.invalidateQueries({ queryKey: ['my-supervisors'] }) }
+    finally { setBusy(null) }
+  }
+  const ack = async (s: Sup) => {
+    setBusy(s.supervision_id)
+    try { await api.post(`/v1/me/supervisors/${s.supervision_id}/acknowledge`, {}); await qc.invalidateQueries({ queryKey: ['my-supervisors'] }) }
     finally { setBusy(null) }
   }
   const sups = q.data?.supervisors ?? []
@@ -1112,9 +1117,10 @@ function SupervisoryAccess() {
             <div>
               <div className="text-[13px] text-[var(--color-ink)]">{s.regulator}{s.jurisdiction ? <span className="mono text-[10.5px] text-[var(--color-faint)]"> · {s.jurisdiction}</span> : null}</div>
               <div className="mono text-[10.5px] text-[var(--color-faint)]">
-                {s.site_access ? `individual sites visible since ${s.site_access_granted_at?.slice(0, 10)}` : s.site_access_revoked_at ? `site access revoked ${s.site_access_revoked_at.slice(0, 10)} · regional only` : 'regional aggregates only'}
+                supervising since {s.since?.slice(0, 10) ?? '—'} · {s.acknowledged_at ? `acknowledged ${s.acknowledged_at.slice(0, 10)}` : 'not yet acknowledged by you'} · {s.site_access ? `individual sites visible since ${s.site_access_granted_at?.slice(0, 10)}` : s.site_access_revoked_at ? `site access revoked ${s.site_access_revoked_at.slice(0, 10)} · regional only` : 'regional aggregates only'}
               </div>
             </div>
+            {!s.acknowledged_at && <Button variant="ghost" onClick={() => ack(s)} disabled={busy === s.supervision_id}>Acknowledge</Button>}
             <Button onClick={() => set(s, !s.site_access)} disabled={busy === s.supervision_id}>
               {busy === s.supervision_id ? '…' : s.site_access ? 'Revoke site-level access' : 'Grant site-level access'}
             </Button>
@@ -1300,6 +1306,62 @@ function SupervisorRequestsInbox() {
                     {det.data.can_set.map(s => <Button key={s.key} onClick={() => send(s.key)} disabled={busy}>Mark {s.label.toLowerCase()}</Button>)}
                   </div></>) : <div className="text-[12px] text-[var(--color-faint)]">Responding needs the release permission in your organisation.</div>}
               </div>)}
+          </div>))}
+      </div>
+    </Card>
+  )
+}
+
+// ── Supervised population — which entities this authority supervises; scope respects the profile ───────────
+interface ScopeRow { supervision_id: string; org_id: string; name: string; type: string; country: string | null; lei: string | null; jurisdiction: string | null; created_at: string | null; acknowledged_at: string | null; site_access: boolean }
+interface ScopeResp { profile_id: string; profile_label: string; sectors: string[]; in_profile: ScopeRow[]; out_of_profile: ScopeRow[]; candidates: { org_id: string; name: string; type: string; country: string | null; lei: string | null }[] }
+function SupervisionScope() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const can = profile?.org?.type === 'regulator' && (profile?.permissions ?? []).includes('supervisor.scope.manage')
+  const [search, setSearch] = useState('')
+  const q = useQuery({ queryKey: ['supervision-scope', search], enabled: !!can, queryFn: () => api.get<ScopeResp>(`/v1/supervisor/scope${search ? `?q=${encodeURIComponent(search)}` : ''}`) })
+  const [jur, setJur] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  if (!can || !q.data) return null
+  const d = q.data
+  const refresh = () => Promise.all(['supervision-scope', 'supervisor-workflow', 'supervision-assignments'].map(k => qc.invalidateQueries({ queryKey: [k] })))
+  const add = async (org_id: string) => {
+    setBusy(true)
+    try { await api.post('/v1/supervisor/scope', { supervised_org_id: org_id, jurisdiction: jur[org_id] || null }); toast.success('Added to your supervised population. The entity has been told.'); await refresh() }
+    catch (e) { toast.error((e as Error).message || 'Could not add.') } finally { setBusy(false) }
+  }
+  const end = async (r: ScopeRow) => {
+    if (!window.confirm(`End supervision of ${r.name}? Its assignments end with it and it will no longer be in your population.`)) return
+    setBusy(true)
+    try { await api.del(`/v1/supervisor/scope/${r.supervision_id}`); await refresh() } catch (e) { toast.error((e as Error).message || 'Could not end.') } finally { setBusy(false) }
+  }
+  return (
+    <Card className="p-5">
+      <SectionHead hint={`${d.profile_label} · covers ${d.sectors.join(', ').replace(/_/g, ' ')} · an entity outside these sectors cannot be added`}>Supervised population</SectionHead>
+      {d.out_of_profile.length > 0 && (
+        <div className="rounded-lg border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 px-3 py-2 mb-3 text-[12.5px] text-[var(--color-ink)]">
+          {d.out_of_profile.length} supervised {d.out_of_profile.length === 1 ? 'entity falls' : 'entities fall'} outside your profile and {d.out_of_profile.length === 1 ? 'is' : 'are'} not shown as population: {d.out_of_profile.map(r => r.name).join(', ')}. Switch profile above or end their supervision.
+          <div className="mt-1 flex flex-wrap gap-2">{d.out_of_profile.map(r => <button key={r.supervision_id} disabled={busy} onClick={() => end(r)} className="mono text-[11px] text-[var(--color-bad)] hover:underline">end {r.name} ×</button>)}</div>
+        </div>)}
+      <div className="divide-y divide-[var(--color-line)] mb-4">
+        {d.in_profile.length === 0 && <div className="py-2 text-[12.5px] text-[var(--color-faint)]">No entities yet — add one below.</div>}
+        {d.in_profile.map(r => (
+          <div key={r.supervision_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+            <span className="text-[var(--color-ink)] min-w-[220px]">{r.name}<span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{r.country ?? ''}{r.lei ? ` · ${r.lei}` : ''}</span></span>
+            <span className="mono text-[10.5px] text-[var(--color-faint)]">{r.jurisdiction ?? 'no jurisdiction set'} · since {r.created_at?.slice(0, 10) ?? '—'} · {r.acknowledged_at ? 'acknowledged' : 'awaiting acknowledgement'} · {r.site_access ? 'sites granted' : 'regional only'}</span>
+            <button disabled={busy} onClick={() => end(r)} className="ml-auto mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-bad)]">end supervision</button>
+          </div>))}
+      </div>
+      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Add an entity in your sectors</div>
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or LEI…" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] min-w-[260px] mb-2" />
+      <div className="divide-y divide-[var(--color-line)]">
+        {d.candidates.length === 0 && <div className="py-2 text-[12.5px] text-[var(--color-faint)]">No further entities in your sectors on the platform{search ? ' match this search' : ''}.</div>}
+        {d.candidates.map(c => (
+          <div key={c.org_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+            <span className="text-[var(--color-ink)] min-w-[220px]">{c.name}<span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{c.type.replace(/_/g, ' ')} · {c.country ?? ''}</span></span>
+            <input value={jur[c.org_id] ?? ''} onChange={e => setJur(j => ({ ...j, [c.org_id]: e.target.value }))} placeholder="Jurisdiction, e.g. EU/SSM" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] outline-none w-44" />
+            <Button variant="ghost" disabled={busy} onClick={() => add(c.org_id)}>Add to population</Button>
           </div>))}
       </div>
     </Card>

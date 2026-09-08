@@ -28,7 +28,18 @@ MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
 STELLAR  = "33333333-3333-4333-8333-333333333333"
 NORDKAP  = "44444444-4444-4444-8444-444444444444"
-SUPERVISOR = "88888888-8888-4888-8888-888888888888"   # regulator / supervisor demo tenant (55555555-… is Terra Foods)
+SUPERVISOR = "88888888-8888-4888-8888-888888888888"   # banking supervisor demo tenant (55555555-… is Terra Foods)
+INS_SUP    = "88888888-8888-4888-8888-888888888802"   # insurance supervisor
+MKT_SUP    = "88888888-8888-4888-8888-888888888803"   # securities / markets supervisor
+AGRI_SUP   = "88888888-8888-4888-8888-888888888804"   # agri-food authority
+ORANJE     = "66666666-6666-4666-8666-666666666666"
+# one supervisory body per sector, each with the profile that covers exactly that sector (scope respects the profile)
+SUPERVISORS = {
+    SUPERVISOR: ("banking_supervisor",   "supervisor",           [(MERIDIAN, "EU/SSM")]),
+    INS_SUP:    ("insurance_supervisor", "insurance-supervisor", [(IBERIA, "EU/EIOPA")]),
+    MKT_SUP:    ("markets_supervisor",   "markets-supervisor",   [(STELLAR, "EU/ESMA"), (NORDKAP, "EU/ESMA")]),
+    AGRI_SUP:   ("agrifood_authority",   "agrifood-authority",   [(ORANJE, "EU/CSRD")]),
+}
 
 ORGS = [
     # org_id, name, type, country, aum_eur, employees
@@ -36,7 +47,10 @@ ORGS = [
     (IBERIA,   "Iberia Mutual (demo)", "insurer",  "ES", 12_000_000_000, 1800),
     (STELLAR,  "Stellar Logistics REIT (demo)", "reit", "NL", 3_600_000_000, 210),
     (NORDKAP,  "Nordkap Asset Management (demo)", "asset_manager", "SE", 22_000_000_000, 340),
-    (SUPERVISOR, "EU Climate Supervisor (demo)", "regulator", "DE", None, 900),
+    (SUPERVISOR, "EU Banking Supervisor (demo)", "regulator", "DE", None, 900),
+    (INS_SUP,    "EU Insurance Supervisor (demo)", "regulator", "DE", None, 400),
+    (MKT_SUP,    "EU Markets Supervisor (demo)", "regulator", "FR", None, 600),
+    (AGRI_SUP,   "EU Agri-food Authority (demo)", "regulator", "IT", None, 300),
 ]
 
 ENTITLEMENTS = {
@@ -44,13 +58,16 @@ ENTITLEMENTS = {
     IBERIA:   ["underwriting", "parametric", "trust"],
     STELLAR:  ["portfolio-risk", "trust"],
     NORDKAP:  ["portfolio-var", "trust", "securities"],
-    SUPERVISOR: ["supervision", "trust"],
+    SUPERVISOR: ["supervision", "trust"], INS_SUP: ["supervision", "trust"], MKT_SUP: ["supervision", "trust"], AGRI_SUP: ["supervision", "trust"],
 }
 
 # Supervisory bodies: roles come from the supervision-profile registry (configuration), and the demo users carry
 # the supervisory roles a real authority would give them — admin as the all-round demo persona.
 EXTRA_USER_ROLES = {
     "admin@supervisor.demo":    ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
+    "admin@insurance-supervisor.demo": ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
+    "admin@markets-supervisor.demo":   ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
+    "admin@agrifood-authority.demo":   ["supervisor", "risk_analyst", "data_steward", "inspector", "head"],
     "analyst@supervisor.demo":  ["risk_analyst"],
     "approver@supervisor.demo": ["supervisor"],   # line supervisor: sees only the entities assigned to them
 }
@@ -97,6 +114,15 @@ USERS = [
     ("admin@supervisor.demo",   "Sofia Supervisor (EU Climate Supervisor)", "Demo!admin1",   SUPERVISOR, "admin"),
     ("analyst@supervisor.demo", "Lars Examiner (EU Climate Supervisor)",    "Demo!analyst1", SUPERVISOR, "risk_analyst"),
     ("approver@supervisor.demo", "Mina Case Lead (EU Climate Supervisor)",  "Demo!approve1", SUPERVISOR, "supervisor"),
+    ("admin@insurance-supervisor.demo",    "Ines Supervisor (EU Insurance Supervisor)", "Demo!admin1",   INS_SUP, "admin"),
+    ("analyst@insurance-supervisor.demo",  "Ivo Examiner (EU Insurance Supervisor)",    "Demo!analyst1", INS_SUP, "risk_analyst"),
+    ("approver@insurance-supervisor.demo", "Ida Case Lead (EU Insurance Supervisor)",   "Demo!approve1", INS_SUP, "supervisor"),
+    ("admin@markets-supervisor.demo",      "Marc Supervisor (EU Markets Supervisor)",   "Demo!admin1",   MKT_SUP, "admin"),
+    ("analyst@markets-supervisor.demo",    "Maja Examiner (EU Markets Supervisor)",     "Demo!analyst1", MKT_SUP, "risk_analyst"),
+    ("approver@markets-supervisor.demo",   "Milo Case Lead (EU Markets Supervisor)",    "Demo!approve1", MKT_SUP, "supervisor"),
+    ("admin@agrifood-authority.demo",      "Anna Supervisor (EU Agri-food Authority)",  "Demo!admin1",   AGRI_SUP, "admin"),
+    ("analyst@agrifood-authority.demo",    "Aldo Examiner (EU Agri-food Authority)",    "Demo!analyst1", AGRI_SUP, "risk_analyst"),
+    ("approver@agrifood-authority.demo",   "Alba Case Lead (EU Agri-food Authority)",   "Demo!approve1", AGRI_SUP, "supervisor"),
 ]
 
 
@@ -171,24 +197,37 @@ def main():
                     SELECT :u, role_id FROM roles WHERE org_id = :o AND name = :n ON CONFLICT DO NOTHING
                 """), {"u": user_id, "o": org_id, "n": extra})
 
-        # 5) supervision scope: the EU Climate Supervisor oversees the four financial tenants
-        for supervised, juris in [(MERIDIAN, "EU/SSM"), (IBERIA, "EU/EIOPA"),
-                                  (STELLAR, "EU/ESMA"), (NORDKAP, "EU/ESMA")]:
+        # 5) supervision scope + profile: one body per sector; any scope row now outside a body's profile ends
+        for reg_id, (profile, _slug, scope) in SUPERVISORS.items():
             s.execute(text("""
-                INSERT INTO supervision_scope (regulator_org_id, supervised_org_id, jurisdiction, active)
-                VALUES (CAST(:r AS uuid), CAST(:s AS uuid), :j, TRUE)
-                ON CONFLICT (regulator_org_id, supervised_org_id) DO UPDATE
-                   SET jurisdiction = EXCLUDED.jurisdiction, active = TRUE
-            """), {"r": SUPERVISOR, "s": supervised, "j": juris})
+                INSERT INTO supervisor_settings (org_id, profile, thresholds) VALUES (CAST(:o AS uuid), :p, '{}'::jsonb)
+                ON CONFLICT (org_id) DO UPDATE SET profile = EXCLUDED.profile
+            """), {"o": reg_id, "p": profile})
+            for supervised, juris in scope:
+                s.execute(text("""
+                    INSERT INTO supervision_scope (regulator_org_id, supervised_org_id, jurisdiction, active)
+                    VALUES (CAST(:r AS uuid), CAST(:s AS uuid), :j, TRUE)
+                    ON CONFLICT (regulator_org_id, supervised_org_id) DO UPDATE
+                       SET jurisdiction = EXCLUDED.jurisdiction, active = TRUE, ended_at = NULL
+                """), {"r": reg_id, "s": supervised, "j": juris})
+            s.execute(text("""
+                UPDATE supervision_scope SET active = FALSE, ended_at = COALESCE(ended_at, now())
+                WHERE regulator_org_id = CAST(:r AS uuid) AND active AND supervised_org_id <> ALL(CAST(:keep AS uuid[]))
+            """), {"r": reg_id, "keep": [x for x, _ in scope]})
 
         # 6) assignments: the line supervisor (approver persona) works two of the four; horizontal roles see all
-        for email, supervised, cap in [("approver@supervisor.demo", MERIDIAN, "lead"), ("approver@supervisor.demo", IBERIA, "lead")]:
+        for email, supervised, cap in [("approver@supervisor.demo", MERIDIAN, "lead"), ("approver@insurance-supervisor.demo", IBERIA, "lead"),
+                                       ("approver@markets-supervisor.demo", STELLAR, "lead")]:
             s.execute(text("""
                 INSERT INTO supervision_assignment (regulator_org_id, supervised_org_id, user_id, capacity)
                 SELECT CAST(:r AS uuid), CAST(:s AS uuid), u.user_id, :c FROM users u WHERE u.email = :e
                   AND NOT EXISTS (SELECT 1 FROM supervision_assignment a WHERE a.regulator_org_id = CAST(:r AS uuid)
                                   AND a.supervised_org_id = CAST(:s AS uuid) AND a.user_id = u.user_id AND a.revoked_at IS NULL)
-            """), {"r": SUPERVISOR, "s": supervised, "c": cap, "e": email})
+            """), {"r": next(k for k, v in SUPERVISORS.items() if any(x == supervised for x, _ in v[2])), "s": supervised, "c": cap, "e": email})
+        # an assignment to an entity outside the body's scope ends with it
+        s.execute(text("""UPDATE supervision_assignment a SET revoked_at = now() WHERE revoked_at IS NULL AND NOT EXISTS
+                          (SELECT 1 FROM supervision_scope ss WHERE ss.regulator_org_id = a.regulator_org_id
+                           AND ss.supervised_org_id = a.supervised_org_id AND ss.active)"""))
 
         n_users = s.execute(text("SELECT count(*) FROM users WHERE hashed_password IS NOT NULL")).scalar()
         n_roles = s.execute(text("SELECT count(*) FROM roles")).scalar()

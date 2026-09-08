@@ -18,13 +18,15 @@ router = APIRouter(prefix="/v1/me/supervisors", tags=["Me"])
 def _rows(session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT ss.supervision_id::text AS supervision_id, o.org_id::text AS regulator_org_id, o.name AS regulator,
-               ss.jurisdiction, ss.site_access_granted_at, ss.site_access_revoked_at,
+               ss.jurisdiction, ss.site_access_granted_at, ss.site_access_revoked_at, ss.created_at, ss.acknowledged_at,
                (ss.site_access_granted_at IS NOT NULL AND ss.site_access_revoked_at IS NULL) AS site_access
         FROM supervision_scope ss JOIN organizations o ON o.org_id = ss.regulator_org_id
         WHERE ss.supervised_org_id = CAST(:o AS uuid) AND ss.active ORDER BY o.name
     """), {"o": org_id}).mappings().all()
     return [dict(r) | {"site_access_granted_at": r["site_access_granted_at"].isoformat() if r["site_access_granted_at"] else None,
-                       "site_access_revoked_at": r["site_access_revoked_at"].isoformat() if r["site_access_revoked_at"] else None}
+                       "site_access_revoked_at": r["site_access_revoked_at"].isoformat() if r["site_access_revoked_at"] else None,
+                       "since": r["created_at"].isoformat() if r["created_at"] else None,
+                       "acknowledged_at": r["acknowledged_at"].isoformat() if r["acknowledged_at"] else None}
             for r in rows]
 
 
@@ -33,6 +35,20 @@ def my_supervisors(session: DbSession, ctx: CurrentUser):
     return {"supervisors": _rows(session, ctx["org"]["org_id"]),
             "note": "Regional aggregates (NUTS-3), the unit used in filings, are visible to your supervisor by default. "
                     "Individual site locations are shown only while you grant site-level access here."}
+
+
+@router.post("/{supervision_id}/acknowledge", summary="Acknowledge that this authority supervises us (org admin)")
+def acknowledge_supervisor(supervision_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.supervision.scope import acknowledge
+    org_id = ctx["org"]["org_id"]
+    if not acknowledge(session, org_id, supervision_id, ctx["user"]["id"]):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervisor awaiting acknowledgement."})
+    reg = session.execute(text("SELECT regulator_org_id::text FROM supervision_scope WHERE supervision_id = CAST(:s AS uuid)"), {"s": supervision_id}).scalar()
+    for audited in (org_id, reg):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.acknowledged",
+                    target_type="supervision_scope", target_id=supervision_id, detail={"supervised_org_id": org_id, "regulator_org_id": reg})
+    session.commit()
+    return {"ok": True, "supervisors": _rows(session, org_id)}
 
 
 class SiteAccess(BaseModel):

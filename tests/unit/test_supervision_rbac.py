@@ -48,3 +48,16 @@ def test_assignment_managers_hold_the_permission():
     from services.supervision.profiles import role_templates
     assert "supervisor.assignments.manage" in role_templates()["head"]["permissions"]
     assert "supervisor.assignments.manage" in role_templates()["admin"]["permissions"]
+
+
+def test_scope_managers_hold_the_permission_and_it_is_migrated():
+    from services.supervision.profiles import role_templates
+    assert "supervisor.scope.manage" in role_templates()["head"]["permissions"]
+    assert "supervisor.scope.manage" in _migration_codes()
+
+
+def test_scope_respects_the_profile():
+    from services.supervision.profiles import resolve
+    from services.supervision.scope import profile_types
+    assert profile_types(resolve("banking_supervisor")) == ["bank"]
+    assert set(profile_types(resolve("integrated_supervisor"))) >= {"bank", "insurer", "asset_manager", "reit"}
