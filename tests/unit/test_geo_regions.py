@@ -1,6 +1,7 @@
 """Regional aggregation for the supervisor heat map: NUTS-3 inside the EU, H3 res-4 hexagons elsewhere."""
 import pytest
 
+from services.geo.cells import COUNTRIES_PATH
 from services.geo.regions import NUTS3_PATH, aggregate_by_region, region_for
 
 needs_nuts = pytest.mark.skipif(not NUTS3_PATH.exists(), reason="NUTS-3 boundaries not fetched")
@@ -26,3 +27,18 @@ def test_aggregate_rolls_up_without_exposing_sites():
     assert de["mean_score"] == 50.0 and de["entities"] == ["A", "B"]
     assert all("lat" not in r and "lon" not in r and "sites" not in r for r in regs)   # no site leaks through
     gh = next(r for r in regs if r["kind"] == "h3"); assert gh["max_score"] is None and gh["mean_score"] is None
+
+
+@pytest.mark.skipif(not COUNTRIES_PATH.exists(), reason="country boundaries not fetched")
+def test_hexagons_are_clipped_to_land_and_named_by_country():
+    import h3
+    from shapely.geometry import Polygon, shape
+    miami = region_for(25.77, -80.19)                       # coastal: the hexagon must lose its sea part
+    full = Polygon([(lon, lat) for lat, lon in h3.cell_to_boundary(miami["key"])])
+    got = shape(miami["geometry"])
+    assert miami["kind"] == "h3" and miami["country"] == "US"
+    assert 0 < got.area < full.area * 0.9 and full.covers(got.buffer(-1e-9))
+    inland = region_for(39.74, -104.99)                     # Denver: nothing to clip
+    assert abs(shape(inland["geometry"]).area - Polygon([(lon, lat) for lat, lon in h3.cell_to_boundary(inland["key"])]).area) < 1e-9
+    offshore = region_for(30.0, -40.0)                      # mid-Atlantic: no land → whole hexagon, no country
+    assert offshore["country"] is None and shape(offshore["geometry"]).geom_type == "Polygon"

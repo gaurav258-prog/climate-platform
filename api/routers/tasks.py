@@ -305,11 +305,13 @@ def hexes(session: DbSession, ctx: CurrentUser,
         # Ask the client to re-fetch while the ring is still filling in.
         computing = len(score_by) < len(cells)
 
+    from services.geo.cells import cell_shape
     out = []
     for c in cells:
-        b = h3.cell_to_boundary(c)  # [(lat, lng), ...]
-        out.append({"cell": c, "is_center": c == center,
-                    "boundary": [[round(p[0], 5), round(p[1], 5)] for p in b],
+        shp = cell_shape(c)   # clipped to land — a neighbour cell over the sea is drawn only for its land part
+        if not shp["on_land"] and c != center:
+            continue
+        out.append({"cell": c, "is_center": c == center, "rings": shp["rings_latlon"], "on_land": shp["on_land"],
                     "score": (round(score_by[c], 1) if c in score_by else None)})
     scored_n = sum(1 for c in cells if c in score_by)
     return {"center": center, "resolution": 8, "cell_km": 0.7, "scenario": scenario, "horizon": horizon,

@@ -1,7 +1,9 @@
 """Regional units for aggregation — what a supervisor is entitled to see without site-level access.
 
 EU: NUTS-3 (Eurostat GISCO 2021, 1:20M) — the unit EBA Pillar 3 Template 5 and ESRS E1-9 use.
-Elsewhere: an H3 resolution-4 hexagon (~1,770 km², comparable to a NUTS-3 region) — disclosed as such.
+Elsewhere: an H3 resolution-4 hexagon (~1,770 km², comparable to a NUTS-3 region) — disclosed as such — clipped
+to land by the one cell service (services/geo/cells.py — Eurostat GISCO countries 2020, 1:3M), which also names
+its country. A hexagon that touches no land at all (an offshore site) is kept whole.
 Point-in-polygon via a shapely STRtree over the 1,514 NUTS-3 polygons, built once per process.
 """
 from __future__ import annotations
@@ -32,6 +34,13 @@ def _index():
     return STRtree(geoms), geoms, meta
 
 
+def _hex_region(cell: str) -> dict:
+    """The H3 cell as a GeoJSON region — clipped to land by the one cell service (services.geo.cells)."""
+    from services.geo.cells import cell_shape
+    c = cell_shape(cell)
+    return {"key": cell, "name": f"hex {cell[:6]}…", "country": c["country"], "kind": "h3", "geometry": c["geometry"]}
+
+
 def region_for(lat: float, lon: float) -> dict:
     """→ {key, name, country, kind: 'nuts3'|'h3', geometry (GeoJSON)}. Never None: outside NUTS → H3 hexagon."""
     idx = _index()
@@ -42,11 +51,7 @@ def region_for(lat: float, lon: float) -> dict:
         for i in tree.query(pt):
             if geoms[int(i)].covers(pt):
                 return {**meta[int(i)], "kind": "nuts3"}
-    cell = h3.latlng_to_cell(lat, lon, H3_RES)
-    ring = [[lon_, lat_] for lat_, lon_ in h3.cell_to_boundary(cell)]
-    ring.append(ring[0])
-    return {"key": cell, "name": f"hex {cell[:6]}…", "country": None, "kind": "h3",
-            "geometry": {"type": "Polygon", "coordinates": [ring]}}
+    return _hex_region(h3.latlng_to_cell(lat, lon, H3_RES))
 
 
 def aggregate_by_region(points: list[dict], entity_name: Optional[str] = None) -> list[dict]:

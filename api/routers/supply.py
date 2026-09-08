@@ -227,14 +227,12 @@ def hex_hazard(session: DbSession, org_id: OrgId, res: int = Query(4, ge=2, le=9
         ring |= set(h3.grid_disk(hx, 1))   # the grid extends around the book — context cells, not yet scored
     ring -= plot_hexes
 
-    # Clip each hexagon to the land of the country under its centre, so the grid never spills into the
-    # sea or across a border — cells whose centre isn't on land are dropped.
-    from services.reference.country_boundaries import clip_hex
+    # Every drawn cell is clipped to land by the one cell service; a cell touching no land is not drawn.
+    from services.geo.cells import cell_shape
 
     def _clipped(cell: str):
-        boundary = [[lon, lat] for (lat, lon) in h3.cell_to_boundary(cell)]  # GeoJSON order: [lon, lat]
-        center_lat, center_lon = h3.cell_to_latlng(cell)
-        return clip_hex(boundary, (center_lon, center_lat))
+        c = cell_shape(cell)
+        return c["rings_lonlat"] if c["on_land"] else None
 
     hexes = []
     for hx in plot_hexes:

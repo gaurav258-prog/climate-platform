@@ -68,7 +68,7 @@ export default function SupervisorMap() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Exposure map" title="Where the supervised exposure sits"
-        lead="Regional by default — NUTS-3 inside the EU, hexagons elsewhere — the unit your filings use. Individual sites appear only for an entity that has granted you site-level access." />
+        lead="Regional by default — NUTS-3 inside the EU, hexagons elsewhere clipped to the coastline (Eurostat GISCO countries 2020) — the unit your filings use. Individual sites appear only for an entity that has granted you site-level access." />
       <ExposureCard />
     </div>
   )
