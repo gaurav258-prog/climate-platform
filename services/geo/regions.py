@@ -25,12 +25,15 @@ def _index():
     from shapely.strtree import STRtree
     if not NUTS3_PATH.exists():
         return None
+    import shapely
     feats = json.loads(NUTS3_PATH.read_text())["features"]
     geoms, meta = [], []
     for f in feats:
         p = f["properties"]
         geoms.append(shape(f["geometry"]))
         meta.append({"key": p["NUTS_ID"], "name": p["NUTS_NAME"], "country": p["CNTR_CODE"], "geometry": f["geometry"]})
+    for g in geoms:
+        shapely.prepare(g)
     return STRtree(geoms), geoms, meta
 
 
