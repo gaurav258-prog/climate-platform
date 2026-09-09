@@ -73,13 +73,13 @@ def crossings(session: Session, org_id: str, vertical: str, scenario: str, horiz
         WITH cur AS (
             SELECT DISTINCT ON (v.entity_id) v.entity_id, v.physical_risk_score AS sc
             FROM v_portfolio_entity_physical_risk v
-            WHERE v.org_id = :o AND v.vertical = :vert AND v.hazard_type <> 'heat_acute'
+            WHERE v.org_id = :o AND v.vertical = :vert AND v.hazard_type NOT IN (SELECT hazard_type FROM hazard_relevance WHERE asset_class = 'buildings' AND NOT headline)
               AND v.scenario = 'baseline' AND v.time_horizon = 'current'
             ORDER BY v.entity_id, v.physical_risk_score DESC
         ), fut AS (
             SELECT DISTINCT ON (v.entity_id) v.entity_id, v.physical_risk_score AS sc, v.hazard_type AS driver
             FROM v_portfolio_entity_physical_risk v
-            WHERE v.org_id = :o AND v.vertical = :vert AND v.hazard_type <> 'heat_acute'
+            WHERE v.org_id = :o AND v.vertical = :vert AND v.hazard_type NOT IN (SELECT hazard_type FROM hazard_relevance WHERE asset_class = 'buildings' AND NOT headline)
               AND v.scenario = :scen AND v.time_horizon = :hz
             ORDER BY v.entity_id, v.physical_risk_score DESC
         )
@@ -330,7 +330,7 @@ def _projected_score(session: Session, org_id: str, entity_id: str, scenario: st
     return session.execute(text("""
         SELECT MAX(v.physical_risk_score)
         FROM v_portfolio_entity_physical_risk v
-        WHERE v.org_id = :o AND v.entity_id = CAST(:e AS uuid) AND v.hazard_type <> 'heat_acute'
+        WHERE v.org_id = :o AND v.entity_id = CAST(:e AS uuid) AND v.hazard_type NOT IN (SELECT hazard_type FROM hazard_relevance WHERE asset_class = 'buildings' AND NOT headline)
           AND v.scenario = :s AND v.time_horizon = :h
     """), {"o": org_id, "e": entity_id, "s": scenario, "h": horizon}).scalar()
 

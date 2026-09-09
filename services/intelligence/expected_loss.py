@@ -99,7 +99,7 @@ def bank_expected_loss(session, org_id: str, scenario: str = "disorderly_2c",
         FROM portfolio_entities e
         JOIN v_portfolio_entity_physical_risk v ON v.entity_id = e.entity_id
         LEFT JOIN ext_banking x ON x.entity_id = e.entity_id
-        WHERE e.org_id = :o AND e.vertical = 'banking' AND v.hazard_type <> 'heat_acute'
+        WHERE e.org_id = :o AND e.vertical = 'banking' AND v.hazard_type NOT IN (SELECT hazard_type FROM hazard_relevance WHERE asset_class = 'buildings' AND NOT headline)
           AND ( (v.scenario = :scen AND v.time_horizon <> 'current')
                 OR (v.scenario = 'baseline' AND v.time_horizon = 'current') )
         ORDER BY e.entity_id, v.time_horizon, v.physical_risk_score DESC

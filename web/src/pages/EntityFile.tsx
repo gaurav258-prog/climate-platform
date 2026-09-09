@@ -19,7 +19,7 @@ interface Pos { id: string; label: string; unit: string; direction?: string; val
   distribution: { n: number; min?: number; p25?: number; median?: number; p75?: number; max?: number } }
 interface FileResp {
   entity: { org_id: string; name: string; type: string; country: string; lei: string | null; legal_name: string | null }
-  in_profile: boolean; sector: { label: string; book_noun: string; frameworks: string[]; region_unit: string } | null
+  in_profile: boolean; has_intake?: boolean; sector: { label: string; book_noun: string; frameworks: string[]; region_unit: string } | null
   scenario: string; horizon: string
   submissions: { frameworks: Fw[]; filed: number; expected: number } | null
   book: { n_assets: number; value_eur: number; n_regions: number
@@ -55,9 +55,11 @@ export default function EntityFile() {
           {mine && <Link to={mine.next.to} className="text-[12.5px] font-medium text-[var(--color-sky)] hover:underline whitespace-nowrap">Next: {mine.next.label} →</Link>}
         </div>
         <div className="flex gap-4 text-[12px] mt-3">
-          <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
-          <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Plausibility band (Tier 1) →</Link>
-          <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens (Tier 2) →</Link>
+          {d.has_intake ? <>
+            <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Intake →</Link>
+            <Link to={`/supervised/${orgId}/plausibility`} className="text-[var(--color-sky)] hover:underline">Plausibility band (Tier 1) →</Link>
+            <Link to={`/supervised/${orgId}/lens`} className="text-[var(--color-sky)] hover:underline">Independent lens (Tier 2) →</Link>
+          </> : <span className="text-[var(--color-faint)]">No granular intake template is configured for this sector under your profile — the plausibility band and independent lens apply once one is.</span>}
         </div>
       </Card>
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}

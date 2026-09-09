@@ -21,7 +21,7 @@ from services.supervision.lens import HIGH
 
 MIN_CELLS_PER_REGION = 5
 MIN_CELLS_PER_GEOGRAPHY = 30
-SOURCE_NOTE = "Standing canonical scores per H3 res-8 cell; headline = max hazard score (heat_acute excluded); " \
+SOURCE_NOTE = "Standing canonical scores per H3 res-8 cell; headline = max hazard score over the scales that apply to built assets (nowcasts and crop-scale hazards excluded); " \
               "sensitive = High/Very high; spread across NUTS-3 (EU, Eurostat GISCO 2021) or H3 res-4 regions."
 
 

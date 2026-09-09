@@ -152,6 +152,16 @@ async def lifespan(app: FastAPI):
             logger.error("⚠️  Database not available - running in read-only mode")
     except Exception as e:
         logger.error(f"❌ Startup warning: {e}")
+    # The hazard-relevance registry (core.hazard_relevance) is mirrored into hazard_relevance so the SQL headline
+    # paths read the same truth as the engine; synced on every start, so code and table cannot drift.
+    try:
+        from core.db.session import get_session as _gs
+        from core.hazard_relevance import sync_table as _sync_relevance
+        with _gs() as _s:
+            _sync_relevance(_s); _s.commit()
+        logger.info("✅ Hazard-relevance registry mirrored")
+    except Exception as e:
+        logger.error(f"❌ Hazard-relevance sync failed: {e}")
 
     # Feed-refresh FALLBACK scheduler: Celery beat (feeds.refresh_due, hourly) is the production scheduler; when its
     # Redis broker is unreachable (dev/demo, or a worker outage) an in-process hourly ticker keeps the golden source

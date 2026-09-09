@@ -7,11 +7,13 @@ rows in the other five tables). Headline = max hazard score at (scenario, horizo
 """
 from __future__ import annotations
 
+import threading
+from collections import OrderedDict
 from typing import Optional
 
 from sqlalchemy import text
 
-from services.portfolio_engine import DEFAULT_HEADLINE_EXCLUDE
+from core.hazard_relevance import headline_exclude
 
 # The four financial verticals live on the shared `entities` table and are read through the SAME portfolio engine
 # the sector pages use (horizon interpolation, scenario-flat fallback, headline rule, buckets) — so a supervisor's
@@ -33,11 +35,45 @@ _AGRI_SOURCES = [
 ]
 
 
+# Version-keyed memo: the population views (benchmark, analytics, evidence packs) read every entity's asset points
+# on each request, and each read runs the engine over the whole book. The result changes only when the book or
+# the standing scores change, so it is memoised on a data version — the newest score time plus the newest book
+# row for the org — never on a clock. Bounded, process-local, thread-safe; a versioned key can never serve stale data.
+_MEMO: "OrderedDict[tuple, list[dict]]" = OrderedDict()
+_MEMO_LOCK = threading.Lock()
+_MEMO_MAX = 512
+
+
+def _data_version(session, org_id: str) -> tuple:
+    return tuple(session.execute(text("""
+        SELECT (SELECT max(scored_at) FROM canonical_scores WHERE valid_to IS NULL),
+               (SELECT count(*) || ':' || COALESCE(max(updated_at)::text, '') FROM portfolio_entities WHERE org_id = CAST(:o AS uuid)),
+               (SELECT count(*) || ':' || COALESCE(max(created_at)::text, '') FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)),
+               (SELECT count(*) || ':' || COALESCE(max(created_at)::text, '') FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid))
+    """), {"o": org_id}).first())
+
+
 def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: str = "current",
                      source: str = "own", subject_org_id: Optional[str] = None) -> list[dict]:
     """[{id, name, kind, lat, lon, region, value_eur, score, hazard}] — one row per asset of the org across every
-    sector table; headline = the sector engine's headline (worst standing hazard, nowcasts excluded). Unlocated
-    assets are included (lat/lon None) so value-based metrics match the entity's own book; maps skip them."""
+    sector table; headline = the sector engine's headline (worst standing hazard over the scales that apply to the
+    asset class, nowcasts excluded). Unlocated assets are included (lat/lon None) so value-based metrics match the
+    entity's own book; maps skip them. Memoised on the data version (see _MEMO)."""
+    key = (org_id, scenario, horizon, source, subject_org_id, _data_version(session, org_id))
+    with _MEMO_LOCK:
+        hit = _MEMO.get(key)
+        if hit is not None:
+            _MEMO.move_to_end(key)
+            return [dict(r) for r in hit]
+    rows = _org_asset_points(session, org_id, scenario, horizon, source, subject_org_id)
+    with _MEMO_LOCK:
+        _MEMO[key] = [dict(r) for r in rows]
+        while len(_MEMO) > _MEMO_MAX:
+            _MEMO.popitem(last=False)
+    return rows
+
+
+def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source: str, subject_org_id: Optional[str]) -> list[dict]:
     from services.portfolio_engine import fetch_entities_with_risk
     out: list[dict] = []
     for vertical, label in _ENGINE_VERTICALS.items():
@@ -73,7 +109,8 @@ def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: 
                                        "region": r["region"], "value_eur": float(r["value_eur"] or 0), "score": None, "hazard": None,
                                        **({"basis_note": basis} if basis else {})})
             sc = float(r["score"]) if r["score"] is not None else None
-            if r["hazard"] in DEFAULT_HEADLINE_EXCLUDE:
+            # an operational site is a built asset; a sourcing plot is agriculture — each reads its own relevance
+            if r["hazard"] in headline_exclude("agriculture" if kind == "plot" else "buildings"):
                 continue
             if sc is not None and (a["score"] is None or sc > a["score"]):
                 a["score"], a["hazard"] = sc, r["hazard"]

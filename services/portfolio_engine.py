@@ -46,9 +46,13 @@ from ml.scoring.valuation_discount import valuation_block
 VERTICALS = ("banking", "insurance", "realestate", "assetmgmt")
 
 
-# Hazards never used as an asset's HEADLINE (they are nowcast signals, not standing risk). One definition, shared
-# with the cross-sector reader the supervisor portal uses, so an entity and its supervisor see the same headline.
-DEFAULT_HEADLINE_EXCLUDE: tuple = ("heat_acute",)
+# Hazards never used as a built asset's HEADLINE: nowcast signals and the scales that do not apply to buildings
+# (crop-frost, soil water, land degradation …). ONE definition — core.hazard_relevance — read here and mirrored in
+# the hazard_relevance table for the SQL paths.
+from core.hazard_relevance import headline_exclude as _headline_exclude  # noqa: E402
+from core.hazard_relevance import reason as _why_not  # noqa: E402
+
+DEFAULT_HEADLINE_EXCLUDE: tuple = _headline_exclude("buildings")
 
 
 def fetch_entities_with_risk(
@@ -187,7 +191,11 @@ def fetch_entities_with_risk(
     out = []
     for e in entities:
         hz = sorted(by_entity.get(e["entity_id"], []), key=lambda x: -x["score"])
-        priceable = [h for h in hz if h["hazard"] not in exclude_headline_hazards]
+        for h in hz:
+            h["relevant"] = h["hazard"] not in exclude_headline_hazards
+            if not h["relevant"]:
+                h["why_not"] = _why_not(h["hazard"])
+        priceable = [h for h in hz if h["relevant"]]
         headline = priceable[0] if priceable else None
         bucket = headline["bucket"] if headline else None
         hazard = headline["hazard"] if headline else None
@@ -268,8 +276,8 @@ def get_entity_with_risk(session, entity_id: str, scenario: str, horizon: str,
     # api/routers/insurance.py's _insurance_extra), which silently KeyErrored against the
     # raw shape before this normalization existed.
     hz_norm = [{"hazard": r["hazard_type"], "score": round(r["score"], 1), "bucket": r["risk_bucket"],
-                "model_version": r["model_version"], "scored_at": r["scored_at"]} for r in scoped]
-    priceable = [h for h in hz_norm if h["hazard"] not in exclude_headline_hazards]
+                "model_version": r["model_version"], "scored_at": r["scored_at"], "relevant": r["hazard_type"] not in exclude_headline_hazards} for r in scoped]
+    priceable = [h for h in hz_norm if h["relevant"]]
     headline = sorted(priceable, key=lambda h: -h["score"])[0] if priceable else None
     bucket = headline["bucket"] if headline else None
     hazard = headline["hazard"] if headline else None

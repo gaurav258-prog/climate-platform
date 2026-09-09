@@ -336,9 +336,9 @@ def filing_assurance_pack(filing_id: str, session: DbSession, ctx: dict = Depend
     import io
 
     from fastapi.responses import StreamingResponse
-    from services.governance.audit import write_audit
     from sqlalchemy import text
 
+    from api.services.rbac import write_audit
     from services.governance.assurance_pack import build_assurance_pack
     org_id = ctx["org"]["org_id"]
     sid = session.execute(text("SELECT snapshot_id::text FROM regulatory_filing WHERE filing_id = CAST(:f AS uuid) AND org_id = CAST(:o AS uuid)"),

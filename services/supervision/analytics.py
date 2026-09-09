@@ -16,7 +16,6 @@ from sqlalchemy import text
 from core.types import score_to_bucket
 from services.geo.org_assets import org_asset_points
 from services.geo.regions import aggregate_by_region
-from services.portfolio_engine import DEFAULT_HEADLINE_EXCLUDE
 from services.supervision.benchmark import benchmark
 from services.supervision.trend import anchor_coverage
 
@@ -56,7 +55,7 @@ def scenario_shift(session, entities: list[dict]) -> dict:
     """High-risk value per (scenario, horizon) for the population, plus the share of that value whose headline
     hazard is a CMIP6-projected one (flood / storm / wildfire) — the part that moves with the scenario.
     One grouped query over the population's cells: the headline is the worst standing hazard on the asset's cell
-    at that anchor (heat_acute excluded — the same rule the engine applies per asset); value = the asset's own
+    at that anchor (nowcasts and scales that do not apply to the asset class excluded — the same rule the engine applies per asset); value = the asset's own
     exposure; unscored assets count in the total and never in the high-risk part."""
     from core.types import _BUCKET_THRESHOLDS, RiskBucket
     high_from = min(lo for lo, _, b in _BUCKET_THRESHOLDS if b in (RiskBucket.H, RiskBucket.VH))
@@ -65,35 +64,38 @@ def scenario_shift(session, entities: list[dict]) -> dict:
     if ids:
         rows = session.execute(text("""
             WITH pop AS (
-                SELECT h3_cell, CAST(primary_value_eur AS FLOAT) AS value FROM portfolio_entities
+                -- each asset carries its class: built assets and operational sites read the buildings relevance,
+                -- sourcing plots the agriculture relevance (core.hazard_relevance, mirrored in hazard_relevance)
+                SELECT h3_cell, CAST(primary_value_eur AS FLOAT) AS value, 'buildings' AS cls FROM portfolio_entities
                 WHERE org_id = ANY(CAST(:ids AS uuid[])) AND source = 'own'
                 UNION ALL
-                SELECT h3_cell, CAST(annual_value_eur AS FLOAT) FROM sc_company_sites WHERE org_id = ANY(CAST(:ids AS uuid[]))
+                SELECT h3_cell, CAST(annual_value_eur AS FLOAT), 'buildings' FROM sc_company_sites WHERE org_id = ANY(CAST(:ids AS uuid[]))
                 UNION ALL
-                SELECT h3_cell, CAST(annual_spend_eur AS FLOAT) FROM sc_sourcing_plots WHERE org_id = ANY(CAST(:ids AS uuid[]))
+                SELECT h3_cell, CAST(annual_spend_eur AS FLOAT), 'agriculture' FROM sc_sourcing_plots WHERE org_id = ANY(CAST(:ids AS uuid[]))
             ),
             anchors AS (SELECT DISTINCT scenario, time_horizon FROM canonical_scores WHERE score_lane = 'standing' AND valid_to IS NULL
                         AND scenario = ANY(CAST(:scs AS text[])) AND time_horizon = ANY(CAST(:hzs AS text[]))),
             scored AS (
-                SELECT c.h3_cell, c.scenario, c.time_horizon, c.hazard_type, CAST(c.risk_score AS FLOAT) AS score
-                FROM canonical_scores c
-                WHERE c.score_lane = 'standing' AND c.valid_to IS NULL AND c.hazard_type <> ALL(CAST(:excl AS text[]))
-                  AND c.h3_cell IN (SELECT DISTINCT h3_cell FROM pop WHERE h3_cell IS NOT NULL)
+                SELECT DISTINCT pc.h3_cell, pc.cls, c.scenario, c.time_horizon, c.hazard_type, CAST(c.risk_score AS FLOAT) AS score
+                FROM (SELECT DISTINCT h3_cell, cls FROM pop WHERE h3_cell IS NOT NULL) pc
+                JOIN canonical_scores c ON c.h3_cell = pc.h3_cell AND c.score_lane = 'standing' AND c.valid_to IS NULL
+                LEFT JOIN hazard_relevance hr ON hr.hazard_type = c.hazard_type AND hr.asset_class = pc.cls
+                WHERE COALESCE(hr.headline, TRUE)
             ),
             -- the engine's rule per asset: a hazard scored under the scenario uses its own row at the anchor; a hazard
             -- with NO row under that scenario (scenario-flat susceptibility layers) is carried flat from baseline/today
             per_anchor AS (
-                SELECT a.scenario, a.time_horizon, s.h3_cell, s.hazard_type, s.score
+                SELECT a.scenario, a.time_horizon, s.h3_cell, s.cls, s.hazard_type, s.score
                 FROM anchors a JOIN scored s ON s.scenario = a.scenario AND s.time_horizon = a.time_horizon
                 UNION ALL
-                SELECT a.scenario, a.time_horizon, b.h3_cell, b.hazard_type, b.score
+                SELECT a.scenario, a.time_horizon, b.h3_cell, b.cls, b.hazard_type, b.score
                 FROM anchors a JOIN scored b ON b.scenario = 'baseline' AND b.time_horizon = 'current'
                 WHERE a.scenario <> 'baseline'
-                  AND NOT EXISTS (SELECT 1 FROM scored x WHERE x.h3_cell = b.h3_cell AND x.hazard_type = b.hazard_type AND x.scenario = a.scenario)
+                  AND NOT EXISTS (SELECT 1 FROM scored x WHERE x.h3_cell = b.h3_cell AND x.cls = b.cls AND x.hazard_type = b.hazard_type AND x.scenario = a.scenario)
             ),
             head AS (
-                SELECT DISTINCT ON (scenario, time_horizon, h3_cell) h3_cell, scenario, time_horizon, score, hazard_type
-                FROM per_anchor ORDER BY scenario, time_horizon, h3_cell, score DESC
+                SELECT DISTINCT ON (scenario, time_horizon, h3_cell, cls) h3_cell, cls, scenario, time_horizon, score, hazard_type
+                FROM per_anchor ORDER BY scenario, time_horizon, h3_cell, cls, score DESC
             )
             SELECT a.scenario, a.time_horizon,
                    (SELECT COALESCE(sum(value), 0) FROM pop) AS total,
@@ -101,9 +103,9 @@ def scenario_shift(session, entities: list[dict]) -> dict:
                    COALESCE(sum(p.value) FILTER (WHERE h.score >= :hi AND h.hazard_type = ANY(CAST(:proj AS text[]))), 0) AS high_proj
             FROM anchors a
             LEFT JOIN head h ON h.scenario = a.scenario AND h.time_horizon = a.time_horizon
-            LEFT JOIN pop p ON p.h3_cell = h.h3_cell
+            LEFT JOIN pop p ON p.h3_cell = h.h3_cell AND p.cls = h.cls
             GROUP BY a.scenario, a.time_horizon
-        """), {"ids": ids, "scs": SCENARIOS, "hzs": HORIZONS, "excl": list(DEFAULT_HEADLINE_EXCLUDE), "hi": high_from,
+        """), {"ids": ids, "scs": SCENARIOS, "hzs": HORIZONS, "hi": high_from,
                "proj": ["flood", "storm", "wildfire"]}).mappings().all()
         cells = {(r["scenario"], r["time_horizon"]): r for r in rows}
     out = []

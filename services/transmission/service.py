@@ -144,13 +144,13 @@ def _follow_up(session, org_id: str, filing: dict, transmission_id: str, res: di
         chans = registry()["channels"]
         ch = session.execute(text("SELECT channel_id FROM filing_transmission WHERE transmission_id = CAST(:t AS uuid)"), {"t": transmission_id}).scalar()
         if not case:
-            case = CASES.open_case(session, org_id, actor_user_id or "system", regulator=chans.get(ch, {}).get("authority", "Authority"), filing_id=filing["filing_id"], reference=res.get("receipt_ref"))
+            case = CASES.open_case(session, org_id, actor_user_id, regulator=chans.get(ch, {}).get("authority", "Authority"), filing_id=filing["filing_id"], reference=res.get("receipt_ref"))
         msg = {"queued": "Transmission queued.", "sent": "Transmitted; awaiting the authority's receipt.", "acknowledged": f"Transmitted and receipted: {res.get('receipt_ref')}.",
                "awaiting_receipt": "File prepared for a channel outside the platform; record the authority's reference when received.",
                "awaiting_credentials": f"Not sent: {res.get('error')}", "rejected": f"Rejected by the authority: {res.get('error')}", "failed": f"Transmission failed: {res.get('error')}"}.get(st, st)
-        CASES.post_message(session, org_id, case["case_id"], actor_user_id or "system", direction="outbound", author="Tellumen transmission", body=msg, attachment_ref=res.get("receipt_ref"))
+        CASES.post_message(session, org_id, case["case_id"], actor_user_id, direction="outbound", author="Tellumen transmission", body=msg, attachment_ref=res.get("receipt_ref"))
         if st in ("sent", "acknowledged", "awaiting_receipt") and case.get("stage") == "ready":
-            CASES.advance_stage(session, org_id, case["case_id"], actor_user_id or "system", "submitted")
+            CASES.advance_stage(session, org_id, case["case_id"], actor_user_id, "submitted")
     step("submission_case", case_step)
     if notes:
         session.execute(text("UPDATE filing_transmission SET error = COALESCE(error || ' · ', '') || :n WHERE transmission_id = CAST(:t AS uuid)"),
