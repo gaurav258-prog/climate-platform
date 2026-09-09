@@ -56,10 +56,11 @@ export default function SupervisorRequests() {
           <div className="overflow-x-auto">
             <table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="">Entity</th><th className="">Kind</th><th className="">Title</th><th className="">Severity</th>
+                <th>Reference</th><th>Entity</th><th>Kind</th><th>Title</th><th>Severity</th>
                 <th className="">Status</th><th className="">Due</th><th className="num">Thread</th></tr></thead>
               <tbody>{rows.map(r => (
                 <tr key={r.request_id} onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                  <td className="mono text-[11px] text-[var(--color-mute)] whitespace-nowrap">{r.reference ?? '—'}</td>
                   <td className="text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
                   <td className="text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
                   <td className="text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}{r.source?.type === 'deadline' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">automatic · {r.source.stage} · {r.source.period_label}</span>}{r.source?.type === 'mandate_attributes' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">attributes for the mandate criteria</span>}</td>
