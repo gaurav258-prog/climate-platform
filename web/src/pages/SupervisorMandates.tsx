@@ -39,7 +39,7 @@ export default function SupervisorMandates() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Regulations" title="Mandates and who they apply to"
-        lead="The regulations behind your supervision: the article, who it applies to, what must be delivered, through which channel and by when, and how the act has changed. Then your population against those criteria — applies, does not apply, or cannot be determined until the entity confirms an attribute." />
+        lead="The article, who it applies to, what must be delivered and by when — then your population against those criteria." />
       <div className="flex gap-2">
         {[['registry', 'Registry'], ['population', 'Who is regulated'], ['deadlines', 'Deadlines']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === k ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>))}
@@ -54,81 +54,102 @@ function Registry() {
   const qc = useQueryClient()
   const can = (profile?.permissions ?? []).includes('supervisor.mandates.manage')
   const q = useQuery({ queryKey: ['sup-mandates'], queryFn: () => api.get<RegResp>('/v1/supervisor/mandates') })
-  const [open, setOpen] = useState<string | null>(null)
+  const [sel, setSel] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const d = q.data
   if (!d) return <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading the registry…</div>
-  const ack = async (m: Mandate, v: string) => { setBusy(true); try { await api.post(`/v1/supervisor/mandates/${m.id}/versions/${v}/acknowledge`, {}); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
-  const toggle = async (m: Mandate) => { setBusy(true); try { await api.put(`/v1/supervisor/mandates/${m.id}`, { enabled: !m.enabled }); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }); await qc.invalidateQueries({ queryKey: ['sup-pop-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  const m = d.mandates.find(x => x.id === sel) ?? d.mandates[0]
+  const ack = async (v: string) => { setBusy(true); try { await api.post(`/v1/supervisor/mandates/${m.id}/versions/${v}/acknowledge`, {}); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  const toggle = async () => { setBusy(true); try { await api.put(`/v1/supervisor/mandates/${m.id}`, { enabled: !m.enabled }); await qc.invalidateQueries({ queryKey: ['sup-mandates'] }); await qc.invalidateQueries({ queryKey: ['sup-pop-mandates'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  const pendingChanges = d.mandates.reduce((a, x) => a + x.detection.changes.filter(c => c.status !== 'reviewed').length, 0)
+  const Tile = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-3">
+      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">{label}</div>
+      <div className="text-[12.5px] text-[var(--color-ink)] leading-relaxed">{children}</div>
+    </div>)
   return (<>
     <StatGrid cols={3} items={[
-      { label: 'Mandates in your profile', value: String(d.mandates.length), sub: `${d.mandates.filter(m => m.binding).length} binding · ${d.mandates.filter(m => !m.binding).length} guidance` },
-      { label: 'Versions to acknowledge', value: String(d.n_unacknowledged), sub: 'a new version of an act your authority has not yet reviewed', accent: d.n_unacknowledged ? 'var(--color-warn)' : undefined },
-      { label: 'Detected changes pending', value: String(d.mandates.reduce((a, m) => a + m.detection.changes.filter(c => c.status !== 'reviewed').length, 0)), sub: 'flagged by the EUR-Lex watch, awaiting review' },
+      { label: 'Mandates in your profile', value: String(d.mandates.length), sub: `${d.mandates.filter(x => x.binding).length} binding · ${d.mandates.filter(x => !x.binding).length} guidance` },
+      { label: 'Versions to acknowledge', value: String(d.n_unacknowledged), sub: 'act versions not yet reviewed by your authority', accent: d.n_unacknowledged ? 'var(--color-warn)' : undefined },
+      { label: 'Changes detected', value: String(pendingChanges), sub: 'flagged by the EUR-Lex watch, awaiting review', accent: pendingChanges ? 'var(--color-warn)' : undefined },
     ]} />
-    <Card className="p-5">
-      <div className="text-[11.5px] text-[var(--color-mute)] mb-3">{d.note} Registry version {d.registry_version}.</div>
-      <div className="divide-y divide-[var(--color-line)]">
-        {d.mandates.map(m => (
-          <div key={m.id} className="py-3">
-            <button onClick={() => setOpen(open === m.id ? null : m.id)} className="w-full text-left flex items-center gap-3 flex-wrap">
-              <ChevronRight size={13} className={`text-[var(--color-faint)] transition-transform ${open === m.id ? 'rotate-90' : ''}`} />
-              <span className="text-[13.5px] text-[var(--color-ink)] font-medium">{m.title}</span>
-              <span className="mono text-[10.5px] text-[var(--color-faint)]">{m.article.ref} · {m.sectors.join(', ').replace(/_/g, ' ')}</span>
-              <span className={`mono text-[9.5px] uppercase px-1.5 py-0.5 rounded ${m.binding ? 'bg-[var(--color-sky)]/15 text-[var(--color-sky)]' : 'bg-[var(--color-bg-2)] text-[var(--color-faint)]'}`}>{m.binding ? 'binding' : 'guidance'}</span>
-              {!m.enabled && <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-bad)]/15 text-[var(--color-bad)]">disabled by your authority</span>}
-              {!m.latest_acknowledged && <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-warn)]/15 text-[var(--color-warn)]">version {m.latest_version} to acknowledge</span>}
-              <span className="ml-auto mono text-[10.5px] text-[var(--color-faint)]">{m.deliverable.framework ? frameworkLabel(m.deliverable.framework) : m.deliverable.what.slice(0, 40)} · {m.deliverable.direction === 'push' ? 'entity submits' : 'supervisor requests'} · {m.deliverable.due.label}</span>
-            </button>
-            {open === m.id && (
-              <div className="mt-3 ml-6 grid lg:grid-cols-2 gap-5 text-[12.5px]">
-                <div className="space-y-3">
-                  <div>
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">The article · {m.article.ref} · text as of {m.article.version_date}</div>
-                    <blockquote className="border-l-2 border-[var(--color-line-2)] pl-3 text-[var(--color-ink)] leading-relaxed">{m.article.excerpt}</blockquote>
-                    <div className="mt-1.5 flex flex-wrap gap-3">
-                      <a href={m.act.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">{m.act.name} <ExternalLink size={11} /></a>
-                      {m.act.form && <a href={m.act.form.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Official form: {m.act.form.name} <ExternalLink size={11} /></a>}
-                    </div>
-                    <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">A curated digest of the article; the linked act is authoritative.</div>
+    <div className="grid lg:grid-cols-[300px_1fr] gap-5 items-start">
+      <Card className="p-2">
+        {d.mandates.map(x => (
+          <button key={x.id} onClick={() => setSel(x.id)} className={`w-full text-left rounded-lg px-3 py-2.5 transition ${m.id === x.id ? 'bg-[var(--color-bg-2)] border border-[var(--color-sky)]/40' : 'border border-transparent hover:bg-[var(--color-bg-2)]'}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-[var(--color-ink)] font-medium leading-tight">{x.short}</span>
+              {!x.latest_acknowledged && <span className="ml-auto w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--color-warn)' }} title="a version to acknowledge" />}
+            </div>
+            <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5 truncate">{x.article.ref}</div>
+            <div className="flex gap-1.5 mt-1.5">
+              <span className={`mono text-[9px] uppercase px-1.5 py-0.5 rounded ${x.binding ? 'bg-[var(--color-sky)]/15 text-[var(--color-sky)]' : 'bg-[var(--color-panel)] text-[var(--color-faint)]'}`}>{x.binding ? 'binding' : 'guidance'}</span>
+              {!x.enabled && <span className="mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-bad)]/15 text-[var(--color-bad)]">disabled</span>}
+              <span className="mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-panel)] text-[var(--color-faint)]">{x.deliverable.direction === 'push' ? 'entity submits' : 'on request'}</span>
+            </div>
+          </button>))}
+      </Card>
+      <Card className="p-6 space-y-6">
+        <div>
+          <div className="mono text-[10.5px] uppercase tracking-[0.2em] text-[var(--color-blue)] mb-1">{m.sectors.map(sc => sc.replace(/_/g, ' ')).join(' · ')}</div>
+          <h2 className="display text-[22px] leading-tight text-[var(--color-ink)]">{m.title}</h2>
+          <div className="text-[12.5px] text-[var(--color-mute)] mt-1">{m.act.name}</div>
+        </div>
+        <section>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">The article · {m.article.ref}</div>
+          <blockquote className="border-l-2 border-[var(--color-sky)] pl-4 text-[14px] text-[var(--color-ink)] leading-relaxed">{m.article.excerpt}</blockquote>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
+            <a href={m.act.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Read the act on EUR-Lex <ExternalLink size={11} /></a>
+            {m.act.form && <a href={m.act.form.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">Official form <ExternalLink size={11} /></a>}
+            <span className="mono text-[10.5px] text-[var(--color-faint)]">curated digest · text as of {m.article.version_date} · the act is authoritative</span>
+          </div>
+        </section>
+        <section>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Who it applies to</div>
+          <div className="flex flex-wrap gap-2">
+            {m.criteria.all_of.map((c, i) => <span key={i} className="rounded-full border border-[var(--color-line-2)] px-3 py-1 text-[12px] text-[var(--color-ink)]">{condText(c)}</span>)}
+          </div>
+          {m.criteria.tiers && m.criteria.tiers.length > 0 && (
+            <div className="grid sm:grid-cols-2 gap-2 mt-2">{m.criteria.tiers.map((t, i) => (
+              <div key={i} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]"><div className="text-[var(--color-ink)]">{t.label}</div>
+                <div className="text-[var(--color-mute)] mt-0.5">{t.all_of.length ? t.all_of.map(condText).join(' · ') : 'all others'}{t.frequency ? <span className="mono text-[10px] text-[var(--color-faint)]"> · {t.frequency}</span> : null}</div></div>))}</div>)}
+        </section>
+        <section>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">What must be delivered</div>
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            <Tile label="Deliverable">{m.deliverable.what}</Tile>
+            <Tile label="Format">{m.deliverable.format}</Tile>
+            <Tile label={m.deliverable.direction === 'push' ? 'Channel · the entity submits' : 'Channel · the supervisor requests'}>{m.deliverable.channel}</Tile>
+            <Tile label="Deadline">{m.deliverable.due.label}<span className="mono text-[10.5px] text-[var(--color-faint)]"> · {m.deliverable.frequency}</span></Tile>
+          </div>
+        </section>
+        <section>
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Versions of the act</div>
+          <ol className="relative border-l border-[var(--color-line-2)] ml-2 space-y-3">
+            {m.versions.map(v => (
+              <li key={v.version} className="pl-4">
+                <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full" style={{ background: v.acknowledged ? 'var(--color-good)' : 'var(--color-warn)' }} />
+                <div className="flex items-start gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[240px] text-[12.5px]">
+                    <span className="mono text-[10.5px] text-[var(--color-faint)]">{v.version} · from {v.effective_from}</span>
+                    <div className="text-[var(--color-ink)]">{v.summary}</div>
+                    <div className="mono text-[10px] text-[var(--color-faint)] mt-0.5">{v.celex ? <a href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${v.celex}`} target="_blank" rel="noreferrer" className="text-[var(--color-sky)] hover:underline">CELEX {v.celex}</a> : null}{v.acknowledged ? ` · acknowledged ${v.acknowledged.at.slice(0, 10)} by ${v.acknowledged.by ?? '—'}` : ' · not yet acknowledged by your authority'}</div>
                   </div>
-                  <div>
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Who it applies to</div>
-                    <ul className="list-disc ml-4 text-[var(--color-mute)]">{m.criteria.all_of.map((c, i) => <li key={i}>{condText(c)}</li>)}</ul>
-                    {m.criteria.tiers && m.criteria.tiers.length > 0 && (
-                      <div className="mt-1.5 space-y-1">{m.criteria.tiers.map((t, i) => <div key={i} className="text-[var(--color-mute)]"><span className="text-[var(--color-ink)]">{t.label}</span>{t.all_of.length ? ': ' + t.all_of.map(condText).join(' and ') : ' (all others)'}{t.frequency ? ` · ${t.frequency}` : ''}</div>)}</div>)}
-                  </div>
+                  {!v.acknowledged && can && <Button variant="ghost" disabled={busy} onClick={() => ack(v.version)}>Acknowledge</Button>}
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">What must be delivered, how and by when</div>
-                    <div className="text-[var(--color-ink)]">{m.deliverable.what}</div>
-                    <div className="text-[var(--color-mute)] mt-1">Format: {m.deliverable.format}</div>
-                    <div className="text-[var(--color-mute)]">Channel: {m.deliverable.channel} · <b>{m.deliverable.direction === 'push' ? 'the entity submits' : 'the supervisor requests'}</b></div>
-                    <div className="text-[var(--color-mute)]">Deadline: {m.deliverable.due.label} · {m.deliverable.frequency}</div>
-                  </div>
-                  <div>
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Versions of the act · change log</div>
-                    <div className="space-y-1.5">{m.versions.map(v => (
-                      <div key={v.version} className="flex items-start gap-2">
-                        <span className="mono text-[10.5px] text-[var(--color-faint)] w-14 shrink-0">{v.version}</span>
-                        <div className="flex-1"><span className="text-[var(--color-ink)]">from {v.effective_from}</span> · <span className="text-[var(--color-mute)]">{v.summary}</span>
-                          {v.celex && <a href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${v.celex}`} target="_blank" rel="noreferrer" className="ml-1 mono text-[10px] text-[var(--color-sky)] hover:underline">CELEX {v.celex}</a>}
-                          <div className="mono text-[10px] text-[var(--color-faint)]">{v.acknowledged ? `acknowledged ${v.acknowledged.at.slice(0, 10)} by ${v.acknowledged.by ?? '—'}` : 'not yet acknowledged by your authority'}</div></div>
-                        {!v.acknowledged && can && <Button variant="ghost" disabled={busy} onClick={() => ack(m, v.version)}>Acknowledge</Button>}
-                      </div>))}</div>
-                  </div>
-                  <div>
-                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Change detection · EUR-Lex</div>
-                    <div className="text-[var(--color-mute)]">{m.detection.checked_at ? `Acts ${(m.detection.watched ?? []).join(', ')} last checked ${m.detection.checked_at.slice(0, 10)}.` : m.act.celex ? 'Not yet checked by the daily EUR-Lex scan.' : 'No EU act to watch for this guidance.'}</div>
-                    {m.detection.changes.map(c => <div key={c.change_id} className="mt-1 text-[var(--color-warn)]">Detected {c.detected_at.slice(0, 10)} on CELEX {c.celex}: {c.title} · {c.status}{c.url ? <a href={c.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">source</a> : null}</div>)}
-                  </div>
-                  {can && <div className="flex items-center gap-3"><Button variant="ghost" disabled={busy} onClick={() => toggle(m)}>{m.enabled ? 'Disable for my authority' : 'Enable for my authority'}</Button>{m.setting?.note && <span className="text-[var(--color-faint)]">{m.setting.note}</span>}</div>}
-                </div>
-              </div>)}
-          </div>))}
-      </div>
-    </Card>
+              </li>))}
+          </ol>
+        </section>
+        <section className="flex items-start justify-between gap-4 flex-wrap border-t border-[var(--color-line)] pt-4">
+          <div className="text-[12px] text-[var(--color-mute)]">
+            <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mr-2">EUR-Lex watch</span>
+            {m.detection.checked_at ? `acts ${(m.detection.watched ?? []).join(', ')} checked ${m.detection.checked_at.slice(0, 10)}` : m.act.celex ? 'not yet checked by the daily scan' : 'no EU act to watch for this guidance'}
+            {m.detection.changes.map(c => <div key={c.change_id} className="text-[var(--color-warn)] mt-1">Detected {c.detected_at.slice(0, 10)} on CELEX {c.celex}: {c.title} · {c.status}{c.url ? <a href={c.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">source</a> : null}</div>)}
+          </div>
+          {can && <Button variant="ghost" disabled={busy} onClick={toggle}>{m.enabled ? 'Disable for my authority' : 'Enable for my authority'}</Button>}
+        </section>
+      </Card>
+    </div>
   </>)
 }
 
