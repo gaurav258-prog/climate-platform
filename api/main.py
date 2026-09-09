@@ -70,6 +70,7 @@ try:
     from api.routers import growth as growth_router
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
+    from api.routers import model_risk as model_risk_router
     from api.routers import notifications as notifications_router
     from api.routers import onboarding_intake as onboarding_intake_router
     from api.routers import ops_console as ops_console_router
@@ -275,6 +276,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(remittance_router.router)
     app.include_router(board_pack_router.router)
     app.include_router(controls_router.router)
+    app.include_router(model_risk_router.router)
     app.include_router(reg_changes_router.router)
     app.include_router(meta_router.router)
     app.include_router(portal_router.router)
