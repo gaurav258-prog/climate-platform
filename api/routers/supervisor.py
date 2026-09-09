@@ -921,3 +921,32 @@ def export_population(session: DbSession, ctx: Supervisor, scenario: Optional[st
     session.commit()
     return Response(content=content, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": 'attachment; filename="supervised-population.xlsx"'})
+
+
+# ── Trend, timeliness ───────────────────────────────────────────────────────────────────────────────────────
+@router.get("/entity/{org_id}/trend", summary="The entity's submitted template period by period: totals, Tier-1 verdicts, cells that moved")
+def entity_trend_view(org_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.trend import entity_trend
+    _need(ctx, "supervisor.entity.file")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    cfg = _config(session, reg)
+    spec = _intake_spec(session, reg, org_id)["intake"]
+    return {"entity_org_id": org_id, **entity_trend(session, reg, org_id, spec, cfg["default_scenario"], cfg["default_horizon"])}
+
+
+@router.get("/trend", summary="Population trend: each entity's submitted sensitive share, latest period against the previous")
+def population_trend_view(session: DbSession, ctx: Supervisor):
+    from services.supervision.trend import population_trend
+    _need(ctx, "supervisor.benchmark.view")
+    reg = ctx["org"]["org_id"]
+    return population_trend(session, reg, _supervised(session, ctx), _config(session, reg))
+
+
+@router.get("/timeliness", summary="Filing timeliness across the population: each expected filing against its due date")
+def population_timeliness(session: DbSession, ctx: Supervisor):
+    from services.supervision.trend import timeliness
+    _need(ctx, "supervisor.population.view")
+    reg = ctx["org"]["org_id"]
+    return timeliness(session, reg, _supervised(session, ctx), _config(session, reg))

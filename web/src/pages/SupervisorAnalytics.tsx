@@ -9,12 +9,17 @@ import { SCENARIO_LABEL } from '../lib/hazards'
 
 // The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
 // labelled; projections say which part of the high-risk value actually moves with the scenario.
+interface TrendResp { entities: { org_id: string; name: string; periods: string[]; latest_period: string | null; latest_share_pct: number | null; previous_period: string | null; previous_share_pct: number | null; change_pp: number | null }[]; n_with_trend: number; note: string }
+interface TimelinessResp { rows: { org_id: string; name: string; framework_label: string; period_label: string; due_date: string | null; status: string | null; filed_at: string | null; state: string; days: number | null; intake_received_at: string | null; intake_lag_days: number | null }[]; summary: Record<string, number>; as_of: string; note: string }
+const STATE_LABEL: Record<string, string> = { outstanding_overdue: 'Outstanding · overdue', filed_late: 'Filed late', not_yet_due: 'Not yet due', filed_on_time: 'Filed on time', filed: 'Filed', no_due_date: 'No due date on record' }
+const STATE_COLOR: Record<string, string> = { outstanding_overdue: 'var(--color-bad)', filed_late: 'var(--color-warn)', not_yet_due: 'var(--color-mute)', filed_on_time: 'var(--color-good)', filed: 'var(--color-good)', no_due_date: 'var(--color-faint)' }
 interface Region { key: string; name: string; country: string | null; kind: string; value_eur: number; n_sites: number; max_score: number | null; worst_hazard: string | null; entities: string[] }
 interface Resp { scenario: string; horizon: string; profile_id: string; n_entities: number; n_assets: number; precision: string
   concentration: { total_value_eur: number; unlocated_value_eur: number; n_regions: number; top10_share_pct: number | null; by_region: Region[]
     curve: { rank: number; cum_share_pct: number }[]; by_hazard: { hazard: string; value_eur: number; high_value_eur: number; n: number }[] }
   scenario_shift: { scenarios: string[]; horizons: string[]; note: string
     cells: { scenario: string; horizon: string; value_eur: number; high_risk_value_eur: number; high_risk_share_pct: number | null; projected_share_of_high_pct: number | null }[] }
+  anchor_coverage: { anchors: { scenario: string; horizon: string; hazards: number; hazard_list: string[] }[]; hazards_today: number; note: string }
   distribution: Record<string, { label: string; n_entities: number; metrics: { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
     distribution: { n: number; median?: number }; entities: { org_id: string; name: string; value: number | null; flag: string }[] }[] }> }
 const eur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
@@ -48,7 +53,10 @@ export default function SupervisorAnalytics() {
   const nav = useNavigate()
   const [scenario, setScenario] = useState('baseline'); const [horizon, setHorizon] = useState('current')
   const q = useQuery({ queryKey: ['sup-analytics', scenario, horizon], queryFn: () => api.get<Resp>(`/v1/supervisor/analytics?scenario=${scenario}&horizon=${horizon}`) })
+  const tq = useQuery({ queryKey: ['sup-trend'], queryFn: () => api.get<TrendResp>('/v1/supervisor/trend') })
+  const tl = useQuery({ queryKey: ['sup-timeliness'], queryFn: () => api.get<TimelinessResp>('/v1/supervisor/timeliness') })
   const d = q.data
+  const cov = useMemo(() => d?.anchor_coverage.anchors.find(a => a.scenario === scenario && a.horizon === horizon) ?? null, [d, scenario, horizon])
   const tree = useMemo(() => (d?.concentration.by_region ?? []).slice(0, 40).map(r => ({ name: r.name, size: r.value_eur, value: r.value_eur, max_score: r.max_score, regionKey: r.key })), [d])
   const shift = useMemo(() => {
     if (!d) return []
@@ -124,6 +132,17 @@ export default function SupervisorAnalytics() {
               </ResponsiveContainer>
             </div>
             <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">of the high-risk value under {SCEN_LABEL[scenario]} · {horizon === 'current' ? 'today' : horizon}: {d.scenario_shift.cells.find(c => c.scenario === scenario && c.horizon === horizon)?.projected_share_of_high_pct ?? '—'}% is headlined by a CMIP6-projected hazard (flood / storm / wildfire); the rest by climatology channels with their own anchors</div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5" title={d.anchor_coverage.note}>
+              <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mr-1">hazards scored per anchor</span>
+              {d.scenario_shift.scenarios.flatMap(s => d.scenario_shift.horizons.map(h => {
+                const a = d.anchor_coverage.anchors.find(x => x.scenario === s && x.horizon === h); const n = a?.hazards ?? 0; const full = n >= d.anchor_coverage.hazards_today
+                const sel = s === scenario && h === horizon
+                return <span key={s + h} title={`${SCEN_LABEL[s]} · ${h === 'current' ? 'today' : h}: ${n} of ${d.anchor_coverage.hazards_today} hazards scored today${a ? ' — ' + a.hazard_list.join(', ') : ''}`}
+                  className={`mono text-[10px] px-1.5 py-0.5 rounded border ${sel ? 'border-[var(--color-sky)]' : 'border-[var(--color-line)]'}`}
+                  style={{ color: full ? 'var(--color-good)' : n === 0 ? 'var(--color-faint)' : 'var(--color-warn)' }}>{h === 'current' ? 'today' : h} · {SCEN_LABEL[s].split(' ')[0]} {n}/{d.anchor_coverage.hazards_today}</span>
+              }))}
+              {cov && cov.hazards < d.anchor_coverage.hazards_today && <span className="text-[11px] text-[var(--color-warn)] ml-1">this anchor is read on {cov.hazards} of {d.anchor_coverage.hazards_today} hazards — fewer channels than today</span>}
+            </div>
           </Card>
           <Card className="p-5">
             <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Exposure by headline hazard</div><CsvBtn name="exposure_by_hazard" rows={d.concentration.by_hazard} /></div>
@@ -140,6 +159,47 @@ export default function SupervisorAnalytics() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Card className="p-5">
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Trend · submitted sensitive share, latest vs previous period</div>{tq.data && <CsvBtn name="trend" rows={tq.data.entities} />}</div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{tq.data?.note}</div>
+            {!tq.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tq.data.entities.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No submitted templates on file yet.</div> : (
+              <div style={{ height: Math.max(120, 36 * tq.data.entities.length + 40) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={tq.data.entities.map(e => ({ name: e.name, previous: e.previous_share_pct, latest: e.latest_share_pct, pl: e.previous_period, ll: e.latest_period }))} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} />
+                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
+                    <Tooltip formatter={(v, n, p) => [`${v ?? '—'}%`, n === 'previous' ? `previous (${p.payload.pl ?? '—'})` : `latest (${p.payload.ll ?? '—'})`]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="previous" fill="#8290a8" isAnimationActive={false} />
+                    <Bar dataKey="latest" fill="#38bdf8" isAnimationActive={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>)}
+            {tq.data && tq.data.entities.some(e => e.change_pp != null) && <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{tq.data.entities.filter(e => e.change_pp != null).map(e => `${e.name}: ${e.change_pp! > 0 ? '+' : ''}${e.change_pp} pp`).join(' · ')}</div>}
+          </Card>
+          <Card className="p-5">
+            <div className="flex items-baseline justify-between"><div className="text-[14px] font-semibold mb-1">Timeliness · expected filings against their due dates</div>{tl.data && <CsvBtn name="timeliness" rows={tl.data.rows} />}</div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-2">{tl.data?.note}</div>
+            {!tl.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tl.data.rows.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No obligations or filings on record for the population.</div> : (<>
+              <div className="flex flex-wrap gap-1.5 mb-2">{Object.entries(tl.data.summary).filter(([, n]) => n).map(([k, n]) => <span key={k} className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-2)]" style={{ color: STATE_COLOR[k] }}>{STATE_LABEL[k]} {n}</span>)}</div>
+              <div className="overflow-x-auto max-h-[300px]">
+                <table className="w-full text-[12px]">
+                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="font-normal py-1 pr-3">Entity</th><th className="font-normal pr-3">Filing</th><th className="font-normal pr-3">Period</th><th className="font-normal pr-3">Due</th><th className="font-normal pr-3">State</th><th className="font-normal pr-3 text-right">Days</th><th className="font-normal text-right">Reached intake</th></tr></thead>
+                  <tbody>{tl.data.rows.map((r, i) => (
+                    <tr key={i} className="border-t border-[var(--color-line)]">
+                      <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{r.name}</td><td className="pr-3 text-[var(--color-mute)]">{r.framework_label}</td>
+                      <td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
+                      <td className="pr-3" style={{ color: STATE_COLOR[r.state] }}>{STATE_LABEL[r.state]}</td>
+                      <td className="pr-3 text-right mono" style={{ color: STATE_COLOR[r.state] }}>{r.days ?? '—'}</td>
+                      <td className="text-right mono text-[11px] text-[var(--color-faint)]">{r.intake_lag_days != null ? `+${r.intake_lag_days} d after period end` : '—'}</td>
+                    </tr>))}</tbody>
+                </table>
+              </div></>)}
           </Card>
         </div>
 

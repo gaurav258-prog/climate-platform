@@ -12,6 +12,9 @@ import { Card, PageHeader, StatGrid } from '../components/ui'
 interface Band { p10: number; p25: number; p50: number; p75: number; p90: number; share_sensitive_pct: number; n_cells: number; n_regions: number; hazard_mix: Record<string, number>; built_at: string }
 interface Row { key: string; geography: string; sector: string; gross_carrying_amount_eur: number | null; sensitive_physical_eur: number | null; submitted_share_pct: number | null
   band: Band | null; verdict: 'plausible' | 'above_band' | 'below_band' | 'no_reference'; verdict_label: string; reason: string }
+interface TrendResp { periods: { period_label: string; received_at: string; gross_eur: number; sensitive_eur: number; share_pct: number | null; basis: { scenario: string; horizon: string; stated: boolean }; tier1_counts: Record<string, number> | null }[]
+  cells: { key: string; geography: string; sector: string; share_pct: Record<string, number | null>; gross_eur: Record<string, number>; change_pp: number | null; moved: boolean; in_periods: string[] }[]
+  labels: string[]; latest: string | null; previous: string | null; change_pp: number | null; n_moved: number; note: string }
 interface Resp { entity_org_id: string; period_label: string | null; source_file: string | null; stated_basis: { scenario: string; horizon: string } | null
   scenario: string; horizon: string; basis_note: string; bases_available: { scenario: string; horizon: string }[]
   rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string }
@@ -37,6 +40,7 @@ export default function SupervisorPlausibility() {
   const sc = params.get('scenario') ?? ''; const hz = params.get('horizon') ?? ''
   const q = useQuery({ queryKey: ['sup-plausibility', orgId, sc, hz], queryFn: () => api.get<Resp>(`/v1/supervisor/entity/${orgId}/plausibility${sc || hz ? `?${new URLSearchParams({ ...(sc ? { scenario: sc } : {}), ...(hz ? { horizon: hz } : {}) })}` : ''}`) })
   const [open, setOpen] = useState<string | null>(null)
+  const tr = useQuery({ queryKey: ['sup-trend-entity', orgId], queryFn: () => api.get<TrendResp>(`/v1/supervisor/entity/${orgId}/trend`) })
   const d = q.data
   const setBasis = (s: string, h: string) => { const p = new URLSearchParams(params); p.set('scenario', s); p.set('horizon', h); setParams(p) }
   return (
@@ -93,6 +97,32 @@ export default function SupervisorPlausibility() {
           </div>
           <div className="mt-3 text-[11.5px] text-[var(--color-faint)]">{d.rule}</div>
         </Card>
+        {tr.data && tr.data.periods.length > 0 && (
+          <Card className="p-5">
+            <div className="text-[14px] font-semibold mb-1">Across periods · {tr.data.labels.join(' → ')}</div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">{tr.data.note}</div>
+            <div className="flex flex-wrap gap-4 mb-3">
+              {tr.data.periods.map(p => (
+                <div key={p.period_label} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
+                  <div className="mono text-[10.5px] text-[var(--color-faint)]">{p.period_label} · received {p.received_at.slice(0, 10)} · {scenarioLabel(p.basis.scenario)} · {horizonLabel(p.basis.horizon)}{p.basis.stated ? '' : ' (no basis stated)'}</div>
+                  <div className="text-[var(--color-ink)]">{eur(p.gross_eur)} gross · sensitive share <b>{p.share_pct != null ? `${p.share_pct}%` : '—'}</b></div>
+                  {p.tier1_counts && <div className="mono text-[10.5px] text-[var(--color-faint)]">Tier 1: {p.tier1_counts.plausible} plausible · {p.tier1_counts.above_band} high · {p.tier1_counts.below_band} low · {p.tier1_counts.no_reference} no reference</div>}
+                </div>))}
+              {tr.data.change_pp != null && <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]"><div className="mono text-[10.5px] text-[var(--color-faint)]">change {tr.data.previous} → {tr.data.latest}</div><div className="text-[var(--color-ink)]"><b style={{ color: Math.abs(tr.data.change_pp) > 10 ? 'var(--color-warn)' : 'var(--color-ink)' }}>{tr.data.change_pp > 0 ? '+' : ''}{tr.data.change_pp} pp</b> · {tr.data.n_moved} cells moved more than 10 pp</div></div>}
+            </div>
+            {tr.data.labels.length >= 2 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="font-normal py-1 pr-3">Cell</th>{tr.data.labels.map(l => <th key={l} className="font-normal pr-3 text-right">{l}</th>)}<th className="font-normal text-right">Change</th></tr></thead>
+                  <tbody>{tr.data.cells.slice(0, 40).map(c => (
+                    <tr key={c.key} className="border-t border-[var(--color-line)]">
+                      <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{c.geography} · {c.sector}</td>
+                      {tr.data!.labels.map(l => <td key={l} className="pr-3 text-right mono text-[var(--color-mute)]">{c.share_pct[l] != null ? `${c.share_pct[l]}%` : <span className="text-[var(--color-faint)]">not in template</span>}</td>)}
+                      <td className="text-right mono" style={{ color: c.moved ? 'var(--color-warn)' : 'var(--color-faint)' }}>{c.change_pp != null ? `${c.change_pp > 0 ? '+' : ''}${c.change_pp} pp` : '—'}</td>
+                    </tr>))}</tbody>
+                </table>
+              </div>)}
+          </Card>)}
       </>)}
     </div>
   )
