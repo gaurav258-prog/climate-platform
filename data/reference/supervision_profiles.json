@@ -81,7 +81,8 @@
         "modules.view",
         "supervisor.population.view",
         "supervisor.benchmark.view",
-        "supervisor.methodology.view"
+        "supervisor.methodology.view",
+        "supervisor.mandates.manage"
       ]
     },
     "head": {
@@ -97,7 +98,8 @@
         "supervisor.entity.view",
         "supervisor.dashboard.view",
         "supervisor.assignments.manage",
-        "supervisor.scope.manage"
+        "supervisor.scope.manage",
+        "supervisor.mandates.manage"
       ]
     },
     "admin": {
@@ -111,7 +113,8 @@
         "admin.audit.view",
         "supervisor.population.view",
         "supervisor.assignments.manage",
-        "supervisor.scope.manage"
+        "supervisor.scope.manage",
+        "supervisor.mandates.manage"
       ]
     }
   },

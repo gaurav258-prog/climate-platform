@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><RegulatoryAttributes /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1364,6 +1364,45 @@ function SupervisionScope() {
             <Button variant="ghost" disabled={busy} onClick={() => add(c.org_id)}>Add to population</Button>
           </div>))}
       </div>
+    </Card>
+  )
+}
+
+// ── Regulatory attributes — what a supervisor's mandate criteria read (size, listing, PIE status …) ───────────
+interface AttrResp { attributes: Record<string, { value: unknown; source: string; as_of: string | null }>; definitions: Record<string, { label: string; type: string; unit?: string; source?: string }>; can_edit: boolean }
+function RegulatoryAttributes() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const isReg = profile?.org?.type === 'regulator'
+  const q = useQuery({ queryKey: ['my-reg-attributes'], enabled: !isReg, queryFn: () => api.get<AttrResp>('/v1/me/supervisors/regulatory-attributes') })
+  const [form, setForm] = useState<Record<string, string>>({})
+  const [asOf, setAsOf] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (isReg || !q.data) return null
+  const d = q.data
+  const editable = Object.entries(d.definitions).filter(([, def]) => !(def.source ?? '').startsWith('organizations.'))
+  const save = async () => {
+    setBusy(true)
+    try {
+      const body: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(form)) body[k] = v === '' ? null : d.definitions[k].type === 'bool' ? v === 'yes' : d.definitions[k].type === 'number' ? Number(v) : v
+      await api.put('/v1/me/supervisors/regulatory-attributes', { attributes: body, as_of: asOf || null }); setForm({}); toast.success('Regulatory attributes saved.'); await qc.invalidateQueries({ queryKey: ['my-reg-attributes'] })
+    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+  }
+  const val = (k: string) => form[k] ?? (d.attributes[k]?.value == null ? '' : d.definitions[k].type === 'bool' ? (d.attributes[k].value ? 'yes' : 'no') : String(d.attributes[k].value))
+  return (
+    <Card className="p-5">
+      <SectionHead hint="what your supervisor's mandate criteria read · size, listing and public-interest status · stated as of a balance-sheet date">Regulatory attributes</SectionHead>
+      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[13px]">
+        {editable.map(([k, def]) => (
+          <label key={k} className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] pb-1.5">
+            <span className="text-[var(--color-mute)]">{def.label}{def.unit === 'eur' ? ' (€)' : ''}</span>
+            {def.type === 'bool' ? (
+              <select value={val(k)} disabled={!d.can_edit} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]"><option value="">not stated</option><option value="yes">yes</option><option value="no">no</option></select>
+            ) : <input value={val(k)} disabled={!d.can_edit} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} placeholder="not stated" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px] text-right w-44" />}
+          </label>))}
+      </div>
+      {d.can_edit && <div className="flex items-center gap-3 mt-3"><label className="text-[12px] text-[var(--color-mute)]">As of <input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]" /></label><Button onClick={save} disabled={busy || Object.keys(form).length === 0}>{busy ? 'Saving…' : 'Save attributes'}</Button></div>}
     </Card>
   )
 }

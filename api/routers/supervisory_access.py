@@ -125,3 +125,38 @@ def respond(request_id: str, body: EntityMessage, session: DbSession, ctx: dict 
                     target_id=request_id, detail={"status_to": body.status_to, "side": "entity", "supervised_org_id": ctx["org"]["org_id"]})
     session.commit()
     return out
+
+
+# ── Regulatory attributes — what the criteria of a mandate read; the entity states them, the supervisor may ask ──
+class AttributeSet(BaseModel):
+    attributes: dict
+    as_of: Optional[str] = None
+
+
+@router.get("/regulatory-attributes", summary="My organisation's regulatory attributes (what mandate criteria read) and the registry's definitions")
+def my_attributes(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.supervision.mandates import entity_attributes, registry
+    return {"attributes": entity_attributes(session, ctx["org"]["org_id"]), "definitions": registry()["attributes"],
+            "can_edit": "admin.users.manage" in (ctx.get("permissions") or [])}
+
+
+@router.put("/regulatory-attributes", summary="Set my organisation's regulatory attributes (org admin; audited)")
+def set_attributes(body: AttributeSet, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.supervision.mandates import registry, set_attribute
+    org_id = ctx["org"]["org_id"]
+    defs = registry()["attributes"]
+    for k, v in body.attributes.items():
+        if k not in defs or defs[k].get("source", "").startswith("organizations."):
+            raise HTTPException(status_code=422, detail={"error": "invalid", "message": f"{k} is not an attribute you set here."})
+        if v is None or v == "":
+            session.execute(text("DELETE FROM org_regulatory_attribute WHERE org_id = CAST(:o AS uuid) AND attribute = :a"), {"o": org_id, "a": k})
+            continue
+        try:
+            set_attribute(session, org_id, k, v, source="entity", by_user_id=ctx["user"]["id"], as_of=body.as_of)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=422, detail={"error": "invalid", "message": f"{defs[k]['label']}: value not understood."})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="regulatory_attributes.updated", target_type="organization",
+                target_id=org_id, detail={"attributes": list(body.attributes.keys()), "as_of": body.as_of})
+    session.commit()
+    from services.supervision.mandates import entity_attributes
+    return {"attributes": entity_attributes(session, org_id)}

@@ -950,3 +950,104 @@ def population_timeliness(session: DbSession, ctx: Supervisor):
     _need(ctx, "supervisor.population.view")
     reg = ctx["org"]["org_id"]
     return timeliness(session, reg, _supervised(session, ctx), _config(session, reg))
+
+
+# ── Regulatory mandate registry ─────────────────────────────────────────────────────────────────────────────
+class MandateSetting(BaseModel):
+    enabled: Optional[bool] = None
+    thresholds: Optional[dict] = None
+    due: Optional[dict] = None
+    note: Optional[str] = None
+
+
+class VersionAck(BaseModel):
+    note: Optional[str] = None
+
+
+class AttributeAsk(BaseModel):
+    supervised_org_id: str
+    attributes: list[str]
+
+
+@router.get("/mandates", summary="The regulatory mandates this authority works under: article, criteria, deliverable, channel, deadline, versions, change detection")
+def get_mandates(session: DbSession, ctx: Supervisor):
+    from services.supervision.mandates import registry_view
+    reg = ctx["org"]["org_id"]
+    return registry_view(session, reg, _config(session, reg))
+
+
+@router.put("/mandates/{mandate_id}", summary="Adapt a mandate for this authority: enable/disable, thresholds, due rule (audited)")
+def put_mandate_setting(mandate_id: str, body: MandateSetting, session: DbSession, ctx: Supervisor):
+    from services.supervision.mandates import mandate
+    _need(ctx, "supervisor.mandates.manage")
+    if not mandate(mandate_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such mandate in the registry."})
+    reg = ctx["org"]["org_id"]
+    cur = session.execute(text("SELECT enabled, overrides FROM supervisor_mandate_setting WHERE regulator_org_id = CAST(:r AS uuid) AND mandate_id = :m"),
+                          {"r": reg, "m": mandate_id}).mappings().first()
+    ov = dict((cur or {}).get("overrides") or {})
+    if body.thresholds is not None:
+        ov["thresholds"] = body.thresholds
+    if body.due is not None:
+        ov["due"] = body.due
+    enabled = body.enabled if body.enabled is not None else (cur["enabled"] if cur else True)
+    session.execute(text("""INSERT INTO supervisor_mandate_setting (regulator_org_id, mandate_id, enabled, overrides, note, updated_by, updated_at)
+                            VALUES (CAST(:r AS uuid), :m, :e, CAST(:o AS jsonb), :n, CAST(:u AS uuid), now())
+                            ON CONFLICT (regulator_org_id, mandate_id) DO UPDATE SET enabled = EXCLUDED.enabled, overrides = EXCLUDED.overrides,
+                              note = COALESCE(EXCLUDED.note, supervisor_mandate_setting.note), updated_by = EXCLUDED.updated_by, updated_at = now()"""),
+                    {"r": reg, "m": mandate_id, "e": enabled, "o": json.dumps(ov), "n": body.note, "u": ctx["user"]["id"]})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.mandate.setting", target_type="mandate", target_id=mandate_id,
+                detail={"enabled": enabled, "overrides": ov, "note": body.note})
+    session.commit()
+    return {"ok": True}
+
+
+@router.post("/mandates/{mandate_id}/versions/{version}/acknowledge", summary="Acknowledge a version of the act (the authority has reviewed the change)")
+def ack_mandate_version(mandate_id: str, version: str, body: VersionAck, session: DbSession, ctx: Supervisor):
+    from services.supervision.mandates import mandate
+    _need(ctx, "supervisor.mandates.manage")
+    m = mandate(mandate_id)
+    if not m or version not in {v["version"] for v in m["versions"]}:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such mandate version."})
+    reg = ctx["org"]["org_id"]
+    session.execute(text("""INSERT INTO supervisor_mandate_version_ack (regulator_org_id, mandate_id, version, acknowledged_by, note)
+                            VALUES (CAST(:r AS uuid), :m, :v, CAST(:u AS uuid), :n) ON CONFLICT DO NOTHING"""),
+                    {"r": reg, "m": mandate_id, "v": version, "u": ctx["user"]["id"], "n": body.note})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.mandate.version_acknowledged", target_type="mandate",
+                target_id=mandate_id, detail={"version": version, "note": body.note})
+    session.commit()
+    return {"ok": True}
+
+
+@router.get("/population/mandates", summary="Which mandates apply to each supervised entity — applies / does not apply / cannot determine (with what is missing)")
+def population_mandates(session: DbSession, ctx: Supervisor, period_end: Optional[str] = None):
+    from datetime import date as _date
+
+    from services.supervision.mandates import population_view
+    reg = ctx["org"]["org_id"]
+    pe = _date.fromisoformat(period_end) if period_end else _date(_date.today().year - 1, 12, 31)
+    return population_view(session, reg, _supervised(session, ctx), _config(session, reg), pe)
+
+
+@router.post("/population/mandates/ask", status_code=201, summary="Ask an entity for the attributes the criteria need (an information request on the thread)")
+def ask_attributes(body: AttributeAsk, session: DbSession, ctx: Supervisor):
+    from services.supervision.engagement import create
+    from services.supervision.mandates import registry
+    _need(ctx, "supervisor.requests.manage")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, body.supervised_org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Entity is not in your view."})
+    attrs = registry()["attributes"]
+    unknown = [a for a in body.attributes if a not in attrs]
+    if unknown or not body.attributes:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": f"Unknown attributes: {', '.join(unknown) or 'none given'}."})
+    labels = "; ".join(attrs[a]["label"] for a in body.attributes)
+    req = create(session, regulator_org_id=reg, supervised_org_id=body.supervised_org_id, kind="information_request",
+                 title="Regulatory attributes needed to determine which mandates apply",
+                 body=f"Please confirm the following attributes for your organisation, as of the last balance-sheet date, under Settings → Reporting identity → Regulatory attributes: {labels}.",
+                 raised_by=ctx["user"]["id"], source={"type": "mandate_attributes", "attributes": body.attributes})
+    for audited in (reg, body.supervised_org_id):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervisor.request.raised", target_type="supervision_request",
+                    target_id=req["request_id"], detail={"kind": "information_request", "title": req["title"], "regulator_org_id": reg, "supervised_org_id": body.supervised_org_id})
+    session.commit()
+    return req

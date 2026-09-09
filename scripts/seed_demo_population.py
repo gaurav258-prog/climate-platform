@@ -225,6 +225,35 @@ def seed_template(s, reg_id: str, org_id: str, period: str, scale: float, sens_s
               {"r": reg_id, "s": org_id, "p": period, "b": json.dumps(basis), "c": json.dumps(cells), "n": len(cells), "f": f"pillar3_template5_{period}.csv", "sha": hashlib.sha256(raw).hexdigest()})
 
 
+def seed_attributes(s, rng: random.Random) -> int:
+    """Regulatory attributes the mandate criteria read — for every supervised demo entity, with a few deliberately left
+    unset so the 'cannot determine → ask the entity' path is visible."""
+    from services.supervision.mandates import set_attribute
+    rows = s.execute(text("""SELECT DISTINCT o.org_id::text AS org_id, o.type, o.aum_eur, o.employees FROM supervision_scope ss
+                             JOIN organizations o ON o.org_id = ss.supervised_org_id WHERE ss.active""")).mappings().all()
+    n = 0
+    for i, r in enumerate(rows):
+        gap = (i % 6 == 4)          # every sixth entity leaves its size attributes unset
+        aum = float(r["aum_eur"] or 0)
+        listed = rng.random() < 0.6
+        vals = {"listed": listed, "public_interest_entity": listed or rng.random() < 0.3}
+        if not gap:
+            if r["type"] in ("bank",):
+                vals["total_assets_eur"] = aum
+            elif r["type"] == "insurer":
+                vals["gross_written_premium_eur"] = round(aum * 0.12)
+                vals["total_assets_eur"] = aum
+            elif r["type"] == "manufacturer":
+                vals["turnover_eur"] = round(aum * 0.4)
+                vals["total_assets_eur"] = round(aum * 0.6)
+            elif r["type"] == "reit":
+                vals["total_assets_eur"] = aum
+                vals["turnover_eur"] = round(aum * 0.07)
+        for k, v in vals.items():
+            set_attribute(s, r["org_id"], k, v, source="entity", by_user_id=None, as_of=PERIOD_END.isoformat()); n += 1
+    return n
+
+
 def main() -> None:
     rng = random.Random(2026)
     with get_session() as s:
@@ -262,6 +291,7 @@ def main() -> None:
                                     AND NOT EXISTS (SELECT 1 FROM supervision_assignment a WHERE a.regulator_org_id = CAST(:r AS uuid) AND a.supervised_org_id = CAST(:s AS uuid) AND a.user_id = u.user_id AND a.revoked_at IS NULL)"""),
                           {"r": body, "s": org_id, "e": email})
         s.commit()
+        print(f"  regulatory attributes set: {seed_attributes(s, rng)}"); s.commit()
         for typ, name, n in created:
             print(f"  {typ:14s} {name:32s} {n:4d} book rows")
         print(f"population seeded: {len(created)} new entities; each supervisory body now has 8")

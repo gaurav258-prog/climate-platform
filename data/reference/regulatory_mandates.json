@@ -1,0 +1,818 @@
+{
+  "_about": "Regulatory mandate registry — for every sector a supervisor may work: which regulation, which article, who it applies to (criteria over entity attributes), what must be delivered, through which channel and by when, and the version history of the act. Excerpts are curated digests of the cited article with the official EUR-Lex link; the linked act is authoritative. Sector-agnostic: a new sector supervisor is new entries here, never code.",
+  "version": "1.0",
+  "attributes": {
+    "_about": "Entity attributes the criteria read. Sourced from the organisation record where it holds them, otherwise from the entity's regulatory attributes (set by the entity, or requested by the supervisor). A missing attribute yields 'cannot determine', never a guess.",
+    "sector": {
+      "label": "Sector (activity type)",
+      "type": "text",
+      "source": "organizations.type"
+    },
+    "jurisdiction": {
+      "label": "Jurisdiction (country of establishment)",
+      "type": "text",
+      "source": "organizations.country"
+    },
+    "employees": {
+      "label": "Average number of employees",
+      "type": "number",
+      "unit": "persons",
+      "source": "organizations.employees"
+    },
+    "total_assets_eur": {
+      "label": "Total assets (balance sheet)",
+      "type": "number",
+      "unit": "eur"
+    },
+    "turnover_eur": {
+      "label": "Net turnover",
+      "type": "number",
+      "unit": "eur"
+    },
+    "aum_eur": {
+      "label": "Assets under management",
+      "type": "number",
+      "unit": "eur",
+      "source": "organizations.aum_eur"
+    },
+    "gross_written_premium_eur": {
+      "label": "Gross written premium (annual)",
+      "type": "number",
+      "unit": "eur"
+    },
+    "listed": {
+      "label": "Securities admitted to trading on an EU regulated market",
+      "type": "bool"
+    },
+    "public_interest_entity": {
+      "label": "Public-interest entity",
+      "type": "bool"
+    },
+    "significance_class": {
+      "label": "Supervisory significance class (set by the authority)",
+      "type": "text"
+    }
+  },
+  "jurisdiction_groups": {
+    "EU": [
+      "AT",
+      "BE",
+      "BG",
+      "CY",
+      "CZ",
+      "DE",
+      "DK",
+      "EE",
+      "EL",
+      "GR",
+      "ES",
+      "FI",
+      "FR",
+      "HR",
+      "HU",
+      "IE",
+      "IT",
+      "LT",
+      "LU",
+      "LV",
+      "MT",
+      "NL",
+      "PL",
+      "PT",
+      "RO",
+      "SE",
+      "SI",
+      "SK"
+    ],
+    "EEA": [
+      "IS",
+      "LI",
+      "NO"
+    ],
+    "EU_EEA": [
+      "AT",
+      "BE",
+      "BG",
+      "CY",
+      "CZ",
+      "DE",
+      "DK",
+      "EE",
+      "EL",
+      "ES",
+      "FI",
+      "FR",
+      "GR",
+      "HR",
+      "HU",
+      "IE",
+      "IS",
+      "IT",
+      "LI",
+      "LT",
+      "LU",
+      "LV",
+      "MT",
+      "NL",
+      "NO",
+      "PL",
+      "PT",
+      "RO",
+      "SE",
+      "SI",
+      "SK"
+    ]
+  },
+  "mandates": [
+    {
+      "id": "crr_449a_pillar3_esg",
+      "sectors": [
+        "bank"
+      ],
+      "binding": true,
+      "title": "Pillar 3 disclosure of ESG risks",
+      "short": "Pillar 3 ESG (CRR Art. 449a)",
+      "act": {
+        "name": "Regulation (EU) No 575/2013 (CRR), Article 449a, as amended by Regulation (EU) 2024/1623 (CRR3)",
+        "celex": "32013R0575",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32013R0575",
+        "form": {
+          "name": "ITS (EU) 2022/2453 — ESG disclosure templates (Templates 1–10, physical risk: Template 5)",
+          "celex": "32022R2453",
+          "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2453"
+        }
+      },
+      "article": {
+        "ref": "Art. 449a CRR",
+        "excerpt": "Institutions shall disclose information on ESG risks, including physical risks and transition risks. Large institutions that have issued securities admitted to trading on a regulated market disclose semi-annually; other institutions annually, in proportion to their size and complexity, in the templates the EBA's implementing standards prescribe.",
+        "version_date": "2025-01-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "bank"
+            ],
+            "label": "Credit institution"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          }
+        ],
+        "tiers": [
+          {
+            "label": "Large listed institution — semi-annual",
+            "all_of": [
+              {
+                "attribute": "total_assets_eur",
+                "op": ">=",
+                "value": 30000000000,
+                "label": "Total assets ≥ €30bn (Art. 4(1)(146) CRR)"
+              },
+              {
+                "attribute": "listed",
+                "op": "==",
+                "value": true,
+                "label": "Securities on an EU regulated market"
+              }
+            ],
+            "frequency": "semiannual"
+          },
+          {
+            "label": "Other institution — annual, proportionate templates",
+            "all_of": [],
+            "frequency": "annual"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "bank_p3esg",
+        "what": "Pillar 3 ESG templates with the annual Pillar 3 report (Template 5: exposures subject to physical risk by geography and sector)",
+        "format": "Pillar 3 report (published) and structured templates; EBA DPM / XBRL where the authority collects them",
+        "channel": "Published with the Pillar 3 report; collected by the national competent authority through its reporting portal (EBA reporting framework)",
+        "direction": "push",
+        "due": {
+          "rule": "with_annual_report",
+          "months_after_period_end": 4,
+          "label": "with the annual Pillar 3 report (typically within 4 months of year end)"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32013R0575",
+        "32022R2453",
+        "32024R1623"
+      ],
+      "versions": [
+        {
+          "version": "2022.1",
+          "effective_from": "2022-06-28",
+          "summary": "Art. 449a in force for large listed institutions (CRR2); ITS 2022/2453 templates apply from 28 June 2022, first disclosure reference 31 Dec 2022.",
+          "celex": "32022R2453"
+        },
+        {
+          "version": "2025.1",
+          "effective_from": "2025-01-01",
+          "summary": "CRR3 (Reg. 2024/1623) extends ESG disclosure to all institutions, proportionately: large listed semi-annually, others annually; small and non-complex institutions with a reduced set.",
+          "celex": "32024R1623"
+        }
+      ]
+    },
+    {
+      "id": "taxonomy_art8_credit",
+      "sectors": [
+        "bank"
+      ],
+      "binding": true,
+      "title": "EU Taxonomy Article 8 disclosures (credit institutions)",
+      "short": "Taxonomy Art. 8 · GAR",
+      "act": {
+        "name": "Regulation (EU) 2020/852, Article 8 · Delegated Regulation (EU) 2021/2178",
+        "celex": "32021R2178",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178"
+      },
+      "article": {
+        "ref": "Art. 8 Taxonomy Regulation · Art. 10 Del. Reg. 2021/2178",
+        "excerpt": "Undertakings subject to the non-financial reporting obligation shall disclose how and to what extent their activities are associated with environmentally sustainable economic activities. Credit institutions disclose the Green Asset Ratio and the KPIs of Annex VI, including exposures to activities that contribute to climate-change adaptation.",
+        "version_date": "2024-01-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "bank"
+            ],
+            "label": "Credit institution"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          },
+          {
+            "attribute": "public_interest_entity",
+            "op": "==",
+            "value": true,
+            "label": "Public-interest entity (in scope of the non-financial reporting obligation)"
+          },
+          {
+            "attribute": "employees",
+            "op": ">",
+            "value": 500,
+            "label": "More than 500 employees"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "bank_tcfd",
+        "what": "Article 8 KPIs (GAR, Annex VI templates) in the management report / sustainability statement",
+        "format": "Management report; iXBRL (ESEF) where the sustainability statement is digitally tagged",
+        "channel": "Published with the annual report and filed with the national officially appointed mechanism",
+        "direction": "push",
+        "due": {
+          "rule": "with_annual_report",
+          "months_after_period_end": 4,
+          "label": "with the annual report (within 4 months of year end)"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32021R2178",
+        "32023R2486"
+      ],
+      "versions": [
+        {
+          "version": "2022.1",
+          "effective_from": "2022-01-01",
+          "summary": "Eligibility reporting from FY2021; alignment KPIs for credit institutions from FY2023 (reported 2024).",
+          "celex": "32021R2178"
+        },
+        {
+          "version": "2024.1",
+          "effective_from": "2024-01-01",
+          "summary": "Environmental Delegated Act (EU) 2023/2486 adds the four non-climate objectives; amendments to 2021/2178 apply from 1 Jan 2024.",
+          "celex": "32023R2486"
+        }
+      ]
+    },
+    {
+      "id": "solvency2_qrt_natcat",
+      "sectors": [
+        "insurer"
+      ],
+      "binding": true,
+      "title": "Solvency II quantitative reporting — catastrophe risk (S.26.01)",
+      "short": "Solvency II S.26.01",
+      "act": {
+        "name": "Directive 2009/138/EC (Solvency II) · Delegated Regulation (EU) 2015/35 · ITS (EU) 2023/894 (reporting templates)",
+        "celex": "32009L0138",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32009L0138",
+        "form": {
+          "name": "ITS (EU) 2023/894 — template S.26.01.01 (natural catastrophe risk)",
+          "celex": "32023R0894",
+          "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R0894"
+        }
+      },
+      "article": {
+        "ref": "Art. 35 Solvency II · Art. 304 Del. Reg. 2015/35",
+        "excerpt": "Insurance and reinsurance undertakings shall submit to the supervisory authorities the information necessary for supervision, including the annual quantitative reporting templates. The natural-catastrophe sub-module of the SCR (windstorm, earthquake, flood, hail, subsidence) is reported in template S.26.01 with the regional and zonal breakdown of Annexes V–XXVI of the Delegated Regulation.",
+        "version_date": "2024-01-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "insurer"
+            ],
+            "label": "Insurance undertaking"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          },
+          {
+            "attribute": "gross_written_premium_eur",
+            "op": ">=",
+            "value": 5000000,
+            "label": "Annual gross written premium ≥ €5m (Art. 4 Solvency II threshold)"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "insurer_solvency",
+        "what": "Annual QRT S.26.01 (nat-cat SCR by peril and region) with the annual solvency reporting package",
+        "format": "XBRL (EIOPA Solvency II taxonomy)",
+        "channel": "National competent authority's Solvency II reporting portal; onward to EIOPA",
+        "direction": "push",
+        "due": {
+          "rule": "weeks_after_period_end",
+          "weeks_after_period_end": 14,
+          "label": "14 weeks after financial year end (Art. 312 Del. Reg. 2015/35)"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32009L0138",
+        "32015R0035",
+        "32023R0894"
+      ],
+      "versions": [
+        {
+          "version": "2016.1",
+          "effective_from": "2016-01-01",
+          "summary": "Solvency II applies; annual QRTs under ITS 2015/2450.",
+          "celex": "32015R2450"
+        },
+        {
+          "version": "2024.1",
+          "effective_from": "2024-01-01",
+          "summary": "ITS (EU) 2023/894 replaces the reporting templates for periods from 31 Dec 2023; S.26.01 structure revised.",
+          "celex": "32023R0894"
+        }
+      ]
+    },
+    {
+      "id": "insurer_climate_orsa",
+      "sectors": [
+        "insurer"
+      ],
+      "binding": true,
+      "title": "Climate-change scenarios in the ORSA and climate disclosure",
+      "short": "ORSA climate scenarios",
+      "act": {
+        "name": "Directive 2009/138/EC Art. 45 (ORSA) · Delegated Regulation (EU) 2015/35 Art. 262(1a) as amended by (EU) 2021/1256 · EIOPA Opinion on climate-change risk scenarios in ORSA (2021)",
+        "celex": "32021R1256",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R1256"
+      },
+      "article": {
+        "ref": "Art. 45 Solvency II · Art. 262(1a) Del. Reg. 2015/35",
+        "excerpt": "As part of the own-risk and solvency assessment, undertakings shall assess the risks they are or could be exposed to in the short and long term, including climate-change risks, and where material, specify at least two long-term climate-change scenarios and assess their impact on the business.",
+        "version_date": "2022-08-02"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "insurer"
+            ],
+            "label": "Insurance undertaking"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "insurer_climate",
+        "what": "ORSA supervisory report with climate-change scenario analysis (physical and transition) and the climate / nat-cat exposure disclosure",
+        "format": "ORSA supervisory report (document) and structured exposure disclosure",
+        "channel": "Submitted to the national competent authority after each ORSA (Art. 45(6))",
+        "direction": "push",
+        "due": {
+          "rule": "weeks_after_orsa",
+          "weeks_after_period_end": 2,
+          "label": "within 2 weeks of concluding the ORSA; at least annually"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32021R1256",
+        "32009L0138"
+      ],
+      "versions": [
+        {
+          "version": "2022.1",
+          "effective_from": "2022-08-02",
+          "summary": "Del. Reg. 2021/1256 integrates sustainability and climate-change risks into Solvency II governance and the ORSA.",
+          "celex": "32021R1256"
+        }
+      ]
+    },
+    {
+      "id": "sfdr_pai_statement",
+      "sectors": [
+        "asset_manager"
+      ],
+      "binding": true,
+      "title": "SFDR principal adverse impacts statement",
+      "short": "SFDR PAI (Art. 4)",
+      "act": {
+        "name": "Regulation (EU) 2019/2088 (SFDR), Article 4 · Delegated Regulation (EU) 2022/1288 (RTS), Annex I",
+        "celex": "32019R2088",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019R2088",
+        "form": {
+          "name": "RTS (EU) 2022/1288 Annex I — PAI statement template",
+          "celex": "32022R1288",
+          "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R1288"
+        }
+      },
+      "article": {
+        "ref": "Art. 4(1)–(4) SFDR",
+        "excerpt": "Financial market participants shall publish on their websites a statement on due-diligence policies with respect to the principal adverse impacts of investment decisions on sustainability factors. Participants exceeding, on their balance sheet date, the criterion of an average of 500 employees during the financial year shall publish and maintain that statement; others explain why they do not.",
+        "version_date": "2023-01-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "asset_manager"
+            ],
+            "label": "Financial market participant"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          }
+        ],
+        "tiers": [
+          {
+            "label": "Mandatory PAI statement",
+            "all_of": [
+              {
+                "attribute": "employees",
+                "op": ">",
+                "value": 500,
+                "label": "More than 500 employees (Art. 4(3))"
+              }
+            ],
+            "frequency": "annual"
+          },
+          {
+            "label": "Comply or explain",
+            "all_of": [],
+            "frequency": "annual"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "sfdr_pai",
+        "what": "PAI statement (Annex I template) covering the reference period, published by 30 June",
+        "format": "Website publication in the Annex I template; machine-readable where the ESAs' taxonomy applies",
+        "channel": "Published on the participant's website; the national competent authority supervises and may request it",
+        "direction": "push",
+        "due": {
+          "rule": "fixed_date",
+          "month": 6,
+          "day": 30,
+          "label": "by 30 June of the following year (Art. 4 RTS 2022/1288)"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32019R2088",
+        "32022R1288"
+      ],
+      "versions": [
+        {
+          "version": "2021.1",
+          "effective_from": "2021-03-10",
+          "summary": "SFDR Level 1 applies; entity-level PAI statement obligation.",
+          "celex": "32019R2088"
+        },
+        {
+          "version": "2023.1",
+          "effective_from": "2023-01-01",
+          "summary": "RTS 2022/1288 applies: Annex I template, first reference period 2022 reported by 30 June 2023.",
+          "celex": "32022R1288"
+        }
+      ]
+    },
+    {
+      "id": "assetmgmt_tcfd_guidance",
+      "sectors": [
+        "asset_manager"
+      ],
+      "binding": false,
+      "title": "TCFD-aligned climate disclosure for asset managers",
+      "short": "TCFD (guidance)",
+      "act": {
+        "name": "TCFD Recommendations (2017) and Guidance for Asset Managers; adopted into law per jurisdiction (e.g. IFRS S2 endorsements)",
+        "celex": null,
+        "url": "https://www.fsb-tcfd.org/recommendations/"
+      },
+      "article": {
+        "ref": "TCFD Supplemental Guidance — Asset Managers",
+        "excerpt": "Asset managers should describe how climate-related risks and opportunities are factored into products and strategies, and disclose the metrics used to assess climate-related risks, including physical risks, for each product or strategy where relevant.",
+        "version_date": "2021-10-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "asset_manager"
+            ],
+            "label": "Asset manager"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "assetmgmt_tcfd",
+        "what": "Entity-level TCFD report with physical-risk and concentration metrics for the holdings book",
+        "format": "Report",
+        "channel": "Published; requested by the supervisor where a jurisdiction has adopted the standard",
+        "direction": "pull",
+        "due": {
+          "rule": "with_annual_report",
+          "months_after_period_end": 4,
+          "label": "with the annual report where adopted"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [],
+      "versions": [
+        {
+          "version": "2021.1",
+          "effective_from": "2021-10-01",
+          "summary": "2021 TCFD implementing guidance update.",
+          "celex": null
+        }
+      ]
+    },
+    {
+      "id": "taxonomy_art8_reit",
+      "sectors": [
+        "reit"
+      ],
+      "binding": true,
+      "title": "EU Taxonomy Article 8 KPIs (property companies)",
+      "short": "Taxonomy Art. 8 · property",
+      "act": {
+        "name": "Regulation (EU) 2020/852, Article 8 · Delegated Regulation (EU) 2021/2178",
+        "celex": "32021R2178",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178"
+      },
+      "article": {
+        "ref": "Art. 8 Taxonomy Regulation · Art. 8 Del. Reg. 2021/2178 (non-financial undertakings)",
+        "excerpt": "Non-financial undertakings subject to the non-financial reporting obligation disclose the proportion of turnover, capital expenditure and operating expenditure associated with Taxonomy-eligible and Taxonomy-aligned activities, including buildings assessed against the climate-change adaptation technical screening criteria.",
+        "version_date": "2024-01-01"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "reit"
+            ],
+            "label": "Real-estate company / REIT"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          },
+          {
+            "attribute": "public_interest_entity",
+            "op": "==",
+            "value": true,
+            "label": "Public-interest entity"
+          },
+          {
+            "attribute": "employees",
+            "op": ">",
+            "value": 500,
+            "label": "More than 500 employees"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "reit_taxonomy",
+        "what": "Article 8 KPIs (turnover, CapEx, OpEx) with the sustainability statement",
+        "format": "Management report; iXBRL (ESEF) where digitally tagged",
+        "channel": "Published with the annual report and filed with the national officially appointed mechanism",
+        "direction": "push",
+        "due": {
+          "rule": "with_annual_report",
+          "months_after_period_end": 4,
+          "label": "with the annual report (within 4 months of year end)"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32021R2178",
+        "32023R2486"
+      ],
+      "versions": [
+        {
+          "version": "2024.1",
+          "effective_from": "2024-01-01",
+          "summary": "Environmental Delegated Act (EU) 2023/2486 applies from 1 Jan 2024.",
+          "celex": "32023R2486"
+        }
+      ]
+    },
+    {
+      "id": "csrd_esrs_e1",
+      "sectors": [
+        "manufacturer",
+        "reit",
+        "bank",
+        "insurer",
+        "asset_manager"
+      ],
+      "binding": true,
+      "title": "CSRD sustainability statement — ESRS E1 Climate change",
+      "short": "CSRD · ESRS E1",
+      "act": {
+        "name": "Directive (EU) 2022/2464 (CSRD) · Delegated Regulation (EU) 2023/2772 (ESRS) · Directive (EU) 2025/794 (stop-the-clock)",
+        "celex": "32022L2464",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022L2464",
+        "form": {
+          "name": "ESRS Delegated Act (EU) 2023/2772 — ESRS E1 (E1-9: anticipated financial effects from material physical risks)",
+          "celex": "32023R2772",
+          "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2772"
+        }
+      },
+      "article": {
+        "ref": "Art. 19a / 29a Accounting Directive (as inserted by CSRD) · ESRS E1-9",
+        "excerpt": "Large undertakings and listed SMEs shall include in the management report the information necessary to understand the undertaking's impacts on sustainability matters and how sustainability matters affect its development, performance and position. Under ESRS E1-9 the undertaking discloses the anticipated financial effects from material physical risks, including the amount and proportion of assets at material physical risk by hazard and location.",
+        "version_date": "2025-04-16"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          },
+          {
+            "attribute": "public_interest_entity",
+            "op": "==",
+            "value": true,
+            "label": "Public-interest entity (first wave)"
+          },
+          {
+            "attribute": "employees",
+            "op": ">",
+            "value": 500,
+            "label": "More than 500 employees (first wave, FY2024 onwards)"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": "csrd_e1",
+        "what": "Sustainability statement with ESRS E1 (incl. E1-9 physical-risk financial effects) in the management report",
+        "format": "Management report in ESEF (iXBRL) with ESRS digital tagging when the taxonomy applies",
+        "channel": "Filed with the national officially appointed mechanism; onward to the European Single Access Point",
+        "direction": "push",
+        "due": {
+          "rule": "with_annual_report",
+          "months_after_period_end": 4,
+          "label": "with the annual management report"
+        },
+        "frequency": "annual"
+      },
+      "detection_celex": [
+        "32022L2464",
+        "32023R2772",
+        "32025L0794"
+      ],
+      "versions": [
+        {
+          "version": "2024.1",
+          "effective_from": "2024-01-01",
+          "summary": "First wave (large PIEs > 500 employees) reports on FY2024 under ESRS set 1.",
+          "celex": "32023R2772"
+        },
+        {
+          "version": "2025.1",
+          "effective_from": "2025-04-16",
+          "summary": "Directive (EU) 2025/794 postpones the second and third waves by two years (large undertakings from FY2027, listed SMEs from FY2028); Omnibus scope changes still under negotiation.",
+          "celex": "32025L0794"
+        }
+      ]
+    },
+    {
+      "id": "eudr_due_diligence",
+      "sectors": [
+        "manufacturer"
+      ],
+      "binding": true,
+      "title": "EUDR due diligence statement",
+      "short": "EUDR (Reg. 2023/1115)",
+      "act": {
+        "name": "Regulation (EU) 2023/1115 (Deforestation Regulation) · application-date amendment (EU) 2024/3234",
+        "celex": "32023R1115",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115"
+      },
+      "article": {
+        "ref": "Art. 4 and Art. 33 EUDR",
+        "excerpt": "Operators shall exercise due diligence prior to placing relevant products on the market or exporting them, and shall submit a due diligence statement to the competent authorities through the Information System before doing so. The obligations apply from 30 December 2026 for large operators and from 30 June 2027 for micro and small enterprises.",
+        "version_date": "2024-12-23"
+      },
+      "criteria": {
+        "all_of": [
+          {
+            "attribute": "sector",
+            "op": "in",
+            "value": [
+              "manufacturer"
+            ],
+            "label": "Operator or trader placing relevant commodities on the EU market"
+          },
+          {
+            "attribute": "jurisdiction",
+            "op": "in_group",
+            "value": "EU_EEA",
+            "label": "Established in the EU or EEA"
+          }
+        ]
+      },
+      "deliverable": {
+        "framework": null,
+        "what": "Due diligence statement per consignment with plot geolocation and legality evidence",
+        "format": "Structured submission (EU Information System / TRACES)",
+        "channel": "EU Information System operated by the Commission; competent authorities check",
+        "direction": "push",
+        "due": {
+          "rule": "per_event",
+          "label": "before each placing on the market (from 30 Dec 2026)"
+        },
+        "frequency": "adhoc"
+      },
+      "detection_celex": [
+        "32023R1115",
+        "32024R3234"
+      ],
+      "versions": [
+        {
+          "version": "2023.1",
+          "effective_from": "2023-06-29",
+          "summary": "EUDR enters into force; application originally 30 Dec 2024.",
+          "celex": "32023R1115"
+        },
+        {
+          "version": "2024.1",
+          "effective_from": "2024-12-23",
+          "summary": "Regulation (EU) 2024/3234 postpones application to 30 Dec 2026 (large) / 30 Jun 2027 (micro and small).",
+          "celex": "32024R3234"
+        }
+      ]
+    }
+  ]
+}
