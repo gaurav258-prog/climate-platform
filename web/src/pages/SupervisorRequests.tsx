@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 
@@ -9,7 +9,8 @@ import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 // read. Kinds and status flows come from the supervision profile; the page never assumes a flow.
 interface Req { request_id: string; supervised_org_id: string; entity: string; regulator: string; kind: string; kind_label: string; title: string; body: string | null
   status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string; updated_at: string; raised_by: string | null
-  source: { type?: string; geography?: string; sector?: string; stage?: string; period_label?: string } | null; n_messages?: number; automatic?: boolean }
+  source: { type?: string; geography?: string; sector?: string; stage?: string; period_label?: string } | null; n_messages?: number; automatic?: boolean
+  reference?: string | null; legal_basis?: { ref: string; act?: string; url?: string | null; text?: string; kind?: string } | null; response_days?: number | null; signatory?: string | null; has_letter?: boolean; issued_at?: string | null; receipt_at?: string | null; receipt_by?: string | null }
 interface Msg { message_id: string; side: 'supervisor' | 'entity'; body: string | null; status_to: string | null; status_label: string | null; created_at: string; author: string | null }
 interface Detail extends Req { messages: Msg[]; can_set: { key: string; label: string }[] }
 interface ListResp { requests: Req[]; entities: { org_id: string; name: string }[]
@@ -128,8 +129,10 @@ function Thread({ id, onChange, onClose }: { id: string; onChange: () => Promise
     <Card className="p-5">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">{d.kind_label} · {d.entity} · raised {d.raised_at.slice(0, 10)} by {d.raised_by ?? '—'} · due {d.due_date ?? '—'}</div>
+          <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">{d.reference ? `${d.reference} · ` : ''}{d.kind_label} · {d.entity} · issued {d.raised_at.slice(0, 10)} · due {d.due_date ?? '—'}</div>
           <div className="display text-lg text-[var(--color-ink)]">{d.title}</div>
+          {d.legal_basis && <div className="text-[12px] text-[var(--color-mute)] mt-1">Legal basis: <span className="text-[var(--color-ink)]">{d.legal_basis.ref}</span>{d.legal_basis.url && <a href={d.legal_basis.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">act ↗</a>}{d.response_days ? ` · response period ${d.response_days} days` : ''}</div>}
+          <div className="text-[12px] text-[var(--color-mute)]">Signed: {d.signatory ?? '—'}{d.has_letter && <> · <button onClick={() => download(`/v1/supervisor/requests/${d.request_id}/letter.pdf`, `${d.reference ?? 'letter'}.pdf`)} className="text-[var(--color-sky)] hover:underline">Letter (PDF) ↓</button></>}{d.receipt_at ? <span className="text-[var(--color-good)]"> · receipt acknowledged {d.receipt_at.slice(0, 10)} by {d.receipt_by ?? 'the entity'}</span> : <span className="text-[var(--color-faint)]"> · receipt not yet acknowledged</span>}</div>
           {d.source?.type === 'lens_cell' && <Link to={`/supervised/${d.supervised_org_id}/lens`} className="text-[12px] text-[var(--color-sky)] hover:underline">Open the lens cell {d.source.geography} · {d.source.sector} →</Link>}
         </div>
         <button onClick={onClose} className="mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">close</button>
