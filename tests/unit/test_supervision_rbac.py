@@ -13,8 +13,14 @@ MIG = Path(__file__).resolve().parents[2] / "core" / "db" / "migrations" / "vers
 
 
 def _migration_codes() -> set[str]:
-    spec = importlib.util.spec_from_file_location("sup_perms", MIG); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-    return {c for c, _ in m.NEW}
+    """Every supervisor permission any migration declares: the original batch (NEW) and later single additions (PERM)."""
+    codes: set[str] = set()
+    for path in sorted(MIG.parent.glob("sup_*.py")):
+        spec = importlib.util.spec_from_file_location(path.stem, path); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        codes |= {c for c, _ in getattr(m, "NEW", [])}
+        if getattr(m, "PERM", None):
+            codes.add(m.PERM[0])
+    return codes
 
 
 def test_every_supervisor_code_in_registry_is_migrated():
