@@ -233,6 +233,7 @@ _POLICY_LABELS = {
     # calc/reporting config changes drive what a filing shows — governable with 4-eyes (audit T6)
     "config.reporting_settings": "Change the reporting basis (scenario / horizon / materiality / period)",
     "config.calc_settings": "Change a calculation method (VaR / severity / return-period)",
+    "config.kri_appetite": "Change a risk-appetite band (amber / red / direction on a KRI)",
     "risk.decision": "Act on a forward-risk exposure (reprice / engage / disclose)",
 }
 # actions that support a value THRESHOLD (only decisions above the line need a second approval)
@@ -345,6 +346,7 @@ _GRADEABLE_FMT = {"eur", "pct", "num", "ha", "dec"}
 
 
 class KriThresholdPatch(BaseModel):
+    reason: Optional[str] = None
     kri_key:   str
     framework: Optional[str] = None                 # defaults to the org's own framework
     amber:     Optional[float] = None
@@ -377,11 +379,25 @@ def set_kri_appetite(body: KriThresholdPatch, session: DbSession,
     fw = body.framework or _KRI_FRAMEWORK.get(ctx["org"].get("type"))
     if not fw:
         raise HTTPException(422, {"error": "bad_request", "message": "No KRI framework for this organisation type."})
-    patch = {k: v for k, v in body.model_dump().items() if k not in ("kri_key", "framework") and v is not None}
-    row = kri_thresholds.set_threshold(session, ctx["org"]["org_id"], ctx["user"]["id"], fw, body.kri_key, patch)
-    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="kri_appetite.update",
-                target_type="kri_threshold", target_id=f"{fw}:{body.kri_key}", detail=patch)
-    return {"framework": fw, "kri_key": body.kri_key, **row}
+    patch = {k: v for k, v in body.model_dump().items() if k not in ("kri_key", "framework", "reason") and v is not None}
+    from services.governance.config_governance import submit_or_apply_config
+    out = submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], request_type="config.kri_appetite",
+                                 updates={"framework": fw, "kri_key": body.kri_key, "reason": body.reason, **patch})
+    session.commit()
+    if out["status"] == "pending_approval":
+        return {"framework": fw, "kri_key": body.kri_key, **out}
+    row = kri_thresholds.thresholds(session, ctx["org"]["org_id"], fw).get(body.kri_key, {})
+    return {"framework": fw, "kri_key": body.kri_key, "status": "applied", **row}
+
+
+@router.get("/kri-appetite/history", summary="Version history of the appetite bands (who changed what, why, and who approved)")
+def kri_appetite_history(session: DbSession, framework: Optional[str] = None, kri_key: Optional[str] = None,
+                         ctx: dict = Depends(require_permission("admin.approval_policy.manage"))):
+    from services.governance import kri_thresholds
+    fw = framework or _KRI_FRAMEWORK.get(ctx["org"].get("type"))
+    if not fw:
+        return {"framework": None, "versions": []}
+    return {"framework": fw, "versions": kri_thresholds.history(session, ctx["org"]["org_id"], fw, kri_key)}
 
 
 # ── Control center: the customer-admin cockpit (identity + data health + governance) ──────

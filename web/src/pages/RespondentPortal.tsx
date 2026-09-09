@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import { RegulatoryAttributes, SupervisorRequestsInbox, SupervisoryAccess, TemplateSubmission } from './Admin'
 import { SharedOnward } from '../components/Remittance'
+import { WhatApplies } from '../components/GrcFollowups'
 
 // The supervisory portal: everything a supervised entity that does not use Tellumen as a workspace needs to answer its
 // supervisor — and nothing else. The same panels a full tenant sees under Settings → Entities.
@@ -18,6 +19,7 @@ export default function RespondentPortal() {
         lead="What your supervisor needs from you: acknowledge the supervision, state your regulatory attributes, submit the required template, and answer requests. Every action is recorded on both sides." />
       <SupervisoryAccess />
       <SharedOnward />
+      <WhatApplies />
       {obligations.length > 0 && (
         <Card className="p-5">
           <div className="text-[13px] font-medium text-[var(--color-ink)] mb-2">Deadlines</div>

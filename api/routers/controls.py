@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.deps import DbSession, require_permission
+from api.deps import CurrentUser, DbSession, require_permission
 from services.governance import controls as C
 
 router = APIRouter(prefix="/v1/controls", tags=["Governance"])
@@ -20,8 +20,15 @@ def _regulated(ctx: dict) -> dict:
     return ctx
 
 
+def _reader(ctx: CurrentUser) -> dict:
+    """Read access: the operators (ops.oversee) and the auditor (admin.audit.view)."""
+    if not ({"ops.oversee", "admin.audit.view"} & set(ctx["permissions"])):
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: ops.oversee or admin.audit.view"})
+    return ctx
+
+
 @router.get("", summary="The reporting control register: every control, its owner, last outcome and pass rate")
-def get_register(session: DbSession, ctx: dict = Depends(require_permission("ops.oversee")), window_days: int = 90):
+def get_register(session: DbSession, ctx: dict = Depends(_reader), window_days: int = 90):
     _regulated(ctx)
     v = C.view(session, ctx["org"]["org_id"], window_days=max(7, min(window_days, 365)))
     v["can_manage"] = "ops.oversee" in ctx["permissions"]
@@ -44,14 +51,14 @@ def test_now(session: DbSession, ctx: dict = Depends(require_permission("ops.ove
 
 
 @router.get("/register.csv", summary="Export the register with outcomes (for the auditor or the GRC suite)")
-def export_csv(session: DbSession, ctx: dict = Depends(require_permission("ops.oversee"))):
+def export_csv(session: DbSession, ctx: dict = Depends(_reader)):
     _regulated(ctx)
     v = C.view(session, ctx["org"]["org_id"])
     return Response(content=C.register_csv(v), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="reporting-control-register.csv"'})
 
 
 @router.get("/{control_id}/history", summary="Every recorded test of one control")
-def control_history(control_id: str, session: DbSession, ctx: dict = Depends(require_permission("ops.oversee"))):
+def control_history(control_id: str, session: DbSession, ctx: dict = Depends(_reader)):
     _regulated(ctx)
     if not C.control(control_id):
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such control."})

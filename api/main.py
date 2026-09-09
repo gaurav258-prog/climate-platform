@@ -67,6 +67,7 @@ try:
     from api.routers import export_api as export_api_router
     from api.routers import filings as filings_router
     from api.routers import gl as gl_router
+    from api.routers import grc_followups as grc_followups_router
     from api.routers import growth as growth_router
     from api.routers import ingest as ingest_router
     from api.routers import meta as meta_router
@@ -277,6 +278,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(board_pack_router.router)
     app.include_router(controls_router.router)
     app.include_router(model_risk_router.router)
+    app.include_router(grc_followups_router.router)
     app.include_router(reg_changes_router.router)
     app.include_router(meta_router.router)
     app.include_router(portal_router.router)

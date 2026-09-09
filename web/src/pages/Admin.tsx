@@ -6,6 +6,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import { SharedOnward } from '../components/Remittance'
+import { AppetiteHistory, WhatApplies } from '../components/GrcFollowups'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
@@ -73,7 +74,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SharedOnward /><RegulatoryAttributes /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SharedOnward /><RegulatoryAttributes /><WhatApplies /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1027,9 +1028,11 @@ function KriAppetite() {
   const [busy, setBusy] = useState<string | null>(null)
   const set = async (k: AppetiteKpi, patch: Record<string, unknown>) => {
     setBusy(k.key)
-    try { await api.patch('/v1/admin/kri-appetite', { kri_key: k.key, framework: q.data?.framework, ...patch }); await q.refetch() }
+    try { const r = await api.patch<{ status?: string; message?: string }>('/v1/admin/kri-appetite', { kri_key: k.key, framework: q.data?.framework, ...patch }); if (r.status === 'pending_approval') toast.success(r.message ?? 'Sent for approval (4-eyes).'); await q.refetch(); await qc.invalidateQueries({ queryKey: ['kri-appetite-history'] }) }
+    catch (e) { toast.error((e as Error).message || 'Could not save the band.') }
     finally { setBusy(null) }
   }
+  const qc = useQueryClient()
   const d = q.data
   const fws = d?.frameworks ?? []
   if (d && !d.supported) return <Card className="p-8 mt-4 text-[13px] text-[var(--color-mute)]">{d.message ?? 'No KRI dashboard for this organisation type.'}</Card>
@@ -1074,6 +1077,7 @@ function KriAppetite() {
         )
       })}
       {kpis.length === 0 && <div className="px-4 py-6 text-[13px] text-[var(--color-faint)]">loading…</div>}
+      <AppetiteHistory framework={d?.framework} />
     </Card>
   )
 }

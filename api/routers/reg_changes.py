@@ -74,3 +74,9 @@ def advance(change_id: str, body: Advance, session: DbSession,
         return C.advance(session, ctx["org"]["org_id"], change_id, body.stage)
     except C.ChangeError as e:
         raise HTTPException(409, {"error": "change_error", "message": str(e)})
+
+
+@router.get("/impact", summary="Detected changes to your frameworks and what each touches: switches, KRIs, template, mandates")
+def change_impact(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.reg_impact_links import change_impacts
+    return change_impacts(session, ctx["org"]["org_id"], ctx["org"].get("type"))

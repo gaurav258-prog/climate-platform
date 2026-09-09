@@ -66,6 +66,7 @@ const GROUPS: Group[] = [
   { label: 'Assess', color: 'var(--stage-assess)', flow: true, items: [
     // Risk & analysis hub: KRIs · Analytics · Track record · Underwriting · Model validation · How we score (ReviewTabs)
     { to: '/kri', label: 'Risk & analysis', icon: Gauge, perm: 'modules.view' },
+    { to: '/third-parties', label: 'Third parties', icon: Building2, perm: 'modules.view', sectors: [...FIN, ...AGRI] },
   ] },
   { label: 'Decide', color: 'var(--stage-decide)', flow: true, items: [
     { to: '/decisions', label: 'Decisions', icon: Crosshair, perm: 'decisions.view', sectors: [...FIN, ...AGRI] },

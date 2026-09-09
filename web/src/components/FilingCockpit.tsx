@@ -10,6 +10,7 @@ import { Card, Button, SectionHead } from './ui'
 import FilingLineage from './FilingLineage'
 import FilingVariance from './FilingVariance'
 import FilingBasis from './FilingBasis'
+import { AssuranceShareDialog } from './GrcFollowups'
 import FilingPreflight from './FilingPreflight'
 import FilingCoverage from './FilingCoverage'
 import DisclosureFlags from './DisclosureFlags'
@@ -379,6 +380,7 @@ function SubmitReadiness({ filingId, status, blocking }: { filingId: string; sta
 
 
 function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: string; onClose: () => void; onChanged: () => void; onOpen: (id: string) => void }) {
+  const [share, setShare] = useState<{ id: string; label: string } | null>(null)
   const { profile } = useAuth()
   const qc = useQueryClient()
   const perms = profile?.permissions ?? []
@@ -446,6 +448,11 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                         className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
                         <ShieldCheck size={12} /> Assurance pack
                       </button>
+                      <button onClick={() => setShare({ id: f.filing_id, label: `${frameworkLabel(f.framework)} · ${f.period_label}` })}
+                        title="Share the assurance pack with the auditor under a governed link (expires, counted, revocable, logged)"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1 text-[11.5px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
+                        <Send size={12} /> Share with auditor
+                      </button>
                     </div>
                   </div>
                 )}
@@ -491,6 +498,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
           </div>
         )}
       </div>
+    {share && <AssuranceShareDialog filingId={share.id} label={share.label} onClose={() => setShare(null)} />}
     </div>
   )
 }

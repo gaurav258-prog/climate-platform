@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock, Telescope, GitBranch, BellRing } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
+import { ChangeImpact } from '../components/GrcFollowups'
 
 // Regulatory outlook — the CUSTOMER's view of the regulation: what applies to you today, what's changing and
 // when, and whether YOU will need to provide new data or an integration. Nothing about Tellumen's own build
@@ -140,6 +141,7 @@ export default function RegChanges() {
 
       {tab === 'versions' && <VersionRegister data={vq.data} loading={vq.isLoading} />}
 
+      {tab === 'outlook' && <ChangeImpact />}
       {tab === 'outlook' && (q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the regulatory outlook.</div>
         : (<>
