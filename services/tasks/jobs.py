@@ -19,6 +19,7 @@ JOBS: dict[str, str] = {
     "supervision.rebuild_geo_priors": "services.supervision.geo_prior:rebuild_all",
     "supervision.deadline_sweep": "services.supervision.deadlines:sweep_all",
     "transmission.send": "services.transmission.service:send",
+    "controls.test_sweep": "services.governance.controls:sweep_all",
 }
 
 

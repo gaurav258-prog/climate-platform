@@ -101,4 +101,9 @@ celery_app.conf.beat_schedule = {
         "task": "supervision.deadline_sweep",
         "schedule": crontab(hour=6, minute=0),
     },
+    # Test every tenant's reporting controls daily and record the outcomes — operating effectiveness on record.
+    "controls-test-sweep-daily": {
+        "task": "controls.test_sweep",
+        "schedule": crontab(hour=6, minute=30),
+    },
 }

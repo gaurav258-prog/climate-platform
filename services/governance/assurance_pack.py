@@ -320,6 +320,15 @@ code{{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#33465e}}
         z.writestr("lineage.html", lineage_blob)
         z.writestr("manifest.json", manifest_blob)
         z.writestr("methodology.md", method_blob)
+        # the reporting control register with outcomes — the auditor's map from control to evidence
+        try:
+            from services.governance.controls import register_csv
+            from services.governance.controls import view as _controls_view
+            _cv = _controls_view(session, org_id)
+            z.writestr("control_register.csv", register_csv(_cv))
+            z.writestr("control_register.json", json.dumps(_cv, default=str, indent=2))
+        except Exception as _e:   # the pack must still build; say why the register is missing
+            z.writestr("control_register.txt", f"control register unavailable: {type(_e).__name__}: {_e}")
         for name, blob in blobs.items():
             z.writestr(name, blob)
     buf.seek(0)

@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight } from 'lucide-react'
+import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight, ClipboardCheck } from 'lucide-react'
+import ControlRegister from '../components/ControlRegister'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
@@ -30,6 +32,7 @@ export default function Exceptions() {
   const [params, setParams] = useSearchParams()
   const filingFilter = params.get('filing')   // arrive scoped to one filing (from the filing cockpit)
   const { profile } = useAuth()
+  const [tab, setTab] = useState<'exceptions' | 'register'>(params.get('tab') === 'register' ? 'register' : 'exceptions')
   const q = useQuery({ queryKey: ['exceptions'], queryFn: () => api.get<Resp>('/v1/reg-tasks/exceptions') })
   const d = q.data
   const shown = filingFilter && d ? d.exceptions.filter(e => e.filing_id === filingFilter) : (d?.exceptions ?? [])
@@ -50,6 +53,14 @@ export default function Exceptions() {
       <PageHeader eyebrow="Workflow · control tower" title="Control Tower"
         lead="Every open validation & reconciliation exception across your live filings, worst first — the checks a filing must clear before it can be attested. Turn any of them into a task the team can pick up."
         actions={<Lens kind="control" />} />
+      <div className="flex gap-1 p-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] w-fit">
+        {([['exceptions', 'Open exceptions', AlertTriangle], ['register', 'Control register', ClipboardCheck]] as const).map(([k, l, Icon]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12.5px] transition ${tab === k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
+            <Icon size={14} /> {l}
+          </button>))}
+      </div>
+      {tab === 'register' ? <ControlRegister /> : <>
 
       {filingFilter && (
         <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-mute)]">
@@ -113,6 +124,7 @@ export default function Exceptions() {
             </div>
           </Card>
         )}
+      </>}
     </div>
   )
 }
