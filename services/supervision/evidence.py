@@ -128,7 +128,10 @@ def sha256(content: dict) -> str:
 
 
 # ── rendering ───────────────────────────────────────────────────────────────────────────────────────────────
-def render_pdf(c: dict) -> bytes:
+def render_pdf(c: dict, *, sections: Optional[list[str]] = None, watermark: Optional[str] = None, notice: Optional[str] = None) -> bytes:
+    """Render the pack. `sections` limits what is printed (a section outside it prints as withheld — the numbering
+    stays, so the recipient can see what was not shared); `watermark` is drawn diagonally on every page and
+    `notice` printed under the title. Both are used for governed remittance; the supervisor's own copy passes neither."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -149,82 +152,150 @@ def render_pdf(c: dict) -> bytes:
     H2 = ParagraphStyle("h2", parent=ss["Heading2"], fontSize=12.5, spaceBefore=10, spaceAfter=4)
     P = ParagraphStyle("p", parent=ss["BodyText"], fontSize=9, leading=12)
     S = ParagraphStyle("s", parent=P, fontSize=7.5, textColor=colors.HexColor("#555555"))
+    W = ParagraphStyle("w", parent=P, fontSize=8.5, textColor=colors.HexColor("#8a1c1c"))
     grid = TableStyle([("FONTSIZE", (0, 0), (-1, -1), 7.8), ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#bbbbbb")),
                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e9eef5")), ("VALIGN", (0, 0), (-1, -1), "TOP")])
+    included = set(sections) if sections is not None else set(SECTIONS)
 
     def table(rows, widths=None):
         rows = [[Paragraph(str("" if v is None else v), S) for v in r] for r in rows]
         t = Table(rows, colWidths=widths, repeatRows=1); t.setStyle(grid); return t
 
+    def withheld(title):
+        return [Paragraph(title, H2), Paragraph("Withheld from this remittance.", W)]
+
     x = []
     pk = c["pack"]
     x += [Paragraph(pk["title"], H1), Paragraph(f"{pk['regulator']} · profile {pk['profile']} · basis {pk['basis']['scenario']} · {pk['basis']['horizon']} · "
-                                                f"generated {pk['generated_at'][:16].replace('T', ' ')} UTC by {pk['generated_by']}", S), Spacer(1, 6)]
-    i, sv = c["identity"], c["supervision"]
-    x += [Paragraph("1. Entity and supervision", H2),
-          table([["Field", "Value"], ["Name", i["name"]], ["Legal name", i.get("legal_name")], ["LEI", i.get("lei")], ["Sector", i["type"]], ["Country", i["country"]],
-                 ["Jurisdiction", sv["jurisdiction"]], ["Supervised since", (sv["since"] or "")[:10]], ["Acknowledged by the entity", (sv["acknowledged_at"] or "not yet")[:10]],
-                 ["Site-level access", "granted" if sv["site_access"] else "regional aggregates only"]], [60 * mm, 110 * mm])]
-    sb = c["submissions"]
-    x += [Paragraph("2. Submissions on record", H2), Paragraph(f"{sb.get('filed', 0)} of {sb.get('expected', 0)} expected framework filings on record.", P)]
-    if sb.get("frameworks"):
-        x += [table([["Framework", "State", "Status", "Period"]] + [[f.get("label"), f.get("state"), f.get("status"), f.get("period_label")] for f in sb["frameworks"]])]
-    pl = c["plausibility"]
-    x += [Paragraph("3. Tier 1 — plausibility of the submitted template", H2)]
-    if pl.get("available"):
-        cnt = pl["counts"]
-        x += [Paragraph(f"{pl['period_label']} · {pl.get('source_file') or ''} · judged at {pl['scenario']} · {pl['horizon']}. "
-                        f"{cnt['plausible']} plausible, {cnt['above_band']} high for the geography, {cnt['below_band']} low, {cnt['no_reference']} without reference "
-                        f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of gross amount judged).", P), Paragraph(pl["rule"], S)]
-        if pl["cells"]:
-            x += [table([["Cell", "Gross", "Submitted share", "Verdict", "Why"]] + [[f"{r['geography']} · {r['sector']}", _eur(r["gross_carrying_amount_eur"]),
-                        f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—", r["verdict_label"], r["reason"]] for r in pl["cells"]],
-                        [22 * mm, 22 * mm, 22 * mm, 30 * mm, 74 * mm])]
+                                                f"generated {pk['generated_at'][:16].replace('T', ' ')} UTC by {pk['generated_by']}", S)]
+    if notice:
+        x += [Spacer(1, 4), Paragraph(notice, W)]
+    x += [Spacer(1, 6)]
+
+    # 1 identity + supervision
+    if {"identity", "supervision"} <= included:
+        i, sv = c["identity"], c["supervision"]
+        x += [Paragraph("1. Entity and supervision", H2),
+              table([["Field", "Value"], ["Name", i["name"]], ["Legal name", i.get("legal_name")], ["LEI", i.get("lei")], ["Sector", i["type"]], ["Country", i["country"]],
+                     ["Jurisdiction", sv["jurisdiction"]], ["Supervised since", (sv["since"] or "")[:10]], ["Acknowledged by the entity", (sv["acknowledged_at"] or "not yet")[:10]],
+                     ["Site-level access", "granted" if sv["site_access"] else "regional aggregates only"]], [60 * mm, 110 * mm])]
     else:
-        x += [Paragraph(pl.get("reason", ""), P)]
-    L = c["lens"]
-    x += [Paragraph("4. Tier 2 — independent lens", H2)]
-    if L.get("available"):
-        t = L["totals"]
-        x += [Paragraph(f"Submitted sensitive {_eur(t.get('submitted'))} vs rebuilt {_eur(t.get('rebuilt'))} (gap {_eur(L['total_gap'])}); {L['n_flagged']} of {L['n_cells']} cells flagged. "
-                        f"Shadow book: {L['shadow_book']['n_rows']} rows, {L['shadow_book']['n_located']} located, {L['shadow_book']['n_scored']} scored. "
-                        f"Projections: {c['projections'].get('cells_complete', 0)}/{c['projections'].get('cells', 0)} cells complete across {c['projections'].get('anchors_total', 0)} anchors.", P)]
-        if L["flagged"]:
-            x += [table([["Cell", "Submitted gross", "Submitted share", "Rebuilt share", "Coverage", "Why it differs"]] +
-                        [[f"{r['geography']} · {r['sector']}", _eur(r["submitted_gross"]), f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—",
-                          f"{r['rebuilt_share_pct']}%" if r["rebuilt_share_pct"] is not None else "—", f"{r['coverage_pct']}%" if r["coverage_pct"] is not None else "—", r["reason"]] for r in L["flagged"]],
-                        [20 * mm, 22 * mm, 20 * mm, 20 * mm, 18 * mm, 70 * mm])]
+        i = c["identity"]
+        x += [Paragraph("1. Entity and supervision", H2), table([["Field", "Value"], ["Name", i["name"]], ["Sector", i["type"]], ["Country", i["country"]]], [60 * mm, 110 * mm]),
+              Paragraph("Supervision details withheld from this remittance.", W)]
+    # 2 submissions
+    if "submissions" in included:
+        sb = c["submissions"]
+        x += [Paragraph("2. Submissions on record", H2), Paragraph(f"{sb.get('filed', 0)} of {sb.get('expected', 0)} expected framework filings on record.", P)]
+        if sb.get("frameworks"):
+            x += [table([["Framework", "State", "Status", "Period"]] + [[f.get("label"), f.get("state"), f.get("status"), f.get("period_label")] for f in sb["frameworks"]])]
     else:
-        x += [Paragraph(L.get("reason", ""), P)]
-    e = c["exposure"]
-    x += [Paragraph("5. Exposure (regional)", H2), Paragraph(f"{e['n_assets']} located assets, {_eur(e['value_eur'])}, in {e['n_regions']} regions. {e['note']}", P)]
-    if e["top_regions"]:
-        x += [table([["Region", "Country", "Unit", "Sites", "Value", "Worst score", "Worst hazard"]] +
-                    [[r["name"], r["country"], r["kind"], r["n_sites"], _eur(r["value_eur"]), r["max_score"], r["worst_hazard"]] for r in e["top_regions"]])]
-    if e["hazards"]:
-        x += [Spacer(1, 4), table([["Headline hazard", "Assets", "Value"]] + [[h["hazard"], h["n"], _eur(h["value_eur"])] for h in e["hazards"][:12]], [60 * mm, 30 * mm, 40 * mm])]
-    pp = c["peer_position"]
-    x += [Paragraph("6. Peer position", H2)]
-    if pp.get("metrics"):
-        x += [Paragraph(f"Against {pp.get('peers_in_sector')} peers in the sector.", P),
-              table([["Metric", "Value", "Flag", "Percentile", "Peer median"]] + [[m["label"], m["value"], m["flag"], m["percentile"], (m.get("distribution") or {}).get("median")] for m in pp["metrics"]])]
+        x += withheld("2. Submissions on record")
+    # 3 plausibility
+    if "plausibility" in included:
+        pl = c["plausibility"]
+        x += [Paragraph("3. Tier 1 — plausibility of the submitted template", H2)]
+        if pl.get("available"):
+            cnt = pl["counts"]
+            x += [Paragraph(f"{pl['period_label']} · {pl.get('source_file') or ''} · judged at {pl['scenario']} · {pl['horizon']}. "
+                            f"{cnt['plausible']} plausible, {cnt['above_band']} high for the geography, {cnt['below_band']} low, {cnt['no_reference']} without reference "
+                            f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of gross amount judged).", P), Paragraph(pl["rule"], S)]
+            if pl["cells"]:
+                x += [table([["Cell", "Gross", "Submitted share", "Verdict", "Why"]] + [[f"{r['geography']} · {r['sector']}", _eur(r["gross_carrying_amount_eur"]),
+                            f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—", r["verdict_label"], r["reason"]] for r in pl["cells"]],
+                            [22 * mm, 22 * mm, 22 * mm, 30 * mm, 74 * mm])]
+        else:
+            x += [Paragraph(pl.get("reason", ""), P)]
     else:
-        x += [Paragraph(pp.get("reason") or "No peer benchmark for this entity's sector under the profile.", P)]
-    g = c["engagement"]
-    x += [PageBreak(), Paragraph("7. Requests and findings", H2), Paragraph(f"{g['n']} raised, {g['n_open']} open.", P)]
-    for r in g["requests"]:
-        x += [Paragraph(f"<b>{r['kind_label']}</b> · {r['title']} · {r['status_label']}{(' · ' + r['severity']) if r.get('severity') else ''} · due {r.get('due_date') or '—'}"
-                        f"{' · overdue' if r.get('overdue') else ''}", P)]
-        if r["thread"]:
-            x += [table([["Side", "By", "When", "Status", "Message"]] + [[m["side"], m["author"], (m["created_at"] or "")[:16].replace("T", " "), m.get("status_label") or "", m.get("body") or ""] for m in r["thread"]],
-                        [18 * mm, 32 * mm, 26 * mm, 26 * mm, 68 * mm]), Spacer(1, 4)]
-    x += [Paragraph("8. Supervisory access trail on this entity", H2)]
-    if c["access_trail"]:
-        x += [table([["When", "Action", "By"]] + [[t["at"][:16].replace("T", " "), t["action"], t["by"]] for t in c["access_trail"][:60]], [34 * mm, 80 * mm, 56 * mm])]
-    m = c["method"]
-    x += [Paragraph("9. Method and basis", H2)] + [Paragraph(m[k], P) for k in ("engine", "tier_1", "tier_2", "data")]
+        x += withheld("3. Tier 1 — plausibility of the submitted template")
+    # 4 lens (+ projections)
+    if "lens" in included:
+        L = c["lens"]
+        x += [Paragraph("4. Tier 2 — independent lens", H2)]
+        if L.get("available"):
+            t = L["totals"]
+            pj = c.get("projections") or {}
+            x += [Paragraph(f"Submitted sensitive {_eur(t.get('submitted'))} vs rebuilt {_eur(t.get('rebuilt'))} (gap {_eur(L['total_gap'])}); {L['n_flagged']} of {L['n_cells']} cells flagged. "
+                            f"Shadow book: {L['shadow_book']['n_rows']} rows, {L['shadow_book']['n_located']} located, {L['shadow_book']['n_scored']} scored. "
+                            + (f"Projections: {pj.get('cells_complete', 0)}/{pj.get('cells', 0)} cells complete across {pj.get('anchors_total', 0)} anchors." if "projections" in included else "Projections withheld."), P)]
+            if L["flagged"]:
+                x += [table([["Cell", "Submitted gross", "Submitted share", "Rebuilt share", "Coverage", "Why it differs"]] +
+                            [[f"{r['geography']} · {r['sector']}", _eur(r["submitted_gross"]), f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—",
+                              f"{r['rebuilt_share_pct']}%" if r["rebuilt_share_pct"] is not None else "—", f"{r['coverage_pct']}%" if r["coverage_pct"] is not None else "—", r["reason"]] for r in L["flagged"]],
+                            [20 * mm, 22 * mm, 20 * mm, 20 * mm, 18 * mm, 70 * mm])]
+        else:
+            x += [Paragraph(L.get("reason", ""), P)]
+    else:
+        x += withheld("4. Tier 2 — independent lens")
+    # 5 exposure
+    if "exposure" in included:
+        e = c["exposure"]
+        x += [Paragraph("5. Exposure (regional)", H2), Paragraph(f"{e['n_assets']} located assets, {_eur(e['value_eur'])}, in {e['n_regions']} regions. {e['note']}", P)]
+        if e["top_regions"]:
+            x += [table([["Region", "Country", "Unit", "Sites", "Value", "Worst score", "Worst hazard"]] +
+                        [[r["name"], r["country"], r["kind"], r["n_sites"], _eur(r["value_eur"]), r["max_score"], r["worst_hazard"]] for r in e["top_regions"]])]
+        if e["hazards"]:
+            x += [Spacer(1, 4), table([["Headline hazard", "Assets", "Value"]] + [[h["hazard"], h["n"], _eur(h["value_eur"])] for h in e["hazards"][:12]], [60 * mm, 30 * mm, 40 * mm])]
+    else:
+        x += withheld("5. Exposure (regional)")
+    # 6 peer position
+    if "peer_position" in included:
+        pp = c["peer_position"]
+        x += [Paragraph("6. Peer position", H2)]
+        if pp.get("metrics"):
+            x += [Paragraph(f"Against {pp.get('peers_in_sector')} peers in the sector.", P),
+                  table([["Metric", "Value", "Flag", "Percentile", "Peer median"]] + [[m["label"], m["value"], m["flag"], m["percentile"], (m.get("distribution") or {}).get("median")] for m in pp["metrics"]])]
+        else:
+            x += [Paragraph(pp.get("reason") or "No peer benchmark for this entity's sector under the profile.", P)]
+    else:
+        x += withheld("6. Peer position")
+    # 7 engagement
+    if "engagement" in included:
+        g = c["engagement"]
+        x += [PageBreak(), Paragraph("7. Requests and findings", H2), Paragraph(f"{g['n']} raised, {g['n_open']} open.", P)]
+        for r in g["requests"]:
+            x += [Paragraph(f"<b>{r['kind_label']}</b> · {r['title']} · {r['status_label']}{(' · ' + r['severity']) if r.get('severity') else ''} · due {r.get('due_date') or '—'}"
+                            f"{' · overdue' if r.get('overdue') else ''}", P)]
+            if r["thread"]:
+                x += [table([["Side", "By", "When", "Status", "Message"]] + [[m["side"], m["author"], (m["created_at"] or "")[:16].replace("T", " "), m.get("status_label") or "", m.get("body") or ""] for m in r["thread"]],
+                            [18 * mm, 32 * mm, 26 * mm, 26 * mm, 68 * mm]), Spacer(1, 4)]
+    else:
+        x += withheld("7. Requests and findings")
+    # 8 access trail
+    if "access_trail" in included:
+        x += [Paragraph("8. Supervisory access trail on this entity", H2)]
+        if c["access_trail"]:
+            x += [table([["When", "Action", "By"]] + [[t["at"][:16].replace("T", " "), t["action"], t["by"]] for t in c["access_trail"][:60]], [34 * mm, 80 * mm, 56 * mm])]
+    else:
+        x += withheld("8. Supervisory access trail on this entity")
+    # 9 method
+    if "method" in included:
+        m = c["method"]
+        x += [Paragraph("9. Method and basis", H2)] + [Paragraph(m[k], P) for k in ("engine", "tier_1", "tier_2", "data")]
+    else:
+        x += withheld("9. Method and basis")
     x += [Spacer(1, 8), Paragraph(f"Content hash (SHA-256 of the canonical JSON): {c['pack'].get('sha256', '')}", S)]
-    doc.build(x)
+
+    def on_page(canvas, _doc):
+        if not watermark:
+            return
+        canvas.saveState()
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.setFillColor(colors.HexColor("#8a1c1c"))
+        canvas.setFillAlpha(0.35)
+        w, h = A4
+        canvas.translate(w / 2, h / 2)
+        canvas.rotate(38)
+        canvas.drawCentredString(0, 0, watermark)
+        canvas.setFillAlpha(0.9)
+        canvas.restoreState()
+        canvas.saveState()
+        canvas.setFont("Helvetica", 6.5)
+        canvas.setFillColor(colors.HexColor("#8a1c1c"))
+        canvas.drawString(18 * mm, 10 * mm, watermark)
+        canvas.restoreState()
+
+    doc.build(x, onFirstPage=on_page, onLaterPages=on_page)
     return buf.getvalue()
 
 
