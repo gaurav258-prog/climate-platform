@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserPlus, ShieldCheck, Check, AlertCircle, Building2, CheckSquare, ScrollText, Users as UsersIcon, Pencil, Database, RefreshCw, CloudRain, Leaf, Landmark, ChevronDown, Plug, Copy, Trash2, KeyRound, Webhook, Send, Gauge, ExternalLink } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
@@ -1135,7 +1135,7 @@ export function SupervisoryAccess() {
 // ── Supervision profile — the regulator's customer class and its expectations (configuration, not code) ────
 interface ProfResp { config: { profile_id: string; label: string; default_scenario: string; default_horizon: string
   sectors: Record<string, { label: string; metrics: { id: string; label: string; unit: string; watch_above?: number; act_above?: number; watch_below?: number }[] }> }
-  overrides: { profile?: string; thresholds?: Record<string, Record<string, Record<string, number>>> }
+  overrides: { profile?: string; thresholds?: Record<string, Record<string, Record<string, number>>>; reference_prefix?: string | null; signatory_title?: string | null }
   available_profiles: Record<string, string> }
 function SupervisionProfile() {
   const { profile } = useAuth()
@@ -1175,6 +1175,11 @@ function SupervisionProfile() {
             className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
             {['current', '2030', '2050', '2100'].map(s => <option key={s} value={s}>{s}</option>)}
           </select></label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-[12px] text-[var(--color-mute)]">
+        <label>Letter reference prefix <input defaultValue={d.overrides.reference_prefix ?? ''} placeholder="e.g. EBS" maxLength={8} disabled={busy} onBlur={e => e.target.value !== (d.overrides.reference_prefix ?? '') && save({ reference_prefix: e.target.value })} className="ml-2 w-24 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 mono text-[12px] uppercase" /></label>
+        <label>Signatory title <input defaultValue={d.overrides.signatory_title ?? ''} placeholder="e.g. Head of Climate Risk Supervision" disabled={busy} onBlur={e => e.target.value !== (d.overrides.signatory_title ?? '') && save({ signatory_title: e.target.value })} className="ml-2 w-72 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]" /></label>
+        <span className="mono text-[10.5px] text-[var(--color-faint)]">references read PREFIX-YEAR-KIND-NNNN; the signatory line on every letter</span>
       </div>
       {Object.entries(d.config.sectors).map(([sec, s]) => (
         <div key={sec} className="mb-3">
@@ -1260,7 +1265,8 @@ function SupervisionAssignments() {
 }
 
 // ── Requests from my supervisor — respond and report remediation; the supervisor closes ───────────────────
-interface InReq { request_id: string; regulator: string; kind_label: string; title: string; body: string | null; status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string }
+interface InReq { request_id: string; regulator: string; kind_label: string; title: string; body: string | null; status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string
+  reference?: string | null; legal_basis?: { ref: string; url?: string | null } | null; response_days?: number | null; signatory?: string | null; has_letter?: boolean; receipt_at?: string | null }
 interface InDetail extends InReq { messages: { message_id: string; side: string; body: string | null; status_label: string | null; created_at: string; author: string | null }[]; can_set: { key: string; label: string }[] }
 export function SupervisorRequestsInbox() {
   const qc = useQueryClient()
@@ -1283,7 +1289,7 @@ export function SupervisorRequestsInbox() {
         {d.requests.map(r => (
           <div key={r.request_id} className="py-2">
             <button onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className="w-full text-left flex items-center gap-3 flex-wrap text-[12.5px]">
-              <span className="mono text-[10px] uppercase text-[var(--color-faint)] w-36">{r.kind_label}</span>
+              <span className="mono text-[10.5px] text-[var(--color-mute)] w-36">{r.reference ?? r.kind_label}</span>
               <span className="text-[var(--color-ink)] flex-1">{r.title}</span>
               {r.severity && <span className="mono text-[10px]" style={{ color: r.severity === 'high' ? 'var(--color-bad)' : r.severity === 'medium' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{r.severity}</span>}
               <span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span>
@@ -1291,7 +1297,12 @@ export function SupervisorRequestsInbox() {
             </button>
             {sel === r.request_id && det.data && (
               <div className="mt-2 ml-2 pl-3 border-l border-[var(--color-line)]">
-                <div className="mono text-[10.5px] text-[var(--color-faint)] mb-2">from {det.data.regulator} · raised {det.data.raised_at.slice(0, 10)}</div>
+                <div className="mono text-[10.5px] text-[var(--color-faint)] mb-1">{det.data.reference ? `${det.data.reference} · ` : ''}{det.data.kind_label} from {det.data.regulator} · issued {det.data.raised_at.slice(0, 10)}{det.data.response_days ? ` · response period ${det.data.response_days} days` : ''}</div>
+                {det.data.legal_basis && <div className="text-[12px] text-[var(--color-mute)] mb-1">Legal basis: <span className="text-[var(--color-ink)]">{det.data.legal_basis.ref}</span>{det.data.legal_basis.url && <a href={det.data.legal_basis.url} target="_blank" rel="noreferrer" className="ml-1 text-[var(--color-sky)] hover:underline">act ↗</a>}</div>}
+                <div className="flex flex-wrap items-center gap-3 text-[12px] mb-2">
+                  {det.data.has_letter && <button onClick={() => download(`/v1/me/supervisors/requests/${det.data!.request_id}/letter.pdf`, `${det.data!.reference ?? 'letter'}.pdf`)} className="text-[var(--color-sky)] hover:underline">Letter (PDF) ↓</button>}
+                  {det.data.receipt_at ? <span className="text-[var(--color-good)]">receipt acknowledged {det.data.receipt_at.slice(0, 10)}</span> : d.can_respond ? <Button variant="ghost" disabled={busy} onClick={async () => { setBusy(true); try { await api.post(`/v1/me/supervisors/requests/${det.data!.request_id}/receipt`, {}); await qc.invalidateQueries({ queryKey: ['my-supervisor-request', sel] }); await qc.invalidateQueries({ queryKey: ['my-supervisor-requests'] }) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }}>Acknowledge receipt</Button> : null}
+                </div>
                 <div className="space-y-1.5 mb-3">
                   {det.data.messages.map(m => (
                     <div key={m.message_id} className={`rounded-lg px-3 py-1.5 text-[12.5px] ${m.side === 'entity' ? 'bg-[var(--color-panel-2)] ml-6' : 'bg-[var(--color-bg-2)] mr-6'}`}>

@@ -49,9 +49,10 @@ def _row(session, request_id: str) -> Optional[dict]:
     r = session.execute(text("""
         SELECT q.request_id::text AS request_id, q.regulator_org_id::text AS regulator_org_id, q.supervised_org_id::text AS supervised_org_id,
                q.kind, q.title, q.body, q.status, q.severity, q.due_date, q.source, q.raised_at, q.updated_at, q.closed_at,
-               q.entity_task_id::text AS entity_task_id, ro.name AS regulator, so.name AS entity, u.full_name AS raised_by
+               q.entity_task_id::text AS entity_task_id, ro.name AS regulator, so.name AS entity, u.full_name AS raised_by,
+               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, ru.full_name AS receipt_by
         FROM supervision_request q JOIN organizations ro ON ro.org_id = q.regulator_org_id
-        JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by
+        JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by LEFT JOIN users ru ON ru.user_id = q.receipt_by
         WHERE q.request_id = CAST(:i AS uuid)
     """), {"i": request_id}).mappings().first()
     return _fmt(r) if r else None
@@ -59,8 +60,10 @@ def _row(session, request_id: str) -> Optional[dict]:
 
 def _fmt(r) -> dict:
     d = dict(r)
-    for k in ("raised_at", "updated_at", "closed_at"):
+    for k in ("raised_at", "updated_at", "closed_at", "issued_at", "receipt_at"):
         d[k] = d[k].isoformat() if d.get(k) else None
+    d["legal_basis"] = d.get("legal_basis") if isinstance(d.get("legal_basis"), dict) else (json.loads(d["legal_basis"]) if d.get("legal_basis") else None)
+    d["has_letter"] = bool(d.get("letter_sha256"))
     d["due_date"] = d["due_date"].isoformat() if d.get("due_date") else None
     d["source"] = d["source"] if isinstance(d.get("source"), dict) else (json.loads(d["source"]) if d.get("source") else None)
     d["kind_label"] = (kinds().get(d["kind"]) or {}).get("label", d["kind"])
@@ -97,9 +100,10 @@ def list_requests(session, *, regulator_org_id: Optional[str] = None, supervised
         SELECT q.request_id::text AS request_id, q.regulator_org_id::text AS regulator_org_id, q.supervised_org_id::text AS supervised_org_id,
                q.kind, q.title, q.body, q.status, q.severity, q.due_date, q.source, q.raised_at, q.updated_at, q.closed_at,
                q.entity_task_id::text AS entity_task_id, ro.name AS regulator, so.name AS entity, u.full_name AS raised_by,
+               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, ru.full_name AS receipt_by,
                (SELECT count(*) FROM supervision_request_message m WHERE m.request_id = q.request_id) AS n_messages
         FROM supervision_request q JOIN organizations ro ON ro.org_id = q.regulator_org_id
-        JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by
+        JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by LEFT JOIN users ru ON ru.user_id = q.receipt_by
         {'WHERE ' + ' AND '.join(where) if where else ''}
         ORDER BY (q.status = 'closed'), q.due_date NULLS LAST, q.raised_at DESC
     """), params).mappings().all()
@@ -167,6 +171,9 @@ def create(session, *, regulator_org_id: str, supervised_org_id: str, kind: str,
     session.execute(text("""INSERT INTO supervision_request_message (request_id, side, author_id, body, status_to)
                             VALUES (CAST(:i AS uuid), 'supervisor', CAST(:u AS uuid), :b, :st)"""),
                     {"i": rid, "u": raised_by, "b": body, "st": k["statuses"][0]})
+    from services.supervision.correspondence import issue
+    issue(session, rid, regulator_org_id=regulator_org_id, supervised_org_id=supervised_org_id, kind=kind, title=title.strip()[:200], body=body,
+          severity=severity if k["severities"] else None, due_date=due, source=source, raised_by=raised_by, response_days=int(k["default_due_days"]))
     req = _row(session, rid)
     _notify_entity(session, req, raised_by)
     return _row(session, rid)

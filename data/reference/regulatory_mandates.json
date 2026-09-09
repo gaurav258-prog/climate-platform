@@ -819,5 +819,46 @@
     "_about": "Automatic follow-up windows for published deadlines: a reminder this many days before the due date, an overdue notice this many days after. A supervisory body may adapt them.",
     "before_due_days": 14,
     "after_due_days": 1
+  },
+  "correspondence": {
+    "_about": "Formal correspondence: how an authority's letters are numbered, and the legal basis quoted when a request does not arise from one specific mandate. Prefix defaults to the authority's initials; each authority may set its own in Settings.",
+    "reference_format": "{prefix}-{year}-{kind_code}-{seq:04d}",
+    "kind_codes": {
+      "information_request": "IR",
+      "site_access_request": "SA",
+      "finding": "FN"
+    },
+    "supervisory_powers": {
+      "bank": {
+        "ref": "Art. 104 Directive 2013/36/EU (CRD) · Art. 16 Regulation (EU) No 1024/2013 (SSM)",
+        "text": "The competent authority may require institutions to provide information and to take the measures necessary to address the risks identified.",
+        "celex": "32013L0036",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32013L0036"
+      },
+      "insurer": {
+        "ref": "Art. 34 and 35 Directive 2009/138/EC (Solvency II)",
+        "text": "Supervisory authorities have the power to require insurance and reinsurance undertakings to submit the information necessary for supervision and to take measures to remedy deficiencies.",
+        "celex": "32009L0138",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32009L0138"
+      },
+      "asset_manager": {
+        "ref": "Art. 46 Directive 2011/61/EU (AIFMD) · Art. 69 Directive 2014/65/EU (MiFID II)",
+        "text": "Competent authorities may require access to any document and demand information from any person for the performance of their duties.",
+        "celex": "32011L0061",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32011L0061"
+      },
+      "reit": {
+        "ref": "Art. 24 Regulation (EU) 2017/1129 · national company-law supervision",
+        "text": "The competent authority may require issuers to provide information and documents necessary for the performance of its supervisory functions.",
+        "celex": "32017R1129",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32017R1129"
+      },
+      "manufacturer": {
+        "ref": "Art. 14 to 16 Regulation (EU) 2023/1115 (EUDR) · Art. 29a Directive 2013/34/EU as amended by CSRD",
+        "text": "Competent authorities may check operators and traders, require information and documents, and take corrective measures.",
+        "celex": "32023R1115",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115"
+      }
+    }
   }
 }

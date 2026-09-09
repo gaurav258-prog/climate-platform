@@ -228,7 +228,7 @@ def entity_sites(entity: str, session: DbSession, ctx: Supervisor, scenario: str
 # which sectors/frameworks/metrics/thresholds apply — all from data/reference/supervision_profiles.json plus the
 # regulator's own overrides in supervisor_settings. No sector is named in the code below.
 def _overrides(session, reg_org_id: str) -> dict:
-    row = session.execute(text("""SELECT profile, default_scenario, default_horizon, thresholds FROM supervisor_settings
+    row = session.execute(text("""SELECT profile, default_scenario, default_horizon, thresholds, reference_prefix, signatory_title FROM supervisor_settings
                                   WHERE org_id = CAST(:o AS uuid)"""), {"o": reg_org_id}).mappings().first()
     return dict(row) if row else {}
 
@@ -247,6 +247,8 @@ def get_profile(session: DbSession, ctx: Supervisor):
 
 
 class ProfileUpdate(BaseModel):
+    reference_prefix: Optional[str] = None
+    signatory_title: Optional[str] = None
     profile: Optional[str] = None
     default_scenario: Optional[str] = None
     default_horizon: Optional[str] = None
@@ -274,6 +276,9 @@ def put_profile(body: ProfileUpdate, session: DbSession, ctx: dict = Depends(req
             default_horizon = EXCLUDED.default_horizon, thresholds = EXCLUDED.thresholds, updated_at = now(), updated_by = EXCLUDED.updated_by
     """), {"o": reg, "p": new["profile"], "sc": new["default_scenario"], "h": new["default_horizon"],
            "t": json.dumps(new["thresholds"]), "u": ctx["user"]["id"]})
+    if body.reference_prefix is not None or body.signatory_title is not None:
+        session.execute(text("""UPDATE supervisor_settings SET reference_prefix = COALESCE(:p, reference_prefix), signatory_title = COALESCE(:t, signatory_title)
+                                WHERE org_id = CAST(:o AS uuid)"""), {"p": (body.reference_prefix or "").strip().upper()[:8] or None, "t": body.signatory_title, "o": reg})
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.profile.updated",
                 target_type="supervisor_settings", target_id=reg, detail=new)
     session.commit()
@@ -1186,3 +1191,18 @@ def entity_contacts(supervision_id: str, session: DbSession, ctx: Supervisor):
     if not ent:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
     return {"contacts": [{k: v for k, v in c.items() if k != "user_id"} for c in contacts(session, ent)]}
+
+
+@router.get("/requests/{request_id}/letter.pdf", summary="The formal letter of a request or finding (reference, legal basis, response period, signatory)")
+def request_letter(request_id: str, session: DbSession, ctx: Supervisor):
+    from fastapi.responses import Response
+
+    from services.supervision.correspondence import letter
+    from services.supervision.engagement import get
+    req = get(session, request_id, regulator_org_id=ctx["org"]["org_id"])
+    if not req or not _in_scope(session, ctx, req["supervised_org_id"]):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request in your view."})
+    L = letter(session, request_id, regulator_org_id=ctx["org"]["org_id"])
+    if not L:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No letter on this request."})
+    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{L["reference"]}.pdf"'})

@@ -231,3 +231,31 @@ async def submission_submit(supervision_id: str, session: DbSession, ctx: Curren
                     detail={"regulator_org_id": reg, "supervised_org_id": org_id, **out["result"], "channel": "entity_portal"})
     session.commit()
     return out
+
+
+@router.get("/requests/{request_id}/letter.pdf", summary="The formal letter my supervisor issued for this request")
+def my_request_letter(request_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from fastapi.responses import Response
+
+    from services.supervision.correspondence import letter
+    L = letter(session, request_id, supervised_org_id=ctx["org"]["org_id"])
+    if not L:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such letter for your organisation."})
+    return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{L["reference"]}.pdf"'})
+
+
+@router.post("/requests/{request_id}/receipt", summary="Formally acknowledge receipt of the letter (once; audited on both sides)")
+def acknowledge_request_receipt(request_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.supervision.correspondence import acknowledge_receipt
+    from services.supervision.engagement import get
+    org_id = ctx["org"]["org_id"]
+    req = get(session, request_id, supervised_org_id=org_id)
+    if not req:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such request for your organisation."})
+    if not acknowledge_receipt(session, request_id, org_id, ctx["user"]["id"]):
+        raise HTTPException(status_code=409, detail={"error": "already", "message": "Receipt was already acknowledged."})
+    for audited in (org_id, req["regulator_org_id"]):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervisor.request.receipt", target_type="supervision_request",
+                    target_id=request_id, detail={"reference": req.get("reference"), "supervised_org_id": org_id, "regulator_org_id": req["regulator_org_id"]})
+    session.commit()
+    return get(session, request_id, supervised_org_id=org_id)
