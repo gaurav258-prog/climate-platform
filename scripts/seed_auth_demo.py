@@ -23,6 +23,7 @@ from sqlalchemy import text
 from api.security import hash_password
 from core.db.session import get_session
 from services.governance.tenant_provisioning import role_templates_for
+from services.supervision.profiles import resolve
 
 MERIDIAN = "11111111-1111-4111-8111-111111111111"
 IBERIA   = "22222222-2222-4222-8222-222222222222"
@@ -210,10 +211,15 @@ def main():
                     ON CONFLICT (regulator_org_id, supervised_org_id) DO UPDATE
                        SET jurisdiction = EXCLUDED.jurisdiction, active = TRUE, ended_at = NULL
                 """), {"r": reg_id, "s": supervised, "j": juris})
+            # End only rows whose entity type the body's profile does not cover. Rows added later by the population
+            # seed or by a supervisor in the product are in profile and must survive a re-run of this script.
+            sectors = list(resolve(profile)["sectors"])
             s.execute(text("""
-                UPDATE supervision_scope SET active = FALSE, ended_at = COALESCE(ended_at, now())
-                WHERE regulator_org_id = CAST(:r AS uuid) AND active AND supervised_org_id <> ALL(CAST(:keep AS uuid[]))
-            """), {"r": reg_id, "keep": [x for x, _ in scope]})
+                UPDATE supervision_scope ss SET active = FALSE, ended_at = COALESCE(ss.ended_at, now())
+                FROM organizations o
+                WHERE o.org_id = ss.supervised_org_id AND ss.regulator_org_id = CAST(:r AS uuid) AND ss.active
+                  AND o.type <> ALL(CAST(:sectors AS text[]))
+            """), {"r": reg_id, "sectors": sectors})
 
         # 6) assignments: the line supervisor (approver persona) works two of the four; horizontal roles see all
         for email, supervised, cap in [("approver@supervisor.demo", MERIDIAN, "lead"), ("approver@insurance-supervisor.demo", IBERIA, "lead"),

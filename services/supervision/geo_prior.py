@@ -45,18 +45,23 @@ def locate_cells(cells: list[str]) -> tuple[list[Optional[str]], list[str]]:
     """Country code and region key per cell, vectorised over the land and NUTS-3 trees."""
     from shapely.geometry import Point
 
-    from services.geo.cells import _land
+    from services.geo.cells import _GEOS_LOCK, _land
     from services.geo.regions import _index
+
     pts = [Point(*reversed(h3.cell_to_latlng(c))) for c in cells]
+    # Prepared geometries are not thread-safe: hold the shared lock for the whole vectorised query.
+    with _GEOS_LOCK:
+        return _locate_locked(cells, pts, _land(), _index())
+
+
+def _locate_locked(cells, pts, land, nuts):
     countries: list[Optional[str]] = [None] * len(cells)
-    land = _land()
     if land is not None:
         tree, geoms, codes = land
         for pi, gi in zip(*tree.query(pts, predicate="within")):
             if countries[int(pi)] is None:
                 countries[int(pi)] = codes[int(gi)]
     regions: list[str] = [h3.cell_to_parent(c, 4) for c in cells]
-    nuts = _index()
     if nuts is not None:
         tree, geoms, meta = nuts
         for pi, gi in zip(*tree.query(pts, predicate="within")):

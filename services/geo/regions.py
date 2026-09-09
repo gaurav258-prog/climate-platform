@@ -15,6 +15,8 @@ from typing import Optional
 
 import h3
 
+from services.geo.cells import _GEOS_LOCK  # one lock for every shared prepared-geometry index
+
 NUTS3_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "geo" / "nuts3_eu_20m_2021.geojson"
 H3_RES = 4
 
@@ -51,9 +53,10 @@ def region_for(lat: float, lon: float) -> dict:
         from shapely.geometry import Point
         tree, geoms, meta = idx
         pt = Point(lon, lat)
-        for i in tree.query(pt):
-            if geoms[int(i)].covers(pt):
-                return {**meta[int(i)], "kind": "nuts3"}
+        with _GEOS_LOCK:
+            for i in tree.query(pt):
+                if geoms[int(i)].covers(pt):
+                    return {**meta[int(i)], "kind": "nuts3"}
     return _hex_region(h3.latlng_to_cell(lat, lon, H3_RES))
 
 
