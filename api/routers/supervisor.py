@@ -449,10 +449,9 @@ def entity_lens(org_id: str, session: DbSession, ctx: Supervisor, period_label: 
     return out
 
 
-@router.post("/intake/{org_id}/projections/run", summary="(Re)run scenario × horizon projections for this entity's shadow book")
-def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool = False):
+@router.post("/intake/{org_id}/projections/run", summary="(Re)run scenario × horizon projections for this entity's shadow book — on the worker")
+def intake_project(org_id: str, session: DbSession, ctx: Supervisor):
     from services.supervision.projection import (
-        project_cells_now,
         projection_coverage,
         schedule_projection,
         shadow_cells,
@@ -464,14 +463,11 @@ def intake_project(org_id: str, session: DbSession, ctx: Supervisor, wait: bool 
     cells = shadow_cells(session, reg, org_id)
     if not cells:
         raise HTTPException(status_code=422, detail={"error": "no_shadow_book", "message": "Build the shadow book for this entity before running projections."})
+    job = schedule_projection(cells)   # the worker, or a child process when the worker is away — never this process
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.intake.project", target_type="organization",
-                target_id=org_id, detail={"n_cells": len(cells), "wait": wait})
+                target_id=org_id, detail={"n_cells": len(cells), "job": job})
     session.commit()
-    if wait:
-        res = project_cells_now(cells)
-        return {"status": "done", **res, "coverage": projection_coverage(session, cells)}
-    schedule_projection(cells)
-    return {"status": "scheduled", "n_cells": len(cells), "coverage": projection_coverage(session, cells)}
+    return {"status": "scheduled", "n_cells": len(cells), "job": job, "coverage": projection_coverage(session, cells)}
 
 
 # ── Population-level lens + analytics ───────────────────────────────────────────────────────────────────

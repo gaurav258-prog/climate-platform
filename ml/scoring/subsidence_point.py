@@ -15,7 +15,6 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import h3
 from sqlalchemy import text
@@ -30,28 +29,21 @@ _NODATA = 15
 # GSS six-level susceptibility class → 0–100 exposure. 1 very-low … 6 very-high (disclosed, discrete).
 CLASS_SCORE = {1: 5.0, 2: 20.0, 3: 40.0, 4: 60.0, 5: 80.0, 6: 95.0}
 
-_src = None  # lazily-opened rasterio dataset, reused across calls
-
-
-def _dataset():
-    global _src
-    if _src is None:
-        if not _RASTER_PATH.exists():
-            return None
-        import rasterio
-        _src = rasterio.open(_RASTER_PATH)
-    return _src
-
-
-def _susceptibility_class(lat: float, lon: float) -> Optional[int]:
-    src = _dataset()
-    if src is None:
+def _susceptibility_class(lat: float, lon: float):
+    """Read through the process-isolated raster sampler; None = outside the raster, nodata, or a read failure."""
+    from services.geo.raster_sampler import info, sample
+    meta = info(_RASTER_PATH)
+    if meta is None:
         return None
-    b = src.bounds
-    if not (b.left <= lon <= b.right and b.bottom <= lat <= b.top):
+    left, bottom, right, top = meta["bounds"]
+    if not (left <= lon <= right and bottom <= lat <= top):
         return None
-    val = int(next(src.sample([(lon, lat)]))[0])
-    if val < 1 or val > 6:   # 15 = nodata, 0 = unclassified
+    got = sample(_RASTER_PATH, [(lon, lat)])
+    if not got or not got[0]:
+        return None
+    val = int(got[0][0])
+    nod = meta.get("nodata")
+    if (nod is not None and val == nod) or val < 1 or val > 6:   # 15 = nodata, 0 = unclassified
         return None
     return val
 

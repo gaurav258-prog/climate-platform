@@ -131,3 +131,22 @@ def prior_for(session, geography: str, scenario: str, horizon: str) -> Optional[
 
 def bases_available(session) -> list[tuple[str, str]]:
     return [tuple(r) for r in session.execute(text("SELECT DISTINCT scenario, horizon FROM supervision_geo_prior ORDER BY 1, 2")).all()]
+
+
+def rebuild_all(only: Optional[list[str]] = None) -> dict:
+    """Rebuild the priors for every basis with standing scores (the worker task and the script both call this)."""
+    import time
+
+    from core.db.session import get_session
+    out = {}
+    with get_session() as s:
+        bases = [tuple(r) for r in s.execute(text("""SELECT DISTINCT scenario, time_horizon FROM canonical_scores
+                                                     WHERE score_lane = 'standing' AND valid_to IS NULL ORDER BY 1, 2""")).all()]
+        if only:
+            bases = [b for b in bases if f"{b[0]}:{b[1]}" in only]
+        cache: dict = {}
+        for sc, hz in bases:
+            t = time.time()
+            out[f"{sc}:{hz}"] = {"geographies": build(s, sc, hz, cache), "seconds": round(time.time() - t, 1)}
+            s.commit()
+    return out

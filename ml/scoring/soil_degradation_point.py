@@ -14,7 +14,6 @@ signed-status grid) OVERRIDES the remote read when present (infra path). Screeni
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,50 +31,34 @@ _LOCAL_PATH = Path(__file__).resolve().parents[2] / "data" / "soil_degradation" 
 _COG_URL = "/vsicurl/https://zenodo.org/records/17079487/files/TrendsEarth_SDG15.3.1_2000-2023.tiff"
 _STATUS_BAND = 1
 
-_src = None
-_band = _STATUS_BAND
-_is_local = False
-
-
-def _dataset():
-    global _src, _band, _is_local
-    if _src is None:
-        import rasterio
-        if _LOCAL_PATH.exists():
-            _src = rasterio.open(_LOCAL_PATH); _band = 1; _is_local = True
-        else:
-            os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
-            os.environ.setdefault("GDAL_HTTP_MAX_RETRY", "2")
-            os.environ.setdefault("GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "YES")
-            try:
-                _src = rasterio.open(_COG_URL); _band = _STATUS_BAND; _is_local = False
-            except Exception:
-                return None
-    return _src
-
-
+def _source() -> tuple[str, int, bool]:
+    """(path, band, is_local): a locally-materialised raster wins; otherwise the remote COG (read with a timeout)."""
+    if _LOCAL_PATH.exists():
+        return str(_LOCAL_PATH), 1, True
+    return _COG_URL, _STATUS_BAND, False
 
 
 def _sample(lat: float, lon: float) -> Optional[float]:
-    src = _dataset()
-    if src is None:
+    """Read through the process-isolated raster sampler; a slow or failing remote read returns None, never hangs."""
+    import numpy as np
+
+    from services.geo.raster_sampler import info, window
+    path, band, is_local = _source()
+    meta = info(path)
+    if meta is None:
         return None
-    b = src.bounds
-    if not (b.left <= lon <= b.right and b.bottom <= lat <= b.top):
+    left, bottom, right, top = meta["bounds"]
+    if not (left <= lon <= right and bottom <= lat <= top):
         return None
-    try:
-        import numpy as np
-        from rasterio.windows import Window
-        row, col = src.index(lon, lat)
-        a = src.read(_band, window=Window(col - 4, row - 4, 9, 9))   # ~2 km neighbourhood
-    except Exception:
+    a = window(path, lon, lat, band=band, half=4)   # ~2 km neighbourhood
+    if a is None:
         return None
     flat = a.reshape(-1)
-    if src.nodata is not None:
-        flat = flat[flat != src.nodata]
+    if meta.get("nodata") is not None:
+        flat = flat[flat != meta["nodata"]]
     if flat.size == 0:
         return None
-    if _is_local and float(flat.max()) > 1.5:
+    if is_local and float(flat.max()) > 1.5:
         # a locally-materialised raster is a 0–100 degradation index → mean over the neighbourhood
         return round(max(0.0, min(100.0, float(flat.mean()))), 2)
     # SDG 15.3.1 status (-1 degraded / 0 stable / +1 improved). The indicator IS the PROPORTION of degraded
