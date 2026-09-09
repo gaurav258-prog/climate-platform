@@ -31,6 +31,7 @@ type Group = { label: string | null; color?: string; flow?: boolean; items: Item
 // seven lines, each gated by the supervisor.* permission its role carries. Nothing else.
 const REG_GROUPS: Group[] = [
   { label: '', items: [
+    { to: '/supervisor/mandates', label: 'Regulations', icon: BookOpen, perm: 'supervisor.population.view', sectors: REG },
     { to: '/supervised', label: 'Population', icon: Scale, perm: 'supervisor.population.view', sectors: REG },
     { to: '/supervisor/map', label: 'Exposure map', icon: MapIcon, perm: 'supervisor.population.view', sectors: REG },
     { to: '/supervisor/analytics', label: 'Analytics', icon: Gauge, perm: 'supervisor.benchmark.view', sectors: REG },

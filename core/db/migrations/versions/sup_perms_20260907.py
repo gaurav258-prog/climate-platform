@@ -30,6 +30,7 @@ NEW = [
     ("supervisor.evidence.export", "Export an evidence pack for a case"),
     ("supervisor.assignments.manage", "Assign supervised entities to the people who work them"),
     ("supervisor.scope.manage", "Add and end the entities this authority supervises"),
+    ("supervisor.mandates.manage", "Enable, adapt and acknowledge regulatory mandates for this authority"),
 ]
 
 
