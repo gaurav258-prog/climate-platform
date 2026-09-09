@@ -74,22 +74,13 @@ EXTRA_USER_ROLES = {
 }
 
 # role name -> permission codes
-ROLE_PERMS = {
-    "admin": [
-        "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
-        "admin.users.manage", "admin.roles.manage", "admin.audit.view",
-        "approvals.create", "approvals.view", "approvals.decide", "portal.use",
-    ],
-    "analyst":  ["modules.view", "reports.view", "pricing.view", "approvals.create", "portal.use"],
-    "approver": ["modules.view", "reports.view", "pricing.view", "reports.publish",
-                 "pricing.approve", "approvals.view", "approvals.decide", "portal.use"],
-    "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use"],
-}
+# Role → permission matrix: the ONE platform default (services.governance.tenant_provisioning.DEFAULT_ROLE_PERMS,
+# and the supervision-profile registry for regulators). This script never carries its own copy — a copy drifts.
 
 # Permissions granted to a role by a LATER migration, not by this script's own
-# ROLE_PERMS above (e.g. e2f3a4b5c6d7_bank_disclosure_submissions.py grants
+# matrix (e.g. e2f3a4b5c6d7_bank_disclosure_submissions.py grants
 # 'submissions.release' to 'approver'). Step 3 below resets each role's
-# permissions to exactly ROLE_PERMS every run -- without this, that reset
+# permissions to exactly the matrix every run -- without this, that reset
 # silently wipes out any such migration-granted extra, and re-running this
 # script (e.g. to fix an unrelated org) would quietly break the maker/checker
 # submission-release flow. Re-applied after the reset, every run.
@@ -149,7 +140,7 @@ def main():
         # 3) roles + permission matrix (per org)
         for org_id, *_ in ORGS:
             org_type = next(o[2] for o in ORGS if o[0] == org_id)
-            templates = role_templates_for(org_type) if org_type == 'regulator' else ROLE_PERMS
+            templates = role_templates_for(org_type)
             for role_name, perms in templates.items():
                 s.execute(text("""
                     INSERT INTO roles (org_id, name, description, is_system)
