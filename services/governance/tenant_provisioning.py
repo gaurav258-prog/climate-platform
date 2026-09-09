@@ -56,10 +56,20 @@ DEFAULT_ENTITLEMENTS: dict[str, list[str]] = {
 }
 
 
-def role_templates_for(org_type: str) -> dict[str, list[str]]:
+# A RESPONDENT is a supervised entity that does not use Tellumen as a workspace: its people only answer their supervisor —
+# acknowledge supervision, state regulatory attributes, submit the required templates, respond to requests — and may
+# mint an ingest token to do the same by API. Nothing else on the platform is visible to them.
+RESPONDENT_ROLE_PERMS: dict[str, list[str]] = {
+    "respondent": ["respondent.portal", "reports.view", "reports.publish", "admin.users.manage"],
+}
+
+
+def role_templates_for(org_type: str, plan: str | None = None) -> dict[str, list[str]]:
     """Role → permission matrix for a tenant of this type. Supervisory bodies take their templates from the
     supervision-profile registry (data/reference/supervision_profiles.json — configuration, not code); every
     other tenant type uses DEFAULT_ROLE_PERMS."""
+    if plan == "respondent":
+        return RESPONDENT_ROLE_PERMS
     if org_type == "regulator":
         from services.supervision.profiles import role_templates
         return {name: list(r["permissions"]) for name, r in role_templates().items()}

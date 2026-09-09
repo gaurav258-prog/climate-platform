@@ -63,3 +63,11 @@ def role_templates() -> dict:
 
 def all_permission_codes() -> list[str]:
     return sorted({p for r in registry()["roles"].values() for p in r["permissions"]})
+
+
+def config_for(session, reg_org_id: str) -> dict:
+    """The effective configuration of one supervisory body (profile + its overrides in supervisor_settings)."""
+    from sqlalchemy import text
+    row = session.execute(text("""SELECT profile, default_scenario, default_horizon, thresholds FROM supervisor_settings
+                                  WHERE org_id = CAST(:o AS uuid)"""), {"o": reg_org_id}).mappings().first()
+    return resolve(None, dict(row) if row else {})

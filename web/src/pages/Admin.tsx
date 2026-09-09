@@ -72,7 +72,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><RegulatoryAttributes /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><RegulatoryAttributes /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}
@@ -1091,7 +1091,7 @@ function ThreshInput({ defaultValue, onCommit, disabled }: { defaultValue: numbe
 // locations are ours to open or close; the switch is audited on both sides.
 interface Sup { supervision_id: string; regulator_org_id: string; regulator: string; jurisdiction: string | null
   site_access: boolean; site_access_granted_at: string | null; site_access_revoked_at: string | null; since: string | null; acknowledged_at: string | null }
-function SupervisoryAccess() {
+export function SupervisoryAccess() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['my-supervisors'], queryFn: () => api.get<{ supervisors: Sup[]; note: string }>('/v1/me/supervisors') })
   const [busy, setBusy] = useState<string | null>(null)
@@ -1262,7 +1262,7 @@ function SupervisionAssignments() {
 // ── Requests from my supervisor — respond and report remediation; the supervisor closes ───────────────────
 interface InReq { request_id: string; regulator: string; kind_label: string; title: string; body: string | null; status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string }
 interface InDetail extends InReq { messages: { message_id: string; side: string; body: string | null; status_label: string | null; created_at: string; author: string | null }[]; can_set: { key: string; label: string }[] }
-function SupervisorRequestsInbox() {
+export function SupervisorRequestsInbox() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['my-supervisor-requests'], queryFn: () => api.get<{ requests: InReq[]; can_respond: boolean; summary: { open: number; overdue: number } }>('/v1/me/supervisors/requests') })
   const [sel, setSel] = useState<string | null>(null)
@@ -1349,11 +1349,13 @@ function SupervisionScope() {
         {d.in_profile.map(r => (
           <div key={r.supervision_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
             <span className="text-[var(--color-ink)] min-w-[220px]">{r.name}<span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{r.country ?? ''}{r.lei ? ` · ${r.lei}` : ''}</span></span>
-            <span className="mono text-[10.5px] text-[var(--color-faint)]">{r.jurisdiction ?? 'no jurisdiction set'} · since {r.created_at?.slice(0, 10) ?? '—'} · {r.acknowledged_at ? 'acknowledged' : 'awaiting acknowledgement'} · {r.site_access ? 'sites granted' : 'regional only'}</span>
-            <button disabled={busy} onClick={() => end(r)} className="ml-auto mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-bad)]">end supervision</button>
+            <span className="mono text-[10.5px] text-[var(--color-faint)] flex-1">{r.jurisdiction ?? 'no jurisdiction set'} · since {r.created_at?.slice(0, 10) ?? '—'} · {r.acknowledged_at ? 'acknowledged' : 'awaiting acknowledgement'} · {r.site_access ? 'sites granted' : 'regional only'}</span>
+            <InviteContact supervisionId={r.supervision_id} />
+            <button disabled={busy} onClick={() => end(r)} className="mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-bad)]">end supervision</button>
           </div>))}
       </div>
-      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Add an entity in your sectors</div>
+      <AddRespondent sectors={d.sectors} onDone={refresh} />
+      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Add an entity already on Tellumen</div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or LEI…" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] min-w-[260px] mb-2" />
       <div className="divide-y divide-[var(--color-line)]">
         {d.candidates.length === 0 && <div className="py-2 text-[12.5px] text-[var(--color-faint)]">No further entities in your sectors on the platform{search ? ' match this search' : ''}.</div>}
@@ -1370,7 +1372,7 @@ function SupervisionScope() {
 
 // ── Regulatory attributes — what a supervisor's mandate criteria read (size, listing, PIE status …) ───────────
 interface AttrResp { attributes: Record<string, { value: unknown; source: string; as_of: string | null }>; definitions: Record<string, { label: string; type: string; unit?: string; source?: string }>; can_edit: boolean }
-function RegulatoryAttributes() {
+export function RegulatoryAttributes() {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const isReg = profile?.org?.type === 'regulator'
@@ -1404,5 +1406,125 @@ function RegulatoryAttributes() {
       </div>
       {d.can_edit && <div className="flex items-center gap-3 mt-3"><label className="text-[12px] text-[var(--color-mute)]">As of <input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]" /></label><Button onClick={save} disabled={busy || Object.keys(form).length === 0}>{busy ? 'Saving…' : 'Save attributes'}</Button></div>}
     </Card>
+  )
+}
+
+// ── Submit the required template to a supervisor — the same intake the supervisor keys in, from our side ────────
+interface SpecResp { regulator: string; regulator_org_id: string; available: boolean; reason?: string; framework?: string; template?: string; label?: string
+  fields?: { id: string; label: string; required?: boolean; type?: string }[]; on_file: { period_label: string; created_at: string; n_cells: number; source_file: string | null; basis: Record<string, string> | null }[] }
+interface ValResp { fields: { id: string; label: string; required?: boolean }[]; mapping: Record<string, string | null>; columns: string[]; n_total: number; n_valid: number; n_error: number; missing_required: string[]; errors: { row: number; problems: string[] }[] }
+export function TemplateSubmission() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const isReg = profile?.org?.type === 'regulator'
+  const canSubmit = (profile?.permissions ?? []).some(p => p === 'reports.publish' || p === 'respondent.portal')
+  const sups = useQuery({ queryKey: ['my-supervisors'], enabled: !isReg, queryFn: () => api.get<{ supervisors: { supervision_id: string; regulator: string }[] }>('/v1/me/supervisors') })
+  const [sid, setSid] = useState<string>('')
+  const active = sid || sups.data?.supervisors[0]?.supervision_id || ''
+  const spec = useQuery({ queryKey: ['submission-spec', active], enabled: !!active, queryFn: () => api.get<SpecResp>(`/v1/me/supervisors/${active}/submission-spec`) })
+  const [file, setFile] = useState<File | null>(null)
+  const [val, setVal] = useState<ValResp | null>(null)
+  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
+  const [scenario, setScenario] = useState(''); const [horizon, setHorizon] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (isReg || !sups.data || sups.data.supervisors.length === 0) return null
+  const s = spec.data
+  const send = async (path: string, extra: Record<string, string>) => {
+    const fd = new FormData(); fd.append('file', file!); for (const [k, v] of Object.entries(extra)) fd.append(k, v)
+    const token = localStorage.getItem('tellumen.token')
+    const res = await fetch(path, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd })
+    const body = await res.json(); if (!res.ok) throw new Error(body?.detail?.message || body?.error?.message || 'Request failed'); return body
+  }
+  const validate = async () => { if (!file) return; setBusy(true); try { setVal(await send(`/v1/me/supervisors/${active}/submissions/validate`, {})) } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  const submit = async () => {
+    if (!file || !val) return
+    setBusy(true)
+    try {
+      const basis = scenario && horizon ? JSON.stringify({ scenario, horizon }) : ''
+      const r = await send(`/v1/me/supervisors/${active}/submissions`, { mapping: JSON.stringify(val.mapping), period_label: period, ...(basis ? { basis } : {}) })
+      toast.success(`Submitted to ${r.regulator}: ${r.n_valid} cells for ${period}.`); setFile(null); setVal(null); await qc.invalidateQueries({ queryKey: ['submission-spec', active] })
+    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Card className="p-5">
+      <SectionHead hint="the template your supervisor requires · validated before it is sent · audited on both sides">Submit to your supervisor</SectionHead>
+      {sups.data.supervisors.length > 1 && <label className="text-[12px] text-[var(--color-mute)] block mb-3">Supervisor <select value={active} onChange={e => setSid(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)]">{sups.data.supervisors.map(x => <option key={x.supervision_id} value={x.supervision_id}>{x.regulator}</option>)}</select></label>}
+      {!s ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : !s.available ? <div className="text-[12.5px] text-[var(--color-mute)]">{s.reason}</div> : (<>
+        <div className="text-[12.5px] text-[var(--color-ink)] mb-1">{s.label}</div>
+        <div className="mono text-[10.5px] text-[var(--color-faint)] mb-3">Columns: {s.fields!.map(f => f.label + (f.required ? ' *' : '')).join(' · ')}</div>
+        {s.on_file.length > 0 && <div className="text-[12px] text-[var(--color-mute)] mb-3">On file with {s.regulator}: {s.on_file.map(o => `${o.period_label} (${o.n_cells} cells, ${o.created_at.slice(0, 10)})`).join(' · ')}</div>}
+        {!canSubmit ? <div className="text-[12px] text-[var(--color-faint)]">Submitting needs the release permission in your organisation.</div> : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <input type="file" accept=".csv,.xlsx,.xls" onChange={e => { setFile(e.target.files?.[0] ?? null); setVal(null) }} className="text-[12.5px]" />
+              <label className="text-[12px] text-[var(--color-mute)]">Period <input value={period} onChange={e => setPeriod(e.target.value)} className="ml-2 w-24 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12.5px]" /></label>
+              <label className="text-[12px] text-[var(--color-mute)]">Basis stated <select value={scenario} onChange={e => setScenario(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]"><option value="">none</option>{['baseline', 'orderly_1_5c', 'disorderly_2c', 'hot_house_3_5c'].map(x => <option key={x} value={x}>{x}</option>)}</select>
+                <select value={horizon} onChange={e => setHorizon(e.target.value)} className="ml-1 bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px]"><option value="">—</option>{['current', '2030', '2050', '2100'].map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+              <Button variant="ghost" onClick={validate} disabled={!file || busy}>Check the file</Button>
+            </div>
+            {val && (
+              <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
+                <div className="text-[var(--color-ink)]">{val.n_valid} of {val.n_total} rows valid{val.missing_required.length ? ` · missing required: ${val.missing_required.join(', ')}` : ''}{val.n_error ? ` · ${val.n_error} rows with problems` : ''}</div>
+                <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">mapping: {Object.entries(val.mapping).map(([k, v]) => `${k} ← ${v ?? '—'}`).join(' · ')}</div>
+                {val.errors.slice(0, 3).map(e => <div key={e.row} className="text-[var(--color-warn)] mt-0.5">row {e.row}: {e.problems.join('; ')}</div>)}
+                <div className="mt-2"><Button onClick={submit} disabled={busy || val.missing_required.length > 0 || val.n_error > 0}>{busy ? 'Submitting…' : `Submit ${period} to ${s.regulator}`}</Button></div>
+              </div>)}
+          </div>)}
+      </>)}
+    </Card>
+  )
+}
+
+function AddRespondent({ sectors, onDone }: { sectors: string[]; onDone: () => Promise<unknown> }) {
+  const [open, setOpen] = useState(false)
+  const [f, setF] = useState({ name: '', org_type: sectors[0] ?? '', country: '', jurisdiction: '', lei: '', contact_email: '', contact_name: '' })
+  const [busy, setBusy] = useState(false)
+  const inp = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)]'
+  const add = async () => {
+    setBusy(true)
+    try { const r = await api.post<{ name: string; invite: { email: string } }>('/v1/supervisor/scope/respondent', { ...f, jurisdiction: f.jurisdiction || null, lei: f.lei || null, contact_name: f.contact_name || null }); toast.success(`${r.name} added; activation link sent to ${r.invite.email}.`); setOpen(false); setF({ ...f, name: '', lei: '', contact_email: '', contact_name: '' }); await onDone() }
+    catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="mb-4">
+      <button onClick={() => setOpen(o => !o)} className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline">{open ? '− ' : '+ '}Add an entity not on Tellumen</button>
+      {open && (
+        <div className="mt-2 rounded-lg border border-[var(--color-line)] p-3 space-y-2">
+          <div className="text-[11.5px] text-[var(--color-mute)]">The entity gets a minimal, audited account: its contact activates it by e-mail and sees only the supervisory portal — acknowledge, state attributes, submit the required template, answer your requests.</div>
+          <div className="grid sm:grid-cols-3 gap-2">
+            <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="Entity name *" className={inp} />
+            <select value={f.org_type} onChange={e => setF({ ...f, org_type: e.target.value })} className={inp}>{sectors.map(sc => <option key={sc} value={sc}>{sc.replace(/_/g, ' ')}</option>)}</select>
+            <input value={f.country} onChange={e => setF({ ...f, country: e.target.value.toUpperCase() })} placeholder="Country code *" className={inp} maxLength={2} />
+            <input value={f.jurisdiction} onChange={e => setF({ ...f, jurisdiction: e.target.value })} placeholder="Jurisdiction (e.g. EU/SSM)" className={inp} />
+            <input value={f.lei} onChange={e => setF({ ...f, lei: e.target.value })} placeholder="LEI" className={inp} />
+            <span />
+            <input value={f.contact_email} onChange={e => setF({ ...f, contact_email: e.target.value })} placeholder="Contact e-mail *" className={inp} />
+            <input value={f.contact_name} onChange={e => setF({ ...f, contact_name: e.target.value })} placeholder="Contact name" className={inp} />
+            <Button disabled={busy || !f.name || !f.country || !f.contact_email} onClick={add}>{busy ? 'Adding…' : 'Add and invite'}</Button>
+          </div>
+        </div>)}
+    </div>
+  )
+}
+
+function InviteContact({ supervisionId }: { supervisionId: string }) {
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState(''); const [name, setName] = useState(''); const [busy, setBusy] = useState(false)
+  const q = useQuery({ queryKey: ['entity-contacts', supervisionId], enabled: open, queryFn: () => api.get<{ contacts: { email: string; full_name: string | null; status: string; last_login_at: string | null }[] }>(`/v1/supervisor/scope/${supervisionId}/contacts`) })
+  const invite = async () => { setBusy(true); try { await api.post(`/v1/supervisor/scope/${supervisionId}/invite`, { email, full_name: name || null }); toast.success(`Activation link sent to ${email}.`); setEmail(''); setName(''); await q.refetch() } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  return (
+    <span className="relative">
+      <button onClick={() => setOpen(o => !o)} className="mono text-[11px] text-[var(--color-faint)] hover:text-[var(--color-sky)] mr-3">contacts</button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-[360px] rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-3 shadow-lg text-[12px]">
+          <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">People at the entity</div>
+          {(q.data?.contacts ?? []).length === 0 ? <div className="text-[var(--color-faint)] mb-2">No one invited yet.</div> : (q.data?.contacts ?? []).map(c => <div key={c.email} className="flex justify-between gap-2"><span className="text-[var(--color-ink)]">{c.full_name ?? c.email}</span><span className="mono text-[10.5px] text-[var(--color-faint)]">{c.email} · {c.status}</span></div>)}
+          <div className="flex gap-1.5 mt-2">
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="e-mail" className="flex-1 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded px-2 py-1" />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="name" className="w-24 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded px-2 py-1" />
+            <Button variant="ghost" disabled={busy || !email} onClick={invite}>Invite</Button>
+          </div>
+        </div>)}
+    </span>
   )
 }

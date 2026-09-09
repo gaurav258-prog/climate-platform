@@ -72,7 +72,7 @@ def load_user_context(session: Session, user_id: str) -> Optional[dict]:
     """
     u = session.execute(text("""
         SELECT u.user_id, u.email, u.full_name, u.status, u.token_version,
-               o.org_id, o.name AS org_name, o.type AS org_type, o.country AS org_country
+               o.org_id, o.name AS org_name, o.type AS org_type, o.country AS org_country, o.plan AS org_plan
         FROM   users u
         JOIN   organizations o ON o.org_id = u.org_id
         WHERE  u.user_id = :uid
@@ -115,6 +115,7 @@ def load_user_context(session: Session, user_id: str) -> Optional[dict]:
             "name": u["org_name"],
             "type": u["org_type"],
             "country": u["org_country"],
+            "plan": u["org_plan"],
         },
         "roles": list(roles),
         "permissions": list(permissions),

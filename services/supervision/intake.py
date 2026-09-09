@@ -138,20 +138,22 @@ def cells_from_rows(rows: list[dict]) -> dict[str, dict]:
 
 
 def save_submission(session, *, regulator_org_id: str, subject_org_id: str, framework: str, template: str, period_label: str,
-                    basis: dict, cells: dict, raw: bytes, filename: Optional[str], mapping: dict, user_id: Optional[str]) -> dict:
+                    basis: dict, cells: dict, raw: bytes, filename: Optional[str], mapping: dict, user_id: Optional[str],
+                    channel: str = "supervisor_upload") -> dict:
+    """channel: supervisor_upload (the supervisor keyed it in) | entity_portal (the entity submitted it) | api."""
     sha = hashlib.sha256(raw).hexdigest()
     session.execute(text("""
         INSERT INTO supervisor_submissions (regulator_org_id, subject_org_id, framework, template, period_label, basis, cells,
-                                            n_cells, source_file, source_sha256, column_mapping, created_by)
+                                            n_cells, source_file, source_sha256, column_mapping, created_by, channel)
         VALUES (CAST(:r AS uuid), CAST(:s AS uuid), :fw, :tp, :p, CAST(:b AS jsonb), CAST(:c AS jsonb), :n, :f, :sha,
-                CAST(:m AS jsonb), CAST(:u AS uuid))
+                CAST(:m AS jsonb), CAST(:u AS uuid), :ch)
         ON CONFLICT (regulator_org_id, subject_org_id, framework, template, period_label) DO UPDATE SET
             basis = EXCLUDED.basis, cells = EXCLUDED.cells, n_cells = EXCLUDED.n_cells, source_file = EXCLUDED.source_file,
             source_sha256 = EXCLUDED.source_sha256, column_mapping = EXCLUDED.column_mapping, created_by = EXCLUDED.created_by,
-            created_at = now()
+            channel = EXCLUDED.channel, created_at = now()
     """), {"r": regulator_org_id, "s": subject_org_id, "fw": framework, "tp": template, "p": period_label,
            "b": json.dumps(basis or {}), "c": json.dumps(cells), "n": len(cells), "f": filename, "sha": sha,
-           "m": json.dumps(mapping), "u": user_id})
+           "m": json.dumps(mapping), "u": user_id, "ch": channel})
     return {"framework": framework, "template": template, "period_label": period_label, "n_cells": len(cells), "sha256": sha}
 
 
@@ -237,8 +239,9 @@ def shadow_status(session, regulator_org_id: str, subject_org_id: str) -> dict:
         FROM portfolio_entities WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid)
     """), {"r": regulator_org_id, "s": subject_org_id}).mappings().first()
     subs = session.execute(text("""
-        SELECT framework, template, period_label, n_cells, source_file, created_at, basis FROM supervisor_submissions
-        WHERE regulator_org_id = CAST(:r AS uuid) AND subject_org_id = CAST(:s AS uuid) ORDER BY created_at DESC
+        SELECT s.framework, s.template, s.period_label, s.n_cells, s.source_file, s.created_at, s.basis, s.channel, u.full_name AS submitted_by
+        FROM supervisor_submissions s LEFT JOIN users u ON u.user_id = s.created_by
+        WHERE s.regulator_org_id = CAST(:r AS uuid) AND s.subject_org_id = CAST(:s AS uuid) ORDER BY s.created_at DESC
     """), {"r": regulator_org_id, "s": subject_org_id}).mappings().all()
     from services.supervision.projection import projection_coverage, shadow_cells
     return {"shadow_book": {"n_rows": int(row["n"]), "n_located": int(row["n_located"]), "value_eur": round(float(row["value_eur"])),

@@ -83,6 +83,9 @@ def add(session, reg_org_id: str, supervised_org_id: str, jurisdiction: Optional
         RETURNING supervision_id::text
     """), {"r": reg_org_id, "s": supervised_org_id, "j": (jurisdiction or "").strip() or None, "u": by_user_id}).scalar()
     _tell_entity(session, reg_org_id, supervised_org_id, sid, started=True)
+    # deadlines this authority has already published reach the newcomer too
+    from services.supervision.deadlines import apply_published
+    apply_published(session, reg_org_id, by_user_id, cfg)
     return {"supervision_id": sid, **org}
 
 

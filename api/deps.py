@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Generator, Optional
 
-from fastapi import Depends, Header, HTTPException, Query
+from fastapi import Depends, Header, HTTPException, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -105,7 +105,13 @@ IngestOrg = Annotated[dict, Depends(require_ingest_org)]
 # ── User JWT auth (login sessions) ──────────────────────────────────────
 # Disambiguation: machine API keys start with "cp_live_"; user JWTs never do.
 
+# A RESPONDENT organisation (a supervised entity that does not use Tellumen as a workspace) may only reach the
+# supervisory portal's own routes. Enforced here, once, for every protected route — not per router.
+RESPONDENT_PATHS = ("/v1/auth/", "/v1/me/supervisors", "/v1/reg-tasks/calendar", "/v1/account", "/v1/onboarding/", "/v1/ingest/tokens")
+
+
 def get_current_user(
+    request: Request,
     credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)] = None,
     session:     DbSession = None,
 ) -> dict:
@@ -147,6 +153,9 @@ def get_current_user(
             status_code=401,
             detail={"error": "session_revoked", "message": "This session has been signed out. Please sign in again."},
         )
+    if (ctx.get("org") or {}).get("plan") == "respondent" and not request.url.path.startswith(RESPONDENT_PATHS):
+        raise HTTPException(status_code=403, detail={"error": "forbidden",
+                            "message": "Your account is a supervisory-portal account: it can answer your supervisor, not use the workspace."})
     return ctx
 
 
