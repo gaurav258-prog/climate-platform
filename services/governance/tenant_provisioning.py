@@ -26,7 +26,7 @@ ALL_TENANT_PERMS: list[str] = [
     "admin.users.manage", "admin.roles.manage", "admin.audit.view", "admin.approval_policy.manage",
     "approvals.create", "approvals.view", "approvals.decide", "submissions.release", "portal.use",
     "contracts.view", "contracts.manage", "supply.locations.write",
-    "oversight.view", "ops.oversee", "decisions.view",
+    "oversight.view", "ops.oversee", "decisions.view", "board.attest",
 ]
 
 DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
@@ -37,7 +37,7 @@ DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
     # approver (checker): reviews, decides, discloses and oversees — but not tenant administration (users/roles/billing).
     "approver": ["modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
                  "approvals.view", "approvals.decide", "submissions.release", "portal.use", "contracts.view",
-                 "oversight.view", "ops.oversee", "decisions.view"],
+                 "oversight.view", "ops.oversee", "decisions.view", "board.attest"],
     # viewer: read-only — the book, the analysis, the reports and the supervisory lens; no authoring, deciding or admin.
     "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use", "oversight.view"],
 }

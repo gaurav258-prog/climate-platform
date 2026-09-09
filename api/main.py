@@ -60,6 +60,7 @@ try:
     from api.routers import analytics as analytics_router
     from api.routers import approvals as approvals_router
     from api.routers import arrears as arrears_router
+    from api.routers import board_pack as board_pack_router
     from api.routers import contracts as contracts_router
     from api.routers import decisions as decisions_router
     from api.routers import export_api as export_api_router
@@ -271,6 +272,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(provided_router.router)
     app.include_router(transmission_router.router)
     app.include_router(remittance_router.router)
+    app.include_router(board_pack_router.router)
     app.include_router(reg_changes_router.router)
     app.include_router(meta_router.router)
     app.include_router(portal_router.router)

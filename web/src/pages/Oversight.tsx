@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom'
-import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, ChevronDown, Scale, Eye, HelpCircle } from 'lucide-react'
+import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, ChevronDown, Scale, Eye, HelpCircle, FileSignature } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
+import BoardPack from '../components/BoardPack'
 
 // Supervisory view — two lenses on the same institution.
 //   1) "How regulators read you" (default): for each supervisor of your applicable frameworks — its mission,
@@ -42,18 +43,18 @@ const fmtVal = (v: number | string | null, fmt: string) => {
 
 export default function Oversight() {
   const nav = useNavigate()
-  const [tab, setTab] = useState<'regulator' | 'posture'>('regulator')
+  const [tab, setTab] = useState<'regulator' | 'posture' | 'board'>('regulator')
   const sq = useQuery({ queryKey: ['supervisory'], queryFn: () => api.get<SupResp>('/v1/reg-tasks/supervisory') })
   const pq = useQuery({ queryKey: ['oversight'], queryFn: () => api.get<Posture>('/v1/reg-tasks/oversight'), enabled: tab === 'posture' })
 
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Governance · supervisory view" title="Supervisory view"
-        lead="See your book the way your regulators will — what each supervisor scrutinises, the questions to expect, and your own figure that answers each one — then check your filing posture underneath." />
+        lead="See your book the way your regulators will — what each supervisor scrutinises, the questions to expect, and your own figure that answers each one — then check your filing posture, and put the board pack in front of the board." />
 
       {/* lens toggle */}
       <div className="flex gap-1 p-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] w-fit">
-        {([['regulator', 'How regulators read you', Eye], ['posture', 'Your posture', ShieldCheck]] as const).map(([k, l, Icon]) => (
+        {([['regulator', 'How regulators read you', Eye], ['posture', 'Your posture', ShieldCheck], ['board', 'Board pack', FileSignature]] as const).map(([k, l, Icon]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12.5px] transition ${tab === k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
             <Icon size={14} /> {l}
@@ -61,7 +62,7 @@ export default function Oversight() {
         ))}
       </div>
 
-      {tab === 'regulator' ? <RegulatorView q={sq} /> : <PostureView q={pq} nav={nav} />}
+      {tab === 'regulator' ? <RegulatorView q={sq} /> : tab === 'posture' ? <PostureView q={pq} nav={nav} /> : <BoardPack />}
     </div>
   )
 }
