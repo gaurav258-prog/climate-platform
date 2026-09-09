@@ -23,3 +23,11 @@ def rebuild_geo_priors() -> dict:
 @celery_app.task(name="supervision.deadline_sweep")
 def deadline_sweep() -> dict:
     return resolve("supervision.deadline_sweep")()
+
+
+@celery_app.task(name="transmission.send", bind=True, max_retries=3, default_retry_delay=300)
+def transmission_send(self, transmission_id: str) -> dict:
+    out = resolve("transmission.send")(transmission_id)
+    if out.get("status") == "failed":
+        raise self.retry(countdown=300 * (self.request.retries + 1))
+    return out

@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
 import StageStrip, { type Step } from '../components/StageStrip'
-import { horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
+import { frameworkLabel, horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
 
 // The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
 // what the entity lets me see, and my own access trail on it. Every field is computed by the same engine the
@@ -128,6 +128,7 @@ export default function EntityFile() {
         <div className="divide-y divide-[var(--color-line)]">{d.my_recent_accesses.map((a, i) => (
           <div key={i} className="py-1.5 flex items-center justify-between mono text-[11px]"><span className="text-[var(--color-mute)]">{a.action}</span><span className="text-[var(--color-faint)]">{a.at.slice(0, 16).replace('T', ' ')}</span></div>))}</div>
       </Card>
+      <TransmissionsReceived orgId={orgId} />
       <EvidencePacks orgId={orgId} />
     </div>
   )
@@ -174,6 +175,26 @@ function EvidencePacks({ orgId }: { orgId: string }) {
               </span>
             </div>))}
         </div>)}
+    </Card>
+  )
+}
+
+// ── Transmissions received through the Tellumen channel, with the receipts this authority issued ────────────
+interface Tx { transmission_id: string; framework: string; period_label: string; format: string; status: string; receipt_ref: string | null; receipt_at: string | null; payload_sha256: string | null; created_at: string; created_by: string | null }
+function TransmissionsReceived({ orgId }: { orgId: string }) {
+  const q = useQuery({ queryKey: ['entity-transmissions', orgId], queryFn: () => api.get<{ transmissions: Tx[] }>(`/v1/supervisor/entity/${orgId}/transmissions`) })
+  const rows = q.data?.transmissions ?? []
+  if (rows.length === 0) return null
+  return (
+    <Card className="p-5">
+      <div className="text-[13px] font-medium text-[var(--color-ink)] mb-1">Transmissions received</div>
+      <div className="text-[11.5px] text-[var(--color-mute)] mb-2">Filings the entity sent through the Tellumen channel; each carries the receipt reference your authority issued and the hash of what was received.</div>
+      <div className="divide-y divide-[var(--color-line)]">{rows.map(t => (
+        <div key={t.transmission_id} className="py-1.5 flex items-center gap-3 flex-wrap text-[12.5px]">
+          <span className="text-[var(--color-ink)]">{frameworkLabel(t.framework)} <span className="mono text-[10.5px] text-[var(--color-faint)]">{t.period_label} · {t.format}</span></span>
+          <span className="mono text-[11px] text-[var(--color-good)]">receipt {t.receipt_ref ?? '—'}{t.receipt_at ? ` · ${t.receipt_at.slice(0, 16).replace('T', ' ')}` : ''}</span>
+          <span className="mono text-[10px] text-[var(--color-faint)] ml-auto" title={t.payload_sha256 ?? ''}>sha256 {t.payload_sha256?.slice(0, 12)}… · by {t.created_by ?? '—'}</span>
+        </div>))}</div>
     </Card>
   )
 }
