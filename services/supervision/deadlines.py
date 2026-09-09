@@ -257,3 +257,13 @@ def sweep_all() -> dict:
     from core.db.session import get_session
     with get_session() as s:
         return sweep(s)
+
+
+def apply_published(session, reg_org_id: str, by_user_id: Optional[str], cfg: Optional[dict] = None) -> int:
+    """Re-propagate every published deadline of this authority — used when an entity joins the population later,
+    so it receives the dates already published. Idempotent upserts."""
+    ids = session.execute(text("SELECT deadline_id::text FROM supervision_deadline WHERE regulator_org_id = CAST(:r AS uuid) AND status = 'published'"),
+                          {"r": reg_org_id}).scalars().all()
+    for d in ids:
+        _propagate(session, reg_org_id, d, by_user_id or "", cfg)
+    return len(ids)

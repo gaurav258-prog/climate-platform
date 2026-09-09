@@ -1117,3 +1117,72 @@ def sweep_deadlines(session: DbSession, ctx: Supervisor):
     write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadlines.swept", target_type="period", target_id=out["as_of"], detail={"n": out["n"]})
     session.commit()
     return out
+
+
+# ── Respondents: supervised entities not on Tellumen, and their contacts ───────────────────────────────────
+class RespondentCreate(BaseModel):
+    name: str
+    org_type: str
+    country: str
+    jurisdiction: Optional[str] = None
+    legal_name: Optional[str] = None
+    lei: Optional[str] = None
+    contact_email: str
+    contact_name: Optional[str] = None
+
+
+class ContactInvite(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+
+
+@router.post("/scope/respondent", status_code=201, summary="Add an entity that is not on Tellumen: organisation, supervision, invited contact")
+def add_respondent(body: RespondentCreate, session: DbSession, ctx: Supervisor):
+    from services.supervision.respondents import create_respondent
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]
+    try:
+        out = create_respondent(session, regulator_org_id=reg, cfg=_config(session, reg), name=body.name, org_type=body.org_type, country=body.country,
+                                jurisdiction=body.jurisdiction, legal_name=body.legal_name, lei=body.lei, contact_email=body.contact_email,
+                                contact_name=body.contact_name, by_user_id=ctx["user"]["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    for audited in (reg, out["org_id"]):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.started", target_type="supervision_scope",
+                    target_id=out["supervision_id"], detail={"regulator_org_id": reg, "supervised_org_id": out["org_id"], "respondent": True, "contact": body.contact_email})
+    session.commit()
+    out["invite"].pop("activation_link", None)   # the link goes to the contact by e-mail, never back to the supervisor
+    return out
+
+
+@router.post("/scope/{supervision_id}/invite", status_code=201, summary="Invite (or re-invite) a named contact at a supervised entity")
+def invite_entity_contact(supervision_id: str, body: ContactInvite, session: DbSession, ctx: Supervisor):
+    from services.supervision.respondents import invite_contact
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]
+    ent = session.execute(text("SELECT supervised_org_id::text FROM supervision_scope WHERE supervision_id = CAST(:s AS uuid) AND regulator_org_id = CAST(:r AS uuid) AND active"),
+                          {"s": supervision_id, "r": reg}).scalar()
+    if not ent:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+    try:
+        out = invite_contact(session, regulator_org_id=reg, supervised_org_id=ent, email=body.email, full_name=body.full_name, by_user_id=ctx["user"]["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail={"error": "invalid", "message": str(e)})
+    for audited in (reg, ent):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervision.contact_invited", target_type="user", target_id=out["user_id"],
+                    detail={"regulator_org_id": reg, "supervised_org_id": ent, "email": out["email"]})
+    session.commit()
+    out.pop("activation_link", None)
+    return out
+
+
+@router.get("/scope/{supervision_id}/contacts", summary="People at a supervised entity (invited / active) as this authority sees them")
+def entity_contacts(supervision_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.respondents import contacts
+    _need(ctx, "supervisor.scope.manage")
+    reg = ctx["org"]["org_id"]
+    ent = session.execute(text("SELECT supervised_org_id::text FROM supervision_scope WHERE supervision_id = CAST(:s AS uuid) AND regulator_org_id = CAST(:r AS uuid) AND active"),
+                          {"s": supervision_id, "r": reg}).scalar()
+    if not ent:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such active supervision."})
+    return {"contacts": [{k: v for k, v in c.items() if k != "user_id"} for c in contacts(session, ent)]}

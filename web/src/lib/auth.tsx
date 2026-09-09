@@ -3,7 +3,7 @@ import { api, setToken, getToken, setRefreshToken } from './api'
 
 export interface Profile {
   user: { id?: string; email?: string; name?: string; role?: string }
-  org: { org_id: string; name: string; type: string; country?: string }
+  org: { org_id: string; name: string; type: string; country?: string; plan?: string | null }
   permissions: string[]
   entitlements: string[]
 }

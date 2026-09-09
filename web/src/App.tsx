@@ -20,6 +20,7 @@ const SupervisorIntake = lazy(() => import('./pages/SupervisorIntake'))
 const SupervisorLens = lazy(() => import('./pages/SupervisorLens'))
 const SupervisorPlausibility = lazy(() => import('./pages/SupervisorPlausibility'))
 const SupervisorMandates = lazy(() => import('./pages/SupervisorMandates'))
+const RespondentPortal = lazy(() => import('./pages/RespondentPortal'))
 const SupervisorMap = lazy(() => import('./pages/SupervisorMap'))
 const SupervisorBenchmark = lazy(() => import('./pages/SupervisorBenchmark'))
 const SupervisorLensPopulation = lazy(() => import('./pages/SupervisorLensPopulation'))
@@ -105,7 +106,7 @@ function Workspace() {
       <Route element={<ShellLayout />}>
         {/* the front door — Horizon globe (customer workspaces); operators skip to their console;
             a first-run admin whose org isn't Live yet is funnelled to Get started until it is */}
-        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : <FirstRunGate />} />
+        <Route path="/" element={opsOnly ? <Navigate to="/platform" replace /> : profile?.org?.plan === 'respondent' ? <Navigate to="/portal" replace /> : <FirstRunGate />} />
         {/* the Horizon globe as an explicit destination — the sidebar's "Horizon" item points here, so it
             always opens the earth even for a first-run admin (whose front door "/" still funnels to Get started) */}
         <Route path="/horizon" element={<Horizon />} />
@@ -131,6 +132,7 @@ function Workspace() {
         <Route path="/supervised/:orgId/plausibility" element={<SupervisorPlausibility />} />
         <Route path="/supervisor/map" element={<SupervisorMap />} />
         <Route path="/supervisor/mandates" element={<SupervisorMandates />} />
+        <Route path="/portal" element={<RespondentPortal />} />
         <Route path="/supervisor/benchmark" element={<SupervisorBenchmark />} />
         <Route path="/supervisor/lens" element={<SupervisorLensPopulation />} />
         <Route path="/supervisor/analytics" element={<SupervisorAnalytics />} />

@@ -29,6 +29,13 @@ type Group = { label: string | null; color?: string; flow?: boolean; items: Item
 // The regulator's menu is NOT the entity spine with a badge on it. A supervisor's day is: the population, where
 // its exposure sits, the analytics, the peers, the independent challenge, the requests and findings, settings —
 // seven lines, each gated by the supervisor.* permission its role carries. Nothing else.
+const RESPONDENT_GROUPS: Group[] = [
+  { label: '', items: [
+    { to: '/portal', label: 'Supervisory portal', icon: Landmark, perm: 'respondent.portal' },
+    { to: '/account-security', label: 'My security', icon: Fingerprint, perm: 'respondent.portal' },
+  ] },
+]
+
 const REG_GROUPS: Group[] = [
   { label: '', items: [
     { to: '/supervisor/mandates', label: 'Regulations', icon: BookOpen, perm: 'supervisor.population.view', sectors: REG },
@@ -194,7 +201,7 @@ export default function Shell({ children }: { children: ReactNode }) {
               (!it.sectors || it.sectors.includes(sector))
 
             let stageNo = 0  // number only the operational-flow stages, contiguously, after filtering
-            return (sector === 'regulator' ? REG_GROUPS : GROUPS).map((g, gi) => {
+            return (profile?.org?.plan === 'respondent' ? RESPONDENT_GROUPS : sector === 'regulator' ? REG_GROUPS : GROUPS).map((g, gi) => {
               const items = g.items.filter(visible)
               const hue = g.color ?? 'var(--color-sky)'
               if (items.length === 0) return null
