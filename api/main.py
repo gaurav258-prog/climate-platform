@@ -126,6 +126,9 @@ async def _feed_refresh_fallback(interval_s: int = 3600, first_delay_s: int = 90
             done = await asyncio.to_thread(_tick)
             n_fail = sum(1 for d in done if d.get("status") == "failed")
             logger.info("feed-refresh fallback tick: %d refreshed, %d failed", len(done) - n_fail, n_fail)
+            if len(done) - n_fail:
+                from services.tasks.jobs import submit
+                submit("supervision.rebuild_geo_priors")   # a child process when the worker is away
         except Exception as e:   # never let the ticker die on a transient error
             logger.warning("feed-refresh fallback tick error: %s", e)
         await asyncio.sleep(interval_s)

@@ -26,32 +26,28 @@ from core.types import score_to_bucket
 MODEL_VERSION = "permafrost-obu-perprob-v1"
 _RASTER_PATH = Path(__file__).resolve().parents[2] / "data" / "permafrost" / "PERPROB.tif"
 
-_src = None
 _to_raster = None  # lazily-built WGS84 -> raster-CRS transformer
 
 
-def _dataset():
-    global _src, _to_raster
-    if _src is None:
-        if not _RASTER_PATH.exists():
-            return None
-        import rasterio
-        from pyproj import Transformer
-        _src = rasterio.open(_RASTER_PATH)
-        _to_raster = Transformer.from_crs("EPSG:4326", _src.crs, always_xy=True)
-    return _src
-
-
 def _probability(lat: float, lon: float) -> Optional[float]:
-    src = _dataset()
-    if src is None:
+    """Read through the process-isolated raster sampler; None = outside, nodata, or a read failure."""
+    global _to_raster
+    from services.geo.raster_sampler import info, sample
+    meta = info(_RASTER_PATH)
+    if meta is None or not meta.get("crs"):
         return None
+    if _to_raster is None:
+        from pyproj import Transformer
+        _to_raster = Transformer.from_crs("EPSG:4326", meta["crs"], always_xy=True)
     x, y = _to_raster.transform(lon, lat)   # -> raster CRS (metres, polar stereographic)
-    b = src.bounds
-    if not (b.left <= x <= b.right and b.bottom <= y <= b.top):
+    left, bottom, right, top = meta["bounds"]
+    if not (left <= x <= right and bottom <= y <= top):
         return None
-    val = float(next(src.sample([(x, y)]))[0])
-    nod = src.nodata
+    got = sample(_RASTER_PATH, [(x, y)])
+    if not got or not got[0]:
+        return None
+    val = float(got[0][0])
+    nod = meta.get("nodata")
     if nod is not None and val == nod:
         return None
     if val != val or val < 0.0:   # NaN or negative sentinel

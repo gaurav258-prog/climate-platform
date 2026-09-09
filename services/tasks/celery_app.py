@@ -28,7 +28,8 @@ celery_app = Celery(
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
     include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
-             "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks"],
+             "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks",
+             "services.tasks.supervision_tasks"],
 )
 
 celery_app.conf.update(
@@ -88,5 +89,11 @@ celery_app.conf.beat_schedule = {
     "reg-alert-sweep-daily": {
         "task": "reg.alert_sweep",
         "schedule": crontab(hour=5, minute=45),
+    },
+    # The geography priors behind the Tier-1 plausibility band follow the standing scores: rebuilt daily, and
+    # again right after any feed refresh lands (feeds.refresh_due enqueues it), so the band never lags.
+    "rebuild-geo-priors-daily": {
+        "task": "supervision.rebuild_geo_priors",
+        "schedule": crontab(hour=4, minute=30),
     },
 }

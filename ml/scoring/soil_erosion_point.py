@@ -15,7 +15,6 @@ import math
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import h3
 from sqlalchemy import text
@@ -27,32 +26,24 @@ MODEL_VERSION = "soil-erosion-glosem-v1"
 _RASTER_PATH = Path(__file__).resolve().parents[2] / "data" / "soil_erosion" / "GloSEM.tif"
 _EROSION_K = 14.4   # t ha⁻¹ yr⁻¹: ~2→13, ~10→50, ~50→97 (saturating)
 
-_src = None
-
-
-def _dataset():
-    global _src
-    if _src is None:
-        if not _RASTER_PATH.exists():
-            return None
-        import rasterio
-        _src = rasterio.open(_RASTER_PATH)
-    return _src
-
-
 def soil_loss_score(rate_t_ha_yr: float) -> float:
     return round(max(0.0, min(100.0, 100.0 * (1.0 - math.exp(-max(0.0, float(rate_t_ha_yr)) / _EROSION_K)))), 2)
 
 
-def _rate(lat: float, lon: float) -> Optional[float]:
-    src = _dataset()
-    if src is None:
+def _rate(lat: float, lon: float):
+    """Read through the process-isolated raster sampler; None = outside the raster, nodata, or a read failure."""
+    from services.geo.raster_sampler import info, sample
+    meta = info(_RASTER_PATH)
+    if meta is None:
         return None
-    b = src.bounds
-    if not (b.left <= lon <= b.right and b.bottom <= lat <= b.top):
+    left, bottom, right, top = meta["bounds"]
+    if not (left <= lon <= right and bottom <= lat <= top):
         return None
-    val = float(next(src.sample([(lon, lat)]))[0])
-    nod = src.nodata
+    got = sample(_RASTER_PATH, [(lon, lat)])
+    if not got or not got[0]:
+        return None
+    val = float(got[0][0])
+    nod = meta.get("nodata")
     if (nod is not None and val == nod) or val != val or val < 0.0:
         return None
     return val

@@ -24,4 +24,8 @@ def refresh_due_feeds() -> dict:
     if n_fail:
         logger.warning("scheduled feed refresh: %d refreshed, %d FAILED (%s)",
                        n_ok, n_fail, [d["feed_key"] for d in done if d.get("status") == "failed"])
+    if n_ok:
+        # standing scores may have moved → the Tier-1 geography priors follow, on the worker
+        from services.tasks.jobs import submit
+        submit("supervision.rebuild_geo_priors")
     return {"refreshed": n_ok, "failed": n_fail, "feeds": [d["feed_key"] for d in done]}

@@ -4,14 +4,14 @@ A bank's own cells get forward values two ways: (1) every fetch-free point score
 and computes the anchor itself (heat, coastal / sea level, heavy precip, CMIP6 'changing-x' channels …);
 (2) flood / storm / wildfire are projected from today's score through local CMIP6 deltas
 (scripts/project_scenarios.project_cells). A fresh shadow book only has baseline/current, so the lens cannot
-separate a 'basis' effect. This module runs both paths for the shadow cells, in a daemon thread, and reports
+separate a 'basis' effect. This module runs both paths for the shadow cells on the worker (services.tasks.jobs) and reports
 coverage so the intake screen can say how far along the projections are. Nothing is fabricated: a scorer that
 does not vary with scenario returns the same standing value under every anchor — and says so in its own row.
 """
 from __future__ import annotations
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 import h3
 from sqlalchemy import text
@@ -56,10 +56,13 @@ def project_cells_now(cells: list[str]) -> dict:
     return {"cells": len(cells), "anchors": len(ANCHORS), "cmip6_rows": r["rows"]}
 
 
-def schedule_projection(cells: list[str]) -> None:
-    """Fire-and-forget (daemon thread) — the intake screen polls coverage while it runs."""
-    if cells:
-        threading.Thread(target=project_cells_now, args=(list(cells),), name="shadow-projection", daemon=True).start()
+def schedule_projection(cells: list[str]) -> Optional[dict]:
+    """Hand the projection to the worker (or a child process when the worker is away) — never the API's own
+    thread, so a native crash inside a scorer cannot take the API down. The intake screen polls coverage."""
+    if not cells:
+        return None
+    from services.tasks.jobs import submit
+    return submit("supervision.project_cells", list(cells))
 
 
 def projection_coverage(session, cells: list[str]) -> dict:
