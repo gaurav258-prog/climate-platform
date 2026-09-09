@@ -34,17 +34,17 @@ const condText = (c: Cond) => c.label
 
 export default function SupervisorMandates() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'population' ? 'population' : 'registry'
+  const tab = params.get('tab') === 'population' ? 'population' : params.get('tab') === 'deadlines' ? 'deadlines' : 'registry'
   const setTab = (t: string) => { const p = new URLSearchParams(params); p.set('tab', t); setParams(p) }
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Regulations" title="Mandates and who they apply to"
         lead="The regulations behind your supervision: the article, who it applies to, what must be delivered, through which channel and by when, and how the act has changed. Then your population against those criteria — applies, does not apply, or cannot be determined until the entity confirms an attribute." />
       <div className="flex gap-2">
-        {[['registry', 'Registry'], ['population', 'Who is regulated']].map(([k, l]) => (
+        {[['registry', 'Registry'], ['population', 'Who is regulated'], ['deadlines', 'Deadlines']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${tab === k ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>))}
       </div>
-      {tab === 'registry' ? <Registry /> : <Population />}
+      {tab === 'registry' ? <Registry /> : tab === 'population' ? <Population /> : <Deadlines />}
     </div>
   )
 }
@@ -188,5 +188,70 @@ function Population() {
         </table>
       </div>
     </Card>
+  </>)
+}
+
+// ── Deadlines: the authority's calendar for a period, published onto each applicable entity's own calendar ─────
+interface Deadline { deadline_id: string; mandate_id: string; short: string; title: string | null; framework: string; period_label: string; period_end: string; due_date: string; due_source: string
+  registry_due: string | null; registry_rule: string | null; note: string | null; status: 'draft' | 'published'; published_at: string | null; published_by: string | null
+  n_applicable: number; n_cannot: number; n_filed: number; n_reminders: number; n_overdue: number; outstanding: { org_id: string; name: string; reminded: boolean; overdue_notified: boolean }[] }
+interface DlResp { period_label: string; deadlines: Deadline[]; reminders: { before_due_days: number; after_due_days: number }; note: string }
+function Deadlines() {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const can = (profile?.permissions ?? []).includes('supervisor.deadlines.manage')
+  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
+  const q = useQuery({ queryKey: ['sup-deadlines', period], queryFn: () => api.get<DlResp>(`/v1/supervisor/deadlines?period_label=${period}`) })
+  const [busy, setBusy] = useState(false)
+  const [edit, setEdit] = useState<Record<string, string>>({})
+  const [open, setOpen] = useState<string | null>(null)
+  const [swept, setSwept] = useState<{ n: number; raised: { entity: string; stage: string; deadline: string }[] } | null>(null)
+  const d = q.data
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['sup-deadlines', period] }), qc.invalidateQueries({ queryKey: ['sup-timeliness'] }), qc.invalidateQueries({ queryKey: ['supervisor-requests'] })])
+  const run = async (fn: () => Promise<unknown>, ok?: string) => { setBusy(true); try { await fn(); if (ok) toast.success(ok); await refresh() } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) } }
+  return (<>
+    <div className="flex flex-wrap items-center gap-3">
+      <label className="text-[12px] text-[var(--color-mute)]">Period
+        <select value={period} onChange={e => setPeriod(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
+          {[0, 1, 2].map(i => { const y = new Date().getFullYear() - i; return <option key={y} value={`FY${y}`}>FY{y}</option> })}</select></label>
+      {can && <Button variant="ghost" disabled={busy} onClick={() => run(() => api.post(`/v1/supervisor/deadlines/generate?period_label=${period}`, {}), `Deadlines for ${period} drafted from the registry.`)}>Draft from the registry</Button>}
+      {can && <Button variant="ghost" disabled={busy} onClick={() => run(async () => { const r = await api.post<{ n: number; raised: { entity: string; stage: string; deadline: string }[] }>('/v1/supervisor/deadlines/sweep', {}); setSwept(r) })}>Run follow-up now</Button>}
+      {d && <span className="mono text-[10.5px] text-[var(--color-faint)]">reminder {d.reminders.before_due_days} days before · overdue notice {d.reminders.after_due_days} day after</span>}
+    </div>
+    {swept && <Card className="p-4 text-[12.5px]"><b className="text-[var(--color-ink)]">Follow-up run:</b> {swept.n === 0 ? 'nothing new to raise — every applicable entity has filed or was already notified.' : swept.raised.map(r => `${r.entity}: ${r.stage} for ${r.deadline}`).join(' · ')}</Card>}
+    {!d ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading the calendar…</div> : (
+      <Card className="p-5">
+        <div className="text-[11.5px] text-[var(--color-mute)] mb-3">{d.note}</div>
+        {d.deadlines.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No deadlines drafted for {period} yet. Draft them from the registry, adapt any date, then publish.</div> : (
+          <div className="overflow-x-auto">
+            <table className="data-table w-full text-[12.5px]">
+              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
+                <th>Mandate</th><th>Act's rule</th><th>Due date</th><th>Status</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Outstanding</th><th className="num">Reminded</th><th className="num">Overdue notices</th><th></th></tr></thead>
+              <tbody>{d.deadlines.map(x => (<>
+                <tr key={x.deadline_id} onClick={() => setOpen(open === x.deadline_id ? null : x.deadline_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === x.deadline_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                  <td className="text-[var(--color-ink)]"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === x.deadline_id ? 'rotate-90' : ''}`} />{x.short}<div className="mono text-[10px] text-[var(--color-faint)]">{frameworkLabel(x.framework)}</div></td>
+                  <td className="text-[11.5px] text-[var(--color-mute)]">{x.registry_rule}<div className="mono text-[10px] text-[var(--color-faint)]">→ {x.registry_due}</div></td>
+                  <td onClick={e => e.stopPropagation()}>{can ? <span className="flex items-center gap-1.5"><input type="date" value={edit[x.deadline_id] ?? x.due_date} onChange={e => setEdit(f => ({ ...f, [x.deadline_id]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 mono text-[11px]" />
+                    {edit[x.deadline_id] && edit[x.deadline_id] !== x.due_date && <button disabled={busy} onClick={() => run(() => api.put(`/v1/supervisor/deadlines/${x.deadline_id}`, { due_date: edit[x.deadline_id] }), 'Deadline set.')} className="text-[var(--color-sky)] hover:underline text-[11.5px]">set</button>}
+                    {x.due_source === 'set' && <button disabled={busy} onClick={() => run(() => api.put(`/v1/supervisor/deadlines/${x.deadline_id}`, { due_date: null }), 'Back to the act\'s rule.')} className="mono text-[10px] text-[var(--color-faint)] hover:text-[var(--color-sky)]">reset</button>}</span> : <span className="mono">{x.due_date}</span>}
+                    <div className="mono text-[10px] text-[var(--color-faint)]">{x.due_source === 'set' ? 'set by your authority' : "the act's rule"}</div></td>
+                  <td>{x.status === 'published' ? <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]" title={`published ${x.published_at?.slice(0, 16)} by ${x.published_by ?? '—'}`}>published</span> : <span className="mono text-[9.5px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-warn)]/15 text-[var(--color-warn)]">draft</span>}</td>
+                  <td className="num mono text-[var(--color-mute)]">{x.n_applicable}{x.n_cannot ? <span className="text-[var(--color-warn)]" title="entities whose applicability cannot be determined"> +{x.n_cannot}?</span> : null}</td>
+                  <td className="num mono text-[var(--color-good)]">{x.n_filed}</td>
+                  <td className="num mono" style={{ color: x.outstanding.length ? 'var(--color-warn)' : 'var(--color-mute)' }}>{x.outstanding.length}</td>
+                  <td className="num mono text-[var(--color-mute)]">{x.n_reminders}</td>
+                  <td className="num mono text-[var(--color-mute)]">{x.n_overdue}</td>
+                  <td onClick={e => e.stopPropagation()}>{can && x.status === 'draft' && <Button variant="ghost" disabled={busy} onClick={() => run(() => api.post(`/v1/supervisor/deadlines/${x.deadline_id}/publish`, {}), 'Published: the date is on every applicable entity\'s calendar and the entities have been told.')}>Publish</Button>}</td>
+                </tr>
+                {open === x.deadline_id && (
+                  <tr key={x.deadline_id + '-d'}><td colSpan={10} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] text-[12px]">
+                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Outstanding entities · {x.title}</div>
+                    {x.outstanding.length === 0 ? <span className="text-[var(--color-faint)]">Every applicable entity has released this filing.</span> : (
+                      <div className="flex flex-wrap gap-2">{x.outstanding.map(o => <span key={o.org_id} className="rounded-md bg-[var(--color-panel)] px-2 py-1"><Link to={`/supervised/${o.org_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{o.name}</Link><span className="mono text-[10px] text-[var(--color-faint)] ml-1.5">{o.overdue_notified ? 'overdue notice sent' : o.reminded ? 'reminded' : x.status === 'published' ? 'not yet notified' : 'not published'}</span></span>)}</div>)}
+                  </div></td></tr>)}
+              </>))}</tbody>
+            </table>
+          </div>)}
+      </Card>)}
   </>)
 }

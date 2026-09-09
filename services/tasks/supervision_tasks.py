@@ -18,3 +18,8 @@ def project_cells(cells: list) -> dict:
 @celery_app.task(name="supervision.rebuild_geo_priors")
 def rebuild_geo_priors() -> dict:
     return resolve("supervision.rebuild_geo_priors")()
+
+
+@celery_app.task(name="supervision.deadline_sweep")
+def deadline_sweep() -> dict:
+    return resolve("supervision.deadline_sweep")()

@@ -814,5 +814,10 @@
         }
       ]
     }
-  ]
+  ],
+  "reminders": {
+    "_about": "Automatic follow-up windows for published deadlines: a reminder this many days before the due date, an overdue notice this many days after. A supervisory body may adapt them.",
+    "before_due_days": 14,
+    "after_due_days": 1
+  }
 }

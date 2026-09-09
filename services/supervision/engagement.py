@@ -64,6 +64,8 @@ def _fmt(r) -> dict:
     d["due_date"] = d["due_date"].isoformat() if d.get("due_date") else None
     d["source"] = d["source"] if isinstance(d.get("source"), dict) else (json.loads(d["source"]) if d.get("source") else None)
     d["kind_label"] = (kinds().get(d["kind"]) or {}).get("label", d["kind"])
+    d["automatic"] = d.get("raised_by") is None
+    d["raised_by"] = d.get("raised_by") or "Automatic — on the authority's published deadline"
     d["status_label"] = status_label(d["status"])
     d["overdue"] = bool(d["due_date"] and d["status"] != (kinds().get(d["kind"]) or {}).get("closed") and date.fromisoformat(d["due_date"]) < date.today())
     return d
@@ -148,7 +150,8 @@ def _notify_entity(session, req: dict, actor_user_id: str) -> None:
 
 
 def create(session, *, regulator_org_id: str, supervised_org_id: str, kind: str, title: str, body: Optional[str],
-           raised_by: str, severity: Optional[str] = None, due_date: Optional[str] = None, source: Optional[dict] = None) -> dict:
+           raised_by: Optional[str], severity: Optional[str] = None, due_date: Optional[str] = None, source: Optional[dict] = None) -> dict:
+    """raised_by None = raised automatically by the platform on the authority's published deadline (shown as such)."""
     k = kinds().get(kind)
     if not k:
         raise ValueError(f"unknown request kind {kind!r}")

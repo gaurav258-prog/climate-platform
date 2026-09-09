@@ -28,7 +28,8 @@ STATUS_LABEL = {APPLIES: "Applies", NOT_APPLICABLE: "Does not apply", CANNOT: "C
 def registry() -> dict:
     d = json.loads(REGISTRY_PATH.read_text())
     return {"version": d["version"], "attributes": {k: v for k, v in d["attributes"].items() if not k.startswith("_")},
-            "jurisdiction_groups": d["jurisdiction_groups"], "mandates": d["mandates"]}
+            "jurisdiction_groups": d["jurisdiction_groups"], "mandates": d["mandates"],
+            "reminders": {k: v for k, v in (d.get("reminders") or {}).items() if not k.startswith("_")}}
 
 
 def mandates_for(sectors: list[str]) -> list[dict]:

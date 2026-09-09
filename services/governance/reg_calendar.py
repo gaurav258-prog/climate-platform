@@ -20,7 +20,8 @@ def calendar(session: Session, org_id: str, org_type: str) -> dict:
             continue
         events.append({
             "date": o["due_date"], "kind": "obligation", "title": o["label"],
-            "sub": f'{o["period_label"]} · {o["frequency"]}', "ref_id": o.get("filing_id"),
+            "sub": f'{o["period_label"]} · {o["frequency"]}' + (f' · deadline set by {o["set_by"]}' if o.get("source") == "supervisor" and o.get("set_by") else ""),
+            "ref_id": o.get("filing_id"),
             "status": o["filing_status"], "overdue": bool(o.get("overdue")), "criticality": None,
         })
 

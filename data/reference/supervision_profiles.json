@@ -49,7 +49,8 @@
         "modules.view",
         "supervisor.population.view",
         "supervisor.intake.manage",
-        "supervisor.validation.manage"
+        "supervisor.validation.manage",
+        "supervisor.deadlines.manage"
       ]
     },
     "inspector": {
@@ -99,7 +100,8 @@
         "supervisor.dashboard.view",
         "supervisor.assignments.manage",
         "supervisor.scope.manage",
-        "supervisor.mandates.manage"
+        "supervisor.mandates.manage",
+        "supervisor.deadlines.manage"
       ]
     },
     "admin": {
@@ -114,7 +116,8 @@
         "supervisor.population.view",
         "supervisor.assignments.manage",
         "supervisor.scope.manage",
-        "supervisor.mandates.manage"
+        "supervisor.mandates.manage",
+        "supervisor.deadlines.manage"
       ]
     }
   },
