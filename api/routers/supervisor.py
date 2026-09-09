@@ -1051,3 +1051,69 @@ def ask_attributes(body: AttributeAsk, session: DbSession, ctx: Supervisor):
                     target_id=req["request_id"], detail={"kind": "information_request", "title": req["title"], "regulator_org_id": reg, "supervised_org_id": body.supervised_org_id})
     session.commit()
     return req
+
+
+# ── Supervisor-set deadlines ────────────────────────────────────────────────────────────────────────────────
+class DeadlineSet(BaseModel):
+    due_date: Optional[str] = None      # null → back to the act's rule
+    note: Optional[str] = None
+
+
+@router.get("/deadlines", summary="This authority's filing calendar for a period: registry rule, set date, published, outstanding entities")
+def get_deadlines(session: DbSession, ctx: Supervisor, period_label: Optional[str] = None):
+    from datetime import date as _date
+
+    from services.supervision.deadlines import status_view
+    reg = ctx["org"]["org_id"]
+    pl = period_label or f"FY{_date.today().year - 1}"
+    return status_view(session, reg, _config(session, reg), pl)
+
+
+@router.post("/deadlines/generate", status_code=201, summary="Draft this period's deadlines from the mandate registry (idempotent)")
+def generate_deadlines(session: DbSession, ctx: Supervisor, period_label: str):
+    from services.supervision.deadlines import generate
+    _need(ctx, "supervisor.deadlines.manage")
+    reg = ctx["org"]["org_id"]
+    made = generate(session, reg, _config(session, reg), period_label)
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadlines.generated", target_type="period", target_id=period_label, detail={"n_new": len(made)})
+    session.commit()
+    return {"period_label": period_label, "n_new": len(made)}
+
+
+@router.put("/deadlines/{deadline_id}", summary="Set (or reset to the act's rule) a deadline's date; a published date is re-propagated")
+def set_deadline(deadline_id: str, body: DeadlineSet, session: DbSession, ctx: Supervisor):
+    from datetime import date as _date
+
+    from services.supervision.deadlines import set_due
+    _need(ctx, "supervisor.deadlines.manage")
+    reg = ctx["org"]["org_id"]
+    out = set_due(session, reg, deadline_id, _date.fromisoformat(body.due_date) if body.due_date else None, body.note, ctx["user"]["id"])
+    if not out:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such deadline."})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadline.set", target_type="supervision_deadline", target_id=deadline_id, detail=out | {"note": body.note})
+    session.commit()
+    return out
+
+
+@router.post("/deadlines/{deadline_id}/publish", summary="Publish a deadline: it lands on every applicable entity's obligations calendar and the entity is told")
+def publish_deadline(deadline_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.deadlines import publish
+    _need(ctx, "supervisor.deadlines.manage")
+    reg = ctx["org"]["org_id"]
+    out = publish(session, reg, deadline_id, ctx["user"]["id"], _config(session, reg))
+    if out is None:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such deadline."})
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadline.published", target_type="supervision_deadline", target_id=deadline_id, detail=out)
+    session.commit()
+    return out
+
+
+@router.post("/deadlines/sweep", summary="Run the follow-up sweep now for this authority (reminders / overdue notices as requests)")
+def sweep_deadlines(session: DbSession, ctx: Supervisor):
+    from services.supervision.deadlines import sweep
+    _need(ctx, "supervisor.deadlines.manage")
+    reg = ctx["org"]["org_id"]
+    out = sweep(session, reg)
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.deadlines.swept", target_type="period", target_id=out["as_of"], detail={"n": out["n"]})
+    session.commit()
+    return out

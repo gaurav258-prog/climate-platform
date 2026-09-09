@@ -273,7 +273,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
     """The filing calendar — each obligation with the live filing that satisfies it (if any) and its status."""
     ensure_obligations(session, org_id, org_type)
     rows = session.execute(text("""
-        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency,
+        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency, ob.source, ob.set_by,
                f.filing_id, f.status AS filing_status
         FROM regulatory_obligation ob
         LEFT JOIN LATERAL (
@@ -298,6 +298,7 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             "due_date": r["due_date"].isoformat(), "frequency": r["frequency"],
             "filing_id": str(r["filing_id"]) if r["filing_id"] else None,
             "filing_status": status, "days_to_due": days_left,
+            "source": r["source"] or "entity", "set_by": r["set_by"],
             "overdue": (not done and days_left < 0),
         })
     return out

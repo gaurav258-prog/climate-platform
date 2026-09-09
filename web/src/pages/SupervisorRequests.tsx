@@ -9,7 +9,7 @@ import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 // read. Kinds and status flows come from the supervision profile; the page never assumes a flow.
 interface Req { request_id: string; supervised_org_id: string; entity: string; regulator: string; kind: string; kind_label: string; title: string; body: string | null
   status: string; status_label: string; severity: string | null; due_date: string | null; overdue: boolean; raised_at: string; updated_at: string; raised_by: string | null
-  source: { type?: string; geography?: string; sector?: string } | null; n_messages?: number }
+  source: { type?: string; geography?: string; sector?: string; stage?: string; period_label?: string } | null; n_messages?: number; automatic?: boolean }
 interface Msg { message_id: string; side: 'supervisor' | 'entity'; body: string | null; status_to: string | null; status_label: string | null; created_at: string; author: string | null }
 interface Detail extends Req { messages: Msg[]; can_set: { key: string; label: string }[] }
 interface ListResp { requests: Req[]; entities: { org_id: string; name: string }[]
@@ -61,7 +61,7 @@ export default function SupervisorRequests() {
                 <tr key={r.request_id} onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
                   <td className="text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
-                  <td className="text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}</td>
+                  <td className="text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}{r.source?.type === 'deadline' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">automatic · {r.source.stage} · {r.source.period_label}</span>}{r.source?.type === 'mandate_attributes' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">attributes for the mandate criteria</span>}</td>
                   <td className="mono text-[11px]" style={{ color: SEV[r.severity ?? ''] ?? 'var(--color-faint)' }}>{r.severity ?? '—'}</td>
                   <td><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span></td>
                   <td className="mono text-[11px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-mute)' }}>{r.due_date ?? '—'}{r.overdue ? ' · overdue' : ''}</td>

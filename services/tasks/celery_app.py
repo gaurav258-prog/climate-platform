@@ -96,4 +96,9 @@ celery_app.conf.beat_schedule = {
         "task": "supervision.rebuild_geo_priors",
         "schedule": crontab(hour=4, minute=30),
     },
+    # Published supervisory deadlines: remind applicable entities before the due date, notify overdue after it — once each.
+    "supervision-deadline-sweep-daily": {
+        "task": "supervision.deadline_sweep",
+        "schedule": crontab(hour=6, minute=0),
+    },
 }
