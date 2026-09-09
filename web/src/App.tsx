@@ -34,6 +34,8 @@ const IntakeReview = lazy(() => import('./pages/IntakeReview'))
 const IntakeForm = lazy(() => import('./pages/IntakeForm'))
 const Activate = lazy(() => import('./pages/Activate'))
 const Remit = lazy(() => import('./pages/Remit'))
+const Assurance = lazy(() => import('./pages/Assurance'))
+const ThirdParties = lazy(() => import('./pages/ThirdParties'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Billing = lazy(() => import('./pages/Billing'))
@@ -85,6 +87,7 @@ export default function App() {
         <Route path="/onboarding/form/:token" element={<IntakeForm />} />
         <Route path="/activate/:token" element={<Activate />} />
         <Route path="/remit/:token" element={<Remit />} />
+        <Route path="/assurance/:token" element={<Assurance />} />
         <Route path="/reset/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<Workspace />} />
@@ -156,6 +159,7 @@ function Workspace() {
         <Route path="/underwriting" element={<UnderwritingReview />} />
         <Route path="/model-validation" element={<ModelValidation />} />
         <Route path="/model-risk" element={<ModelRisk />} />
+        <Route path="/third-parties" element={<ThirdParties />} />
         <Route path="/coverage" element={<Coverage />} />
         <Route path="/funds" element={<Funds />} />
         <Route path="/funds/:id" element={<FundDetail />} />

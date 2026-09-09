@@ -259,3 +259,9 @@ def acknowledge_request_receipt(request_id: str, session: DbSession, ctx: dict =
                     target_id=request_id, detail={"reference": req.get("reference"), "supervised_org_id": org_id, "regulator_org_id": req["regulator_org_id"]})
     session.commit()
     return get(session, request_id, supervised_org_id=org_id)
+
+
+@router.get("/mandates", summary="What applies to my organisation and why — every mandate for my sector judged against my attributes, with the criteria trace")
+def my_mandates(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.supervision.mandates import applicability_for_entity
+    return applicability_for_entity(session, ctx["org"]["org_id"])

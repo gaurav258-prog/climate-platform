@@ -46,11 +46,17 @@ def sweep(session: Session, org_id: str, org_type: str | None) -> dict:
             continue   # already alerted
 
         crit = "high" if (detected or (isinstance(days, int) and days <= 90)) else "normal"
+        touches = None
+        if detected:
+            from services.governance.reg_impact_links import summary_text
+            touches = summary_text(c.get("framework"), org_type)
         title = (f"New regulatory change detected — {c['title']}" if detected
                  else f"Regulatory deadline approaching — {c['title']} ({days} days)")
         desc = c.get("whats_changing")
         if c.get("prepare"):
             desc = f"{desc}\n\nTo prepare: {c['prepare']}"
+        if touches:
+            desc = f"{desc or ''}\n\n{touches}".strip()
 
         task_id = None
         try:

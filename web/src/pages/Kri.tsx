@@ -372,7 +372,8 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
   const saveBand = async () => {
     setSavingBand(true)
     try {
-      await api.patch('/v1/admin/kri-appetite', { kri_key: kriKey, framework, amber: band.amber, red: band.red, direction: band.direction })
+      const r = await api.patch<{ status?: string; message?: string }>('/v1/admin/kri-appetite', { kri_key: kriKey, framework, amber: band.amber, red: band.red, direction: band.direction })
+      if (r.status === 'pending_approval') toast.success(r.message ?? 'Sent for approval (4-eyes).')
       await q.refetch(); setEditBand(false); toast.success('Appetite band updated.')
     } catch { toast.error('Could not update the appetite band.') } finally { setSavingBand(false) }
   }

@@ -22,6 +22,7 @@ from services.governance.location_governance import needs_approval
 _TITLES = {
     "config.reporting_settings": "Change the reporting basis",
     "config.calc_settings": "Change a calculation method",
+    "config.kri_appetite": "Change a risk-appetite band",
 }
 
 
@@ -35,6 +36,14 @@ def apply_config_change(session: Session, request_type: str, payload: dict,
     elif request_type == "config.reporting_settings":
         from services.governance.reporting_settings import upsert_reporting_settings
         result = upsert_reporting_settings(session, org_id, payload, actor_user_id)
+    elif request_type == "config.kri_appetite":
+        # payload = {framework, kri_key, reason?, amber?, red?, direction?}; the approver (when the matrix required one)
+        # is the actor applying it — the maker is the version's changed_by, carried in the payload
+        from services.governance.kri_thresholds import set_threshold
+        patch = {k: v for k, v in payload.items() if k in ("amber", "red", "direction")}
+        maker = payload.get("_maker") or actor_user_id
+        result = set_threshold(session, org_id, maker, payload["framework"], payload["kri_key"], patch, reason=payload.get("reason"),
+                               approved_by=(actor_user_id if actor_user_id != maker else None), approval_request_id=payload.get("_request_id"))
     else:
         raise ValueError(f"unknown config request_type '{request_type}'")
     write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action=request_type,
@@ -54,6 +63,9 @@ def submit_or_apply_config(session: Session, *, org_id: str, actor_user_id: str,
         """), {"o": org_id, "t": request_type, "ti": title, "p": json.dumps(updates), "m": actor_user_id}).scalar()
         write_audit(session, org_id=org_id, actor_user_id=actor_user_id, action="approval.request",
                     target_type="approval", target_id=str(rid), detail={"request_type": request_type, "changes": updates})
+        if request_type == "config.kri_appetite":      # the version must name the maker even when a checker applies it
+            session.execute(text("UPDATE approval_requests SET payload = payload || CAST(:p AS jsonb) WHERE request_id = :r"),
+                            {"p": json.dumps({"_maker": actor_user_id, "_request_id": str(rid)}), "r": rid})
         return {"status": "pending_approval", "request_id": str(rid),
                 "message": "This change needs a second approver (4-eyes). It is queued in Approvals."}
     result = apply_config_change(session, request_type, updates, actor_user_id, org_id)

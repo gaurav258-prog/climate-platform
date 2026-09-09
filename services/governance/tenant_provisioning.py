@@ -40,6 +40,9 @@ DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
                  "oversight.view", "ops.oversee", "decisions.view", "board.attest"],
     # viewer: read-only — the book, the analysis, the reports and the supervisory lens; no authoring, deciding or admin.
     "viewer":   ["modules.view", "reports.view", "pricing.view", "portal.use", "oversight.view"],
+    # auditor: read-only over everything an assurer needs — filings, the audit trail, the control register, the
+    # model-risk register and the board packs; never publishes, decides, attests, reviews or administers.
+    "auditor":  ["modules.view", "reports.view", "oversight.view", "admin.audit.view", "portal.use"],
 }
 
 VALID_ORG_TYPES = {"bank", "insurer", "asset_manager", "reit", "manufacturer", "regulator"}

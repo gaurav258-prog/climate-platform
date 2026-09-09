@@ -230,3 +230,29 @@ def population_view(session, reg_org_id: str, entities: list[dict], cfg: dict, p
     return {"period_end": period_end.isoformat(), "mandates": [{"id": m["id"], "short": m["short"], "title": m["title"], "sectors": m["sectors"]} for m in ms],
             "entities": rows, "attributes": registry()["attributes"],
             "summary": {"entities": len(rows), "cannot_determine": sum(1 for r in rows if r["n_cannot"]), "attributes_missing": sum(len(r["missing"]) for r in rows)}}
+
+
+def applicability_for_entity(session, org_id: str, period_end: Optional[date] = None) -> dict:
+    """What applies to this organisation and why — every mandate for its sector evaluated against its own attributes,
+    with the criteria trace, the deliverable, the channel and the next due date. The entity-side mirror of the
+    supervisor's population view, read from the same registry and the same evaluator."""
+    org = session.execute(text("SELECT type, country FROM organizations WHERE org_id = CAST(:o AS uuid)"), {"o": org_id}).mappings().first()
+    if not org:
+        return {"mandates": [], "attributes": {}}
+    attrs = entity_attributes(session, org_id)
+    reg = registry()
+    pe = period_end or date(date.today().year - 1, 12, 31)
+    out = []
+    for m in mandates_for([org["type"]]):
+        ev = evaluate(m, attrs)
+        d = m["deliverable"]
+        out.append({"id": m["id"], "title": m.get("title") or m.get("label"), "act": m["act"], "article": m["article"], "status": ev["status"], "tier": ev["tier"],
+                    "missing": ev["missing"], "failed": ev["failed"], "checks": ev["checks"],
+                    "deliverable": {"framework": d.get("framework"), "label": d.get("label"), "channel_id": d.get("channel_id"), "channel": (reg["channels"].get(d.get("channel_id")) or {}).get("label"),
+                                    "due": due_date(m, pe).isoformat() if due_date(m, pe) else None, "due_rule": d.get("due")},
+                    "latest_version": (m["versions"][-1]["version"] if m.get("versions") else None)})
+    order = {APPLIES: 0, CANNOT: 1, NOT_APPLICABLE: 2}
+    out.sort(key=lambda x: (order.get(x["status"], 9), x["title"] or ""))
+    return {"mandates": out, "attributes": attrs, "period_end": pe.isoformat(), "definitions": reg["attributes"],
+            "summary": {"applies": sum(1 for x in out if x["status"] == APPLIES), "cannot_determine": sum(1 for x in out if x["status"] == CANNOT), "not_applicable": sum(1 for x in out if x["status"] == NOT_APPLICABLE)},
+            "note": "Each mandate is judged from the registry's criteria against your regulatory attributes. 'Cannot determine' names the attribute you have not stated; set it under Regulatory attributes."}

@@ -31,6 +31,7 @@ _TYPED_DEFAULTS = {
 # The interpretation switches — regulation leaves these to the institution. default reproduces today's number.
 INTERPRETATION_SCHEMA: dict = {
     "pml_return_period": {
+        "frameworks": ["insurer_climate", "insurer_solvency"],
         "default": 250, "kind": "int", "allowed": [100, 200, 250, 500],
         "label": "Catastrophe PML return period (years)",
         "description": "Return period for the probable maximum loss. Solvency II SCR is 1-in-200 (99.5% VaR); "
@@ -38,18 +39,21 @@ INTERPRETATION_SCHEMA: dict = {
         "sectors": ["insurer"],
     },
     "insurance_expense_ratio": {
+        "frameworks": ["insurer_solvency"],
         "default": 0.25, "kind": "float", "min": 0.0, "max": 0.6,
         "label": "Insurance expense ratio",
         "description": "Share of gross premium absorbed by expenses; loads the technical premium. Insurer-specific.",
         "sectors": ["insurer"],
     },
     "insurance_profit_margin": {
+        "frameworks": ["insurer_solvency"],
         "default": 0.05, "kind": "float", "min": 0.0, "max": 0.4,
         "label": "Insurance profit margin",
         "description": "Target underwriting profit margin loaded onto the premium. Insurer-specific.",
         "sectors": ["insurer"],
     },
     "climate_var_dependence": {
+        "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
         "default": "independent", "kind": "enum", "allowed": ["independent", "additive", "max"],
         "label": "Physical × transition loss dependence (combined VaR)",
         "description": "How physical and transition losses combine on a holding: 'independent' = "
@@ -58,12 +62,14 @@ INTERPRETATION_SCHEMA: dict = {
         "sectors": ["asset_manager"],
     },
     "resourcing_reallocation_cap_pct": {
+        "frameworks": ["esrs_pack", "csrd_e1"],
         "default": 30, "kind": "int", "min": 5, "max": 100,
         "label": "Re-sourcing reallocation cap (%)",
         "description": "Maximum share of a commodity's spend assumed shiftable to a lower-risk origin near-term.",
         "sectors": ["manufacturer"],
     },
     "adaptation_scenario": {
+        "frameworks": ["reit_tcfd", "reit_taxonomy"],
         "default": "reference", "kind": "enum", "allowed": ["conservative", "reference", "optimistic"],
         "label": "Adaptation effectiveness scenario",
         "description": "How much of the physical loss a resilience retrofit is assumed to avoid: conservative / "
@@ -71,6 +77,7 @@ INTERPRETATION_SCHEMA: dict = {
         "sectors": ["reit"],
     },
     "equity_consolidation": {
+        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "reit_tcfd", "insurer_climate"],
         "default": "economic_share", "kind": "enum", "allowed": ["economic_share", "excluded", "full"],
         "label": "Equity-method consolidation treatment",
         "description": "How an equity-method associate's climate risk consolidates upward. 'economic_share' = "
