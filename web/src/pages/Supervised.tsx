@@ -37,8 +37,8 @@ export default function Supervised() {
     return r
   }, [d, sort, fSector, fJur, fStage, fFlag, search])
   const toggle = (key: SortKey) => setSort(s => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : (key === 'name' || key === 'sector_label' || key === 'jurisdiction' ? 1 : -1) }))
-  const Th = ({ k, children, right }: { k: SortKey; children: React.ReactNode; right?: boolean }) => (
-    <th className={`cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'num' : ''}`} onClick={() => toggle(k)}>
+  const Th = ({ k, children, right, center }: { k: SortKey; children: React.ReactNode; right?: boolean; center?: boolean }) => (
+    <th className={`cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'num' : center ? 'text-center' : ''}`} onClick={() => toggle(k)}>
       {children}{sort.key === k ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}</th>)
   const uniq = (f: (e: Row) => string | null) => Array.from(new Set((d?.entities ?? []).map(f).filter(Boolean))) as string[]
   const stageCounts = (d?.entities ?? []).reduce<Record<string, number>>((a, e) => { a[e.stage] = (a[e.stage] ?? 0) + 1; return a }, {})
@@ -85,7 +85,7 @@ export default function Supervised() {
           <div className="overflow-x-auto">
             <table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <Th k="name">Entity</Th><Th k="sector_label">Sector</Th><Th k="jurisdiction">Jurisdiction</Th><Th k="stage">Process</Th>
+                <Th k="name">Entity</Th><Th k="sector_label">Sector</Th><Th k="jurisdiction">Jurisdiction</Th><Th k="stage" center>Process</Th>
                 <Th k="submissions" right>Filings</Th><Th k="high_risk_share_pct" right>Book at high risk</Th><Th k="lens_gap_pct" right>Lens gap</Th><Th k="n_questions" right>Questions</Th>
                 <th className="">Next action</th></tr></thead>
               <tbody>{rows.map(e => (
@@ -94,7 +94,7 @@ export default function Supervised() {
                     {e.site_access && <span className="mono text-[9.5px] uppercase ml-2 px-1 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]">sites</span>}</td>
                   <td className="text-[var(--color-mute)]">{e.sector_label}</td>
                   <td className="mono text-[11px] text-[var(--color-faint)]">{e.jurisdiction ?? '—'}</td>
-                  <td className="pr-3"><div className="flex items-center gap-2"><StageStrip steps={e.steps} compact /><span className="text-[11px] text-[var(--color-mute)]">{e.stage_label ?? STAGE_LABEL[e.stage] ?? e.stage}</span></div></td>
+                  <td><div className="flex items-center justify-center gap-2"><StageStrip steps={e.steps} compact /><span className="text-[11px] text-[var(--color-mute)]">{e.stage_label ?? STAGE_LABEL[e.stage] ?? e.stage}</span></div></td>
                   <td className="num mono text-[var(--color-mute)]">{e.filed}/{e.expected}</td>
                   <td className="num mono" style={{ color: FLAGC[e.high_risk_flag ?? 'na'] }}>{e.high_risk_share_pct != null ? `${e.high_risk_share_pct}%` : '—'}</td>
                   <td className="num mono" style={{ color: e.lens_gap_pct != null && Math.abs(e.lens_gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.lens_gap_pct != null ? `${e.lens_gap_pct}%` : '—'}</td>
