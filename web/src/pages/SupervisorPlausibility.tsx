@@ -63,17 +63,17 @@ export default function SupervisorPlausibility() {
             <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">band = p25–p75 of the regional share (faint: p10–p90) · marker = submitted share · line = median</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
+            <table className="data-table w-full text-[12px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="font-normal py-2 pr-3">Cell</th><th className="font-normal pr-3 text-right">Gross</th><th className="font-normal pr-3 text-right">Submitted share</th>
-                <th className="font-normal pr-3">Regional spread</th><th className="font-normal pr-3">Verdict</th><th className="font-normal">Why</th></tr></thead>
+                <th className="">Cell</th><th className="num">Gross</th><th className="num">Submitted share</th>
+                <th className="">Regional spread</th><th className="">Verdict</th><th className="">Why</th></tr></thead>
               <tbody>{d.rows.map(r => (<>
                 <tr key={r.key} onClick={() => setOpen(open === r.key ? null : r.key)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="py-1.5 pr-3 text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === r.key ? 'rotate-90' : ''}`} />{r.geography} · {r.sector}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(r.gross_carrying_amount_eur)}</td>
-                  <td className="pr-3 text-right mono" style={{ color: VC[r.verdict] }}>{r.submitted_share_pct != null ? `${r.submitted_share_pct}%` : '—'}</td>
-                  <td className="pr-3"><BandBar r={r} /></td>
-                  <td className="pr-3"><span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: VC[r.verdict], background: `color-mix(in oklab, ${VC[r.verdict]} 15%, transparent)` }}>{r.verdict_label}</span></td>
+                  <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === r.key ? 'rotate-90' : ''}`} />{r.geography} · {r.sector}</td>
+                  <td className="num mono text-[var(--color-mute)]">{eur(r.gross_carrying_amount_eur)}</td>
+                  <td className="num mono" style={{ color: VC[r.verdict] }}>{r.submitted_share_pct != null ? `${r.submitted_share_pct}%` : '—'}</td>
+                  <td><BandBar r={r} /></td>
+                  <td><span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: VC[r.verdict], background: `color-mix(in oklab, ${VC[r.verdict]} 15%, transparent)` }}>{r.verdict_label}</span></td>
                   <td className="text-[11.5px] text-[var(--color-mute)]">{r.reason}{(r.verdict === 'above_band' || r.verdict === 'below_band') && <> <Link onClick={e => e.stopPropagation()} to={`/supervisor/requests?new=1&entity=${orgId}&kind=information_request&geography=${encodeURIComponent(r.geography)}&sector=${encodeURIComponent(r.sector)}&title=${encodeURIComponent(`${r.geography} · ${r.sector}: ${r.verdict_label} — ${r.reason}`)}`} className="text-[var(--color-sky)] hover:underline whitespace-nowrap">raise with the entity →</Link></>}</td>
                 </tr>
                 {open === r.key && (
@@ -112,13 +112,13 @@ export default function SupervisorPlausibility() {
             </div>
             {tr.data.labels.length >= 2 && (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
-                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="font-normal py-1 pr-3">Cell</th>{tr.data.labels.map(l => <th key={l} className="font-normal pr-3 text-right">{l}</th>)}<th className="font-normal text-right">Change</th></tr></thead>
+                <table className="data-table w-full text-[12px]">
+                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Cell</th>{tr.data.labels.map(l => <th key={l} className="num">{l}</th>)}<th className="num">Change</th></tr></thead>
                   <tbody>{tr.data.cells.slice(0, 40).map(c => (
                     <tr key={c.key} className="border-t border-[var(--color-line)]">
-                      <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{c.geography} · {c.sector}</td>
+                      <td className="text-[var(--color-ink)] whitespace-nowrap">{c.geography} · {c.sector}</td>
                       {tr.data!.labels.map(l => <td key={l} className="pr-3 text-right mono text-[var(--color-mute)]">{c.share_pct[l] != null ? `${c.share_pct[l]}%` : <span className="text-[var(--color-faint)]">not in template</span>}</td>)}
-                      <td className="text-right mono" style={{ color: c.moved ? 'var(--color-warn)' : 'var(--color-faint)' }}>{c.change_pp != null ? `${c.change_pp > 0 ? '+' : ''}${c.change_pp} pp` : '—'}</td>
+                      <td className="num mono" style={{ color: c.moved ? 'var(--color-warn)' : 'var(--color-faint)' }}>{c.change_pp != null ? `${c.change_pp > 0 ? '+' : ''}${c.change_pp} pp` : '—'}</td>
                     </tr>))}</tbody>
                 </table>
               </div>)}

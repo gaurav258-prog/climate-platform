@@ -53,19 +53,19 @@ export default function SupervisorRequests() {
             <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.requests.length}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px]">
+            <table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="font-normal py-2 pr-3">Entity</th><th className="font-normal pr-3">Kind</th><th className="font-normal pr-3">Title</th><th className="font-normal pr-3">Severity</th>
-                <th className="font-normal pr-3">Status</th><th className="font-normal pr-3">Due</th><th className="font-normal pr-3 text-right">Thread</th></tr></thead>
+                <th className="">Entity</th><th className="">Kind</th><th className="">Title</th><th className="">Severity</th>
+                <th className="">Status</th><th className="">Due</th><th className="num">Thread</th></tr></thead>
               <tbody>{rows.map(r => (
                 <tr key={r.request_id} onClick={() => setSel(sel === r.request_id ? null : r.request_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${sel === r.request_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
-                  <td className="py-2 pr-3 text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
-                  <td className="pr-3 text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
-                  <td className="pr-3 text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}</td>
-                  <td className="pr-3 mono text-[11px]" style={{ color: SEV[r.severity ?? ''] ?? 'var(--color-faint)' }}>{r.severity ?? '—'}</td>
-                  <td className="pr-3"><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span></td>
-                  <td className="pr-3 mono text-[11px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-mute)' }}>{r.due_date ?? '—'}{r.overdue ? ' · overdue' : ''}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-faint)]">{r.n_messages ?? '—'}</td>
+                  <td className="text-[var(--color-ink)] whitespace-nowrap">{r.entity}</td>
+                  <td className="text-[var(--color-mute)] whitespace-nowrap">{r.kind_label}</td>
+                  <td className="text-[var(--color-ink)]">{r.title}{r.source?.type === 'lens_cell' && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">lens · {r.source.geography} · {r.source.sector}</span>}</td>
+                  <td className="mono text-[11px]" style={{ color: SEV[r.severity ?? ''] ?? 'var(--color-faint)' }}>{r.severity ?? '—'}</td>
+                  <td><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${r.status === 'closed' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]'}`}>{r.status_label}</span></td>
+                  <td className="mono text-[11px]" style={{ color: r.overdue ? 'var(--color-bad)' : 'var(--color-mute)' }}>{r.due_date ?? '—'}{r.overdue ? ' · overdue' : ''}</td>
+                  <td className="num mono text-[var(--color-faint)]">{r.n_messages ?? '—'}</td>
                 </tr>))}</tbody>
             </table>
             {rows.length === 0 && <div className="py-8 text-center text-[13px] text-[var(--color-faint)]">{d.requests.length ? 'Nothing matches these filters.' : 'Nothing raised yet. Start from a flagged cell on an entity\'s independent lens, or raise one here.'}</div>}

@@ -27,19 +27,19 @@ export default function SupervisorLensPopulation() {
           { label: 'Questions raised', value: String(d.entities.reduce((a, e) => a + (e.n_flagged ?? 0), 0)), sub: 'flagged cells across the population' },
         ]} />
         <Card className="p-5">
-          <div className="overflow-x-auto"><table className="w-full text-[12.5px]">
+          <div className="overflow-x-auto"><table className="data-table w-full text-[12.5px]">
             <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-              <th className="font-normal py-2 pr-3">Entity</th><th className="font-normal pr-3">Period</th><th className="font-normal pr-3 text-right">Submitted</th><th className="font-normal pr-3 text-right">Rebuilt</th>
-              <th className="font-normal pr-3 text-right">Gap</th><th className="font-normal pr-3 text-right">Cells flagged</th><th className="font-normal pr-3 text-right">Located</th><th className="font-normal">Precision</th></tr></thead>
+              <th className="">Entity</th><th className="">Period</th><th className="num">Submitted</th><th className="num">Rebuilt</th>
+              <th className="num">Gap</th><th className="num">Cells flagged</th><th className="num">Located</th><th className="">Precision</th></tr></thead>
             <tbody>{d.entities.map(e => (
               <tr key={e.org_id} className="border-t border-[var(--color-line)]">
                 <td className="py-2 pr-3"><Link to={`/supervised/${e.org_id}/lens`} className="text-[var(--color-sky)] hover:underline">{e.name}</Link>{e.status !== 'ok' && <span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{STATUS[e.status]}</span>}</td>
-                <td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{e.period_label ?? '—'}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(e.totals?.submitted)}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(e.totals?.rebuilt)}</td>
-                <td className="pr-3 text-right mono" style={{ color: e.gap_pct != null && Math.abs(e.gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.gap_pct != null ? `${e.gap_pct}%` : '—'}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{e.n_flagged != null ? `${e.n_flagged} / ${e.n_cells}` : '—'}</td>
-                <td className="pr-3 text-right mono text-[var(--color-faint)]">{e.coverage_pct != null ? `${e.coverage_pct}%` : '—'}</td>
+                <td className="mono text-[11px] text-[var(--color-faint)]">{e.period_label ?? '—'}</td>
+                <td className="num mono text-[var(--color-mute)]">{eur(e.totals?.submitted)}</td>
+                <td className="num mono text-[var(--color-mute)]">{eur(e.totals?.rebuilt)}</td>
+                <td className="num mono" style={{ color: e.gap_pct != null && Math.abs(e.gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.gap_pct != null ? `${e.gap_pct}%` : '—'}</td>
+                <td className="num mono text-[var(--color-mute)]">{e.n_flagged != null ? `${e.n_flagged} / ${e.n_cells}` : '—'}</td>
+                <td className="num mono text-[var(--color-faint)]">{e.coverage_pct != null ? `${e.coverage_pct}%` : '—'}</td>
                 <td className="mono text-[10.5px] text-[var(--color-faint)]">{e.precision ?? ''}{e.basis_separable === false ? ' · basis not separable' : ''}</td>
               </tr>))}</tbody></table></div>
         </Card>

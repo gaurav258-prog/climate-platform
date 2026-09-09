@@ -89,6 +89,11 @@ def entity_workflow(session, regulator_org_id: str, e: dict, in_profile: bool, s
     else:
         stage, nxt = "reviewed", {"label": ("Raise the flagged questions with the entity" if (n_flagged or 0) else "No open questions — monitor"),
                                   "to": f"/supervised/{e['org_id']}/lens"}
-    return {"steps": steps, "stage": stage, "next": nxt, "site_access": site_access,
+    filed_n, exp_n = e.get("filed", 0), e.get("expected", 0)
+    stage_label = {"out_of_profile": "Outside profile", "collect": "Awaiting filings",
+                   "submitted": ("All filings received" if filed_all else f"{filed_n} of {exp_n} filings received"),
+                   "ingested": "Data ingested", "rebuilt": "Rebuilt & projected", "reviewed": "Reviewed",
+                   "engaged": (f"Engaged · {eng['n_open']} open" if eng["n_open"] else "Engaged · all closed")}[stage]
+    return {"steps": steps, "stage": stage, "stage_label": stage_label, "next": nxt, "site_access": site_access,
             "high_risk_share_pct": (headline or {}).get("value"), "high_risk_flag": (headline or {}).get("flag"),
             "lens_gap_pct": lens_gap_pct, "n_questions": n_flagged, "engagement": eng}

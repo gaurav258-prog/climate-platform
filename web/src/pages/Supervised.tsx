@@ -10,7 +10,7 @@ import StageStrip, { type Step } from '../components/StageStrip'
 // a supervisor sorts on, and the one next action. Everything in a row is derived from what the platform holds.
 interface Fw { framework: string; label: string; state: 'filed' | 'in_progress' | 'none'; status: string | null; period_label: string | null }
 interface Row { org_id: string; name: string; type: string; sector_label: string; country: string; jurisdiction: string | null; in_profile: boolean
-  frameworks: Fw[]; filed: number; expected: number; steps: Step[]; stage: string; next: { label: string; to: string }
+  frameworks: Fw[]; filed: number; expected: number; steps: Step[]; stage: string; stage_label?: string; next: { label: string; to: string }
   site_access: boolean; high_risk_share_pct: number | null; high_risk_flag: string | null; lens_gap_pct: number | null; n_questions: number | null }
 interface Resp { regulator: string; visibility: { scope: 'assigned' | 'population'; assigned: number | null }; summary: { entities: number; frameworks_expected: number; frameworks_filed: number; coverage_pct: number | null }
   scenario: string; horizon: string; steps: { key: string; label: string }[]; entities: Row[] }
@@ -38,7 +38,7 @@ export default function Supervised() {
   }, [d, sort, fSector, fJur, fStage, fFlag, search])
   const toggle = (key: SortKey) => setSort(s => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : (key === 'name' || key === 'sector_label' || key === 'jurisdiction' ? 1 : -1) }))
   const Th = ({ k, children, right }: { k: SortKey; children: React.ReactNode; right?: boolean }) => (
-    <th className={`font-normal py-2 pr-3 cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'text-right' : ''}`} onClick={() => toggle(k)}>
+    <th className={`cursor-pointer select-none hover:text-[var(--color-sky)] ${right ? 'num' : ''}`} onClick={() => toggle(k)}>
       {children}{sort.key === k ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}</th>)
   const uniq = (f: (e: Row) => string | null) => Array.from(new Set((d?.entities ?? []).map(f).filter(Boolean))) as string[]
   const stageCounts = (d?.entities ?? []).reduce<Record<string, number>>((a, e) => { a[e.stage] = (a[e.stage] ?? 0) + 1; return a }, {})
@@ -62,6 +62,11 @@ export default function Supervised() {
           <div className="flex items-center gap-4 mb-3 flex-wrap">
             <div className="text-[13px] text-[var(--color-mute)]">The process, per entity:</div>
             <StageStrip steps={d.steps.map(s => ({ key: s.key, label: s.label, done: false, partial: false }))} />
+            <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto flex items-center gap-3">
+              <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: 'var(--color-good)' }} /> complete</span>
+              <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full border-[1.5px]" style={{ borderColor: 'var(--color-warn)' }} /> partly</span>
+              <span className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full border-[1.5px]" style={{ borderColor: 'var(--color-line)' }} /> not yet</span>
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search entities…" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] min-w-[180px]" />
@@ -78,23 +83,23 @@ export default function Supervised() {
             <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">{rows.length} of {d.entities.length} · basis {d.scenario} · {d.horizon} · click a column to sort</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px]">
+            <table className="data-table w-full text-[12.5px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
                 <Th k="name">Entity</Th><Th k="sector_label">Sector</Th><Th k="jurisdiction">Jurisdiction</Th><Th k="stage">Process</Th>
                 <Th k="submissions" right>Filings</Th><Th k="high_risk_share_pct" right>Book at high risk</Th><Th k="lens_gap_pct" right>Lens gap</Th><Th k="n_questions" right>Questions</Th>
-                <th className="font-normal py-2">Next action</th></tr></thead>
+                <th className="">Next action</th></tr></thead>
               <tbody>{rows.map(e => (
                 <tr key={e.org_id} className={`border-t border-[var(--color-line)] ${e.in_profile ? '' : 'opacity-60'}`}>
-                  <td className="py-2 pr-3"><Link to={`/supervised/${e.org_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline font-medium">{e.name}</Link>
+                  <td><Link to={`/supervised/${e.org_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline font-medium">{e.name}</Link>
                     {e.site_access && <span className="mono text-[9.5px] uppercase ml-2 px-1 rounded bg-[var(--color-good)]/15 text-[var(--color-good)]">sites</span>}</td>
-                  <td className="pr-3 text-[var(--color-mute)]">{e.sector_label}</td>
-                  <td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{e.jurisdiction ?? '—'}</td>
-                  <td className="pr-3"><div className="flex items-center gap-2"><StageStrip steps={e.steps} compact /><span className="text-[11px] text-[var(--color-mute)]">{STAGE_LABEL[e.stage] ?? e.stage}</span></div></td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{e.filed}/{e.expected}</td>
-                  <td className="pr-3 text-right mono" style={{ color: FLAGC[e.high_risk_flag ?? 'na'] }}>{e.high_risk_share_pct != null ? `${e.high_risk_share_pct}%` : '—'}</td>
-                  <td className="pr-3 text-right mono" style={{ color: e.lens_gap_pct != null && Math.abs(e.lens_gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.lens_gap_pct != null ? `${e.lens_gap_pct}%` : '—'}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{e.n_questions ?? '—'}</td>
-                  <td className="py-2"><Link to={e.next.to} className="text-[12px] text-[var(--color-sky)] hover:underline">{e.next.label} →</Link></td>
+                  <td className="text-[var(--color-mute)]">{e.sector_label}</td>
+                  <td className="mono text-[11px] text-[var(--color-faint)]">{e.jurisdiction ?? '—'}</td>
+                  <td className="pr-3"><div className="flex items-center gap-2"><StageStrip steps={e.steps} compact /><span className="text-[11px] text-[var(--color-mute)]">{e.stage_label ?? STAGE_LABEL[e.stage] ?? e.stage}</span></div></td>
+                  <td className="num mono text-[var(--color-mute)]">{e.filed}/{e.expected}</td>
+                  <td className="num mono" style={{ color: FLAGC[e.high_risk_flag ?? 'na'] }}>{e.high_risk_share_pct != null ? `${e.high_risk_share_pct}%` : '—'}</td>
+                  <td className="num mono" style={{ color: e.lens_gap_pct != null && Math.abs(e.lens_gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.lens_gap_pct != null ? `${e.lens_gap_pct}%` : '—'}</td>
+                  <td className="num mono text-[var(--color-mute)]">{e.n_questions ?? '—'}</td>
+                  <td><Link to={e.next.to} className="text-[12px] text-[var(--color-sky)] hover:underline">{e.next.label} →</Link></td>
                 </tr>))}</tbody>
             </table>
             {rows.length === 0 && <div className="py-8 text-center text-[13px] text-[var(--color-faint)]">No entities match these filters.</div>}
