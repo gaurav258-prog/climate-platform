@@ -18,6 +18,7 @@ JOBS: dict[str, str] = {
     "supervision.project_cells": "services.supervision.projection:project_cells_now",
     "supervision.rebuild_geo_priors": "services.supervision.geo_prior:rebuild_all",
     "supervision.deadline_sweep": "services.supervision.deadlines:sweep_all",
+    "transmission.send": "services.transmission.service:send",
 }
 
 

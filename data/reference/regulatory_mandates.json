@@ -201,7 +201,8 @@
           "months_after_period_end": 4,
           "label": "with the annual Pillar 3 report (typically within 4 months of year end)"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "eba_reporting_portal"
       },
       "detection_celex": [
         "32013R0575",
@@ -282,7 +283,8 @@
           "months_after_period_end": 4,
           "label": "with the annual report (within 4 months of year end)"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "oam_esef"
       },
       "detection_celex": [
         "32021R2178",
@@ -361,7 +363,8 @@
           "weeks_after_period_end": 14,
           "label": "14 weeks after financial year end (Art. 312 Del. Reg. 2015/35)"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "eiopa_s2_portal"
       },
       "detection_celex": [
         "32009L0138",
@@ -430,7 +433,8 @@
           "weeks_after_period_end": 2,
           "label": "within 2 weeks of concluding the ORSA; at least annually"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "nca_manual"
       },
       "detection_celex": [
         "32021R1256",
@@ -517,7 +521,8 @@
           "day": 30,
           "label": "by 30 June of the following year (Art. 4 RTS 2022/1288)"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "website_publication"
       },
       "detection_celex": [
         "32019R2088",
@@ -579,7 +584,8 @@
           "months_after_period_end": 4,
           "label": "with the annual report where adopted"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "website_publication"
       },
       "detection_celex": [],
       "versions": [
@@ -650,7 +656,8 @@
           "months_after_period_end": 4,
           "label": "with the annual report (within 4 months of year end)"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "oam_esef"
       },
       "detection_celex": [
         "32021R2178",
@@ -725,7 +732,8 @@
           "months_after_period_end": 4,
           "label": "with the annual management report"
         },
-        "frequency": "annual"
+        "frequency": "annual",
+        "channel_id": "oam_esef"
       },
       "detection_celex": [
         "32022L2464",
@@ -793,7 +801,8 @@
           "rule": "per_event",
           "label": "before each placing on the market (from 30 Dec 2026)"
         },
-        "frequency": "adhoc"
+        "frequency": "adhoc",
+        "channel_id": "eu_traces_eudr"
       },
       "detection_celex": [
         "32023R1115",
@@ -826,7 +835,8 @@
     "kind_codes": {
       "information_request": "IR",
       "site_access_request": "SA",
-      "finding": "FN"
+      "finding": "FN",
+      "receipt": "RX"
     },
     "supervisory_powers": {
       "bank": {
@@ -859,6 +869,100 @@
         "celex": "32023R1115",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115"
       }
+    }
+  },
+  "channels": {
+    "_about": "Transmission channels: how a deliverable reaches the authority. kind = tellumen (the supervisor is on Tellumen: the release is delivered inside the platform and receipted by the authority), portal_upload (an authority portal that accepts a file upload; needs credentials per organisation — TELLUMEN_CHANNEL_<ID>_URL / _USER / _PASSWORD or the organisation's channel settings), publish (the entity publishes and records where; the authority may request it), manual (submitted outside the platform; the authority's reference is recorded by hand). A channel without credentials stays honestly 'awaiting credentials' — nothing is pretended to be sent.",
+    "tellumen_supervisor": {
+      "label": "Tellumen supervisory channel",
+      "kind": "tellumen",
+      "authority": "Your supervisor on Tellumen",
+      "formats": [
+        "json",
+        "xlsx",
+        "xbrl",
+        "ixbrl"
+      ],
+      "receipt": "immediate"
+    },
+    "eba_reporting_portal": {
+      "label": "National competent authority — EBA reporting portal",
+      "kind": "portal_upload",
+      "authority": "NCA / EBA",
+      "formats": [
+        "xbrl"
+      ],
+      "receipt": "async",
+      "credentials": [
+        "url",
+        "user",
+        "password"
+      ]
+    },
+    "eiopa_s2_portal": {
+      "label": "National competent authority — Solvency II reporting portal",
+      "kind": "portal_upload",
+      "authority": "NCA / EIOPA",
+      "formats": [
+        "xbrl",
+        "xlsx"
+      ],
+      "receipt": "async",
+      "credentials": [
+        "url",
+        "user",
+        "password"
+      ]
+    },
+    "oam_esef": {
+      "label": "Officially appointed mechanism (ESEF filing)",
+      "kind": "portal_upload",
+      "authority": "National OAM / ESAP",
+      "formats": [
+        "ixbrl",
+        "xbrl"
+      ],
+      "receipt": "async",
+      "credentials": [
+        "url",
+        "user",
+        "password"
+      ]
+    },
+    "website_publication": {
+      "label": "Publication on the entity's website",
+      "kind": "publish",
+      "authority": "Public · supervised by the NCA",
+      "formats": [
+        "json",
+        "xlsx",
+        "ixbrl"
+      ],
+      "receipt": "manual"
+    },
+    "nca_manual": {
+      "label": "National competent authority — secure mailbox / letter",
+      "kind": "manual",
+      "authority": "NCA",
+      "formats": [
+        "json",
+        "xlsx"
+      ],
+      "receipt": "manual"
+    },
+    "eu_traces_eudr": {
+      "label": "EU Information System (TRACES) — due diligence statements",
+      "kind": "portal_upload",
+      "authority": "European Commission / competent authorities",
+      "formats": [
+        "json"
+      ],
+      "receipt": "async",
+      "credentials": [
+        "url",
+        "user",
+        "password"
+      ]
     }
   }
 }

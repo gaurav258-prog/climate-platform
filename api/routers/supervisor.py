@@ -1206,3 +1206,12 @@ def request_letter(request_id: str, session: DbSession, ctx: Supervisor):
     if not L:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No letter on this request."})
     return Response(content=L["pdf"], media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{L["reference"]}.pdf"'})
+
+
+@router.get("/entity/{org_id}/transmissions", summary="Filings this entity transmitted to us through the Tellumen channel, with the receipts we issued")
+def entity_transmissions(org_id: str, session: DbSession, ctx: Supervisor):
+    from services.transmission.service import received_by
+    _need(ctx, "supervisor.entity.view")
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    return {"transmissions": received_by(session, ctx["org"]["org_id"], org_id)}

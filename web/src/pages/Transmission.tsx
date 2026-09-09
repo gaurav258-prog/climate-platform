@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { filingLink } from '../lib/links'
 import { frameworkLabel } from '../lib/hazards'
 import { Card, Button, PageHeader, SectionHead } from '../components/ui'
+import { useEffect as useEffect2 } from 'react'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 
 // Transmission — submission cases & regulator communication. A five-stage tracker + an append-only message
@@ -55,6 +56,8 @@ export default function Transmission() {
           <Button variant="primary" onClick={openCase} disabled={!reg.trim()}>Open</Button>
         </Card>
       )}
+
+      <SendPanel canAct={canAct} onSent={refresh} />
 
       <div className="grid lg:grid-cols-[300px_1fr] gap-5">
         {/* case list */}
@@ -162,4 +165,76 @@ function CaseView({ caseId, canAct, onChanged }: { caseId: string; canAct: boole
 function StagePill({ stage }: { stage: string }) {
   const tone = stage === 'closed' ? '#34d399' : stage === 'query' ? '#f0a860' : '#5cc8ff'
   return <span className="mono text-[9px] px-1.5 py-0.5 rounded" style={{ color: tone, background: `${tone}22` }}>{STAGE_LABEL[stage]}</span>
+}
+
+// ── Send to the authority: the channel the mandate prescribes, the Tellumen channel where the supervisor is on the
+// platform, and every transmission with its receipt. Nothing is pretended: a portal without credentials says so.
+interface Chan { channel_id: string; label: string; kind: string; authority: string; formats: string[]; receipt: string; configured: boolean; missing: string[]; prescribed: boolean }
+interface ChanResp { on_tellumen: boolean; frameworks: { framework: string; label: string; mandate_id: string | null; formats: string[]; channels: Chan[] }[] }
+interface Filing { filing_id: string; framework: string; period_label: string; status: string; submission_ref: string | null }
+interface Tx { transmission_id: string; filing_id: string; framework: string; period_label: string; channel_id: string; channel_label: string; channel_kind: string; format: string; status: string; attempts: number
+  payload_sha256: string | null; filename: string | null; sent_at: string | null; receipt_ref: string | null; receipt_at: string | null; error: string | null; created_at: string; created_by: string | null }
+const TX_COLOR: Record<string, string> = { acknowledged: 'var(--color-good)', sent: 'var(--color-sky)', queued: 'var(--color-mute)', awaiting_receipt: 'var(--color-warn)', awaiting_credentials: 'var(--color-warn)', rejected: 'var(--color-bad)', failed: 'var(--color-bad)' }
+const TX_LABEL: Record<string, string> = { acknowledged: 'Receipted', sent: 'Sent · awaiting receipt', queued: 'Queued', awaiting_receipt: 'Delivered outside the platform · record the reference', awaiting_credentials: 'Not sent · channel credentials missing', rejected: 'Rejected', failed: 'Failed · will retry' }
+function SendPanel({ canAct, onSent }: { canAct: boolean; onSent: () => void }) {
+  const qc = useQueryClient()
+  const ch = useQuery({ queryKey: ['tx-channels'], queryFn: () => api.get<ChanResp>('/v1/transmission/channels') })
+  const fl = useQuery({ queryKey: ['filings-register'], queryFn: () => api.get<{ filings: Filing[] } | Filing[]>('/v1/filings') })
+  const tx = useQuery({ queryKey: ['tx-sends'], queryFn: () => api.get<{ transmissions: Tx[] }>('/v1/transmission/sends'), refetchInterval: (q) => (q.state.data?.transmissions.some(t => t.status === 'queued') ? 3000 : false) })
+  const [pick, setPick] = useState<Record<string, string>>({})
+  const [ref, setRef] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  useEffect2(() => { onSent() }, [tx.data?.transmissions.length])   // eslint-disable-line react-hooks/exhaustive-deps
+  const filings = (Array.isArray(fl.data) ? fl.data : fl.data?.filings ?? []).filter(f => ['attested', 'submitted', 'accepted'].includes(f.status))
+  const send = async (f: Filing, channel_id: string) => {
+    setBusy(true)
+    try { await api.post(`/v1/transmission/filings/${f.filing_id}/send`, { channel_id }); toast.success('Transmission queued on the worker.'); await qc.invalidateQueries({ queryKey: ['tx-sends'] }) }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not send.') } finally { setBusy(false) }
+  }
+  const record = async (t: Tx) => {
+    setBusy(true)
+    try { await api.post(`/v1/transmission/sends/${t.transmission_id}/receipt`, { receipt_ref: ref[t.transmission_id] }); toast.success('Receipt recorded.'); await qc.invalidateQueries({ queryKey: ['tx-sends'] }); await qc.invalidateQueries({ queryKey: ['filings-register'] }) }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not record.') } finally { setBusy(false) }
+  }
+  const d = ch.data
+  return (
+    <Card className="p-5">
+      <SectionHead hint={d?.on_tellumen ? 'your supervisor is on Tellumen — the platform channel delivers and receipts immediately; authority portals need their credentials' : 'authority portals need their credentials; channels outside the platform record the reference by hand'}>Send to the authority</SectionHead>
+      {!d ? <div className="text-[12px] text-[var(--color-faint)]">loading channels…</div> : (
+        <div className="grid md:grid-cols-2 gap-3 mb-4">
+          {d.frameworks.map(f => (
+            <div key={f.framework} className="rounded-lg border border-[var(--color-line)] px-3.5 py-2.5 text-[12.5px]">
+              <div className="text-[var(--color-ink)]">{frameworkLabel(f.framework)}</div>
+              <div className="mt-1 space-y-0.5">{f.channels.map(c => (
+                <div key={c.channel_id} className="flex items-center gap-2 text-[11.5px]">
+                  <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: c.configured ? 'var(--color-good)' : 'var(--color-warn)' }} />
+                  <span className="text-[var(--color-mute)]">{c.label}{c.prescribed ? <span className="mono text-[9.5px] uppercase ml-1 text-[var(--color-sky)]">prescribed</span> : null}</span>
+                  {!c.configured && <span className="mono text-[10px] text-[var(--color-warn)]">needs {c.missing.join(', ')}</span>}
+                </div>))}</div>
+            </div>))}
+        </div>)}
+      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Attested filings ready to send</div>
+      {filings.length === 0 ? <div className="text-[12px] text-[var(--color-faint)] mb-4">No attested filing yet — approve and attest a filing in the register first.</div> : (
+        <div className="divide-y divide-[var(--color-line)] mb-4">{filings.map(f => { const opts = d?.frameworks.find(x => x.framework === f.framework)?.channels ?? []; const chosen = pick[f.filing_id] ?? opts.find(o => o.prescribed && o.configured)?.channel_id ?? opts.find(o => o.configured)?.channel_id ?? ''; return (
+          <div key={f.filing_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+            <span className="text-[var(--color-ink)] min-w-[240px]">{frameworkLabel(f.framework)} <span className="mono text-[10.5px] text-[var(--color-faint)]">{f.period_label} · {f.status}{f.submission_ref ? ` · ref ${f.submission_ref}` : ''}</span></span>
+            {canAct && (<>
+              <select value={chosen} onChange={e => setPick(p => ({ ...p, [f.filing_id]: e.target.value }))} className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2 py-1 text-[12px] text-[var(--color-mute)]">
+                {opts.map(o => <option key={o.channel_id} value={o.channel_id}>{o.label}{o.configured ? '' : ' (credentials missing)'}</option>)}</select>
+              <Button variant="ghost" disabled={busy || !chosen} onClick={() => send(f, chosen)}><Send size={13} /> Send</Button></>)}
+          </div>) })}</div>)}
+      <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Transmissions</div>
+      {(tx.data?.transmissions ?? []).length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">Nothing transmitted yet.</div> : (
+        <div className="divide-y divide-[var(--color-line)]">{tx.data!.transmissions.map(t => (
+          <div key={t.transmission_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+            <span className="text-[var(--color-ink)] min-w-[220px]">{frameworkLabel(t.framework)} <span className="mono text-[10.5px] text-[var(--color-faint)]">{t.period_label} · {t.format}</span></span>
+            <span className="text-[var(--color-mute)]">{t.channel_label}</span>
+            <span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: TX_COLOR[t.status], background: `color-mix(in oklab, ${TX_COLOR[t.status]} 14%, transparent)` }}>{TX_LABEL[t.status] ?? t.status}</span>
+            {t.receipt_ref && <span className="mono text-[11px] text-[var(--color-good)]">receipt {t.receipt_ref} · {t.receipt_at?.slice(0, 10)}</span>}
+            {t.error && <span className="text-[11.5px] text-[var(--color-warn)]">{t.error}</span>}
+            <span className="mono text-[10px] text-[var(--color-faint)] ml-auto" title={t.payload_sha256 ?? ''}>{t.filename} · {t.created_at.slice(0, 16).replace('T', ' ')} · attempt {t.attempts}</span>
+            {t.status === 'awaiting_receipt' && canAct && <span className="flex items-center gap-1.5"><input value={ref[t.transmission_id] ?? ''} onChange={e => setRef(r => ({ ...r, [t.transmission_id]: e.target.value }))} placeholder="authority reference" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded px-2 py-1 text-[12px] w-44" /><Button variant="ghost" disabled={busy || !ref[t.transmission_id]} onClick={() => record(t)}><CheckCircle2 size={13} /> Record</Button></span>}
+          </div>))}</div>)}
+    </Card>
+  )
 }

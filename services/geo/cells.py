@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,10 @@ from typing import Optional
 import h3
 
 COUNTRIES_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "geo" / "countries_world_03m_2020.geojson.gz"
+# GEOS prepared geometries are NOT thread-safe (their lazily built indexes race and segfault under concurrent use —
+# seen twice in production-like runs of the API thread pool). Every predicate on the shared land index runs under
+# this lock; a lookup costs well under a millisecond, so serialising them is free.
+_GEOS_LOCK = threading.RLock()
 LAYER_LABEL = "Eurostat GISCO countries 2020 · 1:3M"
 LAYER_ACCURACY_KM = 1.5          # ground accuracy of a 1:3M line (≈0.5 mm on paper)
 CLIP_EDGE_FACTOR = 4.0           # clip only when the cell edge is at least this many times the layer accuracy
@@ -67,12 +72,18 @@ def cell_shape(cell: str) -> dict:
     """→ {cell, resolution, clipped, on_land, country, geometry (GeoJSON, lon/lat), rings_lonlat, rings_latlon}.
     Coarse cells are clipped to land; fine cells are drawn whole and flagged offshore only when the whole cell
     lies further from the coast than the layer's accuracy."""
-    from shapely.geometry import Polygon, mapping
-    from shapely.ops import unary_union
+    from shapely.geometry import Polygon
     res = h3.get_resolution(cell)
     hexagon = Polygon([(lon, lat) for lat, lon in h3.cell_to_boundary(cell)])
-    geom, country, on_land, clipped = hexagon, None, True, False
     land = _land()
+    with _GEOS_LOCK:
+        return _shape_locked(cell, res, hexagon, land)
+
+
+def _shape_locked(cell: str, res: int, hexagon, land) -> dict:
+    from shapely.geometry import mapping
+    from shapely.ops import unary_union
+    geom, country, on_land, clipped = hexagon, None, True, False
     if land is not None:
         tree, geoms, codes = land
         tol_deg = LAYER_ACCURACY_KM / 111.0
@@ -110,7 +121,8 @@ def country_of(lat: float, lon: float) -> Optional[str]:
     from shapely.geometry import Point
     tree, geoms, codes = land
     pt = Point(lon, lat)
-    for i in tree.query(pt):
-        if geoms[int(i)].covers(pt):
-            return codes[int(i)]
+    with _GEOS_LOCK:
+        for i in tree.query(pt):
+            if geoms[int(i)].covers(pt):
+                return codes[int(i)]
     return None
