@@ -40,16 +40,16 @@ function BenchmarkCard() {
         : sec.n_entities === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No supervised {sec.label.toLowerCase()} in your population.</div>
         : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
+          <table className="data-table w-full text-[12.5px]">
             <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-              <th className="font-normal py-2 pr-3">Metric</th><th className="font-normal pr-3 text-right">Peer median</th>
-              {sec.metrics[0].entities.map(e => <th key={e.org_id} className="font-normal pr-3 text-right"><Link to={`/supervised/${e.org_id}`} className="hover:text-[var(--color-sky)] hover:underline">{e.name.replace(' (demo)', '')}</Link></th>)}
+              <th className="">Metric</th><th className="num">Peer median</th>
+              {sec.metrics[0].entities.map(e => <th key={e.org_id} className="num"><Link to={`/supervised/${e.org_id}`} className="hover:text-[var(--color-sky)] hover:underline">{e.name.replace(' (demo)', '')}</Link></th>)}
             </tr></thead>
             <tbody>{sec.metrics.map(m => (
               <tr key={m.id} className="border-t border-[var(--color-line)]">
-                <td className="py-2 pr-3 text-[var(--color-ink)]">{m.label}
+                <td className="text-[var(--color-ink)]">{m.label}
                   {(m.watch_above != null || m.watch_below != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{m.watch_above != null ? `watch >${m.watch_above}` : `watch <${m.watch_below}`}{m.act_above != null ? ` · act >${m.act_above}` : ''}</span>}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{fmtV(m.unit, m.distribution.median)}</td>
+                <td className="num mono text-[var(--color-mute)]">{fmtV(m.unit, m.distribution.median)}</td>
                 {m.entities.map(e => <td key={e.org_id} className="pr-3 text-right mono" style={{ color: FLAGC[e.flag] }} title={e.percentile != null ? `${e.percentile}th percentile` : ''}>{fmtV(m.unit, e.value)}</td>)}
               </tr>))}</tbody>
           </table>

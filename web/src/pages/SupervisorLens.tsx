@@ -59,20 +59,20 @@ export default function SupervisorLens() {
           <span>· share = sensitive ÷ gross · coverage = rows with a resolved region</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
+          <table className="data-table w-full text-[12px]">
             <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-              <th className="font-normal py-2 pr-3">Cell</th><th className="font-normal pr-3 text-right">Submitted gross</th><th className="font-normal pr-3 text-right">Submitted share</th>
-              <th className="font-normal pr-3 text-right">Rebuilt gross</th><th className="font-normal pr-3 text-right">Rebuilt share</th><th className="font-normal pr-3 text-right">Coverage</th>
-              <th className="font-normal pr-3 w-40">Gap split</th><th className="font-normal">Why it differs</th></tr></thead>
+              <th className="">Cell</th><th className="num">Submitted gross</th><th className="num">Submitted share</th>
+              <th className="num">Rebuilt gross</th><th className="num">Rebuilt share</th><th className="num">Coverage</th>
+              <th className="w-40">Gap split</th><th className="">Why it differs</th></tr></thead>
             <tbody>{d.cells.map(c => (<>
               <tr key={c.key} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === c.key ? 'bg-[var(--color-bg-2)]' : ''}`} onClick={() => setOpen(open === c.key ? null : c.key)}>
-                <td className="py-1.5 pr-3 text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === c.key ? 'rotate-90' : ''}`} />{c.geography} · {c.sector}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(c.submitted_gross)}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{c.submitted_share_pct != null ? `${c.submitted_share_pct}%` : '—'}</td>
-                <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(c.rebuilt_gross)}</td>
-                <td className="pr-3 text-right mono" style={{ color: c.flag === 'question' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{c.rebuilt_share_pct != null ? `${c.rebuilt_share_pct}%` : '—'}</td>
-                <td className="pr-3 text-right mono text-[var(--color-faint)]">{c.coverage_pct != null ? `${c.coverage_pct}%` : '—'}</td>
-                <td className="pr-3"><GapBar gap={c.gap} /></td>
+                <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === c.key ? 'rotate-90' : ''}`} />{c.geography} · {c.sector}</td>
+                <td className="num mono text-[var(--color-mute)]">{eur(c.submitted_gross)}</td>
+                <td className="num mono text-[var(--color-mute)]">{c.submitted_share_pct != null ? `${c.submitted_share_pct}%` : '—'}</td>
+                <td className="num mono text-[var(--color-mute)]">{eur(c.rebuilt_gross)}</td>
+                <td className="num mono" style={{ color: c.flag === 'question' ? 'var(--color-warn)' : 'var(--color-mute)' }}>{c.rebuilt_share_pct != null ? `${c.rebuilt_share_pct}%` : '—'}</td>
+                <td className="num mono text-[var(--color-faint)]">{c.coverage_pct != null ? `${c.coverage_pct}%` : '—'}</td>
+                <td><GapBar gap={c.gap} /></td>
                 <td className="text-[11.5px] text-[var(--color-mute)]">{c.flag === 'question' ? <>{c.reason} <Link onClick={e => e.stopPropagation()} to={`/supervisor/requests?new=1&entity=${orgId}&kind=information_request&geography=${encodeURIComponent(c.geography)}&sector=${encodeURIComponent(c.sector)}&title=${encodeURIComponent(`${c.geography} · ${c.sector}: ${c.reason}`)}`} className="text-[var(--color-sky)] hover:underline whitespace-nowrap">raise with the entity →</Link></> : <span className="text-[var(--color-faint)]">within tolerance</span>}</td>
               </tr>
               {open === c.key && <tr key={c.key + '-drill'}><td colSpan={8} className="p-0"><CellDrill orgId={orgId} geography={c.geography} sector={c.sector} /></td></tr>}
@@ -127,10 +127,10 @@ function CellDrill({ orgId, geography, sector }: { orgId: string; geography: str
       <div className="min-w-0">
         <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">The rows · click one for the hazard scores at its location</div>
         <div className="overflow-x-auto max-h-[360px] overflow-y-auto border border-[var(--color-line)] rounded-lg">
-          <table className="w-full text-[11.5px]">
+          <table className="data-table w-full text-[11.5px]">
             <thead className="sticky top-0 bg-[var(--color-panel)]"><tr className="text-[var(--color-faint)] mono text-[9.5px] uppercase tracking-wide text-left">
-              <th className="font-normal py-1.5 px-2">Instrument</th><th className="font-normal pr-2">Counterparty</th><th className="font-normal pr-2 text-right">Outstanding</th>
-              <th className="font-normal pr-2">Collateral region</th><th className="font-normal pr-2">Precision</th><th className="font-normal pr-2">Headline hazard</th><th className="font-normal pr-2 text-right">Score</th><th className="font-normal pr-2">Sensitive</th></tr></thead>
+              <th className="py-1.5 px-2">Instrument</th><th className="pr-2">Counterparty</th><th className="pr-2 text-right">Outstanding</th>
+              <th className="pr-2">Collateral region</th><th className="pr-2">Precision</th><th className="pr-2">Headline hazard</th><th className="pr-2 text-right">Score</th><th className="pr-2">Sensitive</th></tr></thead>
             <tbody>{r.rows.map((x, i) => (
               <tr key={i} onClick={() => x.lat != null && setRow(row === x ? null : x)} className={`border-t border-[var(--color-line)] ${x.lat != null ? 'cursor-pointer hover:bg-[var(--color-panel)]' : 'opacity-60'} ${row === x ? 'bg-[var(--color-panel)]' : ''}`}>
                 <td className="py-1 px-2 mono text-[var(--color-mute)]">{x.instrument_id ?? '—'}</td>

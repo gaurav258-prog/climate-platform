@@ -188,15 +188,15 @@ export default function SupervisorAnalytics() {
             {!tl.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tl.data.rows.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No obligations or filings on record for the population.</div> : (<>
               <div className="flex flex-wrap gap-1.5 mb-2">{Object.entries(tl.data.summary).filter(([, n]) => n).map(([k, n]) => <span key={k} className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-2)]" style={{ color: STATE_COLOR[k] }}>{STATE_LABEL[k]} {n}</span>)}</div>
               <div className="overflow-x-auto max-h-[300px]">
-                <table className="w-full text-[12px]">
-                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="font-normal py-1 pr-3">Entity</th><th className="font-normal pr-3">Filing</th><th className="font-normal pr-3">Period</th><th className="font-normal pr-3">Due</th><th className="font-normal pr-3">State</th><th className="font-normal pr-3 text-right">Days</th><th className="font-normal text-right">Reached intake</th></tr></thead>
+                <table className="data-table w-full text-[12px]">
+                  <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Entity</th><th className="">Filing</th><th className="">Period</th><th className="">Due</th><th className="">State</th><th className="num">Days</th><th className="num">Reached intake</th></tr></thead>
                   <tbody>{tl.data.rows.map((r, i) => (
                     <tr key={i} className="border-t border-[var(--color-line)]">
-                      <td className="py-1 pr-3 text-[var(--color-ink)] whitespace-nowrap">{r.name}</td><td className="pr-3 text-[var(--color-mute)]">{r.framework_label}</td>
-                      <td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="pr-3 mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
+                      <td className="text-[var(--color-ink)] whitespace-nowrap">{r.name}</td><td className="text-[var(--color-mute)]">{r.framework_label}</td>
+                      <td className="mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
                       <td className="pr-3" style={{ color: STATE_COLOR[r.state] }}>{STATE_LABEL[r.state]}</td>
-                      <td className="pr-3 text-right mono" style={{ color: STATE_COLOR[r.state] }}>{r.days ?? '—'}</td>
-                      <td className="text-right mono text-[11px] text-[var(--color-faint)]">{r.intake_lag_days != null ? `+${r.intake_lag_days} d after period end` : '—'}</td>
+                      <td className="num mono" style={{ color: STATE_COLOR[r.state] }}>{r.days ?? '—'}</td>
+                      <td className="num mono text-[11px] text-[var(--color-faint)]">{r.intake_lag_days != null ? `+${r.intake_lag_days} d after period end` : '—'}</td>
                     </tr>))}</tbody>
                 </table>
               </div></>)}
