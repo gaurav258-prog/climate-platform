@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { RemittancesReceived } from '../components/Remittance'
 import StageStrip, { type Step } from '../components/StageStrip'
 
 // The Population page is the supervisor's working list: every entity, where it stands in the process, the criteria
@@ -47,6 +48,7 @@ export default function Supervised() {
       <PageHeader eyebrow="Population" title="Supervised population"
         lead="Every entity you supervise, where it stands in the supervisory process, and its next action. Sort and filter on the criteria that matter to you. Read-only: each entity is notified in its own audit trail when you open its file."
         actions={canExport ? <Button variant="ghost" onClick={() => download('/v1/supervisor/export/population.xlsx', 'supervised-population.xlsx')}>Export population (Excel)</Button> : undefined} />
+      <RemittancesReceived />
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">assessing every entity's position in the process…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the population.</div> : (<>
         {d.visibility?.scope === 'assigned' && (
           <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel-2)] px-4 py-2.5 text-[12.5px] text-[var(--color-mute)]">

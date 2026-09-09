@@ -9,6 +9,7 @@ import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
 import StageStrip, { type Step } from '../components/StageStrip'
 import { frameworkLabel, horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
+import { RemitDialog, RemittancesIssued } from '../components/Remittance'
 
 // The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
 // what the entity lets me see, and my own access trail on it. Every field is computed by the same engine the
@@ -130,6 +131,7 @@ export default function EntityFile() {
       </Card>
       <TransmissionsReceived orgId={orgId} />
       <EvidencePacks orgId={orgId} />
+      <RemittancesIssued orgId={orgId} />
     </div>
   )
 }
@@ -140,6 +142,8 @@ function EvidencePacks({ orgId }: { orgId: string }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const can = (profile?.permissions ?? []).includes('supervisor.evidence.export')
+  const canRemit = (profile?.permissions ?? []).includes('supervisor.remit')
+  const [remit, setRemit] = useState<Pack | null>(null)
   const q = useQuery({ queryKey: ['evidence-packs', orgId], enabled: can, queryFn: () => api.get<{ packs: Pack[] }>(`/v1/supervisor/entity/${orgId}/evidence-packs`) })
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -172,9 +176,11 @@ function EvidencePacks({ orgId }: { orgId: string }) {
               <span className="ml-auto flex gap-3">
                 <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.pdf`, `evidence-pack-v${p.version}.pdf`)} className="text-[var(--color-sky)] hover:underline">PDF ↓</button>
                 <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.json`, `evidence-pack-v${p.version}.json`)} className="text-[var(--color-sky)] hover:underline">JSON ↓</button>
+                {canRemit && <button onClick={() => setRemit(p)} className="text-[var(--color-sky)] hover:underline">Remit →</button>}
               </span>
             </div>))}
         </div>)}
+      {remit && <RemitDialog orgId={orgId} packId={remit.pack_id} packVersion={remit.version} onClose={() => setRemit(null)} />}
     </Card>
   )
 }

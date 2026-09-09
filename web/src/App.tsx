@@ -33,6 +33,7 @@ const Onboarding = lazy(() => import('./pages/Onboarding'))
 const IntakeReview = lazy(() => import('./pages/IntakeReview'))
 const IntakeForm = lazy(() => import('./pages/IntakeForm'))
 const Activate = lazy(() => import('./pages/Activate'))
+const Remit = lazy(() => import('./pages/Remit'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Billing = lazy(() => import('./pages/Billing'))
@@ -82,6 +83,7 @@ export default function App() {
       <Routes>
         <Route path="/onboarding/form/:token" element={<IntakeForm />} />
         <Route path="/activate/:token" element={<Activate />} />
+        <Route path="/remit/:token" element={<Remit />} />
         <Route path="/reset/:token" element={<ResetPassword />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<Workspace />} />

@@ -78,6 +78,7 @@ try:
     from api.routers import provided as provided_router
     from api.routers import reg_changes as reg_changes_router
     from api.routers import reg_tasks as reg_tasks_router
+    from api.routers import remittance as remittance_router
     from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
     from api.routers import supervisor as supervisor_router
@@ -269,6 +270,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(export_api_router.router)
     app.include_router(provided_router.router)
     app.include_router(transmission_router.router)
+    app.include_router(remittance_router.router)
     app.include_router(reg_changes_router.router)
     app.include_router(meta_router.router)
     app.include_router(portal_router.router)

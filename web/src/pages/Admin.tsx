@@ -5,6 +5,7 @@ import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
+import { SharedOnward } from '../components/Remittance'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
@@ -72,7 +73,7 @@ export default function Admin() {
       {tab === 'Audit' && <Audit embedded />}
       {tab === 'Users' && <Users />}
       {tab === 'Roles' && <Roles />}
-      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><RegulatoryAttributes /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
+      {tab === 'Entities' && <><AdminEntities /><SupervisoryAccess /><SharedOnward /><RegulatoryAttributes /><TemplateSubmission /><SupervisorRequestsInbox /><SupervisionProfile /><SupervisionScope /><SupervisionAssignments /></>}
       {tab === 'Approval matrix' && <><Matrix /><DecisionPlaybook /></>}
       {tab === 'KRI appetite' && <KriAppetite />}
       {tab === 'Methodology' && <Methodology />}

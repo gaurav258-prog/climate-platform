@@ -68,7 +68,8 @@
         "supervisor.sites.view",
         "supervisor.requests.manage",
         "supervisor.findings.manage",
-        "supervisor.evidence.export"
+        "supervisor.evidence.export",
+        "supervisor.remit"
       ]
     },
     "policy": {
@@ -101,7 +102,9 @@
         "supervisor.assignments.manage",
         "supervisor.scope.manage",
         "supervisor.mandates.manage",
-        "supervisor.deadlines.manage"
+        "supervisor.deadlines.manage",
+        "supervisor.remit",
+        "supervisor.evidence.export"
       ]
     },
     "admin": {
@@ -117,7 +120,9 @@
         "supervisor.assignments.manage",
         "supervisor.scope.manage",
         "supervisor.mandates.manage",
-        "supervisor.deadlines.manage"
+        "supervisor.deadlines.manage",
+        "supervisor.remit",
+        "supervisor.evidence.export"
       ]
     }
   },

@@ -31,7 +31,8 @@ def registry() -> dict:
             "jurisdiction_groups": d["jurisdiction_groups"], "mandates": d["mandates"],
             "reminders": {k: v for k, v in (d.get("reminders") or {}).items() if not k.startswith("_")},
             "correspondence": {k: v for k, v in (d.get("correspondence") or {}).items() if not k.startswith("_")},
-            "channels": {k: v for k, v in (d.get("channels") or {}).items() if not k.startswith("_")}}
+            "channels": {k: v for k, v in (d.get("channels") or {}).items() if not k.startswith("_")},
+            "remittance": {k: v for k, v in (d.get("remittance") or {}).items() if not k.startswith("_")}}
 
 
 def mandates_for(sectors: list[str]) -> list[dict]:

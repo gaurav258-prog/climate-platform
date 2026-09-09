@@ -836,7 +836,8 @@
       "information_request": "IR",
       "site_access_request": "SA",
       "finding": "FN",
-      "receipt": "RX"
+      "receipt": "RX",
+      "remittance": "RM"
     },
     "supervisory_powers": {
       "bank": {
@@ -964,5 +965,21 @@
         "password"
       ]
     }
+  },
+  "remittance": {
+    "_about": "Governed onward sharing of an evidence pack. The recipient receives a scoped, watermarked, time-limited copy under a bearer link (or in-product when the recipient is a Tellumen supervisory body); every view and download is logged and both the issuing authority and the supervised entity see the remittance. Nothing here names a sector.",
+    "recipient_kinds": {
+      "authority": "Another supervisory authority",
+      "college": "Supervisory college",
+      "committee": "Internal committee or board",
+      "resolution": "Resolution authority",
+      "auditor": "External auditor or court-appointed examiner",
+      "other": "Other authorised recipient"
+    },
+    "default_expiry_days": 30,
+    "max_expiry_days": 180,
+    "default_max_downloads": 5,
+    "watermark_format": "REMITTED {reference} · {regulator} → {recipient} · expires {expires} · not for onward distribution",
+    "notice": "This document was remitted under a governed share. It is scoped to the sections listed, expires on the date shown, may be revoked by the issuing authority at any time, and every access is recorded on both the authority's and the entity's audit trails."
   }
 }
