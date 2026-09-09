@@ -20,7 +20,8 @@ OUT = Path("data/acceptance/demo_supervisor")
 BANK_BASIS = ("disorderly_2c", "2030")      # the basis the bank states in its narrative (≠ the supervisor's default)
 
 
-def main() -> int:
+def main(period: str = "FY2025", scale: float = 1.0, sensitivity_scale: float = 1.0) -> int:
+    """period/scale: a second period (e.g. FY2024 at 0.92 × gross, 0.85 × sensitive) so trend views have two points."""
     OUT.mkdir(parents=True, exist_ok=True)
     rng = random.Random(7)
     with get_session() as s:
@@ -43,10 +44,11 @@ def main() -> int:
         if geo == "HU":
             continue
         c = cells.setdefault((geo, sec), [0.0, 0.0])
-        c[0] += p["value_eur"]
+        c[0] += p["value_eur"] * scale
         if b.get("score") is not None and score_to_bucket(float(b["score"])).value in ("H", "VH"):
-            c[1] += p["value_eur"]
-    with (OUT / "meridian_pillar3_template5_submitted.csv").open("w", newline="") as f:
+            c[1] += p["value_eur"] * scale * sensitivity_scale
+    name = "meridian_pillar3_template5_submitted.csv" if period == "FY2025" else f"meridian_pillar3_template5_submitted_{period}.csv"
+    with (OUT / name).open("w", newline="") as f:
         w = csv.writer(f); w.writerow(["Geography", "Sector", "Gross carrying amount", "of which sensitive to physical risk"])
         for (g, sec), (gross, sens) in sorted(cells.items()):
             w.writerow([g, sec, f"{gross:.2f}", f"{sens:.2f}"])
@@ -55,4 +57,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys
+    args = dict(a.split("=", 1) for a in sys.argv[1:] if "=" in a)
+    raise SystemExit(main(args.get("period", "FY2025"), float(args.get("scale", 1.0)), float(args.get("sensitivity_scale", 1.0))))

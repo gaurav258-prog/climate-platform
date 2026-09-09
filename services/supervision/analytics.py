@@ -15,6 +15,7 @@ from core.types import score_to_bucket
 from services.geo.org_assets import org_asset_points
 from services.geo.regions import aggregate_by_region
 from services.supervision.benchmark import benchmark
+from services.supervision.trend import anchor_coverage
 
 SCENARIOS = ["baseline", "orderly_1_5c", "disorderly_2c", "hot_house_3_5c"]
 HORIZONS = ["current", "2030", "2050", "2100"]
@@ -89,4 +90,5 @@ def analytics(session, cfg: dict, entities: list[dict], scenario: str, horizon: 
     return {"scenario": scenario, "horizon": horizon, "profile_id": cfg["profile_id"], "n_entities": len(ents), "n_assets": len(points),
             "precision": "Point-resolved (entity portfolios)",
             "concentration": concentration(points), "scenario_shift": scenario_shift(session, ents),
+            "anchor_coverage": anchor_coverage(session, ents),
             "distribution": distribution(session, cfg, ents, scenario, horizon)}
