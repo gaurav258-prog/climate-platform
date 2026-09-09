@@ -827,3 +827,97 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
     return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
             "stated_basis": basis if stated else None, "scenario": sc, "horizon": hz, "basis_note": basis_note,
             "bases_available": [{"scenario": a, "horizon": b} for a, b in available], "template": ss, **result}
+
+
+# ── Evidence pack (case file) and population export ─────────────────────────────────────────────────────────
+class PackCreate(BaseModel):
+    note: Optional[str] = None
+    scenario: Optional[str] = None
+    horizon: Optional[str] = None
+
+
+def _scope_row(session, reg: str, org_id: str) -> Optional[dict]:
+    from services.supervision.scope import _rows
+    return next((r for r in _rows(session, reg) if r["org_id"] == org_id), None)
+
+
+@router.get("/entity/{org_id}/evidence-packs", summary="Evidence packs generated for this entity (immutable versions)")
+def list_evidence_packs(org_id: str, session: DbSession, ctx: Supervisor):
+    from services.supervision.evidence import list_packs
+    _need(ctx, "supervisor.evidence.export")
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    return {"packs": list_packs(session, ctx["org"]["org_id"], org_id)}
+
+
+@router.post("/entity/{org_id}/evidence-packs", status_code=201, summary="Generate a new evidence pack (case file) for this entity")
+def create_evidence_pack(org_id: str, body: PackCreate, session: DbSession, ctx: Supervisor):
+    from services.supervision.evidence import assemble, create_pack
+    from services.supervision.profiles import sector_config
+    _need(ctx, "supervisor.evidence.export")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    cfg = _config(session, reg)
+    sc, hz = body.scenario or cfg["default_scenario"], body.horizon or cfg["default_horizon"]
+    org = session.execute(text("SELECT org_id::text AS org_id, name, type, country, lei, legal_name FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                          {"o": org_id}).mappings().first()
+    pop = population(session, ctx)
+    sec = sector_config(cfg, org["type"])
+    content = assemble(session, regulator={"org_id": reg, "name": ctx["org"].get("name")}, actor=ctx["user"], entity=dict(org), cfg=cfg,
+                       scope_row=_scope_row(session, reg, org_id), submissions=next((e for e in pop["entities"] if e["org_id"] == org_id), None),
+                       intake=(sec or {}).get("intake"), scenario=sc, horizon=hz)
+    pack = create_pack(session, regulator_org_id=reg, supervised_org_id=org_id, content=content, generated_by=ctx["user"]["id"], note=body.note)
+    for audited in (reg, org_id):
+        write_audit(session, org_id=audited, actor_user_id=ctx["user"]["id"], action="supervisor.evidence.generated", target_type="organization",
+                    target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "pack_id": pack["pack_id"],
+                                              "version": pack["version"], "sha256": pack["sha256"], "scenario": sc, "horizon": hz})
+    session.commit()
+    return pack
+
+
+@router.get("/entity/{org_id}/evidence-packs/{pack_id}.{fmt}", summary="Download one evidence pack as PDF or its canonical JSON")
+def download_evidence_pack(org_id: str, pack_id: str, fmt: str, session: DbSession, ctx: Supervisor):
+    from fastapi.responses import Response
+
+    from services.supervision.evidence import canonical_json, get_pack
+    _need(ctx, "supervisor.evidence.export")
+    reg = ctx["org"]["org_id"]
+    if not _in_scope(session, ctx, org_id):
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such supervised entity in your population."})
+    p = get_pack(session, reg, pack_id)
+    if not p or p["supervised_org_id"] != org_id:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "No such evidence pack."})
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.evidence.downloaded", target_type="supervision_evidence_pack",
+                target_id=pack_id, detail={"regulator_org_id": reg, "format": fmt, "version": p["version"]})
+    session.commit()
+    stem = f"evidence-pack-{org_id[:8]}-v{p['version']}"
+    if fmt == "pdf":
+        return Response(content=bytes(p["pdf"]), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'})
+    if fmt == "json":
+        return Response(content=canonical_json(p["content"]), media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{stem}.json"'})
+    raise HTTPException(status_code=422, detail={"error": "invalid", "message": "Format must be pdf or json."})
+
+
+@router.get("/export/population.xlsx", summary="Export the supervised population's analyses as one workbook")
+def export_population(session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
+    from fastapi.responses import Response
+
+    from services.supervision.analytics import analytics
+    from services.supervision.benchmark import benchmark
+    from services.supervision.engagement import list_requests as _list
+    from services.supervision.export import population_workbook
+    _need(ctx, "supervisor.export")
+    reg = ctx["org"]["org_id"]; cfg = _config(session, reg)
+    sc, hz = scenario or cfg["default_scenario"], horizon or cfg["default_horizon"]
+    ents = _supervised(session, ctx)
+    wf = population_workflow(session, ctx)
+    content = population_workbook(regulator=ctx["org"].get("name"), profile=cfg["label"], scenario=sc, horizon=hz, workflow=wf,
+                                  benchmark=benchmark(session, cfg, ents, sc, hz), analytics=analytics(session, cfg, ents, sc, hz),
+                                  requests=_list(session, regulator_org_id=reg, supervised_org_ids=[e["org_id"] for e in ents]),
+                                  generated_by=ctx["user"].get("full_name") or ctx["user"].get("email") or "")
+    write_audit(session, org_id=reg, actor_user_id=ctx["user"]["id"], action="supervisor.export.population", target_type="organization",
+                target_id=reg, detail={"scenario": sc, "horizon": hz, "n_entities": len(ents)})
+    session.commit()
+    return Response(content=content, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="supervised-population.xlsx"'})

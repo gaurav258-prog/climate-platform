@@ -111,9 +111,9 @@ USERS = [
     ("analyst@nordkap.demo",   "Nora Analyst (Nordkap)",   "Demo!analyst1", NORDKAP,  "analyst"),
     ("approver@nordkap.demo",  "Erik Approver (Nordkap)",  "Demo!approve1", NORDKAP,  "approver"),
     # supervisory body: base roles are the supervision-profile templates, not the tenant admin/analyst/approver trio
-    ("admin@supervisor.demo",   "Sofia Supervisor (EU Climate Supervisor)", "Demo!admin1",   SUPERVISOR, "admin"),
-    ("analyst@supervisor.demo", "Lars Examiner (EU Climate Supervisor)",    "Demo!analyst1", SUPERVISOR, "risk_analyst"),
-    ("approver@supervisor.demo", "Mina Case Lead (EU Climate Supervisor)",  "Demo!approve1", SUPERVISOR, "supervisor"),
+    ("admin@supervisor.demo",   "Sofia Supervisor (EU Banking Supervisor)", "Demo!admin1",   SUPERVISOR, "admin"),
+    ("analyst@supervisor.demo", "Lars Examiner (EU Banking Supervisor)",    "Demo!analyst1", SUPERVISOR, "risk_analyst"),
+    ("approver@supervisor.demo", "Mina Case Lead (EU Banking Supervisor)",  "Demo!approve1", SUPERVISOR, "supervisor"),
     ("admin@insurance-supervisor.demo",    "Ines Supervisor (EU Insurance Supervisor)", "Demo!admin1",   INS_SUP, "admin"),
     ("analyst@insurance-supervisor.demo",  "Ivo Examiner (EU Insurance Supervisor)",    "Demo!analyst1", INS_SUP, "risk_analyst"),
     ("approver@insurance-supervisor.demo", "Ida Case Lead (EU Insurance Supervisor)",   "Demo!approve1", INS_SUP, "supervisor"),

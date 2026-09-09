@@ -1,8 +1,11 @@
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
-import { api } from '../lib/api'
-import { Card, PageHeader, StatGrid } from '../components/ui'
+import { api, download } from '../lib/api'
+import { toast } from '../lib/toast'
+import { useAuth } from '../lib/auth'
+import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
 import StageStrip, { type Step } from '../components/StageStrip'
 import { horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
@@ -125,6 +128,52 @@ export default function EntityFile() {
         <div className="divide-y divide-[var(--color-line)]">{d.my_recent_accesses.map((a, i) => (
           <div key={i} className="py-1.5 flex items-center justify-between mono text-[11px]"><span className="text-[var(--color-mute)]">{a.action}</span><span className="text-[var(--color-faint)]">{a.at.slice(0, 16).replace('T', ' ')}</span></div>))}</div>
       </Card>
+      <EvidencePacks orgId={orgId} />
     </div>
+  )
+}
+
+// ── Evidence packs — immutable, versioned case files (PDF + canonical JSON, hashed) ─────────────────────────
+interface Pack { pack_id: string; version: number; basis: { scenario: string; horizon: string }; sha256: string; pdf_bytes: number; note: string | null; generated_at: string; generated_by: string | null }
+function EvidencePacks({ orgId }: { orgId: string }) {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const can = (profile?.permissions ?? []).includes('supervisor.evidence.export')
+  const q = useQuery({ queryKey: ['evidence-packs', orgId], enabled: can, queryFn: () => api.get<{ packs: Pack[] }>(`/v1/supervisor/entity/${orgId}/evidence-packs`) })
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  if (!can) return null
+  const generate = async () => {
+    setBusy(true)
+    try { const p = await api.post<Pack>(`/v1/supervisor/entity/${orgId}/evidence-packs`, { note: note || null }); setNote(''); toast.success(`Evidence pack v${p.version} generated (${(p.pdf_bytes / 1024).toFixed(0)} kB).`); await qc.invalidateQueries({ queryKey: ['evidence-packs', orgId] }) }
+    catch (e) { toast.error((e as Error).message || 'Could not generate the pack.') } finally { setBusy(false) }
+  }
+  const packs = q.data?.packs ?? []
+  return (
+    <Card className="p-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div>
+          <div className="text-[13px] font-medium text-[var(--color-ink)]">Evidence packs</div>
+          <div className="text-[11.5px] text-[var(--color-mute)]">The case file for this entity: supervision, submissions, plausibility band or independent lens, exposure, peer position, requests and findings with their threads, and your access trail. Each generation is an immutable version with its content hash.</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note for this version (optional)" className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-1.5 text-[12.5px] outline-none focus:border-[var(--color-sky)] w-56" />
+          <Button onClick={generate} disabled={busy}>{busy ? 'Generating…' : 'Generate evidence pack'}</Button>
+        </div>
+      </div>
+      {packs.length === 0 ? <div className="text-[12.5px] text-[var(--color-faint)]">No pack generated yet.</div> : (
+        <div className="divide-y divide-[var(--color-line)]">
+          {packs.map(p => (
+            <div key={p.pack_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
+              <span className="mono text-[11px] text-[var(--color-ink)] w-10">v{p.version}</span>
+              <span className="text-[var(--color-mute)]">{p.generated_at.slice(0, 16).replace('T', ' ')} · {p.generated_by ?? '—'} · {p.basis.scenario} · {p.basis.horizon}{p.note ? ` · ${p.note}` : ''}</span>
+              <span className="mono text-[10px] text-[var(--color-faint)]" title={p.sha256}>sha256 {p.sha256.slice(0, 12)}… · {(p.pdf_bytes / 1024).toFixed(0)} kB</span>
+              <span className="ml-auto flex gap-3">
+                <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.pdf`, `evidence-pack-v${p.version}.pdf`)} className="text-[var(--color-sky)] hover:underline">PDF ↓</button>
+                <button onClick={() => download(`/v1/supervisor/entity/${orgId}/evidence-packs/${p.pack_id}.json`, `evidence-pack-v${p.version}.json`)} className="text-[var(--color-sky)] hover:underline">JSON ↓</button>
+              </span>
+            </div>))}
+        </div>)}
+    </Card>
   )
 }

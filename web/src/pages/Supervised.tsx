@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '../lib/api'
-import { Card, PageHeader, StatGrid } from '../components/ui'
+import { api, download } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { Button, Card, PageHeader, StatGrid } from '../components/ui'
 import StageStrip, { type Step } from '../components/StageStrip'
 
 // The Population page is the supervisor's working list: every entity, where it stands in the process, the criteria
@@ -19,6 +20,8 @@ const FLAGC: Record<string, string> = { act: 'var(--color-bad)', watch: 'var(--c
 type SortKey = 'name' | 'sector_label' | 'jurisdiction' | 'stage' | 'submissions' | 'high_risk_share_pct' | 'lens_gap_pct' | 'n_questions'
 
 export default function Supervised() {
+  const { profile } = useAuth()
+  const canExport = (profile?.permissions ?? []).includes('supervisor.export')
   const q = useQuery({ queryKey: ['supervisor-workflow'], queryFn: () => api.get<Resp>('/v1/supervisor/population/workflow') })
   const d = q.data
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'high_risk_share_pct', dir: -1 })
@@ -42,7 +45,8 @@ export default function Supervised() {
   return (
     <div className="fadeup space-y-6">
       <PageHeader eyebrow="Population" title="Supervised population"
-        lead="Every entity you supervise, where it stands in the supervisory process, and its next action. Sort and filter on the criteria that matter to you. Read-only: each entity is notified in its own audit trail when you open its file." />
+        lead="Every entity you supervise, where it stands in the supervisory process, and its next action. Sort and filter on the criteria that matter to you. Read-only: each entity is notified in its own audit trail when you open its file."
+        actions={canExport ? <Button variant="ghost" onClick={() => download('/v1/supervisor/export/population.xlsx', 'supervised-population.xlsx')}>Export population (Excel)</Button> : undefined} />
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">assessing every entity's position in the process…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the population.</div> : (<>
         {d.visibility?.scope === 'assigned' && (
           <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel-2)] px-4 py-2.5 text-[12.5px] text-[var(--color-mute)]">
