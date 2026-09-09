@@ -328,6 +328,7 @@ def entity_file(org_id: str, session: DbSession, ctx: Supervisor, scenario: Opti
                 target_type="organization", target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})
     session.commit()
     return {"entity": dict(org), "in_profile": sector_config(cfg, org["type"]) is not None,
+            "has_intake": bool((sector_config(cfg, org["type"]) or {}).get("intake")),
             "sector": sector_config(cfg, org["type"]), "scenario": sc, "horizon": hz,
             "submissions": submissions, "book": {"n_assets": len(pts), "value_eur": round(sum(p["value_eur"] for p in pts)),
                                                  "n_regions": len(regions), "top_regions": [{k: v for k, v in r.items() if k != "geometry"} for r in regions[:8]],

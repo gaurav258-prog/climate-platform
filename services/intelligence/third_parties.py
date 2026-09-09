@@ -76,19 +76,25 @@ def view(session, org_id: str, scenario: str = "baseline", horizon: str = "curre
                                           t.contract_ref, t.note, t.created_at, u.full_name AS created_by
                                    FROM third_party t LEFT JOIN users u ON u.user_id = t.created_by WHERE t.org_id = CAST(:o AS uuid) AND t.active ORDER BY
                                    CASE t.criticality WHEN 'critical' THEN 0 WHEN 'important' THEN 1 ELSE 2 END, t.name"""), {"o": org_id}).mappings().all()
+    from core.hazard_relevance import is_headline_eligible, reason
     sc = _scores(session, sorted({r["h3_cell"] for r in rows}), scenario, horizon)
     out = []
     for r in rows:
         hz = sorted(sc.get(r["h3_cell"], []), key=lambda x: -x["score"])
-        top = hz[0] if hz else None
+        for h in hz:                       # a third party is a built asset: crop-scale and nowcast hazards never headline it
+            h["relevant"] = is_headline_eligible(h["hazard"], "buildings")
+            if not h["relevant"]:
+                h["why_not"] = reason(h["hazard"])
+        relevant = [h for h in hz if h["relevant"]]
+        top = relevant[0] if relevant else None
         out.append(dict(r) | {"created_at": r["created_at"].isoformat(), "kind_label": KINDS.get(r["kind"], r["kind"]), "hazards": hz, "n_hazards_scored": len(hz),
                               "max_score": top["score"] if top else None, "worst_hazard": top["hazard"] if top else None, "bucket": score_to_bucket(top["score"]) if top else None,
-                              "scored": bool(hz)})
+                              "scored": bool(hz), "n_not_applicable": sum(1 for h in hz if not h["relevant"])})
     high = [x for x in out if x["max_score"] is not None and x["max_score"] >= 60]
     return {"third_parties": out, "kinds": KINDS, "criticality": list(CRITICALITY), "scenario": scenario, "horizon": horizon,
             "summary": {"n": len(out), "critical": sum(1 for x in out if x["criticality"] == "critical"), "scored": sum(1 for x in out if x["scored"]), "pending": sum(1 for x in out if not x["scored"]),
                         "high": len(high), "critical_high": sum(1 for x in high if x["criticality"] == "critical")},
-            "note": "Each third party is located like your own sites and read at the same engine score. A newly added location scores in the background; until then it is shown as pending, never guessed."}
+            "note": "Each third party is located like your own sites and read at the same engine score. A newly added location scores in the background; until then it is shown as pending, never guessed. Hazards whose scale does not apply to a built asset (crop-frost, soil water, land degradation) are listed but never headline."}
 
 
 def register_csv(v: dict) -> bytes:

@@ -76,6 +76,7 @@ from api.schemas.lookup import (
     PollResponse,
 )
 from core.db.session import get_session
+from core.hazard_relevance import headline_exclude
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
 from services.scoring.on_demand import GRIDDED_ON_DEMAND_SCORERS, SYNC_ON_DEMAND_SCORERS
@@ -249,8 +250,8 @@ def lookup_score(
         VALUES (:id, :addr, :lat, :lon, :cell, 'done', now())
     """), {"id": str(uuid.uuid4()), "addr": address, "lat": lat, "lon": lon, "cell": cell})
 
-    overall = _compute_overall(session, cell)
-    baseline = _compute_overall(session, cell, exclude_hazards=frozenset({"heat_acute"}))
+    overall = _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")) - {"heat_acute"})
+    baseline = _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")))
     heat_status = _compute_heat_status(session, cell)
     return LookupResponse(latitude=lat, longitude=lon, display_name=display_name, h3_cell=cell,
                            hazards=results, overall=overall, baseline=baseline, heat_status=heat_status)
@@ -263,7 +264,7 @@ def lookup_score(
 )
 def _poll_context(session, cell: str) -> dict:
     return {
-        "overall": _compute_overall(session, cell),
+        "overall": _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")) - {"heat_acute"}),
         "baseline": _compute_overall(session, cell, exclude_hazards=frozenset({"heat_acute"})),
         "heat_status": _compute_heat_status(session, cell),
     }

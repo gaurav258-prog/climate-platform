@@ -82,7 +82,7 @@ def _asset_hits(asset: dict) -> tuple[bool, bool]:
     category sits in the top-two severity bands (H/VH)."""
     chronic = acute = False
     for h in asset.get("hazards") or []:
-        if h.get("bucket") not in _HIGH_BUCKETS:
+        if h.get("bucket") not in _HIGH_BUCKETS or h.get("relevant") is False:   # a scale that does not apply to buildings never makes an exposure sensitive
             continue
         hz = h.get("hazard")
         if hz in CHRONIC_HAZARDS:
