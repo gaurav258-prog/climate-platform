@@ -114,9 +114,11 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
     rd = org_readiness(session, org_id, org_type)
     ex = exceptions(session, org_id)
     top = (ex.get("exceptions") or [])[:15]
+    from services.governance.controls import register_summary
     c["controls"] = {"readiness": {"passed": rd["passed"], "total": rd["total"], "failing": [{"key": x["key"], "label": x["label"], "hint": x.get("hint")} for x in rd["checks"] if not x["ok"]]},
                      "exceptions": {"open": (ex.get("summary") or {}).get("open", len(ex.get("exceptions") or [])),
-                                    "top": [{"category": x.get("category"), "severity": x.get("severity"), "message": x.get("message"), "framework": x.get("framework")} for x in top]}}
+                                    "top": [{"category": x.get("category"), "severity": x.get("severity"), "message": x.get("message"), "framework": x.get("framework")} for x in top]},
+                     "register": register_summary(session, org_id)}
 
     # 5 decisions taken in the period (the Signal → Decide → Act spine)
     dec = session.execute(text("""SELECT d.entity_name, d.scenario, d.horizon, d.action, d.rationale, d.status, d.decided_at, d.confirmed_at, u.full_name AS decided_by
@@ -224,7 +226,14 @@ def render_pdf(c: dict, attestations: list[dict]) -> bytes:
     if f["due_next"]:
         x += [Spacer(1, 4), table([["Due", "Framework", "Period", "Set by"]] + [[d["due_date"], d["framework"], d["period_label"], d["source"]] for d in f["due_next"]], [26 * mm, 50 * mm, 40 * mm, 40 * mm])]
     ct = c["controls"]
-    x += [Paragraph("4. Controls: readiness and open exceptions", H2), Paragraph(f"Readiness {ct['readiness']['passed']}/{ct['readiness']['total']} checks; {ct['exceptions']['open']} open exceptions on live filings.", P)]
+    rg = ct.get("register") or {}; rs = rg.get("summary") or {}
+    x += [Paragraph("4. Controls: register, readiness and open exceptions", H2),
+          Paragraph(f"Reporting control register v{rg.get('register_version', '—')}: {rs.get('controls', 0)} controls, {rs.get('pass', 0)} passing, {rs.get('fail', 0)} failing, {rs.get('not_applicable', 0)} not applicable, "
+                    f"{rs.get('untested', 0)} untested, {rs.get('unowned', 0)} without an owner"
+                    f"{(' · last tested ' + rg['last_run']['at'][:16].replace('T', ' ') + ' UTC (' + rg['last_run']['trigger'] + ')') if rg.get('last_run') else ' · never tested'}. "
+                    f"Readiness {ct['readiness']['passed']}/{ct['readiness']['total']} checks; {ct['exceptions']['open']} open exceptions on live filings.", P)]
+    if rg.get("failing"):
+        x += [table([["Failing control", "Items failed", "Owner"]] + [[f"{f['id']} · {f['label']}", f["n_failed"], f["owner"] or "unowned"] for f in rg["failing"]], [110 * mm, 26 * mm, 34 * mm])]
     if ct["readiness"]["failing"]:
         x += [table([["Failing check", "What to do"]] + [[r["label"], r.get("hint") or ""] for r in ct["readiness"]["failing"]], [70 * mm, 100 * mm])]
     if ct["exceptions"]["top"]:
