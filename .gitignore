@@ -73,3 +73,4 @@ data/reference/geo/*
 !data/reference/geo/countries_world_03m_2020.geojson.gz
 data/ghcn/
 data/tide_gauges/
+data/subsidence_val/

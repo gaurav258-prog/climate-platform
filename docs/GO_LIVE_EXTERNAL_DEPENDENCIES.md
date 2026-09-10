@@ -132,3 +132,7 @@ _Last reviewed: 2026-09-03._
   closes the remainder. Each phase replaces the country-level approximation with the exact zonal SCR for those
   countries (typically LOWER — it takes within-country diversification credit). Until then the country-level figure
   is a documented, cited approximation, disclosed on the Solvency page and in the S.26.01 filing.
+
+## Copernicus EGMS (European Ground Motion Service) account
+
+Needed to download InSAR ground-motion products (the observed target that would let the subsidence channel be backtested properly; GNSS velocities only reach rank correlation 0.21). Free registration at egms.land.copernicus.eu; download is token-gated. Added 2026-09-10.
