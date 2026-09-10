@@ -118,10 +118,14 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
 
     # Water-related (10)
     EUHazard("drought", WA, "Drought", A, CAL, "now", "multi-region SPEI drought-index validation", (H.DROUGHT,)),
-    EUHazard("flood", WA, "Flood (coastal / fluvial / pluvial / groundwater)", A, SCR, "now",
-             "ERA5-Land multi-event model (16 European floods, precip/soil/runoff), coastal + fluvial live; pluvial P1, groundwater "
-             "P2. Judged on INDEPENDENT official Copernicus EMS observed flood extents with each of 6 EMS-era floods held out: pooled ROC-AUC 0.68 (5 of 6 events 0.71-0.85; Storm Alex flash flood 0.42), AP 2x base "
-             "— real but modest skill; rank correlation 0.17 is below the 0.35 minimum, so the channel is classified Screening rather than Calibrated", (H.FLOOD, H.COASTAL_FLOOD)),
+    EUHazard("flood", WA, "Flood (coastal / fluvial / pluvial / groundwater)", A, CAL, "now",
+             "River flood from the Copernicus EMS / JRC global flood hazard maps v2.1.2 (LISFLOOD-FP, 90 m, seven return periods): "
+             "share of the cell in the 1-in-100-year floodplain × the Huizinga (2017) depth–damage fraction at its mean depth, with "
+             "RP10/RP500 context (v3; the ERA5-Land multi-event model it replaces scored ρ 0.17). Validated on INDEPENDENT official "
+             "Copernicus EMS observed flood extents, six 2019–2024 events out of sample: the 100-year footprint ranks the observed "
+             "flooded share of 417 mapped nodes at ρ 0.47 (AUC 0.84 at share > 2 %); river events 0.77–0.86 AUC, the Ahr flash "
+             "flood 0.34. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
+             "the maps carry no flood defences (hazard, not residual risk).", (H.FLOOD,)),
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now", "partial coverage via soil-water; WRI Aqueduct integration planned", (H.SOIL_WATER,)),
     EUHazard("sea_level_rise", WA, "Sea-level rise", C, CAL, "now",
              "freeboard of the site against the OBSERVED 1-in-10-year extreme still-water level at the nearest sea gauge "
@@ -201,6 +205,11 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                           "refused by the validator. Same catalogue as the model inputs but the held-out seasons never enter the "
                           "predictor; a wind-intensity validation, not a damage anchor",
                 "validation": "IBTrACS temporal-holdout backtest", "out_of_sample": True},
+    "flood": {"target": "Copernicus EMS rapid-mapping observed flood extents (official), six events 2019–2024 held entirely out of sample "
+                        "(no EMS data enters the JRC maps): share of each mapped 0.1° node flooded, rank correlation 0.47 (417 nodes, "
+                        "monotone bands), AUC 0.84 at share > 2 %; per event Boris 0.78, Emilia-Romagna 0.77, Valencia 0.86, Spain "
+                        "DANA 1.00, Ahr 0.34. Footprint validation of the river map; no depth or damage anchor",
+              "validation": "Copernicus EMS flood-extent backtest (flood_jrc_ems)", "out_of_sample": True},
     "sea_level_rise": {"target": "GESLA-3 tide-gauge observed extreme still-water levels above mean sea level, held out in time "
                                  "(level from years ≤2010 vs observed maxima 2011–2020, rank correlation 0.92, 810 gauges, global) and in "
                                  "space (leave-one-gauge-out, 0.84, 1,778 gauges); the channel's score at NOAA CO-OPS gauges vs their "
