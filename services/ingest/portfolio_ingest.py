@@ -18,8 +18,6 @@ import h3
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.scoring.on_demand import process_new_cells
-
 # Mirrors bank.py ASSET_TEMPLATE_FIELDS required set — the fields a loan-tape row must carry.
 BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector"]
 _SAFEGUARDS = {"compliant", "non_compliant"}
@@ -104,8 +102,9 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
     # never fail — or roll back — a completed ingest.
     processing: dict = {}
     if cell_coords:
-        try:
-            processing = process_new_cells(cell_coords)
+        try:   # never inside the request: raster and reanalysis reads run on the jobs layer (worker or child process)
+            from services.tasks.jobs import submit
+            processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)}
         except Exception as exc:  # noqa: BLE001 — deliberately broad; dispatch is fire-and-forget
             processing = {"scoring": "deferred", "n_cells": len(cell_coords),
                           "note": f"async scoring will run when available ({type(exc).__name__})"}

@@ -45,7 +45,6 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
-from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "x.epc_rating"]
@@ -415,7 +414,8 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
                 target_type="realestate_properties", target_id=None,
                 detail={"n_rows": len(records), "filename": file.filename})
 
-    processing = process_new_cells(cell_coords)
+    from services.tasks.jobs import submit
+    processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)} if cell_coords else {}
     return {"n_uploaded": len(records), **processing}
 
 

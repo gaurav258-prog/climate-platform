@@ -31,3 +31,11 @@ def transmission_send(self, transmission_id: str) -> dict:
     if out.get("status") == "failed":
         raise self.retry(countdown=300 * (self.request.retries + 1))
     return out
+
+
+@celery_app.task(name="scoring.process_cells")
+def scoring_process_cells(cell_coords: dict) -> dict:
+    """Score newly located cells (every on-demand hazard) off the request path — the one entry every upload,
+    intake and site-add uses through the jobs layer."""
+    from services.scoring.on_demand import process_new_cells
+    return process_new_cells({k: tuple(v) for k, v in cell_coords.items()})

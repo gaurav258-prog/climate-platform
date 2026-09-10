@@ -24,8 +24,28 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 
-MODEL_VERSION = "severe-convective-era5-capeshear-v1"
+MODEL_VERSION = "severe-convective-spc-anchored-v2"
+_ANCHOR = "data/convective/convective_anchor.json"
 _NPZ = "data/convective/convective_potential.npz"
+
+
+@lru_cache(maxsize=1)
+def _anchor():
+    """potential → annual probability of ≥1 damaging report (NOAA SPC, fitted 2000–2013, held out 2014–2023)."""
+    if not os.path.exists(_ANCHOR):
+        return None
+    with open(_ANCHOR) as f:
+        a = json.load(f)
+    return a["mapping"]["potential"], a["mapping"]["annual_probability"], a["held_out"]
+
+
+def damage_anchored_score(potential: float) -> Optional[float]:
+    """score = 100 × annual probability that the ~600 km² cell sees a damaging severe-convective event."""
+    a = _anchor()
+    if a is None:
+        return None
+    import numpy as np
+    return round(float(100.0 * np.interp(potential, a[0], a[1])), 2)
 
 
 @lru_cache(maxsize=1)
@@ -52,20 +72,27 @@ def score_severe_convective_point(lat: float, lon: float, scenario: str = "basel
     cell = h3.latlng_to_cell(lat, lon, 8)
     with get_session() as s:
         ex = s.execute(text("""
-            SELECT CAST(risk_score AS FLOAT) rs, risk_bucket FROM canonical_scores
+            SELECT CAST(risk_score AS FLOAT) rs, risk_bucket, model_version FROM canonical_scores
             WHERE hazard_type='severe_convective' AND h3_cell=:c AND scenario=:sc AND time_horizon=:h AND valid_to IS NULL
         """), {"c": cell, "sc": scenario, "h": horizon}).mappings().first()
-        if ex:
+        if ex and ex["model_version"] == MODEL_VERSION:
             return {"status": "cached_hit", "h3_cell": cell, "risk_score": ex["rs"], "risk_bucket": ex["risk_bucket"]}
 
     v = _potential(lat, lon)
     if v is None:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "Convective-potential data is not available for this location."}
-    risk = round(v, 2)
+    risk = damage_anchored_score(v)
+    if risk is None:
+        return {"status": "insufficient_data", "h3_cell": cell, "reason": "The damage anchor (data/convective/convective_anchor.json) is missing."}
+    if ex:   # an older-version row is retired, never overwritten: the lane is append-only
+        with get_session() as s:
+            s.execute(text("""UPDATE canonical_scores SET valid_to = now() WHERE hazard_type='severe_convective' AND h3_cell=:c AND scenario=:sc
+                              AND time_horizon=:h AND valid_to IS NULL AND model_version <> :mv"""), {"c": cell, "sc": scenario, "h": horizon, "mv": MODEL_VERSION})
     now = datetime.now(timezone.utc)
-    shap = {"convective_potential": risk, "on_demand": True, "tier": "screening",
-            "method": "ERA5 CAPE × 0–6 km shear climatology (Taszarek 2021 proxy); severe-convective environment (tornado/hail/wind), not a tornado-frequency figure"}
+    shap = {"convective_potential": round(v, 2), "annual_probability_damaging_event": round(risk / 100.0, 3), "on_demand": True, "tier": "calibrated_frequency",
+            "held_out": (_anchor() or (None, None, {}))[2],
+            "method": "ERA5 CAPE × 0–6 km shear potential (Taszarek 2021) anchored to the annual probability of a damaging severe-convective report (NOAA SPC hail ≥1 in / severe wind / tornado; fitted 2000–2013, held out 2014–2023); CONUS fit transferred elsewhere through the same environment field"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

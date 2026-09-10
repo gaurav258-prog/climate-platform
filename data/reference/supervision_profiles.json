@@ -380,7 +380,126 @@
           "direction": "higher_is_better",
           "watch_below": 90
         }
-      ]
+      ],
+      "intake": {
+        "_about": "Tier-2 intake for an insurance supervisor: the climate-exposure template the undertaking submitted and the supervisor's own policy-level data. The cell and row fields carry the same canonical ids as every other sector (the lens and the plausibility band are sector-agnostic); the labels are the insurer's own words. Map your file's columns to the fields below; the mapping is validated before saving.",
+        "submission": {
+          "framework": "insurer_climate",
+          "template": "exposure_by_region",
+          "label": "Climate exposure template — sum insured by geography and occupancy, of which in physical-risk zones",
+          "cell_fields": [
+            {
+              "id": "geography",
+              "label": "Geography (risk country / region)",
+              "required": true
+            },
+            {
+              "id": "sector",
+              "label": "Occupancy / line of business",
+              "required": true
+            },
+            {
+              "id": "gross_carrying_amount_eur",
+              "label": "Sum insured (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_physical_eur",
+              "label": "of which in physical-risk zones (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_acute_eur",
+              "label": "of which acute perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_chronic_eur",
+              "label": "of which chronic perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "maturity_bucket",
+              "label": "Policy term bucket",
+              "required": false
+            }
+          ],
+          "basis_fields": [
+            {
+              "id": "scenario",
+              "label": "Scenario stated in the ORSA / narrative"
+            },
+            {
+              "id": "horizon",
+              "label": "Horizon stated in the ORSA / narrative"
+            },
+            {
+              "id": "method_note",
+              "label": "Method note (from the qualitative disclosure)"
+            }
+          ]
+        },
+        "granular": {
+          "source": "sov",
+          "label": "Statement of values (policy / location level, risk region)",
+          "row_fields": [
+            {
+              "id": "instrument_id",
+              "label": "Policy / location id",
+              "required": true
+            },
+            {
+              "id": "counterparty_name",
+              "label": "Insured name",
+              "required": false
+            },
+            {
+              "id": "nace_section",
+              "label": "Occupancy / line of business",
+              "required": true
+            },
+            {
+              "id": "outstanding_eur",
+              "label": "Sum insured (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "maturity_date",
+              "label": "Policy expiry",
+              "required": false,
+              "type": "date"
+            },
+            {
+              "id": "collateral_country",
+              "label": "Risk country (ISO2)",
+              "required": true
+            },
+            {
+              "id": "collateral_nuts3",
+              "label": "Risk NUTS-3 code",
+              "required": false
+            },
+            {
+              "id": "collateral_postcode",
+              "label": "Risk postcode / CRESTA",
+              "required": false
+            },
+            {
+              "id": "collateral_value_eur",
+              "label": "Total insured value (€)",
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "location_rule": "Risk locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
+          "precision_label": "Region-resolved (NUTS-3)"
+        }
+      }
     },
     "asset_manager": {
       "label": "Asset managers / funds",

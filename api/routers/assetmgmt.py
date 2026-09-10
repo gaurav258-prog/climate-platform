@@ -44,7 +44,6 @@ from services.portfolio_engine import (
     get_entity_with_risk,
 )
 from services.scoring.combined_var import combined_climate_var
-from services.scoring.on_demand import process_new_cells
 from services.scoring.portfolio_concentration import portfolio_concentration
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -390,7 +389,8 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
                 target_type="assetmgmt_holdings", target_id=None,
                 detail={"n_rows": len(records), "filename": file.filename})
 
-    processing = process_new_cells(cell_coords)
+    from services.tasks.jobs import submit
+    processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)} if cell_coords else {}
     return {"n_uploaded": len(records), **processing}
 
 

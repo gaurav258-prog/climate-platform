@@ -134,8 +134,8 @@ def seed_hq_footprint(
         # Score this cell against the golden source exactly like an any-address
         # lookup — sync hazards land immediately, gridded ones queue (Celery).
         try:
-            from services.scoring.on_demand import process_new_cells
-            scoring = process_new_cells({cell: (lat, lon)})
+            from services.tasks.jobs import submit
+            scoring = {"scoring": "queued", **submit("scoring.process_cells", {cell: (lat, lon)})}
         except Exception as exc:
             logger.warning("on-demand scoring for %s cell %s failed: %s", rec.lei, cell, exc)
 
