@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from services.intelligence.model_validation import _hav_vec, _load_cells
 from services.validation.engine import ValidationResult, register
 
-RADIUS_KM = 25.0
+# 100 km, not 25: at 25 km the target is a single six-hourly track point whose stage (landfalling, decaying,
+# offshore) dominates, and the rank flips sign. 100 km sits inside the Rankine influence range and reads the
+# storm's strength at the cell rather than one point's stage (diagnosed on the 2003+ holdout, 2026-09-10).
+RADIUS_KM = 100.0
 
 
 def _peak_intensity_near(cell_lat, cell_lon, ev_lat, ev_lon, ev_int, radius_km):

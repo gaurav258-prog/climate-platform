@@ -96,8 +96,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state", (H.PERMAFROST,)),
 
     # Wind-related (4)
-    EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, SCR, "now",
-             "physical Rankine-vortex wind field from IBTrACS best-tracks. Consistency check only (near-field rank correlation 0.47): the score is derived from the same IBTrACS catalogue it is checked against, so this is not an independent out-of-sample test; validation against observed wind damage or insured loss is pending.", (H.STORM,)),
+    EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now",
+             "1-in-10-year Rankine-vortex wind at the cell over 1981+ annual maxima from IBTrACS best-tracks (v3; the earlier "
+             "worst-on-record field could not be held out in time). Validated out of time: the score rebuilt from seasons before "
+             "a holdout window ranks the observed peak intensity of the later storms with rank correlation 0.78–0.88 across five "
+             "windows of ≥10 seasons. A wind-intensity validation, not a damage anchor: observed wind damage or insured loss is "
+             "still pending.", (H.STORM,)),
     EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now",
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
@@ -183,6 +187,12 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                   "validation": "Cocoa production backtest", "out_of_sample": True},
     "drought": {"target": "observed crop-production shock, FAO (independent of ERA5 SPEI)",
                 "validation": "Coffee-region climate backtest", "out_of_sample": True},
+    "cyclone": {"target": "NOAA IBTrACS observed peak track intensity (max wind, kt) within 100 km, storm seasons held out in time: the "
+                          "predictor is the 1-in-10-year return-level wind rebuilt from seasons BEFORE each window only. Rank correlation "
+                          "0.78 (2003+), 0.79 (2010+), 0.86 (2013+), 0.87 (2016+), 0.88 (2017+); windows shorter than the 10-year return period are "
+                          "refused by the validator. Same catalogue as the model inputs but the held-out seasons never enter the "
+                          "predictor; a wind-intensity validation, not a damage anchor",
+                "validation": "IBTrACS temporal-holdout backtest", "out_of_sample": True},
     "tornado": {"target": "NOAA SPC observed tornadoes (independent of the ERA5 CAPE×shear field)",
                 "validation": "NOAA SPC tornado backtest", "out_of_sample": True},
     "wildfire": {"target": "official EFFIS burnt-area record 2022-2024 (41k JRC-mapped burn scars, Europe), held out in time: "

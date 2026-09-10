@@ -55,6 +55,46 @@ crossing the island) — falls back to a category-scaled default (`ml/scoring/st
 anchor points (tropical storm force ~34kt → score 15; Category 5 ~137kt+ → score 95–100). Named
 thresholds, not a fitted curve.
 
+### 3.1 From worst-on-record to a return level (v3, 2026-09-10)
+
+Versions 1 and 2 scored a cell by the strongest Rankine wind any recorded track ever produced there. That
+field cannot be held out in time: the score rebuilt from seasons before a holdout window ranked the observed
+peak intensity of the later storms with rank correlation **−0.66 / −0.27** (v2, two splits), because a single
+outlier storm sets the score for a cell, and where the next outlier goes is not where the last one went.
+
+`ml/scoring/storm_return_level.py` (`storm-return-level-ibtracs-v3`) scores the **1-in-10-year Rankine wind
+at the cell**: the 90th percentile of per-season maximum winds over the 1981+ record (46 seasons, all 7
+IBTrACS basins, 154,568 track points ≥34 kt). No level is claimed under ten seasons of record. The 0–100
+conversion is unchanged (§3). Miami 30 (57 kt), Manila 41, Lisbon 8. In-sample severity on the re-scored field: rank correlation 0.81
+(`storm_severity.py`, n = 56,167 cells a storm reached).
+
+**Validation, held out in time** (`services/validation/validators/storm_holdout.py`, `storm_oos`): for a
+6,000-cell sample of the cells a held-out storm reached, the return level is rebuilt from seasons before the
+window only and ranked against the observed peak track intensity of storms in the window within 100 km:
+
+| Held-out seasons | Rank correlation |
+|---|---|
+| 2003+ (24) | 0.78 |
+| 2010+ (17) | 0.79 |
+| 2013+ (14) | 0.86 |
+| 2016+ (11) | 0.87 |
+| 2017+ (10) | 0.88 |
+| 2019+ (8) | refused: shorter than the 10-year return period |
+
+Two findings from the diagnosis, both now enforced in the validators rather than tuned around:
+
+- **Target radius 100 km, not 25 km.** At 25 km the target is a single six-hourly track point whose stage
+  (landfalling, decaying, offshore) dominates, and the same predictor scored −0.18. 100 km sits inside the
+  Rankine influence range and reads the storm's strength at the cell. The in-sample severity test
+  (`storm_severity.py`) uses the same radius.
+- **The held-out window must be at least the return period.** Over 8 seasons the observed maximum is a
+  1-in-8 event dominated by where the last few storms went (2019+ split: −0.23); the validator records
+  INSUFFICIENT with the reason instead of a number.
+
+The catalogue is the same source as the model inputs, but the held-out seasons never enter the predictor.
+This is a wind-intensity validation, not a damage anchor: observed wind damage or insured loss is still the
+open item before the channel can carry a loss figure.
+
 ## 4. Backtest target: Hurricane Maria, September 2017 (Puerto Rico) — IBTrACS SID `2017260N12310`
 
 Chosen for the same dual banking+agriculture reason Fuego was chosen for volcanic:
@@ -103,6 +143,8 @@ over.** Puerto Rico's plot stays `indicative`, not added to `BACKTESTED`.
 
 - **Historical-only data** — no live/near-real-time storm feed in this no-auth style, same class
   of gap as volcanic's GVP-only catalog.
+- **Wind intensity validated, damage not** (§3.1) — the return level is checked against observed
+  peak track wind, not against loss; a € figure still needs a damage anchor.
 - **Single decay exponent** (`x=0.5`) — a literature-typical value, not fitted to Maria.
 - **Rmax fallback** — category-scaled default when IBTrACS's real RMW is missing for a track point.
 - **Shared-commodity limitation** (§4.2) — the same disclosed gap Guatemala's volcanic coffee
