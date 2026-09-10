@@ -184,6 +184,11 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
     batch = str(uuid.uuid4())
     session.execute(text("""DELETE FROM portfolio_entities WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow'
                             AND subject_org_id = CAST(:s AS uuid)"""), {"r": regulator_org_id, "s": subject_org_id})
+    # the shadow book takes the subject's own vertical: the lens then rebuilds an insurer's template on the insurance
+    # engine and a bank's on the banking engine — the same engine the entity itself would run
+    subj_type = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:s AS uuid)"), {"s": subject_org_id}).scalar()
+    vertical = {"bank": "banking", "insurer": "insurance", "asset_manager": "assetmgmt", "reit": "realestate"}.get(subj_type, "banking")
+    ent_type = {"banking": "loan", "insurance": "property", "assetmgmt": "holding", "realestate": "property"}[vertical]
     n_loc = {"nuts3": 0, "postcode→nuts3": 0, "unlocated": 0}
     cell_coords: dict[str, tuple[float, float]] = {}
     value_located = value_total = 0.0
@@ -201,14 +206,15 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
         session.execute(text("""
             INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, sector, nace_code, latitude, longitude,
                                             h3_cell, country, region, primary_value_eur, source, subject_org_id, location_precision, source_ref, external_ref)
-            VALUES (CAST(:id AS uuid), CAST(:o AS uuid), 'banking', :name, 'loan', :sector, :nace, :lat, :lon, :cell, :country, :region,
+            VALUES (CAST(:id AS uuid), CAST(:o AS uuid), :vert, :name, :etype, :sector, :nace, :lat, :lon, :cell, :country, :region,
                     :val, 'supervisor_shadow', CAST(:subj AS uuid), :prec, :ref, :xref)
-        """), {"id": eid, "o": regulator_org_id, "name": (r.get("counterparty_name") or r.get("instrument_id") or "instrument")[:200],
+        """), {"id": eid, "o": regulator_org_id, "vert": vertical, "etype": ent_type, "name": (r.get("counterparty_name") or r.get("instrument_id") or "instrument")[:200],
                "sector": nace[:100] or None, "nace": nace[:10] or None, "lat": lat, "lon": lon, "cell": cell,
                "country": (r.get("collateral_country") or "")[:2].upper() or None,
                "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id, "prec": prec, "ref": batch,
                "xref": (str(r.get("instrument_id"))[:120] if r.get("instrument_id") else None)})
-        session.execute(text("""INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, residual_maturity_years, data_source)
+        if vertical == "banking":
+          session.execute(text("""INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, residual_maturity_years, data_source)
                                 VALUES (CAST(:id AS uuid), :bal, :rm, :src)"""),
                         {"id": eid, "bal": val, "rm": _residual_years(r.get("maturity_date")), "src": f"supervisor_shadow:{batch}"})
     session.flush()

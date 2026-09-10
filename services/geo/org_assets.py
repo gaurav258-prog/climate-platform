@@ -45,8 +45,14 @@ _MEMO_MAX = 512
 
 
 def _data_version(session, org_id: str) -> tuple:
+    """The newest current score on any of the org's cells, plus the org's book rows — an index probe per cell, and
+    unaffected by scoring elsewhere on the platform."""
     return tuple(session.execute(text("""
-        SELECT (SELECT max(scored_at) FROM canonical_scores WHERE valid_to IS NULL),
+        SELECT (SELECT max(cs.scored_at) FROM (
+                    SELECT h3_cell FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND h3_cell IS NOT NULL
+                    UNION SELECT h3_cell FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)
+                    UNION SELECT h3_cell FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid)) c
+                JOIN LATERAL (SELECT scored_at FROM canonical_scores cs WHERE cs.h3_cell = c.h3_cell AND cs.valid_to IS NULL ORDER BY scored_at DESC LIMIT 1) cs ON TRUE),
                (SELECT count(*) || ':' || COALESCE(max(updated_at)::text, '') FROM portfolio_entities WHERE org_id = CAST(:o AS uuid)),
                (SELECT count(*) || ':' || COALESCE(max(created_at)::text, '') FROM sc_company_sites WHERE org_id = CAST(:o AS uuid)),
                (SELECT count(*) || ':' || COALESCE(max(created_at)::text, '') FROM sc_sourcing_plots WHERE org_id = CAST(:o AS uuid))
@@ -76,7 +82,12 @@ def org_asset_points(session, org_id: str, scenario: str = "baseline", horizon: 
 def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source: str, subject_org_id: Optional[str]) -> list[dict]:
     from services.portfolio_engine import fetch_entities_with_risk
     out: list[dict] = []
+    present = {r[0] for r in session.execute(text("""SELECT DISTINCT vertical FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND source = :src
+                                                    AND (CAST(:subj AS uuid) IS NULL OR subject_org_id = CAST(:subj AS uuid))"""),
+                                             {"o": org_id, "src": source, "subj": subject_org_id}).fetchall()}
     for vertical, label in _ENGINE_VERTICALS.items():
+        if vertical not in present:      # an empty vertical is not queried: the engine run is per book, not per catalogue
+            continue
         for r in fetch_entities_with_risk(session, org_id, vertical, scenario, horizon, source=source, subject_org_id=subject_org_id):
             out.append({"id": f"{vertical}:{r['entity_id']}", "name": r.get("entity_name") or r.get("name") or label, "kind": label,
                         "lat": (float(r["lat"]) if r.get("lat") is not None else None),
