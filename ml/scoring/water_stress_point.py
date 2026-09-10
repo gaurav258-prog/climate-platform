@@ -49,7 +49,7 @@ def _sm_mean(lat: float, lon: float) -> float | None:
     with get_session() as s:
         rows = s.execute(text("""
             SELECT lat, lon, avg(sm_mean) AS sm FROM soil_moisture_baseline
-            WHERE lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+            WHERE lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
             GROUP BY lat, lon
         """), {"a": lat - BOX, "b": lat + BOX, "c": lon - BOX, "d": lon + BOX}).mappings().all()
     if not rows:

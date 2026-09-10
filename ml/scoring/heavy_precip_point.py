@@ -32,7 +32,7 @@ def _wettest_month(lat: float, lon: float) -> dict | None:
         rows = s.execute(text("""
             SELECT lat, lon, month, CAST(precip_mean_mm AS FLOAT) AS pm, CAST(precip_std_mm AS FLOAT) AS ps
             FROM   climatology_baseline
-            WHERE  lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+            WHERE  lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
         """), {"a": lat - _BOX, "b": lat + _BOX, "c": lon - _BOX, "d": lon + _BOX}).mappings().all()
     if not rows:
         return None

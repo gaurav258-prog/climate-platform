@@ -29,7 +29,7 @@ INTENSITY, CROP, SUSCEPTIBILITY, VARIABILITY, NOWCAST_KIND = "intensity", "crop"
 SCALE: dict[str, tuple[str, str]] = {
     # intensity / likelihood scales — may headline the asset class they apply to
     "flood": (INTENSITY, "inundation likelihood (multi-event ensemble)"),
-    "coastal_flood": (INTENSITY, "surge and sea-level exposure"),
+    "coastal_flood": (SUSCEPTIBILITY, "low elevation × distance to coast × sea-level rise: an exposure state until a local surge return level (tide gauges) anchors it to a flooding likelihood"),
     "wildfire": (INTENSITY, "fire-weather climatology × burnable fraction × burn history (EFFIS-validated)"),
     "drought": (INTENSITY, "SPEI seasonal climatology (meteorological drought severity)"),
     "storm": (INTENSITY, "tropical-cyclone wind field (IBTrACS Rankine vortex)"),

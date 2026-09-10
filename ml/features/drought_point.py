@@ -188,8 +188,8 @@ def _nearest_climatology(lat: float, lon: float, month: int) -> dict | None:
             SELECT h3_cell, precip_mean_mm, precip_std_mm, lat, lon
             FROM climatology_baseline
             WHERE month = :m
-              AND lat BETWEEN :lat_min AND :lat_max
-              AND lon BETWEEN :lon_min AND :lon_max
+              AND lat BETWEEN CAST(:lat_min AS numeric) AND CAST(:lat_max AS numeric)
+              AND lon BETWEEN CAST(:lon_min AS numeric) AND CAST(:lon_max AS numeric)
         """), {
             "m": month,
             "lat_min": lat - CLIMATOLOGY_BOX_DEG, "lat_max": lat + CLIMATOLOGY_BOX_DEG,

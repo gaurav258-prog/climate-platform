@@ -55,7 +55,7 @@ def _score_cards(session) -> list[dict]:
     cov = {i["hazard"]: i for i in validation_coverage(session)["items"]}
     by_hazard = {}
     for v in session.execute(text("""SELECT DISTINCT ON (hazard_type) hazard_type, kind, method, target_source, n_samples, skill_grade, passed_gate, metrics, created_at
-                                     FROM validation_run ORDER BY hazard_type, created_at DESC""")).mappings().all():
+                                     FROM validation_run ORDER BY hazard_type, (COALESCE(metrics->>'applicable', 'true') = 'true') DESC, created_at DESC""")).mappings().all():
         by_hazard[v["hazard_type"]] = dict(v)
     feeds_cache: dict[str, list] = {}
     out = []

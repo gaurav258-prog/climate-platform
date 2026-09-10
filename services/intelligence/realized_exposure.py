@@ -43,7 +43,7 @@ def events_near_point(session: Session, lat: float, lon: float,
     storm_pts = session.execute(text("""
         SELECT storm_id, storm_name, season_year, sshs_category, CAST(max_wind_kt AS FLOAT) AS wind,
                CAST(lat AS FLOAT) AS lat, CAST(lon AS FLOAT) AS lon
-        FROM storm_events WHERE lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+        FROM storm_events WHERE lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
     """), {"a": lat - m, "b": lat + m, "c": lon - m, "d": lon + m}).mappings().all()
     storms: dict = {}
     for pt in storm_pts:
@@ -64,7 +64,7 @@ def events_near_point(session: Session, lat: float, lon: float,
         SELECT CAST(magnitude AS FLOAT) AS mag, region_name, origin_time,
                CAST(epicentre_lat AS FLOAT) AS lat, CAST(epicentre_lon AS FLOAT) AS lon
         FROM seismic_events WHERE CAST(magnitude AS FLOAT) >= :m
-          AND epicentre_lat BETWEEN :a AND :b AND epicentre_lon BETWEEN :c AND :d
+          AND epicentre_lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND epicentre_lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
     """), {"m": min_magnitude, "a": lat - m, "b": lat + m, "c": lon - m, "d": lon + m}).mappings().all()
     quake_events = []
     for q in quakes:
@@ -117,7 +117,7 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
         SELECT storm_id, storm_name, season_year, sshs_category, CAST(max_wind_kt AS FLOAT) AS wind,
                CAST(lat AS FLOAT) AS lat, CAST(lon AS FLOAT) AS lon
         FROM storm_events
-        WHERE lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+        WHERE lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
     """), {"a": la0, "b": la1, "c": lo0, "d": lo1}).mappings().all()
     storms: dict = {}
     for pt in storm_pts:
@@ -151,7 +151,7 @@ def located_realized_exposure(session: Session, org_id: str, vertical: str,
                CAST(epicentre_lat AS FLOAT) AS lat, CAST(epicentre_lon AS FLOAT) AS lon
         FROM seismic_events
         WHERE CAST(magnitude AS FLOAT) >= :m
-          AND epicentre_lat BETWEEN :a AND :b AND epicentre_lon BETWEEN :c AND :d
+          AND epicentre_lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND epicentre_lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
     """), {"m": min_magnitude, "a": la0, "b": la1, "c": lo0, "d": lo1}).mappings().all()
     quake_events = []
     for q in quakes:

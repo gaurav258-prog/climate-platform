@@ -79,8 +79,8 @@ H = HazardType
 EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Temperature-related (7)
     EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agricultural heat channel (West Africa cocoa, rank correlation 0.60)", (H.HEAT_ACUTE,)),
-    EUHazard("heat_stress", T, "Heat stress", C, SCR, "now", "chronic-heat exposure channel", (H.HEAT_CHRONIC,)),
-    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, SCR, "now", "cold wave: NASA POWER daily minimum temperature 1991–2020 vs building thresholds; frost: global crop-frost baseline", (H.COLD_WAVE, H.FROST)),
+    EUHazard("heat_stress", T, "Heat stress", C, CAL, "now", "observed days ≥ 30 °C from 30 years of daily maxima (NASA POWER); station-validated", (H.HEAT_CHRONIC,)),
+    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, CAL, "now", "cold wave: 1-in-10 coldest night vs building thresholds (NASA POWER daily minima), station-validated; frost: global crop-frost baseline (crop scale, screening)", (H.COLD_WAVE, H.FROST)),
     EUHazard("wildfire", T, "Wildfire", A, CAL, "now",
              "Wildfire hazard climatology: Copernicus CEMS/ECMWF Fire Weather "
              "Index extreme-danger days 2006-2020 × burnable-land fraction + C3S ESA-CCI observed burn history 2001-2019, "
@@ -124,8 +124,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "INDEPENDENT observed NOAA CO-OPS tide-gauge extremes (169 continental-US gauges, 2014-2023): "
              "the generic 2.0 m surge allowance sits at the 80th percentile of observed 10-yr maxima (20% of gauges saw more), "
              "and the score has no site surge/tide term (rank correlation −0.32 against observed extremes). Classified Screening; a site-specific extreme-water-level term is the disclosed gap", (H.COASTAL_FLOOD,)),
-    EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, SCR, "now",
-             "wettest-month precip climatology (1991–2020) + CC warming", (H.HEAVY_PRECIP,)),
+    EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, CAL, "now",
+             "wettest-month precip climatology (1991–2020) + CC warming; station-validated against observed 1-day maxima", (H.HEAVY_PRECIP,)),
     EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",
              "low-elevation-coastal-zone × AR6 SLR proxy (derived from coastal elevation and distance-to-coast data)", (H.SALINE_INTRUSION,)),
     EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, SCR, "now",
@@ -190,6 +190,17 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                            "the 2001-2019 record and is therefore not fully independent. Rank correlation 0.37 narrowly exceeds "
                            "the 0.35 minimum; Europe only",
                  "validation": "EFFIS burnt-area backtest", "out_of_sample": True},
+    "heat_stress": {"target": "NOAA GHCN-Daily station observations 1991–2020: days ≥ 30 °C per year at 248 stations (one per 1° box, Europe + "
+                              "contiguous US); stations are independent of the MERRA-2 daily maxima the channel reads. Rank correlation 0.92 "
+                              "(EU 0.85, US 0.91), strong. A rank validation of the physical quantity, not a damage anchor",
+                    "validation": "GHCN-Daily station backtest", "out_of_sample": True},
+    "cold_wave_frost": {"target": "NOAA GHCN-Daily station observations 1991–2020: the 1-in-10 coldest night at 248 stations, independent of the "
+                                  "MERRA-2 minima the cold-wave channel reads. Rank correlation 0.89 (EU 0.89, US 0.86), strong. Applies to the "
+                                  "cold-wave channel; the frost channel remains a crop scale and is not headline-eligible for buildings",
+                        "validation": "GHCN-Daily station backtest", "out_of_sample": True},
+    "heavy_precipitation": {"target": "NOAA GHCN-Daily station observations 1991–2020: mean annual maximum 1-day precipitation at 248 stations, "
+                                      "independent of the ERA5 monthly climatology the channel reads. Rank correlation 0.69 (US 0.70 strong, EU 0.42 fair)",
+                            "validation": "GHCN-Daily station backtest", "out_of_sample": True},
     "landslide": {"target": "NASA Global Landslide Catalog (independent event inventory; physical susceptibility "
                             "inputs). The LHASA model used this catalogue in its development, so this is not a fresh held-out test",
                   "validation": "Global Landslide Catalog backtest", "out_of_sample": False},

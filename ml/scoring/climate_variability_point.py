@@ -76,7 +76,7 @@ def _cell_months(lat: float, lon: float) -> Optional[list[dict]]:
             SELECT lat, lon, month, CAST(temp_mean_k AS FLOAT) tm, CAST(temp_std_k AS FLOAT) ts,
                    CAST(precip_mean_mm AS FLOAT) pm, CAST(precip_std_mm AS FLOAT) ps
             FROM climatology_baseline
-            WHERE lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+            WHERE lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
         """), {"a": lat - _BOX, "b": lat + _BOX, "c": lon - _BOX, "d": lon + _BOX}).mappings().all()
     if not rows:
         return None
