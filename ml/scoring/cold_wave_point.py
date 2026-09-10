@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
-from functools import lru_cache
 from typing import Optional
 
 import h3
@@ -29,8 +28,6 @@ from core.db.session import get_session
 from core.types import score_to_bucket
 
 MODEL_VERSION = "cold-wave-power-tmin-v1"
-POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-BASELINE = ("19910101", "20201231")
 FREEZE_ONSET_C, FREEZE_SEVERE_C = -6.7, -30.0
 DESIGN_DEFICIT_ONSET_C, DESIGN_DEFICIT_SEVERE_C = 4.0, 12.0
 
@@ -39,29 +36,15 @@ def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
-@lru_cache(maxsize=4096)
 def _daily_tmin(lat_r: float, lon_r: float) -> Optional[dict]:
-    """{'annual_min': [...30], 'design_c': float, 'n_days': int} from NASA POWER, or None."""
-    import requests
-    try:
-        r = requests.get(POWER_URL, params={"parameters": "T2M_MIN", "community": "RE", "longitude": lon_r, "latitude": lat_r,
-                                            "start": BASELINE[0], "end": BASELINE[1], "format": "JSON"}, timeout=60)
-        if r.status_code != 200:
-            return None
-        series = r.json()["properties"]["parameter"]["T2M_MIN"]
-    except Exception:
+    """{'annual_min': [...], 'design_c': float, 'n_days': int, 'n_years': int} from NASA POWER, or None."""
+    from ml.scoring.power_daily import daily_by_year
+    by_year = daily_by_year(lat_r, lon_r, "T2M_MIN")
+    if not by_year:
         return None
-    by_year: dict[str, list[float]] = {}
-    for day, v in series.items():
-        if v is None or v <= -900:
-            continue
-        by_year.setdefault(day[:4], []).append(float(v))
-    years = [y for y, vals in by_year.items() if len(vals) >= 300]
-    if len(years) < 20:
-        return None
-    all_days = sorted(v for y in years for v in by_year[y])
-    annual_min = sorted(min(by_year[y]) for y in years)
-    return {"annual_min": annual_min, "design_c": all_days[max(0, int(0.004 * len(all_days)) - 1)], "n_days": len(all_days), "n_years": len(years)}
+    all_days = sorted(v for vals in by_year.values() for v in vals)
+    annual_min = sorted(min(vals) for vals in by_year.values())
+    return {"annual_min": annual_min, "design_c": all_days[max(0, int(0.004 * len(all_days)) - 1)], "n_days": len(all_days), "n_years": len(by_year)}
 
 
 def cold_wave_score(annual_min: list[float], design_c: float, warming_c: float = 0.0) -> tuple[float, dict]:

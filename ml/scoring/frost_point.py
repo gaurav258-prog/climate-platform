@@ -30,7 +30,7 @@ def _annual_coldest_night(lat: float, lon: float) -> float | None:
         rows = s.execute(text("""
             SELECT lat, lon, MIN(coldest_night_c) AS coldest
             FROM   frost_baseline
-            WHERE  lat BETWEEN :a AND :b AND lon BETWEEN :c AND :d
+            WHERE  lat BETWEEN CAST(:a AS numeric) AND CAST(:b AS numeric) AND lon BETWEEN CAST(:c AS numeric) AND CAST(:d AS numeric)
             GROUP  BY lat, lon
         """), {"a": lat - _BOX, "b": lat + _BOX, "c": lon - _BOX, "d": lon + _BOX}).mappings().all()
     if not rows:

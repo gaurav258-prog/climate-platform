@@ -44,9 +44,9 @@ from ml.scoring.seismic_physics import ipe_mmi, mmi_to_risk
 from ml.scoring.storm_physics import default_rmax_km, track_point_score
 
 MODEL_VERSION = "seismic-gmpe-ipe-v1"
-STORM_MODEL_VERSION = "storm-rankine-vortex-ibtracs-v1"
+STORM_MODEL_VERSION = "storm-rankine-vortex-ibtracs-45yr-v2"   # v2: the full IBTrACS record (1981–), not the 10-season window
 INFLUENCE_KM = 400.0  # same radius as score_seismic_event.py — beyond this MMI is negligible
-STORM_BBOX_DEG = 10.0  # ~1000km prefilter — generous, real tropical-cyclone wind fields extend far
+STORM_BBOX_DEG = 5.0   # ~500 km prefilter: beyond INFLUENCE_KM (400 km) the Rankine wind is below tropical-storm force
 STORM_MIN_SCORE = 15.0  # below this (~tropical-storm-force wind), treat as negligible, not "hazard felt"
 
 
@@ -131,6 +131,29 @@ def score_seismic_point(lat: float, lon: float) -> dict:
             "risk_score": round(risk, 2), "risk_bucket": score_to_bucket(risk).value}
 
 
+def storm_score_at(lat: float, lon: float, max_season: int | None = None) -> tuple[float, tuple | None]:
+    """The storm score at a point without persisting it: the strongest Modified-Rankine wind any track observation on
+    record produced here. `max_season` limits the record (used by the temporal-holdout validator to score from
+    seasons ≤ N and test against what came after). Returns (score, (event, distance_km, rmax_km) | None)."""
+    with get_session() as s:
+        events = s.execute(text("""
+            SELECT storm_id, storm_name, CAST(lat AS FLOAT) lat, CAST(lon AS FLOAT) lon,
+                   CAST(max_wind_kt AS FLOAT) wind_kt, CAST(rmw_km AS FLOAT) rmw_km,
+                   sshs_category, observation_time
+            FROM storm_events
+            WHERE lat BETWEEN CAST(:lat_lo AS numeric) AND CAST(:lat_hi AS numeric) AND lon BETWEEN CAST(:lon_lo AS numeric) AND CAST(:lon_hi AS numeric)
+              AND max_wind_kt IS NOT NULL AND (CAST(:ms AS integer) IS NULL OR season_year <= CAST(:ms AS integer))
+        """), {"lat_lo": lat - STORM_BBOX_DEG, "lat_hi": lat + STORM_BBOX_DEG, "lon_lo": lon - STORM_BBOX_DEG, "lon_hi": lon + STORM_BBOX_DEG, "ms": max_season}).mappings().all()
+    best_score, best = 0.0, None
+    for e in events:
+        d = haversine(lat, lon, e["lat"], e["lon"])
+        rmax = e["rmw_km"] if e["rmw_km"] else default_rmax_km(e["sshs_category"])
+        score = float(track_point_score(d, e["wind_kt"], rmax))
+        if score > best_score:
+            best_score, best = score, (e, d, rmax)
+    return best_score, best
+
+
 def score_storm_point(lat: float, lon: float) -> dict:
     """Score tropical-cyclone hazard at an arbitrary point, writing+caching into
     canonical_scores. Same "max over nearby events" shape as score_seismic_point,
@@ -146,40 +169,26 @@ def score_storm_point(lat: float, lon: float) -> dict:
 
     with get_session() as s:
         existing = s.execute(text("""
-            SELECT CAST(risk_score AS FLOAT) risk_score, risk_bucket
+            SELECT CAST(risk_score AS FLOAT) risk_score, risk_bucket, model_version
             FROM canonical_scores
             WHERE hazard_type='storm' AND h3_cell=:c AND scenario='baseline'
               AND time_horizon='current' AND valid_to IS NULL
         """), {"c": cell}).mappings().first()
-        if existing:
+        if existing and existing["model_version"] == STORM_MODEL_VERSION:
             return {"status": "cached_hit", "h3_cell": cell,
                     "risk_score": existing["risk_score"], "risk_bucket": existing["risk_bucket"]}
 
-        events = s.execute(text("""
-            SELECT storm_id, storm_name, CAST(lat AS FLOAT) lat, CAST(lon AS FLOAT) lon,
-                   CAST(max_wind_kt AS FLOAT) wind_kt, CAST(rmw_km AS FLOAT) rmw_km,
-                   sshs_category, observation_time
-            FROM storm_events
-            WHERE lat BETWEEN :lat_lo AND :lat_hi AND lon BETWEEN :lon_lo AND :lon_hi
-              AND max_wind_kt IS NOT NULL
-        """), {
-            "lat_lo": lat - STORM_BBOX_DEG, "lat_hi": lat + STORM_BBOX_DEG,
-            "lon_lo": lon - STORM_BBOX_DEG, "lon_hi": lon + STORM_BBOX_DEG,
-        }).mappings().all()
-
-    best_score, best = 0.0, None
-    for e in events:
-        d = haversine(lat, lon, e["lat"], e["lon"])
-        rmax = e["rmw_km"] if e["rmw_km"] else default_rmax_km(e["sshs_category"])
-        score = float(track_point_score(d, e["wind_kt"], rmax))
-        if score > best_score:
-            best_score, best = score, (e, d, rmax)
+    best_score, best = storm_score_at(lat, lon)
+    if existing and best_score >= STORM_MIN_SCORE:   # an older-version row is retired, never overwritten
+        with get_session() as s:
+            s.execute(text("""UPDATE canonical_scores SET valid_to = now() WHERE hazard_type='storm' AND h3_cell=:c AND scenario='baseline'
+                              AND time_horizon='current' AND valid_to IS NULL AND model_version <> :mv"""), {"c": cell, "mv": STORM_MODEL_VERSION})
 
     if best_score < STORM_MIN_SCORE:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "no tropical cyclone on record within range producing "
-                          "at least tropical-storm-force wind here, in our currently-"
-                          "ingested global 2016-present catalog (wind >=34kt storms only)"}
+                          "at least tropical-storm-force wind here, in the IBTrACS record "
+                          "since 1981 (wind >=34kt storms only)"}
 
     now = datetime.now(timezone.utc)
     e, d, rmax = best
