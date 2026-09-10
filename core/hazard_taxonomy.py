@@ -80,7 +80,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     # Temperature-related (7)
     EUHazard("heat_wave", T, "Heat wave", A, CAL, "now", "agricultural heat channel (West Africa cocoa, rank correlation 0.60)", (H.HEAT_ACUTE,)),
     EUHazard("heat_stress", T, "Heat stress", C, SCR, "now", "chronic-heat exposure channel", (H.HEAT_CHRONIC,)),
-    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, SCR, "now", "global frost baseline (1991–2020 climatology)", (H.FROST,)),
+    EUHazard("cold_wave_frost", T, "Cold wave / frost", A, SCR, "now", "cold wave: NASA POWER daily minimum temperature 1991–2020 vs building thresholds; frost: global crop-frost baseline", (H.COLD_WAVE, H.FROST)),
     EUHazard("wildfire", T, "Wildfire", A, CAL, "now",
              "Wildfire hazard climatology: Copernicus CEMS/ECMWF Fire Weather "
              "Index extreme-danger days 2006-2020 × burnable-land fraction + C3S ESA-CCI observed burn history 2001-2019, "

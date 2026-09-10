@@ -59,6 +59,10 @@ FEEDS: list[dict] = [
     {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Tropical-cyclone tracks are in production; Copernicus Marine sea-state is not yet integrated."},
+    {"key": "nasa_power", "name": "NASA POWER (MERRA-2) daily minimum temperature", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": False, "maturity": "live",
+     "note": "Cold-wave channel: 30 years (1991-2020) of daily 2 m minimum temperature at the location, read on demand from "
+             "NASA POWER; the 1-in-10 coldest night and the location's 99.6 % design temperature are derived from it."},
     {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
      "note": "Seismic scores from the global USGS M>=5.0 catalogue plus physics; the "
@@ -142,6 +146,7 @@ HAZARD_FEEDS: dict[str, list[str]] = {
     "drought":       ["climate_reanalysis"],                # ERA5-Land SPEI/soil-moisture
     "soil_water":    ["climate_reanalysis"],
     "frost":         ["climate_reanalysis"],                # ERA5 min-temperature
+    "cold_wave":     ["nasa_power"],                        # NASA POWER daily Tmin 1991-2020
     "wildfire":      ["fire_climatology", "climate_reanalysis"],  # standing FWI/burn climatology; ERA5 nowcast signal
     "storm":         ["storms_ocean", "climate_reanalysis"],# IBTrACS + reanalysis
     "seismic":       ["geophysical"],                       # USGS

@@ -58,6 +58,9 @@ class HazardType(str, Enum):
     VOLCANIC = "volcanic"
     POLLUTION = "pollution"
     FROST = "frost"
+    # Building-relevant extreme cold (acute): the 1-in-10 coldest night vs pipe-freeze thresholds and the location's
+    # own design temperature — distinct from FROST, the crop-frost scale (coffee thresholds).
+    COLD_WAVE = "cold_wave"
     # Root-zone water stress from the soil-moisture anomaly — a DIFFERENT channel from
     # meteorological drought (SPEI): it sees antecedent/deep soil water a rainfall index misses,
     # and is the validated driver for dryland cereals (Spanish durum wheat). Kept as its own
@@ -217,8 +220,8 @@ _HAZARD_ALIASES: dict[str, HazardType] = {
     "air_quality": HazardType.POLLUTION, "aqi": HazardType.POLLUTION,
     "smog": HazardType.POLLUTION,
 
-    "frost": HazardType.FROST, "cold": HazardType.FROST, "freeze": HazardType.FROST,
-    "extreme_cold": HazardType.FROST, "cold_wave": HazardType.FROST, "frost_days": HazardType.FROST,
+    "frost": HazardType.FROST, "freeze": HazardType.FROST, "frost_days": HazardType.FROST,
+    "cold": HazardType.COLD_WAVE, "extreme_cold": HazardType.COLD_WAVE, "cold_wave": HazardType.COLD_WAVE, "cold_spell": HazardType.COLD_WAVE,
     # heavy precipitation / extreme rainfall (the driver, not the flood consequence)
     "heavy_precip": HazardType.HEAVY_PRECIP, "heavy_precipitation": HazardType.HEAVY_PRECIP,
     "extreme_rainfall": HazardType.HEAVY_PRECIP, "extreme_precipitation": HazardType.HEAVY_PRECIP,

@@ -41,7 +41,8 @@ SCALE: dict[str, tuple[str, str]] = {
     "pollution": (INTENSITY, "air-quality exceedance of WHO guideline"),
     "saline_intrusion": (SUSCEPTIBILITY, "low-elevation-coastal-zone susceptibility × sea-level amplifier: a disclosed proxy, not an aquifer-salinity measurement"),
     "coastal_erosion": (INTENSITY, "shoreline retreat exposure"),
-    "severe_convective": (SUSCEPTIBILITY, "CAPE × shear environment potential (Taszarek proxy): a convective-environment frequency, not anchored to damage — headline once anchored"),
+    "cold_wave": (INTENSITY, "1-in-10 coldest night against building thresholds (pipe-freeze onset −6.7 °C) and the location's own 99.6 % design temperature"),
+    "severe_convective": (INTENSITY, "annual probability of a damaging severe-convective event, anchored on NOAA SPC reports (held-out AUC 0.82, ρ 0.51)"),
     # crop scales
     "frost": (CROP, "crop-frost scale (coffee thresholds 4 / −2 °C): total damage at −2 °C is right for a coffee origin, not for a building"),
     "soil_water": (CROP, "root-zone soil-moisture stress: a crop-yield driver, not a building hazard"),

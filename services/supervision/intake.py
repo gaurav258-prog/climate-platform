@@ -27,19 +27,19 @@ from services.supervision.lens import cell_key
 
 _SYNONYMS = {
     "geography": ["geography", "country", "region", "geo", "nuts", "location"],
-    "sector": ["sector", "nace", "nace_section", "industry", "counterparty_sector"],
-    "gross_carrying_amount_eur": ["gross_carrying_amount", "gross", "gca", "exposure", "carrying_amount", "total"],
-    "sensitive_physical_eur": ["sensitive", "physical_risk", "of_which_sensitive", "sensitive_physical"],
+    "sector": ["sector", "nace", "nace_section", "industry", "counterparty_sector", "occupancy", "line_of_business", "lob"],
+    "gross_carrying_amount_eur": ["gross_carrying_amount", "gross", "gca", "exposure", "carrying_amount", "total", "sum_insured", "tiv", "total_insured_value"],
+    "sensitive_physical_eur": ["sensitive", "physical_risk", "of_which_sensitive", "sensitive_physical", "in_physical_risk_zones", "physical_risk_zones"],
     "sensitive_acute_eur": ["acute"], "sensitive_chronic_eur": ["chronic"], "maturity_bucket": ["maturity", "bucket", "tenor"],
-    "instrument_id": ["instrument", "instrument_id", "contract", "loan_id", "id"],
-    "counterparty_name": ["counterparty", "debtor", "borrower", "name"],
-    "nace_section": ["nace", "nace_code", "sector", "activity"],
-    "outstanding_eur": ["outstanding", "nominal", "amount", "balance", "exposure"],
-    "maturity_date": ["maturity", "maturity_date", "final_maturity"],
-    "collateral_country": ["collateral_country", "protection_country", "country"],
-    "collateral_nuts3": ["nuts3", "nuts", "collateral_nuts", "protection_nuts", "region_code"],
-    "collateral_postcode": ["postcode", "postal_code", "zip", "collateral_postcode", "protection_postcode"],
-    "collateral_value_eur": ["collateral_value", "protection_value", "collateral"],
+    "instrument_id": ["instrument", "instrument_id", "contract", "loan_id", "id", "policy", "policy_id", "location_id"],
+    "counterparty_name": ["counterparty", "debtor", "borrower", "name", "insured", "insured_name"],
+    "nace_section": ["nace", "nace_code", "sector", "activity", "occupancy", "line_of_business", "lob"],
+    "outstanding_eur": ["outstanding", "nominal", "amount", "balance", "exposure", "sum_insured", "si"],
+    "maturity_date": ["maturity", "maturity_date", "final_maturity", "expiry", "policy_expiry"],
+    "collateral_country": ["collateral_country", "protection_country", "country", "risk_country"],
+    "collateral_nuts3": ["nuts3", "nuts", "collateral_nuts", "protection_nuts", "region_code", "risk_nuts3"],
+    "collateral_postcode": ["postcode", "postal_code", "zip", "collateral_postcode", "protection_postcode", "cresta", "risk_postcode"],
+    "collateral_value_eur": ["collateral_value", "protection_value", "collateral", "total_insured_value", "tiv"],
 }
 
 
@@ -214,10 +214,13 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
     session.flush()
     scoring = None
     if score and cell_coords:
+        # Scoring a shadow book means raster and reanalysis reads for every new cell — never inside the request.
+        # It runs on the jobs layer (worker, or a child process when the broker is away); the shadow status shows
+        # n_scored climbing as cells land. The response says what was queued, not what was scored.
         try:
-            from services.scoring.on_demand import process_new_cells
-            scoring = process_new_cells(cell_coords)
-        except Exception as e:   # scoring is best-effort here exactly as in the bank's own upload path
+            from services.tasks.jobs import submit
+            scoring = {"status": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)}
+        except Exception as e:
             scoring = {"status": "deferred", "error": str(e)[:200]}
     if score and cell_coords:
         # forward anchors (scenarios × horizons) take the same two paths a bank's own cells take — in the background

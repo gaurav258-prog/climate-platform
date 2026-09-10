@@ -23,6 +23,7 @@ from ml.scoring.climate_variability_point import (
 )
 from ml.scoring.coastal_erosion_point import score_coastal_erosion_point
 from ml.scoring.coastal_flood_point import score_coastal_flood_point
+from ml.scoring.cold_wave_point import score_cold_wave_point
 from ml.scoring.frost_point import score_frost_point
 from ml.scoring.glacial_lake_point import score_glacial_lake_point
 from ml.scoring.heavy_precip_point import score_heavy_precip_point
@@ -50,7 +51,7 @@ from services.tasks.hazard_tasks import HAZARD_TASKS
 SYNC_ON_DEMAND_SCORERS = {
     "seismic": score_seismic_point, "heat_chronic": score_heat_chronic_point,
     "storm": score_storm_point, "windstorm": score_windstorm_point,
-    "soil_water": score_water_stress_point, "frost": score_frost_point,
+    "soil_water": score_water_stress_point, "frost": score_frost_point, "cold_wave": score_cold_wave_point,
     "coastal_flood": score_coastal_flood_point,
     "heavy_precip": score_heavy_precip_point,
     "landslide": score_landslide_point,

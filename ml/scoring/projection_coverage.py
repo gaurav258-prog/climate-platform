@@ -59,6 +59,8 @@ def projection_coverage() -> dict:
                gaps=["regional SLR variation + local land subsidence are disclosed follow-ons (v1 = global-mean)"]),
         _entry("heavy_precip", "parametric_cc", f"extreme-precip total intensified by (1+{CC_PER_C:.2f})^ΔT",
                "Clausius–Clapeyron ~7%/°C (IPCC AR6 WG1 Ch.11)"),
+        _entry("cold_wave", "parametric_warming_inverse", "warming raises the 1-in-10 coldest night → fewer building-damaging cold waves",
+               "IPCC AR6 WG1 Ch.11 (cold-extreme decline with warming); NASA POWER daily Tmin 1991–2020"),
         _entry("frost", "parametric_warming_inverse", "warming raises the coldest night → fewer frost events",
                "IPCC AR6 WG1 Ch.11 (frost-day decline with warming)"),
         _entry("heat_acute", "parametric_warming", "acute-heat exceedance rises with the per-°C warming shift",
