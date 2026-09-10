@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
+from ml.scoring.coastal_extreme_water import GAUGE_RADIUS_KM, extreme_water_level
 from ml.scoring.sea_level import (
     COAST_KM,
     SEA_LEVEL_VERSION,
@@ -112,21 +113,27 @@ def score_coastal_flood_point(lat: float, lon: float, scenario: str = "baseline"
         return {"status": "not_coastal", "h3_cell": cell, "risk_score": 0.0,
                 "reason": f"more than {COAST_KM:.0f} km from the coast — no sea-level exposure"}
 
+    g = extreme_water_level(lat, lon)
+    if g is None:
+        return {"status": "insufficient_data", "h3_cell": cell,
+                "reason": f"no tide gauge within {GAUGE_RADIUS_KM:.0f} km — the site's extreme still-water level cannot be determined"}
     slr = slr_projection(scenario, horizon)
     if slr is None:                                  # baseline / current — today's exposure, no band
-        sc, _, _ = coastal_flood_score(elev, dist, _ZERO); lo = hi = None
+        sc, _, _ = coastal_flood_score(elev, dist, _ZERO, ewl_m=g["ewl_m"]); lo = hi = None
         reg_off = subs_m = 0.0
     else:
         # v2 local corrections: ocean-dynamic regional offset (CMIP6 zos) + accumulated land subsidence
         reg_off = regional_dynamic_offset_m(lat, lon, scenario, horizon)
         subs_m = (float(subs_rate) * HORIZON_YEARS.get(horizon, 0) / 1000.0) if subs_rate is not None else 0.0
-        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m)
+        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m, ewl_m=g["ewl_m"])
     if sc is None:
         return {"status": "insufficient_data", "h3_cell": cell}
     now = datetime.now(timezone.utc)
-    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m) if slr is not None else None
+    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m, ewl_m=g["ewl_m"]) if slr is not None else None
     shap = {"elevation_m": elev, "dist_to_coast_km": dist, "on_demand": True,
-            "method": "freeboard vs AR6 SLR (screen; hazard not defences)",
+            "ewl_1in10_m": g["ewl_m"], "ewl_gauge": g["station_name"], "ewl_record_id": g["record_id"],
+            "ewl_gauge_dist_km": g["dist_km"], "ewl_gauge_years": g["n_years"],
+            "method": "freeboard vs observed 1-in-10-year still water at the nearest tide gauge + AR6 SLR (screen; hazard not defences)",
             "regional_dynamic_offset_m": round(reg_off, 3), "subsidence_m_to_horizon": round(subs_m, 3),
             "slr_stress_m": (slr.stress_m if slr else None), "score_under_slr_stress": stress,
             "note": "The stress case reflects a low-likelihood ice-sheet-collapse scenario and is excluded from the headline score and band."}

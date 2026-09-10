@@ -20,8 +20,11 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from ml.scoring.coastal_extreme_water import gauge_levels, nearest_gauge
 from ml.scoring.coastal_flood_point import _ZERO, _coastline
-from ml.scoring.sea_level import COAST_KM, SURGE_ALLOWANCE_M, coastal_flood_score
+from ml.scoring.sea_level import COAST_KM, coastal_flood_score
+
+SURGE_ALLOWANCE_M = 2.0   # the retired v2 constant, kept here only to report where it sat
 
 CSV = "data/coastal_val/coops_monthly_extremes.csv"
 CONUS = (24.0, 50.0, -125.0, -66.0)
@@ -64,7 +67,9 @@ def main() -> int:
     coast = _coastline()
     st["elev"] = _elevations(st.lat.values, st.lon.values)
     st["dist_km"] = [h3_dist(la, lo, coast, Point, nearest_points) for la, lo in zip(st.lat, st.lon)]
-    st["score"] = [coastal_flood_score(e, dk, _ZERO)[0] for e, dk in zip(st.elev, st.dist_km)]
+    levels = gauge_levels(max_year=2013)
+    st["ewl"] = [(g or {}).get("ewl_1in10_m") for g in (nearest_gauge(la, lo, levels) for la, lo in zip(st.lat, st.lon))]
+    st["score"] = [coastal_flood_score(e, dk, _ZERO, ewl_m=w)[0] for e, dk, w in zip(st.elev, st.dist_km, st.ewl)]
     st = st.dropna(subset=["score"])
     rho, p = spearmanr(st.score, st.max_mhhw)
     print(f"\n2) RANKING  today's coastal score at the gauge vs observed 10-yr max above MHHW: "

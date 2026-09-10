@@ -12,6 +12,7 @@ import sys
 
 import services.validation.validators.agri_crop  # noqa: F401 — registers agri_drought/heat/crop_shock
 import services.validation.validators.agri_yield  # noqa: F401 — registers agri_yield_* (ERA5 vs observed yield)
+import services.validation.validators.coastal_gauges  # noqa: F401 — registers coastal_ewl_holdout/logo, coastal_score_coops
 import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
 import services.validation.validators.station_extremes  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip station tests
 import services.validation.validators.storm_holdout  # noqa: F401 — registers storm_oos (temporal holdout)

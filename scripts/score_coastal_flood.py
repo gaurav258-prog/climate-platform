@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from core.types import score_to_bucket
+from ml.scoring.coastal_extreme_water import GAUGE_RADIUS_KM, extreme_water_level, gauge_levels
 from ml.scoring.sea_level import (
     SEA_LEVEL_VERSION,
     SlrProjection,
@@ -46,28 +47,34 @@ def main():
               AND h3_cell = ANY(:cells)
         """), {"now": now, "hz": HAZARD, "cells": [c["h3_cell"] for c in cells]})
 
-        rows, banded = [], 0
+        levels = gauge_levels(session=s)
+        rows, banded, no_gauge = [], 0, 0
         for c in cells:
             elev, dist, lat, lon, subs_rate = (c["elevation_m"], c["dist_to_coast_km"],
                                                c["latitude"], c["longitude"], c["subsidence_mm_yr"])
+            g = extreme_water_level(lat, lon, levels=levels) if lat is not None and lon is not None else None
+            if g is None:                                        # no gauge in range: undetermined, no row
+                no_gauge += 1
+                continue
             for scen in SCENARIOS:
                 for horz in HORIZONS:
                     slr = slr_projection(scen, horz)
                     if slr is None:                              # baseline / current — today, no band
-                        sc, _, _ = coastal_flood_score(elev, dist, _ZERO)
+                        sc, _, _ = coastal_flood_score(elev, dist, _ZERO, ewl_m=g["ewl_m"])
                         lo = hi = None; reg_off = subs_m = 0.0
                     else:
-                        reg_off = (regional_dynamic_offset_m(lat, lon, scen, horz)
-                                   if lat is not None and lon is not None else 0.0)
+                        reg_off = regional_dynamic_offset_m(lat, lon, scen, horz)
                         subs_m = (float(subs_rate) * HORIZON_YEARS.get(horz, 0) / 1000.0) if subs_rate is not None else 0.0
-                        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m)
+                        sc, lo, hi = coastal_flood_score(elev, dist, slr, reg_off, subs_m, ewl_m=g["ewl_m"])
                     if sc is None:
                         continue
                     if lo is not None:
                         banded += 1
                     # low-confidence ice-sheet-collapse stress case — carried in provenance, NEVER the headline
-                    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m) if slr is not None else None
+                    stress = coastal_flood_stress(elev, dist, slr, reg_off, subs_m, ewl_m=g["ewl_m"]) if slr is not None else None
                     shap = json.dumps({"elevation_m": elev, "dist_to_coast_km": dist,
+                                       "ewl_1in10_m": g["ewl_m"], "ewl_gauge": g["station_name"], "ewl_record_id": g["record_id"],
+                                       "ewl_gauge_dist_km": g["dist_km"], "ewl_gauge_years": g["n_years"],
                                        "regional_dynamic_offset_m": round(reg_off, 3),
                                        "subsidence_m_to_horizon": round(subs_m, 3),
                                        "slr_stress_m": (slr.stress_m if slr else None),
@@ -86,7 +93,8 @@ def main():
                 VALUES (:id,:h3,:res,:hz,:scen,:horz,:score,:bucket,:lo,:hi,:mv,:now,CAST(:shap AS jsonb),:now,:now,NULL,'standing')
             """), rows[i:i + 2000])
 
-    print(f"scored {len(rows)} coastal_flood rows over {len(cells)} coastal cells; {banded} carry an SLR band")
+    print(f"scored {len(rows)} coastal_flood rows over {len(cells) - no_gauge} coastal cells; {banded} carry an SLR band; "
+          f"{no_gauge} cells have no tide gauge within {GAUGE_RADIUS_KM:.0f} km and are not scored")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ agencies** (Copernicus/ECMWF, NASA, USGS, NOAA, Smithsonian). We never describe 
 
 | Hazard | Authoritative source | Agency | Native res | Cadence | Coverage of record |
 |---|---|---|---|---|---|
+| Sea-level rise / coastal flood — site extreme still water | GESLA-3 hourly tide-gauge compilation (UHSLC ERDDAP `global_hourly_gesla`) → `tide_gauge_extremes` | UHSLC / 100+ national agencies (NOAA, RWS, WSV, BOM, CMEMS…) | gauge | one-off (record ends 2020) | **Global**, 1,864 sea gauges with ≥10 years; validation target NOAA CO-OPS 2014–2023 |
 | Drought (SPEI) | ERA5 monthly means (t2m, total precip) → `climatology_baseline` | Copernicus / ECMWF | 0.25° | monthly | **Global** (baseline built, −90..90) |
 | Heat — acute & chronic | ERA5 t2m climatology → `climatology_baseline` | Copernicus / ECMWF | 0.25° | monthly | **Global** (same baseline) |
 | Soil-water stress | ERA5 monthly volumetric soil water L2+L3 → `soil_moisture_baseline` | Copernicus / ECMWF | 0.25° | monthly | **Global** (baseline build G1) |

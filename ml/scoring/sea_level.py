@@ -21,8 +21,8 @@ INPUTS.
     Both default to 0, so a cell with no regional/subsidence data reproduces the v1 global-mean result.
   • Elevation + distance-to-coast per cell (coastal_exposure table).
 
-MODEL. exposure_level = today's extreme still-water above mean sea level (high tide + storm surge
-allowance) + projected SLR (global-mean + regional dynamic offset) + local subsidence. freeboard =
+MODEL. exposure_level = today's observed 1-in-10-year extreme still-water level above mean sea level at the
+nearest tide gauge (v3; GESLA-3 record, ml/scoring/coastal_extreme_water.py) + projected SLR (global-mean + regional dynamic offset) + local subsidence. freeboard =
 elevation − exposure_level. Hazard rises smoothly as freeboard → 0 and below; it is ZERO for inland
 cells (beyond COAST_KM) or well-elevated ones, and NULL where elevation is unknown (never fabricated).
 This is a SCREENING model — it identifies which assets sit in the coastal-inundation danger zone and
@@ -34,11 +34,13 @@ from __future__ import annotations
 import math
 from typing import NamedTuple, Optional, Tuple
 
-SEA_LEVEL_VERSION = "sea-level-ar6-v2"
+SEA_LEVEL_VERSION = "sea-level-ar6-v3-gauge-ewl"
 
 # screening parameters (disclosed, not fitted)
 COAST_KM = 25.0            # beyond this from the coast, no direct SLR/coastal-flood exposure
-SURGE_ALLOWANCE_M = 2.0    # generic present-day extreme still-water above MSL (high tide + surge)
+# v3: the present-day extreme still-water level above MSL is SITE-SPECIFIC — the observed 1-in-10-year level at the
+# nearest tide gauge (ml/scoring/coastal_extreme_water.py) — and is passed in as `ewl_m`. There is no generic
+# allowance any more: with no gauge in range the site is not scored.
 SCALE_M = 2.0             # freeboard transition scale of the hazard sigmoid
 
 
@@ -71,37 +73,42 @@ def slr_projection(scenario: str, horizon: str) -> Optional[SlrProjection]:
     return _AR6.get((scenario, horizon))
 
 
-def _score(elevation_m: float, slr_m: float, regional_offset_m: float = 0.0, subsidence_m: float = 0.0) -> float:
-    # local relative sea-level rise = global-mean + ocean-dynamic regional deviation + land subsidence
-    exposure_level = SURGE_ALLOWANCE_M + slr_m + regional_offset_m + subsidence_m
+def _score(elevation_m: float, slr_m: float, regional_offset_m: float = 0.0, subsidence_m: float = 0.0,
+           ewl_m: float = 0.0) -> float:
+    # exposure = today's observed extreme still water + local relative sea-level rise (global-mean + ocean-dynamic
+    # regional deviation + land subsidence)
+    exposure_level = ewl_m + slr_m + regional_offset_m + subsidence_m
     freeboard = elevation_m - exposure_level
     return 100.0 / (1.0 + math.exp(freeboard / SCALE_M))   # ~50 at freeboard 0, →100 below, →0 well above
 
 
 def coastal_flood_score(elevation_m: Optional[float], dist_to_coast_km: Optional[float],
                         slr: Optional[SlrProjection], regional_offset_m: float = 0.0,
-                        subsidence_m: float = 0.0) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+                        subsidence_m: float = 0.0, ewl_m: Optional[float] = None) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """(score, ci_lower, ci_upper) on 0–100. NULL where elevation is unknown or no SLR is applied;
     0 for inland cells (no coastal exposure); band from the AR6 likely SLR range.
 
     `regional_offset_m` (ocean-dynamic deviation of local from global-mean SLR, ±m) and `subsidence_m`
     (accumulated local land subsidence to the horizon, m) are additive local corrections; both default
-    to 0, giving the v1 global-mean result where no local data exists."""
+    to 0, giving the v1 global-mean result where no local data exists. `ewl_m` is the site's observed 1-in-10-year
+    extreme still-water level above MSL (tide gauge); None means it cannot be determined → no score."""
     if slr is None or elevation_m is None or dist_to_coast_km is None:
         return (None, None, None)
     if dist_to_coast_km > COAST_KM:
         return (0.0, None, None)                     # inland → definitively no SLR exposure (a real 0)
-    central = round(_score(elevation_m, slr.median_m, regional_offset_m, subsidence_m), 2)
-    lo = round(_score(elevation_m, slr.lo_m, regional_offset_m, subsidence_m), 2)   # less SLR → lower hazard
-    hi = round(_score(elevation_m, slr.hi_m, regional_offset_m, subsidence_m), 2)   # more SLR → higher hazard
+    if ewl_m is None:
+        return (None, None, None)                    # no gauge in range: exposure undetermined, never a constant
+    central = round(_score(elevation_m, slr.median_m, regional_offset_m, subsidence_m, ewl_m), 2)
+    lo = round(_score(elevation_m, slr.lo_m, regional_offset_m, subsidence_m, ewl_m), 2)   # less SLR → lower hazard
+    hi = round(_score(elevation_m, slr.hi_m, regional_offset_m, subsidence_m, ewl_m), 2)   # more SLR → higher hazard
     return (central, round(min(lo, hi), 2), round(max(lo, hi), 2))
 
 
 def coastal_flood_stress(elevation_m: Optional[float], dist_to_coast_km: Optional[float],
                          slr: Optional[SlrProjection], regional_offset_m: float = 0.0,
-                         subsidence_m: float = 0.0) -> Optional[float]:
+                         subsidence_m: float = 0.0, ewl_m: Optional[float] = None) -> Optional[float]:
     """The coastal-flood score under the LOW-CONFIDENCE ice-sheet-collapse SLR tail — a stress case,
     surfaced SEPARATELY (never in the headline/band). None where inland / unknown / no SLR applied."""
-    if slr is None or elevation_m is None or dist_to_coast_km is None or dist_to_coast_km > COAST_KM:
+    if slr is None or elevation_m is None or dist_to_coast_km is None or dist_to_coast_km > COAST_KM or ewl_m is None:
         return None
-    return round(_score(elevation_m, slr.stress_m, regional_offset_m, subsidence_m), 2)
+    return round(_score(elevation_m, slr.stress_m, regional_offset_m, subsidence_m, ewl_m), 2)

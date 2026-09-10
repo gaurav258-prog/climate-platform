@@ -72,3 +72,4 @@ data/reference/geo/*
 # the one land layer every map cell is clipped against (services/geo/cells.py)
 !data/reference/geo/countries_world_03m_2020.geojson.gz
 data/ghcn/
+data/tide_gauges/
