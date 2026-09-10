@@ -34,7 +34,11 @@ def test_each_validation_names_an_independent_target():
 
 
 def test_known_in_sample_channels_are_not_calibrated():
-    # seismic + cyclone are built from the catalogue they are checked against — never CALIBRATED on that basis.
+    # seismic is built from the catalogue it is checked against — never CALIBRATED on that basis.
     tier = {h.id: h.tier for h in _ALL}
-    for hz in ("seismic", "cyclone"):
-        assert tier.get(hz) != MaturityTier.CALIBRATED, f"{hz} is in-sample only — must not be CALIBRATED"
+    assert tier.get("seismic") != MaturityTier.CALIBRATED, "seismic is in-sample only — must not be CALIBRATED"
+    # cyclone reads the same IBTrACS catalogue; it may hold CALIBRATED only on a held-out-in-time test, never on a
+    # near-field consistency check against the storms already in the record.
+    if tier.get("cyclone") == MaturityTier.CALIBRATED:
+        v = CALIBRATED_VALIDATION["cyclone"]
+        assert v["out_of_sample"] and "holdout" in v["validation"].lower() and "held out" in v["target"]

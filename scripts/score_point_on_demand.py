@@ -44,10 +44,9 @@ from ml.scoring.seismic_physics import ipe_mmi, mmi_to_risk
 from ml.scoring.storm_physics import default_rmax_km, track_point_score
 
 MODEL_VERSION = "seismic-gmpe-ipe-v1"
-STORM_MODEL_VERSION = "storm-rankine-vortex-ibtracs-45yr-v2"   # v2: the full IBTrACS record (1981–), not the 10-season window
+STORM_MODEL_VERSION = "storm-return-level-ibtracs-v3"   # v3: 1-in-10-year annual-max Rankine wind over the IBTrACS record (1981–)
 INFLUENCE_KM = 400.0  # same radius as score_seismic_event.py — beyond this MMI is negligible
 STORM_BBOX_DEG = 5.0   # ~500 km prefilter: beyond INFLUENCE_KM (400 km) the Rankine wind is below tropical-storm force
-STORM_MIN_SCORE = 15.0  # below this (~tropical-storm-force wind), treat as negligible, not "hazard felt"
 
 
 def haversine(la1, lo1, la2, lo2):
@@ -178,24 +177,34 @@ def score_storm_point(lat: float, lon: float) -> dict:
             return {"status": "cached_hit", "h3_cell": cell,
                     "risk_score": existing["risk_score"], "risk_bucket": existing["risk_bucket"]}
 
-    best_score, best = storm_score_at(lat, lon)
-    if existing and best_score >= STORM_MIN_SCORE:   # an older-version row is retired, never overwritten
+    from ml.scoring.storm_return_level import RETURN_PERIOD_YEARS, storm_return_level_score
+    rl = storm_return_level_score(lat, lon)
+    best_score = rl["score"]
+    _, best = storm_score_at(lat, lon)               # the driving worst-on-record track, kept for transparency only
+    answered = rl["n_seasons"] >= RETURN_PERIOD_YEARS   # the record is long enough for this version to have its answer
+    if existing and answered:
+        # An older-version row is retired whenever the current version has its answer — including "no storm on record
+        # within range" and "below tropical-storm force". Keeping the old row alive because the new answer is low is
+        # exactly the stale-score defect the append-only lane exists to prevent.
         with get_session() as s:
             s.execute(text("""UPDATE canonical_scores SET valid_to = now() WHERE hazard_type='storm' AND h3_cell=:c AND scenario='baseline'
                               AND time_horizon='current' AND valid_to IS NULL AND model_version <> :mv"""), {"c": cell, "mv": STORM_MODEL_VERSION})
 
-    if best_score < STORM_MIN_SCORE:
+    if best is None or rl["seasons_with_storm"] == 0:
         return {"status": "insufficient_data", "h3_cell": cell,
                 "reason": "no tropical cyclone on record within range producing "
                           "at least tropical-storm-force wind here, in the IBTrACS record "
                           "since 1981 (wind >=34kt storms only)"}
+    # A storm has reached this cell on record, so the 1-in-10-year level is a real answer even when it is low or zero
+    # (one storm in 46 seasons is not a decadal wind): persisted as the score, not hidden behind "insufficient".
 
     now = datetime.now(timezone.utc)
     e, d, rmax = best
     shap = {
-        "driver_storm": e["storm_name"], "driver_storm_id": e["storm_id"],
-        "driver_wind_kt": e["wind_kt"], "driver_dist_km": round(d, 1),
-        "driver_rmax_km": round(rmax, 1), "driver_time": str(e["observation_time"]),
+        "return_level_kt_1in10": rl["return_level_kt"], "n_seasons": rl["n_seasons"], "seasons_with_storm": rl["seasons_with_storm"],
+        "worst_on_record_kt": rl["worst_on_record_kt"],
+        "worst_storm": e["storm_name"], "worst_storm_id": e["storm_id"], "worst_dist_km": round(d, 1), "worst_time": str(e["observation_time"]),
+        "method": "1-in-10-year annual maximum Modified-Rankine wind over the IBTrACS record since 1981, Saffir-Simpson score anchors",
         "on_demand": True,
     }
 
