@@ -123,11 +123,15 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "P2. Judged on INDEPENDENT official Copernicus EMS observed flood extents with each of 6 EMS-era floods held out: pooled ROC-AUC 0.68 (5 of 6 events 0.71-0.85; Storm Alex flash flood 0.42), AP 2x base "
              "— real but modest skill; rank correlation 0.17 is below the 0.35 minimum, so the channel is classified Screening rather than Calibrated", (H.FLOOD, H.COASTAL_FLOOD)),
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now", "partial coverage via soil-water; WRI Aqueduct integration planned", (H.SOIL_WATER,)),
-    EUHazard("sea_level_rise", WA, "Sea-level rise", C, SCR, "now",
-             "IPCC AR6 SLR projection via the coastal-flood freeboard model (elevation + distance-to-coast). Checked against "
-             "INDEPENDENT observed NOAA CO-OPS tide-gauge extremes (169 continental-US gauges, 2014-2023): "
-             "the generic 2.0 m surge allowance sits at the 80th percentile of observed 10-yr maxima (20% of gauges saw more), "
-             "and the score has no site surge/tide term (rank correlation −0.32 against observed extremes). Classified Screening; a site-specific extreme-water-level term is the disclosed gap", (H.COASTAL_FLOOD,)),
+    EUHazard("sea_level_rise", WA, "Sea-level rise", C, CAL, "now",
+             "freeboard of the site against the OBSERVED 1-in-10-year extreme still-water level at the nearest sea gauge "
+             "(GESLA-3, 1,864 gauges with ≥10 years, 1979–2020) plus IPCC AR6 sea-level rise with the AR6 likely band "
+             "(v3; the earlier generic 2.0 m surge constant ranked observed extremes at −0.32). Validated: the level rebuilt "
+             "from gauge years ≤2010 ranks the maxima the same gauges then recorded 2011–2020 at 0.92 (810 gauges); each "
+             "gauge's level predicted from its nearest other gauge within 250 km ranks its own at 0.84 (1,778); the "
+             "channel's score at NOAA CO-OPS gauges ranks their independently observed 2014–2023 maxima at 0.41 (218). "
+             "An extreme-still-water validation of the screen, not an inundation-depth or damage anchor; sites with no "
+             "gauge within 250 km are not scored (disclosed).", (H.COASTAL_FLOOD,)),
     EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, CAL, "now",
              "wettest-month precip climatology (1991–2020) + CC warming; station-validated against observed 1-day maxima", (H.HEAVY_PRECIP,)),
     EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",
@@ -193,6 +197,12 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                           "refused by the validator. Same catalogue as the model inputs but the held-out seasons never enter the "
                           "predictor; a wind-intensity validation, not a damage anchor",
                 "validation": "IBTrACS temporal-holdout backtest", "out_of_sample": True},
+    "sea_level_rise": {"target": "GESLA-3 tide-gauge observed extreme still-water levels above mean sea level, held out in time "
+                                 "(level from years ≤2010 vs observed maxima 2011–2020, rank correlation 0.92, 810 gauges, global) and in "
+                                 "space (leave-one-gauge-out, 0.84, 1,778 gauges); the channel's score at NOAA CO-OPS gauges vs their "
+                                 "verified 2014–2023 maxima 0.41 (218 gauges, US). A still-water validation of the freeboard screen, "
+                                 "not an inundation-depth or damage anchor",
+                       "validation": "GESLA/CO-OPS tide-gauge holdout backtests", "out_of_sample": True},
     "tornado": {"target": "NOAA SPC observed tornadoes (independent of the ERA5 CAPE×shear field)",
                 "validation": "NOAA SPC tornado backtest", "out_of_sample": True},
     "wildfire": {"target": "official EFFIS burnt-area record 2022-2024 (41k JRC-mapped burn scars, Europe), held out in time: "
