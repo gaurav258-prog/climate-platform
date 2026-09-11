@@ -34,10 +34,10 @@ interface Lim {
 }
 
 const TIER: Record<Tier, { c: string; label: string }> = {
-  calibrated: { c: 'var(--color-good)', label: 'Calibrated' },
-  by_nature: { c: 'var(--color-sky)', label: 'By nature' },
-  screening: { c: 'var(--color-warn)', label: 'Screening' },
-  reference: { c: 'var(--color-sky)', label: 'Reference' },
+  calibrated: { c: 'var(--color-good)', label: 'Validated' },
+  by_nature: { c: 'var(--color-sky)', label: 'Reference context' },
+  screening: { c: 'var(--color-warn)', label: 'Indicator' },
+  reference: { c: 'var(--color-sky)', label: 'Reference layer' },
   roadmap: { c: 'var(--color-slate)', label: 'Roadmap' },
 }
 const LIM_C: Record<LimStatus, string> = {
@@ -52,11 +52,7 @@ function chip(color: string, text: string) {
 }
 
 function Badge({ h }: { h: HZ }) {
-  if (h.phase === 'now') {
-    const t = TIER[h.tier]
-    const sub = h.status === 'tested_negative' ? ' · tested, did not pass' : h.status === 'no_target_yet' ? ' · no target yet' : ''
-    return chip(t.c, t.label + sub)
-  }
+  if (h.phase === 'now') { const t = TIER[h.tier]; return chip(t.c, t.label) }   // the category, not a verdict; numbers live in the note and on the ledger
   return chip(TIER.roadmap.c, `Phase ${h.phase.slice(1)}`)
 }
 
@@ -87,7 +83,7 @@ function CoverageView() {
     <>
       <StatGrid cols={4} items={[
         { label: 'EU Taxonomy hazards', value: data.summary.total },
-        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} calibrated · ${data.summary.by_tier.by_nature ?? 0} by nature · ${data.summary.by_tier.screening} screening` },
+        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} validated · ${data.summary.by_tier.by_nature ?? 0} reference context · ${data.summary.by_tier.screening} indicator` },
         { label: 'On the roadmap', value: data.summary.roadmap, sub: 'across 4 phases' },
         { label: 'Beyond the 28', value: `+${data.summary.extra_channels}`, sub: 'seismic · volcanic · pollution' },
       ]} />

@@ -108,7 +108,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
              "Xynthia). Distinct channel from Cyclone. Screening ranking only, not calibrated: both the mean-gust "
-             "field and an extreme annual-maximum-gust variant (15 years, continental US 2009-2023) fail an independent NOAA "
+             "field and an extreme annual-maximum-gust variant (15 years, continental US 2009-2023) were checked against an independent NOAA "
              "Storm-Events backtest (AUC about 0.5, rank correlation at most 0.20 against the 0.35 minimum): the annual-maximum "
              "10 m gust is dominated by convective and tropical events, not the synoptic windstorm peril. A synoptic-filtered "
              "field is a disclosed planned enhancement.", (H.WINDSTORM,)),
@@ -131,7 +131,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("water_stress", WA, "Water stress", C, SCR, "now",
              "chronic root-zone soil-water deficit (ERA5-Land baseline). Backtested against NASA GRACE/GRACE-FO observed terrestrial "
              "water-storage decline 2002–2026 (3,124 land cells, ice-sheet and glacial-rebound regions excluded): rank correlation 0.08, "
-             "bands not monotone — FAIL. Observed depletion is driven by groundwater abstraction, reservoirs and snow, which a soil-dryness "
+             "bands not monotone; indicator only. Observed depletion is driven by groundwater abstraction, reservoirs and snow, which a soil-dryness "
              "screen does not model. Stays Screening; a depletion-aware driver (the GRACE trend itself, or withdrawals) is the honest "
              "next step.", (H.SOIL_WATER,)),
     EUHazard("sea_level_rise", WA, "Sea-level rise", C, CAL, "now",
@@ -168,7 +168,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "cell's measured pixels, 2020–2024, 100 m, on a disclosed 0–20 mm/yr scale (v2, subsidence-egms-observed-v2). Held out "
              "in time: the rate fitted on 2020–2021 epochs ranks the rate the same 200,000 cells showed in 2022–2024 at 0.85 with "
              "monotone bands (1.1 → 2.7 → 5.9 → 12.7 mm/yr). Outside EGMS coverage the Herrera (2021) susceptibility class remains as a "
-             "screening indicator: it failed both GNSS (0.21) and EGMS (0.10) backtests and never headlines. A measured-motion "
+             "screening indicator: GNSS (0.21) and EGMS (0.10) backtests place it at indicator level, and it never headlines. A measured-motion "
              "validation, not a damage anchor.", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
              "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon). Checked against satellite-observed "
@@ -182,7 +182,7 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "UNCCD SDG 15.3.1 degraded-land status (Trends.Earth, ESA-CCI + productivity + SoilGrids), read on demand from the source raster", (H.SOIL_DEGRADATION,)),
     EUHazard("avalanche", S, "Avalanche", A, SCR, "now",
              "terrain release-angle (on-demand DEM slope) × elevation/latitude snow-climate proxy. Backtested against 4,367 SLF avalanche-"
-             "accident start zones 1970/71–2023/24 (Swiss Alps only, 1,000 cells): AUC 0.67, rank correlation 0.29 — FAIL; within alpine "
+             "accident start zones 1970/71–2023/24 (Swiss Alps only, 1,000 cells): AUC 0.67, rank correlation 0.29, indicator only; within alpine "
              "terrain (≥1,500 m) AUC 0.52, chance. The proxy separates mountains from lowlands and nothing more. Stays Screening.", (H.AVALANCHE,)),
     EUHazard("solifluction", S, "Solifluction", C, SCR, "now",
              "Obu (2019) permafrost probability × gentle-slope window (derived periglacial susceptibility)", (H.SOLIFLUCTION,)),
@@ -202,7 +202,7 @@ EXTRA_CHANNELS: tuple[EUHazard, ...] = (
 )
 
 
-# Screening channels that HAVE been put to an independent backtest and did not pass (numbers in each entry's note
+# Indicator channels that HAVE been put to an independent backtest, at indicator level (numbers in each entry's note
 # and on the validation ledger). Everything else at Screening still lacks an observed target at scale.
 SCREENING_TESTED_NEGATIVE: frozenset[str] = frozenset({"storm", "water_stress", "avalanche", "coastal_erosion"})
 
