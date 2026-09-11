@@ -12,6 +12,8 @@ import sys
 
 import services.validation.validators.agri_crop  # noqa: F401 — registers agri_drought/heat/crop_shock
 import services.validation.validators.agri_yield  # noqa: F401 — registers agri_yield_* (ERA5 vs observed yield)
+import services.validation.validators.avalanche_slf  # noqa: F401 — registers avalanche_slf (SLF accidents, Swiss Alps)
+import services.validation.validators.coastal_erosion_shoreline  # noqa: F401 — registers coastal_erosion_shoreline (Landsat-observed shoreline change)
 import services.validation.validators.coastal_gauges  # noqa: F401 — registers coastal_ewl_holdout/logo, coastal_score_coops
 import services.validation.validators.flood_jrc  # noqa: F401 — registers flood_jrc_ems
 import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
@@ -19,8 +21,10 @@ import services.validation.validators.station_extremes  # noqa: F401 — registe
 import services.validation.validators.storm_holdout  # noqa: F401 — registers storm_oos (temporal holdout)
 import services.validation.validators.storm_severity  # noqa: F401 — registers storm (severity)
 import services.validation.validators.subsidence_egms  # noqa: F401 — registers subsidence_egms (InSAR)
+import services.validation.validators.subsidence_egms_holdout  # noqa: F401 — registers subsidence_egms_holdout (v2, in time)
 import services.validation.validators.subsidence_gnss  # noqa: F401 — registers subsidence_gnss[_us/_eu]
 import services.validation.validators.temporal_holdout  # noqa: F401 — registers seismic_oos (temporal holdout)
+import services.validation.validators.water_stress_grace  # noqa: F401 — registers water_stress_grace (GRACE observed storage trend)
 from core.db.session import get_session
 from services.validation import engine
 

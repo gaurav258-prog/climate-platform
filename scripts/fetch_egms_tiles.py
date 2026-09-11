@@ -5,7 +5,7 @@ EGMS Ortho L3 = InSAR mean vertical ground velocity 2020–2024 on a 100 m grid 
 tile named EGMS_L3_E<xx>N<yy>_100km_U_2020_2024_1 (E/N = lower-left corner in 100 km units). Downloads are
 token-gated (a personal token from the EGMS portal, `EGMS_TOKEN` in .env; never printed). There is no public tile
 index, so the tiles are discovered by probing the grid over Europe's EPSG:3035 extent (HEAD requests), then pulled in
-parallel; the GeoTIFF is kept, the zip discarded. Resumable. Lands data/egms/<tile>.tiff (git-ignored).
+parallel; the GeoTIFF is kept (and with --keep-csv the per-point time series), the zip discarded. Resumable. Lands data/egms/<tile>.tiff (git-ignored).
 
 Usage: PYTHONPATH=. .venv/bin/python scripts/fetch_egms_tiles.py [--parallel 6]
 """
@@ -47,9 +47,9 @@ def exists(tile: str, tok: str) -> bool:
         return False
 
 
-def fetch(tile: str, tok: str) -> str:
-    tif = OUT / f"{tile}.tiff"
-    if tif.exists():
+def fetch(tile: str, tok: str, keep_csv: bool = False) -> str:
+    tif, csv_ = OUT / f"{tile}.tiff", OUT / f"{tile}.csv"
+    if tif.exists() and (csv_.exists() or not keep_csv):
         return "have"
     import time
     r = None
@@ -68,11 +68,15 @@ def fetch(tile: str, tok: str) -> str:
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         member = next(m for m in z.namelist() if m.lower().endswith((".tif", ".tiff")))
         tif.write_bytes(z.read(member))
+        if keep_csv:                                          # per-point time series (6-day epochs): the temporal holdout
+            csv_.write_bytes(z.read(next(m for m in z.namelist() if m.lower().endswith(".csv"))))
     return "ok"
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(); ap.add_argument("--parallel", type=int, default=2); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--parallel", type=int, default=2)
+    ap.add_argument("--keep-csv", action="store_true", help="also keep the per-point time-series CSV (~220 MB per tile)")
+    a = ap.parse_args()
     tok = _token(); OUT.mkdir(parents=True, exist_ok=True)
     index = OUT / "_tiles.txt"
     if index.exists():
@@ -85,7 +89,7 @@ def main() -> int:
     print(f"{len(tiles)} EGMS vertical tiles exist", flush=True)
     done = {"ok": 0, "have": 0}
     with ThreadPoolExecutor(a.parallel) as ex:
-        for i, st in enumerate(ex.map(lambda t: fetch(t, tok), tiles)):
+        for i, st in enumerate(ex.map(lambda t: fetch(t, tok, a.keep_csv), tiles)):
             done[st] = done.get(st, 0) + 1
             if i % 25 == 0:
                 print(f"  {i}/{len(tiles)} {done}", flush=True)
