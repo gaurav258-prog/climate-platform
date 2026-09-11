@@ -60,3 +60,20 @@ def test_api_serialization_shape():
     # each serialized hazard carries the load-bearing fields
     first = cov["families"][0]["hazards"][0]
     assert {"id", "name", "family", "nature", "tier", "phase", "source", "internal"} <= set(first)
+
+
+def test_by_nature_tier_is_context_only():
+    """A by-nature hazard has nothing observed to backtest against: it never headlines and never claims calibration."""
+    from core.hazard_relevance import is_headline_eligible
+    from core.hazard_taxonomy import CALIBRATED_VALIDATION, EU_TAXONOMY, MaturityTier, screening_status
+    by_nature = [h for h in EU_TAXONOMY if h.tier is MaturityTier.BY_NATURE]
+    assert {h.id for h in by_nature} == {"changing_temperature", "temperature_variability", "changing_wind",
+                                         "changing_precipitation", "precipitation_variability", "ocean_acidification"}
+    for h in by_nature:
+        assert h.id not in CALIBRATED_VALIDATION and h.source.startswith("By nature:")
+        for ch in h.internal:
+            assert not is_headline_eligible(ch.value, "buildings"), h.id
+    # a screening hazard states whether it was tested and failed or still lacks a target; other tiers carry no status
+    assert screening_status("storm", MaturityTier.SCREENING) == "tested_negative"
+    assert screening_status("solifluction", MaturityTier.SCREENING) == "no_target_yet"
+    assert screening_status("flood", MaturityTier.CALIBRATED) is None
