@@ -76,3 +76,6 @@ data/tide_gauges/
 data/subsidence_val/
 data/jrc_flood/
 data/egms/
+data/coastal_erosion_val/
+data/water_stress_val/
+data/avalanche_val/

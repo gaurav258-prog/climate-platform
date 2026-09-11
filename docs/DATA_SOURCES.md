@@ -22,7 +22,10 @@ agencies** (Copernicus/ECMWF, NASA, USGS, NOAA, Smithsonian). We never describe 
 
 | Hazard | Authoritative source | Agency | Native res | Cadence | Coverage of record |
 |---|---|---|---|---|---|
-| Subsidence — observed ground motion (validation target) | Copernicus EGMS Ortho L3 vertical velocity 2020–2024 → `data/egms` (token-gated, `EGMS_TOKEN`) | Copernicus Land / EEA | 100 m (EPSG:3035) | per release (~yearly) | EEA states; 224 tiles |
+| Subsidence — observed ground motion (v2 score + validation) | Copernicus EGMS Ortho L3 vertical velocity + point time series 2020–2024 → `data/egms` (token-gated, `EGMS_TOKEN`) | Copernicus Land / EEA | 100 m (EPSG:3035) | per release (~yearly) | EEA states; 224 tiles; v2 channel + temporal holdout |
+| Water stress (validation target) | NASA GSFC GRACE/GRACE-FO RL06 v2 mascons → `data/water_stress_val` | NASA | 0.5° | monthly | Global land 2002–2026 |
+| Coastal erosion (validation target) | Luijendijk 2018 / Mentaschi 2020 shoreline-change transects (Zenodo 3751980) → `data/coastal_erosion_val` | Deltares / JRC | transect | 1984–2016 | 67 World Heritage coasts |
+| Avalanche (validation target) | SLF avalanche accidents since 1970/71 (EnviDat 10.16904/envidat.411) → `data/avalanche_val` | WSL/SLF | point | yearly | Switzerland |
 | River flood (fluvial) | JRC / Copernicus EMS global river flood hazard maps v2.1.2 (LISFLOOD-FP depth, RP10/100/500 + permanent water) → `data/jrc_flood` tiles | JRC / Copernicus EMS | 3 arc-sec (~90 m) | irregular (v2.1.2, 2026-01) | **Global** land; validation target Copernicus EMS observed extents |
 | Sea-level rise / coastal flood — site extreme still water | GESLA-3 hourly tide-gauge compilation (UHSLC ERDDAP `global_hourly_gesla`) → `tide_gauge_extremes` | UHSLC / 100+ national agencies (NOAA, RWS, WSV, BOM, CMEMS…) | gauge | one-off (record ends 2020) | **Global**, 1,864 sea gauges with ≥10 years; validation target NOAA CO-OPS 2014–2023 |
 | Drought (SPEI) | ERA5 monthly means (t2m, total precip) → `climatology_baseline` | Copernicus / ECMWF | 0.25° | monthly | **Global** (baseline built, −90..90) |

@@ -36,6 +36,7 @@ from ml.scoring.severe_convective_point import score_severe_convective_point
 from ml.scoring.soil_degradation_point import score_soil_degradation_point
 from ml.scoring.soil_erosion_point import score_soil_erosion_point
 from ml.scoring.solifluction_point import score_solifluction_point
+from ml.scoring.subsidence_egms import score_subsidence_egms_point
 from ml.scoring.subsidence_point import score_subsidence_point
 from ml.scoring.volcanic_point import score_volcanic_point
 from ml.scoring.water_stress_point import score_water_stress_point
@@ -64,7 +65,7 @@ SYNC_ON_DEMAND_SCORERS = {
     "changing_wind": score_changing_wind_point,
     # EU-Taxonomy solid-mass / erosion channels (subsidence + coastal_erosion live; permafrost + soil_erosion
     # return insufficient_data until their raster is fetched — wired-ready, no code change on drop-in)
-    "subsidence": score_subsidence_point,
+    "subsidence": lambda lat, lon, **kw: (lambda r: r if r["status"] != "not_covered" else score_subsidence_point(lat, lon, **kw))(score_subsidence_egms_point(lat, lon, **kw)),   # observed EGMS rate where covered, v1 class elsewhere
     "coastal_erosion": score_coastal_erosion_point,
     "permafrost": score_permafrost_point,
     "soil_erosion": score_soil_erosion_point,

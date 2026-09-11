@@ -55,21 +55,39 @@ def _tc_mask(times, lat, lon) -> np.ndarray:
     return mask
 
 
+def _retrieve(c, req: dict, target: str, wait_s: int = 300) -> None:
+    """CDS caps the number of queued requests per user; a rejected submission is retried after a wait, not fatal."""
+    import time
+    while True:
+        try:
+            c.retrieve("reanalysis-era5-single-levels", req, target)
+            return
+        except Exception as e:                            # "The job has been rejected … queued requests … limited"
+            if "rejected" not in str(e).lower() and "limited" not in str(e).lower():
+                raise
+            print(f"  CDS queue full, retrying in {wait_s // 60} min", flush=True)
+            time.sleep(wait_s)
+
+
 def _year(c, region: dict, year: int) -> str:
     npy = f"{region['dir']}/annmax_{year}.npy"
     if os.path.exists(npy):
         return npy
     # one request per variable: a two-variable hourly year exceeds the CDS field limit
     raw = {}
-    for var, key in (("instantaneous_10m_wind_gust", "gust"), ("convective_available_potential_energy", "cape")):
+    # gust must be hourly (the maximum is an hourly quantity); CAPE describes the convective ENVIRONMENT, which
+    # persists for hours, so 3-hourly sampling is enough to flag a thunderstorm environment and cuts the queue time
+    for var, key, hours in (("instantaneous_10m_wind_gust", "gust", _HOURS), ("convective_available_potential_energy", "cape", _HOURS[::3])):
         raw[key] = f"/tmp/era5_syn_{year}_{key}.nc"
         if not os.path.exists(raw[key]):
-            c.retrieve("reanalysis-era5-single-levels", {
-                "product_type": "reanalysis", "variable": [var], "year": str(year),
-                "month": [f"{m:02d}" for m in range(1, 13)], "day": [f"{d:02d}" for d in range(1, 32)],
-                "time": _HOURS, "grid": GRID, "data_format": "netcdf", "area": region["area"]}, raw[key])
+            _retrieve(c, {"product_type": "reanalysis", "variable": [var], "year": str(year),
+                          "month": [f"{m:02d}" for m in range(1, 13)], "day": [f"{d:02d}" for d in range(1, 32)],
+                          "time": hours, "grid": GRID, "data_format": "netcdf", "area": region["area"]}, raw[key])
     import xarray as xr
-    ds = xr.merge([xr.open_dataset(raw["gust"]), xr.open_dataset(raw["cape"])])
+    g = xr.open_dataset(raw["gust"]); cp = xr.open_dataset(raw["cape"])
+    tname = [d for d in g["i10fg"].dims if d not in ("latitude", "longitude")][0]
+    cp = cp.reindex({tname: g[tname]}, method="nearest")      # each gust hour takes the nearest 3-hourly CAPE
+    ds = xr.merge([g, cp])
     tdim = [d for d in ds["i10fg"].dims if d not in ("latitude", "longitude")][0]
     gust = ds["i10fg"].transpose(tdim, "latitude", "longitude").values
     cape = ds["cape"].transpose(tdim, "latitude", "longitude").values
@@ -102,12 +120,12 @@ def main() -> int:
         c = cdsapi.Client(url=settings.CDSAPI_URL, key=settings.CDSAPI_KEY, quiet=True)
         for y in range(y0, y1 + 1):
             _year(c, region, y)
-    paths = sorted(p for p in os.listdir(region["dir"]) if p.startswith("annmax_"))
+    paths = sorted(p for p in os.listdir(region["dir"]) if p.startswith("annmax_") and y0 <= int(p[7:11]) <= y1)
     if not paths:
         return 0
     stack = np.stack([np.load(f"{region['dir']}/{p}") for p in paths]); grid = np.load(f"{region['dir']}/_grid.npz")
     np.savez_compressed(region["out"], lat=grid["lat"], lon=grid["lon"], gust_ms=_gumbel(stack).astype("float32"),
-                        mean_annual_max=np.nanmean(stack, axis=0).astype("float32"), n_years=len(paths))
+                        mean_annual_max=np.nanmean(stack, axis=0).astype("float32"), n_years=len(paths), years=[int(p[7:11]) for p in paths])
     print(f"saved {region['out']} from {len(paths)} years")
     return 0
 

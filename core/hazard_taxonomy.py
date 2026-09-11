@@ -126,7 +126,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "flooded share of 417 mapped nodes at ρ 0.47 (AUC 0.84 at share > 2 %); river events 0.77–0.86 AUC, the Ahr flash "
              "flood 0.34. Fluvial only: pluvial/flash flooding and groundwater are disclosed gaps, coastal surge is its own channel; "
              "the maps carry no flood defences (hazard, not residual risk).", (H.FLOOD,)),
-    EUHazard("water_stress", WA, "Water stress", C, SCR, "now", "partial coverage via soil-water; WRI Aqueduct integration planned", (H.SOIL_WATER,)),
+    EUHazard("water_stress", WA, "Water stress", C, SCR, "now",
+             "chronic root-zone soil-water deficit (ERA5-Land baseline). Backtested against NASA GRACE/GRACE-FO observed terrestrial "
+             "water-storage decline 2002–2026 (3,124 land cells, ice-sheet and glacial-rebound regions excluded): rank correlation 0.08, "
+             "bands not monotone — FAIL. Observed depletion is driven by groundwater abstraction, reservoirs and snow, which a soil-dryness "
+             "screen does not model. Stays Screening; a depletion-aware driver (the GRACE trend itself, or withdrawals) is the honest "
+             "next step.", (H.SOIL_WATER,)),
     EUHazard("sea_level_rise", WA, "Sea-level rise", C, CAL, "now",
              "freeboard of the site against the OBSERVED 1-in-10-year extreme still-water level at the nearest sea gauge "
              "(GESLA-3, 1,864 gauges with ≥10 years, 1979–2020) plus IPCC AR6 sea-level rise with the AR6 likely band "
@@ -156,22 +161,27 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("landslide", S, "Landslide", A, CAL, "now",
              "physical NASA/LHASA susceptibility (terrain/geology, independent of any event catalogue), validated "
              "vs the INDEPENDENT Global Landslide Catalog (9.5k events): ranking ROC-AUC 0.95, 11× High+ lift. Caveat: the LHASA model used this catalogue during its own development, so this reproduces the published susceptibility's discrimination rather than a fresh held-out test.", (H.LANDSLIDE,)),
-    EUHazard("subsidence", S, "Land subsidence", A, SCR, "now",
-             "Herrera-García et al. (2021) Global Subsidence Susceptibility (~1 km, geophysical predisposition). Tested against "
-             "INDEPENDENT observed GNSS vertical land motion (NGL MIDAS, 6,166 stations ≥5 y outside glacial-rebound regions): the "
-             "class orders observed subsidence monotonically (median 0.1 → 1.6 mm/yr from class 1 to 6) but rank correlation is 0.21 "
-             "(US 0.22, Europe −0.05), below the 0.35 minimum. Then tested against Copernicus EGMS InSAR ground motion 2020–2024 "
-             "(224 tiles, 1 km block means, 180,932 blocks outside the glacial-rebound region): rank correlation 0.10, class medians "
-             "flat near 1 mm/yr — the susceptibility class does not rank where the ground actually sinks in Europe. Stays Screening; "
-             "a subsidence channel that earns a tier will have to read the observed InSAR velocity itself, not a susceptibility class.", (H.SUBSIDENCE,)),
+    EUHazard("subsidence", S, "Land subsidence", A, CAL, "now",
+             "OBSERVED ground motion where Copernicus EGMS covers (EEA states): the 90th-percentile InSAR subsidence rate over the "
+             "cell's measured pixels, 2020–2024, 100 m, on a disclosed 0–20 mm/yr scale (v2, subsidence-egms-observed-v2). Held out "
+             "in time: the rate fitted on 2020–2021 epochs ranks the rate the same 200,000 cells showed in 2022–2024 at 0.85 with "
+             "monotone bands (1.1 → 2.7 → 5.9 → 12.7 mm/yr). Outside EGMS coverage the Herrera (2021) susceptibility class remains as a "
+             "screening indicator: it failed both GNSS (0.21) and EGMS (0.10) backtests and never headlines. A measured-motion "
+             "validation, not a damage anchor.", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
-             "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon)", (H.COASTAL_EROSION,)),
+             "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon). Checked against satellite-observed "
+             "1984–2016 shoreline change (Luijendijk 2018 / Mentaschi 2020, 67 World Heritage coasts, 11,252 cells): the delivered 2050 "
+             "score ranks observed erosion at 0.36 with monotone bands (0.57 on the 2,191 cells with a strong linear trend). Stays "
+             "Screening: LISCOAST's ambient-change term was built from the same shoreline trends, so this is score fidelity, not "
+             "independent skill.", (H.COASTAL_EROSION,)),
     EUHazard("soil_erosion", S, "Soil erosion", C, SCR, "now",
              "GloSEM (Borrelli/Panagos) global cropland soil displacement by water erosion (~100 m, t ha⁻¹ yr⁻¹)", (H.SOIL_EROSION,)),
     EUHazard("soil_degradation", S, "Soil degradation", C, SCR, "now",
              "UNCCD SDG 15.3.1 degraded-land status (Trends.Earth, ESA-CCI + productivity + SoilGrids), read on demand from the source raster", (H.SOIL_DEGRADATION,)),
     EUHazard("avalanche", S, "Avalanche", A, SCR, "now",
-             "terrain release-angle (on-demand DEM slope) × elevation/latitude snow-climate proxy", (H.AVALANCHE,)),
+             "terrain release-angle (on-demand DEM slope) × elevation/latitude snow-climate proxy. Backtested against 4,367 SLF avalanche-"
+             "accident start zones 1970/71–2023/24 (Swiss Alps only, 1,000 cells): AUC 0.67, rank correlation 0.29 — FAIL; within alpine "
+             "terrain (≥1,500 m) AUC 0.52, chance. The proxy separates mountains from lowlands and nothing more. Stays Screening.", (H.AVALANCHE,)),
     EUHazard("solifluction", S, "Solifluction", C, SCR, "now",
              "Obu (2019) permafrost probability × gentle-slope window (derived periglacial susceptibility)", (H.SOLIFLUCTION,)),
 )
@@ -212,6 +222,11 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
                         "monotone bands), AUC 0.84 at share > 2 %; per event Boris 0.78, Emilia-Romagna 0.77, Valencia 0.86, Spain "
                         "DANA 1.00, Ahr 0.34. Footprint validation of the river map; no depth or damage anchor",
               "validation": "Copernicus EMS flood-extent backtest (flood_jrc_ems)", "out_of_sample": True},
+    "subsidence": {"target": "Copernicus EGMS InSAR point time series held out in time: v2 cell score from the subsidence rate fitted on "
+                             "2020–2021 epochs vs the 90th-percentile rate the same cell's points showed in 2022–2024; rank correlation 0.85, "
+                             "monotone bands, 200,000 cells, glacial-rebound region excluded. Europe (EGMS coverage) only; elsewhere the "
+                             "susceptibility class stays Screening (GNSS 0.21, EGMS 0.10). Measured motion, not a damage anchor",
+                   "validation": "EGMS temporal-holdout backtest (subsidence_egms_holdout)", "out_of_sample": True},
     "sea_level_rise": {"target": "GESLA-3 tide-gauge observed extreme still-water levels above mean sea level, held out in time "
                                  "(level from years ≤2010 vs observed maxima 2011–2020, rank correlation 0.92, 810 gauges, global) and in "
                                  "space (leave-one-gauge-out, 0.84, 1,778 gauges); the channel's score at NOAA CO-OPS gauges vs their "
