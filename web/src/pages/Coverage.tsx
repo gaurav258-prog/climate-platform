@@ -11,8 +11,8 @@ import ReviewTabs from '../components/ReviewTabs'
 // All static registries (no tenant data); the load-bearing point is that coverage ≠ calibration and a gap is
 // named, never hidden.
 
-type Tier = 'calibrated' | 'screening' | 'reference' | 'roadmap'
-interface HZ { id: string; name: string; family: string; nature: string; tier: Tier; phase: string; source: string; internal: string[] }
+type Tier = 'calibrated' | 'by_nature' | 'screening' | 'reference' | 'roadmap'
+interface HZ { id: string; name: string; family: string; nature: string; tier: Tier; phase: string; source: string; internal: string[]; status?: 'tested_negative' | 'no_target_yet' | null }
 interface Fam { family: string; label: string; hazards: HZ[] }
 interface Summary { total: number; covered: number; roadmap: number; by_tier: Record<string, number>; by_phase: Record<string, number>; extra_channels: number }
 interface Cov {
@@ -35,6 +35,7 @@ interface Lim {
 
 const TIER: Record<Tier, { c: string; label: string }> = {
   calibrated: { c: 'var(--color-good)', label: 'Calibrated' },
+  by_nature: { c: 'var(--color-sky)', label: 'By nature' },
   screening: { c: 'var(--color-warn)', label: 'Screening' },
   reference: { c: 'var(--color-sky)', label: 'Reference' },
   roadmap: { c: 'var(--color-slate)', label: 'Roadmap' },
@@ -51,7 +52,11 @@ function chip(color: string, text: string) {
 }
 
 function Badge({ h }: { h: HZ }) {
-  if (h.phase === 'now') { const t = TIER[h.tier]; return chip(t.c, t.label) }
+  if (h.phase === 'now') {
+    const t = TIER[h.tier]
+    const sub = h.status === 'tested_negative' ? ' · tested, did not pass' : h.status === 'no_target_yet' ? ' · no target yet' : ''
+    return chip(t.c, t.label + sub)
+  }
   return chip(TIER.roadmap.c, `Phase ${h.phase.slice(1)}`)
 }
 
@@ -82,14 +87,14 @@ function CoverageView() {
     <>
       <StatGrid cols={4} items={[
         { label: 'EU Taxonomy hazards', value: data.summary.total },
-        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} calibrated · ${data.summary.by_tier.screening} screening` },
+        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} calibrated · ${data.summary.by_tier.by_nature ?? 0} by nature · ${data.summary.by_tier.screening} screening` },
         { label: 'On the roadmap', value: data.summary.roadmap, sub: 'across 4 phases' },
         { label: 'Beyond the 28', value: `+${data.summary.extra_channels}`, sub: 'seismic · volcanic · pollution' },
       ]} />
       <Card className="p-5">
         <SectionHead>How to read the tiers</SectionHead>
         <PlainLead className="mt-1 mb-3">{data.note}</PlainLead>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {data.tiers.map(t => (
             <div key={t.tier} className="rounded-lg border border-[var(--color-line-2)] px-3.5 py-3">
               <div className="mb-1.5">{chip(TIER[t.tier as Tier].c, t.label)}</div>

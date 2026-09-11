@@ -41,6 +41,8 @@ __all__ = [
 class MaturityTier(str, Enum):
     CALIBRATED = "calibrated"   # backtested, passes the honesty gate
     SCREENING = "screening"     # authoritative indicator, disclosed as not-yet-calibrated
+    BY_NATURE = "by_nature"     # nothing observed to backtest against (a projection of the future, a descriptive
+    #                             statistic, an observation product): context, disclosed, never a headline
     REFERENCE = "reference"     # zone / geophysical layer, no climate projection
     ROADMAP = "roadmap"         # planned, not built yet
 
@@ -69,8 +71,8 @@ A, C = "acute", "chronic"
 T, W, WA, S = (
     HazardFamily.TEMPERATURE, HazardFamily.WIND, HazardFamily.WATER, HazardFamily.SOLID_MASS,
 )
-CAL, SCR, REF, ROAD = (
-    MaturityTier.CALIBRATED, MaturityTier.SCREENING, MaturityTier.REFERENCE, MaturityTier.ROADMAP,
+CAL, SCR, REF, ROAD, BN = (
+    MaturityTier.CALIBRATED, MaturityTier.SCREENING, MaturityTier.REFERENCE, MaturityTier.ROADMAP, MaturityTier.BY_NATURE,
 )
 H = HazardType
 
@@ -88,10 +90,10 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "(41k scars, Europe): occurrence AUC 0.76 (2.2× High+ lift), magnitude ρ 0.37 — meets the 0.35 minimum, narrowly; "
              "the fire-weather×fuel term alone is AUC 0.68 / ρ 0.22 (below gate), burn history carries most of the skill "
              "(that term is not fully independent of the validation record, disclosed). Validated in Europe; elsewhere the same layer is a screening indicator. A same-day fire-weather variant did not pass the same test (AUC 0.44) and is not used for scoring.", (H.WILDFIRE,)),
-    EUHazard("changing_temperature", T, "Changing temperature", C, SCR, "now",
-             "CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
-    EUHazard("temperature_variability", T, "Temperature variability", C, SCR, "now",
-             "seasonal temperature amplitude + interannual spread (1991–2020 climatology)", (H.TEMP_VARIABILITY,)),
+    EUHazard("changing_temperature", T, "Changing temperature", C, BN, "now",
+             "By nature: a projection of future warming; there is no observation of the future to backtest against. CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
+    EUHazard("temperature_variability", T, "Temperature variability", C, BN, "now",
+             "By nature: a descriptive climate statistic, not a damage hazard; validating it against stations would prove nothing. seasonal temperature amplitude + interannual spread (1991–2020 climatology)", (H.TEMP_VARIABILITY,)),
     EUHazard("permafrost_thaw", T, "Permafrost thawing", C, SCR, "now",
              "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state", (H.PERMAFROST,)),
 
@@ -110,8 +112,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Storm-Events backtest (AUC about 0.5, rank correlation at most 0.20 against the 0.35 minimum): the annual-maximum "
              "10 m gust is dominated by convective and tropical events, not the synoptic windstorm peril. A synoptic-filtered "
              "field is a disclosed planned enhancement.", (H.WINDSTORM,)),
-    EUHazard("changing_wind", W, "Changing wind patterns", C, SCR, "now",
-             "CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
+    EUHazard("changing_wind", W, "Changing wind patterns", C, BN, "now",
+             "By nature: a projection of future wind change; nothing observed to test against. CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, CAL, "now",
              "ERA5 CAPE × 0–6 km shear convective potential (Taszarek 2021 WMAXSHEAR), backtested vs 70k NOAA SPC "
              "tornadoes: ranking AUC 0.73 (EF2+ 0.74), US validation region; environment index, also covers large hail / damaging wind", (H.SEVERE_CONVECTIVE,)),
@@ -145,12 +147,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "wettest-month precip climatology (1991–2020) + CC warming; station-validated against observed 1-day maxima", (H.HEAVY_PRECIP,)),
     EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",
              "low-elevation-coastal-zone × AR6 SLR proxy (derived from coastal elevation and distance-to-coast data)", (H.SALINE_INTRUSION,)),
-    EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, SCR, "now",
-             "CMIP6 ensemble |precip change| (projection scenarios)", (H.CHANGING_PRECIP,)),
-    EUHazard("precipitation_variability", WA, "Precipitation / hydrological variability", C, SCR, "now",
-             "rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
-    EUHazard("ocean_acidification", WA, "Ocean acidification", C, SCR, "now",
-             "OceanSODA-ETHZ global surface-ocean pH; marine screening for coastal/aquaculture/fisheries exposure (not-applicable for inland land assets)", (H.OCEAN_ACIDIFICATION,)),
+    EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, BN, "now",
+             "By nature: a projection of future precipitation change; nothing observed to test against. CMIP6 ensemble |precip change| (projection scenarios)", (H.CHANGING_PRECIP,)),
+    EUHazard("precipitation_variability", WA, "Precipitation / hydrological variability", C, BN, "now",
+             "By nature: a descriptive climate statistic, not a damage hazard. rainfall seasonal concentration + interannual spread (1991–2020 climatology)", (H.PRECIP_VARIABILITY,)),
+    EUHazard("ocean_acidification", WA, "Ocean acidification", C, BN, "now",
+             "By nature: already an observation product; marine context, not a building hazard. OceanSODA-ETHZ global surface-ocean pH; marine screening for coastal/aquaculture/fisheries exposure (not-applicable for inland land assets)", (H.OCEAN_ACIDIFICATION,)),
     EUHazard("glacial_lake_outburst", WA, "Glacial lake outburst", A, REF, "now",
              "GIGLak global glacial-lake inventory (117k lakes) , scored as a size-scaled proximity exposure zone. Acute water "
              "hazard (EBA/EU-Taxonomy); a geophysical proximity screen — not a hydraulically-routed inundation nor a "
@@ -198,6 +200,17 @@ EXTRA_CHANNELS: tuple[EUHazard, ...] = (
              "classified Screening; no euro figure is published for this hazard.", (H.VOLCANIC,)),
     EUHazard("pollution", WA, "Pollution / air quality", C, SCR, "now", "air-quality screening channel; coverage disclosed as limited", (H.POLLUTION,)),
 )
+
+
+# Screening channels that HAVE been put to an independent backtest and did not pass (numbers in each entry's note
+# and on the validation ledger). Everything else at Screening still lacks an observed target at scale.
+SCREENING_TESTED_NEGATIVE: frozenset[str] = frozenset({"storm", "water_stress", "avalanche", "coastal_erosion"})
+
+
+def screening_status(hazard_id: str, tier: "MaturityTier") -> str | None:
+    if tier is not MaturityTier.SCREENING:
+        return None
+    return "tested_negative" if hazard_id in SCREENING_TESTED_NEGATIVE else "no_target_yet"
 
 
 # ── The CALIBRATED gate: independent-target validation is REQUIRED ────────────────────────────────────────
