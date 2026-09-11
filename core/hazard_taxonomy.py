@@ -160,8 +160,10 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Herrera-García et al. (2021) Global Subsidence Susceptibility (~1 km, geophysical predisposition). Tested against "
              "INDEPENDENT observed GNSS vertical land motion (NGL MIDAS, 6,166 stations ≥5 y outside glacial-rebound regions): the "
              "class orders observed subsidence monotonically (median 0.1 → 1.6 mm/yr from class 1 to 6) but rank correlation is 0.21 "
-             "(US 0.22, Europe −0.05), below the 0.35 minimum — stays Screening. GNSS mounts favour stable ground, so the target "
-             "under-samples subsiding sediments; InSAR (Copernicus EGMS, account-gated) is the disclosed better target.", (H.SUBSIDENCE,)),
+             "(US 0.22, Europe −0.05), below the 0.35 minimum. Then tested against Copernicus EGMS InSAR ground motion 2020–2024 "
+             "(224 tiles, 1 km block means, 180,932 blocks outside the glacial-rebound region): rank correlation 0.10, class medians "
+             "flat near 1 mm/yr — the susceptibility class does not rank where the ground actually sinks in Europe. Stays Screening; "
+             "a subsidence channel that earns a tier will have to read the observed InSAR velocity itself, not a susceptibility class.", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
              "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon)", (H.COASTAL_EROSION,)),
     EUHazard("soil_erosion", S, "Soil erosion", C, SCR, "now",

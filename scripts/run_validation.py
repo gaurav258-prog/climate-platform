@@ -18,6 +18,7 @@ import services.validation.validators.near_field_events  # noqa: F401 — regist
 import services.validation.validators.station_extremes  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip station tests
 import services.validation.validators.storm_holdout  # noqa: F401 — registers storm_oos (temporal holdout)
 import services.validation.validators.storm_severity  # noqa: F401 — registers storm (severity)
+import services.validation.validators.subsidence_egms  # noqa: F401 — registers subsidence_egms (InSAR)
 import services.validation.validators.subsidence_gnss  # noqa: F401 — registers subsidence_gnss[_us/_eu]
 import services.validation.validators.temporal_holdout  # noqa: F401 — registers seismic_oos (temporal holdout)
 from core.db.session import get_session
