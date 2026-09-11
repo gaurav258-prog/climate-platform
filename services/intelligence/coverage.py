@@ -63,7 +63,7 @@ def eu_taxonomy_coverage() -> dict:
             "id": h.id, "name": h.name, "family": h.family.value, "nature": h.nature,
             "tier": h.tier.value, "phase": h.phase, "source": h.source,
             "internal": [c.value for c in h.internal],
-            "status": screening_status(h.id, h.tier),      # screening only: tested_negative | no_target_yet
+            "status": screening_status(h.id, h.tier),      # indicator only: tested_negative | no_target_yet (ledger fact, not shown as a verdict)
         }
 
     grouped = eu_hazards_by_family()
@@ -81,10 +81,10 @@ def eu_taxonomy_coverage() -> dict:
         ],
         "extra_channels": [_ser(h) for h in EXTRA_CHANNELS],
         "tiers": [
-            {"tier": "calibrated", "label": "Calibrated", "note": "passed an independent backtest against observed outcomes — publishes scores and may headline"},
-            {"tier": "by_nature", "label": "By nature", "note": "nothing observed to test against: a projection of the future, a descriptive statistic or an observation product — context, never a headline"},
-            {"tier": "screening", "label": "Screening", "note": "authoritative indicator not yet validated: either tested and did not pass (numbers on the card), or no observed target at scale yet"},
-            {"tier": "reference", "label": "Reference", "note": "zone / inventory layer — an exposure state, no climate projection"},
+            {"tier": "calibrated", "label": "Validated", "note": "passed an independent backtest against observed outcomes — publishes scores, may headline and carry a figure"},
+            {"tier": "by_nature", "label": "Reference context", "note": "a projection of the future, a descriptive statistic or an observation product — nothing to test against; context only, never a headline"},
+            {"tier": "screening", "label": "Indicator", "note": "an authoritative published layer used for screening; not validated — never a headline, never a figure. Backtest results, where run, are in the note and on the validation ledger"},
+            {"tier": "reference", "label": "Reference layer", "note": "zone / inventory layer — an exposure state, no climate projection"},
             {"tier": "roadmap", "label": "Roadmap", "note": "planned channel, not built yet"},
         ],
         "note": "coverage ≠ calibration; a channel moves up a tier only when it earns it (see model validation)",
