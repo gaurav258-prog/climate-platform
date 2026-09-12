@@ -24,7 +24,8 @@ Six of the seven parked items are done, built by five parallel agent passes unde
 Open follow-up from item 1: the agri-food shadow book's cross-sector comparison reads the buildings headline-relevance path (matching how banking/insurance shadow books already work), not the agriculture one — worth revisiting if it matters for agri-food specifically.
 
 ## Remaining (reopen here)
+One item left, externally gated:
+
 1. **Real portal adapters** (EBA reporting portal, EIOPA Solvency II portal, OAM/ESEF): the adapter frame, credential vault and receipt flow exist; the live protocol per portal needs credentials and a sandbox.
-2. **Soil-degradation raster materialised locally** (5.3 GB UNCCD COG; `scripts/fetch_soil_degradation.py`) so background scoring stops depending on a slow remote read.
 ## How to reopen
 Branch from `main`, read `SOFTWARE_DESCRIPTION.md` v2.55–v2.70 and the memory notes `project_climate_platform_supervision_model`, `project_climate_platform_grc_spine`, `project_climate_platform_hazard_relevance`; run the end-to-end script under the session scratchpad (`e2e/e2e_grc.py`) against a fresh API before changing anything.
