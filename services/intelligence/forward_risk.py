@@ -35,7 +35,7 @@ def forward_risk(session, org_id: str, vertical: str, scenario: str,
                v.physical_risk_ci_lower AS lo, v.physical_risk_ci_upper AS hi
         FROM portfolio_entities e
         JOIN v_portfolio_entity_physical_risk v ON v.entity_id = e.entity_id
-        WHERE e.org_id = :o AND e.vertical = :vert AND v.hazard_type NOT IN (SELECT hazard_type FROM hazard_relevance WHERE asset_class = 'buildings' AND NOT headline)
+        WHERE e.org_id = :o AND e.vertical = :vert AND v.headline_eligible
           AND ( (v.scenario = :scen AND v.time_horizon <> 'current')
                 OR (v.scenario = 'baseline' AND v.time_horizon = 'current') )
         ORDER BY v.entity_id, v.time_horizon, v.physical_risk_score DESC

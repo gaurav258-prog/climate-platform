@@ -33,3 +33,16 @@ def test_crop_scales_never_headline_a_building_but_do_headline_a_plot():
 def test_engine_default_reads_the_registry():
     from services.portfolio_engine import DEFAULT_HEADLINE_EXCLUDE
     assert set(DEFAULT_HEADLINE_EXCLUDE) == set(headline_exclude("buildings")) >= {"heat_acute", "frost", "soil_water"}
+
+
+def test_a_scale_belongs_to_the_model_not_the_hazard_id():
+    """Subsidence: the Herrera class never headlines; the observed EGMS rate (v2) is a measured intensity and does."""
+    from core.hazard_relevance import reason, registry, scale_kind
+    assert not is_headline_eligible("subsidence", "buildings")                                   # default = the class
+    assert not is_headline_eligible("subsidence", "buildings", "subsidence-herrera-gss-v1")
+    assert is_headline_eligible("subsidence", "buildings", "subsidence-egms-observed-v2")
+    assert is_headline_eligible("subsidence", "buildings", "subsidence-egms-observed-v2.1")       # prefix match
+    assert scale_kind("subsidence", "subsidence-egms-observed-v2") == "intensity" and reason("subsidence", "buildings", "subsidence-egms-observed-v2") is None
+    assert "subsidence" in headline_exclude("buildings")                                           # the default scale is still excluded by name
+    rows = {(r["hazard_type"], r["asset_class"], r["model_version_prefix"]): r["headline"] for r in registry()}
+    assert rows[("subsidence", "buildings", "")] is False and rows[("subsidence", "buildings", "subsidence-egms-observed")] is True

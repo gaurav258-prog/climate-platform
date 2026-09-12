@@ -76,7 +76,7 @@ from api.schemas.lookup import (
     PollResponse,
 )
 from core.db.session import get_session
-from core.hazard_relevance import headline_exclude
+from core.hazard_relevance import is_headline_eligible
 from core.types import HAZARD_VALUES, score_to_bucket
 from services.geocoding.nominatim import geocode
 from services.scoring.on_demand import GRIDDED_ON_DEMAND_SCORERS, SYNC_ON_DEMAND_SCORERS
@@ -89,16 +89,16 @@ router = APIRouter(prefix="/v1/lookup", tags=["Lookup"])
 HEAT_ELEVATED_DELTA = 15.0  # disclosed threshold (0-100 scale), not statistically derived
 
 
-def _compute_overall(session, cell: str, exclude_hazards: frozenset[str] = frozenset()) -> OverallRisk:
+def _compute_overall(session, cell: str, allow_nowcast: frozenset[str] = frozenset()) -> OverallRisk:
     """MAX across every hazard scored for this cell right now (see OverallRisk's
     docstring for why max, not average). Re-queries canonical_scores directly rather
     than trusting the caller's in-memory `results` list, so it stays correct when
     called later from poll_lookup() after a background job has since resolved.
 
-    `exclude_hazards` drops specific hazard_types from the MAX pool that decides the
-    driver/score -- used to compute the `baseline` figure (heat_acute excluded, so
-    today's live temperature reading can't set the place's standing profile; see
-    lookup_score()). hazards_scored/pending/insufficient counts are NOT affected by
+    The MAX pool is the registry's headline rule per row (hazard × model version);
+    `allow_nowcast` lets a nowcast hazard (heat_acute) into the pool for the live
+    "overall" figure, while the `baseline` figure keeps it out so today's reading
+    can't set the place's standing profile (see lookup_score()). hazards_scored/pending/insufficient counts are NOT affected by
     the exclusion -- they describe real data coverage for this cell, independent of
     which hazard is allowed to drive a particular headline number.
 
@@ -109,7 +109,7 @@ def _compute_overall(session, cell: str, exclude_hazards: frozenset[str] = froze
     (or a 9-minus-scored-minus-pending subtraction) would silently over/under-count
     in that case. A real bug caught live, not a hypothetical."""
     scored = session.execute(text("""
-        SELECT hazard_type, CAST(risk_score AS FLOAT) risk_score
+        SELECT hazard_type, CAST(risk_score AS FLOAT) risk_score, model_version
         FROM canonical_scores
         WHERE h3_cell=:c AND scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
     """), {"c": cell}).mappings().all()
@@ -121,7 +121,7 @@ def _compute_overall(session, cell: str, exclude_hazards: frozenset[str] = froze
     """), {"c": cell}).all()}
     pending_types -= scored_types  # a hazard that resolved since its job was marked computing
 
-    eligible = [r for r in scored if r["hazard_type"] not in exclude_hazards]
+    eligible = [r for r in scored if r["hazard_type"] in allow_nowcast or is_headline_eligible(r["hazard_type"], "buildings", r["model_version"])]
     if eligible:
         driver = max(eligible, key=lambda r: r["risk_score"])
         overall_score, overall_bucket = round(driver["risk_score"], 2), score_to_bucket(driver["risk_score"]).value
@@ -250,8 +250,8 @@ def lookup_score(
         VALUES (:id, :addr, :lat, :lon, :cell, 'done', now())
     """), {"id": str(uuid.uuid4()), "addr": address, "lat": lat, "lon": lon, "cell": cell})
 
-    overall = _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")) - {"heat_acute"})
-    baseline = _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")))
+    overall = _compute_overall(session, cell, allow_nowcast=frozenset({"heat_acute"}))
+    baseline = _compute_overall(session, cell)
     heat_status = _compute_heat_status(session, cell)
     return LookupResponse(latitude=lat, longitude=lon, display_name=display_name, h3_cell=cell,
                            hazards=results, overall=overall, baseline=baseline, heat_status=heat_status)
@@ -264,8 +264,8 @@ def lookup_score(
 )
 def _poll_context(session, cell: str) -> dict:
     return {
-        "overall": _compute_overall(session, cell, exclude_hazards=frozenset(headline_exclude("buildings")) - {"heat_acute"}),
-        "baseline": _compute_overall(session, cell, exclude_hazards=frozenset({"heat_acute"})),
+        "overall": _compute_overall(session, cell, allow_nowcast=frozenset({"heat_acute"})),
+        "baseline": _compute_overall(session, cell),
         "heat_status": _compute_heat_status(session, cell),
     }
 

@@ -16,7 +16,6 @@ import numpy as np
 from sqlalchemy import text
 
 from core.types import score_to_bucket
-from services.portfolio_engine import DEFAULT_HEADLINE_EXCLUDE
 from services.supervision.lens import HIGH
 
 MIN_CELLS_PER_REGION = 5
@@ -29,9 +28,9 @@ def headline_by_cell(session, scenario: str, horizon: str) -> dict[str, tuple[fl
     rows = session.execute(text("""
         SELECT h3_cell, hazard_type, max(risk_score) AS score FROM canonical_scores
         WHERE score_lane = 'standing' AND valid_to IS NULL AND scenario = :sc AND time_horizon = :hz
-          AND hazard_type <> ALL(CAST(:excl AS text[]))
+          AND hazard_headline_eligible(hazard_type::text, 'buildings', model_version::text)
         GROUP BY h3_cell, hazard_type
-    """), {"sc": scenario, "hz": horizon, "excl": list(DEFAULT_HEADLINE_EXCLUDE)}).all()
+    """), {"sc": scenario, "hz": horizon}).all()
     best: dict[str, tuple[float, str]] = {}
     for cell, hz, score in rows:
         if score is None:
