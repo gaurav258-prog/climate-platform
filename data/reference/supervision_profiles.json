@@ -136,7 +136,7 @@
     "follow_up"
   ],
   "sectors": {
-    "_about": "Per supervised sector: the frameworks the supervisor expects, the regional unit it works in, and the benchmark metrics used for peer comparison. Thresholds are supervisory-expectation defaults, overridable per regulator.",
+    "_about": "Per supervised sector: the frameworks the supervisor expects, the regional unit it works in, and the benchmark metrics used for peer comparison. exposure_measure = the sector's exposure basis for the Tier-1 plausibility band: cell_field is the canonical template column the band divides by and weights with, label is the sector's own word for it, prior is the reference the band is judged against (scored_land: every scored land cell, equal weight; population_exposure: this authority's supervised population of the sector, weighted by the measure, the entity under review excluded). Thresholds are supervisory-expectation defaults, overridable per regulator.",
     "bank": {
       "label": "Credit institutions",
       "authorities_example": [
@@ -150,6 +150,12 @@
       ],
       "region_unit": "nuts3",
       "book_noun": "financed assets",
+      "exposure_measure": {
+        "cell_field": "gross_carrying_amount_eur",
+        "label": "Gross carrying amount",
+        "prior": "scored_land",
+        "_why": "Pillar 3 Template 5 reports exposure by counterparty geography across every sector, so the reference is the geography itself: every scored land cell, equal weight."
+      },
       "metrics": [
         {
           "id": "book_value_eur",
@@ -259,7 +265,8 @@
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
             }
-          ]
+          ],
+          "sector_key": "nace_section"
         },
         "granular": {
           "source": "anacredit",
@@ -315,7 +322,12 @@
             }
           ],
           "location_rule": "Locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
-          "precision_label": "Region-resolved (NUTS-3)"
+          "precision_label": "Region-resolved (NUTS-3)",
+          "shadow": {
+            "vertical": "banking",
+            "entity_type": "loan",
+            "asset_class": "buildings"
+          }
         }
       }
     },
@@ -332,6 +344,12 @@
       ],
       "region_unit": "nuts3",
       "book_noun": "insured locations",
+      "exposure_measure": {
+        "cell_field": "gross_carrying_amount_eur",
+        "label": "Sum insured",
+        "prior": "population_exposure",
+        "_why": "Sum insured sits on insured buildings, not on land: the reference is the supervised insurance population's own located sum insured, weighted by it, the undertaking under review excluded."
+      },
       "metrics": [
         {
           "id": "book_value_eur",
@@ -441,7 +459,8 @@
               "id": "method_note",
               "label": "Method note (from the qualitative disclosure)"
             }
-          ]
+          ],
+          "sector_key": "nace_section"
         },
         "granular": {
           "source": "sov",
@@ -497,7 +516,12 @@
             }
           ],
           "location_rule": "Risk locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
-          "precision_label": "Region-resolved (NUTS-3)"
+          "precision_label": "Region-resolved (NUTS-3)",
+          "shadow": {
+            "vertical": "insurance",
+            "entity_type": "property",
+            "asset_class": "buildings"
+          }
         }
       }
     },
@@ -514,6 +538,11 @@
       ],
       "region_unit": "nuts3",
       "book_noun": "holdings",
+      "exposure_measure": {
+        "cell_field": "gross_carrying_amount_eur",
+        "label": "Assets under management (located)",
+        "prior": "scored_land"
+      },
       "metrics": [
         {
           "id": "book_value_eur",
@@ -554,7 +583,132 @@
           "direction": "higher_is_better",
           "watch_below": 90
         }
-      ]
+      ],
+      "intake": {
+        "_about": "Tier-2 intake for a securities / markets supervisor over an asset manager: the climate-exposure template the manager submitted (holdings by geography and issuer sector, of which in physical-risk zones) and the supervisor's own holdings-register extract. Same canonical field ids as every other sector (the lens and the plausibility band are sector-agnostic); the labels are the manager's own words. Map your file's columns to the fields below; the mapping is validated before saving.",
+        "submission": {
+          "framework": "markets_climate",
+          "template": "holdings_by_region",
+          "label": "Climate exposure template — holdings by geography and issuer sector, of which in physical-risk zones",
+          "sector_key": "nace_section",
+          "cell_fields": [
+            {
+              "id": "geography",
+              "label": "Geography (issuer / asset country)",
+              "required": true
+            },
+            {
+              "id": "sector",
+              "label": "Issuer sector (NACE section or bucket)",
+              "required": true
+            },
+            {
+              "id": "gross_carrying_amount_eur",
+              "label": "Position value (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_physical_eur",
+              "label": "of which in physical-risk zones (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_acute_eur",
+              "label": "of which acute perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_chronic_eur",
+              "label": "of which chronic perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "maturity_bucket",
+              "label": "Holding period bucket",
+              "required": false
+            }
+          ],
+          "basis_fields": [
+            {
+              "id": "scenario",
+              "label": "Scenario stated in the SFDR / PAI narrative"
+            },
+            {
+              "id": "horizon",
+              "label": "Horizon stated in the SFDR / PAI narrative"
+            },
+            {
+              "id": "method_note",
+              "label": "Method note (from the qualitative disclosure)"
+            }
+          ]
+        },
+        "granular": {
+          "source": "holdings_register",
+          "label": "Holdings register extract (position level, asset region)",
+          "row_fields": [
+            {
+              "id": "instrument_id",
+              "label": "Position / ISIN id",
+              "required": true
+            },
+            {
+              "id": "counterparty_name",
+              "label": "Issuer name",
+              "required": false
+            },
+            {
+              "id": "nace_section",
+              "label": "Issuer sector (NACE)",
+              "required": true
+            },
+            {
+              "id": "outstanding_eur",
+              "label": "Position value (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "maturity_date",
+              "label": "Maturity / disposal date",
+              "required": false,
+              "type": "date"
+            },
+            {
+              "id": "collateral_country",
+              "label": "Asset country (ISO2)",
+              "required": true
+            },
+            {
+              "id": "collateral_nuts3",
+              "label": "Asset NUTS-3 code",
+              "required": false
+            },
+            {
+              "id": "collateral_postcode",
+              "label": "Asset postcode",
+              "required": false
+            },
+            {
+              "id": "collateral_value_eur",
+              "label": "Issuer enterprise value (€)",
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "shadow": {
+            "vertical": "assetmgmt",
+            "entity_type": "holding",
+            "asset_class": "buildings"
+          },
+          "location_rule": "Asset locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
+          "precision_label": "Region-resolved (NUTS-3)"
+        }
+      }
     },
     "reit": {
       "label": "Real-estate companies / REITs",
@@ -567,6 +721,11 @@
       ],
       "region_unit": "nuts3",
       "book_noun": "properties",
+      "exposure_measure": {
+        "cell_field": "gross_carrying_amount_eur",
+        "label": "Property value",
+        "prior": "scored_land"
+      },
       "metrics": [
         {
           "id": "book_value_eur",
@@ -607,7 +766,132 @@
           "direction": "higher_is_better",
           "watch_below": 90
         }
-      ]
+      ],
+      "intake": {
+        "_about": "Tier-2 intake for a securities / markets supervisor over a real-estate company: the climate-exposure template the company submitted (property value by geography and property type, of which in physical-risk zones) and the supervisor's own property-register extract. Same canonical field ids as every other sector; the sector bucket is the property type as reported (sector_key 'verbatim'), not a NACE section. Map your file's columns to the fields below; the mapping is validated before saving.",
+        "submission": {
+          "framework": "markets_climate",
+          "template": "properties_by_region",
+          "label": "Climate exposure template — property value by geography and property type, of which in physical-risk zones",
+          "sector_key": "verbatim",
+          "cell_fields": [
+            {
+              "id": "geography",
+              "label": "Geography (property country / region)",
+              "required": true
+            },
+            {
+              "id": "sector",
+              "label": "Property type (office, logistics, retail …)",
+              "required": true
+            },
+            {
+              "id": "gross_carrying_amount_eur",
+              "label": "Property value (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_physical_eur",
+              "label": "of which in physical-risk zones (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_acute_eur",
+              "label": "of which acute perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_chronic_eur",
+              "label": "of which chronic perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "maturity_bucket",
+              "label": "Lease term bucket",
+              "required": false
+            }
+          ],
+          "basis_fields": [
+            {
+              "id": "scenario",
+              "label": "Scenario stated in the ESRS E1 narrative"
+            },
+            {
+              "id": "horizon",
+              "label": "Horizon stated in the ESRS E1 narrative"
+            },
+            {
+              "id": "method_note",
+              "label": "Method note (from the qualitative disclosure)"
+            }
+          ]
+        },
+        "granular": {
+          "source": "property_register",
+          "label": "Property register extract (asset level, property region)",
+          "row_fields": [
+            {
+              "id": "instrument_id",
+              "label": "Property id",
+              "required": true
+            },
+            {
+              "id": "counterparty_name",
+              "label": "Property name",
+              "required": false
+            },
+            {
+              "id": "nace_section",
+              "label": "Property type",
+              "required": true
+            },
+            {
+              "id": "outstanding_eur",
+              "label": "Property value (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "maturity_date",
+              "label": "Lease expiry",
+              "required": false,
+              "type": "date"
+            },
+            {
+              "id": "collateral_country",
+              "label": "Property country (ISO2)",
+              "required": true
+            },
+            {
+              "id": "collateral_nuts3",
+              "label": "Property NUTS-3 code",
+              "required": false
+            },
+            {
+              "id": "collateral_postcode",
+              "label": "Property postcode",
+              "required": false
+            },
+            {
+              "id": "collateral_value_eur",
+              "label": "Insured / reinstatement value (€)",
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "shadow": {
+            "vertical": "realestate",
+            "entity_type": "property",
+            "asset_class": "buildings"
+          },
+          "location_rule": "Property locations are resolved from the NUTS-3 code where available; otherwise the postcode is mapped to NUTS-3 via the Eurostat TERCET correspondence. Rows with a country only remain unlocated and are reported as such.",
+          "precision_label": "Region-resolved (NUTS-3)"
+        }
+      }
     },
     "manufacturer": {
       "label": "Agri-food operators",
@@ -621,6 +905,11 @@
       ],
       "region_unit": "nuts3",
       "book_noun": "sites & sourcing plots",
+      "exposure_measure": {
+        "cell_field": "gross_carrying_amount_eur",
+        "label": "Sites + annual sourcing spend",
+        "prior": "scored_land"
+      },
       "metrics": [
         {
           "id": "book_value_eur",
@@ -662,7 +951,144 @@
           "direction": "higher_is_better",
           "watch_below": 90
         }
-      ]
+      ],
+      "intake": {
+        "_about": "Tier-2 intake for an agri-food / EUDR authority: the sourcing template the operator submitted (annual sourcing spend by origin country and commodity, of which in physical-risk zones) and the authority's own sourcing-plot extract (the EUDR due-diligence geolocation). Same canonical field ids as every other sector; the sector bucket is the commodity as reported (sector_key 'verbatim'). Plots with coordinates are point-resolved; plots with a region only follow the NUTS-3 / postcode rule; origin-country-only rows stay unlocated. Map your file's columns to the fields below; the mapping is validated before saving.",
+        "submission": {
+          "framework": "agrifood_climate",
+          "template": "sourcing_by_origin",
+          "label": "Sourcing template — annual sourcing spend by origin country and commodity, of which in physical-risk zones",
+          "sector_key": "verbatim",
+          "cell_fields": [
+            {
+              "id": "geography",
+              "label": "Origin country (ISO2)",
+              "required": true
+            },
+            {
+              "id": "sector",
+              "label": "Commodity (as reported)",
+              "required": true
+            },
+            {
+              "id": "gross_carrying_amount_eur",
+              "label": "Annual sourcing spend (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_physical_eur",
+              "label": "of which in physical-risk zones (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_acute_eur",
+              "label": "of which acute perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "sensitive_chronic_eur",
+              "label": "of which chronic perils (€)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "maturity_bucket",
+              "label": "Contract term bucket",
+              "required": false
+            }
+          ],
+          "basis_fields": [
+            {
+              "id": "scenario",
+              "label": "Scenario stated in the CSRD / EUDR narrative"
+            },
+            {
+              "id": "horizon",
+              "label": "Horizon stated in the CSRD / EUDR narrative"
+            },
+            {
+              "id": "method_note",
+              "label": "Method note (from the qualitative disclosure)"
+            }
+          ]
+        },
+        "granular": {
+          "source": "sourcing_plot_register",
+          "label": "Sourcing-plot extract (EUDR due-diligence geolocation, plot level)",
+          "row_fields": [
+            {
+              "id": "instrument_id",
+              "label": "Plot id",
+              "required": true
+            },
+            {
+              "id": "counterparty_name",
+              "label": "Supplier / plot name",
+              "required": false
+            },
+            {
+              "id": "nace_section",
+              "label": "Commodity",
+              "required": true
+            },
+            {
+              "id": "outstanding_eur",
+              "label": "Annual sourcing spend (€)",
+              "required": true,
+              "type": "number"
+            },
+            {
+              "id": "maturity_date",
+              "label": "Contract end",
+              "required": false,
+              "type": "date"
+            },
+            {
+              "id": "collateral_country",
+              "label": "Origin country (ISO2)",
+              "required": true
+            },
+            {
+              "id": "collateral_nuts3",
+              "label": "Origin NUTS-3 code (EU origins)",
+              "required": false
+            },
+            {
+              "id": "collateral_postcode",
+              "label": "Origin postcode (EU origins)",
+              "required": false
+            },
+            {
+              "id": "collateral_value_eur",
+              "label": "Plot area (ha)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "latitude",
+              "label": "Latitude (EUDR geolocation)",
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "longitude",
+              "label": "Longitude (EUDR geolocation)",
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "shadow": {
+            "vertical": "agriculture",
+            "entity_type": "plot",
+            "asset_class": "agriculture"
+          },
+          "location_rule": "Plots carrying the EUDR geolocation (latitude / longitude) are resolved to that point. Otherwise the NUTS-3 code is used where available, then the postcode via the Eurostat TERCET correspondence. Rows with an origin country only remain unlocated and are reported as such.",
+          "precision_label": "Point-resolved (EUDR geolocation) / region-resolved (NUTS-3)"
+        }
+      }
     }
   },
   "profiles": {
