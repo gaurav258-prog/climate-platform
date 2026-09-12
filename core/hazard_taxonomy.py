@@ -110,8 +110,11 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Xynthia). Distinct channel from Cyclone. Screening ranking only, not calibrated: both the mean-gust "
              "field and an extreme annual-maximum-gust variant (15 years, continental US 2009-2023) were checked against an independent NOAA "
              "Storm-Events backtest (AUC about 0.5, rank correlation at most 0.20 against the 0.35 minimum): the annual-maximum "
-             "10 m gust is dominated by convective and tropical events, not the synoptic windstorm peril. A synoptic-filtered "
-             "field is a disclosed planned enhancement.", (H.WINDSTORM,)),
+             "10 m gust is dominated by convective and tropical events, not the synoptic windstorm peril. The synoptic-filtered field "
+             "(hourly ERA5 gust 2014–2023 with convective hours, CAPE ≥ 300 J/kg, and tropical-cyclone hours removed) triples that "
+             "skill — rank correlation 0.22 on the same NOAA target, 0.26 for the mean annual maximum — but stays below the 0.35 "
+             "minimum on every target variant. Indicator; the remaining gap is the reported-gust target itself (zone-level estimates), "
+             "so a station-observed gust record is the next honest test.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, BN, "now",
              "By nature: a projection of future wind change; nothing observed to test against. CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, CAL, "now",
