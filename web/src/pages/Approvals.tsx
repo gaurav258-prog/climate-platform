@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, X, Clock, ShieldCheck, Undo2 } from 'lucide-react'
+import { Check, X, Clock, ShieldCheck, ShieldOff, Undo2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
@@ -12,12 +12,14 @@ interface Req {
   status: string; maker_email: string | null; checker_email: string | null; reason: string | null
   assignee_email: string | null; assignee_user_id: string | null; assigned_to_me?: boolean
   created_at: string | null; decided_at: string | null; is_own: boolean
+  withdrawn_cause: string | null; policy_off: boolean   // closed by the platform when the org's policy stopped governing it
 }
 interface Decider { user_id: string; email: string; name: string | null }
 
 const badge = (s: string) => s === 'approved' ? 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_14%,transparent)]'
   : s === 'rejected' ? 'text-[var(--color-bad)] bg-[color-mix(in_oklab,var(--color-bad)_14%,transparent)]'
   : s === 'returned' ? 'text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_14%,transparent)]'
+  : s === 'withdrawn' ? 'text-[var(--color-mute)] bg-[color-mix(in_oklab,var(--color-mute)_14%,transparent)]'
   : 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]'
 
 function summarize(p: Record<string, unknown>): string {
@@ -96,6 +98,12 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-[15px] font-semibold">{actionLabel(r.request_type)}</span>
                 <span className={`mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide ${badge(r.status)}`}>{r.status}</span>
+                {r.policy_off && (
+                  <span className="inline-flex items-center gap-1 mono text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide text-[var(--color-warn)] border border-[var(--color-warn)]"
+                    title="The approval policy for this action was switched off while the request was pending. It was withdrawn — not applied, not decidable. Re-submit to apply directly.">
+                    <ShieldOff size={10} /> policy no longer requires approval
+                  </span>
+                )}
               </div>
               {r.title && <div className="text-[13px] text-[var(--color-mute)] mt-1">{r.title}</div>}
 
@@ -125,7 +133,7 @@ export default function Approvals({ embedded = false }: { embedded?: boolean }) 
               {/* the decision note (reason for reject / send-back / approve comment) */}
               {r.reason && (
                 <div className="mt-2 text-[12.5px] text-[var(--color-mute)]">
-                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.status === 'returned' ? 'sent back' : r.status === 'rejected' ? 'rejected' : 'note'}:</span> {r.reason}
+                  <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">{r.status === 'returned' ? 'sent back' : r.status === 'rejected' ? 'rejected' : r.status === 'withdrawn' ? 'withdrawn' : 'note'}:</span> {r.reason}
                 </div>
               )}
 

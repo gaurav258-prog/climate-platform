@@ -95,8 +95,8 @@ def channels(session: DbSession, ctx: dict = Depends(require_permission("reports
 
 @router.get("/sends", summary="Every transmission of this organisation, newest first")
 def sends(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.transmission.service import list_for_org
-    return {"transmissions": list_for_org(session, ctx["org"]["org_id"])}
+    from services.transmission.service import list_for_org, worker
+    return {"transmissions": list_for_org(session, ctx["org"]["org_id"]), "worker": worker(session)}
 
 
 @router.post("/filings/{filing_id}/send", status_code=201, summary="Transmit an attested filing through a channel (runs on the worker; receipt recorded)")
@@ -118,8 +118,8 @@ def send_filing(filing_id: str, body: SendBody, session: DbSession, ctx: dict = 
 
 @router.get("/filings/{filing_id}/sends", summary="Transmissions of one filing")
 def filing_sends(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.transmission.service import list_for_filing
-    return {"transmissions": list_for_filing(session, ctx["org"]["org_id"], filing_id)}
+    from services.transmission.service import list_for_filing, worker
+    return {"transmissions": list_for_filing(session, ctx["org"]["org_id"], filing_id), "worker": worker(session)}
 
 
 @router.post("/sends/{transmission_id}/receipt", summary="Record the authority's reference for a transmission made outside the platform")

@@ -68,30 +68,36 @@ def _locate_locked(cells, pts, land, nuts):
     return countries, regions
 
 
-def summarise(rows: list[tuple[str, str, bool, str]]) -> dict[str, dict]:
-    """rows = (country, region, sensitive, headline_hazard) → per-geography prior (countries + 'EU')."""
+def summarise(rows: list[tuple]) -> dict[str, dict]:
+    """rows = (country, region, sensitive, headline_hazard[, weight]) → per-geography prior (countries + 'EU').
+    Without a weight every row counts once (scored land cells); with one, each row counts by its exposure measure
+    (the population prior — services.supervision.exposure_prior). The regional share is then the weighted share,
+    and the spread across regions is the band either way."""
     from services.supervision.geo_prior_eu import EU_MEMBERS
     per_geo: dict[str, list] = {}
-    for country, region, sens, hz in rows:
-        if not country:
+    for row in rows:
+        country, region, sens, hz = row[:4]
+        w = float(row[4]) if len(row) > 4 else 1.0
+        if not country or w <= 0:
             continue
-        per_geo.setdefault(country, []).append((region, sens, hz))
+        per_geo.setdefault(country, []).append((region, sens, hz, w))
         if country in EU_MEMBERS:
-            per_geo.setdefault("EU", []).append((region, sens, hz))
+            per_geo.setdefault("EU", []).append((region, sens, hz, w))
     out = {}
     for geo, items in per_geo.items():
         n = len(items)
         if n < MIN_CELLS_PER_GEOGRAPHY:
             continue
-        by_region: dict[str, list[bool]] = {}
+        by_region: dict[str, list[tuple[bool, float]]] = {}
         mix: dict[str, int] = {}
-        for region, sens, hz in items:
-            by_region.setdefault(region, []).append(sens)
+        for region, sens, hz, w in items:
+            by_region.setdefault(region, []).append((bool(sens), w))
             if sens:
                 mix[hz] = mix.get(hz, 0) + 1
-        shares = np.array([np.mean(v) for v in by_region.values() if len(v) >= MIN_CELLS_PER_REGION])
+        wshare = lambda v: sum(w for s, w in v if s) / sum(w for _, w in v)  # noqa: E731
+        shares = np.array([wshare(v) for v in by_region.values() if len(v) >= MIN_CELLS_PER_REGION])
         pct = (lambda q: float(np.percentile(shares, q))) if len(shares) >= 3 else (lambda q: None)
-        out[geo] = {"n_cells": n, "share_sensitive": float(np.mean([s for _, s, _ in items])),
+        out[geo] = {"n_cells": n, "share_sensitive": float(wshare([(s, w) for _, s, _, w in items])),
                     "p10": pct(10), "p25": pct(25), "p50": pct(50), "p75": pct(75), "p90": pct(90),
                     "n_regions": int(len(shares)),
                     "hazard_mix": dict(sorted(mix.items(), key=lambda kv: -kv[1])[:6])}

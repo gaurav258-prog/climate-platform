@@ -63,7 +63,7 @@ def pivot_cells(periods: list[dict]) -> list[dict]:
 
 
 def entity_trend(session, regulator_org_id: str, subject_org_id: str, spec: dict, scenario: str, horizon: str) -> dict:
-    from services.supervision.plausibility import assess
+    from services.supervision.plausibility import assess_entity
     ss = spec["submission"]
     subs = list_submissions(session, regulator_org_id, subject_org_id, ss["framework"], ss["template"])
     periods = []
@@ -72,7 +72,7 @@ def entity_trend(session, regulator_org_id: str, subject_org_id: str, spec: dict
         basis = s.get("basis") or {}
         sc, hz = basis.get("scenario") or scenario, basis.get("horizon") or horizon
         try:
-            counts = assess(session, s["cells"] or {}, sc, hz)["counts"]
+            counts = assess_entity(session, regulator_org_id, subject_org_id, s["cells"] or {}, sc, hz)["counts"]
         except Exception:
             counts = None
         periods.append({"period_label": s["period_label"], "received_at": s["created_at"], "source_file": s.get("source_file"),

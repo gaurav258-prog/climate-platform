@@ -173,14 +173,25 @@ interface Chan { channel_id: string; label: string; kind: string; authority: str
 interface ChanResp { on_tellumen: boolean; frameworks: { framework: string; label: string; mandate_id: string | null; formats: string[]; channels: Chan[] }[] }
 interface Filing { filing_id: string; framework: string; period_label: string; status: string; submission_ref: string | null }
 interface Tx { transmission_id: string; filing_id: string; framework: string; period_label: string; channel_id: string; channel_label: string; channel_kind: string; format: string; status: string; attempts: number
-  payload_sha256: string | null; filename: string | null; sent_at: string | null; receipt_ref: string | null; receipt_at: string | null; error: string | null; created_at: string; created_by: string | null }
+  payload_sha256: string | null; filename: string | null; sent_at: string | null; receipt_ref: string | null; receipt_at: string | null; error: string | null; created_at: string; created_by: string | null
+  worker_state: 'alive' | 'unavailable' | null }   // set only while the transmission waits on the worker (queued / failed-retrying)
+interface WorkerStatus { alive: boolean; last_seen: string | null; stale_after_s: number; executor: 'celery' | 'process' }
 const TX_COLOR: Record<string, string> = { acknowledged: 'var(--color-good)', sent: 'var(--color-sky)', queued: 'var(--color-mute)', awaiting_receipt: 'var(--color-warn)', awaiting_credentials: 'var(--color-warn)', rejected: 'var(--color-bad)', failed: 'var(--color-bad)' }
 const TX_LABEL: Record<string, string> = { acknowledged: 'Receipted', sent: 'Sent · awaiting receipt', queued: 'Queued', awaiting_receipt: 'Delivered outside the platform · record the reference', awaiting_credentials: 'Not sent · channel credentials missing', rejected: 'Rejected', failed: 'Failed · will retry' }
+// Honest waiting state: a queued (or failed-retrying) transmission with no live executor is NOT "queued" — nobody will
+// pick it up until the worker is back. The API decides `worker_state` from the executor heartbeat (stale after 90 s).
+const stuck = (t: Tx) => t.worker_state === 'unavailable'
+const txColor = (t: Tx) => (stuck(t) ? 'var(--color-bad)' : TX_COLOR[t.status])
+const txLabel = (t: Tx) => {
+  if (!stuck(t)) return TX_LABEL[t.status] ?? t.status
+  const since = t.created_at.slice(0, 16).replace('T', ' ')
+  return t.status === 'queued' ? `Worker unavailable — queued since ${since}` : `Worker unavailable — retry pending since ${since}`
+}
 function SendPanel({ canAct, onSent }: { canAct: boolean; onSent: () => void }) {
   const qc = useQueryClient()
   const ch = useQuery({ queryKey: ['tx-channels'], queryFn: () => api.get<ChanResp>('/v1/transmission/channels') })
   const fl = useQuery({ queryKey: ['filings-register'], queryFn: () => api.get<{ filings: Filing[] } | Filing[]>('/v1/filings') })
-  const tx = useQuery({ queryKey: ['tx-sends'], queryFn: () => api.get<{ transmissions: Tx[] }>('/v1/transmission/sends'), refetchInterval: (q) => (q.state.data?.transmissions.some(t => t.status === 'queued') ? 3000 : false) })
+  const tx = useQuery({ queryKey: ['tx-sends'], queryFn: () => api.get<{ transmissions: Tx[]; worker: WorkerStatus }>('/v1/transmission/sends'), refetchInterval: (q) => (q.state.data?.transmissions.some(t => t.worker_state) ? 3000 : false) })
   const [pick, setPick] = useState<Record<string, string>>({})
   const [ref, setRef] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -224,12 +235,14 @@ function SendPanel({ canAct, onSent }: { canAct: boolean; onSent: () => void }) 
               <Button variant="ghost" disabled={busy || !chosen} onClick={() => send(f, chosen)}><Send size={13} /> Send</Button></>)}
           </div>) })}</div>)}
       <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">Transmissions</div>
+      {tx.data && !tx.data.worker.alive && tx.data.transmissions.some(stuck) && (
+        <div className="text-[11.5px] text-[var(--color-bad)] mb-2">Job worker unavailable — no heartbeat {tx.data.worker.last_seen ? `since ${tx.data.worker.last_seen.slice(0, 16).replace('T', ' ')}` : 'on record'} (stale after {tx.data.worker.stale_after_s}s). Queued transmissions will not be sent until it is back.</div>)}
       {(tx.data?.transmissions ?? []).length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">Nothing transmitted yet.</div> : (
         <div className="divide-y divide-[var(--color-line)]">{tx.data!.transmissions.map(t => (
           <div key={t.transmission_id} className="py-2 flex items-center gap-3 flex-wrap text-[12.5px]">
             <span className="text-[var(--color-ink)] min-w-[220px]">{frameworkLabel(t.framework)} <span className="mono text-[10.5px] text-[var(--color-faint)]">{t.period_label} · {t.format}</span></span>
             <span className="text-[var(--color-mute)]">{t.channel_label}</span>
-            <span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: TX_COLOR[t.status], background: `color-mix(in oklab, ${TX_COLOR[t.status]} 14%, transparent)` }}>{TX_LABEL[t.status] ?? t.status}</span>
+            <span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: txColor(t), background: `color-mix(in oklab, ${txColor(t)} 14%, transparent)` }}>{txLabel(t)}</span>
             {t.receipt_ref && <span className="mono text-[11px] text-[var(--color-good)]">receipt {t.receipt_ref} · {t.receipt_at?.slice(0, 10)}</span>}
             {t.error && <span className="text-[11.5px] text-[var(--color-warn)]">{t.error}</span>}
             <span className="mono text-[10px] text-[var(--color-faint)] ml-auto" title={t.payload_sha256 ?? ''}>{t.filename} · {t.created_at.slice(0, 16).replace('T', ' ')} · attempt {t.attempts}</span>

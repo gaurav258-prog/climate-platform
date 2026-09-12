@@ -27,6 +27,7 @@ const LABELS: Record<string, string> = {
   // ---- audit-trail actions ----
   'approval.create': 'Requested approval', 'approval.request': 'Requested approval',
   'approval.assign': 'Routed approval', 'approval.decide': 'Decided approval',
+  'approval.withdrawn_by_policy': 'Approval withdrawn — policy switched off',
   'asset.valuation.override': 'Overrode valuation', 'asset.valuation.override_cleared': 'Cleared valuation override',
   'holding.valuation.override': 'Overrode valuation', 'holding.valuation.override_cleared': 'Cleared valuation override',
   'property.valuation.override': 'Overrode valuation', 'property.valuation.override_cleared': 'Cleared valuation override',

@@ -288,8 +288,13 @@ def set_approval_policy(body: PolicyPatch, session: DbSession,
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval_policy.update",
                 target_type="approval_policy", target_id=body.action_key,
                 detail={"requires_approval": body.requires_approval, "material_fields": mats, "threshold_eur": thr})
+    # pending requests this rule no longer governs are withdrawn (flagged + audited, never applied, never decidable)
+    from services.governance.approval_policy_sweep import withdraw_moot_requests
+    withdrawn = withdraw_moot_requests(session, org_id=org_id, action_key=body.action_key, actor_user_id=ctx["user"]["id"],
+                                      label=_POLICY_LABELS[body.action_key])
     return {"action_key": body.action_key, "requires_approval": body.requires_approval,
-            "material_fields": mats, "threshold_eur": thr, "org_override": True}
+            "material_fields": mats, "threshold_eur": thr, "org_override": True,
+            "withdrawn_request_ids": withdrawn}
 
 
 # ── Decision playbook: which decision → which automated downstream actions (on approval) ──────────────────

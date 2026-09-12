@@ -909,11 +909,13 @@ function Matrix() {
   const set = async (p: Policy, patch: { requires_approval?: boolean; threshold_eur?: number | null }) => {
     setBusy(p.action_key)
     try {
-      await api.patch('/v1/admin/approval-policy', {
+      const out = await api.patch<{ withdrawn_request_ids?: string[] }>('/v1/admin/approval-policy', {
         action_key: p.action_key, material_fields: p.material_fields,
         requires_approval: patch.requires_approval ?? p.requires_approval,
         threshold_eur: patch.threshold_eur !== undefined ? patch.threshold_eur : p.threshold_eur,
       })
+      const n = out?.withdrawn_request_ids?.length ?? 0
+      if (n > 0) toast.info(`${n} pending approval${n === 1 ? '' : 's'} for "${p.label}" withdrawn — the policy no longer requires approval. Nothing was applied; the makers can re-submit directly.`)
       await q.refetch()
     } finally { setBusy(null) }
   }
