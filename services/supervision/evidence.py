@@ -38,7 +38,7 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
     from services.supervision.engagement import list_requests
     from services.supervision.intake import load_submission, shadow_status
     from services.supervision.lens_build import build_lens
-    from services.supervision.plausibility import assess
+    from services.supervision.plausibility import assess_entity
     from services.supervision.projection import projection_coverage, shadow_cells
     reg_id, org_id = regulator["org_id"], entity["org_id"]
     now = datetime.now(timezone.utc)
@@ -59,10 +59,10 @@ def assemble(session, *, regulator: dict, actor: dict, entity: dict, cfg: dict, 
         basis = sub.get("basis") or {}
         sc1, hz1 = (basis.get("scenario") or scenario), (basis.get("horizon") or horizon)
         try:
-            pl = assess(session, sub["cells"], sc1, hz1)
+            pl = assess_entity(session, reg_id, org_id, sub["cells"], sc1, hz1)
             c["plausibility"] = {"available": True, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
                                  "scenario": sc1, "horizon": hz1, "counts": pl["counts"], "n_cells": pl["n_cells"],
-                                 "coverage_value_pct": pl["coverage_value_pct"], "rule": pl["rule"],
+                                 "coverage_value_pct": pl["coverage_value_pct"], "rule": pl["rule"], "exposure_measure": pl["exposure_measure"],
                                  "cells": [{k: r[k] for k in ("geography", "sector", "gross_carrying_amount_eur", "submitted_share_pct", "verdict_label", "reason")}
                                            for r in pl["rows"] if r["verdict"] != "plausible"][:60]}
         except Exception as e:
@@ -199,9 +199,9 @@ def render_pdf(c: dict, *, sections: Optional[list[str]] = None, watermark: Opti
             cnt = pl["counts"]
             x += [Paragraph(f"{pl['period_label']} · {pl.get('source_file') or ''} · judged at {pl['scenario']} · {pl['horizon']}. "
                             f"{cnt['plausible']} plausible, {cnt['above_band']} high for the geography, {cnt['below_band']} low, {cnt['no_reference']} without reference "
-                            f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of gross amount judged).", P), Paragraph(pl["rule"], S)]
+                            f"({pl['n_cells']} cells; {pl['coverage_value_pct']}% of {(pl.get('exposure_measure') or {}).get('label', 'gross amount').lower()} judged).", P), Paragraph(pl["rule"], S)]
             if pl["cells"]:
-                x += [table([["Cell", "Gross", "Submitted share", "Verdict", "Why"]] + [[f"{r['geography']} · {r['sector']}", _eur(r["gross_carrying_amount_eur"]),
+                x += [table([["Cell", (pl.get("exposure_measure") or {}).get("label", "Gross"), "Submitted share", "Verdict", "Why"]] + [[f"{r['geography']} · {r['sector']}", _eur(r["gross_carrying_amount_eur"]),
                             f"{r['submitted_share_pct']}%" if r["submitted_share_pct"] is not None else "—", r["verdict_label"], r["reason"]] for r in pl["cells"]],
                             [22 * mm, 22 * mm, 22 * mm, 30 * mm, 74 * mm])]
         else:

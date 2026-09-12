@@ -16,6 +16,16 @@ interface Detail extends Req { messages: Msg[]; can_set: { key: string; label: s
 interface ListResp { requests: Req[]; entities: { org_id: string; name: string }[]
   kinds: Record<string, { label: string; statuses: { key: string; label: string }[]; supervisor_sets: string[]; severities: string[] }>
   summary: { open: number; overdue: number; findings_open: number } }
+interface Stat { n: number; median: number | null; p90: number | null; max: number | null }
+interface SlaAuth { org_id: string; authority: string; n: number; n_open: number; n_closed: number; time_to_acknowledge_hours: Stat; time_to_respond_hours: Stat; time_to_close_hours: Stat
+  responded_on_time: { n: number; on_time: number; rate: number | null }; awaiting_acknowledgement: { n: number; oldest_days: number | null }; awaiting_response: { n: number }
+  overdue: { n: number; ageing: Record<string, number>; oldest_days: number | null; total_days: number }; by_kind: (SlaAuth & { kind: string; label: string })[]; by_entity: (SlaAuth & { supervised_org_id: string; label: string })[] }
+interface SlaResp { as_of: string; authorities: SlaAuth[]; definitions: Record<string, string | string[]>; note: string }
+interface CalEv { date: string | null; title: string; sub: string; status: string; overdue: boolean; mandate_id: string; mandate_title: string; framework: string | null; channel_id: string | null; channel_kind: string | null
+  due_rule: string | null; n_applicable: number; n_filed: number; n_cannot: number; entities: { org_id: string; name: string; filed: boolean }[]; authority?: string }
+interface CalResp { period_label: string; period_end: string; today: string; authorities: { authority: string; events: CalEv[]; n_deliverables: number; n_applicable: number; n_filed: number; n_overdue: number; next_due: string | null }[]
+  events: CalEv[]; upcoming: CalEv[]; undated: CalEv[]; note: string }
+const hrs = (h: number | null | undefined) => h == null ? '—' : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${h.toFixed(1)} h` : `${(h / 24).toFixed(1)} d`
 const SEV: Record<string, string> = { low: 'var(--color-mute)', medium: 'var(--color-warn)', high: 'var(--color-bad)' }
 
 export default function SupervisorRequests() {
@@ -24,6 +34,7 @@ export default function SupervisorRequests() {
   const q = useQuery({ queryKey: ['supervisor-requests'], queryFn: () => api.get<ListResp>('/v1/supervisor/requests') })
   const [sel, setSel] = useState<string | null>(null)
   const [creating, setCreating] = useState(params.get('new') === '1')
+  const view = params.get('view') === 'calendar' ? 'calendar' : 'requests'
   const fEntity = params.get('entity') ?? ''; const fKind = params.get('kind') ?? ''; const fStatus = params.get('status') ?? ''
   const setF = (k: string, v: string) => { const p = new URLSearchParams(params); if (v) p.set(k, v); else p.delete(k); p.delete('new'); setParams(p) }
   const d = q.data
@@ -35,12 +46,17 @@ export default function SupervisorRequests() {
       <PageHeader eyebrow="Requests & findings" title="Engage and follow up"
         lead="Information requests, site-access requests and findings you raise with an entity. Each one is a thread both sides read: the entity responds and reports remediation in its own workspace, you close. Every step is recorded in both organisations' audit trails."
         actions={<Button onClick={() => setCreating(true)}>New request or finding</Button>} />
-      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load requests.</div> : (<>
+      <div className="flex flex-wrap gap-2">
+        {[['requests', 'Requests & SLA'], ['calendar', 'Calendar by authority']].map(([k, l]) => (
+          <button key={k} onClick={() => setF('view', k === 'requests' ? '' : k)} className={`px-3 py-1.5 rounded-lg text-[13px] border transition ${view === k ? 'border-[var(--color-sky)] text-[var(--color-sky)]' : 'border-[var(--color-line-2)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{l}</button>))}
+      </div>
+      {view === 'calendar' ? <AuthorityCalendar /> : q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load requests.</div> : (<>
         <StatGrid cols={3} items={[
           { label: 'Open', value: String(d.summary.open), sub: 'awaiting the entity or your closure', accent: d.summary.open ? 'var(--color-warn)' : undefined },
           { label: 'Overdue', value: String(d.summary.overdue), sub: 'past their due date', accent: d.summary.overdue ? 'var(--color-bad)' : undefined },
           { label: 'Findings open', value: String(d.summary.findings_open), sub: 'remediation not yet closed' },
         ]} />
+        <SlaStrip />
         {creating && <NewRequest d={d} params={params} onDone={async (id) => { setCreating(false); setF('new', ''); await refresh(); if (id) setSel(id) }} onCancel={() => { setCreating(false); setF('new', '') }} />}
         <Card className="p-5">
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -152,5 +168,77 @@ function Thread({ id, onChange, onClose }: { id: string; onChange: () => Promise
         <span className="mono text-[10.5px] text-[var(--color-faint)] ml-auto">status: {d.status_label}{d.overdue ? ' · overdue' : ''}</span>
       </div>
     </Card>
+  )
+}
+
+// SLA strip: computed only from the timestamps the thread recorded (issued / receipt / first entity status step / closed / due).
+function SlaStrip() {
+  const q = useQuery({ queryKey: ['supervisor-sla'], queryFn: () => api.get<SlaResp>('/v1/supervisor/engagement/sla') })
+  const a = q.data?.authorities[0]
+  if (!a) return null
+  const ag = a.overdue.ageing
+  const ageing = Object.entries(ag).filter(([, n]) => n > 0).map(([b, n]) => `${b} d: ${n}`).join(' · ')
+  return (
+    <Card className="p-5">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)]">Service levels · {a.authority} · as of {q.data?.as_of}</div>
+        <span className="mono text-[10.5px] text-[var(--color-faint)]">{a.n} requests · {a.n_open} open</span>
+      </div>
+      <StatGrid cols={4} items={[
+        { label: 'Median time to acknowledge', value: hrs(a.time_to_acknowledge_hours.median), sub: `receipt of the letter · n=${a.time_to_acknowledge_hours.n} · p90 ${hrs(a.time_to_acknowledge_hours.p90)}`, title: String(q.data?.definitions.time_to_acknowledge_hours) },
+        { label: 'Median time to respond', value: hrs(a.time_to_respond_hours.median), sub: `first entity status step · n=${a.time_to_respond_hours.n} · on time ${a.responded_on_time.rate == null ? '—' : Math.round(a.responded_on_time.rate * 100) + '%'}`, title: String(q.data?.definitions.time_to_respond_hours) },
+        { label: 'Overdue', value: String(a.overdue.n), sub: a.overdue.n ? `ageing ${ageing} · oldest ${a.overdue.oldest_days} d` : 'nothing past its due date', accent: a.overdue.n ? 'var(--color-bad)' : undefined },
+        { label: 'Awaiting acknowledgement', value: String(a.awaiting_acknowledgement.n), sub: a.awaiting_acknowledgement.oldest_days != null ? `oldest ${a.awaiting_acknowledgement.oldest_days} d · ${a.awaiting_response.n} awaiting a response` : `${a.awaiting_response.n} awaiting a response`, accent: a.awaiting_acknowledgement.n ? 'var(--color-warn)' : undefined },
+      ]} />
+      {a.by_kind.length > 1 && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-[var(--color-mute)]">
+        {a.by_kind.map(k => <span key={k.kind}><span className="text-[var(--color-ink)]">{k.label}</span> · {k.n} · respond {hrs(k.time_to_respond_hours.median)} · overdue {k.overdue.n}</span>)}
+      </div>}
+    </Card>
+  )
+}
+
+// Calendar by authority: which deliverables the population owes to which authority, by when, from the mandate registry and each entity's applicability.
+function AuthorityCalendar() {
+  const [period, setPeriod] = useState(`FY${new Date().getFullYear() - 1}`)
+  const q = useQuery({ queryKey: ['supervisor-authority-calendar', period], queryFn: () => api.get<CalResp>(`/v1/supervisor/obligations/calendar?period_label=${period}`) })
+  const [open, setOpen] = useState<string | null>(null)
+  const d = q.data
+  const inp = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-mute)] outline-none'
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-[12px] text-[var(--color-mute)]">Period <select value={period} onChange={e => setPeriod(e.target.value)} className={inp + ' ml-1'}>{[0, 1, 2].map(i => { const y = new Date().getFullYear() - i; return <option key={y} value={`FY${y}`}>FY{y}</option> })}</select></label>
+        {d && <span className="mono text-[10.5px] text-[var(--color-faint)]">{d.authorities.length} authorities · {d.events.length} dated deliverables · next {d.upcoming[0]?.date ?? '—'}</span>}
+      </div>
+      {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">loading…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load the calendar.</div> : (<>
+        {d.authorities.map(g => (
+          <Card key={g.authority} className="p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <div className="display text-lg text-[var(--color-ink)]">{g.authority}</div>
+              <div className="mono text-[10.5px] text-[var(--color-faint)]">{g.n_deliverables} deliverable{g.n_deliverables === 1 ? '' : 's'} · {g.n_filed}/{g.n_applicable} entity filings received{g.n_overdue ? <span className="text-[var(--color-bad)]"> · {g.n_overdue} past due</span> : null}{g.next_due ? ` · next due ${g.next_due}` : ''}</div>
+            </div>
+            <div className="overflow-x-auto"><table className="data-table w-full text-[12.5px]">
+              <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th>Due</th><th>Deliverable</th><th>Channel · rule</th><th>Date from</th><th className="num">Applies</th><th className="num">Filed</th><th className="num">Cannot determine</th></tr></thead>
+              <tbody>{g.events.map(e => (<>
+                <tr key={e.mandate_id} onClick={() => setOpen(open === e.mandate_id ? null : e.mandate_id)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === e.mandate_id ? 'bg-[var(--color-bg-2)]' : ''}`}>
+                  <td className="mono text-[11px] whitespace-nowrap" style={{ color: e.overdue ? 'var(--color-bad)' : 'var(--color-ink)' }}>{e.date}{e.overdue ? ' · past due' : ''}</td>
+                  <td className="text-[var(--color-ink)]">{e.title}<div className="text-[11px] text-[var(--color-faint)]">{e.mandate_title}</div></td>
+                  <td className="text-[var(--color-mute)] text-[11.5px]">{e.sub}{e.due_rule ? <div className="text-[var(--color-faint)]">{e.due_rule}</div> : null}</td>
+                  <td><span className={`mono text-[10px] uppercase px-1.5 py-0.5 rounded ${e.status === 'published' ? 'bg-[var(--color-good)]/15 text-[var(--color-good)]' : e.status === 'draft' ? 'bg-[var(--color-warn)]/15 text-[var(--color-warn)]' : 'bg-[var(--color-panel-2)] text-[var(--color-mute)]'}`}>{e.status === 'registry' ? "act's rule" : e.status}</span></td>
+                  <td className="num mono">{e.n_applicable}</td><td className="num mono" style={{ color: e.n_filed < e.n_applicable ? 'var(--color-warn)' : 'var(--color-good)' }}>{e.n_filed}</td><td className="num mono text-[var(--color-faint)]">{e.n_cannot || '—'}</td>
+                </tr>
+                {open === e.mandate_id && <tr key={e.mandate_id + '-x'} className="bg-[var(--color-bg-2)]"><td colSpan={7} className="px-3 py-2">
+                  <div className="flex flex-wrap gap-2">{e.entities.length === 0 ? <span className="text-[12px] text-[var(--color-faint)]">No entity in your population to which this applies for {period}.</span> : e.entities.map(x => (
+                    <Link key={x.org_id} to={`/supervised/${x.org_id}`} className={`mono text-[11px] px-2 py-0.5 rounded border ${x.filed ? 'border-[var(--color-good)]/40 text-[var(--color-good)]' : 'border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>{x.name}{x.filed ? ' ✓' : ''}</Link>))}</div>
+                </td></tr>}
+              </>))}</tbody>
+            </table></div>
+          </Card>))}
+        {d.authorities.length === 0 && <Card className="p-5 text-[13px] text-[var(--color-faint)]">No dated deliverable for {period} in your profile's mandates.</Card>}
+        {d.undated.length > 0 && <Card className="p-5"><div className="mono text-[10.5px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Per-event mandates (no calendar date)</div>
+          {d.undated.map(e => <div key={e.mandate_id} className="text-[12.5px] text-[var(--color-mute)]"><span className="text-[var(--color-ink)]">{e.title}</span> → {e.authority} · {e.n_applicable} entities · {e.due_rule ?? 'on each event'}</div>)}</Card>}
+        <div className="text-[11.5px] text-[var(--color-faint)]">{d.note}</div>
+      </>)}
+    </div>
   )
 }

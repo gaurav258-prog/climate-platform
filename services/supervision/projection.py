@@ -27,6 +27,9 @@ def shadow_cells(session, regulator_org_id: str, subject_org_id: str) -> list[st
     return [r[0] for r in session.execute(text("""
         SELECT DISTINCT h3_cell FROM portfolio_entities
         WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid) AND h3_cell IS NOT NULL
+        UNION
+        SELECT DISTINCT h3_cell FROM sc_sourcing_plots
+        WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid) AND h3_cell IS NOT NULL
     """), {"r": regulator_org_id, "s": subject_org_id})]
 
 

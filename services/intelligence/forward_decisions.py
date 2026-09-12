@@ -161,7 +161,7 @@ def _live_decisions(session: Session, org_id: str, scenario: str, horizon: str) 
         FROM risk_decision d
         LEFT JOIN users mu ON mu.user_id = d.decided_by
         LEFT JOIN users cu ON cu.user_id = d.decided_by_checker
-        WHERE d.org_id = :o AND d.scenario = :s AND d.horizon = :h AND d.status <> 'rejected'
+        WHERE d.org_id = :o AND d.scenario = :s AND d.horizon = :h AND d.status NOT IN ('rejected', 'withdrawn')
         ORDER BY d.entity_id, d.decided_at DESC
     """), {"o": org_id, "s": scenario, "h": horizon}).mappings().all()
     return {r["eid"]: {"action": r["action"], "rationale": r["rationale"], "status": r["status"],

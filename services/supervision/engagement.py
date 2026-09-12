@@ -50,7 +50,7 @@ def _row(session, request_id: str) -> Optional[dict]:
         SELECT q.request_id::text AS request_id, q.regulator_org_id::text AS regulator_org_id, q.supervised_org_id::text AS supervised_org_id,
                q.kind, q.title, q.body, q.status, q.severity, q.due_date, q.source, q.raised_at, q.updated_at, q.closed_at,
                q.entity_task_id::text AS entity_task_id, ro.name AS regulator, so.name AS entity, u.full_name AS raised_by,
-               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, ru.full_name AS receipt_by
+               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, q.responded_at, ru.full_name AS receipt_by
         FROM supervision_request q JOIN organizations ro ON ro.org_id = q.regulator_org_id
         JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by LEFT JOIN users ru ON ru.user_id = q.receipt_by
         WHERE q.request_id = CAST(:i AS uuid)
@@ -60,7 +60,7 @@ def _row(session, request_id: str) -> Optional[dict]:
 
 def _fmt(r) -> dict:
     d = dict(r)
-    for k in ("raised_at", "updated_at", "closed_at", "issued_at", "receipt_at"):
+    for k in ("raised_at", "updated_at", "closed_at", "issued_at", "receipt_at", "responded_at"):
         d[k] = d[k].isoformat() if d.get(k) else None
     d["legal_basis"] = d.get("legal_basis") if isinstance(d.get("legal_basis"), dict) else (json.loads(d["legal_basis"]) if d.get("legal_basis") else None)
     d["has_letter"] = bool(d.get("letter_sha256"))
@@ -100,7 +100,7 @@ def list_requests(session, *, regulator_org_id: Optional[str] = None, supervised
         SELECT q.request_id::text AS request_id, q.regulator_org_id::text AS regulator_org_id, q.supervised_org_id::text AS supervised_org_id,
                q.kind, q.title, q.body, q.status, q.severity, q.due_date, q.source, q.raised_at, q.updated_at, q.closed_at,
                q.entity_task_id::text AS entity_task_id, ro.name AS regulator, so.name AS entity, u.full_name AS raised_by,
-               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, ru.full_name AS receipt_by,
+               q.reference, q.legal_basis, q.response_days, q.signatory, q.letter_sha256, q.issued_at, q.receipt_at, q.responded_at, ru.full_name AS receipt_by,
                (SELECT count(*) FROM supervision_request_message m WHERE m.request_id = q.request_id) AS n_messages
         FROM supervision_request q JOIN organizations ro ON ro.org_id = q.regulator_org_id
         JOIN organizations so ON so.org_id = q.supervised_org_id LEFT JOIN users u ON u.user_id = q.raised_by LEFT JOIN users ru ON ru.user_id = q.receipt_by
@@ -189,8 +189,10 @@ def add_message(session, request_id: str, *, side: str, author_id: str, body: Op
         closed = (kinds()[req["kind"]]["closed"] == status_to)
         session.execute(text("""UPDATE supervision_request SET status = :st, updated_at = now(),
                                 closed_at = CASE WHEN :closed THEN now() ELSE NULL END,
-                                closed_by = CASE WHEN :closed THEN CAST(:u AS uuid) ELSE NULL END
-                                WHERE request_id = CAST(:i AS uuid)"""), {"st": status_to, "closed": closed, "u": author_id, "i": request_id})
+                                closed_by = CASE WHEN :closed THEN CAST(:u AS uuid) ELSE NULL END,
+                                responded_at = CASE WHEN :entity AND responded_at IS NULL THEN now() ELSE responded_at END
+                                WHERE request_id = CAST(:i AS uuid)"""),
+                        {"st": status_to, "closed": closed, "u": author_id, "i": request_id, "entity": side == ENTITY})
         if req.get("entity_task_id"):
             session.execute(text("UPDATE regulatory_task SET status = :s, updated_at = now() WHERE task_id = CAST(:t AS uuid)"),
                             {"s": "done" if closed else ("review" if side == ENTITY else "todo"), "t": req["entity_task_id"]})

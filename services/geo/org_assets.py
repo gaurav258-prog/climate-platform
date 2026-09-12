@@ -20,7 +20,9 @@ from core.hazard_relevance import is_headline_eligible
 # number for an entity equals the number that entity sees on its own page.
 _ENGINE_VERTICALS = {"banking": "financed asset", "insurance": "insured location", "assetmgmt": "holding", "realestate": "property"}
 
-# Agriculture keeps its own tables (sites + sourcing plots) and physical-risk views.
+# Agriculture keeps its own tables (sites + sourcing plots) and physical-risk views. Sourcing plots additionally
+# carry the own/supervisor_shadow split (source, subject_org_id) that portfolio_entities has, for the agri-food
+# authority's Tier-2 intake — an operator's own sites never carry a shadow copy, so that query stays 'own'-only.
 _AGRI_SOURCES = [
     ("site", """        SELECT s.site_id AS id, s.name, s.latitude AS lat, s.longitude AS lon, s.country AS region,
                s.annual_value_eur AS value_eur, v.hazard_type AS hazard, v.physical_risk_score AS score, v.model_version
@@ -31,7 +33,8 @@ _AGRI_SOURCES = [
                v.physical_risk_score AS score, v.model_version
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
-        WHERE p.org_id = :o AND v.scenario = :sc AND v.time_horizon = :h"""),
+        WHERE p.org_id = :o AND p.source = :src AND (CAST(:subj AS uuid) IS NULL OR p.subject_org_id = CAST(:subj AS uuid))
+              AND v.scenario = :sc AND v.time_horizon = :h"""),
 ]
 
 
@@ -98,16 +101,19 @@ def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source:
                         "hazard": r.get("headline_hazard"), "nace_code": r.get("nace_code"), "country": r.get("country"),
                         "external_ref": r.get("external_ref"), "region_name": r.get("region"),
                         "location_precision": r.get("location_precision") or ("point" if r.get("lat") is not None else "unlocated")})
-    if source != "own":
-        return out          # shadow books exist for the engine verticals only
+    # sc_company_sites (an operator's own sites) carries no own/shadow split and is never a subject's shadow book —
+    # only sourcing plots do. A shadow read (source != 'own') therefore runs the plot query only.
+    sources = _AGRI_SOURCES if source == "own" else [s for s in _AGRI_SOURCES if s[0] == "plot"]
+    if source != "own" and not sources:
+        return out
     by_id: dict[str, dict] = {}
-    agri_rows = [(kind, session.execute(text(sql), {"o": org_id, "sc": scenario, "h": horizon}).mappings().all())
-                 for kind, sql in _AGRI_SOURCES]
+    agri_params = {"o": org_id, "sc": scenario, "h": horizon, "src": source, "subj": subject_org_id}
+    agri_rows = [(kind, session.execute(text(sql), agri_params).mappings().all()) for kind, sql in sources]
     if not any(rows for _, rows in agri_rows) and (scenario, horizon) != ("baseline", "current"):
         # agri views carry anchor horizons only; a supervisor asking for an off-anchor basis gets today's standing
         # scores, labelled as such — never an empty book passed off as "no exposure"
-        agri_rows = [(kind, session.execute(text(sql), {"o": org_id, "sc": "baseline", "h": "current"}).mappings().all())
-                     for kind, sql in _AGRI_SOURCES]
+        agri_params = {**agri_params, "sc": "baseline", "h": "current"}
+        agri_rows = [(kind, session.execute(text(sql), agri_params).mappings().all()) for kind, sql in sources]
         basis = "baseline/current (no scores at the requested basis)"
     else:
         basis = None

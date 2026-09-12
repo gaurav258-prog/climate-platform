@@ -4,7 +4,8 @@ Approval requests — the generic 4-eyes (maker-checker) workflow.
 Mirrors ml/regulatory/packager.py: the checker must differ from the maker. This
 is enforced both here (422) and by a DB CHECK constraint on approval_requests.
 A maker submits a request (e.g. report.publish); a different user with
-approvals.decide clears it.
+approvals.decide clears it. A pending request whose approval policy is switched off is withdrawn by the
+platform (services/governance/approval_policy_sweep.py) — flagged, audited, never applied.
 """
 from __future__ import annotations
 
@@ -45,6 +46,10 @@ def _serialize(r) -> dict:
         "assignee_email": r.get("assignee_email"),
         "assignee_user_id": str(r["assigned_to_user_id"]) if r.get("assigned_to_user_id") else None,
         "reason": r["reason"],
+        # 'withdrawn' = closed by the platform, not a checker: the org's policy stopped governing the action while the
+        # request was pending. Never applied. policy_off is the UI flag; withdrawn_cause the machine cause.
+        "withdrawn_cause": r.get("withdrawn_cause"),
+        "policy_off": r.get("withdrawn_cause") == "policy_no_longer_requires_approval",
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "decided_at": r["decided_at"].isoformat() if r["decided_at"] else None,
     }
@@ -71,7 +76,7 @@ def create_approval(body: ApprovalCreate, session: DbSession,
 def list_approvals(session: DbSession, status: Optional[str] = Query(None),
                    ctx: dict = Depends(require_permission("approvals.view"))):
     rows = session.execute(text("""
-        SELECT ar.request_id, ar.request_type, ar.title, ar.payload, ar.status, ar.reason,
+        SELECT ar.request_id, ar.request_type, ar.title, ar.payload, ar.status, ar.reason, ar.withdrawn_cause,
                ar.created_at, ar.decided_at, ar.maker_user_id, ar.assigned_to_user_id,
                mu.email AS maker_email, cu.email AS checker_email, au.email AS assignee_email
         FROM   approval_requests ar

@@ -27,7 +27,8 @@ from services.supervision.lens import cell_key
 
 _SYNONYMS = {
     "geography": ["geography", "country", "region", "geo", "nuts", "location"],
-    "sector": ["sector", "nace", "nace_section", "industry", "counterparty_sector", "occupancy", "line_of_business", "lob"],
+    "sector": ["sector", "nace", "nace_section", "industry", "counterparty_sector", "occupancy", "line_of_business", "lob",
+              "property_type", "commodity", "issuer_sector"],
     "gross_carrying_amount_eur": ["gross_carrying_amount", "gross", "gca", "exposure", "carrying_amount", "total", "sum_insured", "tiv", "total_insured_value"],
     "sensitive_physical_eur": ["sensitive", "physical_risk", "of_which_sensitive", "sensitive_physical", "in_physical_risk_zones", "physical_risk_zones"],
     "sensitive_acute_eur": ["acute"], "sensitive_chronic_eur": ["chronic"], "maturity_bucket": ["maturity", "bucket", "tenor"],
@@ -177,25 +178,53 @@ def _residual_years(maturity_iso: Optional[str]) -> Optional[float]:
         return None
 
 
+def _resolve_row_location(r: dict) -> Optional[dict]:
+    """A granular row's location: the EUDR geolocation point (latitude/longitude) if the row carries one — the
+    most precise source, used by the agri-food sourcing-plot extract — else the usual country/NUTS-3/postcode
+    region resolution every other sector's granular data uses."""
+    lat, lon = _num(r.get("latitude")), _num(r.get("longitude"))
+    if lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180:
+        return {"lat": lat, "lon": lon, "name": None, "location_precision": "point"}
+    return resolve_region(r.get("collateral_country"), r.get("collateral_nuts3"), r.get("collateral_postcode"))
+
+
+def _get_or_create_commodity(session, name: str) -> str:
+    """sc_commodities is the shared global master (sc_commodities): a commodity the agri-food shadow book
+    reports that is not on it yet is added once, by name — never scored differently for being new."""
+    cid = session.execute(text("SELECT commodity_id FROM sc_commodities WHERE lower(name) = lower(:n)"), {"n": name}).scalar()
+    if cid:
+        return str(cid)
+    return str(session.execute(text("""
+        INSERT INTO sc_commodities (name, eudr_covered) VALUES (:n, false)
+        ON CONFLICT DO NOTHING RETURNING commodity_id
+    """), {"n": name}).scalar() or session.execute(text("SELECT commodity_id FROM sc_commodities WHERE lower(name) = lower(:n)"), {"n": name}).scalar())
+
+
 def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, period_label: str, rows: list[dict],
                       raw: bytes, filename: Optional[str], mapping: dict, user_id: Optional[str], score: bool = True) -> dict:
     """Replace the regulator's shadow book for this subject with the mapped granular rows, resolve each row's
-    region to a point (or leave it unlocated), and trigger scoring of the new cells. Returns the coverage report."""
+    region to a point (or leave it unlocated), and trigger scoring of the new cells. Returns the coverage report.
+    The shadow book takes the subject's own vertical: the lens then rebuilds an insurer's template on the
+    insurance engine and a bank's on the banking engine — the same engine the entity itself would run. Agriculture
+    keeps its own book (sc_sourcing_plots, not the shared financial portfolio_entities engine — see
+    services/portfolio_engine.py), so an agri-food authority's shadow rows land there instead, on the same
+    own/supervisor_shadow split."""
     batch = str(uuid.uuid4())
-    session.execute(text("""DELETE FROM portfolio_entities WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow'
-                            AND subject_org_id = CAST(:s AS uuid)"""), {"r": regulator_org_id, "s": subject_org_id})
-    # the shadow book takes the subject's own vertical: the lens then rebuilds an insurer's template on the insurance
-    # engine and a bank's on the banking engine — the same engine the entity itself would run
     subj_type = session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:s AS uuid)"), {"s": subject_org_id}).scalar()
-    vertical = {"bank": "banking", "insurer": "insurance", "asset_manager": "assetmgmt", "reit": "realestate"}.get(subj_type, "banking")
-    ent_type = {"banking": "loan", "insurance": "property", "assetmgmt": "holding", "realestate": "property"}[vertical]
-    n_loc = {"nuts3": 0, "postcode→nuts3": 0, "unlocated": 0}
+    vertical = {"bank": "banking", "insurer": "insurance", "asset_manager": "assetmgmt", "reit": "realestate",
+                "manufacturer": "agriculture"}.get(subj_type, "banking")
+    ent_type = {"banking": "loan", "insurance": "property", "assetmgmt": "holding", "realestate": "property",
+                "agriculture": "plot"}[vertical]
+    shadow_table = "sc_sourcing_plots" if vertical == "agriculture" else "portfolio_entities"
+    session.execute(text(f"""DELETE FROM {shadow_table} WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow'
+                            AND subject_org_id = CAST(:s AS uuid)"""), {"r": regulator_org_id, "s": subject_org_id})
+    n_loc: dict[str, int] = {"nuts3": 0, "postcode→nuts3": 0, "point": 0, "unlocated": 0}
     cell_coords: dict[str, tuple[float, float]] = {}
     value_located = value_total = 0.0
     for r in rows:
-        loc = resolve_region(r.get("collateral_country"), r.get("collateral_nuts3"), r.get("collateral_postcode"))
+        loc = _resolve_row_location(r)
         prec = loc["location_precision"] if loc else "unlocated"
-        n_loc[prec] += 1
+        n_loc[prec] = n_loc.get(prec, 0) + 1
         val = float(r.get("outstanding_eur") or 0)
         value_total += val
         lat = lon = cell = None
@@ -203,20 +232,32 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
             lat, lon = loc["lat"], loc["lon"]; cell = h3.latlng_to_cell(lat, lon, 8); cell_coords[cell] = (lat, lon); value_located += val
         eid = str(uuid.uuid4())
         nace = (r.get("nace_section") or "").strip().upper()
-        session.execute(text("""
-            INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, sector, nace_code, latitude, longitude,
-                                            h3_cell, country, region, primary_value_eur, source, subject_org_id, location_precision, source_ref, external_ref)
-            VALUES (CAST(:id AS uuid), CAST(:o AS uuid), :vert, :name, :etype, :sector, :nace, :lat, :lon, :cell, :country, :region,
-                    :val, 'supervisor_shadow', CAST(:subj AS uuid), :prec, :ref, :xref)
-        """), {"id": eid, "o": regulator_org_id, "vert": vertical, "etype": ent_type, "name": (r.get("counterparty_name") or r.get("instrument_id") or "instrument")[:200],
-               "sector": nace[:100] or None, "nace": nace[:10] or None, "lat": lat, "lon": lon, "cell": cell,
-               "country": (r.get("collateral_country") or "")[:2].upper() or None,
-               "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id, "prec": prec, "ref": batch,
-               "xref": (str(r.get("instrument_id"))[:120] if r.get("instrument_id") else None)})
-        if vertical == "banking":
-          session.execute(text("""INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, residual_maturity_years, data_source)
-                                VALUES (CAST(:id AS uuid), :bal, :rm, :src)"""),
-                        {"id": eid, "bal": val, "rm": _residual_years(r.get("maturity_date")), "src": f"supervisor_shadow:{batch}"})
+        if vertical == "agriculture":
+            commodity_id = _get_or_create_commodity(session, nace or "Unclassified")
+            session.execute(text("""
+                INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude, h3_cell,
+                                               country, region, annual_spend_eur, source, subject_org_id)
+                VALUES (CAST(:id AS uuid), CAST(:o AS uuid), CAST(:cid AS uuid), :name, :lat, :lon, :cell,
+                        :country, :region, :val, 'supervisor_shadow', CAST(:subj AS uuid))
+            """), {"id": eid, "o": regulator_org_id, "cid": commodity_id,
+                   "name": (r.get("counterparty_name") or r.get("instrument_id") or "plot")[:200],
+                   "lat": lat, "lon": lon, "cell": cell, "country": (r.get("collateral_country") or "")[:2].upper() or None,
+                   "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id})
+        else:
+            session.execute(text("""
+                INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, sector, nace_code, latitude, longitude,
+                                                h3_cell, country, region, primary_value_eur, source, subject_org_id, location_precision, source_ref, external_ref)
+                VALUES (CAST(:id AS uuid), CAST(:o AS uuid), :vert, :name, :etype, :sector, :nace, :lat, :lon, :cell, :country, :region,
+                        :val, 'supervisor_shadow', CAST(:subj AS uuid), :prec, :ref, :xref)
+            """), {"id": eid, "o": regulator_org_id, "vert": vertical, "etype": ent_type, "name": (r.get("counterparty_name") or r.get("instrument_id") or "instrument")[:200],
+                   "sector": nace[:100] or None, "nace": nace[:10] or None, "lat": lat, "lon": lon, "cell": cell,
+                   "country": (r.get("collateral_country") or "")[:2].upper() or None,
+                   "region": (loc["name"] if loc else None), "val": val, "subj": subject_org_id, "prec": prec, "ref": batch,
+                   "xref": (str(r.get("instrument_id"))[:120] if r.get("instrument_id") else None)})
+            if vertical == "banking":
+              session.execute(text("""INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, residual_maturity_years, data_source)
+                                    VALUES (CAST(:id AS uuid), :bal, :rm, :src)"""),
+                            {"id": eid, "bal": val, "rm": _residual_years(r.get("maturity_date")), "src": f"supervisor_shadow:{batch}"})
     session.flush()
     scoring = None
     if score and cell_coords:
@@ -241,11 +282,19 @@ def build_shadow_book(session, *, regulator_org_id: str, subject_org_id: str, pe
 
 
 def shadow_status(session, regulator_org_id: str, subject_org_id: str) -> dict:
+    # the shadow book lives on portfolio_entities for the four financial verticals and on sc_sourcing_plots for
+    # agriculture (its own book, same own/supervisor_shadow split) — a subject only ever has rows in one of the two.
     row = session.execute(text("""
         SELECT count(*) AS n, count(*) FILTER (WHERE latitude IS NOT NULL) AS n_located,
-               COALESCE(SUM(primary_value_eur), 0) AS value_eur, MIN(source_ref) AS batch,
-               COALESCE(SUM(primary_value_eur) FILTER (WHERE latitude IS NOT NULL), 0) AS value_located
-        FROM portfolio_entities WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid)
+               COALESCE(SUM(value_eur), 0) AS value_eur,
+               COALESCE(SUM(value_eur) FILTER (WHERE latitude IS NOT NULL), 0) AS value_located
+        FROM (
+            SELECT latitude, primary_value_eur AS value_eur FROM portfolio_entities
+            WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid)
+            UNION ALL
+            SELECT latitude, annual_spend_eur AS value_eur FROM sc_sourcing_plots
+            WHERE org_id = CAST(:r AS uuid) AND source = 'supervisor_shadow' AND subject_org_id = CAST(:s AS uuid)
+        ) shadow
     """), {"r": regulator_org_id, "s": subject_org_id}).mappings().first()
     subs = session.execute(text("""
         SELECT s.framework, s.template, s.period_label, s.n_cells, s.source_file, s.created_at, s.basis, s.channel, u.full_name AS submitted_by

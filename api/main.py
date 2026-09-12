@@ -86,6 +86,7 @@ try:
     from api.routers import security_admin as security_admin_router
     from api.routers import sso_scim as sso_scim_router
     from api.routers import supervisor as supervisor_router
+    from api.routers import supervisor_sla as supervisor_sla_router
     from api.routers import supervisory_access as supervisory_access_router
     from api.routers import transmission as transmission_router
     from api.routers import webhooks as webhooks_router
@@ -297,6 +298,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(prior_filings_router.router)
     app.include_router(ops_console_router.router)
     app.include_router(supervisor_router.router)
+    app.include_router(supervisor_sla_router.router)
     app.include_router(supervisory_access_router.router)
     app.include_router(onboarding_intake_router.router)
     app.include_router(sso_scim_router.router)
@@ -401,8 +403,9 @@ async def general_exception_handler(request, exc):
 
 @app.get("/health", tags=["Health"])
 def health() -> dict:
-    """Liveness + a real DB probe. 'ok' when the database answers, 'degraded'
-    only when it genuinely doesn't (the probe uses text(), not a raw string)."""
+    """Liveness + a real DB probe + the job executor's heartbeat. 'ok' when the database answers, 'degraded'
+    only when it genuinely doesn't (the probe uses text(), not a raw string); `worker.alive` is false when no
+    executor has heartbeated within `stale_after_s` — a queued job then reads 'worker unavailable'."""
     from sqlalchemy import text as _text
 
     from core.db.session import get_session
@@ -413,7 +416,9 @@ def health() -> dict:
     except Exception as exc:  # genuine DB outage
         logger.error("health DB probe failed: %s", exc)
         return {"status": "degraded", "version": app.version, "database": "unavailable"}
-    return {"status": "ok", "version": app.version, "database": db_state}
+    # Executor liveness (Celery worker or fallback child): {alive, last_seen, stale_after_s, executor, workers}.
+    from services.tasks.jobs import worker_status
+    return {"status": "ok", "version": app.version, "database": db_state, "worker": worker_status()}
 
 
 @app.get("/v1/meta/hazards", tags=["Meta"])

@@ -805,7 +805,7 @@ def end_scope(supervision_id: str, session: DbSession, ctx: Supervisor):
 def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenario: Optional[str] = None, horizon: Optional[str] = None):
     from services.supervision.geo_prior import bases_available
     from services.supervision.intake import load_submission
-    from services.supervision.plausibility import assess
+    from services.supervision.plausibility import assess_entity
     _need(ctx, "supervisor.entity.file")
     reg = ctx["org"]["org_id"]
     if not _in_scope(session, ctx, org_id):
@@ -826,9 +826,10 @@ def entity_plausibility(org_id: str, session: DbSession, ctx: Supervisor, scenar
         sc, hz = fallback
     else:
         basis_note = ("Judged at the basis the entity stated." if stated and not (scenario or horizon) else "Judged at the basis shown.")
-    result = assess(session, sub["cells"], sc, hz)
+    result = assess_entity(session, reg, org_id, sub["cells"], sc, hz)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supervisor.plausibility.access", target_type="organization",
-                target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz})
+                target_id=org_id, detail={"regulator_org_id": reg, "regulator": ctx["org"].get("name"), "scenario": sc, "horizon": hz,
+                                         "exposure_measure": result["exposure_measure"]["label"], "prior": result["exposure_measure"]["prior"]})
     session.commit()
     return {"entity_org_id": org_id, "period_label": sub.get("period_label"), "source_file": sub.get("source_file"),
             "stated_basis": basis if stated else None, "scenario": sc, "horizon": hz, "basis_note": basis_note,

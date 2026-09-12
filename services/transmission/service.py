@@ -190,4 +190,23 @@ def _rows(session, where: str, params: dict) -> list[dict]:
                                          t.receipt_payload, t.error, t.created_at, u.full_name AS created_by
                                   FROM filing_transmission t JOIN organizations o ON o.org_id = t.org_id LEFT JOIN users u ON u.user_id = t.created_by
                                   WHERE {where} ORDER BY t.created_at DESC"""), params).mappings().all()
-    return [dict(r) | {k: (r[k].isoformat() if r[k] else None) for k in ("sent_at", "receipt_at", "created_at")} | {"channel_label": chans.get(r["channel_id"], {}).get("label", r["channel_id"])} for r in rows]
+    # A transmission still waiting on the worker (queued, or failed and awaiting its retry) carries the worker's live
+    # state, so the UI can say "worker unavailable — queued since …" instead of a bare "queued" forever.
+    from services.tasks.jobs import worker_state
+    ws = worker_state(_worker_status(session)) if any(r["status"] in WAITING_ON_WORKER for r in rows) else None
+    return [dict(r) | {k: (r[k].isoformat() if r[k] else None) for k in ("sent_at", "receipt_at", "created_at")}
+            | {"channel_label": chans.get(r["channel_id"], {}).get("label", r["channel_id"]), "worker_state": ws if r["status"] in WAITING_ON_WORKER else None}
+            for r in rows]
+
+
+WAITING_ON_WORKER = ("queued", "failed")
+
+
+def _worker_status(session) -> dict:
+    from services.tasks.jobs import worker_status
+    return worker_status(session)
+
+
+def worker(session) -> dict:
+    """Executor liveness for the transmission responses — the same read /health exposes."""
+    return _worker_status(session)

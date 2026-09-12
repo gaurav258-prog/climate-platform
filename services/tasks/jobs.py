@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib
 import logging
 import multiprocessing as mp
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,18 @@ def resolve(job: str) -> Callable[..., Any]:
 
 
 def _run_in_child(job: str, args: tuple) -> None:  # pragma: no cover — runs in the child
+    """The child is an executor too: it heartbeats for as long as it runs, so a job it holds reads as alive and a
+    job left 'queued' after it is gone reads as unavailable — the same rule as the Celery worker."""
+    import os
+
+    from services.tasks.heartbeat import Heartbeater
+    beat = Heartbeater(f"child:{os.getpid()}:{job}", "process").start()
     try:
         resolve(job)(*args)
     except Exception as e:
         logging.getLogger(__name__).error("job %s failed in fallback child: %s", job, e)
+    finally:
+        beat.stop()
 
 
 def broker_reachable(timeout: float = 1.0) -> bool:
@@ -51,17 +59,47 @@ def broker_reachable(timeout: float = 1.0) -> bool:
         return False
 
 
+def worker_status(session=None) -> dict:
+    """The one read of executor liveness: {alive, last_seen, stale_after_s, executor, workers}.
+    `executor` says which path submit() would take now ('celery' when the broker answers, else 'process');
+    `alive` is decided from heartbeat rows alone, so the child-process path is judged by the same rule."""
+    from services.tasks.heartbeat import read_heartbeats, summarize
+    executor = "celery" if broker_reachable() else "process"
+    try:
+        if session is not None:
+            rows = read_heartbeats(session)
+        else:
+            from core.db.session import get_session
+            with get_session() as s:
+                rows = read_heartbeats(s)
+    except Exception as e:
+        logger.warning("worker heartbeat unreadable: %s", e)
+        rows = []
+    out = summarize(rows)
+    out["last_seen"] = out["last_seen"].isoformat() if out["last_seen"] else None
+    for w in out["workers"]:
+        w["last_seen"] = w["last_seen"].isoformat() if w["last_seen"] else None
+    return {**out, "executor": executor}
+
+
+def worker_state(status: Optional[dict] = None) -> str:
+    """'alive' | 'unavailable' — the word a queued job carries."""
+    return "alive" if (status or worker_status())["alive"] else "unavailable"
+
+
 def submit(job: str, *args: Any) -> dict:
-    """→ {"via": "celery"|"process", "id": ...}. Never raises on transport trouble: falls back to a process."""
+    """→ {"via": "celery"|"process", "id": ..., "worker_state": "alive"|"unavailable"}.
+    Never raises on transport trouble: falls back to a process. A job handed to Celery carries the worker's live
+    state so the caller can say "worker unavailable" at once; a child process is spawned right here, so it is alive."""
     resolve(job)   # fail fast on a typo, before anything is queued
     if broker_reachable():
         try:
             from services.tasks.celery_app import celery_app
             r = celery_app.send_task(job, args=list(args))
-            return {"via": "celery", "id": r.id}
+            return {"via": "celery", "id": r.id, "worker_state": worker_state()}
         except Exception as e:
             logger.warning("could not enqueue %s on the worker (%s) — running in a child process", job, e)
     ctx = mp.get_context("spawn")
     p = ctx.Process(target=_run_in_child, args=(job, tuple(args)), name=f"job-{job}", daemon=True)
     p.start()
-    return {"via": "process", "id": p.pid}
+    return {"via": "process", "id": p.pid, "worker_state": "alive"}

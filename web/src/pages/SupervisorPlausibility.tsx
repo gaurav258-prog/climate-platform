@@ -15,9 +15,10 @@ interface Row { key: string; geography: string; sector: string; gross_carrying_a
 interface TrendResp { periods: { period_label: string; received_at: string; gross_eur: number; sensitive_eur: number; share_pct: number | null; basis: { scenario: string; horizon: string; stated: boolean }; tier1_counts: Record<string, number> | null }[]
   cells: { key: string; geography: string; sector: string; share_pct: Record<string, number | null>; gross_eur: Record<string, number>; change_pp: number | null; moved: boolean; in_periods: string[] }[]
   labels: string[]; latest: string | null; previous: string | null; change_pp: number | null; n_moved: number; note: string }
+interface ExposureMeasure { cell_field: string; label: string; prior: string; prior_label: string; n_cells_without_measure: number }
 interface Resp { entity_org_id: string; period_label: string | null; source_file: string | null; stated_basis: { scenario: string; horizon: string } | null
   scenario: string; horizon: string; basis_note: string; bases_available: { scenario: string; horizon: string }[]
-  rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string }
+  rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string; exposure_measure: ExposureMeasure }
 const eur = (v: number | null | undefined) => v == null ? '—' : v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
 const VC: Record<Row['verdict'], string> = { plausible: 'var(--color-good)', above_band: 'var(--color-warn)', below_band: 'var(--color-warn)', no_reference: 'var(--color-faint)' }
 
@@ -47,14 +48,15 @@ export default function SupervisorPlausibility() {
     <div className="fadeup space-y-6">
       <Link to={`/supervised/${orgId}`} className="inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><ChevronLeft size={13} /> Entity file</Link>
       <PageHeader eyebrow="Plausibility band · Tier 1 · template only" title={d ? `Submitted template · ${d.period_label ?? ''}` : 'Submitted template'}
-        lead={d ? `${d.basis_note} Basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}${d.stated_basis ? ` (entity stated ${scenarioLabel(d.stated_basis.scenario)} · ${horizonLabel(d.stated_basis.horizon)})` : ''}. Each cell's sensitive share is judged against the spread of that share across the geography's regions, from the platform's own hazard layers. A verdict outside the band is a question for the entity, not a finding.` : 'Judging each submitted cell against the geography priors…'} />
+        lead={d ? `${d.basis_note} Basis ${scenarioLabel(d.scenario)} · ${horizonLabel(d.horizon)}${d.stated_basis ? ` (entity stated ${scenarioLabel(d.stated_basis.scenario)} · ${horizonLabel(d.stated_basis.horizon)})` : ''}. Each cell's sensitive share of ${d.exposure_measure.label.toLowerCase()} is judged against the spread of that share across the geography's regions, from ${d.exposure_measure.prior_label}. A verdict outside the band is a question for the entity, not a finding.` : 'Judging each submitted cell against the geography priors…'} />
+      {d && <div className="mono text-[10.5px] text-[var(--color-faint)] -mt-4">Exposure measure: <b className="text-[var(--color-mute)]">{d.exposure_measure.label}</b> · reference: {d.exposure_measure.prior_label}{d.exposure_measure.n_cells_without_measure > 0 ? ` · ${d.exposure_measure.n_cells_without_measure} cell(s) excluded (no ${d.exposure_measure.label.toLowerCase()} submitted)` : ''}</div>}
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">judging each cell against its geography…</div>
         : !d ? <Card className="p-5 text-[13px] text-[var(--color-mute)]">No submitted template on file for this entity yet. <Link to={`/supervised/${orgId}/intake`} className="text-[var(--color-sky)] hover:underline">Ingest it →</Link></Card> : (<>
         <StatGrid cols={4} items={[
           { label: 'Plausible', value: String(d.counts.plausible), sub: `of ${d.n_cells} cells`, accent: 'var(--color-good)' },
           { label: 'High for the geography', value: String(d.counts.above_band), sub: 'sensitivity above the regional spread', accent: d.counts.above_band ? 'var(--color-warn)' : undefined },
           { label: 'Low for the geography', value: String(d.counts.below_band), sub: 'sensitivity below the regional spread', accent: d.counts.below_band ? 'var(--color-warn)' : undefined },
-          { label: 'No reference', value: String(d.counts.no_reference), sub: d.coverage_value_pct != null ? `${d.coverage_value_pct}% of gross amount judged` : 'not enough scored land' },
+          { label: 'No reference', value: String(d.counts.no_reference), sub: d.coverage_value_pct != null ? `${d.coverage_value_pct}% of ${d.exposure_measure.label.toLowerCase()} judged` : 'not enough scored land' },
         ]} />
         <Card className="p-5">
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -65,7 +67,7 @@ export default function SupervisorPlausibility() {
           <div className="overflow-x-auto">
             <table className="data-table w-full text-[12px]">
               <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left">
-                <th className="">Cell</th><th className="num">Gross</th><th className="num">Submitted share</th>
+                <th className="">Cell</th><th className="num">{d.exposure_measure.label}</th><th className="num">Submitted share</th>
                 <th className="">Regional spread</th><th className="">Verdict</th><th className="">Why</th></tr></thead>
               <tbody>{d.rows.map(r => (<>
                 <tr key={r.key} onClick={() => setOpen(open === r.key ? null : r.key)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
@@ -80,7 +82,7 @@ export default function SupervisorPlausibility() {
                   <tr key={r.key + '-d'}><td colSpan={6} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] text-[12px] text-[var(--color-mute)] grid md:grid-cols-2 gap-4">
                     <div>
                       <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">As submitted by the entity</div>
-                      Gross carrying amount <b className="text-[var(--color-ink)]">{eur(r.gross_carrying_amount_eur)}</b> · of which sensitive <b className="text-[var(--color-ink)]">{eur(r.sensitive_physical_eur)}</b>{r.submitted_share_pct != null ? ` · ${r.submitted_share_pct}%` : ''}
+                      {d.exposure_measure.label} <b className="text-[var(--color-ink)]">{eur(r.gross_carrying_amount_eur)}</b> · of which sensitive <b className="text-[var(--color-ink)]">{eur(r.sensitive_physical_eur)}</b>{r.submitted_share_pct != null ? ` · ${r.submitted_share_pct}%` : ''}
                       <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.period_label} · {d.source_file ?? 'submitted template'}</div>
                     </div>
                     <div>

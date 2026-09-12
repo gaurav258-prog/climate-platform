@@ -32,6 +32,16 @@ celery_app = Celery(
              "services.tasks.supervision_tasks"],
 )
 
+# Liveness: the worker process runs ONE heartbeat thread (services/tasks/heartbeat.py) from ready to shutdown, so a
+# queued job can be reported "worker unavailable" honestly instead of "queued" forever. Not a beat task: beat is a
+# separate process and its absence must not make a healthy worker look dead.
+from celery.signals import worker_ready, worker_shutdown  # noqa: E402
+
+from services.tasks.heartbeat import on_worker_ready, on_worker_shutdown  # noqa: E402
+
+worker_ready.connect(on_worker_ready)
+worker_shutdown.connect(on_worker_shutdown)
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
