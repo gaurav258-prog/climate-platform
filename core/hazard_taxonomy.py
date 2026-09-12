@@ -171,7 +171,8 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "cell's measured pixels, 2020–2024, 100 m, on a disclosed 0–20 mm/yr scale (v2, subsidence-egms-observed-v2). Held out "
              "in time: the rate fitted on 2020–2021 epochs ranks the rate the same 200,000 cells showed in 2022–2024 at 0.85 with "
              "monotone bands (1.1 → 2.7 → 5.9 → 12.7 mm/yr). Outside EGMS coverage the Herrera (2021) susceptibility class remains as a "
-             "screening indicator: GNSS (0.21) and EGMS (0.10) backtests place it at indicator level, and it never headlines. A measured-motion "
+             "screening indicator: GNSS (0.21) and EGMS (0.10) backtests place it at indicator level, and the class never headlines (the observed "
+             "v2 rate does, per model version). A measured-motion "
              "validation, not a damage anchor.", (H.SUBSIDENCE,)),
     EUHazard("coastal_erosion", S, "Coastal erosion", C, SCR, "now",
              "Vousdoukas et al. (2020, JRC LISCOAST) shoreline-retreat projection (scenario × horizon). Checked against satellite-observed "

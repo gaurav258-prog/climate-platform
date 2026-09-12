@@ -65,7 +65,7 @@ def scenario_shift(session, entities: list[dict]) -> dict:
         rows = session.execute(text("""
             WITH pop AS (
                 -- each asset carries its class: built assets and operational sites read the buildings relevance,
-                -- sourcing plots the agriculture relevance (core.hazard_relevance, mirrored in hazard_relevance)
+                -- sourcing plots the agriculture relevance (core.hazard_relevance, per model version, via hazard_headline_eligible)
                 SELECT h3_cell, CAST(primary_value_eur AS FLOAT) AS value, 'buildings' AS cls FROM portfolio_entities
                 WHERE org_id = ANY(CAST(:ids AS uuid[])) AND source = 'own'
                 UNION ALL
@@ -79,8 +79,7 @@ def scenario_shift(session, entities: list[dict]) -> dict:
                 SELECT DISTINCT pc.h3_cell, pc.cls, c.scenario, c.time_horizon, c.hazard_type, CAST(c.risk_score AS FLOAT) AS score
                 FROM (SELECT DISTINCT h3_cell, cls FROM pop WHERE h3_cell IS NOT NULL) pc
                 JOIN canonical_scores c ON c.h3_cell = pc.h3_cell AND c.score_lane = 'standing' AND c.valid_to IS NULL
-                LEFT JOIN hazard_relevance hr ON hr.hazard_type = c.hazard_type AND hr.asset_class = pc.cls
-                WHERE COALESCE(hr.headline, TRUE)
+                WHERE hazard_headline_eligible(c.hazard_type::text, pc.cls, c.model_version::text)
             ),
             -- the engine's rule per asset: a hazard scored under the scenario uses its own row at the anchor; a hazard
             -- with NO row under that scenario (scenario-flat susceptibility layers) is carried flat from baseline/today

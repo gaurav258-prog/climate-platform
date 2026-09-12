@@ -13,7 +13,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
-from core.hazard_relevance import headline_exclude
+from core.hazard_relevance import is_headline_eligible
 
 # The four financial verticals live on the shared `entities` table and are read through the SAME portfolio engine
 # the sector pages use (horizon interpolation, scenario-flat fallback, headline rule, buckets) — so a supervisor's
@@ -23,12 +23,12 @@ _ENGINE_VERTICALS = {"banking": "financed asset", "insurance": "insured location
 # Agriculture keeps its own tables (sites + sourcing plots) and physical-risk views.
 _AGRI_SOURCES = [
     ("site", """        SELECT s.site_id AS id, s.name, s.latitude AS lat, s.longitude AS lon, s.country AS region,
-               s.annual_value_eur AS value_eur, v.hazard_type AS hazard, v.physical_risk_score AS score
+               s.annual_value_eur AS value_eur, v.hazard_type AS hazard, v.physical_risk_score AS score, v.model_version
         FROM sc_company_sites s JOIN v_sc_site_physical_risk v ON v.site_id = s.site_id
         WHERE s.org_id = :o AND v.scenario = :sc AND v.time_horizon = :h"""),
     ("plot", """        SELECT p.plot_id AS id, COALESCE(p.plot_name, co.name) AS name, p.latitude AS lat, p.longitude AS lon,
                COALESCE(p.country, p.region) AS region, p.annual_spend_eur AS value_eur, v.hazard_type AS hazard,
-               v.physical_risk_score AS score
+               v.physical_risk_score AS score, v.model_version
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         JOIN v_sc_plot_physical_risk v ON v.plot_id = p.plot_id
         WHERE p.org_id = :o AND v.scenario = :sc AND v.time_horizon = :h"""),
@@ -121,7 +121,7 @@ def _org_asset_points(session, org_id: str, scenario: str, horizon: str, source:
                                        **({"basis_note": basis} if basis else {})})
             sc = float(r["score"]) if r["score"] is not None else None
             # an operational site is a built asset; a sourcing plot is agriculture — each reads its own relevance
-            if r["hazard"] in headline_exclude("agriculture" if kind == "plot" else "buildings"):
+            if not is_headline_eligible(r["hazard"], "agriculture" if kind == "plot" else "buildings", r["model_version"]):
                 continue
             if sc is not None and (a["score"] is None or sc > a["score"]):
                 a["score"], a["hazard"] = sc, r["hazard"]

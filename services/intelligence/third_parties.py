@@ -62,11 +62,11 @@ def end(session, *, org_id: str, third_party_id: str, actor_user_id: str) -> boo
 def _scores(session, cells: list[str], scenario: str, horizon: str) -> dict[str, list[dict]]:
     if not cells:
         return {}
-    rows = session.execute(text("""SELECT h3_cell, hazard_type, CAST(risk_score AS FLOAT) AS score FROM canonical_scores
+    rows = session.execute(text("""SELECT h3_cell, hazard_type, CAST(risk_score AS FLOAT) AS score, model_version FROM canonical_scores
                                    WHERE h3_cell = ANY(:c) AND scenario = :s AND time_horizon = :h AND valid_to IS NULL"""), {"c": cells, "s": scenario, "h": horizon}).mappings().all()
     out: dict[str, list[dict]] = {}
     for r in rows:
-        out.setdefault(r["h3_cell"], []).append({"hazard": r["hazard_type"], "score": r["score"]})
+        out.setdefault(r["h3_cell"], []).append({"hazard": r["hazard_type"], "score": r["score"], "model_version": r["model_version"]})
     return out
 
 
@@ -82,9 +82,9 @@ def view(session, org_id: str, scenario: str = "baseline", horizon: str = "curre
     for r in rows:
         hz = sorted(sc.get(r["h3_cell"], []), key=lambda x: -x["score"])
         for h in hz:                       # a third party is a built asset: crop-scale and nowcast hazards never headline it
-            h["relevant"] = is_headline_eligible(h["hazard"], "buildings")
+            h["relevant"] = is_headline_eligible(h["hazard"], "buildings", h.get("model_version"))
             if not h["relevant"]:
-                h["why_not"] = reason(h["hazard"])
+                h["why_not"] = reason(h["hazard"], "buildings", h.get("model_version"))
         relevant = [h for h in hz if h["relevant"]]
         top = relevant[0] if relevant else None
         out.append(dict(r) | {"created_at": r["created_at"].isoformat(), "kind_label": KINDS.get(r["kind"], r["kind"]), "hazards": hz, "n_hazards_scored": len(hz),
