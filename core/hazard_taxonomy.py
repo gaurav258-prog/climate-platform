@@ -94,8 +94,10 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "By nature: a projection of future warming; there is no observation of the future to backtest against. CMIP6 ensemble warming magnitude (projection scenarios)", (H.CHANGING_TEMP,)),
     EUHazard("temperature_variability", T, "Temperature variability", C, BN, "now",
              "By nature: a descriptive climate statistic, not a damage hazard; validating it against stations would prove nothing. seasonal temperature amplitude + interannual spread (1991–2020 climatology)", (H.TEMP_VARIABILITY,)),
-    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, SCR, "now",
-             "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state", (H.PERMAFROST,)),
+    EUHazard("permafrost_thaw", T, "Permafrost thawing", C, CAL, "now",
+             "Obu et al. (2019) permafrost probability (TTOP model, 1 km, NH); thaw-exposure state. "
+             "Backtested against 229 GTN-P boreholes (of 239 with a qualifying depth): rank correlation 0.82, "
+             "monotone bands — clears the 0.35 gate", (H.PERMAFROST,)),
 
     # Wind-related (4)
     EUHazard("cyclone", W, "Cyclone / hurricane / typhoon", A, CAL, "now",
@@ -149,7 +151,12 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
     EUHazard("heavy_precipitation", WA, "Heavy precipitation", A, CAL, "now",
              "wettest-month precip climatology (1991–2020) + CC warming; station-validated against observed 1-day maxima", (H.HEAVY_PRECIP,)),
     EUHazard("saline_intrusion", WA, "Saline intrusion", C, SCR, "now",
-             "low-elevation-coastal-zone × AR6 SLR proxy (derived from coastal elevation and distance-to-coast data)", (H.SALINE_INTRUSION,)),
+             "low-elevation-coastal-zone × AR6 SLR proxy (derived from coastal elevation and distance-to-coast data). "
+             "Backtested against Thorslund & van Vliet (2020, PANGAEA) observed coastal groundwater electrical "
+             "conductivity, 3,400 stations (Coastal_location=Yes, n≥3 samples each): rank correlation 0.10, bands "
+             "monotone but flat; indicator only. Observed salinity is driven by aquifer geology, pumping/abstraction "
+             "and proximity to a specific saltwater source — factors elevation and coast-distance alone do not "
+             "capture. Stays Screening.", (H.SALINE_INTRUSION,)),
     EUHazard("changing_precipitation", WA, "Changing precipitation patterns", C, BN, "now",
              "By nature: a projection of future precipitation change; nothing observed to test against. CMIP6 ensemble |precip change| (projection scenarios)", (H.CHANGING_PRECIP,)),
     EUHazard("precipitation_variability", WA, "Precipitation / hydrological variability", C, BN, "now",
@@ -181,9 +188,25 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "Screening: LISCOAST's ambient-change term was built from the same shoreline trends, so this is score fidelity, not "
              "independent skill.", (H.COASTAL_EROSION,)),
     EUHazard("soil_erosion", S, "Soil erosion", C, SCR, "now",
-             "GloSEM (Borrelli/Panagos) global cropland soil displacement by water erosion (~100 m, t ha⁻¹ yr⁻¹)", (H.SOIL_EROSION,)),
+             "GloSEM (Borrelli/Panagos) global cropland soil displacement by water erosion (~100 m, t ha⁻¹ yr⁻¹). "
+             "Backtested against two independent catchment-integrated observed targets: EUSEDcollab gauged "
+             "specific sediment yield (204 European catchments, rank correlation 0.09) and GRILSS observed "
+             "reservoir sedimentation rate (670 reservoirs, global, rank correlation 0.08); both below the 0.35 "
+             "minimum, bands not monotone. Tested whether the mismatch is gross point-scale erosion vs net "
+             "catchment-outlet yield: applying a cited (not fitted) sediment-delivery-ratio curve — Boyce (1975) "
+             "extension of Vanoni (1975), SDR = 0.5656 * A_km2^-0.11 — to each catchment's own drainage area "
+             "before ranking moves EUSEDcollab to 0.11 and GRILSS to 0.12 (both still weak, still below 0.35; see "
+             "the validators' extra.sdr_spearman). The area-only SDR correction is real but far too small to "
+             "explain the gap — stays Screening. Live scorer (ml/scoring/soil_erosion_point.py) is unchanged: "
+             "it does not apply this SDR adjustment. An areal (catchment-mean, not point) sample, or a delivery "
+             "model that also uses relief/land-cover/channel-storage (not area alone), is the honest next step.",
+             (H.SOIL_EROSION,)),
     EUHazard("soil_degradation", S, "Soil degradation", C, SCR, "now",
-             "UNCCD SDG 15.3.1 degraded-land status (Trends.Earth, ESA-CCI + productivity + SoilGrids), read on demand from the source raster", (H.SOIL_DEGRADATION,)),
+             "UNCCD SDG 15.3.1 degraded-land status (Trends.Earth, ESA-CCI + productivity + SoilGrids), read on demand from the source "
+             "raster. Backtested against the independent Li et al. 2025 30 m Land Productivity Dynamics dataset (Zenodo 14512248, "
+             "Landsat-8+MODIS/FAO-WOCAT, a different pipeline and institution): 4,000 grid-sampled points over the two downloaded "
+             "Mediterranean tiles (Iberia+France, Italy/Greece/Balkans/Levant), rank correlation -0.17 (p<1e-27), bands not monotone — "
+             "below the 0.35 minimum and the wrong sign. Stays Screening.", (H.SOIL_DEGRADATION,)),
     EUHazard("avalanche", S, "Avalanche", A, SCR, "now",
              "terrain release-angle (on-demand DEM slope) × elevation/latitude snow-climate proxy. Backtested against 4,367 SLF avalanche-"
              "accident start zones 1970/71–2023/24 (Swiss Alps only, 1,000 cells): AUC 0.67, rank correlation 0.29, indicator only; within alpine "
@@ -208,7 +231,7 @@ EXTRA_CHANNELS: tuple[EUHazard, ...] = (
 
 # Indicator channels that HAVE been put to an independent backtest, at indicator level (numbers in each entry's note
 # and on the validation ledger). Everything else at Screening still lacks an observed target at scale.
-SCREENING_TESTED_NEGATIVE: frozenset[str] = frozenset({"storm", "water_stress", "avalanche", "coastal_erosion"})
+SCREENING_TESTED_NEGATIVE: frozenset[str] = frozenset({"storm", "water_stress", "avalanche", "coastal_erosion", "soil_erosion", "soil_degradation", "saline_intrusion"})
 
 
 def screening_status(hazard_id: str, tier: "MaturityTier") -> str | None:
@@ -271,6 +294,12 @@ CALIBRATED_VALIDATION: dict[str, dict] = {
     "landslide": {"target": "NASA Global Landslide Catalog (independent event inventory; physical susceptibility "
                             "inputs). The LHASA model used this catalogue in its development, so this is not a fresh held-out test",
                   "validation": "Global Landslide Catalog backtest", "out_of_sample": False},
+    "permafrost_thaw": {"target": "GTN-P borehole-measured mean annual ground temperature (MAGT) at the depth nearest 10 m, 229 "
+                                  "European/Arctic boreholes (independent thermistor-string measurements, never an input to the Obu "
+                                  "(2019) TTOP probability raster the channel reads). Rank correlation 0.82 (coldness vs probability "
+                                  "score), monotone bands, well clear of the 0.35 minimum. A ground-temperature validation of the "
+                                  "presence/condition signal, not a thaw-loss or damage anchor",
+                        "validation": "GTN-P borehole ground-temperature backtest (permafrost_gtnp)", "out_of_sample": True},
 }
 
 

@@ -79,3 +79,7 @@ data/egms/
 data/coastal_erosion_val/
 data/water_stress_val/
 data/avalanche_val/
+data/permafrost_val/
+data/erosion_val/
+data/degradation_val/
+data/salinity_val/

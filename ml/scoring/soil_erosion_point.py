@@ -30,6 +30,15 @@ def soil_loss_score(rate_t_ha_yr: float) -> float:
     return round(max(0.0, min(100.0, 100.0 * (1.0 - math.exp(-max(0.0, float(rate_t_ha_yr)) / _EROSION_K)))), 2)
 
 
+def rate_from_score(score: float) -> float:
+    """Exact inverse of soil_loss_score — recovers the underlying GloSEM gross erosion rate (t ha⁻¹ yr⁻¹) from
+    a 0-100 risk score. Used by the sediment-delivery-ratio validators (soil_erosion_eusedcollab/grilss) to
+    get back to physical units before applying the area-dependent SDR (ml/scoring/soil_erosion_sdr.py); a pure
+    algebraic inversion, so it introduces no new approximation beyond the saturating map itself."""
+    s = max(0.0, min(99.9999, float(score)))
+    return -_EROSION_K * math.log(1.0 - s / 100.0)
+
+
 def _rate(lat: float, lon: float):
     """Read through the process-isolated raster sampler; None = outside the raster, nodata, or a read failure."""
     from services.geo.raster_sampler import info, sample

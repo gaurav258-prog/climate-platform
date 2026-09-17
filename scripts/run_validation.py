@@ -17,6 +17,11 @@ import services.validation.validators.coastal_erosion_shoreline  # noqa: F401 �
 import services.validation.validators.coastal_gauges  # noqa: F401 — registers coastal_ewl_holdout/logo, coastal_score_coops
 import services.validation.validators.flood_jrc  # noqa: F401 — registers flood_jrc_ems
 import services.validation.validators.near_field_events  # noqa: F401 — registers seismic
+import services.validation.validators.permafrost_gtnp  # noqa: F401 — registers permafrost_gtnp (GTN-P borehole MAGT)
+import services.validation.validators.saline_intrusion_pangaea  # noqa: F401 — registers saline_intrusion_pangaea (PANGAEA observed coastal groundwater EC)
+import services.validation.validators.soil_degradation_lpd  # noqa: F401 — registers soil_degradation_lpd (Li et al. 30m LPD dataset)
+import services.validation.validators.soil_erosion_eusedcollab  # noqa: F401 — registers soil_erosion_eusedcollab (EUSEDcollab observed SSY)
+import services.validation.validators.soil_erosion_grilss  # noqa: F401 — registers soil_erosion_grilss (GRILSS observed reservoir sedimentation)
 import services.validation.validators.station_extremes  # noqa: F401 — registers cold_wave/heat_chronic/heavy_precip station tests
 import services.validation.validators.storm_holdout  # noqa: F401 — registers storm_oos (temporal holdout)
 import services.validation.validators.storm_severity  # noqa: F401 — registers storm (severity)
