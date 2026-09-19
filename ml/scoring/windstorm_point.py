@@ -76,7 +76,10 @@ def _gust(lat: float, lon: float) -> Optional[float]:
         return None
     import numpy as np
     i = int(np.abs(g["lat"] - float(lat)).argmin())
-    j = int(np.abs(g["lon"] - float(lon)).argmin())
+    # the grid runs 0–359.5°E: wrap so western-hemisphere longitudes (-180..0) hit their own column, not lon 0
+    lon360 = float(lon) % 360.0
+    d = np.abs(g["lon"] - lon360)
+    j = int(np.minimum(d, 360.0 - d).argmin())
     v = float(g["gust_ms"][i, j])
     return None if v != v else v
 

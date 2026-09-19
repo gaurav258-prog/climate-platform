@@ -31,6 +31,7 @@ import services.validation.validators.subsidence_gnss  # noqa: F401 — register
 import services.validation.validators.temporal_holdout  # noqa: F401 — registers seismic_oos (temporal holdout)
 import services.validation.validators.water_stress_grace  # noqa: F401 — registers water_stress_grace (GRACE observed storage trend)
 import services.validation.validators.windstorm_noaa  # noqa: F401 — registers windstorm_noaa (synoptic field vs NOAA Storm Events)
+import services.validation.validators.windstorm_stations  # noqa: F401 — registers windstorm_stations[_us/_eu] (ISD station gusts)
 from core.db.session import get_session
 from services.validation import engine
 
