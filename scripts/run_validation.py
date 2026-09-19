@@ -32,6 +32,11 @@ import services.validation.validators.temporal_holdout  # noqa: F401 — registe
 import services.validation.validators.water_stress_grace  # noqa: F401 — registers water_stress_grace (GRACE observed storage trend)
 import services.validation.validators.windstorm_noaa  # noqa: F401 — registers windstorm_noaa (synoptic field vs NOAA Storm Events)
 import services.validation.validators.windstorm_stations  # noqa: F401 — registers windstorm_stations[_us/_eu] (ISD station gusts)
+import services.validation.validators.carbon_reversal  # noqa: F401 — registers carbon_reversal_wildfire_pilot
+import services.validation.validators.loss_us  # noqa: F401 — registers loss_us_*
+import services.validation.validators.parametric_replay  # noqa: F401 — registers storm_parametric
+import services.validation.validators.severe_convective_ro  # noqa: F401 — registers severe_convective_ro
+import services.validation.validators.wildfire_regions  # noqa: F401 — registers wildfire_{mtbs,nifc,nfdb,gfed5,firecci}
 from core.db.session import get_session
 from services.validation import engine
 
