@@ -41,7 +41,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 
-MODEL_VERSION = "windstorm-era5-gust-climatology-v1"
+MODEL_VERSION = "windstorm-era5-gust-climatology-v1.1"   # v1.1: longitude wrap fix (v1 read the lon-0 column for the whole western hemisphere)
 _NPZ = "data/wind/windstorm_gust_climatology.npz"
 
 # Baseline-relative anchors (gust m/s → 0-100), from the climatology's own percentiles (build script):
@@ -90,7 +90,8 @@ def score_windstorm_point(lat: float, lon: float, scenario: str = "baseline", ho
         ex = s.execute(text("""
             SELECT CAST(risk_score AS FLOAT) rs, risk_bucket FROM canonical_scores
             WHERE hazard_type='windstorm' AND h3_cell=:c AND scenario=:sc AND time_horizon=:h AND valid_to IS NULL
-        """), {"c": cell, "sc": scenario, "h": horizon}).mappings().first()
+              AND model_version=:mv
+        """), {"mv": MODEL_VERSION, "c": cell, "sc": scenario, "h": horizon}).mappings().first()
         if ex:
             return {"status": "cached_hit", "h3_cell": cell, "risk_score": ex["rs"], "risk_bucket": ex["risk_bucket"]}
 
@@ -100,6 +101,10 @@ def score_windstorm_point(lat: float, lon: float, scenario: str = "baseline", ho
                 "reason": "Windstorm gust climatology is not available for this location."}
     risk = round(_anchor(gust), 2)
     now = datetime.now(timezone.utc)
+    with get_session() as s:      # retire any older-version standing row for this cell (append-only: valid_to only)
+        s.execute(text("""UPDATE canonical_scores SET valid_to = :now WHERE hazard_type='windstorm' AND h3_cell=:c AND scenario=:sc
+                          AND time_horizon=:h AND valid_to IS NULL AND model_version <> :mv"""),
+                  {"now": now, "c": cell, "sc": scenario, "h": horizon, "mv": MODEL_VERSION})
     shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "screening", "validated": False,
             "method": "ERA5 instantaneous-10m-wind-gust climatology (1991-2020 stormiest-month), baseline-relative "
                       "percentile-anchored vs the global climatology (top quartile → High, top decile → Very High); "
