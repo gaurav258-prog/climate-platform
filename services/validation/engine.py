@@ -21,7 +21,9 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core import validation_gates as G
 from ml.validation import metrics as M
+from ml.validation import regional as R
 
 VALIDATION_VERSION = "val-v1"
 
@@ -42,6 +44,9 @@ class ValidationResult:
     labels: Optional[list] = None   # per-sample ids, for the drill-down
     extra: Optional[dict] = None    # extra structured metrics merged into the run's metrics jsonb (e.g. a
     #                                 challenger's verdict), so downstream reads them without parsing notes
+    strata: Optional[list] = None   # per-sample stratum label (macro-region / climate zone), aligned with predicted;
+    #                                 when given, skill is also judged per stratum and a pooled pass that hides a
+    #                                 failing region is flagged (see ml/validation/regional.py)
 
 
 Validator = Callable[[Session], ValidationResult]
@@ -93,7 +98,7 @@ def _compute(res: ValidationResult):
                    "event_prevalence": _round(M.event_prevalence(obs))}
         grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
         passed = applicable and M.passes_discrimination_gate(sp, mono)
-        gate = "discrimination_spearman>=0.35+monotone"
+        gate = f"discrimination_spearman>={G.RANK_GATE_SPEARMAN} (monotone reported)"
     elif res.kind == "rank":
         # score vs a CONTINUOUS observed quantity (intensity, loss) — rank skill; no occurrence/AUC/saturation
         applicable, reason = M.continuous_applicable(pred, obs)
@@ -103,11 +108,13 @@ def _compute(res: ValidationResult):
         metrics = {"spearman": sp, "band_mean_observed": bands, "monotonic": mono}
         grade = M.Grade.INSUFFICIENT if not applicable else M.grade_discrimination(sp, mono)
         passed = applicable and M.passes_discrimination_gate(sp, mono)
-        gate = "rank_spearman>=0.35+monotone"
+        gate = f"rank_spearman>={G.RANK_GATE_SPEARMAN} (monotone reported)"
     else:
         raise ValueError(f"unknown validation kind '{res.kind}'")
 
     metrics = {k: _round(v) for k, v in metrics.items()}
+    if res.kind in ("rank", "discrimination"):
+        metrics["monotone_check"] = M.band_monotone(pred, obs)   # always computed; not gated, not graded, not reported
     metrics["n"] = n
     metrics["applicable"] = applicable
     metrics["applicability_reason"] = reason or None
@@ -133,6 +140,13 @@ def record_result(session: Session, res: ValidationResult, *, actor: Optional[st
     metrics, grade, passed, gate = _compute(res)
     if res.extra:
         metrics.update(res.extra)   # structured extras (e.g. challenger verdict) travel in the metrics jsonb
+    if res.strata is not None and res.kind in ("rank", "discrimination"):
+        if len(res.strata) != len(res.predicted):
+            raise ValueError("strata must align one-to-one with predicted/observed")
+        metrics.update({"stratified": R.stratified_report(res.predicted, res.observed, res.strata)})
+    # which pre-registered rules this result was judged under — provable later, immutable with the row
+    metrics["gate_spec"] = G.GATE_SPEC_VERSION
+    metrics["gate_spec_sha"] = G.spec_sha()[:16]
     run_id = session.execute(text("""
         INSERT INTO validation_run (run_id, model_id, hazard_type, scope, horizon, kind, method,
             target_source, n_samples, metrics, skill_grade, passed_gate, gate, notes, code_version,

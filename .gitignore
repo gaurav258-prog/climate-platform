@@ -83,3 +83,10 @@ data/permafrost_val/
 data/erosion_val/
 data/degradation_val/
 data/salinity_val/
+data/loss_val/
+data/carbon_val/
+data/parametric_val/
+data/reversal_val/
+data/windstorm_station_val/
+data/exposure_val/
+data/storm_synthetic/

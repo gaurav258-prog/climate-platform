@@ -12,9 +12,12 @@ import ReviewTabs from '../components/ReviewTabs'
 // named, never hidden.
 
 type Tier = 'calibrated' | 'by_nature' | 'screening' | 'reference' | 'roadmap'
-interface HZ { id: string; name: string; family: string; nature: string; tier: Tier; phase: string; source: string; internal: string[]; status?: 'tested_negative' | 'no_target_yet' | null }
+type ScopeClaim = 'global' | 'pooled_global' | 'multi_region' | 'regional' | 'none'
+interface RegionEv { region: string; status: 'validated' | 'mixed' | 'fails'; ledger: string; evidence: string }
+interface Scope { scope_claim: ScopeClaim; regions: RegionEv[]; untested_regions: string[]; pooled_note?: string | null; caveat?: string | null }
+interface HZ { id: string; name: string; family: string; nature: string; tier: Tier; phase: string; source: string; internal: string[]; status?: 'tested_negative' | 'no_target_yet' | null; scope?: Scope }
 interface Fam { family: string; label: string; hazards: HZ[] }
-interface Summary { total: number; covered: number; roadmap: number; by_tier: Record<string, number>; by_phase: Record<string, number>; extra_channels: number }
+interface Summary { total: number; covered: number; roadmap: number; by_tier: Record<string, number>; by_phase: Record<string, number>; extra_channels: number; scope_claims?: Record<ScopeClaim, number> }
 interface Cov {
   reference: string; summary: Summary; families: Fam[]; extra_channels: HZ[]
   tiers: { tier: string; label: string; note: string }[]; note: string
@@ -56,6 +59,28 @@ function Badge({ h }: { h: HZ }) {
   return chip(TIER.roadmap.c, `Phase ${h.phase.slice(1)}`)
 }
 
+const REGION_LABEL: Record<string, string> = {
+  europe: 'Europe', north_america: 'N. America', latin_america_caribbean: 'LatAm & Caribbean', africa: 'Africa', asia: 'Asia', oceania: 'Oceania',
+}
+const SCOPE_LABEL: Record<ScopeClaim, string> = {
+  global: 'Validated globally', pooled_global: 'Global target, pooled', multi_region: 'Multi-region', regional: 'Single region', none: 'No region validated',
+}
+
+// WHERE a calibrated hazard is validated — the tier alone would read as unbounded scope.
+function ScopeLine({ s }: { s: Scope }) {
+  const by = (st: RegionEv['status']) => s.regions.filter(r => r.status === st).map(r => REGION_LABEL[r.region] ?? r.region)
+  const v = by('validated'), m = by('mixed'), f = by('fails')
+  const tip = [...s.regions.map(r => `${REGION_LABEL[r.region] ?? r.region} (${r.status}): ${r.evidence}`), s.pooled_note ?? '', s.caveat ?? ''].filter(Boolean).join('\n')
+  return (
+    <div title={tip} className="mono text-[10.5px] mt-1 leading-snug">
+      <span className="text-[var(--color-mute)]">{SCOPE_LABEL[s.scope_claim]}</span>
+      {v.length > 0 && <span style={{ color: 'var(--color-good)' }}> · validated: {v.join(', ')}</span>}
+      {m.length > 0 && <span style={{ color: 'var(--color-warn)' }}> · mixed: {m.join(', ')}</span>}
+      {f.length > 0 && <span style={{ color: 'var(--color-bad)' }}> · fails: {f.join(', ')}</span>}
+    </div>
+  )
+}
+
 function HazardTile({ h }: { h: HZ }) {
   const acute = h.nature === 'acute'
   return (
@@ -68,6 +93,7 @@ function HazardTile({ h }: { h: HZ }) {
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] font-medium text-[var(--color-ink)] leading-snug">{h.name}</div>
         <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5 leading-snug">{h.source}</div>
+        {h.scope && <ScopeLine s={h.scope} />}
       </div>
       <div className="shrink-0"><Badge h={h} /></div>
     </div>
@@ -83,7 +109,7 @@ function CoverageView() {
     <>
       <StatGrid cols={4} items={[
         { label: 'EU Taxonomy hazards', value: data.summary.total },
-        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} validated · ${data.summary.by_tier.by_nature ?? 0} reference context · ${data.summary.by_tier.screening} indicator` },
+        { label: 'Covered today', value: data.summary.covered, accent: 'var(--color-good)', sub: `${data.summary.by_tier.calibrated} validated${data.summary.scope_claims ? ` (${data.summary.scope_claims.global} global · ${data.summary.scope_claims.pooled_global} pooled · ${data.summary.scope_claims.multi_region} multi-region · ${data.summary.scope_claims.regional} single-region)` : ''} · ${data.summary.by_tier.by_nature ?? 0} reference context · ${data.summary.by_tier.screening} indicator` },
         { label: 'On the roadmap', value: data.summary.roadmap, sub: 'across 4 phases' },
         { label: 'Beyond the 28', value: `+${data.summary.extra_channels}`, sub: 'seismic · volcanic · pollution' },
       ]} />

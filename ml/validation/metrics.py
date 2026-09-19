@@ -21,9 +21,15 @@ from typing import Optional
 
 import numpy as np
 
-MIN_N = 3                      # below this, no metric is honest
-REGRESSION_MIN_N = 5           # a continuous skill CLAIM needs more than the bare metric floor
-REGRESSION_GATE_R2 = 0.40     # the publish gate (matches the product's honesty standard)
+from core.validation_gates import (   # the pre-registered gates — one source of truth (core/validation_gates.py)
+    MIN_N_BANDS,
+    MIN_N_METRIC as MIN_N,
+    MONOTONE_FIXED_MIN_POPULATED,
+    MIN_N_REGRESSION_CLAIM as REGRESSION_MIN_N,
+    RANK_GATE_SPEARMAN,
+    REGRESSION_GATE_R2,
+    STRONG_SPEARMAN,
+)
 
 
 class Grade(str, Enum):
@@ -123,6 +129,52 @@ def monotonic_nondecreasing(values: list) -> Optional[bool]:
     return all(v[i] <= v[i + 1] for i in range(len(v) - 1))
 
 
+FIXED_BANDS = ((0, 25), (25, 50), (50, 75), (75, 100.01))   # the product's own Low/Medium/High/Very-High buckets
+
+
+def band_monotone(pred, obs) -> dict:
+    """Do the observed outcomes rise with the score band? Computed for EVERY result (policy: core/validation_gates.py).
+
+    Bands are the product's fixed 0–25/25–50/50–75/75–100 buckets when the score is on the 0–100 scale and at least
+    MONOTONE_FIXED_MIN_POPULATED of them hold data; otherwise quartiles of the score (equal scores share a band), so a
+    result whose predictions are not on that scale — or are bunched — still gets a value instead of a blank. The
+    method used and the sample count per band are returned, because bands of a handful of samples are noisy and a
+    reader must be able to see that. `monotone` is None (never a guess) when there are < MIN_N_BANDS samples or fewer
+    than two populated bands. This does NOT feed the gate, the grade or any headline."""
+    p = np.asarray(pred, float)
+    o = np.asarray(obs, float)
+    ok = np.isfinite(p) & np.isfinite(o)
+    p, o = p[ok], o[ok]
+    out: dict = {"method": None, "band_mean_observed": [], "band_n": [], "n_bands": 0, "monotone": None, "reason": None}
+    if len(p) < MIN_N_BANDS:
+        out["reason"] = f"n<{MIN_N_BANDS}"
+        return out
+
+    def _by(idx: np.ndarray, k: int) -> tuple[list, list]:
+        means, ns = [], []
+        for b in range(k):
+            m = idx == b
+            ns.append(int(m.sum()))
+            means.append(round(float(o[m].mean()), 4) if m.any() else None)
+        return means, ns
+
+    method = None
+    if p.min() >= 0 and p.max() <= 100:
+        idx = np.digitize(p, [e[1] for e in FIXED_BANDS[:-1]])
+        means, ns = _by(idx, 4)
+        if sum(1 for x in ns if x) >= MONOTONE_FIXED_MIN_POPULATED:
+            method = "fixed_0_100"
+    if method is None:
+        idx = np.digitize(p, np.quantile(p, [0.25, 0.5, 0.75]))
+        means, ns = _by(idx, 4)
+        method = "quartile"
+    out.update({"method": method, "band_mean_observed": means, "band_n": ns,
+                "n_bands": sum(1 for x in ns if x), "monotone": monotonic_nondecreasing(means)})
+    if out["monotone"] is None:
+        out["reason"] = "fewer than two populated bands"
+    return out
+
+
 # ── grading + gates ────────────────────────────────────────────────────────────────────────────
 def grade_regression(r2: Optional[float]) -> Grade:
     if r2 is None:
@@ -139,9 +191,9 @@ def grade_discrimination(sp: Optional[float], monotonic: Optional[bool]) -> Grad
     # A strongly rank-correlated model whose coarse bands go noisy (few events) is FAIR, never WEAK.
     if sp is None:
         return Grade.INSUFFICIENT
-    if sp >= 0.65 and monotonic:
+    if sp >= STRONG_SPEARMAN and monotonic:
         return Grade.STRONG
-    if sp >= 0.35:
+    if sp >= RANK_GATE_SPEARMAN:
         return Grade.FAIR
     return Grade.WEAK
 
@@ -155,7 +207,7 @@ def passes_discrimination_gate(sp: Optional[float], monotonic: Optional[bool]) -
     """The publish gate for a score-vs-event model: rank skill ≥ 0.35. Monotonicity is reported and lifts the
     GRADE to strong, but is not a hard gate — coarse-band monotonicity is noisy on few events and must not
     fail a genuinely rank-correlated model (the `monotonic` arg is kept for signature symmetry)."""
-    return sp is not None and sp >= 0.35
+    return sp is not None and sp >= RANK_GATE_SPEARMAN
 
 
 # ── applicability guard — is the test even CAPABLE of judging this model? ─────────────────────────

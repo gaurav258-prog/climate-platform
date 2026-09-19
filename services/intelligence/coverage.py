@@ -42,6 +42,17 @@ def summarize_coverage(per_hazard: list[dict], resolutions: list[int], scenarios
     }
 
 
+def _scope_claims() -> dict:
+    """Of the CALIBRATED hazards, how many may claim which geographic scope (derived by the pre-registered rule)."""
+    from core.hazard_regions import scope_claim
+    from core.hazard_taxonomy import EU_TAXONOMY, MaturityTier
+    out = {"global": 0, "pooled_global": 0, "multi_region": 0, "regional": 0, "none": 0}
+    for h in EU_TAXONOMY:
+        if h.tier is MaturityTier.CALIBRATED:
+            out[scope_claim(h.id)] += 1
+    return out
+
+
 def eu_taxonomy_coverage() -> dict:
     """Our coverage of the EU Taxonomy's 28 physical climate hazards, each stamped with a maturity tier.
 
@@ -58,13 +69,18 @@ def eu_taxonomy_coverage() -> dict:
         screening_status,
     )
 
+    from core.hazard_regions import regional_view
+
     def _ser(h) -> dict:
-        return {
+        d = {
             "id": h.id, "name": h.name, "family": h.family.value, "nature": h.nature,
             "tier": h.tier.value, "phase": h.phase, "source": h.source,
             "internal": [c.value for c in h.internal],
             "status": screening_status(h.id, h.tier),      # indicator only: tested_negative | no_target_yet (ledger fact, not shown as a verdict)
         }
+        if h.tier.value == "calibrated":
+            d["scope"] = regional_view(h.id)               # WHERE it is validated — the tier alone would read as unbounded
+        return d
 
     grouped = eu_hazards_by_family()
     family_labels = {
@@ -73,7 +89,7 @@ def eu_taxonomy_coverage() -> dict:
     }
     return {
         "reference": "EU Taxonomy Climate Delegated Act (2021/2139), Appendix A",
-        "summary": coverage_summary(),
+        "summary": {**coverage_summary(), "scope_claims": _scope_claims()},
         "families": [
             {"family": f.value, "label": family_labels[f.value],
              "hazards": [_ser(h) for h in grouped[f.value]]}
