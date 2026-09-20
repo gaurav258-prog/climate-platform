@@ -85,9 +85,12 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
         RegionEvidence("north_america", FAILS, "US", "susceptibility-class test ρ 0.22 (n=4,834) — indicator only"),
     ),
     "cyclone": (
-        RegionEvidence("latin_america_caribbean", VALIDATED, "global (storm_oos, stratified)",
-                       "held-out IBTrACS seasons 2003+: ρ 0.77 (n=5,973 cells) — the stored storm channel only holds cells in this region; "
-                       "Asia/Europe/Oceania have ≤4 cells each, so no other basin is tested yet. Wind intensity, not damage"),
+        RegionEvidence("asia", VALIDATED, "global_allbasin (storm_oos_allbasin, stratified)", "held-out IBTrACS seasons 2003+, 1° land/coast grid: ρ 0.74 (n=748)"),
+        RegionEvidence("oceania", VALIDATED, "global_allbasin", "ρ 0.56 (n=642)"),
+        RegionEvidence("latin_america_caribbean", VALIDATED, "global_allbasin; global (storm_oos)", "ρ 0.62 (n=445); stored-channel holdout ρ 0.77 (n=5,973)"),
+        RegionEvidence("north_america", VALIDATED, "global_allbasin", "ρ 0.75 (n=268)"),
+        RegionEvidence("africa", VALIDATED, "global_allbasin", "ρ 0.53 (n=229)"),
+        RegionEvidence("europe", VALIDATED, "global_allbasin", "ρ 0.70 (n=30) — thin: European exposure is ex-tropical remnants"),
     ),
     "permafrost_thaw": (
         RegionEvidence("europe", VALIDATED, "Europe/Arctic", "GTN-P boreholes: ρ 0.82 (n=229)"),
@@ -105,6 +108,8 @@ CAVEATS: dict[str, str] = {
     "drought": "Skill is regime-specific: it holds for rain-fed winter cereals and tree crops in semi-arid regimes (Mediterranean, "
                "West/Central Asia, Australia) and fails for humid, irrigated and summer crops (US Corn Belt, Brazil, Argentina, "
                "India rice/cane, Nigeria, South Africa). Do not quote it as a general drought score.",
+    "cyclone": "Wind intensity, not damage. The score and the test target come from the same IBTrACS track record (a holdout in time, "
+               "not an independent source), and agencies' wind averaging periods differ by basin. Europe's sample is thin (n=30).",
     "flood": "Validated against observed flood extents (Europe). Against US NFIP paid claims the score does not rank places by loss (ρ 0.08, 2026-09-19): "
              "it is a physical hazard score, not a loss model.",
     "tornado": "Validated against observed severe-storm reports (CONUS). Against NOAA damaging-event counts per county it does not rank by loss "

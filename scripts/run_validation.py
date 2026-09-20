@@ -37,6 +37,7 @@ import services.validation.validators.loss_us  # noqa: F401 — registers loss_u
 import services.validation.validators.parametric_replay  # noqa: F401 — registers storm_parametric
 import services.validation.validators.severe_convective_ro  # noqa: F401 — registers severe_convective_ro
 import services.validation.validators.wildfire_regions  # noqa: F401 — registers wildfire_{mtbs,nifc,nfdb,gfed5,firecci}
+import services.validation.validators.storm_holdout_regions  # noqa: F401 — registers storm_oos_allbasin (all-basin holdout)
 from core.db.session import get_session
 from services.validation import engine
 
