@@ -78,6 +78,11 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
         RegionEvidence("europe", VALIDATED, "EU", "EGMS InSAR held out in time: ρ 0.85 (200,000 cells)"),
         RegionEvidence("north_america", FAILS, "US", "susceptibility-class test ρ 0.22 (n=4,834) — indicator only"),
     ),
+    "cyclone": (
+        RegionEvidence("latin_america_caribbean", VALIDATED, "global (storm_oos, stratified)",
+                       "held-out IBTrACS seasons 2003+: ρ 0.77 (n=5,973 cells) — the stored storm channel only holds cells in this region; "
+                       "Asia/Europe/Oceania have ≤4 cells each, so no other basin is tested yet. Wind intensity, not damage"),
+    ),
     "permafrost_thaw": (
         RegionEvidence("europe", VALIDATED, "Europe/Arctic", "GTN-P boreholes: ρ 0.82 (n=229)"),
     ),
@@ -86,7 +91,6 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
 # Validated on a globally distributed target, per-region breakdown not yet reported. Kept explicit so a pooled global
 # number is never silently promoted to a global claim.
 POOLED_GLOBAL: dict[str, str] = {
-    "cyclone": "held-out IBTrACS windows, all basins pooled (ρ 0.78–0.88); per-basin breakdown not yet reported. Wind intensity, not damage.",
     "sea_level_rise": "GESLA-3 gauges: held out in time ρ 0.92 (n=810), leave-one-gauge-out ρ 0.84 (n=1,778); gauge network is Global-North-heavy; per-region breakdown not yet reported. Still-water level, not inundation.",
     "landslide": "Global Landslide Catalog (AUC 0.95); LHASA used the catalogue in its own development, so this reproduces the published susceptibility's discrimination rather than a fresh held-out test.",
 }
