@@ -48,7 +48,13 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
         RegionEvidence("north_america", VALIDATED, "US", "cold-wave channel ρ 0.86 (n=133 stations)"),
     ),
     "wildfire": (
-        RegionEvidence("europe", VALIDATED, "EFFIS 2022–24, held out in time", "occurrence AUC 0.76, magnitude ρ 0.37 (41k burn scars)"),
+        RegionEvidence("europe", VALIDATED, "EFFIS 2022–24, held out in time; gfed5 (stratified)", "EFFIS occurrence AUC 0.76, magnitude ρ 0.37 (41k burn scars); GFED5 2021–22 ρ 0.76 (n=5,853 cells)"),
+        RegionEvidence("africa", VALIDATED, "gfed5 / firecci (stratified)", "held-out 2021–22 burned area: GFED5 ρ 0.67, FireCCI ρ 0.77 (n=7,045 cells)"),
+        RegionEvidence("asia", VALIDATED, "gfed5 / firecci (stratified)", "GFED5 ρ 0.48, FireCCI ρ 0.43 (n=19,045 cells)"),
+        RegionEvidence("latin_america_caribbean", VALIDATED, "gfed5 / firecci (stratified)", "GFED5 ρ 0.53, FireCCI ρ 0.57 (n=7,146 cells)"),
+        RegionEvidence("oceania", VALIDATED, "gfed5 / firecci (stratified)", "GFED5 ρ 0.42, FireCCI ρ 0.54 (n=3,126 cells)"),
+        RegionEvidence("north_america", MIXED, "gfed5 / mtbs / nifc / nfdb", "gridded burned area passes (GFED5 ρ 0.54, n=11,630) but fire-perimeter records fall short: "
+                       "US MTBS ρ 0.33 (CONUS 0.348), NIFC 0.18, Canada NFDB 0.33 (south of 55°N 0.11)"),
     ),
     "tornado": (
         RegionEvidence("north_america", VALIDATED, "CONUS", "temporal holdout ρ 0.51, AUC 0.82 (n=23,331)"),
@@ -99,8 +105,14 @@ CAVEATS: dict[str, str] = {
     "drought": "Skill is regime-specific: it holds for rain-fed winter cereals and tree crops in semi-arid regimes (Mediterranean, "
                "West/Central Asia, Australia) and fails for humid, irrigated and summer crops (US Corn Belt, Brazil, Argentina, "
                "India rice/cane, Nigeria, South Africa). Do not quote it as a general drought score.",
+    "flood": "Validated against observed flood extents (Europe). Against US NFIP paid claims the score does not rank places by loss (ρ 0.08, 2026-09-19): "
+             "it is a physical hazard score, not a loss model.",
+    "tornado": "Validated against observed severe-storm reports (CONUS). Against NOAA damaging-event counts per county it does not rank by loss "
+               "(ρ 0.09, 2026-09-19): a physical hazard score, not a loss model.",
     "subsidence": "Observed InSAR ground motion (EGMS) exists for Europe only; elsewhere the susceptibility class is an indicator.",
-    "wildfire": "Validated in Europe; elsewhere the same layer is a screening indicator until tested on North-American and tropical burn records.",
+    "wildfire": "Held-out window is short (2021–22 gridded burned area; 2021–24 perimeters) and part of the skill is the burn-history persistence term, "
+                "not weather skill. FireCCI shares the MODIS family with that term (GFED5 is the more independent target). "
+                "North America is mixed: gridded burned area passes but US/Canada fire-perimeter records fall just below the gate.",
 }
 
 
