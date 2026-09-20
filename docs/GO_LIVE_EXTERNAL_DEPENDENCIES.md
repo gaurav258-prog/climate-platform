@@ -20,6 +20,8 @@ _Last reviewed: 2026-09-03._
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
 | 5 | More crop calibration data | Agri model | fit + out-of-sample validate pipeline | real climate-attributable data | a crop×origin yield/climate series → we fit + validate |
 | 6 | WDPA global protected-area layer | Agri / ESRS E4-5 | dataset-agnostic overlap engine + ingest script + E4 filing wiring | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it, non-EU assets light up (no code change) |
+| 7 | **GEM Global Exposure Model commercial licence** | Exposure / hazard→loss | not used: GHSL (CC BY 4.0) is the exposure source; GEM was never downloaded (`data/exposure_val/MANIFEST.md`) | CC BY-NC-SA 4.0 forbids commercial use + share-alike; **must be resolved before go-live / first customer** if GEM is ever used | licence request to licensing@globalquakemodel.org (commercial + 1 km disaggregation) → until granted, GEM stays out of every customer-facing output |
+| 8 | OpenFEMA NFIP attribution + counsel confirmation | Validation evidence (`loss_us_nfip_flood`) | terms read 2026-09-20: commercial use allowed; disclaimer + citation required (in validator docstring) | counsel to confirm reading before quoting NFIP numbers to customers | add "not endorsed by FEMA" disclaimer + dataset/version/date citation wherever the NFIP result is shown |
 
 ---
 

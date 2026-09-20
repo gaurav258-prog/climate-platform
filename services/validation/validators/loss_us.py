@@ -49,9 +49,12 @@ canonical_scores row) - never a research field. Units with no production score a
    Not registered: crop HEAT - canonical_scores holds no 'heat_acute' rows in the continental US (0 cells) and there
                is no point scorer, so it cannot be tested without scoring, which is out of scope.
 
-LICENCE CAVEAT: OpenFEMA NFIP dataset metadata says "license: None" (US-government open data, no restriction seen);
-commercial-claim use is UNVERIFIED - confirm the OpenFEMA terms with counsel before quoting the NFIP result
-externally. NOAA Storm Events and USDA RMA are US-government public data (no licence text seen). NOAA damage figures
+LICENCE (read 2026-09-20, fema.gov/about/openfema/terms-conditions): no separate licence file ("license: None") - the
+OpenFEMA terms apply. No commercial-use ban. Conditions: state "This product uses the Federal Emergency Management
+Agency's OpenFEMA API, but is not endorsed by FEMA"; cite endpoint, dataset version (claims v3, policies v2) and access
+date; no re-identification (we use aggregated 0.1 deg cells only); no decisions on an individual's eligibility (n/a);
+FEMA disclaims data quality. Any external quote of the NFIP result must carry that disclaimer + citation; counsel to
+confirm the reading before customer-facing use. NOAA Storm Events and USDA RMA are US-government public data (no licence text seen). NOAA damage figures
 are local estimates, not insured loss.
 """
 from __future__ import annotations
