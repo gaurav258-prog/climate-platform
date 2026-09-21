@@ -38,6 +38,8 @@ import services.validation.validators.parametric_replay  # noqa: F401 — regist
 import services.validation.validators.severe_convective_ro  # noqa: F401 — registers severe_convective_ro
 import services.validation.validators.wildfire_regions  # noqa: F401 — registers wildfire_{mtbs,nifc,nfdb,gfed5,firecci}
 import services.validation.validators.storm_holdout_regions  # noqa: F401 — registers storm_oos_allbasin (all-basin holdout)
+import services.validation.validators.flood_gfd  # noqa: F401 — registers flood_gfd_global (Global Flood Database)
+import services.validation.validators.permafrost_gtnp_global  # noqa: F401 — registers permafrost_gtnp_global (GTN-P beyond Europe)
 from core.db.session import get_session
 from services.validation import engine
 

@@ -71,7 +71,12 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
                        "Argentina wheat ρ 0.09; Brazil coffee ρ −0.43 and soy ρ −0.22"),
     ),
     "flood": (
-        RegionEvidence("europe", VALIDATED, "Europe", "Copernicus EMS 2019–24 observed extents: ρ 0.47, AUC 0.84 (n=417 nodes)"),
+        RegionEvidence("europe", MIXED, "Europe; global_gfd", "Copernicus EMS 2019–24 observed extents pass (ρ 0.47, AUC 0.84, n=417 nodes); the coarser GFD MODIS test fails (ρ 0.285, n=800)"),
+        RegionEvidence("latin_america_caribbean", VALIDATED, "global_gfd", "Global Flood Database 2000–18 flooded share: ρ 0.41, AUC 0.77 (n=800 cells), bands not monotone"),
+        RegionEvidence("oceania", VALIDATED, "global_gfd", "ρ 0.354, AUC 0.82 (n=800) — marginal, bands not monotone"),
+        RegionEvidence("north_america", FAILS, "global_gfd", "ρ 0.33 (n=800), just under the gate"),
+        RegionEvidence("africa", FAILS, "global_gfd", "ρ 0.31 (n=800), AUC 0.78 — discriminates but ranks poorly"),
+        RegionEvidence("asia", FAILS, "global_gfd", "ρ 0.25 (n=800)"),
     ),
     "sea_level_rise": (
         RegionEvidence("north_america", VALIDATED, "US", "NOAA CO-OPS gauges: ρ 0.41 (n=218)"),
@@ -97,7 +102,9 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
         RegionEvidence("north_america", VALIDATED, "US (windstorm_stations_us)", "ρ 0.38 (n=58 stations) — marginal pass, bands not monotone; vs NOAA reported gusts ρ 0.26 (below gate)"),
     ),
     "permafrost_thaw": (
-        RegionEvidence("europe", VALIDATED, "Europe/Arctic", "GTN-P boreholes: ρ 0.82 (n=229)"),
+        RegionEvidence("europe", VALIDATED, "Europe/Arctic; global_boreholes", "GTN-P boreholes: ρ 0.82 (n=229); Europe/Arctic-Atlantic stratum ρ 0.58 (n=38)"),
+        RegionEvidence("north_america", VALIDATED, "global_boreholes", "GTN-P boreholes (US, Canada): ρ 0.76 (n=30), monotone"),
+        RegionEvidence("asia", VALIDATED, "global_boreholes", "Russia/Siberia stratum ρ 0.85 (n=190, monotone; ~85% of the Russian sites lie east of 60°E); Tibetan Plateau n=12, too few"),
     ),
 }
 
@@ -118,8 +125,12 @@ CAVEATS: dict[str, str] = {
              "rarely logged; US station maxima include convective and tropical gusts a monthly-mean climatology cannot see. Against NOAA's "
              "reported gusts the score is below the gate (0.26) and against US damaging-event counts it does not rank (0.05): a hazard score, "
              "not a loss model, no euro figure. Outside Europe and North America it is untested.",
-    "flood": "Validated against observed flood extents (Europe). Against US NFIP paid claims the score does not rank places by loss (ρ 0.08, 2026-09-19): "
-             "it is a physical hazard score, not a loss model.",
+    "permafrost_thaw": "Northern-hemisphere raster only (≥25°N): the Southern Hemisphere and Antarctica are off-domain and untested; Central Asia/Tibet has 12 boreholes, too few to judge. "
+                       "The GTN-P server failed on 69 dataset requests, so North America rests on 30 boreholes.",
+    "flood": "Validated against observed flood extents in Europe (Copernicus EMS). Outside Europe the Global Flood Database test (MODIS 250 m, 2000–18) FAILS pooled "
+             "(ρ 0.315, n=4,800) and in four of six regions; Latin America & Caribbean (0.41) and Oceania (0.354, marginal) pass on rank only, bands not monotone. "
+             "The score models river flooding only, while GFD also records coastal, flash and urban floods. Against US NFIP paid claims it does not rank places by loss "
+             "(ρ 0.08): a physical hazard score, not a loss model. Do not quote it as a general global flood score.",
     "tornado": "Validated against observed severe-storm reports (CONUS). Against NOAA damaging-event counts per county it does not rank by loss "
                "(ρ 0.09, 2026-09-19): a physical hazard score, not a loss model.",
     "subsidence": "Observed InSAR ground motion (EGMS) exists for Europe only; elsewhere the susceptibility class is an indicator.",
