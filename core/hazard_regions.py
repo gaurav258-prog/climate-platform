@@ -42,10 +42,13 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
     "heat_stress": (
         RegionEvidence("europe", VALIDATED, "EU", "ρ 0.85 (n=115 stations)"),
         RegionEvidence("north_america", VALIDATED, "US", "ρ 0.91 (n=133 stations)"),
+        RegionEvidence("asia", VALIDATED, "global_stations (heat_chronic)", "GHCN-Daily days ≥ 30 °C: ρ 0.93 (n=48 stations, monotone)"),
+        RegionEvidence("oceania", VALIDATED, "global_stations (heat_chronic)", "ρ 0.73 (n=114 stations, mostly Australia, monotone)"),
     ),
     "cold_wave_frost": (
         RegionEvidence("europe", VALIDATED, "EU", "cold-wave channel ρ 0.89 (n=115 stations)"),
         RegionEvidence("north_america", VALIDATED, "US", "cold-wave channel ρ 0.86 (n=133 stations)"),
+        RegionEvidence("asia", VALIDATED, "global_stations (cold_wave)", "GHCN-Daily 1-in-10 coldest night: ρ 0.82 (n=48 stations, monotone); Oceania has too little score variation to judge"),
     ),
     "wildfire": (
         RegionEvidence("europe", VALIDATED, "EFFIS 2022–24, held out in time; gfed5 (stratified)", "EFFIS occurrence AUC 0.76, magnitude ρ 0.37 (41k burn scars); GFED5 2021–22 ρ 0.76 (n=5,853 cells)"),
@@ -84,6 +87,8 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
     "heavy_precipitation": (
         RegionEvidence("europe", VALIDATED, "EU", "ρ 0.42 (n=115 stations)"),
         RegionEvidence("north_america", VALIDATED, "US", "ρ 0.70 (n=133 stations)"),
+        RegionEvidence("asia", VALIDATED, "global_stations (heavy_precip)", "GHCN-Daily mean annual max 1-day rain: ρ 0.88 (n=48 stations), bands not monotone"),
+        RegionEvidence("oceania", VALIDATED, "global_stations (heavy_precip)", "ρ 0.84 (n=114 stations, mostly Australia, monotone)"),
     ),
     "subsidence": (
         RegionEvidence("europe", VALIDATED, "EU", "EGMS InSAR held out in time: ρ 0.85 (200,000 cells)"),
@@ -116,6 +121,9 @@ POOLED_GLOBAL: dict[str, str] = {
 }
 
 CAVEATS: dict[str, str] = {
+    "heavy_precipitation": "Station tests (NOAA GHCN-Daily, one station per 1° box, ≥20 complete years in 1991–2020): Africa has no station meeting the completeness rule and Latin America has 3, so neither is validated. Asia (48) is a fixed-order subsample; Oceania is mostly Australia; stations skew to airports and synoptic sites.",
+    "cold_wave_frost": "Station tests (NOAA GHCN-Daily, one station per 1° box, ≥20 complete years in 1991–2020): Africa has no station meeting the completeness rule and Latin America has 3, so neither is validated. Asia (48) is a fixed-order subsample; Oceania is mostly Australia; stations skew to airports and synoptic sites.",
+    "heat_stress": "Station tests (NOAA GHCN-Daily, one station per 1° box, ≥20 complete years in 1991–2020): Africa has no station meeting the completeness rule and Latin America has 3, so neither is validated. Asia (48) is a fixed-order subsample; Oceania is mostly Australia; stations skew to airports and synoptic sites.",
     "drought": "Skill is regime-specific: it holds for rain-fed winter cereals and tree crops in semi-arid regimes (Mediterranean, "
                "West/Central Asia, Australia) and fails for humid, irrigated and summer crops (US Corn Belt, Brazil, Argentina, "
                "India rice/cane, Nigeria, South Africa). Do not quote it as a general drought score.",
