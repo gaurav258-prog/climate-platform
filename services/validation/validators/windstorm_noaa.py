@@ -23,6 +23,25 @@ GRID = Path("data/wind/windstorm_synoptic_conus.npz")
 MIN_EVENTS = 3
 
 
+def _load_events(*, zc_fn, _ABBR, CONUS, FILES, WINDSTORM_TYPES):
+    """NOAA non-convective wind events geolocated in CONUS with a positive reported magnitude (kt)."""
+    import pandas as pd
+    zc = zc_fn()
+    df = pd.concat([pd.read_csv(f, low_memory=False, compression="gzip",
+                                usecols=["EVENT_TYPE", "STATE", "CZ_FIPS", "BEGIN_LAT", "BEGIN_LON", "MAGNITUDE"]) for f in sorted(glob.glob(FILES))],
+                   ignore_index=True)
+    df = df[df.EVENT_TYPE.isin(WINDSTORM_TYPES)].copy()
+
+    def loc(r):
+        if pd.notna(r.BEGIN_LAT) and pd.notna(r.BEGIN_LON):
+            return r.BEGIN_LAT, r.BEGIN_LON
+        c = zc.get((_ABBR.get(str(r.STATE).upper()), int(r.CZ_FIPS)) if pd.notna(r.CZ_FIPS) else None)
+        return (c[0], c[1]) if c else (np.nan, np.nan)
+    df[["lat", "lon"]] = df.apply(lambda r: pd.Series(loc(r)), axis=1)
+    df = df.dropna(subset=["lat", "lon", "MAGNITUDE"]); df = df[(df.MAGNITUDE > 0) & df.lat.between(*CONUS[:2]) & df.lon.between(*CONUS[2:])]
+    return df
+
+
 def _run(session: Session) -> ValidationResult:
     import pandas as pd
     from scipy.stats import spearmanr
@@ -39,19 +58,7 @@ def _run(session: Session) -> ValidationResult:
         return ValidationResult(hazard_type="windstorm", kind="rank", predicted=[], observed=[], labels=[],
                                 target_source="NOAA Storm Events non-convective wind, CONUS 2015–2023", scope="US", method="out_of_sample",
                                 notes="synoptic field or NOAA Storm Events files missing (scripts/build_windstorm_synoptic.py, data/windstorm_val)")
-    zc = _zone_centroids()
-    df = pd.concat([pd.read_csv(f, low_memory=False, compression="gzip",
-                                usecols=["EVENT_TYPE", "STATE", "CZ_FIPS", "BEGIN_LAT", "BEGIN_LON", "MAGNITUDE"]) for f in sorted(glob.glob(FILES))],
-                   ignore_index=True)
-    df = df[df.EVENT_TYPE.isin(WINDSTORM_TYPES)].copy()
-
-    def loc(r):
-        if pd.notna(r.BEGIN_LAT) and pd.notna(r.BEGIN_LON):
-            return r.BEGIN_LAT, r.BEGIN_LON
-        c = zc.get((_ABBR.get(str(r.STATE).upper()), int(r.CZ_FIPS)) if pd.notna(r.CZ_FIPS) else None)
-        return (c[0], c[1]) if c else (np.nan, np.nan)
-    df[["lat", "lon"]] = df.apply(lambda r: pd.Series(loc(r)), axis=1)
-    df = df.dropna(subset=["lat", "lon", "MAGNITUDE"]); df = df[(df.MAGNITUDE > 0) & df.lat.between(*CONUS[:2]) & df.lon.between(*CONUS[2:])]
+    df = _load_events(zc_fn=_zone_centroids, _ABBR=_ABBR, CONUS=CONUS, FILES=FILES, WINDSTORM_TYPES=WINDSTORM_TYPES)
     z = np.load(GRID); glat, glon, rl, am = z["lat"], z["lon"], z["gust_ms"], z["mean_annual_max"]
     gi = np.abs(glat[:, None] - df.lat.values).argmin(axis=0); gj = np.abs(glon[:, None] - df.lon.values).argmin(axis=0)
     pc = pd.DataFrame({"gi": gi, "gj": gj, "kt": df.MAGNITUDE.values}).groupby(["gi", "gj"]).agg(obs=("kt", "max"), n=("kt", "size")).reset_index()
@@ -68,3 +75,39 @@ def _run(session: Session) -> ValidationResult:
 
 
 register("windstorm_noaa")(_run)
+
+
+def _run_production(session: Session) -> ValidationResult:
+    """The PRODUCTION windstorm score (global ERA5 gust climatology, longitude-wrapped since v1.1) vs the same NOAA target.
+
+    Added 2026-09-21: the earlier mean-gust check against NOAA (rho about 0.20, 'AUC about 0.5') was produced by a
+    longitude bug (0-359.5 grid, negative US longitudes read the lon-0 column; measured -0.01 on this target). Design
+    identical to windstorm_noaa: peak reported gust per 0.5 deg cell with >= MIN_EVENTS events, rank, gate 0.35."""
+    import glob as _g
+
+    import pandas as pd
+
+    from ml.scoring import windstorm_point as W
+    from scripts.backtest_windstorm_noaa import _ABBR, CONUS, FILES, KT_TO_MS, WINDSTORM_TYPES, _zone_centroids
+    if not _g.glob(FILES):
+        return ValidationResult(hazard_type="windstorm", kind="rank", predicted=[], observed=[], labels=[],
+                                target_source="NOAA Storm Events non-convective wind, CONUS 2015–2023", scope="US", method="out_of_sample",
+                                notes="NOAA Storm Events files missing (data/windstorm_val)")
+    df = _load_events(zc_fn=_zone_centroids, _ABBR=_ABBR, CONUS=CONUS, FILES=FILES, WINDSTORM_TYPES=WINDSTORM_TYPES)
+    df["ci"] = (df.lat / 0.5).round().astype(int)
+    df["cj"] = (df.lon / 0.5).round().astype(int)
+    pc = df.groupby(["ci", "cj"]).agg(obs=("MAGNITUDE", "max"), n=("MAGNITUDE", "size")).reset_index()
+    pc = pc[pc.n >= MIN_EVENTS]
+    pred, obs, labels = [], [], []
+    for r in pc.itertuples():
+        g = W._gust(r.ci * 0.5, r.cj * 0.5)
+        if g is None:
+            continue
+        pred.append(float(W._anchor(g))); obs.append(float(r.obs * KT_TO_MS)); labels.append(f"{r.ci * 0.5:.1f},{r.cj * 0.5:.1f}")
+    return ValidationResult(hazard_type="windstorm", kind="rank", predicted=pred, observed=obs, labels=labels,
+                            target_source="NOAA Storm Events observed peak gust, non-convective wind types, CONUS 2015–2023 (production score)",
+                            scope="US_noaa_events", method="out_of_sample", data_vintage="production v1.1 vs NOAA Storm Events 2015–2023",
+                            notes="production score at the 0.5° cell vs observed peak reported gust (>=3 events); reported gusts are zone-level estimates, a noisier truth than station anemometers; supersedes the pre-fix mean-gust check (longitude bug)")
+
+
+register("windstorm_noaa_production")(_run_production)

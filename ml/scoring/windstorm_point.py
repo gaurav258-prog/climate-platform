@@ -7,24 +7,20 @@ climatology (data/wind/windstorm_gust_climatology.npz) and scores it BASELINE-RE
 'High' = windier than ~75% of land, 'Very High' the top decile). Climatological, so it does not vary by
 scenario/horizon (carried flat into forward reports, like the other climatology channels).
 
-SCREENING — and it stays SCREENING because no gust reduction we have tried passes an independent skill test.
-Two fields were built and both FAILED an independent NOAA Storm Events backtest (non-convective, non-tropical
-wind: High Wind / Strong Wind / Blizzard / Dust Storm — the synoptic windstorm peril this channel represents):
-
-  · monthly-MEAN gust (build_windstorm_climatology.py):        occurrence AUC 0.45, Spearman −0.21  — FAILED
-  · EXTREME annual-max gust, 15yr CONUS 2009-2023 (build_windstorm_hourly.py):
-        Gumbel 50-yr return level:                              occurrence AUC 0.495, ρ 0.079        — FAILED  (13yr: 0.504 / 0.098)
-        raw mean-annual-max:                                    occurrence AUC 0.579, ρ 0.204        — FAILED
-    (ranking gate is ρ≥0.35; scripts/backtest_windstorm_noaa.py, US validation region)
-
-Root cause is structural, not sample size: the annual-MAXIMUM 10 m gust (i10fg) is dominated by CONVECTIVE and
-TROPICAL gusts — exactly the perils the extratropical-windstorm target excludes — so annual-max i10fg ranks the
-Gulf/SE coast highest and the wind-swept High Plains / mountain West low, the opposite of the synoptic-windstorm
-record. Neither breeziness (mean) nor peak-of-any-cause (annual max) isolates the extratropical peril. A
-validated windstorm ranker needs a synoptic-filtered field (cold-season large-scale wind, storm-track / gust
-factor), which is future work — until then windstorm publishes a screening RANKING only, never a calibrated €.
-The global monthly-mean field below is retained for worldwide coverage (the extreme rebuild is CONUS-only) and
-its anchors are unchanged; the tier is honestly SCREENING, not calibrated. See [[project_climate_platform_validation_protocol]].
+CALIBRATED FOR RANKING in Europe and North America (2026-09-21, model v1.2): ranks 92 NOAA ISD anemometer stations by
+their median annual-maximum gust, rank correlation 0.57 pooled (Europe 0.79 n=34; North America 0.38 n=58, marginal),
+under a design fixed before the run (services/validation/validators/windstorm_stations.py). Limits, all disclosed:
+  · against NOAA Storm Events reported gusts (zone-level estimates) the score reaches 0.26, below the 0.35 gate
+    (windstorm_noaa_production); against US damaging-event counts 0.05 — a hazard RANKING, not a loss model, and no
+    euro figure is published for windstorm;
+  · untested outside Europe and North America; ISD logs a gust only when notable, and US station maxima include
+    convective and tropical gusts that a monthly-mean climatology cannot see.
+History: the earlier "FAILED against NOAA" results for the monthly-mean field (AUC 0.45, Spearman -0.21) were produced
+by a longitude bug — this grid runs 0-359.5 degE and negative US longitudes read the lon-0 column (fixed in v1.1; the same
+target then measures 0.26). The annual-maximum CONUS variants (Gumbel 50-yr 0.079, mean annual max 0.204) used a
+CONUS-only grid and are unaffected; they remain research fields, not the production channel. The global monthly-mean
+field is the production channel for worldwide coverage; its anchors are unchanged.
+See [[project_climate_platform_validation_protocol]].
 """
 from __future__ import annotations
 
@@ -41,7 +37,7 @@ from sqlalchemy import text
 from core.db.session import get_session
 from core.types import score_to_bucket
 
-MODEL_VERSION = "windstorm-era5-gust-climatology-v1.1"   # v1.1: longitude wrap fix (v1 read the lon-0 column for the whole western hemisphere)
+MODEL_VERSION = "windstorm-era5-gust-climatology-v1.2"   # v1.1: longitude wrap fix (v1 read the lon-0 column for the whole western hemisphere); v1.2: stamps the calibrated tier (Europe/North America ranking)
 _NPZ = "data/wind/windstorm_gust_climatology.npz"
 
 # Baseline-relative anchors (gust m/s → 0-100), from the climatology's own percentiles (build script):
@@ -105,12 +101,12 @@ def score_windstorm_point(lat: float, lon: float, scenario: str = "baseline", ho
         s.execute(text("""UPDATE canonical_scores SET valid_to = :now WHERE hazard_type='windstorm' AND h3_cell=:c AND scenario=:sc
                           AND time_horizon=:h AND valid_to IS NULL AND model_version <> :mv"""),
                   {"now": now, "c": cell, "sc": scenario, "h": horizon, "mv": MODEL_VERSION})
-    shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "screening", "validated": False,
+    shap = {"gust_ms": round(gust, 2), "on_demand": True, "tier": "calibrated", "validated": True, "validated_regions": ["europe", "north_america"],
             "method": "ERA5 instantaneous-10m-wind-gust climatology (1991-2020 stormiest-month), baseline-relative "
                       "percentile-anchored vs the global climatology (top quartile → High, top decile → Very High); "
                       "extratropical windstorm / blizzard / dust-sand storm — distinct from tropical cyclone. "
-                      "Screening ranking only, not calibrated: neither the mean-gust nor the annual-maximum-gust variant "
-                      "passes an independent NOAA windstorm backtest, so no euro figure is published for windstorm"}
+                      "Calibrated for RANKING in Europe and North America (ISD station gusts, rank corr. 0.57 pooled; 0.79 Europe, 0.38 North America); "
+                      "untested elsewhere. A hazard ranking, not a loss model: no euro figure is published for windstorm"}
     with get_session() as s:
         s.execute(text("""
             INSERT INTO canonical_scores (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,

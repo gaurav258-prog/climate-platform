@@ -106,17 +106,15 @@ EU_TAXONOMY: tuple[EUHazard, ...] = (
              "a holdout window ranks the observed peak intensity of the later storms with rank correlation 0.78–0.88 across five "
              "windows of ≥10 seasons. A wind-intensity validation, not a damage anchor: observed wind damage or insured loss is "
              "still pending.", (H.STORM,)),
-    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, SCR, "now",
+    EUHazard("storm", W, "Storm (blizzard, dust, sand)", A, CAL, "now",
              "ERA5 instantaneous-10 m-wind-gust climatology — extratropical windstorms / blizzards / dust-&-sand "
              "storms, the wind peril tropical-cyclone models miss (e.g. European winter windstorms Kyrill/Lothar/"
-             "Xynthia). Distinct channel from Cyclone. Screening ranking only, not calibrated: both the mean-gust "
-             "field and an extreme annual-maximum-gust variant (15 years, continental US 2009-2023) were checked against an independent NOAA "
-             "Storm-Events backtest (AUC about 0.5, rank correlation at most 0.20 against the 0.35 minimum): the annual-maximum "
-             "10 m gust is dominated by convective and tropical events, not the synoptic windstorm peril. The synoptic-filtered field "
-             "(hourly ERA5 gust 2014–2023 with convective hours, CAPE ≥ 300 J/kg, and tropical-cyclone hours removed) triples that "
-             "skill — rank correlation 0.22 on the same NOAA target, 0.26 for the mean annual maximum — but stays below the 0.35 "
-             "minimum on every target variant. Indicator; the remaining gap is the reported-gust target itself (zone-level estimates), "
-             "so a station-observed gust record is the next honest test.", (H.WINDSTORM,)),
+             "Xynthia). Distinct channel from Cyclone. Calibrated for RANKING in Europe and North America only (2026-09-21): the production "
+             "score ranks 92 NOAA ISD anemometer stations by their median annual-maximum gust, rank correlation 0.57 pooled "
+             "(Europe 0.79, n=34; North America 0.38, n=58, marginal), under a design fixed before the run. Against NOAA's reported "
+             "gusts (zone-level estimates) it reaches 0.26, below the 0.35 gate; against US damaging-event counts 0.05 — a hazard "
+             "ranking, not a loss model, and no euro figure is published for it. An earlier mean-gust check against NOAA (0.20) was "
+             "distorted by a longitude bug, fixed in v1.1.", (H.WINDSTORM,)),
     EUHazard("changing_wind", W, "Changing wind patterns", C, BN, "now",
              "By nature: a projection of future wind change; nothing observed to test against. CMIP6 ensemble |near-surface wind change| (projection scenarios)", (H.CHANGING_WIND,)),
     EUHazard("tornado", W, "Tornado", A, CAL, "now",
@@ -247,6 +245,11 @@ def screening_status(hazard_id: str, tier: "MaturityTier") -> str | None:
 # here, naming its independent target + backtest; a unit test enforces the two-way match,
 # so a channel cannot be promoted to CALIBRATED without declaring how it earned it. See [[feedback_no_shortcuts]].
 CALIBRATED_VALIDATION: dict[str, dict] = {
+    "storm": {"target": "NOAA ISD hourly-station gust records 2010–2023: median annual-maximum gust at 92 anemometer stations (60 CONUS / 32 Europe "
+                        "in the scored sample), 2016 excluded, ≥12 usable years; independent of the ERA5 gust climatology the score is built from. "
+                        "Rank correlation 0.57 pooled, Europe 0.79 (n=34), North America 0.38 (n=58, marginal, not monotone). Ranking of a physical "
+                        "gust hazard — not a loss or damage anchor",
+              "validation": "ISD station-gust backtest (windstorm_stations, pre-registered)", "out_of_sample": True},
     "heat_wave": {"target": "observed cocoa production, FAO/ICCO (independent of ERA5 heat)",
                   "validation": "Cocoa production backtest", "out_of_sample": True},
     "drought": {"target": "observed crop-production shock, FAO (independent of ERA5 SPEI)",

@@ -92,6 +92,10 @@ REGIONAL_EVIDENCE: dict[str, tuple[RegionEvidence, ...]] = {
         RegionEvidence("africa", VALIDATED, "global_allbasin", "ρ 0.53 (n=229)"),
         RegionEvidence("europe", VALIDATED, "global_allbasin", "ρ 0.70 (n=30) — thin: European exposure is ex-tropical remnants"),
     ),
+    "storm": (
+        RegionEvidence("europe", VALIDATED, "EU (windstorm_stations_eu)", "NOAA ISD anemometer median annual-max gust: ρ 0.79 (n=34 stations) — thin, no DE/NL/DK stations"),
+        RegionEvidence("north_america", VALIDATED, "US (windstorm_stations_us)", "ρ 0.38 (n=58 stations) — marginal pass, bands not monotone; vs NOAA reported gusts ρ 0.26 (below gate)"),
+    ),
     "permafrost_thaw": (
         RegionEvidence("europe", VALIDATED, "Europe/Arctic", "GTN-P boreholes: ρ 0.82 (n=229)"),
     ),
@@ -110,6 +114,10 @@ CAVEATS: dict[str, str] = {
                "India rice/cane, Nigeria, South Africa). Do not quote it as a general drought score.",
     "cyclone": "Wind intensity, not damage. The score and the test target come from the same IBTrACS track record (a holdout in time, "
                "not an independent source), and agencies' wind averaging periods differ by basin. Europe's sample is thin (n=30).",
+    "storm": "Ranking of the physical gust hazard only. Station loggers record a gust only when notable, so annual maxima run low where gusts are "
+             "rarely logged; US station maxima include convective and tropical gusts a monthly-mean climatology cannot see. Against NOAA's "
+             "reported gusts the score is below the gate (0.26) and against US damaging-event counts it does not rank (0.05): a hazard score, "
+             "not a loss model, no euro figure. Outside Europe and North America it is untested.",
     "flood": "Validated against observed flood extents (Europe). Against US NFIP paid claims the score does not rank places by loss (ρ 0.08, 2026-09-19): "
              "it is a physical hazard score, not a loss model.",
     "tornado": "Validated against observed severe-storm reports (CONUS). Against NOAA damaging-event counts per county it does not rank by loss "

@@ -6,7 +6,7 @@
 |---|---|
 | Document owner | Gaurav Sachdeva |
 | Status | Living document — update on every material architecture change |
-| Version | 2.97 |
+| Version | 2.98 |
 | Last updated | 2026-09-17 |
 | Package version (pyproject.toml) | 0.1.0 |
 
@@ -171,6 +171,7 @@ with estimates; fill in once real numbers (load tests, prod metrics) exist.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-09-21 | 2.98 | **Windstorm promoted Screening → Calibrated (ranking; Europe + North America), approved by user.** Evidence: ISD station gusts pooled ρ 0.57 (Europe 0.79 n=34; North America 0.38 n=58 marginal); NOAA reported gusts 0.26 (below gate, recorded as `windstorm_noaa_production`); US damaging-event counts 0.05. The earlier NOAA mean-gust failure (−0.01) was the longitude bug. Scope derives multi_region; caveats: station logging bias, marginal US, hazard ranking not a loss model, no € figure. Registry text + `CALIBRATED_VALIDATION` entry, regional evidence, scorer v1.2 (stamps calibrated tier; all 17,616 live rows re-scored, old rows retired) updated. Tally: 2 global, 2 pooled_global, 5 multi_region, 4 regional. |
 | 2026-09-20 | 2.97 | **All-basin cyclone holdout (`storm_oos_allbasin`) → cyclone claim now global.** Pre-registered: 1° land/coast grid, score rebuilt from seasons ≤2002 vs peak wind of 2003+ storms within 100 km, ≤800 points/macro-region, seed 11. Pooled ρ 0.62 (n=2,362, monotone); Asia 0.74 (748), North America 0.75 (268), Latin America & Caribbean 0.62 (445), Oceania 0.56 (642), Africa 0.53 (229), Europe 0.70 (n=30, thin) — all six validated. Caveats: wind not damage; same-track-record holdout, not an independent source. Tally: 2 global (wildfire, cyclone), 2 pooled_global, 4 multi_region, 5 regional. |
 | 2026-09-20 | 2.96 | **Scope claims updated from the step-1 evidence.** Wildfire: now derives as **global** (first hazard to earn it) — GFED5/FireCCI 2021–22 validate Europe, Africa, Asia, Latin America & Caribbean and Oceania (ρ 0.42–0.77); North America is `mixed` (gridded passes, US MTBS 0.33 / NIFC 0.18 / Canada NFDB 0.33 fall short); caveats: short window, burn-history persistence term, FireCCI shares MODIS family. Flood and tornado claims gained a caveat: physical-hazard scores, not loss models (US loss ρ 0.08 / 0.09). Tally: 1 global, 2 pooled_global, 4 multi_region, 6 regional. Tiers unchanged. |
 | 2026-09-20 | 2.95 | **Cyclone scope claim corrected: pooled-global → regional (Latin America & Caribbean).** `storm_oos` now records per-macro-region skill; 5,973 of 5,983 sampled cells sit in Latin America/Caribbean (ρ 0.77, monotone), ≤4 cells in Asia/Europe/Oceania, because the stored storm channel only holds cells there — so the old "all basins pooled" wording overstated what was tested. Tally: 0 global, 2 pooled_global, 4 multi_region, 7 regional. Tier unchanged; all-basin test (sample from every IBTrACS basin) is the next step. OpenFEMA terms recorded; GEM commercial licence made a go-live gate (`docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md` rows 7–8). |
