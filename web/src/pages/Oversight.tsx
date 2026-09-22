@@ -18,10 +18,11 @@ interface Filed { period_label: string; status: string }
 interface Fw { framework: string; label: string; regulator: string; due_label: string; last_filed: Filed | null; n_filings: number; coverage_pct: number | null; breaches: number | null; breach_kris: string[] }
 interface Check { key: string; label: string; ok: boolean; hint: string | null }
 interface Exc { rule?: string; message?: string; framework?: string; severity?: string; filings_affected?: number }
+interface ExcSummary { blocking?: number; warnings?: number; by_category?: Record<string, number> }
 interface Posture {
   frameworks: Fw[]
   readiness: { passed: number; total: number; checks: Check[] }
-  exceptions: { open: number; top: Exc[] }
+  exceptions: { open: number; top: Exc[]; summary?: ExcSummary }
   summary: { n_frameworks: number; never_filed: number; total_breaches: number; open_exceptions: number; readiness_pct: number }
 }
 
@@ -262,18 +263,24 @@ function PostureView({ q, nav }: { q: ReturnType<typeof useQuery<Posture>>; nav:
           <Card className="p-0 overflow-hidden">
             {d.exceptions.open === 0
               ? <div className="px-5 py-6 text-[13px] text-[var(--color-faint)]">No open exceptions.</div>
-              : <div className="divide-y divide-[var(--color-line)]">
-                  {d.exceptions.top.map((e, i) => (
-                    <button key={i} onClick={() => nav('/exceptions')} className="w-full text-left flex items-start gap-2.5 px-5 py-2.5 text-[12.5px] hover:bg-[var(--color-bg-2)] transition">
-                      <AlertTriangle size={13} className="text-[var(--color-warn)] shrink-0 mt-0.5" />
-                      <span className="text-[var(--color-mute)]">
-                        {e.message || e.rule || 'exception'}
-                        {(e.filings_affected ?? 1) > 1 && <span className="mono text-[10.5px] text-[var(--color-faint)] ml-1.5">· affects {e.filings_affected} filings</span>}
-                      </span>
-                    </button>
-                  ))}
-                  {d.exceptions.open > d.exceptions.top.length && <button onClick={() => nav('/exceptions')} className="w-full text-left px-5 py-2 mono text-[10.5px] text-[var(--color-sky)] hover:underline">View all {d.exceptions.open} in the Control Tower →</button>}
-                </div>}
+              : <button onClick={() => nav('/exceptions')} className="w-full text-left block hover:bg-[var(--color-bg-2)] transition">
+                  <div className="flex items-center gap-4 px-5 py-3.5 border-b border-[var(--color-line)]">
+                    {!!d.exceptions.summary?.blocking && (
+                      <span className="flex items-baseline gap-1.5"><span className="text-[20px] font-medium" style={{ color: '#D23B3B' }}>{d.exceptions.summary.blocking}</span><span className="text-[12px] text-[var(--color-faint)]">blocking</span></span>
+                    )}
+                    {!!d.exceptions.summary?.warnings && (
+                      <span className="flex items-baseline gap-1.5"><span className="text-[20px] font-medium text-[var(--color-warn)]">{d.exceptions.summary.warnings}</span><span className="text-[12px] text-[var(--color-faint)]">warning</span></span>
+                    )}
+                  </div>
+                  {!!d.exceptions.summary?.by_category && (
+                    <div className="px-5 py-3 flex flex-wrap gap-x-4 gap-y-1.5">
+                      {Object.entries(d.exceptions.summary.by_category).map(([cat, n]) => (
+                        <span key={cat} className="text-[12px] text-[var(--color-mute)]">{cat} <span className="mono text-[var(--color-faint)]">· {n}</span></span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-5 py-2.5 mono text-[10.5px] text-[var(--color-sky)] border-t border-[var(--color-line)]">Open the {d.exceptions.open} in the Control Tower →</div>
+                </button>}
           </Card>
         </div>
       </div>
