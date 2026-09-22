@@ -19,11 +19,15 @@ interface EudrPlot {
   plot_id: string; plot: string; commodity: string; country: string | null; eudr_covered: boolean
   eudr_declared: string | null; eudr_determination: string | null; first_loss_year: number | null; loss_ha: number | null
 }
+interface DdsSupplier { name: string; address: string | null; contact_email: string | null; country: string | null }
 interface Dds {
   dds_id: string; status: string; ready: boolean; reason: string; covered_plots: number; fileable_plots: number
-  items: { commodity: string; hs_code: string; trade_name: string; scientific_name: string | null; description: string; plot_count: number; countries_of_production: string[] }[]
+  items: { commodity: string; hs_code: string; trade_name: string; scientific_name: string | null; description: string
+    plot_count: number; countries_of_production: string[]; suppliers?: DdsSupplier[] }[]
   blockers: { plot: string; commodity: string; determination: string; reason: string }[]
   operator_completes: string[]
+  // Art. 9(1)(f) — immediate downstream customers (org-level: who the operator supplies the covered products to)
+  customers?: DdsSupplier[]
   reference_number?: string | null; reference_captured_at?: string | null
 }
 
@@ -189,10 +193,25 @@ export default function Disclosure() {
                         {it.scientific_name || <span className="not-italic">scientific name — operator supplies</span>}
                       </span>
                     </span>
-                    <span className="text-[var(--color-mute)] text-[12px] text-right shrink-0 pl-3">{it.plot_count} plots · {it.countries_of_production.join(', ') || '—'}</span>
+                    <span className="text-[var(--color-mute)] text-[12px] text-right shrink-0 pl-3">
+                      {it.plot_count} plots · {it.countries_of_production.join(', ') || '—'}
+                      {it.suppliers && it.suppliers.length > 0 && (
+                        <span className="block text-[11px] text-[var(--color-faint)]">
+                          supplier{it.suppliers.length > 1 ? 's' : ''}: {it.suppliers.map(s => s.name).join(', ')}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
                 {dds.items.length === 0 && <div className="text-[12px] text-[var(--color-faint)]">No fileable plots yet.</div>}
+                {dds.customers && dds.customers.length > 0 && (
+                  <>
+                    <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mt-3 mb-2">Immediate downstream customers (Art. 9(1)(f))</div>
+                    {dds.customers.map((c, i) => (
+                      <div key={i} className="text-[12px] text-[var(--color-mute)] py-0.5">{c.name} <span className="text-[var(--color-faint)]">{c.address || 'address not supplied'} · {c.contact_email || 'email not supplied'}</span></div>
+                    ))}
+                  </>
+                )}
               </div>
               <div>
                 {dds.blockers.length > 0 && <>

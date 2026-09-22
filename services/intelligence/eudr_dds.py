@@ -88,11 +88,21 @@ def assemble_dds(session, org_id: str) -> dict:
                CAST(p.latitude AS FLOAT) AS lat, CAST(p.longitude AS FLOAT) AS lon,
                CAST(p.plot_area_ha AS FLOAT) AS area_ha,
                p.eudr_determination, p.eudr_first_loss_year, p.eudr_forest_source,
-               co.name AS commodity, co.hs_code
+               co.name AS commodity, co.hs_code,
+               sup.name AS supplier_name, sup.address AS supplier_address,
+               sup.contact_email AS supplier_contact_email, sup.country AS supplier_country
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+        LEFT JOIN sc_suppliers sup ON sup.supplier_id = p.supplier_id
         WHERE p.org_id = :o AND co.eudr_covered = TRUE
         ORDER BY co.name, p.plot_name
     """), {"o": org_id}).mappings().all()
+
+    # Art. 9(1)(f): the operator's immediate downstream customers — org-level (the relevant products'
+    # buyer isn't tied to a sourcing plot in our data model), so it's collected once for the statement.
+    customer_rows = session.execute(text("""
+        SELECT name, address, contact_email, country FROM sc_customers WHERE org_id = :o ORDER BY name
+    """), {"o": org_id}).mappings().all()
+    customers = [dict(c) for c in customer_rows]
 
     items: dict = {}     # commodity -> item
     blockers: list = []
@@ -120,14 +130,22 @@ def assemble_dds(session, org_id: str) -> dict:
             # the canonical species for single-species commodities, else None → operator supplies (e.g. wood).
             "trade_name": r["commodity"], "scientific_name": _species_for(r["commodity"]),
             "description": f"{r['commodity']} (HS {r['hs_code']})" if r["hs_code"] else r["commodity"],
-            "countries_of_production": set(), "plots": [], "plot_count": 0})
+            "countries_of_production": set(), "plots": [], "plot_count": 0,
+            "suppliers": {}})   # Art. 9(1)(e): name -> {name, address, contact_email, country}, de-duped
         it["plots"].append(plot_rec)
         it["plot_count"] += 1
         if r["country"]:
             it["countries_of_production"].add(r["country"])
+        sup_name = r.get("supplier_name")
+        if sup_name:
+            it["suppliers"][sup_name] = {
+                "name": sup_name, "address": r.get("supplier_address"),
+                "contact_email": r.get("supplier_contact_email"), "country": r.get("supplier_country"),
+            }
 
     for it in items.values():
         it["countries_of_production"] = sorted(it["countries_of_production"])
+        it["suppliers"] = sorted(it["suppliers"].values(), key=lambda s: s["name"])
         # We do not hold net-mass tonnage per plot — the operator supplies quantity at filing.
         it["quantity_net_mass_kg"] = None
 
@@ -142,6 +160,30 @@ def assemble_dds(session, org_id: str) -> dict:
         operator_completes.append(f"scientific name of the species for: {', '.join(needs_species)}")
     # Art. 9(1)(d): date or time-range of production (required for certain products) — operational, not in feed
     operator_completes.append("date or time-range of production per plot (Art. 9(1)(d), where applicable)")
+
+    # Art. 9(1)(e): immediate supplier identity — surfaced explicitly for every plot that has no supplier
+    # linked at all, and for every linked supplier missing an address or contact email. Never silently
+    # absent from this list, unlike before this was wired.
+    plots_no_supplier = sorted({r["plot_name"] for r in rows
+                                if r["eudr_determination"] == DEFORESTATION_FREE and not r.get("supplier_name")})
+    if plots_no_supplier:
+        operator_completes.append(
+            f"immediate supplier name/address/contact (Art. 9(1)(e)) — no supplier linked for plot(s): {', '.join(plots_no_supplier)}")
+    incomplete_suppliers = sorted({s["name"] for it in items.values() for s in it["suppliers"]
+                                   if not s["address"] or not s["contact_email"]})
+    if incomplete_suppliers:
+        operator_completes.append(
+            f"immediate supplier address/contact email (Art. 9(1)(e)) for: {', '.join(incomplete_suppliers)}")
+
+    # Art. 9(1)(f): immediate downstream customer identity — org-level, so either it's on file or it isn't.
+    if not customers:
+        operator_completes.append("immediate customer name/address/contact (Art. 9(1)(f)) — none on file")
+    else:
+        incomplete_customers = sorted(c["name"] for c in customers if not c["address"] or not c["contact_email"])
+        if incomplete_customers:
+            operator_completes.append(
+                f"immediate customer address/contact email (Art. 9(1)(f)) for: {', '.join(incomplete_customers)}")
+
     operator_completes.append("signature of the due-diligence declaration")
 
     covered = len(rows)
@@ -151,6 +193,7 @@ def assemble_dds(session, org_id: str) -> dict:
     return {
         "operator": operator,
         "items": list(items.values()),
+        "customers": customers,
         "statement": DD_STATEMENT,
         "statement_basis": DD_STATEMENT_BASIS,
         "covered_plots": covered,

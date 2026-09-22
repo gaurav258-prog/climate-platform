@@ -7,9 +7,15 @@ import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import ReportTabs from '../components/ReportTabs'
 
+interface AdaptationAction { hazard: string; label: string; actions: string[] }
 interface Topic {
   topic: string; title: string; standard?: string; material: boolean
-  financial_effects?: { asset_value_at_risk_eur: number; business_interruption_eur: number; cogs_at_risk_published_eur: number; exposure_mapped_but_withheld_eur: number }
+  financial_effects?: {
+    asset_value_at_risk_eur: number; business_interruption_eur: number; cogs_at_risk_published_eur: number; exposure_mapped_but_withheld_eur: number
+    pct_of_assets_at_risk?: number | null; pct_of_revenue_at_risk?: number | null
+    adaptation_coverage_pct_of_at_risk_assets?: number | null; asset_value_at_risk_addressed_by_adaptation_eur?: number
+  }
+  resilience?: AdaptationAction[]
   own_operations?: { sites: number; sites_water_stressed: number; asset_value_exposed_eur: number }
   upstream?: { plots: number; plots_water_stressed: number; spend_exposed_eur: number; peak_score: number | null }
   eudr_covered_plots?: number; eudr_commodities?: number; deforestation_free?: number; non_compliant?: number
@@ -79,10 +85,24 @@ export default function EsrsPack() {
 
               {t.topic === 'E1' && t.financial_effects && (
                 <div className="grid grid-cols-2 gap-y-2 text-[13px] flex-1">
-                  <span className="text-[var(--color-mute)]">Asset value at risk</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.asset_value_at_risk_eur)}</span>
-                  <span className="text-[var(--color-mute)]">Business interruption</span><span className="text-right font-medium">{eur(t.financial_effects.business_interruption_eur)}</span>
+                  <span className="text-[var(--color-mute)]">Asset value at risk</span>
+                  <span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.asset_value_at_risk_eur)}{t.financial_effects.pct_of_assets_at_risk != null ? ` · ${t.financial_effects.pct_of_assets_at_risk}%` : ''}</span>
+                  <span className="text-[var(--color-mute)]">Business interruption</span>
+                  <span className="text-right font-medium">{eur(t.financial_effects.business_interruption_eur)}{t.financial_effects.pct_of_revenue_at_risk != null ? ` · ${t.financial_effects.pct_of_revenue_at_risk}%` : ''}</span>
                   <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.cogs_at_risk_published_eur)}</span>
                   <span className="text-[var(--color-mute)]">Exposure mapped · withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{eur(t.financial_effects.exposure_mapped_but_withheld_eur)}</span>
+                  <span className="text-[var(--color-mute)]">Adaptation coverage · at-risk assets</span>
+                  <span className="text-right font-medium text-[var(--color-good)]">{t.financial_effects.adaptation_coverage_pct_of_at_risk_assets != null ? `${t.financial_effects.adaptation_coverage_pct_of_at_risk_assets}%` : '—'}</span>
+                </div>
+              )}
+              {t.topic === 'E1' && t.resilience && t.resilience.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[var(--color-line)] space-y-1.5">
+                  <span className="text-[11px] uppercase tracking-wide text-[var(--color-faint)]">Adaptation actions (E1-3)</span>
+                  {t.resilience.map(a => (
+                    <div key={a.hazard} className="text-[12px] text-[var(--color-mute)]">
+                      <span className="font-medium text-[var(--color-ink)]">{a.label}:</span> {a.actions[0]}
+                    </div>
+                  ))}
                 </div>
               )}
               {t.topic === 'E3' && t.own_operations && t.upstream && (

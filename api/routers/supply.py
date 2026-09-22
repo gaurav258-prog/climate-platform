@@ -1174,6 +1174,168 @@ def clear_commodity_cogs_override(commodity_id: str, session: DbSession, ctx: Cu
     return {"commodity_id": commodity_id, "cleared": cleared}
 
 
+# ── EUDR Art. 9(1)(e)/(f) — supplier & downstream-customer identity backfill ────────────────────
+# Same idiom as bank.py's /assets/attributes/{template.xlsx,validate,upload} (backfill EVIC etc. on a
+# counterparty already in the book without re-uploading the whole tape): a supplier/customer address
+# and contact email are matched to an existing row by name, or — for customers, which have no other
+# creation path — inserted new.
+SUPPLIER_ATTR_FIELDS = [
+    {"name": "supplier_name", "required": True, "label": "Supplier name", "kind": "text",
+     "description": "Must match a supplier already on this platform (linked to one of your sourcing plots).", "example": "Arabica Co-op"},
+    {"name": "address", "required": False, "label": "Postal address", "kind": "text",
+     "description": "Art. 9(1)(e) — the immediate supplier's postal address.", "example": "Rua X, Minas Gerais, Brazil"},
+    {"name": "contact_email", "required": False, "label": "Contact email", "kind": "text",
+     "description": "Art. 9(1)(e) — the immediate supplier's email address.", "example": "ops@arabicacoop.br"},
+]
+CUSTOMER_ATTR_FIELDS = [
+    {"name": "customer_name", "required": True, "label": "Customer name", "kind": "text",
+     "description": "Your immediate downstream customer (who you supply the relevant products to). Created if not already on file.", "example": "Nordic Retail AB"},
+    {"name": "address", "required": False, "label": "Postal address", "kind": "text",
+     "description": "Art. 9(1)(f) — the immediate customer's postal address.", "example": "Stockholm, Sweden"},
+    {"name": "contact_email", "required": False, "label": "Contact email", "kind": "text",
+     "description": "Art. 9(1)(f) — the immediate customer's email address.", "example": "buy@nordicretail.se"},
+    {"name": "country", "required": False, "label": "Country (ISO-2)", "kind": "text", "example": "SE"},
+]
+
+
+@router.get("/suppliers", summary="Suppliers on file for this org (EUDR Art. 9(1)(e) identity)")
+def suppliers(session: DbSession, org_id: OrgId):
+    rows = session.execute(text("""
+        SELECT s.supplier_id::text AS supplier_id, s.name, s.address, s.contact_email, s.country, s.tier,
+               co.name AS commodity
+        FROM sc_suppliers s LEFT JOIN sc_commodities co ON co.commodity_id = s.commodity_id
+        WHERE s.org_id = :o ORDER BY s.name
+    """), {"o": org_id}).mappings().all()
+    return {"suppliers": [dict(r) for r in rows]}
+
+
+@router.get("/suppliers/attributes/template.xlsx", summary="Download the supplier address/contact backfill template (Excel)")
+def suppliers_attributes_template_xlsx():
+    buf = build_template_workbook(SUPPLIER_ATTR_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=tellumen_supplier_attributes_template.xlsx"})
+
+
+@router.post("/suppliers/attributes/upload", summary="Backfill supplier address/contact email, matched to your book by supplier name")
+async def upload_supplier_attributes(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Matches each row to an existing supplier (by name, case-insensitive, within this org) and writes
+    the provided address/contact_email — the fields that pass validation only. A supplier not already
+    linked to the book is reported unmatched, never silently created (suppliers come from the plot
+    book; use /plots/upload or a plot's supplier link to add a new one)."""
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, SUPPLIER_ATTR_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    if rep["n_valid"] == 0:
+        raise HTTPException(status_code=400, detail="None of the rows are ready yet — please fix the flagged rows and try again.")
+
+    org_id = ctx["org"]["org_id"]
+    idx = {r[0].strip().lower(): r[1] for r in session.execute(text(
+        "SELECT name, supplier_id FROM sc_suppliers WHERE org_id = :o"
+    ), {"o": org_id}).fetchall()}
+
+    matched, unmatched, updated = 0, [], 0
+    for row in rep["valid_rows"]:
+        name = str(row.get("supplier_name") or "").strip()
+        sid = idx.get(name.lower())
+        if not sid:
+            unmatched.append(name)
+            continue
+        matched += 1
+        sets, params = [], {"s": sid}
+        addr = row.get("address")
+        if addr not in (None, ""):
+            sets.append("address = :addr"); params["addr"] = str(addr).strip()
+        email = row.get("contact_email")
+        if email not in (None, ""):
+            sets.append("contact_email = :email"); params["email"] = str(email).strip()
+        if sets:
+            session.execute(text(f"UPDATE sc_suppliers SET {', '.join(sets)} WHERE supplier_id = :s"), params)
+            updated += 1
+    session.commit()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="suppliers.attributes.upload",
+                target_type="sc_suppliers", target_id=None,
+                detail={"matched": matched, "updated": updated, "unmatched": len(unmatched), "filename": file.filename})
+    return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched),
+            "unmatched": unmatched[:50], "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+
+
+@router.get("/customers", summary="Immediate downstream customers on file for this org (EUDR Art. 9(1)(f) identity)")
+def customers(session: DbSession, org_id: OrgId):
+    rows = session.execute(text(
+        "SELECT customer_id::text AS customer_id, name, address, contact_email, country FROM sc_customers WHERE org_id = :o ORDER BY name"
+    ), {"o": org_id}).mappings().all()
+    return {"customers": [dict(r) for r in rows]}
+
+
+@router.get("/customers/attributes/template.xlsx", summary="Download the downstream-customer upload/backfill template (Excel)")
+def customers_attributes_template_xlsx():
+    buf = build_template_workbook(CUSTOMER_ATTR_FIELDS)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              headers={"Content-Disposition": "attachment; filename=tellumen_customer_attributes_template.xlsx"})
+
+
+@router.post("/customers/attributes/upload", summary="Add or backfill immediate downstream customers (Art. 9(1)(f)) by name")
+async def upload_customer_attributes(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Unlike suppliers, a customer has no other entry path — a row whose name isn't on file yet is
+    INSERTED (this is how a customer gets added at all); a row that matches an existing name updates
+    address/contact_email/country. Matched case-insensitively within this org."""
+    from services.ingest.upload_validation import parse_and_validate
+    try:
+        rep = parse_and_validate(await file.read(), file.filename, CUSTOMER_ATTR_FIELDS)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
+    if not rep["ok"]:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    if rep["n_valid"] == 0:
+        raise HTTPException(status_code=400, detail="None of the rows are ready yet — please fix the flagged rows and try again.")
+
+    org_id = ctx["org"]["org_id"]
+    idx = {r[0].strip().lower(): r[1] for r in session.execute(text(
+        "SELECT name, customer_id FROM sc_customers WHERE org_id = :o"
+    ), {"o": org_id}).fetchall()}
+
+    created, updated = 0, 0
+    for row in rep["valid_rows"]:
+        name = str(row.get("customer_name") or "").strip()
+        if not name:
+            continue
+        addr = row.get("address")
+        addr = str(addr).strip() if addr not in (None, "") else None
+        email = row.get("contact_email")
+        email = str(email).strip() if email not in (None, "") else None
+        country = row.get("country")
+        country = str(country).strip().upper() if country not in (None, "") else None
+        cid = idx.get(name.lower())
+        if cid:
+            sets, params = [], {"c": cid}
+            if addr is not None:
+                sets.append("address = :addr"); params["addr"] = addr
+            if email is not None:
+                sets.append("contact_email = :email"); params["email"] = email
+            if country is not None:
+                sets.append("country = :country"); params["country"] = country
+            if sets:
+                session.execute(text(f"UPDATE sc_customers SET {', '.join(sets)} WHERE customer_id = :c"), params)
+                updated += 1
+        else:
+            new_id = str(uuid.uuid4())
+            session.execute(text("""
+                INSERT INTO sc_customers (customer_id, org_id, name, address, contact_email, country)
+                VALUES (:id, :o, :n, :addr, :email, :country)
+            """), {"id": new_id, "o": org_id, "n": name, "addr": addr, "email": email, "country": country})
+            idx[name.lower()] = new_id
+            created += 1
+    session.commit()
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="customers.attributes.upload",
+                target_type="sc_customers", target_id=None,
+                detail={"created": created, "updated": updated, "filename": file.filename})
+    return {"n_created": created, "n_updated": updated, "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+
+
 # EUDR due-diligence-informed fields: geolocation + commodity are the regulation's own
 # core requirement; plot_area_ha matters because EUDR itself splits at >4ha (a full
 # polygon is required) vs <=4ha (a single point suffices) -- see services/templates/workbook.py.

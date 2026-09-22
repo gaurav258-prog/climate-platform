@@ -158,6 +158,9 @@ def build_esrs_pack(session: Session, org_id: str, scenario: str = "baseline", h
         "material": len(e1["material_hazards"]) > 0,
         "financial_effects": e1["financial_effects"],
         "material_hazards": [{"hazard": h["hazard"], "label": h["label"], "class": h["class"]} for h in e1["material_hazards"]],
+        # E1-3 adaptation actions for the material hazards — carried alongside the E1-9 66(b) coverage %
+        # in financial_effects, qualitative list next to the quantified figure (never one without the other).
+        "resilience": e1["resilience"],
         "detail_ref": "See the full CSRD · ESRS E1 report for the hazard-by-hazard breakdown, projections and adaptation.",
     }
     return {

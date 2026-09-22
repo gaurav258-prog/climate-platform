@@ -48,6 +48,9 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
     sites = list_sites_with_risk(session, org_id, scenario=scenario, horizon=horizon)
     op_by_hazard: dict[str, dict] = {}
     op_asset_total = op_asset_at_risk = op_throughput = op_bi = 0.0
+    # ESRS E1-9 para 66(b): the proportion of at-risk assets ADDRESSED by a disclosed adaptation action —
+    # tracked alongside the € figures, keyed on whether the site's own top (driving) hazard has one.
+    adaptation_covered_value = 0.0
     for s in sites:
         av, tp, hs, hz = (s.get("value_eur") or 0), (s.get("throughput_eur") or 0), s.get("hazard_score"), s.get("top_hazard")
         op_asset_total += av; op_throughput += tp
@@ -57,6 +60,8 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
             d = op_by_hazard.setdefault(hz, {"hazard": hz, "label": _LABELS.get(hz, hz), "class": _class(hz),
                                              "n_sites": 0, "asset_value_eur": 0.0, "bi_at_risk_eur": 0.0, "max_score": 0})
             d["n_sites"] += 1; d["asset_value_eur"] += av; d["bi_at_risk_eur"] += bi; d["max_score"] = max(d["max_score"], round(hs))
+            if actions_for([hz]):   # a disclosed adaptation measure exists for this site's driving hazard
+                adaptation_covered_value += av
 
     # ── upstream sourcing: COGS-at-risk by commodity (published) vs exposure-mapped (held) ────────
     r = project_org_supply(session, org_id, scenario=scenario, time_horizon=horizon)
@@ -81,6 +86,14 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
                                              "n_commodities": 0, "spend_eur": 0.0, "cogs_at_risk_eur": 0.0, "max_score": 0})
             d["n_commodities"] += 1; d["spend_eur"] += (c.annual_spend_eur or 0)
             d["cogs_at_risk_eur"] += var; d["max_score"] = max(d["max_score"], round(hs))
+
+    # ESRS E1-9 para 66(a)/(d): the € figures are also required as a PERCENTAGE of the same total the
+    # numerator is drawn from — total own-ops asset value for assets, total own-ops throughput (the
+    # platform's own-revenue proxy — see company_sites) for business interruption/net revenue. Both are
+    # None (never a fabricated 0%) when the org has no own-ops total to divide by.
+    pct_of_assets_at_risk = round(100.0 * op_asset_at_risk / op_asset_total, 1) if op_asset_total else None
+    pct_of_revenue_at_risk = round(100.0 * op_bi / op_throughput, 1) if op_throughput else None
+    adaptation_coverage_pct = round(100.0 * adaptation_covered_value / op_asset_at_risk, 1) if op_asset_at_risk else None
 
     material = sorted(set(op_by_hazard) | set(up_by_hazard),
                      key=lambda h: -max(op_by_hazard.get(h, {}).get("max_score", 0), up_by_hazard.get(h, {}).get("max_score", 0)))
@@ -115,9 +128,20 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
             "business_interruption_eur": round(op_bi),
             "cogs_at_risk_published_eur": round(cogs_published),
             "exposure_mapped_but_withheld_eur": round(mapped_exposure),
+            # ESRS E1-9 para 66(a): monetary amount AND percentage of total (own-ops) assets at material
+            # physical risk.
+            "pct_of_assets_at_risk": pct_of_assets_at_risk,
+            # ESRS E1-9 para 66(d): monetary amount AND percentage of net revenue (own-ops throughput,
+            # our net-revenue proxy) at material physical risk.
+            "pct_of_revenue_at_risk": pct_of_revenue_at_risk,
+            # ESRS E1-9 para 66(b): proportion of at-risk assets addressed by a disclosed adaptation action.
+            "adaptation_coverage_pct_of_at_risk_assets": adaptation_coverage_pct,
+            "asset_value_at_risk_addressed_by_adaptation_eur": round(adaptation_covered_value),
             "note": "Business-interruption is a v0 illustrative estimate (throughput × expected downtime by hazard band). "
                     "COGS-at-risk is published only where the hazard→yield chain is validated (r² ≥ 0.40); other commodities' "
-                    "exposure is mapped and the euro withheld.",
+                    "exposure is mapped and the euro withheld. Percentages (ESRS E1-9 para 66(a)/(d)) are of the platform's "
+                    "own-operations asset value / throughput; adaptation coverage (para 66(b)) is the share of AT-RISK asset "
+                    "value whose site's driving hazard has a disclosed adaptation action (E1-3), not of total assets.",
         },
         "projections": horizons,
         "resilience": actions_for(material),

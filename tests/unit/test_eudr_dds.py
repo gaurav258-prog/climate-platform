@@ -16,11 +16,14 @@ class _Result:
 
 
 class _FakeSession:
-    def __init__(self, operator, plots): self._operator, self._plots = operator, plots
+    def __init__(self, operator, plots, customers=None):
+        self._operator, self._plots, self._customers = operator, plots, customers or []
     def execute(self, stmt, params=None):
         sql = str(stmt)
         if "FROM organizations" in sql:
             return _Result([self._operator])
+        if "FROM sc_customers" in sql:
+            return _Result(self._customers)
         return _Result(self._plots)
 
 
@@ -29,11 +32,14 @@ OP_FULL = {"legal_name": "Terra Foods", "name": "Terra", "eori": "ES123",
 OP_NO_EORI = {**OP_FULL, "eori": None}
 
 
-def _plot(name, det, commodity="Cocoa", hs="1801", country="GH", area=2.0, year=None):
+def _plot(name, det, commodity="Cocoa", hs="1801", country="GH", area=2.0, year=None,
+         supplier_name=None, supplier_address=None, supplier_contact_email=None, supplier_country=None):
     return {"plot_id": name, "plot_name": name, "country": country, "plot_geometry": None,
             "lat": 6.7, "lon": -1.6, "area_ha": area, "eudr_determination": det,
             "eudr_first_loss_year": year, "eudr_forest_source": "GFC-2024-v1.12",
-            "commodity": commodity, "hs_code": hs}
+            "commodity": commodity, "hs_code": hs,
+            "supplier_name": supplier_name, "supplier_address": supplier_address,
+            "supplier_contact_email": supplier_contact_email, "supplier_country": supplier_country}
 
 
 def test_ready_when_all_free_and_operator_complete():
@@ -132,3 +138,64 @@ def test_traces_submission_envelope_carries_verbatim_statement_unmodified():
     dds = assemble_dds(s, "org")
     envelope = build_submission(dds, "org")
     assert envelope["dueDiligenceStatement"] == DD_STATEMENT
+
+
+# ── Art. 9(1)(e)/(f): supplier + downstream-customer identity (build 1) ─────────────────────────
+
+def test_supplier_identity_joined_and_carried_on_the_item():
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free", supplier_name="Arabica Co-op",
+                                     supplier_address="Rua X, Minas Gerais", supplier_contact_email="ops@coop.br",
+                                     supplier_country="BR")])
+    dds = assemble_dds(s, "org")
+    sups = dds["items"][0]["suppliers"]
+    assert len(sups) == 1
+    assert sups[0] == {"name": "Arabica Co-op", "address": "Rua X, Minas Gerais",
+                        "contact_email": "ops@coop.br", "country": "BR"}
+    # complete supplier identity → not flagged as a to-do
+    assert not any("Arabica Co-op" in c for c in dds["operator_completes"])
+
+
+def test_plot_with_no_supplier_linked_is_flagged_not_silently_absent():
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")])   # no supplier_name
+    dds = assemble_dds(s, "org")
+    assert dds["items"][0]["suppliers"] == []
+    assert any("Art. 9(1)(e)" in c and "A" in c for c in dds["operator_completes"])
+
+
+def test_supplier_missing_address_or_email_is_flagged():
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free", supplier_name="Arabica Co-op",
+                                     supplier_country="BR")])   # no address/email
+    dds = assemble_dds(s, "org")
+    assert any("Art. 9(1)(e)" in c and "Arabica Co-op" in c for c in dds["operator_completes"])
+
+
+def test_multiple_plots_same_supplier_dedupe_to_one_record():
+    s = _FakeSession(OP_FULL, [
+        _plot("A", "deforestation_free", supplier_name="Arabica Co-op", supplier_address="X", supplier_contact_email="a@b.com"),
+        _plot("B", "deforestation_free", supplier_name="Arabica Co-op", supplier_address="X", supplier_contact_email="a@b.com"),
+    ])
+    dds = assemble_dds(s, "org")
+    assert len(dds["items"][0]["suppliers"]) == 1
+    assert dds["items"][0]["plot_count"] == 2
+
+
+def test_no_customers_on_file_is_flagged_not_silently_absent():
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")], customers=[])
+    dds = assemble_dds(s, "org")
+    assert dds["customers"] == []
+    assert any("Art. 9(1)(f)" in c and "none on file" in c for c in dds["operator_completes"])
+
+
+def test_customer_on_file_is_carried_and_not_flagged_when_complete():
+    cust = {"name": "Nordic Retail AB", "address": "Stockholm", "contact_email": "buy@nordic.se", "country": "SE"}
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")], customers=[cust])
+    dds = assemble_dds(s, "org")
+    assert dds["customers"] == [cust]
+    assert not any("Nordic Retail AB" in c for c in dds["operator_completes"])
+
+
+def test_customer_on_file_missing_contact_is_flagged():
+    cust = {"name": "Nordic Retail AB", "address": None, "contact_email": None, "country": "SE"}
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")], customers=[cust])
+    dds = assemble_dds(s, "org")
+    assert any("Art. 9(1)(f)" in c and "Nordic Retail AB" in c for c in dds["operator_completes"])
