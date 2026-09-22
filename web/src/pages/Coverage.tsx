@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { PageHeader, Card, StatGrid, SectionHead, PlainLead } from '../components/ui'
+import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
 
 // The honesty triangle — three auditable registries a supervisor can read straight:
@@ -123,6 +124,12 @@ function CoverageView() {
               <div className="text-[12px] text-[var(--color-mute)] leading-snug">{t.note}</div>
             </div>
           ))}
+        </div>
+        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">The 28, by tier</div>
+          <HBar height={16} format={(n) => `${n}`}
+            data={data.tiers.map(t => ({ label: TIER[t.tier as Tier].label, value: data.summary.by_tier[t.tier] ?? 0, color: TIER[t.tier as Tier].c }))
+              .filter(b => b.value > 0)} />
         </div>
       </Card>
       {data.families.map(f => (

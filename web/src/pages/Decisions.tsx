@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroBanner } from '../components/ui'
+import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
 
@@ -61,8 +62,8 @@ const scLabel = (k: string) => SCEN.find(s => s[0] === k)?.[1] ?? k
 export default function Decisions() {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const [sp] = useSearchParams()
-  const focusId = sp.get('focus')   // deep-link from the Horizon globe: focus a specific exposure's row
+  const [sp, setSp] = useSearchParams()
+  const focusId = sp.get('focus')   // deep-link from the Horizon globe (or the Score-migration chart below): focus a specific exposure's row
   const supported = SUPPORTED.includes(profile?.org?.type ?? '')
   const canAct = (profile?.permissions ?? []).includes('approvals.create')
   const [scenario, setScenario] = useState('disorderly_2c')
@@ -126,6 +127,17 @@ export default function Decisions() {
           { label: 'Value newly at risk', value: cq.isLoading ? '—' : eur(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
           { label: 'Decided', value: cq.isLoading ? '—' : `${approved} / ${crossings.length}`, icon: Check, tone: approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined },
         ]} />
+
+      {/* score migration — how far each exposure moves, at a glance; click a bar to jump to that row below */}
+      {crossings.length > 1 && (
+        <Card className="p-5">
+          <div className="text-[13px] font-medium text-[var(--color-ink)] mb-0.5">Score migration</div>
+          <div className="text-[11.5px] text-[var(--color-mute)] mb-3">points crossed into High+ by {horizon} — click a bar to open it below</div>
+          <HBar data={[...crossings].sort((a, b) => b.delta - a.delta).slice(0, 8).map(c => ({ label: c.entity_name, value: c.delta, sub: `${c.current_score ?? '—'}→${c.future_score ?? '—'}`, color: '#D23B3B' }))}
+            format={(n) => `+${n}`} height={16}
+            onBar={(i) => { const c = [...crossings].sort((a, b) => b.delta - a.delta).slice(0, 8)[i]; sp.set('focus', c.entity_id); setSp(sp, { replace: true }) }} />
+        </Card>
+      )}
 
       {/* crossings list */}
       <Card className="p-0 overflow-hidden">

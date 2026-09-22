@@ -80,6 +80,16 @@ function TriggersView() {
   )
 }
 
+// how close the current score sits to the policy's attachment/exhaustion band, 0-100 track
+function BandGauge({ current, attach, exhaust }: { current: number | null; attach: number; exhaust: number }) {
+  const [r, g, b] = col(current ?? 0)
+  return (
+    <div className="w-20 h-1.5 rounded-full relative shrink-0" style={{ background: 'var(--color-panel-2)' }} title={`band ${Math.round(attach)}–${Math.round(exhaust)}`}>
+      <div className="absolute inset-y-0 rounded-full" style={{ left: `${Math.min(100, attach)}%`, right: `${Math.max(0, 100 - exhaust)}%`, background: 'color-mix(in oklab, var(--color-bad) 35%, transparent)' }} />
+      {current != null && <div className="absolute -top-0.5 w-1 h-2.5 rounded-full" style={{ left: `calc(${Math.min(100, Math.max(0, current))}% - 2px)`, background: `rgb(${r},${g},${b})` }} />}
+    </div>
+  )
+}
 function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerRow[]; breached?: boolean }) {
   return (
     <Card className="p-0 overflow-hidden">
@@ -97,7 +107,10 @@ function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerR
                   <div className="mono text-[13px] tabular-nums text-[var(--color-bad)]">{eur(t.payout_eur)}</div>
                   <div className="mono text-[10.5px] text-[var(--color-faint)]">{t.payout_pct}% payout</div>
                 </div>
-              : <div className="w-32 text-right mono text-[11.5px] text-[var(--color-faint)]">{Math.max(0, Math.round(t.attachment_score - (t.current_score ?? 0)))} pts to attach</div>}
+              : <div className="w-32 flex flex-col items-end gap-1">
+                  <BandGauge current={t.current_score} attach={t.attachment_score} exhaust={t.exhaustion_score} />
+                  <div className="mono text-[11.5px] text-[var(--color-faint)]">{Math.max(0, Math.round(t.attachment_score - (t.current_score ?? 0)))} pts to attach</div>
+                </div>}
           </div>) })}
       </div>
     </Card>

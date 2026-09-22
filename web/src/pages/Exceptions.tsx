@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight, ClipboardCheck } from 'lucide-react'
+import { AlertTriangle, XCircle, CheckCircle2, ListPlus, ChevronRight, ClipboardCheck, X } from 'lucide-react'
 import ControlRegister from '../components/ControlRegister'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Lens, PageHeader, HeroBanner } from '../components/ui'
+import { HBar } from '../components/Charts'
 import { frameworkLabel, prettify } from '../lib/hazards'
 import { filingLink, taskLink } from '../lib/links'
 
@@ -33,10 +34,12 @@ export default function Exceptions() {
   const filingFilter = params.get('filing')   // arrive scoped to one filing (from the filing cockpit)
   const { profile } = useAuth()
   const [tab, setTab] = useState<'exceptions' | 'register'>(params.get('tab') === 'register' ? 'register' : 'exceptions')
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const q = useQuery({ queryKey: ['exceptions'], queryFn: () => api.get<Resp>('/v1/reg-tasks/exceptions') })
   const d = q.data
-  const shown = filingFilter && d ? d.exceptions.filter(e => e.filing_id === filingFilter) : (d?.exceptions ?? [])
-  const filteredLabel = filingFilter && shown.length ? `${frameworkLabel(shown[0].filing_label)} · ${shown[0].period}` : null
+  const byFiling = filingFilter && d ? d.exceptions.filter(e => e.filing_id === filingFilter) : (d?.exceptions ?? [])
+  const shown = categoryFilter ? byFiling.filter(e => e.category === categoryFilter) : byFiling
+  const filteredLabel = filingFilter && byFiling.length ? `${frameworkLabel(byFiling[0].filing_label)} · ${byFiling[0].period}` : null
 
   const spin = async (e: Exc) => {
     try {
@@ -89,10 +92,31 @@ export default function Exceptions() {
           ]} />
       )}
 
+      {d && byFiling.length > 0 && (() => {
+        // computed from the currently-in-scope exceptions (post filing-filter), so it never disagrees with the worklist below
+        const counts: Record<string, number> = {}
+        for (const e of byFiling) counts[e.category] = (counts[e.category] ?? 0) + 1
+        const cats = Object.entries(counts).sort((a, b) => b[1] - a[1])
+        return (
+          <Card className="p-5">
+            <div className="text-[13px] font-medium text-[var(--color-ink)] mb-0.5">Open exceptions by category</div>
+            <div className="text-[11.5px] text-[var(--color-mute)] mb-3">where the recurring failure modes are — click a bar to filter the worklist below</div>
+            <HBar data={cats.map(([cat, n]) => ({ label: prettify(cat), value: n, color: cat === categoryFilter ? '#38bdf8' : 'var(--color-sky)' }))}
+              format={(n) => `${n}`} height={16} onBar={(i) => setCategoryFilter(prev => prev === cats[i][0] ? null : cats[i][0])} />
+            {categoryFilter && (
+              <div className="flex items-center gap-1.5 mt-3 text-[12px] text-[var(--color-mute)]">
+                showing <span className="text-[var(--color-ink)] font-medium">{prettify(categoryFilter)}</span> only
+                <button onClick={() => setCategoryFilter(null)} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">clear <X size={12} /></button>
+              </div>
+            )}
+          </Card>
+        )
+      })()}
+
       {q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">scanning filings…</Card>
         : !d ? <div className="text-[12.5px] text-[var(--color-bad)]">Could not load exceptions.</div>
         : shown.length === 0
-          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">{filingFilter ? 'No open exceptions on this filing — it’s clean.' : 'No open exceptions — every live filing is clean.'}</div></Card>
+          ? <Card className="p-10 text-center"><CheckCircle2 size={22} className="mx-auto mb-2" style={{ color: '#34d399' }} /><div className="text-[13px] text-[var(--color-mute)]">{categoryFilter ? `No open exceptions in ${prettify(categoryFilter)}.` : filingFilter ? 'No open exceptions on this filing — it’s clean.' : 'No open exceptions — every live filing is clean.'}</div></Card>
           : (
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-[var(--color-line)]">
