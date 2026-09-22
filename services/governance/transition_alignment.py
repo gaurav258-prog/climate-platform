@@ -32,9 +32,14 @@ from services.governance.pillar3_templates import NACE_SECTIONS, _section  # noq
 
 # NACE division → IEA Template-3 sector. Annex XL §19(a) of the adopted ITS states rows 1-8 are the "mandatory
 # minimum set" of EIGHT sectors: power, fossil fuel combustion, cement, iron & steel, chemicals, automotive,
-# aviation, maritime transport (verified against the EBA's own Annex XL instructions PDF + cross-checked
-# against 3 independent secondary trackers — EUR-Lex itself would not render through the available fetch
-# tools). "Aluminium" and "real estate" are NOT ITS Template-3 sectors — an earlier version of this module
+# aviation, maritime transport. The "rows 1-8/mandatory minimum set" framing is verified verbatim against
+# the actual Official Journal text (scripts/fetch_eu_regulation.sh 32022R2453 — see that script's header for
+# how to reach EUR-Lex content directly); the specific 8 sector NAMES could not be independently re-confirmed
+# from that same primary fetch because Annex XL's Template-3 sector table is embedded in the OJ document as a
+# scanned image, not machine-readable text — that specific list still rests on the EBA's own Annex XL
+# instructions PDF + 3 independent secondary trackers, which is a different (weaker) tier of source than the
+# rest of this module's citations, not a fetch failure. "Aluminium" and "real estate" are NOT ITS Template-3
+# sectors — an earlier version of this module
 # invented both (real estate is a genuinely different template, EBA Template 2, collateral energy efficiency —
 # not this one) and was missing the real 8th sector, chemicals; both are now corrected. Mapped from the NACE
 # DIVISION (2-digit) of each counterparty (Reg 1893/2006) — this platform keeps "coal" and "oil_gas" as two

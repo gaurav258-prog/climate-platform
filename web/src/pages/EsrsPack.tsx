@@ -87,7 +87,7 @@ export default function EsrsPack() {
                 <div className="grid grid-cols-2 gap-y-2 text-[13px] flex-1">
                   <span className="text-[var(--color-mute)]">Asset value at risk</span>
                   <span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.asset_value_at_risk_eur)}{t.financial_effects.pct_of_assets_at_risk != null ? ` · ${t.financial_effects.pct_of_assets_at_risk}%` : ''}</span>
-                  <span className="text-[var(--color-mute)]">Business interruption</span>
+                  <span className="text-[var(--color-mute)]" title="Business-interruption expected-loss proxy (exposed throughput × expected-downtime fraction), not raw revenue tied to at-risk activities — ESRS E1-9 AR 68 states there is no commonly accepted methodology for this metric. Confirm this is what you intend before filing it as the para 66(d) percentage.">Business interruption ⓘ</span>
                   <span className="text-right font-medium">{eur(t.financial_effects.business_interruption_eur)}{t.financial_effects.pct_of_revenue_at_risk != null ? ` · ${t.financial_effects.pct_of_revenue_at_risk}%` : ''}</span>
                   <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.cogs_at_risk_published_eur)}</span>
                   <span className="text-[var(--color-mute)]">Exposure mapped · withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{eur(t.financial_effects.exposure_mapped_but_withheld_eur)}</span>

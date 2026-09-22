@@ -95,6 +95,63 @@ def test_financed_emissions_partial_without_evic():
 
 
 @pytest.mark.integration
+def test_waci_denominator_is_total_fund_value_not_covered_subset():
+    """Annex I Table 1's indicator-3 (WACI) formula denominator is 'current value of ALL investments'
+    (verified verbatim against the actual Official Journal text) — the same total-fund-value denominator
+    PAI 2/8/9 already correctly use, NOT the emissions-covered subset. Two holdings, only one with
+    emissions data, chosen so the two possible denominators give different, hand-checkable answers:
+        Holding A: s1=1,000,000  s2=0  s3=0  revenue=€10,000m  mv=€4m  (has emissions)
+        Holding B: mv=€6m  (no emissions data at all — e.g. issuer hasn't reported)
+        total_mv = €10m, covered_mv = €4m
+        intensity_A = 1,000,000 / 10,000 = 100 tCO2e/€M
+        WACI (correct, total_mv denominator)   = (4m × 100) / 10m = 40.0
+        WACI (old, wrong, covered_mv denominator) = (4m × 100) / 4m = 100.0
+    """
+    created = {}
+    with get_session() as s:
+        fid = str(s.execute(text(
+            "INSERT INTO funds (org_id,name,fund_type,sfdr_classification) "
+            "VALUES (:o,'TEST WACI Denominator Fund','fund','article_8') RETURNING fund_id"),
+            {"o": DEMO_ORG}).scalar())
+        iid_a = str(s.execute(text(
+            "INSERT INTO issuers (name,issuer_type,country,source) "
+            "VALUES ('WACI Denom Issuer A','corporate','DE','manual') RETURNING issuer_id")).scalar())
+        iid_b = str(s.execute(text(
+            "INSERT INTO issuers (name,issuer_type,country,source) "
+            "VALUES ('WACI Denom Issuer B','corporate','DE','manual') RETURNING issuer_id")).scalar())
+        sid_a = str(s.execute(text(
+            "INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
+            "VALUES ('DE00WACIDEN1','WACI Denom Sec A',:i,'equity','manual') RETURNING security_id"),
+            {"i": iid_a}).scalar())
+        sid_b = str(s.execute(text(
+            "INSERT INTO securities (isin,name,issuer_id,asset_class,source) "
+            "VALUES ('DE00WACIDEN2','WACI Denom Sec B',:i,'equity','manual') RETURNING security_id"),
+            {"i": iid_b}).scalar())
+        s.execute(text(
+            "INSERT INTO issuer_emissions (issuer_id,reporting_year,scope1_tco2e,scope2_tco2e,revenue_eur,source) "
+            "VALUES (:i,2023,1000000,0,10000000000,'disclosed')"), {"i": iid_a})
+        # Issuer B deliberately has NO issuer_emissions row — not held.
+        s.execute(text(
+            "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
+            "VALUES (:f,:s,4000000,40,'2026-07-12')"), {"f": fid, "s": sid_a})
+        s.execute(text(
+            "INSERT INTO fund_positions (fund_id,security_id,market_value_eur,weight_pct,as_of_date) "
+            "VALUES (:f,:s,6000000,60,'2026-07-12')"), {"f": fid, "s": sid_b})
+        created = {"fid": fid, "iid_a": iid_a, "iid_b": iid_b}
+    try:
+        with get_session() as s:
+            pai = fund_pai(s, created["fid"])
+        assert pai["pai"]["pai_3_waci_tco2e_per_meur"] == 40.0
+        assert pai["emissions_coverage_pct"] == 40.0
+    finally:
+        with get_session() as s:
+            s.execute(text("DELETE FROM funds WHERE fund_id=:f"), {"f": created["fid"]})
+            s.execute(text("DELETE FROM securities WHERE isin IN ('DE00WACIDEN1','DE00WACIDEN2')"))
+            s.execute(text("DELETE FROM issuers WHERE issuer_id = ANY(:ids)"),
+                      {"ids": [created["iid_a"], created["iid_b"]]})
+
+
+@pytest.mark.integration
 def test_esg_pai_5_to_14_computed():
     """PAI 5-14 compute from issuer_esg_metrics: value-weighted ratios, exposure
     shares for flags, and EVIC-attributed absolutes for water/waste."""

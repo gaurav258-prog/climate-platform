@@ -121,9 +121,12 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     verified) — matching the classifier's discipline. We report the share of value
     we can even assess, so the gap is explicit.
 
-    Annex III/IV of Del. Reg. (EU) 2021/2178 require TWO separate Taxonomy-aligned
-    KPIs shown side by side — turnover-based and CapEx-based — never blended into
-    one figure. issuer_esg_metrics.taxonomy_aligned_pct is (and always was) the
+    Annex III §1.2 of Del. Reg. (EU) 2021/2178 (verified verbatim against the Official Journal text: "Asset
+    managers shall disclose a KPI based on turnover KPIs of the investee companies and a KPI based on the
+    CapEx KPI of investee companies") requires TWO separate Taxonomy-aligned KPIs shown side by side —
+    turnover-based and CapEx-based — never blended into one figure. (Annex IV is the accompanying template,
+    not a second normative source — the requirement itself is entirely in Annex III.)
+    issuer_esg_metrics.taxonomy_aligned_pct is (and always was) the
     TURNOVER-based figure; taxonomy_aligned_capex_pct is its CapEx companion. Both
     are value-weighted the same way, over the same DNSH/minimum-safeguards gate,
     each independently disclosing its own coverage — a fund can have full turnover

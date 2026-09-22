@@ -218,14 +218,19 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     dq_num = sum(r["mv"] * _PCAF_DQ.get(r.get("emissions_source"), 4) for r in with_emissions)
     pcaf_dq = round(dq_num / covered_mv, 1) if covered_mv else None
 
-    # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Annex I Table 1
-    # defines investee GHG intensity as Scope 1+2+3 — all three scopes are summed
-    # into the numerator. Weighted over the COVERED value (renormalized), and
-    # coverage disclosed separately.
+    # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Annex I Table 1's indicator-3 formula
+    # (verified verbatim against the actual Official Journal text) is:
+    #   Σ ( current value of investment_i / current value of ALL investments (€M) × investee GHG intensity_i )
+    # — i.e. the denominator is total fund value, exactly like PAI 2's carbon-footprint denominator just
+    # below (same regulation, same "all investments" wording) — NOT the emissions-covered subset. An
+    # earlier version of this function divided by covered_mv (renormalizing over known data only), which
+    # matched PAI 2/8/9's OLD bug before those were fixed, but was never corrected here for PAI 3 — found by
+    # adversarial review, re-verified against the primary text, and fixed to match every other indicator in
+    # this function. numerator sums all three GHG scopes per Annex I Table 1; total_mv is the whole fund.
     waci = None
-    if covered_mv:
+    if total_mv:
         waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0) + (r["s3"] or 0)) / (r["revenue_eur"] / 1e6))
-                   for r in with_emissions) / covered_mv
+                   for r in with_emissions) / total_mv
 
     # PAI 1 — financed emissions (PCAF): attribution factor = investment ÷ EVIC.
     # We now attribute for every holding that has EVIC, and disclose the coverage;

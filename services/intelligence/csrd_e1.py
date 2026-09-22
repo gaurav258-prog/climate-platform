@@ -131,9 +131,22 @@ def build_e1_report(session: Session, org_id: str, scenario: str = "baseline", h
             # ESRS E1-9 para 66(a): monetary amount AND percentage of total (own-ops) assets at material
             # physical risk.
             "pct_of_assets_at_risk": pct_of_assets_at_risk,
-            # ESRS E1-9 para 66(d): monetary amount AND percentage of net revenue (own-ops throughput,
-            # our net-revenue proxy) at material physical risk.
+            # ESRS E1-9 para 66(d) / AR 71: monetary amount AND percentage of net revenue at material
+            # physical risk. Verified against the actual Official Journal text: AR 71(a) calls for net
+            # revenue "in line with ... accounting standards" tied to exposed activities. This platform's
+            # figure is narrower than that literal ask — it's a business-interruption EXPECTED-LOSS estimate
+            # (exposed throughput × an expected-downtime fraction by hazard band, "business_interruption_eur"
+            # above), not raw revenue tied to at-risk activities. AR 68 explicitly says there is "no commonly
+            # accepted methodology" for this figure, so this is a defensible choice, not a fabrication — but
+            # it answers a related, narrower question than a literal 66(d) revenue-exposure %, and a filer
+            # should not submit it unqualified as the statutory percentage without checking this note.
             "pct_of_revenue_at_risk": pct_of_revenue_at_risk,
+            "pct_of_revenue_at_risk_methodology_note": (
+                "Business-interruption EXPECTED-LOSS proxy (exposed throughput × expected-downtime "
+                "fraction by hazard band), not raw revenue tied to at-risk activities. ESRS E1-9 AR 68 "
+                "states there is no commonly accepted methodology for this metric; this is a disclosed, "
+                "conservative choice — confirm it is what you intend to file under para 66(d) before "
+                "submitting, rather than a literal net-revenue-at-risk percentage."),
             # ESRS E1-9 para 66(b): proportion of at-risk assets addressed by a disclosed adaptation action.
             "adaptation_coverage_pct_of_at_risk_assets": adaptation_coverage_pct,
             "asset_value_at_risk_addressed_by_adaptation_eur": round(adaptation_covered_value),
