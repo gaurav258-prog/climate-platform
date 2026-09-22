@@ -169,14 +169,16 @@ export default function SupervisorAnalytics() {
             {!tq.data ? <div className="text-[12px] text-[var(--color-faint)]">loading…</div> : tq.data.entities.length === 0 ? <div className="text-[12px] text-[var(--color-faint)]">No submitted templates on file yet.</div> : (
               <div style={{ height: Math.max(120, 36 * tq.data.entities.length + 40) }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={tq.data.entities.map(e => ({ name: e.name, previous: e.previous_share_pct, latest: e.latest_share_pct, pl: e.previous_period, ll: e.latest_period }))} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
+                  <BarChart data={tq.data.entities.map(e => ({ name: e.name, previous: e.previous_share_pct, latest: e.latest_share_pct, pl: e.previous_period, ll: e.latest_period, org_id: e.org_id }))} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
                     <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} />
                     <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
                     <Tooltip formatter={(v, n, p) => [`${v ?? '—'}%`, n === 'previous' ? `previous (${p.payload.pl ?? '—'})` : `latest (${p.payload.ll ?? '—'})`]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="previous" fill="#8290a8" isAnimationActive={false} />
-                    <Bar dataKey="latest" fill="#38bdf8" isAnimationActive={false} />
+                    <Bar dataKey="previous" fill="#8290a8" isAnimationActive={false} style={{ cursor: 'pointer' }}
+                      onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }} />
+                    <Bar dataKey="latest" fill="#38bdf8" isAnimationActive={false} style={{ cursor: 'pointer' }}
+                      onClick={(bar) => { const org = (bar as { org_id?: string; payload?: { org_id?: string } }).org_id ?? (bar as { payload?: { org_id?: string } }).payload?.org_id; if (org) nav(`/supervised/${org}`) }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>)}
@@ -191,8 +193,8 @@ export default function SupervisorAnalytics() {
                 <table className="data-table w-full text-[12px]">
                   <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase tracking-wide text-left"><th className="">Entity</th><th className="">Filing</th><th className="">Period</th><th className="">Due</th><th className="">State</th><th className="num">Days</th><th className="num">Reached intake</th></tr></thead>
                   <tbody>{tl.data.rows.map((r, i) => (
-                    <tr key={i} className="border-t border-[var(--color-line)]">
-                      <td className="text-[var(--color-ink)] whitespace-nowrap">{r.name}</td><td className="text-[var(--color-mute)]">{r.framework_label}</td>
+                    <tr key={i} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)]" onClick={() => nav(`/supervised/${r.org_id}`)}>
+                      <td className="text-[var(--color-ink)] whitespace-nowrap hover:text-[var(--color-sky)] hover:underline">{r.name}</td><td className="text-[var(--color-mute)]">{r.framework_label}</td>
                       <td className="mono text-[11px] text-[var(--color-faint)]">{r.period_label}</td><td className="mono text-[11px] text-[var(--color-faint)]">{r.due_date ?? '—'}</td>
                       <td className="pr-3" style={{ color: STATE_COLOR[r.state] }}>{STATE_LABEL[r.state]}</td>
                       <td className="num mono" style={{ color: STATE_COLOR[r.state] }}>{r.days ?? '—'}</td>

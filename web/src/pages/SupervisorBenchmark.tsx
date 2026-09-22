@@ -50,7 +50,11 @@ function BenchmarkCard() {
                 <td className="text-[var(--color-ink)]">{m.label}
                   {(m.watch_above != null || m.watch_below != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">{m.watch_above != null ? `watch >${m.watch_above}` : `watch <${m.watch_below}`}{m.act_above != null ? ` · act >${m.act_above}` : ''}</span>}</td>
                 <td className="num mono text-[var(--color-mute)]">{fmtV(m.unit, m.distribution.median)}</td>
-                {m.entities.map(e => <td key={e.org_id} className="pr-3 text-right mono" style={{ color: FLAGC[e.flag] }} title={e.percentile != null ? `${e.percentile}th percentile` : ''}>{fmtV(m.unit, e.value)}</td>)}
+                {m.entities.map(e => (
+                  <td key={e.org_id} className="pr-3 text-right">
+                    <Link to={`/supervised/${e.org_id}`} className="mono hover:underline" style={{ color: FLAGC[e.flag] }}
+                      title={e.percentile != null ? `${e.percentile}th percentile` : ''}>{fmtV(m.unit, e.value)}</Link>
+                  </td>))}
               </tr>))}</tbody>
           </table>
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">{sec.n_entities} {sec.label.toLowerCase()} · frameworks expected: {sec.frameworks.join(', ')} · colour = flag against your thresholds (green within, amber watch, red act)</div>
