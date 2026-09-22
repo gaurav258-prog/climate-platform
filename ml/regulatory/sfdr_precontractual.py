@@ -238,6 +238,22 @@ def build_precontractual(session, fund_id: str) -> dict:
         "a description of the DNSH methodology applied to this product's sustainable investments",
         key="dnsh_methodology"))
 
+    # ── OECD/UN Guiding Principles alignment — declared. Found reading the actual RTS Annex II/III template
+    # image (Commission Delegated Regulation (EU) 2022/1288, fetched via scripts/fetch_eu_regulation.sh
+    # 32022R1288) rather than a secondary summary: this question sits directly under the DNSH sub-question
+    # for products that partially make sustainable investments, asking how those investments align with the
+    # OECD Guidelines for Multinational Enterprises and the UN Guiding Principles on Business and Human
+    # Rights. A genuinely separate declared field, not previously in this build.
+    oecd_un = d("oecd_un_alignment")
+    sections.append(_field(
+        "How are the sustainable investments aligned with the OECD Guidelines for Multinational Enterprises "
+        "and the UN Guiding Principles on Business and Human Rights?",
+        "declared" if oecd_un else "not_available", value=oecd_un, source="customer/declared",
+        input_required=None if oecd_un else
+        "an explanation of alignment with the OECD Guidelines and UN Guiding Principles, including the "
+        "eight fundamental ILO conventions and the International Bill of Human Rights",
+        key="oecd_un_alignment"))
+
     # ── PAI consideration — reuse the fund's own PAI statement (single source of truth) ──
     sections.append(_field("Does this financial product consider principal adverse impacts?",
                             "computed", value="Yes — see the fund's SFDR PAI statement",
@@ -258,6 +274,21 @@ def build_precontractual(session, fund_id: str) -> dict:
                             input_required=None if binding else
                             "the binding elements used to select investments for the promoted characteristics/objective",
                             key="binding_elements"))
+    # ── Minimum scope-reduction rate — declared. Also found reading the real Annex II/III template image:
+    # sits between "binding elements" and "good governance policy", asking the committed minimum rate by
+    # which the investable universe is narrowed BEFORE the investment strategy itself is applied (e.g. an
+    # exclusion screen cutting the universe by X% before stock-picking begins) — a distinct, genuinely
+    # separate commitment from the E/S-alignment minimum already captured above.
+    scope_reduction = d("investment_scope_reduction_min_pct")
+    sections.append(_field(
+        "What is the committed minimum rate to reduce the scope of investments considered prior to the "
+        "application of the investment strategy?",
+        "declared" if scope_reduction is not None else "not_available",
+        value=f"{scope_reduction}%" if scope_reduction is not None else None, source="customer/declared",
+        input_required=None if scope_reduction is not None else
+        "the minimum % by which the investable universe is narrowed before the strategy is applied "
+        "(e.g. an exclusion screen), where such a commitment exists",
+        key="investment_scope_reduction_min_pct"))
     governance = d("good_governance_policy")
     sections.append(_field("What is the policy to assess good governance practices of investee companies?",
                             "declared" if governance else "not_available", value=governance,
@@ -423,7 +454,10 @@ def build_precontractual(session, fund_id: str) -> dict:
                     f"declared by the manager, {missing} still required. Narrative and forward-commitment "
                     "fields are never fabricated — each missing one names exactly what input is needed.",
         },
-        "next_step_note": "Not yet wired into the filing export pipeline (services/governance/filing_export.py "
-                          "/ filing_annex.py) — a natural next step once this template is in active use.",
+        "next_step_note": "Document export: GET /v1/funds/{fund_id}/precontractual.html renders this data "
+                          "against the real Annex II/III template structure (ml/regulatory/sfdr_precontractual_doc.py), "
+                          "ready to annex to the prospectus. Not yet wired into the broader multi-template filing "
+                          "export pipeline (services/governance/filing_export.py / filing_annex.py) alongside the "
+                          "bank/insurer bundles — a natural next step once this template is in active use.",
         "provenance": {"generated_at": datetime.now(timezone.utc).isoformat()},
     }

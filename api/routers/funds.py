@@ -570,6 +570,22 @@ def sfdr_precontractual(fund_id: str, session: DbSession, org_id: OrgId):
     return build_precontractual(session, fund_id)
 
 
+@router.get("/funds/{fund_id}/precontractual.html", summary="Pre-contractual disclosure as the actual Annex II/III document, ready to annex to the prospectus")
+def sfdr_precontractual_html(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    built = build_precontractual(session, fund_id)
+    if built.get("error"):
+        return built
+    from ml.regulatory.sfdr_precontractual_doc import precontractual_annex_html
+    doc = precontractual_annex_html(built)
+    fname = f"SFDR_Precontractual_{built['entity']['fund_name'].replace(' ', '_')}.html"
+    return StreamingResponse(
+        iter([doc]), media_type="text/html",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
 class PrecontractualUpdate(BaseModel):
     # Every field here is the manager's own declared narrative/forward-commitment —
     # never computed, never fabricated. See ml/regulatory/sfdr_precontractual.py for
@@ -585,8 +601,10 @@ class PrecontractualUpdate(BaseModel):
     data_sources: Optional[str] = None
     limitations: Optional[str] = None
     dnsh_methodology: Optional[str] = None
+    oecd_un_alignment: Optional[str] = None    # OECD Guidelines / UN Guiding Principles alignment (real Annex II/III field)
     investment_strategy: Optional[str] = None
     binding_elements: Optional[str] = None
+    investment_scope_reduction_min_pct: Optional[float] = Field(None, ge=0, le=100)  # real Annex II/III field
     good_governance_policy: Optional[str] = None
     due_diligence: Optional[str] = None
     monitoring_process: Optional[str] = None

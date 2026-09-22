@@ -253,9 +253,13 @@ export function PrecontractualDisclosure({ fundId, onDone }: { fundId: string; o
 
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="px-5 py-3 border-b border-[var(--color-line)]">
-        <SectionHead>SFDR pre-contractual disclosure</SectionHead>
-        {cov && <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{data.template} · {cov.computed}/{cov.fields} computed · {cov.declared} declared · {cov.not_available} missing</div>}
+      <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
+        <div>
+          <SectionHead>SFDR pre-contractual disclosure</SectionHead>
+          {cov && <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{data.template} · {cov.computed}/{cov.fields} computed · {cov.declared} declared · {cov.not_available} missing</div>}
+        </div>
+        <button onClick={() => download(`/v1/funds/${fundId}/precontractual.html`, `SFDR_Precontractual_${fundId}.html`).catch(() => toast.error('Could not download.'))}
+          className="mono text-[11px] text-[var(--color-sky)] hover:underline shrink-0">download annex</button>
       </div>
       <div className="divide-y divide-[var(--color-line)]">
         {sections.map((s, i) => {
