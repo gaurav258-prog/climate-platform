@@ -30,53 +30,100 @@ import re
 from services.governance.pillar3_templates import NACE_SECTIONS, _section  # noqa: F401
 
 
-# NACE division → IEA Template-3 sector. Annex XL §19(a) of the adopted ITS states rows 1-8 are the "mandatory
-# minimum set" of EIGHT sectors: power, fossil fuel combustion, cement, iron & steel, chemicals, automotive,
-# aviation, maritime transport. The "rows 1-8/mandatory minimum set" framing is verified verbatim against
-# the actual Official Journal text (scripts/fetch_eu_regulation.sh 32022R2453 — see that script's header for
-# how to reach EUR-Lex content directly); the specific 8 sector NAMES could not be independently re-confirmed
-# from that same primary fetch because Annex XL's Template-3 sector table is embedded in the OJ document as a
-# scanned image, not machine-readable text — that specific list still rests on the EBA's own Annex XL
-# instructions PDF + 3 independent secondary trackers, which is a different (weaker) tier of source than the
-# rest of this module's citations, not a fetch failure. "Aluminium" and "real estate" are NOT ITS Template-3
-# sectors — an earlier version of this module
-# invented both (real estate is a genuinely different template, EBA Template 2, collateral energy efficiency —
-# not this one) and was missing the real 8th sector, chemicals; both are now corrected. Mapped from the NACE
-# DIVISION (2-digit) of each counterparty (Reg 1893/2006) — this platform keeps "coal" and "oil_gas" as two
-# separate, more granular rows under the ITS's single "fossil fuel combustion" heading (a bank may disclose
-# finer than the mandatory minimum; never coarser), so effectively 9 rows are produced for the 8 mandatory
-# sectors.
+# NACE → IEA Template-3 sector — the OFFICIAL crosswalk table, not a division-level heuristic. Annex XL of
+# the adopted ITS embeds "List of NACE sectors to be considered" as a table (a scanned image inside the
+# Official Journal document itself, extracted and read directly: scripts/fetch_eu_regulation.sh 32022R2453,
+# then OCR'd the embedded JPEG at the "Template 3: Banking book" caption). It lists 8 mandatory Template-3
+# sectors — power, fossil fuel combustion, cement, iron & steel, chemicals, automotive, aviation, maritime
+# transport (no "aluminium," no "real estate" — those were an earlier version's invented entries, corrected)
+# — each with its OWN explicit NACE code list, not a clean division-level split. Three real findings from
+# reading the actual table, none obvious from the division numbers alone:
+#   • NACE division 5 (mining of coal and lignite) is listed under "Iron and steel, coke, and metal ore
+#     production," NOT "Fossil fuel combustion" — coking coal feeding steel production is grouped with steel,
+#     not with the fossil-fuel-combustion sector's own "coal" sub-list (NACE divisions 8 and 9 only).
+#   • The table's own PRINTED codes drop the leading zero that single-digit NACE divisions (5,6,7,8,9)
+#     normally carry (e.g. it prints "51" for what real NACE calls "05.1" — verified against the actual NACE
+#     Rev. 2 explanatory text, scripts/fetch_eu_regulation.sh 32006R1893: 05.1/05.10 = coal mining, 06.1/06.10
+#     = crude-oil extraction, 07.2/07.29 = non-ferrous metal ore mining, 08.9 = other mining/quarrying n.e.c.,
+#     09.1/09.10 = petroleum/gas support activities). Read literally, "51"/"61"/"72"/"89"/"91" would collide
+#     with the REAL, unrelated 2-digit divisions 51 (air transport), 61 (telecoms), 72 (scientific R&D), 91
+#     (libraries/museums) — so every such entry below is stored WITH the leading zero restored (e.g. "051",
+#     not "51"), which also naturally disambiguates it from those real divisions via prefix length.
+#   • The table's codes otherwise mix NACE divisions (2-digit), groups (3-digit) and classes (4-digit) with
+#     one deliberate override (NACE class 20.14, oil-derived organic chemicals, is carved out to oil_gas
+#     specifically, not the chemicals fallback below) — matching is by longest-listed-prefix throughout.
+# "Chemicals" (sector 8 in the summary list) has NO published NACE code list in this table at all — every
+# other sector's codes are given, chemicals' column is simply blank in the source. NACE division 20
+# ("manufacture of chemicals and chemical products") is used as a reasonable, disclosed fallback — this is
+# the one sector in this crosswalk NOT sourced from the official table itself, because the table doesn't
+# provide one.
+_ANNEX_XL_NACE_CROSSWALK: tuple[tuple[str, str], ...] = (
+    # Maritime transport (shipping) — division 50 (real, ≥10, no leading-zero issue)
+    ("301", "maritime"), ("3011", "maritime"), ("3012", "maritime"), ("3315", "maritime"),
+    ("50", "maritime"), ("501", "maritime"), ("5010", "maritime"), ("502", "maritime"), ("5020", "maritime"),
+    ("5222", "maritime"), ("5224", "maritime"), ("5229", "maritime"),
+    # Power — divisions 27/33/35/43 (all real, ≥10)
+    ("27", "power"), ("2712", "power"), ("3314", "power"), ("35", "power"), ("351", "power"),
+    ("3511", "power"), ("3512", "power"), ("3513", "power"), ("3514", "power"), ("4321", "power"),
+    # Fossil fuel combustion — oil and gas. "091"/"0910" = group/class 09.1 (support activities for petroleum
+    # & gas extraction — real NACE division 9, NOT division 91). "06"/"061"/"0610"/"062"/"0620" = division 6
+    # (extraction of crude petroleum & natural gas) and its groups/classes — NOT division 61 (telecoms).
+    ("091", "oil_gas"), ("0910", "oil_gas"), ("192", "oil_gas"), ("1920", "oil_gas"), ("2014", "oil_gas"),
+    ("352", "oil_gas"), ("3521", "oil_gas"), ("3522", "oil_gas"), ("3523", "oil_gas"),
+    ("4612", "oil_gas"), ("4671", "oil_gas"), ("06", "oil_gas"), ("061", "oil_gas"), ("0610", "oil_gas"),
+    ("062", "oil_gas"), ("0620", "oil_gas"),
+    # Fossil fuel combustion — coal. Bare divisions 8 ("other mining and quarrying") and 9 ("mining support
+    # service activities") themselves — real NACE, leading zero restored ("08"/"09", not "8"/"9").
+    ("08", "coal"), ("09", "coal"),
+    # Iron and steel, coke, and metal ore production — "steel" sub-list (divisions 24/25/46, all real, ≥10;
+    # "072"/"0729" = group/class 07.2 non-ferrous metal ore mining — real NACE division 7, NOT division 72)
+    ("24", "iron_steel"), ("241", "iron_steel"), ("2410", "iron_steel"), ("242", "iron_steel"),
+    ("2420", "iron_steel"), ("2434", "iron_steel"), ("244", "iron_steel"), ("2442", "iron_steel"),
+    ("2444", "iron_steel"), ("2445", "iron_steel"), ("245", "iron_steel"), ("2451", "iron_steel"),
+    ("2452", "iron_steel"), ("25", "iron_steel"), ("251", "iron_steel"), ("2511", "iron_steel"),
+    ("4672", "iron_steel"), ("07", "iron_steel"), ("072", "iron_steel"), ("0729", "iron_steel"),
+    # Iron and steel, coke, and metal ore production — "coal" sub-list. Division 5 (mining of coal/lignite)
+    # and its groups/classes — real NACE division 5, NOT the unrelated division 51 (air transport) or 52
+    # (warehousing). This is the real, previously-miscoded discrepancy the primary table caught: coking coal
+    # is grouped with steel production here, NOT with "Fossil fuel combustion" above.
+    ("05", "iron_steel"), ("051", "iron_steel"), ("0510", "iron_steel"), ("052", "iron_steel"), ("0520", "iron_steel"),
+    # Cement, clinker and lime production. "089" = group/class 08.9 (mining/quarrying n.e.c. — stone, sand,
+    # clay for cement raw materials — real NACE division 8, overriding the bare "08"→coal default above via
+    # longest-prefix-wins). "811" is division 81 (real, ≥10), unrelated to the leading-zero issue.
+    ("235", "cement"), ("2351", "cement"), ("2352", "cement"), ("236", "cement"), ("2361", "cement"),
+    ("2363", "cement"), ("2364", "cement"), ("811", "cement"), ("089", "cement"),
+    # Aviation — division 51/52 (real, ≥10 — genuinely "Air transport" / "Warehousing and support activities
+    # for transportation," no leading-zero ambiguity here since these ARE the real 2-digit divisions)
+    ("3030", "aviation"), ("3316", "aviation"), ("511", "aviation"), ("5110", "aviation"),
+    ("512", "aviation"), ("5121", "aviation"), ("5223", "aviation"),
+    # Automotive — division 28/29 (real, ≥10). NACE 30 "other transport equipment" is absent from
+    # AUTOMOTIVE's own list specifically — but the table folds two of its classes in elsewhere: 30.11/30.12
+    # (shipbuilding) under maritime and 30.30 (aircraft manufacture) under aviation, above. Only the
+    # remaining NACE 30 classes (30.20 railway, 30.91/30.92 motorcycles/bicycles, etc.) stay unmapped.
+    ("2815", "automotive"), ("29", "automotive"), ("291", "automotive"), ("2910", "automotive"),
+    ("292", "automotive"), ("2920", "automotive"), ("293", "automotive"), ("2932", "automotive"),
+)
+
+
 def _iea_sector(nace_code) -> str | None:
     if not nace_code:
         return None
-    s = str(nace_code).strip().upper()
-    digits = "".join(ch for ch in s if ch.isdigit())
+    digits = "".join(ch for ch in str(nace_code) if ch.isdigit())
     if not digits:
         return None
-    d = int(digits[:2])
-    if d == 24:                        # manufacture of basic metals — iron & steel (incl. all metal casting,
-        return "iron_steel"            # NACE 24.5, which covers both iron/steel AND non-ferrous casting and
-                                        # can't be cleanly split at the class level; conservatively kept whole
-                                        # under iron & steel rather than guessed apart)
-    if d == 20:                        # manufacture of chemicals and chemical products
+    # longest-listed-code-first: a class-level entry (e.g. "2451") should win over a broader division-level
+    # entry for the same sector (e.g. "24") when both match, and — critically for the leading-zero-restored
+    # entries above — a real 2-digit division (e.g. "51" air transport) never gets shadowed by a same-digit
+    # single-digit-division sub-code, because the sub-code is stored WITH its leading zero ("051") and so
+    # can never be a prefix-match for an input that doesn't itself start with "0".
+    best: tuple[str, str] | None = None
+    for code, sector in _ANNEX_XL_NACE_CROSSWALK:
+        if digits.startswith(code) and (best is None or len(code) > len(best[0])):
+            best = (code, sector)
+    if best:
+        return best[1]
+    if digits[:2] == "20":             # chemicals — see module-level note: not in the official table itself
         return "chemicals"
-    if d == 5:                         # mining of coal and lignite
-        return "coal"
-    if d in (6, 19):                   # extraction of oil & gas · coke & refined petroleum
-        return "oil_gas"
-    if d == 35:                        # electricity, gas, steam supply
-        return "power"
-    if d == 23:                        # other non-metallic mineral products (cement)
-        return "cement"
-    if d == 29:                        # manufacture of motor vehicles (NACE 30 "other transport equipment" —
-        return "automotive"            # shipbuilding/rail/aircraft — is deliberately NOT folded in here; none
-                                        # of ITS's automotive/aviation/maritime sectors is the right home for a
-                                        # transport-equipment MANUFACTURER (those sectors measure OPERATOR
-                                        # intensity), so it's left unmapped rather than misclassified.
-    if d == 51:                        # air transport
-        return "aviation"
-    if d == 50:                        # water transport
-        return "maritime"
     return None
 
 
