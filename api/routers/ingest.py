@@ -30,7 +30,8 @@ def ping(ctx: IngestOrg):
 class BankAssetsIn(BaseModel):
     rows: list[dict] = Field(..., min_length=1, max_length=5000,
                              description="Loan-tape rows — same fields as the CSV template "
-                                         "(asset_name, asset_type, latitude, longitude, appraised_value_eur, sector, …).")
+                                         "(asset_name, asset_type, latitude, longitude, appraised_value_eur, sector, "
+                                         "counterparty_evic_eur, …).")
 
 
 @router.post("/bank/assets", summary="Push loan-tape rows directly into your bank tenant")

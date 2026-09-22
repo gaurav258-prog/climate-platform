@@ -515,7 +515,7 @@ function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: s
         </div>
       )}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-3">
-        Transition EL = outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers). Financed emissions are counterparty Scope 1+2, reported or NACE-estimated; a rigorous PCAF attribution additionally needs counterparty EVIC (you provide). Disclosed relative tiers, not a fitted PD model.
+        Transition EL = outstanding × modelled stranded-asset fraction (NGFS carbon price + sector tiers). Financed emissions here are the counterparty's GROSS Scope 1+2 (reported or NACE-estimated) — deliberately not PCAF-weighted, since this drives the stranding model on your full outstanding, not a disclosure ratio. See the KRI dashboard for the PCAF-attributed (EVIC-weighted) figure. Disclosed relative tiers, not a fitted PD model.
       </div>
     </Card>
   )

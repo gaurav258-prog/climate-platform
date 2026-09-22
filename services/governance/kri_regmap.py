@@ -44,7 +44,7 @@ KRI_REG: dict[str, dict[str, tuple[str, str]]] = {
         "forward_share": ("Template 5 — forward-looking scenario share at risk", "core"),
         "sector_concentration": ("Templates 1 & 5 — NACE-sector concentration", "support"),
         "coverage":      ("Data coverage / PCAF data quality", "support"),
-        "fin_emissions": ("Transition templates — financed emissions (Scope 3)", "core"),
+        "fin_emissions": ("Template 1 col. i — financed emissions (gross Scope 1–3)", "core"),
         "p3_alignment":  ("Template 3 — alignment-metric distance to IEA NZE2050", "core"),
         "p3_top20":      ("Template 4 — exposure to top-20 carbon-intensive firms", "core"),
         "taxonomy":      ("GAR + BTAR (Templates 7–8) — Taxonomy-eligible %", "core"),

@@ -148,8 +148,11 @@ def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str) -> 
         "exposure_weighted_transition_score": round(scored_score_x_exposure / total_outstanding, 1) if total_outstanding else None,
         "by_sector": sectors[:12],
         "top_exposures": top[:8],
-        "method": ("Financed emissions = counterparty scope 1+2, reported or NACE sector-intensity estimated "
-                   "(flagged); a rigorous PCAF attribution additionally needs counterparty EVIC (customer-supplied). "
+        "method": ("Financed emissions here = counterparty GROSS scope 1+2 (reported or NACE sector-intensity "
+                   "estimated, flagged) — the full magnitude the stranding model needs, deliberately NOT "
+                   "PCAF-attribution-weighted (this card drives transition expected-loss on the bank's own "
+                   "outstanding, not a disclosure ratio). See the KRI dashboard's Financed-emissions indicator "
+                   "for the PCAF-attributed (EVIC-weighted) disclosure figure. "
                    "Transition expected-loss = outstanding × modelled stranded-asset fraction (NGFS carbon price + "
                    "sector stranding tiers) — a disclosed relative tier, not a fitted PD model."),
     }

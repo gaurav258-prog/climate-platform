@@ -47,6 +47,7 @@ EXT_BANKING_COLUMNS = [
     "CAST(x.ghg_emissions_scope3_tco2e AS FLOAT) AS ghg_emissions_scope3_tco2e",
     "CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur",
     "x.loan_origination_date",
+    "CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur",   # PCAF attribution denominator
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
@@ -74,6 +75,7 @@ def _map_asset_list_row(row):
         "ghg3": row["ghg_emissions_scope3_tco2e"],
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
+        "evic_eur": row.get("counterparty_evic_eur"),
         "residual_maturity_years": row.get("residual_maturity_years"),
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
         "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 (IEA)
@@ -214,13 +216,18 @@ def _hazard_rollup(assets):
         t = a.get("taxonomy_status") or "unknown"
         tax[t]["count"] += 1
         tax[t]["value_eur"] += a["value_eur"] or 0
-    # financed emissions (GHG totals across the book)
-    ghg = {f"scope{i}": round(sum((a.get(f"ghg{i}") or 0) for a in assets))
-           for i in (1, 2, 3)}
+    # financed emissions — REAL PCAF attribution (attribution factor = outstanding / counterparty EVIC, capped
+    # at 1.0) for every counterparty that carries EVIC; disclosed separately for the rest, never silently
+    # summed in as if attributed. See services/scoring/pcaf.py (the one formula every vertical shares).
+    from services.scoring.pcaf import attributed_financed_emissions
+    pcaf = attributed_financed_emissions(assets, exposure_key="outstanding_loan_balance_eur", evic_key="evic_eur",
+                                         scope_keys=("ghg1", "ghg2", "ghg3"))
+    ghg = pcaf["attributed"]   # kept as the existing key/shape (scope1/scope2/scope3) so nothing downstream breaks
     return {
         "by_hazard": hazards,
         "taxonomy": {k: {"count": v["count"], "value_eur": round(v["value_eur"])} for k, v in tax.items()},
         "financed_emissions_tco2e": ghg,
+        "financed_emissions_pcaf": pcaf,
     }
 
 
@@ -288,6 +295,7 @@ def asset_detail(asset_id: str, session: DbSession):
         "ghg_scope3": row["ghg_emissions_scope3_tco2e"],
         "outstanding_loan_balance_eur": row["outstanding_loan_balance_eur"],
         "loan_origination_date": row["loan_origination_date"],
+        "evic_eur": row.get("counterparty_evic_eur"),
         "borrower_entity_id": row["borrower_entity_id"], "minimum_safeguards_status": row["minimum_safeguards_status"],
     }
     audit = session.execute(text("""
@@ -348,6 +356,9 @@ ASSET_TEMPLATE_FIELDS = [
     {"name": "longitude", "required": True, "label": "Longitude", "kind": "lon", "description": "Decimal degrees.", "example": "8.6821"},
     {"name": "appraised_value_eur", "required": True, "label": "Appraised value (EUR)", "kind": "money", "description": "Current appraised/collateral value.", "example": "12000000"},
     {"name": "sector", "required": True, "label": "Sector", "kind": "text", "description": "Sector / NACE classification.", "example": "Commercial real estate"},
+    {"name": "counterparty_evic_eur", "required": True, "label": "Counterparty EVIC (EUR)", "kind": "money",
+     "description": "Enterprise Value Including Cash of the borrowing counterparty (market cap + total debt + cash; the latest reported or credibly estimated figure). Required for PCAF-attributed financed emissions.",
+     "example": "185000000"},
     {"name": "outstanding_loan_balance_eur", "required": False, "label": "Outstanding loan balance (EUR)", "kind": "money", "description": "Current outstanding principal — enables LTV.", "example": "8400000"},
     {"name": "loan_origination_date", "required": False, "label": "Loan origination date", "kind": "date", "description": "YYYY-MM-DD.", "example": "2022-03-01"},
     {"name": "region", "required": False, "label": "Region", "kind": "text", "description": "Free-text region/city.", "example": "Frankfurt"},
@@ -424,8 +435,10 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
     {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
     {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
+    {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC (EUR)", "kind": "money",
+     "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape.", "example": "185000000"},
 ]
-_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity"}
+_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -489,6 +502,9 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         ei = row.get("emission_intensity")
         if ei not in (None, ""):
             sets.append("emission_intensity = :ei"); params["ei"] = float(str(ei).replace(",", ""))
+        evic = row.get("counterparty_evic_eur")
+        if evic not in (None, ""):
+            sets.append("counterparty_evic_eur = :evic"); params["evic"] = float(str(evic).replace(",", ""))
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

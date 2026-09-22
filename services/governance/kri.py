@@ -402,7 +402,11 @@ _METHODOLOGY = {
     "p3_alignment": "Pillar 3 Template 3 — the gross-weighted distance of the book's counterparty CO₂-intensity to the IEA Net-Zero-by-2050 2030 pathway per sector: 100×((current intensity − IEA 2030 target)/IEA 2030 target). Tellumen holds the IEA benchmark and does the calculation; the counterparty physical intensity (gCO₂/kWh, tCO₂/t…) is a vendor/counterparty feed, so this reads '—' until that feed is provided. A TCFD-not-required, Pillar-3-specific indicator.",
     "p3_top20": "Pillar 3 Template 4 — share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity. Policy action against top emitters can deteriorate their creditworthiness, so this is a concentrated transition-credit indicator prescribed by Pillar 3 (not TCFD).",
     "coverage": "Share of the book carrying a physical-risk score on the golden source. Unscored exposure is excluded from the risk figures, never assumed safe.",
-    "fin_emissions": "Financed emissions (Scope 1–3, tCO₂e): counterparty emissions summed across the book, reported or NACE-intensity estimated where a counterparty figure is missing. NOT PCAF-attribution-weighted — a rigorous PCAF figure additionally needs counterparty EVIC (customer- or vendor-supplied), which this book does not yet carry.",
+    "fin_emissions": "PCAF-attributed financed emissions (Scope 1–3, tCO₂e): counterparty emissions (reported, or a "
+                     "NACE-intensity estimate where a counterparty figure is missing), weighted per loan by the "
+                     "PCAF attribution factor (outstanding loan balance ÷ counterparty EVIC, capped at 100%). "
+                     "Counterparty EVIC is a required loan-tape field for new uploads; a loan on record without "
+                     "it contributes nothing to this figure and is counted separately, never folded in unweighted.",
     "taxonomy": "EU Taxonomy Article 8 eligible share — the portion of the book in Taxonomy-eligible activities (the GAR numerator's eligibility leg), from your book's activity classification.",
     "gar": "The Green Asset Ratio needs the Taxonomy-ALIGNED share (substantial contribution + DNSH + minimum safeguards) that you determine per exposure. Only eligibility is computed here; alignment is your input, so this reads '—' until provided.",
     "noi_impact": "Physical-risk drag on net operating income — the modelled climate insurance premium as a share of NOI.",
@@ -549,7 +553,13 @@ def _kri_drivers(session: Session, org_id: str, framework: str, kri_key: str,
             if kri_key == "sector_concentration":
                 return _section(a.get("nace_code")) in HIGH_CLIMATE_NACE
             return True                               # total_value / fin_emissions → whole book
-        weight = (lambda a: sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3))) if kri_key == "fin_emissions" else _val
+        def _pcaf_weight(a):
+            # per-asset PCAF-attributed emissions -- an asset with no EVIC has no attributed value (0, excluded
+            # below), the same rule the pooled figure uses; never mixes an unattributed asset into this drill.
+            from services.scoring.pcaf import attribution_factor
+            af = attribution_factor(a.get("outstanding_loan_balance_eur"), a.get("evic_eur"))
+            return af * sum((a.get(f"ghg{i}") or 0) for i in (1, 2, 3)) if af is not None else 0.0
+        weight = _pcaf_weight if kri_key == "fin_emissions" else _val
         unit = "num" if kri_key == "fin_emissions" else "eur"
 
     rows = [a for a in assets if keep(a) and weight(a) > 0]
@@ -657,6 +667,7 @@ def _bank_kri(session: Session, org_id: str) -> dict:
     snap = build_disclosure_snapshot(session, org_id, s["scenario"], s["horizon"])
     r = snap.get("rollup", {})
     em = snap.get("financed_emissions_tco2e", {})
+    pcaf = snap.get("financed_emissions_pcaf", {})
     tax = snap.get("taxonomy", {})
     total = r.get("total_value_eur", 0) or 0
     elig = (tax.get("eligible") or {}).get("value_eur", 0) or 0
@@ -706,7 +717,10 @@ def _bank_kri(session: Session, org_id: str) -> dict:
                    f"{top_sec} · {_share(top_val)}%. The concentration axis of Pillar 3 Templates 1 & 5.")),
         _kpi("coverage", "Book scored", cov, "pct", hint="Share of assets scored on the golden source"),
         _kpi("fin_emissions", "Financed emissions", sum((em.get(k) or 0) for k in ("scope1", "scope2", "scope3")),
-             "num", hint="tCO₂e · book total, not PCAF-attribution-weighted (needs counterparty EVIC)"),
+             "num", hint=(f"tCO₂e · PCAF-attributed (factor = outstanding ÷ counterparty EVIC, capped at 100%) · "
+                          f"{pcaf.get('n_evic_covered', 0)}/{pcaf.get('n_counterparties_with_emissions', 0)} counterparties "
+                          f"carry EVIC ({pcaf.get('evic_coverage_pct', 0)}% of emitting exposure)"
+                          + (f" · {pcaf.get('not_covered_total', 0):,} tCO₂e un-attributed, excluded" if pcaf.get("not_covered_total") else ""))),
         _kpi("taxonomy", "EU-Taxonomy eligible", round(100 * elig / tax_total, 1) if tax_total else 0, "pct"),
         _kpi("gar", "Green Asset Ratio", None, "pct", integrated=True, integrated_note="needs alignment",
              hint="Taxonomy-ALIGNED share (the Art. 8 GAR) needs alignment flags — substantial contribution + DNSH + minimum safeguards — provided in your book; only eligibility is computed here."),
@@ -762,6 +776,19 @@ def _p3esg_kri(session: Session, org_id: str) -> dict:
         snap = _live_snapshot(session, org_id, "bank_p3esg", s["scenario"], s["horizon"])
         assets = (snap or {}).get("assets") or []
         total = (snap or {}).get("rollup", {}).get("total_value_eur") or sum(a.get("value_eur") or 0 for a in assets)
+        # Pillar 3 Template 1 col (i) is the GROSS Scope 1+2+3 total (services/governance/pillar3_templates.py's
+        # template1_grid: "no new attribution" — ITS 2022/2453 does not ask for PCAF weighting here). The shared
+        # _bank_kri() figure is PCAF-attributed (the correct TCFD/PAI figure) -- on the Pillar-3 tab specifically,
+        # replace it with the SAME gross total the actual filed template will show, so the KRI never disagrees
+        # with the form a supervisor pulls up next to it.
+        gross_fin = round(sum((a.get("ghg1") or 0) + (a.get("ghg2") or 0) + (a.get("ghg3") or 0) for a in assets))
+        for kpi in r["kpis"]:
+            if kpi["key"] == "fin_emissions":
+                kpi["value"] = gross_fin
+                kpi["hint"] = ("tCO₂e · GROSS Scope 1–3 across the book (Template 1 col. i methodology — ITS "
+                               "2022/2453 does not prescribe PCAF attribution here). Not the same basis as the "
+                               "TCFD tab's PCAF-attributed figure; both are correct for their own regulation.")
+                break
         g3 = template3_grid(assets)
         g4 = template4_top20(assets)
         align_pending = g3.get("portfolio_distance") is None

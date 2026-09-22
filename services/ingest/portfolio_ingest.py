@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # Mirrors bank.py ASSET_TEMPLATE_FIELDS required set — the fields a loan-tape row must carry.
-BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector"]
+BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector", "counterparty_evic_eur"]
 _SAFEGUARDS = {"compliant", "non_compliant"}
 
 
@@ -52,11 +52,18 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
     for idx, row in enumerate(rows):
         lat, lon, value = _num(row.get("latitude")), _num(row.get("longitude")), _num(row.get("appraised_value_eur"))
         name, atype, sector = _str(row.get("asset_name")), _str(row.get("asset_type")), _str(row.get("sector"))
+        evic = _num(row.get("counterparty_evic_eur"))
         missing = [k for k, v in (("asset_name", name), ("asset_type", atype), ("sector", sector),
-                                  ("latitude", lat), ("longitude", lon), ("appraised_value_eur", value)) if v is None]
+                                  ("latitude", lat), ("longitude", lon), ("appraised_value_eur", value),
+                                  ("counterparty_evic_eur", evic)) if v is None]
         if missing:
             if len(skipped) < 25:
                 skipped.append({"row": idx, "reason": "missing required field(s)", "fields": missing})
+            continue
+        if evic <= 0:
+            if len(skipped) < 25:
+                skipped.append({"row": idx, "reason": "counterparty_evic_eur must be a positive value",
+                                "fields": ["counterparty_evic_eur"]})
             continue
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             if len(skipped) < 25:
@@ -77,6 +84,7 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
             "primary_value_eur": value, "sector": sector,
             "outstanding_loan_balance_eur": _num(row.get("outstanding_loan_balance_eur")),
             "loan_origination_date": origination[:10] if origination else None,
+            "counterparty_evic_eur": evic,
             "borrower_entity_id": _str(row.get("borrower_entity_id")),
             "minimum_safeguards_status": safeguards,
             # No nace_code on intake yet, so EU Taxonomy classification can't run — honest "not_assessed".
@@ -93,8 +101,8 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
                     :borrower_entity_id, :minimum_safeguards_status)
         """), records)
         session.execute(text("""
-            INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status)
-            VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status)
+            INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status, counterparty_evic_eur)
+            VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status, :counterparty_evic_eur)
         """), records)
 
     # Async scoring dispatch is best-effort: the rows are already stored and will be scored on demand when
