@@ -24,6 +24,13 @@ interface TaxBlock { value_eur: number }
 interface Disc { by_hazard: Record<string, HazardBlock>; taxonomy: Record<string, TaxBlock>; financed_emissions_tco2e?: { scope1: number; scope2: number; scope3: number } }
 
 const PREFIX: Record<string, string> = { bank: 'bank', asset_manager: 'assetmgmt', reit: 'realestate' }
+// each sector's /disclosure returns its book under a different key, with a different id/name/value field —
+// same shape otherwise (hazards: [{hazard, score, bucket}]). The drawer reads through this, not a hardcoded 'assets'.
+const SECTOR_ITEMS: Record<string, { arrKey: string; idKey: string; nameKey: string; valueKey: string }> = {
+  bank: { arrKey: 'assets', idKey: 'asset_id', nameKey: 'asset_name', valueKey: 'value_eur' },
+  asset_manager: { arrKey: 'holdings', idKey: 'holding_id', nameKey: 'holding_name', valueKey: 'position_value_eur' },
+  reit: { arrKey: 'properties', idKey: 'property_id', nameKey: 'property_name', valueKey: 'property_value_eur' },
+}
 // scenario severity ramp (cool→hot), colours validated for both themes (dataviz skill) via CSS tokens
 const SCEN = [
   { key: 'baseline', label: 'Today', color: 'var(--scn-baseline)' },
@@ -44,7 +51,8 @@ const sumEm = (d?: Disc) => d?.financed_emissions_tco2e ? d.financed_emissions_t
 export default function Analytics() {
   const { profile } = useAuth()
   const prefix = PREFIX[profile?.org?.type ?? '']
-  const canDrill = profile?.org?.type === 'bank'   // only the loan book returns the per-asset array to drill into
+  const items = SECTOR_ITEMS[profile?.org?.type ?? '']
+  const canDrill = !!items   // every financial sector's /disclosure returns a per-item array to drill into
   // the two parameters the user drives — a live "what-if": scenario × horizon. They recompute the headline
   // figures and mark the point on the trajectory. `sel` is the scenario key; `hz` is the horizon index.
   const [sel, setSel] = useState('hot_house_3_5c')
@@ -284,29 +292,37 @@ export default function Analytics() {
       {/* bounded self-service: build & save your own cut of the same golden-source book */}
       <AnalyticsViews prefix={prefix} orgName={profile?.org?.name} />
 
-      {drill && canDrill && <DrillDrawer prefix={prefix} hazard={drill} scenario={sel} horizonKey={HZ[hz][0]}
+      {drill && canDrill && <DrillDrawer prefix={prefix} items={items} hazard={drill} scenario={sel} horizonKey={HZ[hz][0]}
         scenarioLabel={scen.label} horizonLabel={hzLabel} onClose={() => setDrill(null)} />}
     </div>
   )
 }
 
-interface DrillAsset { asset_id: string; asset_name: string; value_eur: number | null; country: string | null; region: string | null; hazards: { hazard: string; score: number | null; bucket: string | null }[] }
+// each sector's per-item row (asset/holding/property) shares this shape once read through SECTOR_ITEMS' keys
+interface DrillItem { id: string; name: string; value_eur: number | null; country: string | null; region: string | null; hazards: { hazard: string; score: number | null; bucket: string | null }[] }
 const BUCKET: Record<string, { label: string; color: string }> = {
   VH: { label: 'Severe', color: 'var(--color-bad)' }, H: { label: 'High', color: 'var(--scn-disorderly)' },
   M: { label: 'Elevated', color: 'var(--scn-orderly)' }, L: { label: 'Low', color: 'var(--color-faint)' },
 }
 
 // drill-down — the exposures driving one hazard at the selected pathway/horizon. Fetches the FULL disclosure
-// (with the per-asset array) on demand, filters to assets exposed to this hazard at High+, ranks by value.
-function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, horizonLabel, onClose }:
-  { prefix: string; hazard: string; scenario: string; horizonKey: string; scenarioLabel: string; horizonLabel: string; onClose: () => void }) {
+// (with the per-item array) on demand, filters to items exposed to this hazard at High+, ranks by value.
+// `cfg` says which array key and id/name/value fields this sector's /disclosure uses (see SECTOR_ITEMS).
+function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenarioLabel, horizonLabel, onClose }:
+  { prefix: string; items: { arrKey: string; idKey: string; nameKey: string; valueKey: string }; hazard: string; scenario: string; horizonKey: string; scenarioLabel: string; horizonLabel: string; onClose: () => void }) {
   const q = useQuery({
     queryKey: ['analytics-drill', prefix, scenario, horizonKey],
-    queryFn: () => api.get<{ assets: DrillAsset[] }>(`/v1/${prefix}/disclosure?scenario=${scenario}&horizon=${horizonKey}`),
+    queryFn: () => api.get<Record<string, unknown>>(`/v1/${prefix}/disclosure?scenario=${scenario}&horizon=${horizonKey}`),
   })
   const [openSev, setOpenSev] = useState<Record<string, boolean>>({})
-  const rows = (q.data?.assets ?? [])
-    .map(a => ({ a, hz: a.hazards?.find(x => x.hazard === hazard) }))
+  const raw = (q.data?.[cfg.arrKey] as Record<string, unknown>[] | undefined) ?? []
+  const book: DrillItem[] = raw.map(r => ({
+    id: r[cfg.idKey] as string, name: r[cfg.nameKey] as string, value_eur: r[cfg.valueKey] as number | null,
+    country: r.country as string | null, region: r.region as string | null,
+    hazards: (r.hazards as DrillItem['hazards']) ?? [],
+  }))
+  const rows = book
+    .map(a => ({ a, hz: a.hazards.find(x => x.hazard === hazard) }))
     .filter(x => x.hz && (x.hz.bucket === 'H' || x.hz.bucket === 'VH'))
     .sort((x, y) => (y.a.value_eur ?? 0) - (x.a.value_eur ?? 0))
   const total = rows.reduce((s, x) => s + (x.a.value_eur ?? 0), 0)
@@ -349,9 +365,9 @@ function DrillDrawer({ prefix, hazard, scenario, horizonKey, scenarioLabel, hori
                       {open && (
                         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
                           {g.items.map(({ a, hz }) => (
-                            <div key={a.asset_id} className="flex items-center gap-3 px-3 py-2">
+                            <div key={a.id} className="flex items-center gap-3 px-3 py-2">
                               <div className="min-w-0 flex-1">
-                                <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.asset_name}</div>
+                                <div className="text-[12.5px] text-[var(--color-ink)] truncate">{a.name}</div>
                                 <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
                               </div>
                               <span className="mono text-[10.5px] tabular-nums shrink-0" style={{ color: g.color }}>{hz!.score != null ? Math.round(hz!.score) : ''}</span>
