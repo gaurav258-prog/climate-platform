@@ -75,6 +75,7 @@ EXT_INSURANCE_COLUMNS = [
     "CAST(x.contents_value_eur AS FLOAT) AS contents_value_eur",
     "CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur",
     "CAST(x.cresta_zone AS INTEGER) AS cresta_zone",
+    "CAST(x.motor_sum_insured_eur AS FLOAT) AS motor_sum_insured_eur",
 ]
 
 
@@ -114,7 +115,7 @@ def _map_policy_row(row):
         "deductible_pct": row["deductible_pct"], "building_value_eur": row["building_value_eur"],
         "contents_value_eur": row["contents_value_eur"],
         "business_interruption_value_eur": row["business_interruption_value_eur"],
-        "cresta_zone": row["cresta_zone"],
+        "cresta_zone": row["cresta_zone"], "motor_sum_insured_eur": row["motor_sum_insured_eur"],
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
@@ -308,11 +309,12 @@ def investments(session: DbSession, org_id: OrgId,
 @router.get("/solvency-scr", summary="Solvency II NatCat SCR — the 99.5% (1-in-200) modelled catastrophe capital charge")
 def solvency_scr(session: DbSession, org_id: OrgId,
                  scenario: str = Query("baseline"), horizon: str = Query("current")):
-    """The catastrophe capital an insurer must hold. HONEST BASIS: this is the INTERNAL-MODEL-style figure —
-    our modelled 1-in-200 (99.5% VaR) annual-aggregate NatCat loss, from the same common-shock cat engine that
-    drives the PML. It is NOT the prescribed STANDARD-FORMULA SCR: that uses EIOPA's per-region catastrophe
-    factors and correlation matrices (Delegated Regulation 2015/35, Art. 121-135), which are a governed input to
-    LOAD from the official source — we do not fabricate those coefficients. Both are labelled as such."""
+    """The catastrophe capital an insurer must hold, on TWO labelled bases. Primary figure: the INTERNAL-MODEL
+    NatCat SCR — our modelled 1-in-200 (99.5% VaR) annual-aggregate loss, from the same common-shock cat
+    engine that drives the PML. Alongside it, under `standard_formula_natcat`: the PRESCRIBED STANDARD-FORMULA
+    SCR, computed from EIOPA's own per-region catastrophe factors (Delegated Regulation 2015/35, Art. 120-125,
+    Annexes V-VIII — see services/governance/solvency2_natcat.py::natcat_scr) — a cited regulatory calculation,
+    not fabricated. Both are labelled as such."""
     _st = get_calc_settings(session, org_id)
     policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
                                    expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
@@ -488,6 +490,7 @@ POLICY_TEMPLATE_FIELDS = [
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Valencia"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "ES"},
     {"name": "cresta_zone", "required": False, "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
+    {"name": "motor_sum_insured_eur", "required": False, "description": "Motor-vehicle sum insured at this location (Art. 123(7)/124(7)), added into the flood/hail standard-formula SCR at 1.5x/5x. Leave blank for a pure property book.", "example": "150000"},
 ]
 REQUIRED_POLICY_COLUMNS = [f["name"] for f in POLICY_TEMPLATE_FIELDS if f["required"]]
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
@@ -572,6 +575,7 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
             "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
             "deductible_pct": float(row["deductible_pct"]) if "deductible_pct" in df.columns and pd.notna(row.get("deductible_pct")) else 0.02,
             "cresta_zone": int(row["cresta_zone"]) if "cresta_zone" in df.columns and pd.notna(row.get("cresta_zone")) else None,
+            "motor_sum_insured_eur": float(row["motor_sum_insured_eur"]) if "motor_sum_insured_eur" in df.columns and pd.notna(row.get("motor_sum_insured_eur")) else None,
         })
     if not records:
         raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
@@ -586,9 +590,9 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
     """), records)
     session.execute(text("""
         INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
-                                    business_interruption_value_eur, cresta_zone)
+                                    business_interruption_value_eur, cresta_zone, motor_sum_insured_eur)
         VALUES (:policy_id, :deductible_pct, :building_value_eur, :contents_value_eur,
-                :business_interruption_value_eur, :cresta_zone)
+                :business_interruption_value_eur, :cresta_zone, :motor_sum_insured_eur)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
                 target_type="insurance_policies", target_id=None,

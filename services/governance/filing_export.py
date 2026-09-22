@@ -141,6 +141,61 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                  h.get("headline_score"), h.get("headline_bucket") or "unscored",
                  h.get("taxonomy_status"), h.get("h3_cell")] for h in payload.get("holdings", [])]
         return build_disclosure_workbook(headers, rows, "Holdings physical risk", _summary_blocks(framework, payload))
+    if framework == "reit_taxonomy":
+        # NOTE / assumption: unlike the located FIN books above, this framework's frozen payload is a KPI
+        # SUMMARY, not a per-property book — {"rollup": {...}, "art8": art8_kpis(...)} (see
+        # services/governance/report_snapshots._reit_taxonomy and reit_taxonomy.art8_kpis). There is no
+        # per-property row to disclose here (the property-level physical-risk book is reit_tcfd's own
+        # export); this renders the Article 8 turnover/CapEx/OpEx KPI rows as a single KPI table.
+        art8 = payload.get("art8") or {}
+        tk = art8.get("turnover_kpi") or {}
+        headers = ["kpi", "row", "eur", "pct", "note"]
+        rows = [["Turnover", r.get("row"), r.get("eur"), r.get("pct"), r.get("note") or ""]
+                for r in tk.get("rows", [])]
+        ev = tk.get("alignment_evidence") or {}
+        if ev:
+            rows.append(["Turnover · alignment evidence", "Substantial contribution (EPC A/B)", None,
+                         ev.get("substantial_contribution_epc_ab_pct"), ""])
+            rows.append(["Turnover · alignment evidence", "Climate-adaptation DNSH (favourable)", None,
+                         ev.get("climate_adaptation_dnsh_favourable_pct"), ""])
+            rows.append(["Turnover · alignment evidence", "Minimum safeguards verified", None,
+                         ev.get("minimum_safeguards_verified_pct"), ev.get("note") or ""])
+        for kpi_name, block in (("CapEx", art8.get("capex_kpi") or {}), ("OpEx", art8.get("opex_kpi") or {})):
+            rows.append([kpi_name, block.get("status", "declared_customer_data"), None, None, block.get("note") or ""])
+        return build_export_workbook(headers, rows, sheet_name="REIT · Art.8 Taxonomy KPIs")
+    if framework == "insurer_solvency":
+        # NOTE / assumption: this framework's frozen payload is also a KPI summary, not a per-policy book —
+        # {"rollup": {...}, "s2601": s2601_natcat(...)} (see report_snapshots._insurer_solvency and
+        # insurer_solvency.s2601_natcat). Renders the S.26.01 internal-model NatCat SCR, the per-peril
+        # accumulation, and — where computed — the prescribed standard-formula NatCat SCR breakdown.
+        s2601 = payload.get("s2601") or {}
+        headers = ["section", "metric", "value_eur", "note"]
+        rows: list[list] = []
+        if s2601.get("available", True):
+            nc = s2601.get("natcat_scr") or {}
+            rows.append(["Internal model (99.5% VaR)", "Gross NatCat SCR — 1-in-200", nc.get("gross_1_in_200_eur"), ""])
+            rows.append(["Internal model (99.5% VaR)", "Net of reinsurance — 1-in-200", nc.get("net_of_reinsurance_1_in_200_eur"), ""])
+            rows.append(["Internal model (99.5% VaR)", "Mean annual loss", nc.get("mean_annual_loss_eur"), ""])
+            rows.append(["Internal model (99.5% VaR)", "Risk load", nc.get("risk_load_eur"), ""])
+            rows.append(["Internal model (99.5% VaR)", "SCR % of sum insured", nc.get("scr_pct_of_sum_insured"), ""])
+            for p in s2601.get("perils", []):
+                rows.append(["Peril accumulation", p.get("peril"), p.get("exposed_value_eur"),
+                            f"{p.get('n_exposed', 0)} policies exposed"])
+            sf = s2601.get("standard_formula_natcat") or {}
+            if sf.get("available"):
+                rows.append(["Standard formula (Del. Reg. (EU) 2015/35, Art. 120-125)",
+                            "Aggregate NatCat SCR (√Σ SCR_peril²)", sf.get("natcat_scr_eur"), sf.get("aggregation") or ""])
+                rows.append(["Standard formula", "Undiversified sum of peril SCRs", sf.get("undiversified_sum_eur"), ""])
+                rows.append(["Standard formula", "Cross-peril diversification benefit",
+                            sf.get("cross_peril_diversification_benefit_eur"), ""])
+                for pk, v in (sf.get("scr_by_peril_eur") or {}).items():
+                    rows.append(["Standard formula · by peril", pk, v, ""])
+            declared = s2601.get("declared") or {}
+            if declared:
+                rows.append(["Declared / external", "; ".join(declared.get("items", [])), None, declared.get("note") or ""])
+        else:
+            rows.append(["Unavailable", s2601.get("reason", "no scored policies"), None, ""])
+        return build_export_workbook(headers, rows, sheet_name="Solvency II · S.26.01 SCR")
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 

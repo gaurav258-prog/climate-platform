@@ -7,9 +7,12 @@ natural-catastrophe structure — it does not re-run anything.
 
 Honesty discipline (same as the banking Pillar 3 build): we report our INTERNAL-MODEL NatCat SCR (the modelled
 1-in-200 / 99.5 % VaR annual-aggregate loss, gross and net of the illustrative reinsurance programme) and the
-per-peril exposure that drives it. The PRESCRIBED STANDARD-FORMULA cells — EIOPA's per-region catastrophe
-factors and CRESTA-zone weights (Del. Reg. 2015/35 Annex) — are DECLARED, not fabricated: they need the
-official factor tables per country/zone, which are an external input, exactly as the bank's EBA DPM binding is.
+per-peril exposure that drives it, ALONGSIDE the PRESCRIBED STANDARD-FORMULA NatCat SCR — all five sub-modules
+(windstorm, earthquake, flood, hail, subsidence), computed from EIOPA's own per-region factors (Del. Reg.
+2015/35, Art. 120-125 and Annexes V-VIII — see services/governance/solvency2_natcat.py). Both bases are cited
+and labelled. The only remaining external dependency is intra-country: the EXACT zonal SCR (Annex IX risk
+zones) needs postcode/administrative boundary geodata to assign each location to its zone — a bounded,
+declared external dependency, like the bank's EBA DPM binding, not the aggregate SCR itself.
 """
 from __future__ import annotations
 

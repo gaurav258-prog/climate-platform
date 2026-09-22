@@ -40,7 +40,7 @@ REFERENCE: dict[str, dict] = {
     },
     "reit_tcfd": {
         "official_name": "TCFD-aligned climate disclosures with EU Taxonomy Article 8 KPIs (property portfolio)",
-        "authority": "National competent authority / EBA",
+        "authority": "National competent authority (CSRD transposition)",
         "legal_basis": "Taxonomy Regulation (EU) 2020/852, Art. 8 · Disclosures Delegated Act (EU) 2021/2178, Annexes I–II (non-financial undertaking KPIs) · TCFD recommendations",
         "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
         "summary": "Real-estate undertakings disclose the Taxonomy eligibility/alignment and TCFD-aligned "
@@ -49,6 +49,19 @@ REFERENCE: dict[str, dict] = {
         "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
         "inputs": "Property schedule: location, property value, net operating income, construction attributes, "
                   "and EU-Taxonomy eligibility.",
+    },
+    "reit_taxonomy": {
+        "official_name": "EU Taxonomy Article 8 KPIs — turnover / CapEx / OpEx (property portfolio)",
+        "authority": "National competent authority (CSRD transposition)",
+        "legal_basis": "Delegated Regulation (EU) 2021/2178, Art. 8 (Taxonomy KPI disclosure)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
+        "summary": "Real-estate undertakings disclose the proportion of turnover, CapEx and OpEx that is "
+                   "Taxonomy-eligible and, of that, Taxonomy-aligned, per Climate Delegated Act (EU) 2021/2139 "
+                   "Annex I §7.7 (acquisition and ownership of buildings).",
+        "official_form": "Art. 8 reporting templates — Annexes I–II (turnover/CapEx/OpEx KPIs), Delegated Reg. (EU) 2021/2178",
+        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32021R2178",
+        "inputs": "Property schedule: rental income (turnover proxy), EU-Taxonomy eligibility, EPC rating; "
+                  "the undertaking's CapEx/OpEx ledger by activity (Annex I §1.1.2/1.1.3).",
     },
     "sfdr_pai": {
         "official_name": "SFDR Statement on Principal Adverse Impacts on sustainability factors",

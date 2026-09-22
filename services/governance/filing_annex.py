@@ -607,21 +607,40 @@ def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
                          "to the independent EAL sum. Correlation perfect within a zone, independent across zones; not a "
                          "fitted vendor cat model.")})
 
-    # 6 — Solvency II NatCat SCR (internal-model 99.5% basis).
+    # 6 — Solvency II NatCat SCR: internal-model basis (99.5% VaR) side by side with the prescribed
+    # standard formula (EIOPA's own per-region factors, computed via services/governance/solvency2_natcat.py
+    # and already served on the /solvency-scr endpoint — see api/routers/insurance.py::_scr_from_cat).
     scr = (payload or {}).get("solvency_scr") or {}
     if scr.get("available"):
+        sf = scr.get("standard_formula_natcat") or {}
+        rows = [
+            {"type": "subheader", "label": "Internal model — 99.5% VaR (own common-shock catastrophe accumulation)"},
+            {"type": "row", "cells": [_txt("NatCat SCR — 1-in-200 annual aggregate (99.5% VaR)"), _mnum(_eur(scr.get("natcat_scr_eur")), "computed")]},
+            {"type": "row", "cells": [_txt("Single largest event — 1-in-200 (OEP)"), _mnum(_eur(scr.get("oep_1_in_200_eur")), "computed")]},
+            {"type": "row", "cells": [_txt("Mean annual loss"), _mnum(_eur(scr.get("mean_annual_loss_eur")), "computed")]},
+            {"type": "row", "cells": [_txt("Risk load (capital above expected loss)"), _mnum(_eur(scr.get("risk_load_eur")), "computed")]},
+            {"type": "row", "cells": [_txt("SCR as % of gross sum insured"), _num(f"{scr.get('scr_pct_of_sum_insured')}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")]},
+        ]
+        if sf.get("available"):
+            rows.append({"type": "subheader", "label": "Standard formula — Del. Reg. (EU) 2015/35, Art. 120-125 (EIOPA's own per-region factors, cited)"})
+            rows.append({"type": "row", "cells": [_txt("NatCat SCR — standard formula (√Σ SCR_peril²)"), _mnum(_eur(sf.get("natcat_scr_eur")), "computed")]})
+            rows.append({"type": "row", "cells": [_txt("Undiversified sum of peril SCRs"), _mnum(_eur(sf.get("undiversified_sum_eur")), "computed")]})
+            rows.append({"type": "row", "cells": [_txt("Cross-peril diversification benefit"), _mnum(_eur(sf.get("cross_peril_diversification_benefit_eur")), "computed")]})
+            for pk, v in (sf.get("scr_by_peril_eur") or {}).items():
+                rows.append({"type": "row", "cells": [_txt(f"  · {pk.title()}"), _mnum(_eur(v), "computed")]})
         sections.append({
-            "title": "Solvency II — NatCat SCR (internal-model basis, 99.5% VaR)",
-            "columns": ["Component", "Amount"], "rows": [
-                {"type": "row", "cells": [_txt("NatCat SCR — 1-in-200 annual aggregate (99.5% VaR)"), _mnum(_eur(scr.get("natcat_scr_eur")), "computed")]},
-                {"type": "row", "cells": [_txt("Single largest event — 1-in-200 (OEP)"), _mnum(_eur(scr.get("oep_1_in_200_eur")), "computed")]},
-                {"type": "row", "cells": [_txt("Mean annual loss"), _mnum(_eur(scr.get("mean_annual_loss_eur")), "computed")]},
-                {"type": "row", "cells": [_txt("Risk load (capital above expected loss)"), _mnum(_eur(scr.get("risk_load_eur")), "computed")]},
-                {"type": "row", "cells": [_txt("SCR as % of gross sum insured"), _num(f"{scr.get('scr_pct_of_sum_insured')}%" if scr.get("scr_pct_of_sum_insured") is not None else "—")]},
-            ],
-            "note": "Internal-model-basis NatCat SCR = modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe loss. "
-                    "The prescribed STANDARD-FORMULA SCR (EIOPA Delegated Reg. 2015/35 per-region factors) is a governed "
-                    "input pending official ingest — never fabricated; both bases are labelled."})
+            "title": "Solvency II — NatCat SCR (internal-model basis, 99.5% VaR"
+                     + (" · standard formula" if sf.get("available") else "") + ")",
+            "columns": ["Component", "Amount"], "rows": rows,
+            "note": ("Internal-model-basis NatCat SCR = modelled 1-in-200 (99.5% VaR) annual-aggregate catastrophe "
+                     "loss from our own accumulation model. " +
+                     ("The prescribed standard-formula NatCat SCR (EIOPA Delegated Reg. (EU) 2015/35, Art. 120-125, "
+                      "Annexes V-VIII) is computed above from EIOPA's own per-region factors — a cited regulatory "
+                      "calculation, not a platform model — and shown alongside it; both bases are labelled and, at "
+                      "country level, both are live (no external ingest pending)."
+                      if sf.get("available") else
+                      "The prescribed standard-formula NatCat SCR (EIOPA Delegated Reg. (EU) 2015/35, Art. 120-125) "
+                      "could not be computed for this book."))})
 
     # 7 — Net-of-reinsurance retention (the loss that actually hits capital).
     reins = (payload or {}).get("reinsurance") or {}
