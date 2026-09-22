@@ -30,10 +30,38 @@ from services.asset_manager_engine import (
     issuer_physical_scores,
     issuer_transition_scores,
 )
+from services.governance.pillar3_templates import HIGH_CLIMATE_NACE, _section
 
-# NACE divisions whose revenue is fossil-fuel-derived (SFDR PAI 4). Extraction of
-# coal (05) and oil & gas (06), and manufacture of coke/refined petroleum (19).
+# NACE codes whose revenue is fossil-fuel-derived (SFDR PAI 4). Scoped to Art. 2(62)
+# of Regulation (EU) 2018/1999: exploration, mining, extraction, production,
+# processing, storage, refining, distribution, transportation, trade of fossil
+# fuels — broader than extraction+refining alone.
+#   Divisions (2-digit, matched by leading digits of the NACE code):
+#     05 coal extraction, 06 oil & gas extraction, 19 coke/refined petroleum
+#   Classes (4-digit, matched by leading digits so a division-level holding code
+#     still falls through to the broader division set above when it is coarser):
+#     35.2  manufacture of gas / distribution of gaseous fuels via mains
+#     46.71 wholesale of solid, liquid and gaseous fuels and related products
+#     47.30 retail sale of automotive fuel
+#     49.50 transport via pipeline
+#     52.10 warehousing and storage
 FOSSIL_FUEL_NACE_DIVISIONS = {"05", "06", "19"}
+FOSSIL_FUEL_NACE_CLASSES = {"35.2", "46.71", "47.30", "49.50", "52.10"}
+
+
+def _is_fossil_fuel_nace(nace_code) -> bool:
+    """True if a holding's NACE code falls in the fossil-fuel scope (SFDR PAI 4 /
+    Art. 2(62) of Reg. (EU) 2018/1999): division-level match for extraction/coke-
+    petroleum (05/06/19), class-level (prefix) match for the broader distribution/
+    trade/transport/storage codes added to cover the full value chain. NACE codes
+    in the golden source appear both dotted ("35.20") and undotted ("3520"/"0610"),
+    so matching strips the dot before comparing digit prefixes."""
+    if not nace_code:
+        return False
+    digits = nace_code.strip().replace(".", "")
+    if digits[:2] in FOSSIL_FUEL_NACE_DIVISIONS:
+        return True
+    return any(digits.startswith(cls.replace(".", "")) for cls in FOSSIL_FUEL_NACE_CLASSES)
 
 
 def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
@@ -56,6 +84,7 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         return {}
     rows = session.execute(text("""
         SELECT CAST(p.market_value_eur AS FLOAT) AS mv, CAST(em.evic_eur AS FLOAT) AS evic,
+               i.nace_code,
                CAST(e.non_renewable_energy_pct AS FLOAT) AS non_renew,
                CAST(e.energy_intensity_gwh_per_meur AS FLOAT) AS energy_int,
                e.biodiversity_sensitive_ops AS biodiv,
@@ -66,6 +95,7 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
                CAST(e.board_female_pct AS FLOAT) AS board_f, e.controversial_weapons AS weapons
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
+        JOIN   issuers    i ON i.issuer_id = s.issuer_id
         LEFT   JOIN LATERAL (
             SELECT * FROM issuer_esg_metrics
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
@@ -95,16 +125,29 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         return (round(100 * sum(mv for mv, v in known if v) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
 
     def attributed_per_meur(field):
+        # Annex I Table 1's denominator is the current value of ALL investments
+        # (total fund AUM), not just the EVIC-covered subset used to attribute the
+        # numerator — coverage (share of value that IS EVIC-attributed) is still
+        # disclosed separately via the second tuple element.
         cov = [(r["mv"], r["evic"], r[field]) for r in rows if r[field] is not None and r["evic"] and r["evic"] > 0]
         inv = sum(mv for mv, _, _ in cov)
         if not inv:
             return None, 0.0
         attributed = sum(min(mv / evic, 1.0) * v for mv, evic, v in cov)  # attribution capped at 100%
-        return round(attributed / (inv / 1e6), 3), round(100 * inv / total_mv, 1)
+        return round(attributed / (total_mv / 1e6), 3), round(100 * inv / total_mv, 1)
+
+    def wavg_high_climate(field):
+        # PAI 6 (energy intensity) is scoped to "high climate impact sectors" (NACE
+        # sections A-H, L) per the RTS — reuse the same registry as Pillar 3 Template 1/5
+        # rather than redefine it, and exclude holdings outside that scope from the average.
+        cov = [(r["mv"], r[field]) for r in rows
+               if r[field] is not None and _section(r["nace_code"]) in HIGH_CLIMATE_NACE]
+        w = sum(mv for mv, _ in cov)
+        return (round(sum(mv * v for mv, v in cov) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
 
     return {
         "pai_5": dict(zip(("value", "coverage_pct"), wavg("non_renew"))),
-        "pai_6": dict(zip(("value", "coverage_pct"), wavg("energy_int"))),
+        "pai_6": dict(zip(("value", "coverage_pct"), wavg_high_climate("energy_int"))),
         "pai_7": dict(zip(("value", "coverage_pct"), share("biodiv"))),
         "pai_8": dict(zip(("value", "coverage_pct"), attributed_per_meur("water"))),
         "pai_9": dict(zip(("value", "coverage_pct"), attributed_per_meur("waste"))),
@@ -175,11 +218,13 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     dq_num = sum(r["mv"] * _PCAF_DQ.get(r.get("emissions_source"), 4) for r in with_emissions)
     pcaf_dq = round(dq_num / covered_mv, 1) if covered_mv else None
 
-    # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Weighted over
-    # the COVERED value (renormalized), and coverage disclosed separately.
+    # PAI 3 — WACI: Σ (position weight × issuer carbon intensity). Annex I Table 1
+    # defines investee GHG intensity as Scope 1+2+3 — all three scopes are summed
+    # into the numerator. Weighted over the COVERED value (renormalized), and
+    # coverage disclosed separately.
     waci = None
     if covered_mv:
-        waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0)) / (r["revenue_eur"] / 1e6))
+        waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0) + (r["s3"] or 0)) / (r["revenue_eur"] / 1e6))
                    for r in with_emissions) / covered_mv
 
     # PAI 1 — financed emissions (PCAF): attribution factor = investment ÷ EVIC.
@@ -202,16 +247,19 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         fin_s3 += af * (r["s3"] or 0)
     financed_total = fin_s1 + fin_s2 + fin_s3
     has_financed = financed_mv > 0
-    # PAI 2 — carbon footprint = financed emissions ÷ €M invested (over EVIC-covered value).
-    carbon_footprint = round(financed_total / (financed_mv / 1e6), 1) if has_financed else None
+    # PAI 2 — carbon footprint = financed emissions ÷ €M invested. Annex I Table 1's
+    # denominator is the current value of ALL investments (total fund AUM), not just
+    # the EVIC-covered subset — a fund with incomplete EVIC coverage must not have its
+    # intensity inflated by excluding the uncovered value from the denominator.
+    # financed_emissions_coverage_pct (EVIC-covered share) is still disclosed alongside.
+    carbon_footprint = round(financed_total / (total_mv / 1e6), 1) if has_financed else None
 
     # PAI 4 — fossil-fuel-sector exposure %. Coverage = share of value whose NACE
     # is known; a NULL-NACE holding is NOT silently treated as non-fossil in the
     # coverage claim (the % is over the whole book, coverage is disclosed separately).
     nace_known_mv = sum(r["mv"] for r in rows if r["nace_code"])
     pai4_coverage = round(100 * nace_known_mv / total_mv, 1) if total_mv else 0.0
-    fossil_mv = sum(r["mv"] for r in rows
-                    if r["nace_code"] and r["nace_code"].strip()[:2] in FOSSIL_FUEL_NACE_DIVISIONS)
+    fossil_mv = sum(r["mv"] for r in rows if _is_fossil_fuel_nace(r["nace_code"]))
 
     return {
         "total_value_eur": round(total_mv),

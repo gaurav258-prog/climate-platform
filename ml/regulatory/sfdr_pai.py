@@ -12,13 +12,24 @@ cannot are marked "not available" with the exact input still required. We never
 invent a number, and we never silently drop a mandatory row — a regulator and an
 auditor must see both what we have and what is missing.
 
-What is computed today (from services/fund_disclosure.fund_pai):
-    * PAI 3  — GHG intensity of investees (WACI)          — computed
-    * PAI 4  — fossil-fuel-sector exposure                — computed
-    * PAI 1  — investee GHG emissions (un-attributed)     — partial (needs EVIC
-                                                            for PCAF attribution)
-Everything else in Table 1 needs issuer data we do not yet hold (energy mix,
-water, waste, social/governance) and is surfaced as an input gap.
+What is computed today (from services/fund_disclosure.fund_pai + fund_esg_pai,
+via _mandatory_indicator_rows):
+    * PAI 1  — GHG emissions, financed where EVIC is available, else the
+               un-attributed investee total                — computed / partial
+    * PAI 2  — carbon footprint (financed emissions / €M invested, over the
+               fund's total value)                          — computed / partial
+    * PAI 3  — GHG intensity of investees (WACI, Scope 1+2+3) — fully computable,
+               no gaps
+    * PAI 4  — fossil-fuel-sector exposure                  — computed
+    * PAI 5-14 — the non-carbon indicators (energy mix, energy intensity by
+               high-impact NACE sector, biodiversity, water, waste, UNGC/OECD
+               conduct, pay gap, board diversity, controversial weapons) — each
+               computed WHERE the manager's ESG feed (issuer_esg_metrics) supplies
+               that datum for a holding; value-weighted (or exposure-share, or
+               EVIC-attributed, per indicator shape) over the covered value.
+Any indicator — including 5-14 — for which no manager has supplied the underlying
+issuer datum is surfaced as an explicit "not available" gap with the exact input
+still required, never a silent zero.
 
 Scope: investee-company indicators (equity / corporate-bond funds), which is the
 beachhead. Sovereign (Table 1, indicators 15-16) and real-estate (17-18) tables

@@ -20,10 +20,12 @@ def test_pcaf_financed_emissions_and_waci_exact():
     """One issuer, chosen so the arithmetic is clean:
         scope1=1,000,000  scope2=500,000  scope3=8,500,000
         revenue=€10,000m  EVIC=€50,000m   position mv=€5m
-      WACI            = (s1+s2)/(rev/1e6)            = 1,500,000 / 10,000 = 150
+      WACI            = (s1+s2+s3)/(rev/1e6)          = 10,000,000 / 10,000 = 1000
+        (Annex I Table 1 defines investee GHG intensity as Scope 1+2+3)
       attribution     = mv/EVIC                       = 5e6 / 5e10 = 1e-4
       financed total  = attribution × (s1+s2+s3)      = 1e-4 × 10,000,000 = 1,000
-      carbon footprint= financed / (mv/1e6)           = 1,000 / 5 = 200
+      carbon footprint= financed / (total fund mv/1e6) = 1,000 / 5 = 200
+        (single fully-covered position, so total fund value == EVIC-covered value)
     """
     created = {}
     with get_session() as s:
@@ -48,7 +50,7 @@ def test_pcaf_financed_emissions_and_waci_exact():
         with get_session() as s:
             pai = fund_pai(s, created["fid"])
         p = pai["pai"]
-        assert p["pai_3_waci_tco2e_per_meur"] == 150.0
+        assert p["pai_3_waci_tco2e_per_meur"] == 1000.0
         assert p["pai_1_financed_emissions_tco2e"]["total"] == 1000
         assert p["pai_2_carbon_footprint_tco2e_per_meur"] == 200.0
         assert pai["financed_emissions_coverage_pct"] == 100.0
