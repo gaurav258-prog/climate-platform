@@ -120,6 +120,15 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     is never asserted (DNSH across the six objectives + minimum safeguards are not
     verified) — matching the classifier's discipline. We report the share of value
     we can even assess, so the gap is explicit.
+
+    Annex III/IV of Del. Reg. (EU) 2021/2178 require TWO separate Taxonomy-aligned
+    KPIs shown side by side — turnover-based and CapEx-based — never blended into
+    one figure. issuer_esg_metrics.taxonomy_aligned_pct is (and always was) the
+    TURNOVER-based figure; taxonomy_aligned_capex_pct is its CapEx companion. Both
+    are value-weighted the same way, over the same DNSH/minimum-safeguards gate,
+    each independently disclosing its own coverage — a fund can have full turnover
+    coverage and zero CapEx coverage (or vice versa), so they must not be averaged
+    together or let one silently stand in for the other.
     """
     if org_id is None:
         org_id = session.execute(text("SELECT org_id::text FROM funds WHERE fund_id = :f"), {"f": fund_id}).scalar()
@@ -127,13 +136,17 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
         fund_ids = fund_descendant_ids(session, fund_id)
     rows = session.execute(text("""
         SELECT CAST(p.market_value_eur AS FLOAT) AS mv, i.nace_code,
-               CAST(e.taxonomy_eligible_pct AS FLOAT) AS elig, CAST(e.taxonomy_aligned_pct AS FLOAT) AS aligned,
+               CAST(e.taxonomy_eligible_pct AS FLOAT) AS elig,
+               CAST(e.taxonomy_aligned_pct AS FLOAT) AS aligned,
+               CAST(e.taxonomy_aligned_capex_pct AS FLOAT) AS aligned_capex,
                e.dnsh_ok, e.min_safeguards_ok
         FROM   fund_positions p
         JOIN   securities s ON s.security_id = p.security_id
         JOIN   issuers   i ON i.issuer_id = s.issuer_id
         LEFT   JOIN LATERAL (
-            SELECT taxonomy_eligible_pct, taxonomy_aligned_pct, dnsh_ok, min_safeguards_ok FROM issuer_esg_metrics
+            SELECT taxonomy_eligible_pct, taxonomy_aligned_pct, taxonomy_aligned_capex_pct,
+                   dnsh_ok, min_safeguards_ok
+            FROM issuer_esg_metrics
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL)
             ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) e ON TRUE
@@ -149,29 +162,60 @@ def _taxonomy_rollup(session, fund_id: str, *, fund_ids=None, org_id=None) -> di
     # A NULL flag means "not separately assessed" → the reported figure stands.
     def _dnsh_fail(r):
         return r["dnsh_ok"] is False or r["min_safeguards_ok"] is False
+
+    def _kpi(field: str) -> dict:
+        """One Taxonomy-aligned KPI (turnover or capex), value-weighted with the
+        same DNSH gate, independently coverage-disclosed."""
+        cov = [(r["mv"], r[field]) for r in rows if r[field] is not None and not _dnsh_fail(r)]
+        excluded = [(r["mv"], r[field]) for r in rows if r[field] is not None and _dnsh_fail(r)]
+        w = sum(mv for mv, _ in cov)
+        excl_w = sum(mv for mv, _ in excluded)
+        return {
+            "aligned_pct": round(sum(mv * v for mv, v in cov) / total, 1) if w else None,
+            "coverage_pct": round(100 * w / total, 1) if total else 0.0,
+            "excluded_dnsh_pct": round(100 * excl_w / total, 1) if excl_w else 0.0,
+            "input_required": None if w else "per-issuer reported Taxonomy-aligned % (Article 8 disclosures)",
+        }
+
     elig_cov = [(r["mv"], r["elig"]) for r in rows if r["elig"] is not None]
-    align_cov = [(r["mv"], r["aligned"]) for r in rows if r["aligned"] is not None and not _dnsh_fail(r)]
-    excluded = [(r["mv"], r["aligned"]) for r in rows if r["aligned"] is not None and _dnsh_fail(r)]
     elig_w = sum(mv for mv, _ in elig_cov)
-    align_w = sum(mv for mv, _ in align_cov)
-    excl_w = sum(mv for mv, _ in excluded)
+    turnover = _kpi("aligned")
+    capex = _kpi("aligned_capex")
+
+    def _note(kpi: dict, label: str) -> str:
+        if kpi["aligned_pct"] is None and not kpi["excluded_dnsh_pct"]:
+            return (f"{label} alignment not asserted: no issuer has supplied its reported {label}-based "
+                    f"Taxonomy-aligned %. Supply per-issuer Article-8 {label.lower()} figures to populate this.")
+        return (
+            f"{label} aligned % is value-weighted over the {kpi['coverage_pct']}% of the book whose issuers "
+            f"reported an Article-8 {label}-based Taxonomy-aligned figure and passed the DNSH / minimum-"
+            "safeguards gate. "
+            + (f"A further {kpi['excluded_dnsh_pct']}% reported aligned {label.lower()} but was EXCLUDED "
+               "because its DNSH or minimum-safeguards attestation is flagged as failing. " if kpi["excluded_dnsh_pct"] else "")
+            + "Where no figure is reported, no alignment is asserted (eligible-at-most) — we never infer "
+            "DNSH or minimum-safeguards ourselves.")
+
     return {
         "assessable_pct": round(100 * with_nace / total, 1) if total else 0.0,
         "taxonomy_eligible_pct": round(sum(mv * v for mv, v in elig_cov) / total, 1) if elig_w else None,
-        "taxonomy_aligned_pct": round(sum(mv * v for mv, v in align_cov) / total, 1) if align_w else None,
-        "alignment_coverage_pct": round(100 * align_w / total, 1) if total else 0.0,
-        "aligned_excluded_dnsh_pct": round(100 * excl_w / total, 1) if excl_w else 0.0,
-        "alignment_note": (
-            f"Aligned % is value-weighted over the {round(100 * align_w / total, 1)}% of the book whose issuers "
-            "reported an Article-8 Taxonomy-aligned figure and passed the DNSH / minimum-safeguards gate. "
-            + (f"A further {round(100 * excl_w / total, 1)}% reported aligned revenue but was EXCLUDED because its "
-               "DNSH or minimum-safeguards attestation is flagged as failing. " if excl_w else "")
-            + "Where no figure is reported, no alignment is asserted (eligible-at-most) — we never infer "
-            "DNSH or minimum-safeguards ourselves."
-            if align_w or excl_w else
-            "Alignment not asserted: no issuer has supplied its reported Taxonomy-aligned %. "
-            "Supply per-issuer Article-8 eligible/aligned figures to populate this."),
-        "input_required": None if align_w else "per-issuer reported Taxonomy eligible/aligned % (Article 8 disclosures)",
+        # ── DEPRECATED (ambiguous name, kept for every existing caller — see
+        # taxonomy_aligned_turnover_pct for the same value under its honest name) ──
+        "taxonomy_aligned_pct": turnover["aligned_pct"],
+        "alignment_coverage_pct": turnover["coverage_pct"],
+        "aligned_excluded_dnsh_pct": turnover["excluded_dnsh_pct"],
+        "alignment_note": _note(turnover, "Turnover"),
+        "input_required": turnover["input_required"],
+        # ── The dual Taxonomy KPI (Annex III/IV of Del. Reg. (EU) 2021/2178) —
+        # turnover-based and CapEx-based, always shown and computed separately ──
+        "taxonomy_aligned_turnover_pct": turnover["aligned_pct"],
+        "turnover_alignment_coverage_pct": turnover["coverage_pct"],
+        "turnover_aligned_excluded_dnsh_pct": turnover["excluded_dnsh_pct"],
+        "turnover_alignment_note": _note(turnover, "Turnover"),
+        "taxonomy_aligned_capex_pct": capex["aligned_pct"],
+        "capex_alignment_coverage_pct": capex["coverage_pct"],
+        "capex_aligned_excluded_dnsh_pct": capex["excluded_dnsh_pct"],
+        "capex_alignment_note": _note(capex, "CapEx"),
+        "capex_input_required": capex["input_required"],
     }
 
 

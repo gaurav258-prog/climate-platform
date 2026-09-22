@@ -31,7 +31,13 @@ interface Statement { error?: string; message?: string
   summary?: { reference_period: string; reference_year: number; declaration?: string }
   filing_readiness?: { ready_to_file: boolean; missing: string[]; note?: string }
   indicators?: Indicator[]; real_estate_indicators?: Indicator[]; sovereign_indicators?: Indicator[]
-  taxonomy?: { taxonomy_eligible_pct?: number; taxonomy_aligned_pct?: number; alignment_coverage_pct?: number; alignment_note?: string }
+  taxonomy?: { taxonomy_eligible_pct?: number
+    // DEPRECATED ambiguous pair — kept for back-compat, equal to the turnover_* fields below.
+    taxonomy_aligned_pct?: number; alignment_coverage_pct?: number; alignment_note?: string
+    // Dual Taxonomy KPI (Annex III/IV of Del. Reg. (EU) 2021/2178) — turnover-based and
+    // CapEx-based, shown separately, never blended.
+    taxonomy_aligned_turnover_pct?: number | null; turnover_alignment_coverage_pct?: number | null; turnover_alignment_note?: string
+    taxonomy_aligned_capex_pct?: number | null; capex_alignment_coverage_pct?: number | null; capex_alignment_note?: string }
   narratives?: { policies?: string; actions?: string; engagement?: string; standards?: string; missing?: string[] }
   additional_indicators?: { selected?: string[] }
   coverage_summary?: { mandatory_indicators: number; computed: number; partial: number; not_available: number; emissions_coverage_pct?: number } }
@@ -165,10 +171,13 @@ export default function FundDetail() {
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">EU Taxonomy alignment</div>
               <div className="space-y-1 text-[12.5px] text-[var(--color-mute)]">
                 <div className="flex justify-between"><span>Eligible</span><span className="mono">{pct(st.taxonomy?.taxonomy_eligible_pct)}</span></div>
-                <div className="flex justify-between"><span>Aligned</span><span className="mono">{pct(st.taxonomy?.taxonomy_aligned_pct)}</span></div>
-                <div className="flex justify-between"><span>Alignment coverage</span><span className="mono">{pct(st.taxonomy?.alignment_coverage_pct)}</span></div>
+                <div className="flex justify-between"><span>Aligned — turnover-based</span><span className="mono">{pct(st.taxonomy?.taxonomy_aligned_turnover_pct)}</span></div>
+                <div className="flex justify-between"><span>Aligned — CapEx-based</span><span className="mono">{pct(st.taxonomy?.taxonomy_aligned_capex_pct)}</span></div>
+                <div className="flex justify-between"><span>Turnover coverage</span><span className="mono">{pct(st.taxonomy?.turnover_alignment_coverage_pct)}</span></div>
+                <div className="flex justify-between"><span>CapEx coverage</span><span className="mono">{pct(st.taxonomy?.capex_alignment_coverage_pct)}</span></div>
               </div>
-              {st.taxonomy?.alignment_note && <div className="text-[10.5px] text-[var(--color-faint)] mt-2">{st.taxonomy.alignment_note}</div>}
+              {st.taxonomy?.turnover_alignment_note && <div className="text-[10.5px] text-[var(--color-faint)] mt-2">{st.taxonomy.turnover_alignment_note}</div>}
+              {st.taxonomy?.capex_alignment_note && <div className="text-[10.5px] text-[var(--color-faint)] mt-1">{st.taxonomy.capex_alignment_note}</div>}
             </div>
             <div className="p-5">
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Narratives</div>

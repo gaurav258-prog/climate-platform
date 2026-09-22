@@ -22,6 +22,7 @@ from sqlalchemy import text
 from api.deps import DbSession
 from ml.regulatory.sfdr_pai import entity_pai_statement, sfdr_pai_statement, sfdr_pai_statement_xlsx
 from ml.regulatory.sfdr_periodic import periodic_report
+from ml.regulatory.sfdr_precontractual import build_precontractual
 from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
@@ -147,9 +148,13 @@ class Holding(BaseModel):
     gender_pay_gap_pct: Optional[float] = None           # PAI 12
     board_female_pct: Optional[float] = None             # PAI 13
     controversial_weapons: Optional[bool] = None         # PAI 14
-    # EU Taxonomy — the issuer's own Article-8 reported figures (% of revenue)
+    # EU Taxonomy — the issuer's own Article-8 reported figures. taxonomy_aligned_pct
+    # is the TURNOVER-based KPI (% of revenue); taxonomy_aligned_capex_pct is the
+    # CapEx-based KPI (% of capital expenditure) — Annex III/IV require both, shown
+    # side by side, never blended into one figure.
     taxonomy_eligible_pct: Optional[float] = Field(None, ge=0, le=100)
-    taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
+    taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)          # turnover-based
+    taxonomy_aligned_capex_pct: Optional[float] = Field(None, ge=0, le=100)    # CapEx-based
     # DNSH / minimum-safeguards attestation. NULL = not separately assessed (take
     # reported aligned as-is); False = known to fail → that issuer's aligned excluded.
     taxonomy_dnsh_ok: Optional[bool] = None
@@ -234,6 +239,7 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
         "controversial_weapons": h.controversial_weapons,
         "taxonomy_eligible_pct": h.taxonomy_eligible_pct,
         "taxonomy_aligned_pct": h.taxonomy_aligned_pct,
+        "taxonomy_aligned_capex_pct": h.taxonomy_aligned_capex_pct,
         "dnsh_ok": h.taxonomy_dnsh_ok,
         "min_safeguards_ok": h.taxonomy_min_safeguards_ok,
     }
@@ -554,6 +560,61 @@ def sfdr_periodic_report(fund_id: str, session: DbSession, org_id: OrgId):
     if err:
         return {"error": err}
     return periodic_report(session, fund_id)
+
+
+@router.get("/funds/{fund_id}/precontractual", summary="SFDR Article 8/9 pre-contractual disclosure (RTS Annex II/III)")
+def sfdr_precontractual(fund_id: str, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    return build_precontractual(session, fund_id)
+
+
+class PrecontractualUpdate(BaseModel):
+    # Every field here is the manager's own declared narrative/forward-commitment —
+    # never computed, never fabricated. See ml/regulatory/sfdr_precontractual.py for
+    # how each is surfaced (or flagged missing) in the assembled template.
+    proportion_investments_planned_pct: Optional[float] = Field(None, ge=0, le=100)
+    sustainable_investment_objective: Optional[str] = None   # Article 9
+    characteristics_promoted: Optional[str] = None            # Article 8
+    additional_indicators: Optional[list[str]] = None
+    methodology: Optional[str] = None
+    data_sources: Optional[str] = None
+    limitations: Optional[str] = None
+    dnsh_methodology: Optional[str] = None
+    investment_strategy: Optional[str] = None
+    binding_elements: Optional[str] = None
+    good_governance_policy: Optional[str] = None
+    due_diligence: Optional[str] = None
+    monitoring_process: Optional[str] = None
+    planned_taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
+    planned_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
+    derivatives_use: Optional[str] = None
+    transitional_enabling_share_pct: Optional[float] = Field(None, ge=0, le=100)
+    env_not_taxonomy_aligned_pct: Optional[float] = Field(None, ge=0, le=100)
+    social_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
+    other_investments_purpose: Optional[str] = None
+    reference_benchmark_name: Optional[str] = None
+    benchmark_alignment_methodology: Optional[str] = None
+    benchmark_vs_broad_market: Optional[str] = None
+    benchmark_methodology_url: Optional[str] = None
+    more_info_url: Optional[str] = None
+
+
+@router.put("/funds/{fund_id}/precontractual", summary="Set the fund's declared pre-contractual disclosure fields")
+def set_sfdr_precontractual(fund_id: str, body: PrecontractualUpdate, session: DbSession, org_id: OrgId):
+    err = _fund_owned_or_error(session, fund_id, org_id)
+    if err:
+        return {"error": err}
+    import json as _json
+    merged = {k: v for k, v in body.model_dump().items() if v is not None}
+    session.execute(text("""
+        UPDATE funds
+           SET sfdr_precontractual = COALESCE(sfdr_precontractual, '{}'::jsonb) || CAST(:patch AS jsonb),
+               updated_at = now()
+         WHERE fund_id = :f
+    """), {"f": fund_id, "patch": _json.dumps(merged)})
+    return {"ok": True, "fields_set": list(merged.keys())}
 
 
 @router.get("/funds/{fund_id}/sfdr-filings", summary="Prior SFDR filings for this fund (year-on-year history)")

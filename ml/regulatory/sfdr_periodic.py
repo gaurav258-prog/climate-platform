@@ -78,16 +78,22 @@ def periodic_report(session, fund_id: str) -> dict:
             note="Sustainability indicators are computed from the golden source; the narrative "
                  "attainment statement is the manager's."),
         _section(
-            "EU Taxonomy alignment of investments",
-            "computed" if tax.get("taxonomy_aligned_pct") is not None else "not_available",
-            value={"taxonomy_aligned_pct": tax.get("taxonomy_aligned_pct"),
+            "EU Taxonomy alignment of investments — turnover-based AND CapEx-based KPIs",
+            "computed" if (tax.get("taxonomy_aligned_turnover_pct") is not None
+                           or tax.get("taxonomy_aligned_capex_pct") is not None) else "not_available",
+            value={"taxonomy_aligned_turnover_pct": tax.get("taxonomy_aligned_turnover_pct"),
+                   "taxonomy_aligned_capex_pct": tax.get("taxonomy_aligned_capex_pct"),
                    "taxonomy_eligible_pct": tax.get("taxonomy_eligible_pct"),
-                   "reported_coverage_pct": tax.get("alignment_coverage_pct")},
-            input_required=tax.get("input_required")),
+                   "turnover_coverage_pct": tax.get("turnover_alignment_coverage_pct"),
+                   "capex_coverage_pct": tax.get("capex_alignment_coverage_pct")},
+            input_required=tax.get("input_required") or tax.get("capex_input_required"),
+            note="Annex IV/V require the turnover-based and CapEx-based Taxonomy-aligned % shown "
+                 "separately, never blended into one figure."),
         _section(
             "What was the asset allocation? (#1 aligned with E/S · #2 other)",
             "partial",
-            value={"taxonomy_aligned_pct": tax.get("taxonomy_aligned_pct")},
+            value={"taxonomy_aligned_turnover_pct": tax.get("taxonomy_aligned_turnover_pct"),
+                   "taxonomy_aligned_capex_pct": tax.get("taxonomy_aligned_capex_pct")},
             input_required="the manager's per-holding classification of which investments count "
                            "toward the E/S characteristics (#1) vs other (#2)"),
         _section(
