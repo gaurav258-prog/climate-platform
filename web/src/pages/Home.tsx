@@ -71,7 +71,7 @@ export default function Home() {
         <SectionHead className="mb-3">Biggest exposures right now</SectionHead>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {exposures.map((e, i) => (
-            <button key={i} onClick={() => window.open(e.href, '_blank')}
+            <button key={i} onClick={() => nav(e.href)}
               className="text-left rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3.5 hover:border-[var(--color-sky)] transition">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] text-[var(--color-ink)] truncate">{e.name}</span>
