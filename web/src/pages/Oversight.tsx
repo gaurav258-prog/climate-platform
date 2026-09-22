@@ -255,6 +255,7 @@ function PostureView({ q, nav }: { q: ReturnType<typeof useQuery<Posture>>; nav:
                   <div><div className="text-[var(--color-mute)]">{c.label}</div>{!c.ok && c.hint && <div className="mono text-[10px] text-[var(--color-faint)]">{c.hint}</div>}</div>
                 </div>
               ))}
+              <button onClick={() => nav('/admin')} className="w-full text-left px-5 py-2.5 mono text-[10.5px] text-[var(--color-sky)] hover:underline">Full checklist in Control Center →</button>
             </div>
           </Card>
         </div>
