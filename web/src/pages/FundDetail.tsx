@@ -7,7 +7,7 @@ import { toast } from '../lib/toast'
 import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
-import { OnboardHoldings, VoluntaryPai } from '../components/FundOnboard'
+import { OnboardHoldings, VoluntaryPai, PrecontractualDisclosure } from '../components/FundOnboard'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
 // mandatory indicators + taxonomy + narratives) ready to download or freeze as the official filing.
@@ -195,6 +195,11 @@ export default function FundDetail() {
 
       {/* voluntary PAI selection */}
       {st && !st.error && <VoluntaryPai fundId={id} selected={st.additional_indicators?.selected ?? []} onDone={refreshAll} />}
+
+      {/* SFDR Article 8/9 pre-contractual disclosure — Annex II/III, distinct from the PAI statement above */}
+      {(s.fund.sfdr_classification === 'article_8' || s.fund.sfdr_classification === 'article_9') && s.positions > 0 && (
+        <PrecontractualDisclosure fundId={id} onDone={refreshAll} />
+      )}
 
       {/* holdings with issuer drill */}
       <FundPositions fundId={id} />

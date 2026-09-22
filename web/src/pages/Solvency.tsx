@@ -43,6 +43,9 @@ const PERIL_COLOR: Record<string, string> = { windstorm: '#7db8ff', earthquake: 
 // IFRS S2 ¶16(a) — actual incurred losses for the reporting period, alongside the ¶16(c)-(d) modelled figures.
 interface PerilLossRow { peril: string; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; n_records: number }
 interface PeriodLossRow { period_start: string; period_end: string; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; perils: string[] }
+// SASB FN-IN-450a.2 disaggregation (via IFRS S2 ¶29) — geography and modelled/non-modelled catastrophe.
+interface RegionLossRow { region: string; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; n_records: number }
+interface ModelledLossRow { modelled: 'modelled' | 'non_modelled'; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; n_records: number }
 interface ModeledFigures {
   available?: boolean; scenario?: string; horizon?: string
   total_expected_annual_loss_eur?: number | null
@@ -53,6 +56,8 @@ interface IncurredSummary {
   status: 'not_yet_supplied' | 'supplied'; regulation: string; note?: string
   n_records?: number; total_gross_incurred_loss_eur?: number; total_net_incurred_loss_eur?: number | null
   by_peril: PerilLossRow[]; by_period: PeriodLossRow[]; modeled?: ModeledFigures | null; comparison_note?: string
+  by_region?: RegionLossRow[]; by_modelled?: ModelledLossRow[]
+  region_coverage_note?: string | null; modelled_coverage_note?: string | null
 }
 
 export default function Solvency() {
@@ -263,6 +268,48 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
               ))}
             </tbody>
           </table>
+          {(!!data.by_region?.length || !!data.by_modelled?.length) && (
+            <div className="grid md:grid-cols-2 gap-3">
+              {!!data.by_region?.length && (
+                <div>
+                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">By region</div>
+                  <table className="w-full text-[12px]">
+                    <tbody>
+                      {data.by_region.map(r => (
+                        <tr key={r.region} className="border-t border-[var(--color-line-2)]">
+                          <td className="px-2 py-1.5 text-[var(--color-ink)]">{r.region}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(r.gross_incurred_loss_eur)}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{r.n_records}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {!!data.by_modelled?.length && (
+                <div>
+                  <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Modelled vs non-modelled</div>
+                  <table className="w-full text-[12px]">
+                    <tbody>
+                      {data.by_modelled.map(m => (
+                        <tr key={m.modelled} className="border-t border-[var(--color-line-2)]">
+                          <td className="px-2 py-1.5 text-[var(--color-ink)]">{m.modelled === 'modelled' ? 'Modelled catastrophe' : 'Non-modelled catastrophe'}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(m.gross_incurred_loss_eur)}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{m.n_records}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+          {(data.region_coverage_note || data.modelled_coverage_note) && (
+            <div className="mono text-[10.5px] text-[var(--color-faint)] leading-relaxed space-y-0.5">
+              {data.region_coverage_note && <div>{data.region_coverage_note}</div>}
+              {data.modelled_coverage_note && <div>{data.modelled_coverage_note}</div>}
+            </div>
+          )}
           {data.comparison_note && <div className="mono text-[10.5px] text-[var(--color-faint)] leading-relaxed">{data.comparison_note}</div>}
         </div>
       )}
@@ -283,6 +330,8 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
   const [periodEnd, setPeriodEnd] = useState(`${new Date().getFullYear()}-12-31`)
   const [gross, setGross] = useState('')
   const [net, setNet] = useState('')
+  const [region, setRegion] = useState('')
+  const [modelled, setModelled] = useState('')   // '' = not specified, 'true' / 'false'
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -297,8 +346,10 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
         gross_incurred_loss_eur: Number(gross),
         net_incurred_loss_eur: net ? Number(net) : undefined,
         source: 'client',
+        region: region || undefined,
+        modelled: modelled === '' ? undefined : modelled === 'true',
       })
-      setGross(''); setNet(''); onSaved()
+      setGross(''); setNet(''); setRegion(''); setModelled(''); onSaved()
     } catch (e) { setErr(apiErrText(e, 'Could not save the incurred loss.')) } finally { setBusy(false) }
   }
 
@@ -319,6 +370,16 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
         <input type="number" min={0} placeholder="Net EUR (optional)" value={net} onChange={e => setNet(e.target.value)}
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <input type="text" placeholder="Region (optional)" value={region} onChange={e => setRegion(e.target.value)}
+          title="SASB FN-IN-450a.2 geographic-segment disaggregation, e.g. 'Germany'"
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <select value={modelled} onChange={e => setModelled(e.target.value)}
+          title="SASB FN-IN-450a.2 modelled-vs-non-modelled catastrophe disaggregation"
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
+          <option value="">Modelled? (optional)</option>
+          <option value="true">Modelled catastrophe</option>
+          <option value="false">Non-modelled catastrophe</option>
+        </select>
       </div>
       <Button variant="primary" onClick={submit} disabled={busy}><FileClock size={14} /> Submit incurred loss</Button>
     </div>

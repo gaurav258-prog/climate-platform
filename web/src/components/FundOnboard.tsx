@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, FileSpreadsheet, Check } from 'lucide-react'
 import { api, ApiError, download } from '../lib/api'
 import { toast } from '../lib/toast'
-import { Card, Button } from './ui'
+import { Card, Button, SectionHead } from './ui'
 
 // Two write actions on a fund: onboard holdings by ISIN (the golden source resolves + locates + value-weights
 // each one), and choose the voluntary PAI indicators the fund adopts (≥1 environmental + ≥1 social).
@@ -140,6 +140,154 @@ export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; sel
           </div>
         </div>
       )}
+    </Card>
+  )
+}
+
+// SFDR Article 8/9 pre-contractual disclosure (RTS Annex II/III) — the template that must be annexed to
+// the fund's prospectus, distinct from both the PAI statement (backward, mandatory) and the periodic
+// report. Assembled server-side (ml/regulatory/sfdr_precontractual.py) as a list of sections, each
+// computed from the golden source, manager-declared, or an honest gap. Rendered generically here —
+// driven entirely by each section's `key`/`keys` (the funds.sfdr_precontractual JSONB field name(s) the
+// PUT endpoint accepts) — rather than one hand-written form per field, so the frontend never drifts from
+// the Python source of truth as fields are added.
+interface PCField {
+  field: string; status: string; value: unknown; source?: string | null
+  input_required?: string | null; note?: string | null
+  key?: string | null; keys?: string[] | null
+}
+interface PCResp {
+  error?: string; template?: string
+  sections?: PCField[]
+  coverage_summary?: { fields: number; computed: number; declared: number; not_available: number; note: string }
+}
+
+const PC_STATUS: Record<string, { c: string; label: string }> = {
+  computed: { c: '#34d399', label: 'computed' },
+  declared: { c: '#5cc8ff', label: 'declared' },
+  not_available: { c: '#fb7185', label: 'not available' },
+  not_applicable: { c: '#64748b', label: 'n/a' },
+}
+
+function renderPCValue(v: unknown): string {
+  if (v == null || v === '') return '—'
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'string' || typeof v === 'number') return String(v)
+  if (Array.isArray(v)) return v.length ? v.map(x => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ') : '—'
+  if (typeof v === 'object') {
+    const parts = Object.entries(v as Record<string, unknown>)
+      .filter(([, x]) => x != null && x !== '')
+      .map(([k, x]) => `${k.replace(/_/g, ' ')}: ${typeof x === 'object' ? JSON.stringify(x) : String(x)}`)
+    return parts.length ? parts.join(' · ') : '—'
+  }
+  return String(v)
+}
+
+function PCFieldInput({ fieldKey, value, onChange }: { fieldKey: string; value: string; onChange: (v: string) => void }) {
+  const label = fieldKey.replace(/_/g, ' ')
+  if (fieldKey === 'makes_sustainable_investments') return (
+    <select value={value} onChange={e => onChange(e.target.value)} className="block w-full mt-0.5 rounded border border-[var(--color-line-2)] bg-transparent px-2 py-1 text-[12px]">
+      <option value="">— {label} —</option><option value="true">Yes</option><option value="false">No</option>
+    </select>
+  )
+  if (fieldKey === 'taxonomy_kpi_basis') return (
+    <select value={value} onChange={e => onChange(e.target.value)} className="block w-full mt-0.5 rounded border border-[var(--color-line-2)] bg-transparent px-2 py-1 text-[12px]">
+      <option value="">— basis (default turnover) —</option><option value="turnover">Turnover</option><option value="capex">CapEx</option><option value="opex">OpEx</option>
+    </select>
+  )
+  if (fieldKey.endsWith('_pct')) return (
+    <input type="number" min={0} max={100} step="0.1" placeholder={label} value={value} onChange={e => onChange(e.target.value)}
+      className="block w-full mt-0.5 rounded border border-[var(--color-line-2)] bg-transparent px-2 py-1 text-[12px]" />
+  )
+  if (fieldKey.endsWith('_url') || fieldKey.endsWith('_name')) return (
+    <input type="text" placeholder={label} value={value} onChange={e => onChange(e.target.value)}
+      className="block w-full mt-0.5 rounded border border-[var(--color-line-2)] bg-transparent px-2 py-1 text-[12px]" />
+  )
+  return (
+    <textarea placeholder={label} rows={3} value={value} onChange={e => onChange(e.target.value)}
+      className="block w-full mt-0.5 rounded border border-[var(--color-line-2)] bg-transparent px-2 py-1 text-[12px]" />
+  )
+}
+
+export function PrecontractualDisclosure({ fundId, onDone }: { fundId: string; onDone: () => void }) {
+  const qc = useQueryClient()
+  const pc = useQuery({ queryKey: ['fund-precontractual', fundId], queryFn: () => api.get<PCResp>(`/v1/funds/${fundId}/precontractual`) })
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const data = pc.data
+  if (pc.isLoading || !data || data.error) return null
+  const sections = data.sections ?? []
+  const cov = data.coverage_summary
+
+  const editKeysOf = (s: PCField): string[] => (s.keys && s.keys.length ? s.keys : s.key ? [s.key] : [])
+
+  const startEdit = (s: PCField) => {
+    const keys = editKeysOf(s)
+    const d: Record<string, string> = {}
+    keys.forEach(k => { d[k] = '' })
+    if (s.key && typeof s.value !== 'object') d[s.key] = s.value != null ? String(s.value) : ''
+    setDraft(d); setEditing(s.field); setErr(null)
+  }
+
+  const save = async (s: PCField) => {
+    setBusy(true); setErr(null)
+    try {
+      const patch: Record<string, unknown> = {}
+      for (const k of editKeysOf(s)) {
+        const raw = draft[k]
+        if (raw === undefined || raw === '') continue
+        if (k === 'makes_sustainable_investments') patch[k] = raw === 'true'
+        else if (k.endsWith('_pct')) patch[k] = Number(raw)
+        else patch[k] = raw
+      }
+      if (!Object.keys(patch).length) { setEditing(null); return }
+      const r = await api.put<{ error?: string }>(`/v1/funds/${fundId}/precontractual`, patch)
+      if (r.error) { setErr(r.error); return }
+      setEditing(null); qc.invalidateQueries({ queryKey: ['fund-precontractual', fundId] }); onDone()
+    } catch (e) { setErr(e instanceof ApiError ? String(e.body ?? e.message) : 'Could not save.') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="px-5 py-3 border-b border-[var(--color-line)]">
+        <SectionHead>SFDR pre-contractual disclosure</SectionHead>
+        {cov && <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{data.template} · {cov.computed}/{cov.fields} computed · {cov.declared} declared · {cov.not_available} missing</div>}
+      </div>
+      <div className="divide-y divide-[var(--color-line)]">
+        {sections.map((s, i) => {
+          const badge = PC_STATUS[s.status] ?? { c: 'var(--color-faint)', label: s.status }
+          const keys = editKeysOf(s)
+          const isEditing = editing === s.field
+          return (
+            <div key={i} className="px-5 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-[12.5px] text-[var(--color-ink)] max-w-[65%]">{s.field}</div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="mono text-[10px]" style={{ color: badge.c }}>{badge.label}</span>
+                  {keys.length > 0 && !isEditing && <button onClick={() => startEdit(s)} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">edit</button>}
+                </div>
+              </div>
+              {!isEditing && <div className="text-[12px] text-[var(--color-mute)] mt-1">{renderPCValue(s.value)}</div>}
+              {s.note && <div className="text-[10.5px] text-[var(--color-faint)] mt-1">{s.note}</div>}
+              {s.input_required && !isEditing && <div className="text-[10.5px] text-[var(--color-warn)] mt-1">Needed: {s.input_required}</div>}
+              {isEditing && (
+                <div className="mt-2 space-y-2 max-w-md">
+                  {keys.map(k => <PCFieldInput key={k} fieldKey={k} value={draft[k] ?? ''} onChange={v => setDraft(d => ({ ...d, [k]: v }))} />)}
+                  {err && <div className="text-[11px] text-[var(--color-bad)]">{err}</div>}
+                  <div className="flex items-center gap-3">
+                    <Button variant="primary" onClick={() => save(s)} disabled={busy}>Save</Button>
+                    <button onClick={() => setEditing(null)} className="mono text-[11px] text-[var(--color-mute)] hover:underline">cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </Card>
   )
 }

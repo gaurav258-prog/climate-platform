@@ -577,6 +577,9 @@ class PrecontractualUpdate(BaseModel):
     proportion_investments_planned_pct: Optional[float] = Field(None, ge=0, le=100)
     sustainable_investment_objective: Optional[str] = None   # Article 9
     characteristics_promoted: Optional[str] = None            # Article 8
+    makes_sustainable_investments: Optional[bool] = None       # Article 8 partial-SI tick (ESAs Q&A V.29)
+    env_sustainable_pct: Optional[float] = Field(None, ge=0, le=100)
+    taxonomy_kpi_basis: Optional[str] = None    # 'turnover' (default) / 'capex' / 'opex' — Art. 15(3)/19(3)
     additional_indicators: Optional[list[str]] = None
     methodology: Optional[str] = None
     data_sources: Optional[str] = None
