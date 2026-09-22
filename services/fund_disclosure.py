@@ -268,6 +268,23 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
 
     return {
         "total_value_eur": round(total_mv),
+        # Honest, disclosed schema limitation (found via the ESAs' consolidated SFDR Q&A, JC 2023 18,
+        # Section III.2: for asset managers, "all investments" for the PAI 2/3/15 denominators means ALL
+        # AUM — "both collective and individual portfolio management activities" — including cash, deposits
+        # and derivative instruments, not just issuer-linked securities). `fund_positions` currently has no
+        # way to represent a cash/deposit/derivative position at all (every row requires an issuer-linked
+        # `security_id`), so total_mv/total_value_eur here reflect issuer-linked holdings ONLY. If a fund
+        # holds material cash or derivative sleeves, every PAI ratio below is computed over a SMALLER
+        # denominator than the true "all investments" figure the RTS defines — which INFLATES the reported
+        # ratios (carbon footprint, WACI, fossil-fuel %, etc.), never understates them. This is a real,
+        # acknowledged data-model gap (adding true cash/derivative position modelling is a product-design
+        # task, not a quick fix) — disclosed here rather than silently assumed away.
+        "denominator_scope_note": (
+            "total_value_eur (and every PAI ratio's denominator) covers issuer-linked securities only — "
+            "this platform cannot yet represent cash, deposits, or derivative positions as fund holdings. "
+            "Per ESAs SFDR Q&A (JC 2023 18, III.2), 'all investments' should include those too; if this fund "
+            "holds material cash/derivative sleeves, the ratios below are computed over a smaller-than-"
+            "correct denominator, which inflates them."),
         "positions": len(rows),
         "emissions_coverage_pct": round(100 * covered_mv / total_mv, 1),
         "emissions_estimated_pct": round(100 * estimated_mv / covered_mv, 1) if covered_mv else 0.0,

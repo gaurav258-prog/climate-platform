@@ -111,13 +111,18 @@ def biodiversity_topic(session: Session, org_id: str) -> dict:
             "plot_spend_in_protected_eur": round(pa["plots"]["spend_in_eur"], 2),
             "protected_area_ha": round(pa["plots"]["area_ha_in"], 2),
             "coverage": _protected_area_coverage(pa["datasets"]),
-            "basis": "ESRS E4-5 — own sites and sourcing plots whose H3 cell falls in (or within the loaded "
-                     "buffer of) a designated protected area, by indexed membership against the protected-area "
-                     "overlap engine. Overlap is reported only for the areas actually loaded; non-covered "
-                     "geographies are disclosed as coverage gaps, never as 'no overlap'. `protected_area_ha` is "
-                     "the sourcing-plot area (ha) within protected areas — ESRS E4-5 para 35 requires both the "
-                     "number and the area of sites/plots in or near biodiversity-sensitive areas; own-site area "
-                     "is not held in our golden source, so this figure covers sourcing plots only.",
+            "basis": "Sites/plots whose H3 cell falls in (or within the loaded buffer of) a designated "
+                     "protected area, by indexed membership against the protected-area overlap engine. Overlap "
+                     "is reported only for the areas actually loaded; non-covered geographies are disclosed as "
+                     "coverage gaps, never as 'no overlap'. Scope correction (EFRAG ESRS Q&A Platform, "
+                     "Explanation ID 1058, Dec 2024): ESRS E4-5 para 35's MANDATORY metric covers only "
+                     "own-operations sites (`sites_in_protected`/`sites_total`) — 'no coverage of the value "
+                     "chain is required.' The sourcing-plot figures (`plots_in_protected`, "
+                     "`plot_spend_in_protected_eur`, `protected_area_ha`) go beyond para 35's mandatory scope: "
+                     "they are a VOLUNTARY, supplementary value-chain disclosure (permissible under ESRS 1 "
+                     "§§11/30(b)/AR 3, subject to the §133(b) transitional relief for value-chain data), not "
+                     "part of the required metric itself. `protected_area_ha` (hectares) is sourcing-plot area "
+                     "only — own-site area in hectares is not held in our golden source.",
         },
     }
 

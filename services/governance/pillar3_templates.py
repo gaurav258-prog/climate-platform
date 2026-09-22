@@ -120,7 +120,13 @@ def _new_mat_ifrs9_row() -> dict:
 def _accumulate_mat_ifrs9(row: dict, asset: dict, gross: float) -> tuple[bool, bool]:
     """Adds one exposure's residual-maturity bucket and IFRS-9 stage (each only if the customer supplied it)
     into `row`. Returns (has_maturity, has_ifrs9) so the caller can track book-wide attribute coverage —
-    the shared logic behind Template 1's and Template 5's maturity/credit-quality columns."""
+    the shared logic behind Template 1's and Template 5's maturity/credit-quality columns.
+
+    Per EBA Q&A 2022_6515: an exposure with no stated maturity BY ITS NATURE (equity, a perpetual
+    instrument) must be disclosed in the largest '>20 years' bucket, never silently excluded — that is a
+    genuinely different case from simply not having residual_maturity_years supplied yet (still correctly
+    excluded/uncovered until the customer provides it). `no_stated_maturity` is the explicit signal
+    distinguishing the two; a stated `residual_maturity_years`, if present, always takes precedence over it."""
     has_mat = has_ifrs9 = False
     m = asset.get("residual_maturity_years")
     if m is not None:
@@ -132,6 +138,11 @@ def _accumulate_mat_ifrs9(row: dict, asset: dict, gross: float) -> tuple[bool, b
             has_mat = True
         except (TypeError, ValueError):
             pass
+    elif asset.get("no_stated_maturity"):
+        # no numeric maturity to average into the weighted-average-maturity figure — only the bucket amount
+        # is mandated by the Q&A — so _mat_x_gross/_mat_gross are deliberately NOT incremented here.
+        row["gt20"] += gross
+        has_mat = True
     st = str(asset.get("ifrs9_stage") or "").strip().lower().replace("stage", "").strip()
     if st:
         row["_ifrs9_gross"] += gross
@@ -204,6 +215,10 @@ def template1_grid(assets: list[dict]) -> dict:
                              "of which excluded from EU Paris-aligned Benchmarks",
                              "accumulated impairment",
                              "% of emissions from company-specific reporting"],
+        # NOT YET BUILT — column-k formula confirmed in advance by an EBA Q&A sweep: EBA Q&A 2024_7225
+        # confirms the denominator for "% of emissions from company-specific reporting" is ALL exposures
+        # (GHG-covered or not), never just the GHG-covered subset — the more intuitive-but-wrong reading.
+        # Whoever implements this column must divide by the full book, not the covered subset.
         "basis": "Gross carrying amount = outstanding loan balance. Financed emissions (Scope 1+2+3) and of-which "
                  "Scope 3 sum the per-counterparty GHG figures on the book (the platform's financed-emissions "
                  "basis). Maturity buckets + gross-weighted average maturity, and IFRS-9 Stage 2 / non-performing, "
@@ -292,6 +307,11 @@ def gar_grid(assets: list[dict]) -> dict:
         "govt_level_coverage": {"n_nace_o": n_nace_o, "n_signalled": n_nace_o_signalled},
         "customer_columns": ["CCM / CCA per-objective split (needs per-activity objective mapping)",
                              "GAR on flow (new lending in the period)", "specialised-lending / of-which enabling / transitional"],
+        # NOT YET BUILT — formula confirmed in advance by an EBA Q&A sweep so it's built correctly the first
+        # time, not guessed: EBA Q&A 2024_7082 confirms the flow-GAR denominator is the gross carrying amount
+        # of NEWLY INCURRED exposures during the year, "without deducting the amounts of loan repayments or
+        # disposals" — never a period-over-period stock-minus-stock delta (that formula was explicitly
+        # rejected by the EBA). Whoever implements "GAR on flow" above must use the new-exposures convention.
         "basis": "Green Asset Ratio on stock = Taxonomy-aligned / covered assets. Covered assets EXCLUDE ONLY "
                  "central governments, central banks and supranational issuers per Art. 7(1) — local/regional "
                  "government and compulsory social-security bodies are NOT excluded and stay in covered assets. "

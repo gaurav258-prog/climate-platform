@@ -131,13 +131,34 @@ def build_precontractual(session, fund_id: str) -> dict:
     # ── "Does this financial product have a sustainable investment objective?" ──
     # The Yes/No branch is derived honestly from sfdr_classification; the BINDING minimum
     # % commitment is a forward commitment only the manager can make — never computed.
+    #
+    # Tick-box structure correction (found via the ESAs' consolidated SFDR Q&A, JC 2023 18, Section V.29,
+    # updated Aug 2025): the real Annex II/III tick-box is not a bare Yes/No keyed to Article 8 vs 9. An
+    # Article 8 product can ALSO tick "yes, it partly makes sustainable investments" with its own minimum %
+    # — a genuinely different, additional commitment beyond just "promotes E/S characteristics." Article 9
+    # products separately commit to environmental AND social sustainable-investment minimum percentages,
+    # which the Q&A explicitly says need NOT sum to the total minimum SI proportion. `makes_sustainable_
+    # investments` is the Art-8-specific declared toggle for that additional tick; the env/social sub-splits
+    # (below, near env_not_taxonomy_aligned_pct) apply to both Art 8 (if ticked) and Art 9.
+    makes_si = d("makes_sustainable_investments") if not is_art9 else True
     planned_pct = d("proportion_investments_planned_pct")
+    if is_art9:
+        _tickbox_value = "Yes — sustainable investment objective (Article 9)"
+    elif makes_si:
+        _tickbox_value = ("No sustainable investment OBJECTIVE, but YES — it also commits to a minimum "
+                          "proportion of sustainable investments (Article 8, partial SI commitment)")
+    else:
+        _tickbox_value = "No — it promotes environmental/social characteristics only (Article 8)"
     sections.append(_field(
         "Does this financial product have a sustainable investment objective?",
-        "computed",
-        value=("Yes — sustainable investment objective (Article 9)" if is_art9
-               else "No — it promotes environmental/social characteristics (Article 8)"),
-        source="golden source (fund.sfdr_classification)"))
+        "computed" if is_art9 else ("declared" if d("makes_sustainable_investments") is not None else "declared"),
+        value=_tickbox_value,
+        source="golden source (fund.sfdr_classification)" + ("" if is_art9 else
+               " + customer/declared (makes_sustainable_investments toggle)"),
+        note=None if is_art9 else
+             "Article 8 products may ALSO tick a partial sustainable-investments commitment, distinct from "
+             "simply promoting E/S characteristics (ESAs SFDR Q&A JC 2023 18, V.29) — declare "
+             "'makes_sustainable_investments' if this product does."))
     sections.append(_field(
         "Minimum proportion of investments planned "
         + ("with a sustainable investment objective" if is_art9
@@ -280,29 +301,54 @@ def build_precontractual(session, fund_id: str) -> dict:
                             "No derivatives use declared for this product; declare if applicable."))
 
     # ── Minimum Taxonomy alignment — COMPUTED, reusing the dual turnover/CapEx KPI ──
+    # Citation correction (found via the ESAs' consolidated SFDR Q&A, JC 2023 18): the FUND-LEVEL "minimum
+    # extent" figure shown here is governed by Articles 15(3)/19(3) of the SFDR Delegated Regulation, NOT
+    # Annex III/IV of Del. Reg. (EU) 2021/2178 (that Annex III is the asset manager's own ENTITY-level KPI
+    # about itself, a different, separate disclosure). Per 15(3)/19(3), the fund-level figure is
+    # TURNOVER-based BY DEFAULT; a manager may instead use CapEx or OpEx only if they've decided it's "more
+    # representative," with that choice and its reason disclosed. `taxonomy_kpi_basis` is the manager's
+    # declared choice (default "turnover" — the regulatory default when nothing is declared); the primary
+    # `value` below reflects that basis, with the other bases shown as supplementary detail, not as if all
+    # were equally mandatory.
+    _basis = (d("taxonomy_kpi_basis") or "turnover").strip().lower()
+    if _basis not in ("turnover", "capex", "opex"):
+        _basis = "turnover"
+    _basis_pct = {"turnover": tax.get("taxonomy_aligned_turnover_pct"),
+                  "capex": tax.get("taxonomy_aligned_capex_pct"),
+                  "opex": None}.get(_basis)   # OpEx KPI not computed by _taxonomy_rollup (no OpEx figures collected)
     sections.append(_field(
         "To what minimum extent are sustainable investments with an environmental objective "
         "aligned with the EU Taxonomy?",
-        "computed" if (tax.get("taxonomy_aligned_turnover_pct") is not None
-                       or tax.get("taxonomy_aligned_capex_pct") is not None) else "not_available",
-        value={"taxonomy_aligned_turnover_pct": tax.get("taxonomy_aligned_turnover_pct"),
+        "computed" if _basis_pct is not None else "not_available",
+        value={"basis": _basis, "minimum_extent_pct": _basis_pct,
+               "taxonomy_aligned_turnover_pct": tax.get("taxonomy_aligned_turnover_pct"),
                "turnover_coverage_pct": tax.get("turnover_alignment_coverage_pct"),
                "taxonomy_aligned_capex_pct": tax.get("taxonomy_aligned_capex_pct"),
                "capex_coverage_pct": tax.get("capex_alignment_coverage_pct")},
-        source="golden source (issuer-reported Article 8 turnover/CapEx figures, DNSH-gated)",
+        source="golden source (issuer-reported Article 8 turnover/CapEx figures, DNSH-gated)"
+               + ("" if not d("taxonomy_kpi_basis") else " + customer/declared (basis choice)"),
         input_required=tax.get("input_required"),
-        note="Reported separately per Annex III/IV of Del. Reg. (EU) 2021/2178 — turnover-based "
-             "and CapEx-based, never blended."))
-    for key, label in (("transitional_enabling_share_pct", "Minimum share of transitional/enabling activities"),
+        note=(f"Basis: {_basis} (per SFDR Del. Reg. Art. 15(3)/19(3), turnover is the default basis; CapEx or "
+              f"OpEx may be used instead only where the manager has decided it is more representative, with "
+              f"that reason disclosed — see 'taxonomy_kpi_basis' in the fund's declared inputs). Turnover and "
+              f"CapEx figures are both shown for reference; OpEx is not currently computed by this platform "
+              f"(no issuer OpEx-alignment data is collected).")))
+    for key, label in (("env_sustainable_pct", "Minimum proportion of environmentally sustainable investments"),
+                        ("social_sustainable_pct", "Minimum proportion of socially sustainable investments"),
+                        ("transitional_enabling_share_pct", "Minimum share of transitional/enabling activities"),
                         ("env_not_taxonomy_aligned_pct", "Minimum share of sustainable investments with an "
-                                                         "environmental objective not aligned with the EU Taxonomy"),
-                        ("social_sustainable_pct", "Minimum share of socially sustainable investments")):
+                                                         "environmental objective not aligned with the EU Taxonomy")):
         v = d(key)
+        _note = None if v is not None else (
+            "the manager's per-holding classification for this sub-category "
+            "(cannot be derived from the aggregate Taxonomy figures alone)")
+        if key in ("env_sustainable_pct", "social_sustainable_pct") and v is not None:
+            _note = ("Per ESAs SFDR Q&A (JC 2023 18, V.29): these are minimum COMMITMENTS, not a strict "
+                     "partition — the environmental and social sub-percentages need not sum to the total "
+                     "minimum sustainable-investment proportion declared above.")
         sections.append(_field(label, "declared" if v is not None else "not_available",
                                 value=f"{v}%" if v is not None else None, source="customer/declared",
-                                input_required=None if v is not None else
-                                "the manager's per-holding classification for this sub-category "
-                                "(cannot be derived from the aggregate Taxonomy figures alone)"))
+                                input_required=None if v is not None else _note, note=_note if v is not None else None))
     other_purpose = d("other_investments_purpose")
     sections.append(_field('What investments are included under "#2 Other" and what is their purpose?',
                             "declared" if other_purpose else "not_available", value=other_purpose,

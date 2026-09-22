@@ -2,10 +2,10 @@
 from services.governance.ifrs_s2_incurred import summarize_incurred_losses
 
 
-def _row(peril, ps, pe, gross, net=None):
+def _row(peril, ps, pe, gross, net=None, region=None, modelled=None):
     return {"loss_id": "x", "period_start": ps, "period_end": pe, "peril": peril,
             "gross_incurred_loss_eur": gross, "net_incurred_loss_eur": net,
-            "source": "client", "reported_at": None}
+            "source": "client", "reported_at": None, "region": region, "modelled": modelled}
 
 
 def test_not_yet_supplied_when_no_records():
@@ -70,3 +70,28 @@ def test_modeled_key_present_even_when_none_so_the_section_is_never_dropped():
     assert "modeled" in r      # key always present, even if the caller has nothing to compare
     r2 = summarize_incurred_losses([_row("flood", "2025-01-01", "2025-12-31", 1)], modeled=None)
     assert "modeled" in r2
+
+
+def test_region_and_modelled_disaggregation_per_sasb_fn_in_450a2():
+    """SASB FN-IN-450a.2 (via IFRS S2 ¶29 industry-based guidance): losses disaggregated by geography and
+    modelled-vs-non-modelled catastrophe, found by a systematic EIOPA/ISSB guidance sweep."""
+    rows = [_row("flood", "2025-01-01", "2025-12-31", 1_000_000, region="Germany", modelled=True),
+            _row("flood", "2025-01-01", "2025-12-31", 500_000, region="Germany", modelled=False),
+            _row("windstorm", "2025-01-01", "2025-12-31", 2_000_000, region="France", modelled=True)]
+    r = summarize_incurred_losses(rows)
+    de = next(g for g in r["by_region"] if g["region"] == "Germany")
+    assert de["gross_incurred_loss_eur"] == 1_500_000 and de["n_records"] == 2
+    modelled_row = next(g for g in r["by_modelled"] if g["modelled"] == "modelled")
+    assert modelled_row["gross_incurred_loss_eur"] == 3_000_000
+    non_modelled_row = next(g for g in r["by_modelled"] if g["modelled"] == "non_modelled")
+    assert non_modelled_row["gross_incurred_loss_eur"] == 500_000
+    assert r["region_coverage_note"] is None       # all 3 records supplied a region
+    assert r["modelled_coverage_note"] is None     # all 3 records supplied the flag
+
+
+def test_region_and_modelled_are_honest_gaps_not_fabricated_when_absent():
+    rows = [_row("flood", "2025-01-01", "2025-12-31", 1_000_000)]   # no region/modelled supplied
+    r = summarize_incurred_losses(rows)
+    assert r["by_region"] == [] and r["by_modelled"] == []
+    assert r["region_coverage_note"] is not None and "1 of 1" in r["region_coverage_note"]
+    assert r["modelled_coverage_note"] is not None and "1 of 1" in r["modelled_coverage_note"]

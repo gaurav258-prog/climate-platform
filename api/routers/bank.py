@@ -53,6 +53,7 @@ EXT_BANKING_COLUMNS = [
     "x.epc_label", "x.ifrs9_stage",
     "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 alignment
     "x.counterparty_govt_level",   # central/regional/local — scopes the GAR Art. 7(1) government exclusion
+    "x.no_stated_maturity",   # EBA Q&A 2022_6515 — equity/perpetual instruments route to the >20yr bucket
 ]
 
 
@@ -81,6 +82,7 @@ def _map_asset_list_row(row):
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
         "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 (IEA)
         "counterparty_govt_level": row.get("counterparty_govt_level"),   # feeds GAR Art. 7(1) exclusion scoping
+        "no_stated_maturity": row.get("no_stated_maturity"),   # EBA Q&A 2022_6515 — routes to the >20yr bucket
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"],
@@ -372,6 +374,11 @@ ASSET_TEMPLATE_FIELDS = [
      "nace_code on the loan, which today's upload doesn't yet collect — see the taxonomy_status note below).", "example": "compliant"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
      "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
+    {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
+     "description": "True for an exposure with no stated maturity BY ITS NATURE — an equity holding, a perpetual "
+     "instrument, or similar (NOT simply a loan whose maturity you haven't supplied yet). Per EBA Q&A 2022_6515, "
+     "these are disclosed in the largest ('>20 years') Pillar 3 maturity bucket rather than left uncounted.",
+     "example": "true"},
 ]
 REQUIRED_ASSET_COLUMNS = [f["name"] for f in ASSET_TEMPLATE_FIELDS if f["required"]]
 SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
@@ -443,9 +450,12 @@ ATTR_TEMPLATE_FIELDS = [
      "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape.", "example": "185000000"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
      "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
+    {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
+     "description": "True for an exposure with no stated maturity BY ITS NATURE (equity, perpetual instrument, "
+     "etc.) — per EBA Q&A 2022_6515, routes it to the '>20 years' Pillar 3 maturity bucket.", "example": "true"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
-              "counterparty_govt_level"}
+              "counterparty_govt_level", "no_stated_maturity"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -515,6 +525,10 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         gl = row.get("counterparty_govt_level")
         if gl not in (None, ""):
             sets.append("counterparty_govt_level = :gl"); params["gl"] = str(gl).strip().lower()
+        nsm = row.get("no_stated_maturity")
+        if nsm not in (None, ""):
+            sets.append("no_stated_maturity = :nsm")
+            params["nsm"] = str(nsm).strip().lower() in ("true", "1", "yes", "y")
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

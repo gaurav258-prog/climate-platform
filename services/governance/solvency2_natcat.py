@@ -20,6 +20,12 @@ diversification (Annex XXII-XXVI) are not applied — an approximation of the ex
 add a motor sum-insured component (1.5×/5× LoB 5,17), included when a policy carries motor_sum_insured_eur —
 0 for a pure property book (LoB 6/7/18/19). Exposure outside a peril's Annex regions is reported separately
 (Art. *(8-9) premium charge not computed), never silently dropped.
+
+NOT applied (optional undertaking election, confirmed by an EIOPA Q&A sweep, not a bug): EIOPA Q&A #3110 /
+#1970 confirm an undertaking MAY cap WSI at min(WSI, sum-insured-per-policy-terms-including-contractual-
+payment-limits) to avoid an unrealistically large SCR where the policy wording itself limits payouts. This
+module computes WSI/loss uncapped — a simplification available if a customer's contractual payment limits are
+ever supplied per-policy, not currently built.
 """
 from __future__ import annotations
 

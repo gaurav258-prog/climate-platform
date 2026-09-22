@@ -71,3 +71,21 @@ def test_modeled_figures_shown_alongside_actual_when_passed():
         assert summary["modeled"] == modeled
         assert "comparison_note" in summary
         s.rollback()
+
+
+@pytest.mark.integration
+def test_submit_with_region_and_modelled_round_trips():
+    """SASB FN-IN-450a.2 disaggregation — end-to-end through submit_incurred_loss/list/summarize."""
+    with get_session() as s:
+        maker = _u(s, "admin@iberia.demo")
+        res = I.submit_incurred_loss(s, IBERIA, "2025-01-01", "2025-12-31", "flood",
+                                      3_000_000, source="client", created_by=maker,
+                                      region="Germany", modelled=True)
+        records = I.list_incurred_losses(s, IBERIA)
+        row = next(r for r in records if r["loss_id"] == res["loss_id"])
+        assert row["region"] == "Germany" and row["modelled"] is True
+
+        summary = I.incurred_loss_summary(s, IBERIA)
+        de = next((g for g in summary["by_region"] if g["region"] == "Germany"), None)
+        assert de is not None and de["gross_incurred_loss_eur"] >= 3_000_000
+        s.rollback()

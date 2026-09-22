@@ -19,6 +19,12 @@ platform cannot compute or observe itself — it must come from the insurer's ow
 customer-supplied via POST /v1/insurance/incurred-losses (api/routers/insurance.py). Never fabricated, never
 silently zeroed, and never silently omitted from the disclosure: when nothing has been supplied yet the summary
 says so explicitly (status: "not_yet_supplied").
+
+Disaggregation (region, modelled) — added after a systematic EIOPA/ISSB Q&A sweep found IFRS S2 ¶29's
+industry-based guidance points to SASB FN-IN-450a.2, which requires insurance-claims losses disaggregated by
+(a) modelled vs non-modelled catastrophes, (b) event type (already carried as `peril`), and (c) geographic
+segment — both gross and net of reinsurance (already carried). `region` and `modelled` are optional,
+customer-supplied, same honesty discipline as everything else here — never inferred when absent.
 """
 from __future__ import annotations
 
@@ -31,19 +37,22 @@ REGULATION = "IFRS S2 Climate-related Disclosures, paragraph 16(a) — current-p
 
 def submit_incurred_loss(session, org_id: str, period_start, period_end, peril: str,
                           gross_incurred_loss_eur: float, net_incurred_loss_eur: float | None = None,
-                          source: str = "client", created_by: str | None = None) -> dict:
+                          source: str = "client", created_by: str | None = None,
+                          region: str | None = None, modelled: bool | None = None) -> dict:
     """Record one actual incurred NatCat loss for a (org, reporting period, peril). Additive: a second
     submission for the same period+peril is a SEPARATE record (e.g. a claims-development update), never an
-    overwrite — the summary rolls them up, so restating history stays visible in the raw list."""
+    overwrite — the summary rolls them up, so restating history stays visible in the raw list.
+    `region`/`modelled` are the SASB FN-IN-450a.2 disaggregation axes (geographic segment; modelled vs
+    non-modelled catastrophe) — optional, customer-supplied, never inferred."""
     row = session.execute(text("""
         INSERT INTO insurer_incurred_losses
             (org_id, period_start, period_end, peril, gross_incurred_loss_eur, net_incurred_loss_eur,
-             source, created_by)
-        VALUES (CAST(:org AS uuid), :ps, :pe, :peril, :gross, :net, :source, CAST(:by AS uuid))
+             source, created_by, region, modelled)
+        VALUES (CAST(:org AS uuid), :ps, :pe, :peril, :gross, :net, :source, CAST(:by AS uuid), :region, :modelled)
         RETURNING loss_id::text AS loss_id, reported_at
     """), {"org": org_id, "ps": period_start, "pe": period_end, "peril": peril,
            "gross": gross_incurred_loss_eur, "net": net_incurred_loss_eur,
-           "source": source, "by": created_by}).mappings().first()
+           "source": source, "by": created_by, "region": region, "modelled": modelled}).mappings().first()
     return dict(row)
 
 
@@ -54,7 +63,7 @@ def list_incurred_losses(session, org_id: str) -> list[dict]:
         SELECT loss_id::text AS loss_id, period_start, period_end, peril,
                CAST(gross_incurred_loss_eur AS FLOAT) AS gross_incurred_loss_eur,
                CAST(net_incurred_loss_eur AS FLOAT) AS net_incurred_loss_eur,
-               source, reported_at
+               source, reported_at, region, modelled
         FROM insurer_incurred_losses
         WHERE org_id = CAST(:org AS uuid)
         ORDER BY period_start DESC, peril
@@ -92,9 +101,16 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
                                                        "has_net": False, "n_records": 0})
     by_period: dict[tuple, dict] = defaultdict(lambda: {"gross_incurred_loss_eur": 0.0, "net_incurred_loss_eur": 0.0,
                                                           "has_net": False, "perils": set()})
+    # SASB FN-IN-450a.2 disaggregation axes — only populated for records that supplied them (never a
+    # fabricated "Unknown" bucket standing in for a real geography/modelled classification).
+    by_region: dict[str, dict] = defaultdict(lambda: {"gross_incurred_loss_eur": 0.0, "net_incurred_loss_eur": 0.0,
+                                                        "has_net": False, "n_records": 0})
+    by_modelled: dict[str, dict] = defaultdict(lambda: {"gross_incurred_loss_eur": 0.0, "net_incurred_loss_eur": 0.0,
+                                                          "has_net": False, "n_records": 0})
     total_gross = 0.0
     total_net = 0.0
     any_net = False
+    n_with_region = n_with_modelled = 0
     for r in rows:
         gross = r["gross_incurred_loss_eur"] or 0.0
         net = r["net_incurred_loss_eur"]
@@ -113,6 +129,24 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
         if net is not None:
             pp["net_incurred_loss_eur"] += net
             pp["has_net"] = True
+
+        if r.get("region"):
+            rg = by_region[r["region"]]
+            rg["gross_incurred_loss_eur"] += gross
+            rg["n_records"] += 1
+            if net is not None:
+                rg["net_incurred_loss_eur"] += net
+                rg["has_net"] = True
+            n_with_region += 1
+        if r.get("modelled") is not None:
+            mk = "modelled" if r["modelled"] else "non_modelled"
+            mo = by_modelled[mk]
+            mo["gross_incurred_loss_eur"] += gross
+            mo["n_records"] += 1
+            if net is not None:
+                mo["net_incurred_loss_eur"] += net
+                mo["has_net"] = True
+            n_with_modelled += 1
 
         total_gross += gross
         if net is not None:
@@ -133,11 +167,37 @@ def summarize_incurred_losses(rows: list[dict], modeled: dict | None = None) -> 
         for (ps, pe), v in by_period.items()
     ), key=lambda r: r["period_start"], reverse=True)
 
+    region_rows = sorted((
+        {"region": k, "gross_incurred_loss_eur": round(v["gross_incurred_loss_eur"]),
+         "net_incurred_loss_eur": round(v["net_incurred_loss_eur"]) if v["has_net"] else None,
+         "n_records": v["n_records"]}
+        for k, v in by_region.items()
+    ), key=lambda r: -r["gross_incurred_loss_eur"])
+
+    modelled_rows = sorted((
+        {"modelled": k, "gross_incurred_loss_eur": round(v["gross_incurred_loss_eur"]),
+         "net_incurred_loss_eur": round(v["net_incurred_loss_eur"]) if v["has_net"] else None,
+         "n_records": v["n_records"]}
+        for k, v in by_modelled.items()
+    ), key=lambda r: -r["gross_incurred_loss_eur"])
+
     result = {
         "framework": "ifrs_s2_incurred_losses",
         "regulation": REGULATION,
         "status": "supplied",
         "n_records": len(rows),
+        # SASB FN-IN-450a.2 disaggregation (via IFRS S2 ¶29): geography and modelled/non-modelled. Empty
+        # lists + an honest coverage note when records exist but didn't supply these — never a fabricated
+        # "Unknown" bucket standing in for a real classification.
+        "by_region": region_rows,
+        "by_modelled": modelled_rows,
+        "region_coverage_note": None if n_with_region == len(rows) else
+            f"{len(rows) - n_with_region} of {len(rows)} record(s) have no geographic segment supplied "
+            "(SASB FN-IN-450a.2 asks for this disaggregation) — shown only in the peril/period totals above.",
+        "modelled_coverage_note": None if n_with_modelled == len(rows) else
+            f"{len(rows) - n_with_modelled} of {len(rows)} record(s) have no modelled/non-modelled flag "
+            "supplied (SASB FN-IN-450a.2 asks for this disaggregation) — shown only in the peril/period "
+            "totals above.",
         "total_gross_incurred_loss_eur": round(total_gross),
         "total_net_incurred_loss_eur": round(total_net) if any_net else None,
         "by_peril": peril_rows,

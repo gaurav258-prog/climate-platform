@@ -184,3 +184,82 @@ def test_dnsh_methodology_genuinely_not_applicable_when_planned_pct_is_zero():
         assert dnsh_method["input_required"] is None
     finally:
         _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_taxonomy_kpi_defaults_to_turnover_basis():
+    """Per SFDR Del. Reg. Art. 15(3)/19(3), turnover is the default basis for the fund-level 'minimum
+    extent' Taxonomy figure when the manager hasn't declared otherwise."""
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        tax_section = _find(r["sections"], "aligned with the EU Taxonomy")
+        assert tax_section["value"]["basis"] == "turnover"
+        assert "Art. 15(3)/19(3)" in tax_section["note"]
+    finally:
+        _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_taxonomy_kpi_basis_respects_manager_declared_capex_choice():
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+        s.execute(text("UPDATE funds SET sfdr_precontractual = :p WHERE fund_id = :f"),
+                  {"f": fid, "p": json.dumps({"taxonomy_kpi_basis": "capex"})})
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        tax_section = _find(r["sections"], "aligned with the EU Taxonomy")
+        assert tax_section["value"]["basis"] == "capex"
+    finally:
+        _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_article_8_sustainable_investments_toggle_undeclared_defaults_to_characteristics_only():
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        tickbox = _find(r["sections"], "have a sustainable investment objective")
+        assert "characteristics only" in tickbox["value"]
+        assert "Article 8" in tickbox["value"]
+    finally:
+        _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_article_8_sustainable_investments_toggle_when_declared_true():
+    """Per ESAs SFDR Q&A JC 2023 18 (V.29): an Article 8 product can ALSO tick a partial sustainable-
+    investments commitment, distinct from simply promoting E/S characteristics."""
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+        s.execute(text("UPDATE funds SET sfdr_precontractual = :p WHERE fund_id = :f"),
+                  {"f": fid, "p": json.dumps({"makes_sustainable_investments": True})})
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        tickbox = _find(r["sections"], "have a sustainable investment objective")
+        assert "partial SI commitment" in tickbox["value"]
+    finally:
+        _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_env_and_social_sustainable_pct_need_not_sum_to_total():
+    with get_session() as s:
+        fid, iid = _seed(s, "article_9")
+        s.execute(text("UPDATE funds SET sfdr_precontractual = :p WHERE fund_id = :f"),
+                  {"f": fid, "p": json.dumps({"env_sustainable_pct": 40, "social_sustainable_pct": 15})})
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        env = _find(r["sections"], "environmentally sustainable investments")
+        social = _find(r["sections"], "socially sustainable investments")
+        assert env["value"] == "40%" and social["value"] == "15%"
+        assert "need not sum" in env["note"]
+    finally:
+        _cleanup(fid, iid)

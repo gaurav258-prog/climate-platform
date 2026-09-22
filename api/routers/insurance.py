@@ -350,6 +350,10 @@ class IncurredLossRequest(BaseModel):
     gross_incurred_loss_eur: float = Field(..., ge=0)
     net_incurred_loss_eur: Optional[float] = Field(None, ge=0)
     source: str = Field("client", description="Where this figure came from, e.g. 'client', 'audited_accounts'.")
+    region: Optional[str] = Field(None, description="Geographic segment (SASB FN-IN-450a.2 disaggregation) — "
+                                  "optional, e.g. 'Germany' or 'Western Europe'.")
+    modelled: Optional[bool] = Field(None, description="Whether this was a modelled vs non-modelled catastrophe "
+                                     "(SASB FN-IN-450a.2 disaggregation) — optional.")
 
 
 def _modeled_for_incurred(session, org_id: str, scenario: str, horizon: str) -> dict:
@@ -406,7 +410,7 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
     org_id = ctx["org"]["org_id"]
     res = submit_incurred_loss(session, org_id, body.period_start, body.period_end, body.peril,
                                body.gross_incurred_loss_eur, body.net_incurred_loss_eur, body.source,
-                               created_by=ctx["user"]["id"])
+                               created_by=ctx["user"]["id"], region=body.region, modelled=body.modelled)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="incurred_loss.submit",
                 target_type="insurer_incurred_losses", target_id=res["loss_id"],
                 detail={"period_start": str(body.period_start), "period_end": str(body.period_end),

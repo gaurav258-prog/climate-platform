@@ -121,6 +121,32 @@ def test_template1_wires_maturity_and_ifrs9_from_provided_attrs():
     assert by["D"]["has_maturity"] and by["D"]["has_ifrs9"]
 
 
+def test_no_stated_maturity_routes_to_gt20_not_silently_excluded():
+    """EBA Q&A 2022_6515: an exposure with no stated maturity BY ITS NATURE (equity, perpetual instrument)
+    must be disclosed in the '>20 years' bucket, never dropped out of the maturity coverage stats — a real
+    bug found by a systematic EBA Q&A sweep. A genuinely-missing-data loan (no residual_maturity_years and
+    no no_stated_maturity flag) must stay excluded, since that's a different (honest data-gap) case."""
+    assets = [
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 1000, "residual_maturity_years": 3,
+         "ghg1": 0, "ghg2": 0, "ghg3": 0},
+        # equity holding: no residual_maturity_years, but flagged no_stated_maturity -> must land in gt20
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 500, "no_stated_maturity": True,
+         "ghg1": 0, "ghg2": 0, "ghg3": 0},
+        # genuinely missing data: neither field supplied -> stays excluded (not gt20, not counted at all)
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 300, "ghg1": 0, "ghg2": 0, "ghg3": 0},
+    ]
+    g = template1_grid(assets)
+    by = {r["section"]: r for r in g["rows"]}
+    assert g["maturity_covered"]
+    assert by["D"]["le5"] == 1000
+    assert by["D"]["gt20"] == 500          # the no_stated_maturity exposure, correctly bucketed
+    # the weighted-average maturity is computed only over exposures with a REAL numeric maturity (the
+    # no_stated_maturity row has no number to average in, so avg stays anchored to the €1000 le5 exposure)
+    assert by["D"]["avg_maturity"] == 3.0
+    # the genuinely-missing-data €300 loan contributes to neither le5 nor gt20 — still an honest gap
+    assert by["D"]["le5"] + by["D"]["m5_10"] + by["D"]["m10_20"] + by["D"]["gt20"] == 1500
+
+
 def test_nace_section_mapping():
     assert _section("C") == "C"           # section letter
     assert _section("01.11") == "A"       # crop division → Agriculture
