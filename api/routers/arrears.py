@@ -15,8 +15,9 @@ from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/arrears", tags=["Seasonal-arrears overlay"])
 
-_TEMPLATE = ("loan_ref,borrower_name,crop,region,exposure_eur,days_past_due,as_of_date\n"
-             "L-1001,Green Valley Farms,wheat,Castilla,4200000,45,2026-11-30\n")
+_TEMPLATE = ("loan_ref,borrower_name,crop,region,country,exposure_eur,days_past_due,as_of_date\n"
+             "L-1001,Green Valley Farms,wheat,Castilla,ES,4200000,45,2026-11-30\n"
+             "L-1002,Rio Verde Cooperative,soy,Mato Grosso,BR,1850000,60,2024-06-30\n")
 
 
 class RowsBody(BaseModel):

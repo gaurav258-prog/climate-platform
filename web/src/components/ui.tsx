@@ -257,8 +257,8 @@ export function StatCard({ label, value, sub, accent, title }: StatItem) {
   )
 }
 
-export function StatGrid({ items, cols = 4, className }: { items: StatItem[]; cols?: 2 | 3 | 4; className?: string }) {
-  const col = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 md:grid-cols-3', 4: 'sm:grid-cols-2 md:grid-cols-4' }[cols]
+export function StatGrid({ items, cols = 4, className }: { items: StatItem[]; cols?: 2 | 3 | 4 | 5; className?: string }) {
+  const col = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 md:grid-cols-3', 4: 'sm:grid-cols-2 md:grid-cols-4', 5: 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' }[cols]
   return (
     <div className={clsx('grid grid-cols-2 gap-3', col, className)}>
       {items.map((it, i) => <StatCard key={i} {...it} />)}

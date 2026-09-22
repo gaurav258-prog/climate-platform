@@ -9,13 +9,20 @@ import { Card, StatGrid, type StatItem } from './ui'
 // agri book's days-past-due; the card classifies each past-due loan against a documented crop calendar, with
 // a rationale for every reclassification. An explainable management overlay — never a replacement for IFRS-9.
 
-interface Loan { loan_ref: string; borrower_name: string | null; crop: string | null; region: string | null; exposure_eur: number; days_past_due: number; classification: string; rationale: string }
+interface Loan { loan_ref: string; borrower_name: string | null; crop: string | null; region: string | null; country: string | null; exposure_eur: number; days_past_due: number; classification: string; rationale: string }
 interface Resp {
   available: boolean; reason?: string; as_of?: string | null; assessed_month?: number; seasonal_cap_days?: number
-  summary?: { n_past_due: number; past_due_eur: number; n_seasonal: number; seasonal_eur: number; n_genuine: number; genuine_eur: number; reclassified_pct: number }
+  summary?: { n_past_due: number; past_due_eur: number; n_seasonal: number; seasonal_eur: number
+             n_climate_attributed: number; climate_attributed_eur: number
+             n_genuine: number; genuine_eur: number; reclassified_pct: number; n_not_checked_no_country: number }
   loans?: Loan[]
 }
 const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+const BADGE: Record<string, { color: string; bg: string }> = {
+  seasonal: { color: 'var(--color-warn)', bg: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' },
+  climate_attributed: { color: 'var(--color-sky)', bg: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' },
+  genuine: { color: 'var(--color-bad)', bg: 'color-mix(in oklab, var(--color-bad) 14%, transparent)' },
+}
 
 export default function SeasonalArrears() {
   const qc = useQueryClient()
@@ -47,22 +54,21 @@ export default function SeasonalArrears() {
       {!d ? <div className="text-[12.5px] text-[var(--color-faint)] py-4">Loading…</div>
         : !d.available ? (
           <div className="text-[12.5px] text-[var(--color-mute)] py-3">
-            No arrears uploaded. Provide the book's days-past-due (columns: <span className="mono text-[11px]">loan_ref, borrower_name, crop, region, exposure_eur, days_past_due, as_of_date</span>) and Tellumen separates seasonal carry-over from genuine deterioration against the crop calendar.
+            No arrears uploaded. Provide the book's days-past-due (columns: <span className="mono text-[11px]">loan_ref, borrower_name, crop, region, country, exposure_eur, days_past_due, as_of_date</span>) and Tellumen separates seasonal carry-over, a climate-attributed bad harvest (observed national yield shock, when <span className="mono text-[11px]">country</span> is given), and genuine deterioration.
           </div>
         ) : s ? (
           <>
-            <StatGrid cols={4} className="mb-3" items={[
+            <StatGrid cols={5} className="mb-3" items={[
               { label: <>Past due · {s.n_past_due}</>, value: eur(s.past_due_eur) },
               { label: <>Seasonal · {s.n_seasonal}</>, value: eur(s.seasonal_eur), accent: 'var(--color-warn)' },
+              { label: <>Climate-attributed · {s.n_climate_attributed}</>, value: eur(s.climate_attributed_eur), accent: 'var(--color-sky)' },
               { label: <>Genuine · {s.n_genuine}</>, value: eur(s.genuine_eur), accent: 'var(--color-bad)' },
               { label: 'Reclassified', value: `${s.reclassified_pct}%` },
             ] satisfies StatItem[]} />
             <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
               {d.loans!.slice(0, 8).map(l => (
                 <div key={l.loan_ref} className="flex items-center gap-2.5 py-1.5 text-[12px]">
-                  <span className="mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={l.classification === 'seasonal'
-                    ? { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' }
-                    : { color: 'var(--color-bad)', background: 'color-mix(in oklab, var(--color-bad) 14%, transparent)' }}>{l.classification}</span>
+                  <span className="mono text-[10px] px-1.5 py-0.5 rounded shrink-0" style={BADGE[l.classification] ? { color: BADGE[l.classification].color, background: BADGE[l.classification].bg } : undefined}>{l.classification.replace('_', ' ')}</span>
                   <span className="text-[var(--color-ink)] shrink-0">{l.borrower_name || l.loan_ref}</span>
                   <span className="text-[var(--color-mute)] truncate flex-1 min-w-0 hidden sm:block">· {l.rationale}</span>
                   <span className="mono text-[11px] text-[var(--color-faint)] shrink-0">{l.days_past_due}d</span>
@@ -70,7 +76,10 @@ export default function SeasonalArrears() {
                 </div>
               ))}
             </div>
-            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2.5">Explainable overlay · not a replacement for IFRS-9 staging · seasonal cap {d.seasonal_cap_days}d · assessed month {d.assessed_month} · Northern-hemisphere crop calendar (configurable)</div>
+            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2.5">
+              Explainable overlay · not a replacement for IFRS-9 staging · seasonal cap {d.seasonal_cap_days}d · assessed month {d.assessed_month} · Northern-hemisphere crop calendar (configurable)
+              {s.n_not_checked_no_country > 0 && <> · {s.n_not_checked_no_country} loan{s.n_not_checked_no_country === 1 ? '' : 's'} had no country on record — climate shock not checked, shown as genuine</>}
+            </div>
           </>
         ) : null}
     </Card>
