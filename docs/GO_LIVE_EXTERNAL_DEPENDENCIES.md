@@ -16,7 +16,7 @@ _Last reviewed: 2026-09-22._
 |---|------|------|---------------|----------|------------------------------|
 | 9 | EBA Template 3 "Chemicals" NACE code list | Bank Pillar 3 Template 3 | full official crosswalk built for the other 7 sectors (extracted + OCR'd from the real Annex XL table) + a disclosed fallback for Chemicals | **EBA itself has not published it** — confirmed via their own Q&A (not a research gap) | EBA publishes the NACE list (next DPM release) → replace the division-20 fallback in `transition_alignment.py` |
 | 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
-| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator + drop-in binding seam | EFRAG adoption (Omnibus timing) | the published element-name list → drop `config/efrag_esrs_binding.json` |
+| 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator + drop-in binding seam | Aug-2024 map exists but is being superseded by the revised-ESRS taxonomy (draft, SRB 29-Jul-2026); mandatory tagging itself is directive-suspended until ESEF RTS updates | the finalized revised-ESRS element-name list (not the superseded Aug-2024 one) → drop `config/efrag_esrs_binding.json` |
 | 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
 | 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
 | 4 | Production geocoder provider + key | Agri (address→coords) | cache + QA + provider seam | provider choice + licence | provider + API key → we write the adapter |
@@ -27,13 +27,30 @@ _Last reviewed: 2026-09-22._
 
 ---
 
-## 1 · EFRAG ESRS Set 1 taxonomy element map  *(external artifact)*
+## 1 · EFRAG ESRS Set 1 taxonomy element map  *(external artifact — mid-replacement, not simply "not yet published")*
 - **Hook:** `config/efrag_esrs_binding.json` (override env `EFRAG_ESRS_BINDING`), consumed by
   `services/intelligence/esrs_taxonomy.py`. No file present → profile honestly reports
   `pending_adopted_taxonomy`, `bound=false` per concept; the `provisional` (`tesrs:`) profile works meanwhile.
-- **Needed:** the adopted EFRAG ESRS Set 1 XBRL taxonomy element names (our concept key → official element ID).
+- **Re-checked 2026-09-22 — status is more nuanced than "EFRAG hasn't published it":**
+  - EFRAG DID publish a final **ESRS Set 1 XBRL taxonomy in August 2024** ([press release](https://www.efrag.org/en/news-and-calendar/news/efrag-publishes-the-esrs-set-1-xbrl-taxonomy),
+    approved by SR TEG/SRB 16–17 July 2024). A real, usable element-ID map exists.
+  - **But it's mid-replacement.** The ESRS standards themselves were revised on **3 July 2026** (Omnibus
+    simplification), EC-adopted and awaiting Official Journal publication after the scrutiny period. EFRAG is
+    now drafting a *new* taxonomy for the revised standard — discussed at the SRB meeting **29 July 2026**,
+    still in draft as of this review ([EFRAG Knowledge Hub notice](https://www.efrag.org/en/news-and-calendar/news/efrag-esrs-knowledge-hub-2026-revised-esrs-and-voluntary-standard-interactive-document-set-now)).
+  - **Mandatory tagging is directive-suspended anyway.** Directive (EU) 2026/470 (in force 18 March 2026)
+    suspends mandatory XBRL tagging of CSRD sustainability reports until the ESEF Delegated Regulation
+    (2019/815) is updated to reference whichever taxonomy ends up final.
+- **Why we're not binding the Aug-2024 map now:** it would wire the platform against an element set that's
+  actively being superseded, for a mandate that's currently suspended — a stopgap that would need redoing,
+  not a real close. Waiting for the revised-ESRS taxonomy to firm up (post 29-Jul-2026 SRB discussion) is the
+  root-cause fix, not the Aug-2024 map.
+- **Needed:** the finalized **revised-ESRS** XBRL taxonomy element names (our concept key → official element
+  ID) — not the superseded Aug-2024 Set 1 map.
 - **Owner:** EFRAG publishes it; obtaining + dropping it in is us.
-- **When it lands:** write the JSON, flip `efrag_set1` to bound, re-run `/esrs-pack.validate` (+ Arelle if installed). ~1h, no code change. **Do not invent element IDs.**
+- **When it lands:** write the JSON, flip `efrag_set1` to bound, re-run `/esrs-pack.validate` (+ Arelle if
+  installed). ~1h, no code change. **Do not invent element IDs**, and do not bind the Aug-2024 map as a
+  stopgap given it's being replaced.
 
 ## 2 · EBA Pillar 3 ESG element map  *(external artifact — EBA taxonomy pending)*
 - **Hook:** `config/eba_p3esg_binding.json` (override env `EBA_P3ESG_BINDING`), consumed by
@@ -162,6 +179,12 @@ Needed to download InSAR ground-motion products (the observed target that would 
 - **When it lands:** EBA's "next reporting framework release" ships the DPM update — watch
   eba.europa.eu/risk-and-data-analysis/reporting/reporting-frameworks for the release that finally includes
   Chemicals' code list, then replace the `digits[:2] == "20"` fallback in `_iea_sector()` with the real list.
+- **Re-checked 2026-09-22 — still genuinely unpublished, now under a new template name.** EBA's Final Report
+  on the amended ESG disclosure ITS ([EBA/ITS/2026/02](https://www.eba.europa.eu/sites/default/files/2026-06/96e1c806-c918-460c-bc8b-4e547b0d85e6/Final%20report%20on%20Draft%20ITS%20on%20amended%20disclosure%20requirements%20for%20ESG%20risks,%20equity%20exposures%20and%20aggregate%20exposure%20to%20shadow%20banking%20entities.pdf),
+  22 June 2026) renames the old Template 3 to **EU CRFR4** and explicitly confirms the same gap in the new
+  wording: "IEA Sector named 'Chemicals' is not included in the EBA 3.3 list of values" — 8 mandatory
+  sectors specified vs. 7 in the actual DPM list-of-values, the same shortfall as Q&A 2024_7085/2025_7451.
+  Reference date for the new ITS is confirmed as **December 2026**. No new sector-code list published.
 
 ## 10 · NACE Rev. 2.1 transition — Template 3 not yet addressed  *(external, timely — monitor)*
 - **What changed:** the EBA and ECB confirmed (Joint Bank Reporting Committee advice, June 2025) that EU
@@ -183,3 +206,18 @@ Needed to download InSAR ground-motion products (the observed target that would 
 - **When it lands:** watch for the EBA reporting-framework release that ships a NACE-2.1-native Template 3
   instruction; until then, `_ANNEX_XL_NACE_CROSSWALK` stays on the verified Rev. 2 codes, which remains the
   only published version to build against.
+- **Re-checked 2026-09-22 — real movement, but the binding text still isn't public.** The same June-2026 EBA
+  Final Report (EBA/ITS/2026/02) confirms Template 3/EU CRFR4's sector breakdown is being expanded with
+  additional carbon-intensive sub-industries — explicitly naming "certain carbon chemicals" alongside oil &
+  gas, automotive segments, and steel — and states "a minimum list of sectors is provided in the instructions
+  together with a mapping with NACE sectors." That mapping table is NOT reproduced in this Final Report
+  (which is the consultation-feedback document, not the binding Annex) — the actual binding Annex I/II text
+  publishes once the Commission formally adopts the ITS via the Official Journal, which had not happened as
+  of this report. Confirmed the reference date: institutions report under this ITS from **December 2026**;
+  Templates 6–10 (Green Asset Ratio / EU Taxonomy) have been **removed** from the ITS (per an EBA No-Action
+  Letter, August 2025) — worth separately checking against our GAR grid (`services/governance/pillar3_templates.py`)
+  once the binding text is out, since that changes what banks are expected to file, not just NACE codes.
+- **When the binding text lands:** replace `_ANNEX_XL_NACE_CROSSWALK` with the EU CRFR4 NACE-2.1-native
+  mapping once the Commission Implementing Regulation is published in the Official Journal (watch
+  eur-lex.europa.eu via `scripts/fetch_eu_regulation.sh` for the CELEX once assigned) — this closes #9 and
+  #10 together, since both are gated on the same publication.
