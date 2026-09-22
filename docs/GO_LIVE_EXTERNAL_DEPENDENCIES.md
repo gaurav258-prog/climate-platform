@@ -8,12 +8,14 @@ already built and tested**; this file exists so none of these is forgotten when 
 Companion docs: agri last-mile detail is in [`AGRI_OPS_READINESS.md`](AGRI_OPS_READINESS.md). Every item below
 degrades honestly in-product today (shows "pending" / "prepared" / withholds the figure) — nothing is faked.
 
-_Last reviewed: 2026-09-03._
+_Last reviewed: 2026-09-22._
 
 ## Status at a glance
 
 | # | Item | Area | Built (ready) | Blocking | Hand Tellumen → we finish it |
 |---|------|------|---------------|----------|------------------------------|
+| 9 | EBA Template 3 "Chemicals" NACE code list | Bank Pillar 3 Template 3 | full official crosswalk built for the other 7 sectors (extracted + OCR'd from the real Annex XL table) + a disclosed fallback for Chemicals | **EBA itself has not published it** — confirmed via their own Q&A (not a research gap) | EBA publishes the NACE list (next DPM release) → replace the division-20 fallback in `transition_alignment.py` |
+| 10 | NACE Rev. 2.1 transition (Template 3 only — Templates 1/5 already handled) | Bank Pillar 3, all templates using NACE | Templates 1/5 read NACE at section level (stable across the revision per JBRC's own advice); Template 3's crosswalk is fine-grained class/group level | EBA/JBRC guidance for Template 3 specifically not yet published as of the June-2025 JBRC advice | EBA/JBRC publish a Rev-2.1 equivalent of the Annex XL crosswalk → rebuild `_ANNEX_XL_NACE_CROSSWALK` against it |
 | 1 | EFRAG ESRS Set 1 taxonomy element map | Agri / CSRD iXBRL | tagging + iXBRL/ESEF engine + validator + drop-in binding seam | EFRAG adoption (Omnibus timing) | the published element-name list → drop `config/efrag_esrs_binding.json` |
 | 2 | EBA Pillar 3 ESG element map | Bank Pillar 3 XBRL | well-formed XBRL + drop-in binding seam, verified ITS refs | EBA taxonomy publication (P3DH) | the DPM element IDs → drop `config/eba_p3esg_binding.json` |
 | 3 | EUDR operator registration + TRACES creds | Agri / EUDR submit | `prepared` mode + live config-flip | customer registration | sandbox creds + published DDS schema → we align + certify |
@@ -138,3 +140,46 @@ _Last reviewed: 2026-09-03._
 ## Copernicus EGMS (European Ground Motion Service) account
 
 Needed to download InSAR ground-motion products (the observed target that would let the subsidence channel be backtested properly; GNSS velocities only reach rank correlation 0.21). Free registration at egms.land.copernicus.eu; download is token-gated. Added 2026-09-10.
+
+## 9 · EBA Template 3 "Chemicals" NACE code list  *(external — genuinely not yet published by EBA)*
+- **Status, confirmed by EBA's own Q&A process, not a research gap on our side:**
+  - [EBA Q&A 2024_7085](https://www.eba.europa.eu/single-rule-book-qa/qna/view/publicId/2024_7085) —
+    someone asked whether "Chemicals" should be removed from Template 3 or the code list updated to include
+    it. EBA's verbatim answer: *"institutions shall present also IEA sector Chemicals as one of the rows for
+    Template 3. The related DPM will be amended accordingly with the next reporting framework release."* —
+    confirms Chemicals IS a mandatory row, but gives no NACE codes.
+  - [EBA Q&A 2025_7451](https://www.eba.europa.eu/single-rule-book-qa/qna/view/publicId/2025_7451) — someone
+    then asked exactly which NACE codes apply to Chemicals. **EBA rejected the question outright**: *"This
+    question has been rejected because the matter it refers to has already been identified and will be
+    considered for the forthcoming version of the Reporting framework."* As of today, no EBA publication
+    anywhere specifies Chemicals' NACE codes — every other Template-3 sector's list is published (extracted
+    and verified directly from the Official Journal document, `services/governance/transition_alignment.py`),
+    Chemicals' column is genuinely, officially blank.
+- **What's built:** the other 7 sectors' crosswalks are the real, OCR'd Annex XL table, verified against NACE
+  Rev. 2 (Reg. (EC) 1893/2006). Chemicals uses NACE division 20 ("manufacture of chemicals and chemical
+  products") as a disclosed, reasonable placeholder — this is the best any institution can do until EBA
+  publishes its own list, not a shortcut on our part.
+- **When it lands:** EBA's "next reporting framework release" ships the DPM update — watch
+  eba.europa.eu/risk-and-data-analysis/reporting/reporting-frameworks for the release that finally includes
+  Chemicals' code list, then replace the `digits[:2] == "20"` fallback in `_iea_sector()` with the real list.
+
+## 10 · NACE Rev. 2.1 transition — Template 3 not yet addressed  *(external, timely — monitor)*
+- **What changed:** the EBA and ECB confirmed (Joint Bank Reporting Committee advice, June 2025) that EU
+  supervisory/statistical/disclosure reporting must move to the revised **NACE Rev. 2.1** classification for
+  any reporting period from **1 January 2026** — which has already passed as of this doc's last review.
+- **Checked directly against the JBRC advice document itself** (not a summary): its detailed scope annex
+  names exactly **Pillar 3 ESG Template 1** (transition risk, credit quality by sector) and **Template 5**
+  (physical risk exposures) as in-scope, plus FINREP F 06.01/F 20.07.1 and the NPL CQ5 template. **Template 3
+  is not mentioned anywhere in the document** — its Annex XL crosswalk transition to Rev. 2.1 has not been
+  addressed by EBA/JBRC at all as of the June-2025 advice.
+- **Why Templates 1/5 are less exposed today:** they classify counterparties at the NACE **section** level
+  (letters A-U, `_section()` in `pillar3_templates.py`), and the JBRC advice itself says the transition is
+  "reported on a 1-to-1 basis to the existing related labels — only changes in the wording of a few labels
+  are needed" at that level, i.e. the section-letter structure Templates 1/5 use isn't being restructured.
+  Template 3's crosswalk operates at the fine-grained NACE **class/group** level, which IS where Rev. 2.1
+  renumbers things — so it's the one genuinely exposed until EBA publishes a Rev.-2.1-native version of the
+  Annex XL table (which may well ship in the same "next reporting framework release" as the Chemicals fix
+  above, since both are DPM-release-gated).
+- **When it lands:** watch for the EBA reporting-framework release that ships a NACE-2.1-native Template 3
+  instruction; until then, `_ANNEX_XL_NACE_CROSSWALK` stays on the verified Rev. 2 codes, which remains the
+  only published version to build against.

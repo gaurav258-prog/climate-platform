@@ -53,10 +53,20 @@ from services.governance.pillar3_templates import NACE_SECTIONS, _section  # noq
 #     one deliberate override (NACE class 20.14, oil-derived organic chemicals, is carved out to oil_gas
 #     specifically, not the chemicals fallback below) — matching is by longest-listed-prefix throughout.
 # "Chemicals" (sector 8 in the summary list) has NO published NACE code list in this table at all — every
-# other sector's codes are given, chemicals' column is simply blank in the source. NACE division 20
-# ("manufacture of chemicals and chemical products") is used as a reasonable, disclosed fallback — this is
-# the one sector in this crosswalk NOT sourced from the official table itself, because the table doesn't
-# provide one.
+# other sector's codes are given, chemicals' column is simply blank in the source. This is CONFIRMED as a
+# genuine, EBA-acknowledged gap, not something we failed to find: EBA Q&A 2024_7085 confirms Chemicals is a
+# mandatory Template-3 row ("institutions shall present also IEA sector Chemicals... the related DPM will be
+# amended accordingly with the next reporting framework release"), and EBA Q&A 2025_7451 — someone asking
+# exactly which NACE codes apply — was REJECTED outright ("this question has been rejected because the
+# matter... will be considered for the forthcoming version of the Reporting framework"). No institution has
+# an official answer to this today. NACE division 20 ("manufacture of chemicals and chemical products") is
+# used as a reasonable, disclosed fallback until EBA publishes one — tracked in
+# docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md item #9.
+#
+# Separately tracked (item #10, same doc): NACE Rev. 2.1 became mandatory for EU supervisory reporting from
+# 1 Jan 2026, but the EBA/ECB's own JBRC scope document names only Templates 1 and 5 as in-scope — Template 3
+# is not mentioned at all, so this crosswalk correctly stays on the verified NACE Rev. 2 (Reg. 1893/2006)
+# codes until EBA publishes a Rev.-2.1-native version.
 _ANNEX_XL_NACE_CROSSWALK: tuple[tuple[str, str], ...] = (
     # Maritime transport (shipping) — division 50 (real, ≥10, no leading-zero issue)
     ("301", "maritime"), ("3011", "maritime"), ("3012", "maritime"), ("3315", "maritime"),
