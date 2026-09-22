@@ -1,12 +1,13 @@
 {
-  "_source": "Commission Delegated Regulation (EU) 2015/35, Annexes VI (earthquake), VII (flood), VIII (hail). OJ L 12, 17.1.2015, p. 236-240.",
-  "_retrieved_from": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32015R0035 (CELEX 32015R0035, original OJ text)",
-  "_version": "2015-01-17-original",
-  "_note": "Region risk factors Q(peril,r) (decimal fractions) and the region correlation matrices, verbatim. Correlation `region_order` matches each Annex matrix header exactly. Windstorm lives in solvency2_windstorm_annex_v.json; subsidence (Art. 125) is a France-only constant in code.",
+  "_source": "Commission Delegated Regulation (EU) 2015/35, Annexes VI (earthquake), VII (flood), VIII (hail), AS AMENDED BY Commission Delegated Regulation (EU) 2019/981 of 8 March 2019 (applicable since 1 Jan 2020), Annexes IV (earthquake), V (flood), VI (hail). Retrieved via legislation.gov.uk 'adopted' (original-as-made EU text) view, which mirrors the consolidated Annexes VI-VIII of 2015/35 as amended.",
+  "_retrieved_from": "https://www.legislation.gov.uk/eur/2019/981/annex/IV/adopted (earthquake), /annex/V/adopted (flood), /annex/VI/adopted (hail) — fetched 2026-09-22; EUR-Lex blocked by WAF",
+  "_version": "2019-981-amended",
+  "_next_review": "Commission Delegated Regulation C(2025)7206 / (EU) 2026/269, adopted 29 Oct 2025, applies from 30 Jan 2027 — will require a further factor-table update before that date.",
+  "_note": "Region risk factors Q(peril,r) (decimal fractions) and the region correlation matrices, verbatim from the 2019/981-amended Annexes. Correlation `region_order` matches each Annex matrix header exactly. Earthquake and flood correlation matrices were NOT touched by the 2019/981 amendment (only the factor tables were replaced; region sets unchanged); hail gained two regions (CZ, SI) with a re-published correlation matrix. Windstorm lives in solvency2_windstorm_annex_v.json; subsidence (Art. 125) is a France-only constant in code.",
   "verified": true,
 
   "earthquake": {
-    "citation": "Del. Reg. (EU) 2015/35, Art. 122 + Annex VI",
+    "citation": "Del. Reg. (EU) 2015/35, Art. 122 + Annex VI, as amended by Del. Reg. (EU) 2019/981 Annex IV",
     "gross_factor": 1.00,
     "region_order": ["AT","BE","BG","CR","CY","FR","DE","HE","HU","IT","MT","PT","RO","SI","CZ","CH","SK","GU","MA","SM"],
     "regions": {
@@ -19,13 +20,13 @@
       "CH": {"name": "Swiss Confederation; Liechtenstein", "q": 0.0025},
       "FR": {"name": "French Republic; Monaco; Andorra", "q": 0.0006},
       "DE": {"name": "Federal Republic of Germany", "q": 0.0010},
-      "HE": {"name": "Hellenic Republic (Greece)", "q": 0.0185},
+      "HE": {"name": "Hellenic Republic (Greece)", "q": 0.0175},
       "HU": {"name": "Republic of Hungary", "q": 0.0020},
-      "IT": {"name": "Italian Republic; San Marino; Vatican", "q": 0.0080},
+      "IT": {"name": "Italian Republic; San Marino; Vatican", "q": 0.0077},
       "MT": {"name": "Republic of Malta", "q": 0.0100},
       "PT": {"name": "Portuguese Republic", "q": 0.0120},
       "RO": {"name": "Romania", "q": 0.0170},
-      "SK": {"name": "Slovak Republic", "q": 0.0015},
+      "SK": {"name": "Slovak Republic", "q": 0.0016},
       "SI": {"name": "Republic of Slovenia", "q": 0.0100},
       "GU": {"name": "Guadeloupe", "q": 0.0409},
       "MA": {"name": "Martinique", "q": 0.0471},
@@ -59,24 +60,24 @@
   },
 
   "flood": {
-    "citation": "Del. Reg. (EU) 2015/35, Art. 123 + Annex VII",
+    "citation": "Del. Reg. (EU) 2015/35, Art. 123 + Annex VII, as amended by Del. Reg. (EU) 2019/981 Annex V",
     "gross_factor": 1.10,
     "region_order": ["AT","BE","CH","CZ","FR","DE","HU","IT","BG","PL","RO","SI","SK","UK"],
     "regions": {
       "AT": {"name": "Republic of Austria", "q": 0.0013},
       "BE": {"name": "Kingdom of Belgium", "q": 0.0010},
-      "CH": {"name": "Swiss Confederation; Liechtenstein", "q": 0.0015},
+      "CH": {"name": "Swiss Confederation; Liechtenstein", "q": 0.0030},
       "CZ": {"name": "Czech Republic", "q": 0.0030},
-      "FR": {"name": "French Republic; Monaco; Andorra", "q": 0.0010},
+      "FR": {"name": "French Republic; Monaco; Andorra", "q": 0.0012},
       "DE": {"name": "Federal Republic of Germany", "q": 0.0020},
-      "HU": {"name": "Republic of Hungary", "q": 0.0040},
-      "IT": {"name": "Italian Republic; San Marino; Vatican", "q": 0.0010},
+      "HU": {"name": "Republic of Hungary", "q": 0.0025},
+      "IT": {"name": "Italian Republic; San Marino; Vatican", "q": 0.0015},
       "BG": {"name": "Republic of Bulgaria", "q": 0.0015},
       "PL": {"name": "Republic of Poland", "q": 0.0016},
-      "RO": {"name": "Romania", "q": 0.0040},
+      "RO": {"name": "Romania", "q": 0.0030},
       "SI": {"name": "Republic of Slovenia", "q": 0.0030},
-      "SK": {"name": "Slovak Republic", "q": 0.0045},
-      "UK": {"name": "United Kingdom", "q": 0.0010}
+      "SK": {"name": "Slovak Republic", "q": 0.0035},
+      "UK": {"name": "United Kingdom", "q": 0.0012}
     },
     "correlation": {
       "AT": [1.00,0.00,0.25,0.50,0.00,0.75,0.50,0.00,0.25,0.25,0.25,0.00,0.50,0.00],
@@ -99,32 +100,36 @@
   },
 
   "hail": {
-    "citation": "Del. Reg. (EU) 2015/35, Art. 124 + Annex VIII",
+    "citation": "Del. Reg. (EU) 2015/35, Art. 124 + Annex VIII, as amended by Del. Reg. (EU) 2019/981 Annex VI",
     "gross_factor": 1.20,
-    "region_order": ["AT","BE","FR","DE","IT","LU","NL","CH","ES"],
+    "region_order": ["AT","BE","CZ","FR","DE","IT","LU","NL","CH","SI","ES"],
     "regions": {
       "AT": {"name": "Republic of Austria", "q": 0.0008},
       "BE": {"name": "Kingdom of Belgium", "q": 0.0003},
+      "CZ": {"name": "Czech Republic", "q": 0.00045},
       "FR": {"name": "French Republic; Monaco; Andorra", "q": 0.0001},
       "DE": {"name": "Federal Republic of Germany", "q": 0.0002},
       "IT": {"name": "Italian Republic; San Marino; Vatican", "q": 0.0005},
       "LU": {"name": "Grand Duchy of Luxembourg", "q": 0.0003},
       "NL": {"name": "Kingdom of the Netherlands", "q": 0.0002},
       "CH": {"name": "Swiss Confederation; Liechtenstein", "q": 0.0006},
+      "SI": {"name": "Republic of Slovenia", "q": 0.0008},
       "ES": {"name": "Kingdom of Spain", "q": 0.0001}
     },
     "correlation": {
-      "AT": [1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
-      "BE": [0.00,1.00,0.00,0.00,0.00,0.25,0.25,0.00,0.00],
-      "FR": [0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00],
-      "DE": [0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00],
-      "IT": [0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00],
-      "LU": [0.00,0.25,0.00,0.00,0.00,1.00,0.25,0.00,0.00],
-      "NL": [0.00,0.25,0.00,0.00,0.00,0.25,1.00,0.00,0.00],
-      "CH": [0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00],
-      "ES": [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00]
+      "AT": [1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
+      "BE": [0.00,1.00,0.00,0.00,0.00,0.00,0.25,0.25,0.00,0.00,0.00],
+      "CZ": [0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
+      "FR": [0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],
+      "DE": [0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,0.00],
+      "IT": [0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00],
+      "LU": [0.00,0.25,0.00,0.00,0.00,0.00,1.00,0.25,0.00,0.00,0.00],
+      "NL": [0.00,0.25,0.00,0.00,0.00,0.00,0.25,1.00,0.00,0.00,0.00],
+      "CH": [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00],
+      "SI": [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00],
+      "ES": [0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,1.00]
     },
-    "iso2_to_region": {"AT":"AT","BE":"BE","FR":"FR","MC":"FR","AD":"FR","DE":"DE","IT":"IT","SM":"IT","VA":"IT",
-      "LU":"LU","NL":"NL","CH":"CH","LI":"CH","ES":"ES"}
+    "iso2_to_region": {"AT":"AT","BE":"BE","CZ":"CZ","FR":"FR","MC":"FR","AD":"FR","DE":"DE","IT":"IT","SM":"IT","VA":"IT",
+      "LU":"LU","NL":"NL","CH":"CH","LI":"CH","ES":"ES","SI":"SI"}
   }
 }

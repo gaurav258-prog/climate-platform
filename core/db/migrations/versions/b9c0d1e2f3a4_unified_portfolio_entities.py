@@ -104,6 +104,7 @@ CREATE TABLE ext_insurance (
     building_value_eur                 NUMERIC(18,2),
     contents_value_eur                 NUMERIC(18,2),
     business_interruption_value_eur    NUMERIC(18,2)
+    -- cresta_zone added by ext_ins_cresta_zone_20260906; motor_sum_insured_eur added by ext_ins_motor_si_20260922
 );
 
 CREATE TABLE ext_realestate (

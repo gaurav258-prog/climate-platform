@@ -1,4 +1,6 @@
-"""Solvency II STANDARD-FORMULA natural-catastrophe SCR — all five perils (Del. Reg. (EU) 2015/35, Art. 120-125).
+"""Solvency II STANDARD-FORMULA natural-catastrophe SCR — all five perils (Del. Reg. (EU) 2015/35, Art. 120-125,
+as amended by Del. Reg. (EU) 2019/981, applicable since 1 Jan 2020 — the Annex V-VIII factor tables below are the
+2019/981-amended values, not the original 2015 ones).
 
 Prescribed regulatory calculation, not a model: EIOPA's own per-region factors and correlation matrices, cited to
 the Official Journal, loaded from data/reference/*.json (never hard-coded). One region-level calculator drives the
@@ -15,8 +17,9 @@ APPROXIMATION (disclosed, same as the windstorm module): sums insured aggregated
 per region, risk weight W=1, perfect within-country correlation (WSI_r = Σ sum insured in region r). Q and the
 inter-region correlation are the EXACT Annex values; the intra-country Annex IX/X zone weights and zone
 diversification (Annex XXII-XXVI) are not applied — an approximation of the exact zonal figure. Flood/hail also
-add a motor sum-insured component (1.5×/5× LoB 5,17) we do not include — a property-book view. Exposure outside a
-peril's Annex regions is reported separately (Art. *(8-9) premium charge not computed), never silently dropped.
+add a motor sum-insured component (1.5×/5× LoB 5,17), included when a policy carries motor_sum_insured_eur —
+0 for a pure property book (LoB 6/7/18/19). Exposure outside a peril's Annex regions is reported separately
+(Art. *(8-9) premium charge not computed), never silently dropped.
 """
 from __future__ import annotations
 

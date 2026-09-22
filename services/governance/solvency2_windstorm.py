@@ -1,9 +1,10 @@
-"""Solvency II standard-formula WINDSTORM CAT sub-module (Del. Reg. (EU) 2015/35, Art. 121 + Annex V).
+"""Solvency II standard-formula WINDSTORM CAT sub-module (Del. Reg. (EU) 2015/35, Art. 121 + Annex V, as amended
+by Del. Reg. (EU) 2019/981, applicable since 1 Jan 2020).
 
 Thin wrapper over the general nat-cat engine (services/governance/solvency2_natcat.py) — kept as a stable public
 entry point for the insurance snapshot, the S.26.01 mapping and the filing form. The prescribed method, the
-official Annex V factors and the disclosed country-level approximation all live in the general engine; this maps
-its output onto the windstorm-specific field names those callers use.
+official Annex V factors (2019/981-amended) and the disclosed country-level approximation all live in the general
+engine; this maps its output onto the windstorm-specific field names those callers use.
 """
 from __future__ import annotations
 

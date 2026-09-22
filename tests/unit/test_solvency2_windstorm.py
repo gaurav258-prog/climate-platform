@@ -18,9 +18,9 @@ def test_single_region_is_gross_factor_times_q_times_si():
 
 
 def test_two_regions_apply_annex_v_correlation_and_give_diversification():
-    # NL (SCR 2.16m) + DE (Q=0.0009 -> SCR 1.08m), CorrWS(NL,DE)=0.50
+    # NL (SCR 2.16m) + DE (Q=0.0007, 2019/981-amended -> SCR 0.84m), CorrWS(NL,DE)=0.50
     r = standard_formula_windstorm([_pol("NL", 1_000_000_000), _pol("DE", 1_000_000_000)])
-    scr_nl, scr_de = 1.20 * 0.0018e9, 1.20 * 0.0009e9
+    scr_nl, scr_de = 1.20 * 0.0018e9, 1.20 * 0.0007e9
     expect = math.sqrt(scr_nl**2 + scr_de**2 + 2 * 0.50 * scr_nl * scr_de)
     assert abs(r["scr_windstorm_eur"] - round(expect)) <= 1
     assert r["undiversified_scr_eur"] == round(scr_nl + scr_de)
@@ -59,7 +59,8 @@ def test_annex_v_matrix_is_symmetric_with_unit_diagonal():
     import json
     p = json.load(open("data/reference/solvency2_windstorm_annex_v.json"))
     order, corr = p["region_order"], p["correlation"]
-    assert len(order) == 20 and all(len(corr[r]) == 20 for r in order)
+    # 23 regions: the 2019/981 amendment added FI, HU, SI to the 20-region original Annex V
+    assert len(order) == 23 and all(len(corr[r]) == 23 for r in order)
     idx = {r: i for i, r in enumerate(order)}
     for r in order:
         assert corr[r][idx[r]] == 1.0

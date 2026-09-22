@@ -12,18 +12,20 @@ def _pol(country, si):
 def test_gross_factors_per_peril():
     # SCR_r = gross · Q_r · SI_r for a single region; verifies each peril's prescribed gross factor
     si = 1_000_000_000
-    assert standard_formula_peril([_pol("DE", si)], "windstorm")["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0009 * si)
-    assert standard_formula_peril([_pol("IT", si)], "earthquake")["per_region"][0]["scr_region_eur"] == round(1.00 * 0.0080 * si)
+    # 2019/981-amended Annex V-VIII factors: DE windstorm 0.07%, IT earthquake 0.77%, DE flood 0.20% (unchanged),
+    # AT hail 0.08% (unchanged)
+    assert standard_formula_peril([_pol("DE", si)], "windstorm")["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0007 * si)
+    assert standard_formula_peril([_pol("IT", si)], "earthquake")["per_region"][0]["scr_region_eur"] == round(1.00 * 0.0077 * si)
     assert standard_formula_peril([_pol("DE", si)], "flood")["per_region"][0]["scr_region_eur"] == round(1.10 * 0.0020 * si)
     assert standard_formula_peril([_pol("AT", si)], "hail")["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0008 * si)
 
 
 def test_earthquake_covers_southern_europe_that_windstorm_misses():
-    # Greece has no windstorm factor but a high earthquake factor (1.85%)
+    # Greece has no windstorm factor but a high earthquake factor (1.75%, 2019/981-amended)
     assert standard_formula_peril([_pol("GR", 1e9)], "windstorm")["available"] is False
     eq = standard_formula_peril([_pol("GR", 1e9)], "earthquake")
     assert eq["available"] and eq["per_region"][0]["region"] == "HE"
-    assert eq["scr_eur"] == round(1.00 * 0.0185 * 1e9)
+    assert eq["scr_eur"] == round(1.00 * 0.0175 * 1e9)
 
 
 def test_san_marino_iso_maps_to_italy_region_for_earthquake():
@@ -41,7 +43,7 @@ def test_motor_component_flood_hail_only():
     ha = standard_formula_peril([pol], "hail")
     assert ha["motor_component_eur"] == round(5.0 * 1e9)                                        # motor ×5
     ws = standard_formula_peril([pol], "windstorm")
-    assert ws["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0009 * 1e9)                  # property only, no motor
+    assert ws["per_region"][0]["scr_region_eur"] == round(1.20 * 0.0007 * 1e9)                  # property only, no motor
     assert ws["motor_component_eur"] is None
 
 
