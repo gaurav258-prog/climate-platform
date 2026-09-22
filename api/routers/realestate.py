@@ -47,7 +47,8 @@ from services.portfolio_engine import (
 )
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
-EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "x.epc_rating"]
+EXT_REALESTATE_COLUMNS = ["CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur", "x.epc_rating",
+                          "CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur"]
 
 
 def _realestate_extra(row, headline, hz):
@@ -73,7 +74,9 @@ def _map_property_row(row):
         "property_id": row["entity_id"], "property_name": row["entity_name"], "property_type": row["entity_type"],
         "country": row["country"], "region": row["region"], "lat": row["lat"], "lon": row["lon"],
         "h3_cell": row["h3_cell"], "property_value_eur": row["primary_value_eur"],
-        "annual_noi_eur": row["annual_noi_eur"], "construction_type": row["construction_type"],
+        "annual_noi_eur": row["annual_noi_eur"],
+        "annual_gross_rental_revenue_eur": row["annual_gross_rental_revenue_eur"],
+        "construction_type": row["construction_type"],
         "year_built": row["year_built"], "number_of_stories": row["number_of_stories"],
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
@@ -232,6 +235,9 @@ PROPERTY_TEMPLATE_FIELDS = [
     {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "4.4777"},
     {"name": "property_value_eur", "required": True, "description": "Current market/appraised value.", "example": "42000000"},
     {"name": "annual_noi_eur", "required": True, "description": "Annual net operating income.", "example": "2400000"},
+    {"name": "annual_gross_rental_revenue_eur", "required": False, "description": "Annual GROSS rental revenue "
+     "before operating expenses (Del. Reg. (EU) 2021/2178 Annex I §1.1.1 turnover-KPI basis) — enables the real "
+     "EU Taxonomy Turnover KPI instead of the NOI-as-proxy fallback.", "example": "3600000"},
     {"name": "property_type", "required": True, "description": "office / retail / logistics / light_industrial / multifamily.", "example": "logistics"},
     {"name": "construction_type", "required": False, "description": "ISO Construction Class: frame / joisted_masonry / non_combustible / masonry_non_combustible / fire_resistive.", "example": "non_combustible"},
     {"name": "year_built", "required": False, "description": "Year of construction.", "example": "2011"},
@@ -266,6 +272,7 @@ def property_detail(property_id: str, session: DbSession):
         "property_type": row["entity_type"], "country": row["country"], "region": row["region"],
         "lat": row["lat"], "lon": row["lon"], "h3_cell": row["h3_cell"],
         "property_value_eur": row["primary_value_eur"], "annual_noi_eur": row["annual_noi_eur"],
+        "annual_gross_rental_revenue_eur": row["annual_gross_rental_revenue_eur"],
         "construction_type": row["construction_type"], "year_built": row["year_built"],
         "number_of_stories": row["number_of_stories"],
         "taxonomy_status": row["taxonomy_status"], "taxonomy_activity_ref": row["taxonomy_activity_ref"],
@@ -377,6 +384,12 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
         if safeguards and safeguards not in SAFEGUARDS_STATUSES:
             safeguards = None
+        gross_revenue = None
+        if "annual_gross_rental_revenue_eur" in df.columns and pd.notna(row.get("annual_gross_rental_revenue_eur")):
+            try:
+                gross_revenue = float(row["annual_gross_rental_revenue_eur"])
+            except (TypeError, ValueError):
+                gross_revenue = None
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
@@ -386,6 +399,7 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
             "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
             "primary_value_eur": value_eur, "annual_noi_eur": noi_eur,
+            "annual_gross_rental_revenue_eur": gross_revenue,
             "construction_type": construction,
             "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
             "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
@@ -407,8 +421,8 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
                 :borrower_entity_id, :minimum_safeguards_status)
     """), records)
     session.execute(text("""
-        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating)
-        VALUES (:entity_id, :annual_noi_eur, :epc_rating)
+        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur)
+        VALUES (:entity_id, :annual_noi_eur, :epc_rating, :annual_gross_rental_revenue_eur)
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="properties.upload",
                 target_type="realestate_properties", target_id=None,

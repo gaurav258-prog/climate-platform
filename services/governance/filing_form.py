@@ -244,7 +244,7 @@ def _reit_taxonomy_form(payload: dict) -> list[dict]:
     }, {
         "section": "Alignment evidence (verifiable sub-signals — not an alignment claim)",
         "rows": [
-            {"label": "Substantial contribution — EPC A/B (§7.7 TSC)", "pct": _fmt_pct(ev.get("substantial_contribution_epc_ab_pct"))},
+            {"label": "Substantial contribution — EPC A (§7.7 point 1 TSC)", "pct": _fmt_pct(ev.get("substantial_contribution_epc_ab_pct"))},
             {"label": "Climate-adaptation DNSH favourable (our physical-risk assessment, Art. 17)", "pct": _fmt_pct(ev.get("climate_adaptation_dnsh_favourable_pct"))},
             {"label": "Minimum safeguards verified", "pct": _fmt_pct(ev.get("minimum_safeguards_verified_pct"))},
         ],

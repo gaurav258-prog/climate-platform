@@ -742,7 +742,7 @@ function ResilienceCard({ rc }: { rc?: Resilience }) {
     { label: 'Loss avoided', value: eur(rc.total_avoided_loss_eur), sub: 'modelled physical loss the spend prevents', accent: GOOD },
     { label: 'Benefit-cost ratio', value: `${rc.portfolio_benefit_cost_ratio ?? '—'}×`, sub: 'loss avoided per euro spent',
       accent: rc.portfolio_benefit_cost_ratio && rc.portfolio_benefit_cost_ratio >= 1 ? GOOD : undefined },
-    { label: 'Taxonomy adaptation capex', value: eur(rc.taxonomy_adaptation_aligned_capex_eur), sub: 'EU-Taxonomy adaptation-aligned (Objective 2)' },
+    { label: 'Modelled adaptation capex (illustrative)', value: eur(rc.taxonomy_adaptation_aligned_capex_eur), sub: 'EU-Taxonomy adaptation-aligned (Objective 2) — modelled, not a filed CapEx KPI' },
   ]
   return (
     <Card className="p-5">

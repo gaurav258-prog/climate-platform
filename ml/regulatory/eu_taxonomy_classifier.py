@@ -46,12 +46,11 @@ NACE_ANNEX_I_ELIGIBILITY = {
     "35.11": "Climate Delegated Act (EU) 2021/2139, Annex I §4 — Electricity, gas, steam and air conditioning supply",
 }
 
-# EPC A/B is a defensible, disclosed proxy for "substantial contribution" under
-# Annex I §7.7's technical screening criteria (top-of-market energy performance) --
-# NOT the full criteria (which also allow a top-15%-of-national-stock or a
-# qualifying-renovation route this simple grade check can't evaluate). Treated
-# as a documented simplification, not a certified assessment -- see reasoning.note.
-EPC_MEETS_SUBSTANTIAL_CONTRIBUTION = {"A", "B"}
+# Annex I §7.7 point 1 (verified verbatim): for buildings built before 31 Dec 2020,
+# the building must have AT LEAST EPC class A -- B does NOT qualify. (The regulation's
+# own alternative route is the top 15% of the national/regional building stock, which
+# this platform cannot evaluate from an EPC letter grade alone -- see reasoning.note.)
+EPC_MEETS_SUBSTANTIAL_CONTRIBUTION = {"A"}
 
 
 def classify_taxonomy(
@@ -97,13 +96,16 @@ def classify_taxonomy(
     if epc_rating:
         substantial_contribution_verified = epc_rating in EPC_MEETS_SUBSTANTIAL_CONTRIBUTION
         substantial_contribution_note = (
-            f"EPC {epc_rating} supplied — treated as meeting Annex I §7.7's substantial-"
-            f"contribution bar (a disclosed simplification of the full technical screening "
-            f"criteria; the top-15%-of-stock and qualifying-renovation routes aren't evaluated)."
+            f"EPC {epc_rating} supplied — meets Annex I §7.7 point 1's substantial-contribution "
+            f"bar (EPC class A is the primary criterion). The regulation's alternative route "
+            f"(top 15% of the national/regional building stock) is a separate test this platform "
+            f"does not evaluate."
             if substantial_contribution_verified else
-            f"EPC {epc_rating} supplied — below the A/B threshold this simplified check uses, "
-            f"so substantial contribution is not considered met (though the full technical "
-            f"screening criteria's other routes weren't evaluated either)."
+            f"EPC {epc_rating} supplied — does NOT meet Annex I §7.7 point 1's substantial-"
+            f"contribution bar, which requires EPC class A (not B or below). The regulation's "
+            f"alternative route (top 15% of the national/regional building stock) is a separate, "
+            f"unevaluated test this platform cannot check from an EPC letter grade alone -- so a "
+            f"property below A is not confirmed ineligible via that route, only via this one."
         )
     else:
         substantial_contribution_verified = False
