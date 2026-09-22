@@ -144,6 +144,10 @@ function PerilDetail({ sf }: { sf: SF }) {
               </button>
               {isOpen && (
                 <div className="border-t border-[var(--color-line)]">
+                  <div className="px-3.5 pt-3 pb-1">
+                    <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by region</div>
+                    <HBar data={b!.per_region!.map(r => ({ label: r.region, value: r.scr_region_eur, sub: `Q ${(r.risk_factor_q * 100).toFixed(1)}%`, color: PERIL_COLOR[k] }))} format={eurM} height={14} />
+                  </div>
                   <table className="w-full text-[12px]">
                     <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase">
                       <th className="text-left font-normal px-3.5 py-1.5">Region</th>

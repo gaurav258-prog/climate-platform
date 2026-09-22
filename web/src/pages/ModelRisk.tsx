@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Button, Card, StatGrid, Eyebrow } from '../components/ui'
+import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
 
 // Model-risk register — a card per model the figures rest on (identity, what it may claim, validation, data,
@@ -25,9 +26,10 @@ const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] ro
 export default function ModelRisk() {
   const q = useQuery({ queryKey: ['model-risk'], queryFn: () => api.get<Resp>('/v1/model-risk') })
   const [open, setOpen] = useState<string | null>(null); const [review, setReview] = useState<CardT | null>(null); const [inUse, setInUse] = useState(true)
+  const [stateFilter, setStateFilter] = useState<CardT['review_state'] | null>(null)
   const d = q.data
   const s = d?.summary
-  const rows = (d?.cards ?? []).filter(c => !inUse || c.active)
+  const rows = (d?.cards ?? []).filter(c => (!inUse || c.active) && (!stateFilter || c.review_state === stateFilter))
   return (
     <div className="fadeup space-y-6">
       <ReviewTabs />
@@ -45,9 +47,28 @@ export default function ModelRisk() {
         { label: 'Without validation evidence', value: String(s.unvalidated), sub: 'no run on the ledger at model or hazard level', accent: s.unvalidated ? 'var(--color-warn)' : undefined },
         { label: 'Reviewed and current', value: `${s.reviewed_current} / ${s.in_use}`, sub: `${s.review_stale} stale · ${s.review_overdue} overdue · ${s.unreviewed} not reviewed`, accent: s.unreviewed || s.review_stale || s.review_overdue ? 'var(--color-warn)' : 'var(--color-good)' },
       ]} />}
+      {s && (() => {
+        const states = ([
+          ['current', s.reviewed_current], ['stale', s.review_stale], ['overdue', s.review_overdue], ['none', s.unreviewed],
+        ] as [CardT['review_state'], number][]).filter(([, n]) => n > 0)
+        return (
+          <Card className="p-5">
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Review state, models in use — click a bar to filter the register below</div>
+            <HBar height={14} format={(n) => `${n}`}
+              data={states.map(([st, n]) => ({ label: RS[st].label, value: n, color: RS[st].color }))}
+              onBar={(i) => setStateFilter(prev => prev === states[i][0] ? null : states[i][0])} />
+          </Card>
+        )
+      })()}
       <Card className="p-5">
-        <div className="flex items-center gap-3 mb-3 text-[12px]">
+        <div className="flex items-center gap-3 mb-3 text-[12px] flex-wrap">
           <label className="flex items-center gap-2 text-[var(--color-mute)]"><input type="checkbox" checked={inUse} onChange={e => setInUse(e.target.checked)} /> in use only</label>
+          {stateFilter && (
+            <span className="inline-flex items-center gap-1.5 text-[var(--color-mute)]">
+              showing <span style={{ color: RS[stateFilter].color }}>{RS[stateFilter].label}</span> only
+              <button onClick={() => setStateFilter(null)} className="text-[var(--color-sky)] hover:underline">clear</button>
+            </span>
+          )}
           <span className="text-[var(--color-faint)]">{d?.note}</span>
         </div>
         {q.isLoading ? <div className="text-[12.5px] text-[var(--color-faint)] py-6 text-center">assembling the model cards…</div> : (

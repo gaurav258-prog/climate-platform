@@ -246,6 +246,30 @@ const GRADE_COLOR: Record<string, string> = {
   strong: '#4FA46E', fair: '#C68A1E', weak: '#C0553F', insufficient: 'var(--color-faint)',
 }
 
+// a skill value out of a run, whichever metric its kind publishes
+const skillOf = (r: VRun): number | null => {
+  const m = r.metrics || {}
+  const v = r.kind === 'regression' ? m.r2_oos : m.spearman
+  return typeof v === 'number' ? v : null
+}
+
+// tiny CSP-safe sparkline of a hazard's skill metric across its own runs, oldest to newest
+function TrendSpark({ points }: { points: { skill: number; grade: string }[] }) {
+  const W = 88, H = 24, pad = 3
+  const vals = points.map(p => p.skill)
+  const lo = Math.min(...vals, 0), hi = Math.max(...vals, 0.01)
+  const x = (i: number) => pad + (i / Math.max(1, points.length - 1)) * (W - 2 * pad)
+  const y = (v: number) => pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad)
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.skill).toFixed(1)}`).join(' ')
+  const last = points[points.length - 1]
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <path d={line} fill="none" stroke={GRADE_COLOR[last.grade] || 'var(--color-faint)'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.skill)} r={i === points.length - 1 ? 2.4 : 1.6} fill={GRADE_COLOR[p.grade] || 'var(--color-faint)'} />)}
+    </svg>
+  )
+}
+
 function ValidationRecordCard({ runs }: { runs: VRun[] }) {
   if (!runs?.length) return null
   const metricOf = (r: VRun) => {
@@ -253,6 +277,12 @@ function ValidationRecordCard({ runs }: { runs: VRun[] }) {
     if (r.kind === 'regression') return m.r2_oos != null ? `r²=${m.r2_oos}` : '—'
     return m.spearman != null ? `ρ=${m.spearman}` : '—'
   }
+  // hazards re-tested more than once, oldest→newest, so the reader sees whether validation is improving
+  const byHazard = new Map<string, VRun[]>()
+  for (const r of runs) { const k = byHazard.get(r.hazard_type) ?? []; k.push(r); byHazard.set(r.hazard_type, k) }
+  const trends = [...byHazard.entries()]
+    .map(([hz, rs]) => ({ hazard: hz, points: [...rs].sort((a, b) => a.created_at.localeCompare(b.created_at)).map(r => ({ skill: skillOf(r), grade: r.skill_grade })).filter((p): p is { skill: number; grade: string } => p.skill != null) }))
+    .filter(t => t.points.length >= 2)
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 mb-1">
@@ -260,6 +290,19 @@ function ValidationRecordCard({ runs }: { runs: VRun[] }) {
         <span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Validation track record · append-only, provenanced</span>
       </div>
       <p className="text-[12.5px] text-[var(--color-mute)] mb-3 max-w-2xl">Every backtest we've run, recorded immutably with its metric, the pass/fail against our publish gate, the method and the independent source — the accumulating evidence, honest where it's weak.</p>
+      {trends.length > 0 && (
+        <div className="mb-4 pb-4 border-b border-[var(--color-line)]">
+          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Re-tested hazards, oldest → newest run</div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {trends.map(t => (
+              <div key={t.hazard} className="flex items-center gap-2">
+                <span className="text-[11.5px] capitalize text-[var(--color-mute)]">{t.hazard.replace(/_/g, ' ')}</span>
+                <TrendSpark points={t.points} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-[12.5px]" style={{ borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>

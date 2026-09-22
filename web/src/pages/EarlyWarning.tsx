@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, PageHeader, SectionHead, PlainLead } from '../components/ui'
+import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { Radio, ChevronRight, ListPlus } from 'lucide-react'
 
@@ -32,7 +33,15 @@ export default function EarlyWarning() {
       <Card className="p-5">
         <SectionHead icon={Radio} className="mb-4">{d.n_alerts} live alert{d.n_alerts === 1 ? '' : 's'}</SectionHead>
         {alerts.length === 0 ? <div className="text-[13px] text-[var(--color-mute)]">No elevated hazard on the book right now.</div> :
-          <div className="space-y-2">
+          <div className="space-y-5">
+            {alerts.length > 1 && (
+              <div>
+                <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Severity, worst first</div>
+                <HBar data={alerts.map(a => ({ label: a.commodity, value: a.avg_hazard, sub: hazardLabel(a.hazard), color: LEVEL[a.level] ?? 'var(--color-slate)' }))}
+                  format={(n) => `${n}`} height={14} onBar={(i) => open(alerts[i].commodity)} />
+              </div>
+            )}
+            <div className="space-y-2">
             {alerts.map((a, i) => {
               const clickable = !!d.commodity_ids?.[a.commodity]
               return (
@@ -47,6 +56,7 @@ export default function EarlyWarning() {
               </div>
               )
             })}
+            </div>
           </div>}
       </Card>
 
