@@ -139,16 +139,20 @@ export default function Portfolio() {
   const type = profile?.org?.type ?? ''
   const cfg = SECTORS[type]
   const [scenario, setScenario] = useState('baseline')
-  const [horizon, setHorizon] = useState<string>(DEFAULT_HORIZON)
-  const [open, setOpen] = useState<string | null>(null)
-  const [detailId, setDetailId] = useState<string | null>(null)
   // two jobs, cleanly separated: work the book (find/open assets) vs. read the forward analysis.
   // Analytics deep-links straight to the forward view via ?view=forward, so the two feel like one flow.
   const [sp] = useSearchParams()
+  // a hazard deep-link (Coverage: "see it on your book") asserts something about TODAY's calibrated score,
+  // so it opens at horizon=current rather than the usual +3y operational default — otherwise a hazard that
+  // is genuinely nobody's worst a few years out reads as a broken link instead of an honest projection.
+  const [horizon, setHorizon] = useState<string>(sp.get('horizon') ?? DEFAULT_HORIZON)
+  const [open, setOpen] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [view, setView] = useState<'book' | 'forward'>(sp.get('view') === 'forward' ? 'forward' : 'book')
   // the book is search-driven — not a full dump. filter by text (name/region/sector), hazard, and severity.
   const [search, setSearch] = useState('')
-  const [hazardF, setHazardF] = useState('')
+  // deep-link from Coverage ("see it on your book →") arrives pre-filtered to that hazard
+  const [hazardF, setHazardF] = useState(sp.get('hazard') ?? '')
   const [bandF, setBandF] = useState('')
   const bookRef = useRef<HTMLDivElement>(null)
   const refreshBook = () => {

@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { PageHeader, Card, StatGrid, SectionHead, PlainLead } from '../components/ui'
 import { HBar } from '../components/Charts'
 import ReviewTabs from '../components/ReviewTabs'
+
+// calibrated hazards may link to where a tenant sees them live on their own book — the financial sectors'
+// Portfolio, agri's Cogs. Other sectors (regulator, none) have no book of their own to show, so no link.
+const BOOK_ROUTE: Record<string, string> = {
+  bank: '/portfolio', insurer: '/portfolio', asset_manager: '/portfolio', reit: '/portfolio', manufacturer: '/cogs',
+}
 
 // The honesty triangle — three auditable registries a supervisor can read straight:
 //   • Hazard coverage    (/v1/meta/hazard-coverage)     — do we score it? (EU Taxonomy's 28, by maturity tier)
@@ -83,9 +92,19 @@ function ScopeLine({ s }: { s: Scope }) {
 }
 
 function HazardTile({ h }: { h: HZ }) {
+  const nav = useNavigate()
+  const { profile } = useAuth()
   const acute = h.nature === 'acute'
+  // a calibrated hazard may link out to where this tenant actually sees it, live, on their own book. h.id is
+  // the EU-checklist key (e.g. 'cold_wave_frost'); h.internal is the real hazard_type(s) the book is filtered
+  // by (e.g. ['cold_wave','frost']) — only offer the link when there's exactly one, so it never silently
+  // hides half a checklist item's exposure behind a single-hazard filter.
+  const single = h.internal.length === 1 ? h.internal[0] : null
+  const bookRoute = h.tier === 'calibrated' && single ? BOOK_ROUTE[profile?.org?.type ?? ''] : undefined
+  // horizon=current: the calibrated claim is about today's score, not the operational +3y default
+  const open = bookRoute ? () => nav(`${bookRoute}?hazard=${single}&horizon=current`) : undefined
   return (
-    <div className="rounded-lg border px-3.5 py-3 flex items-start gap-2.5"
+    <div onClick={open} className={`rounded-lg border px-3.5 py-3 flex items-start gap-2.5 ${open ? 'cursor-pointer hover:border-[var(--color-sky)] transition' : ''}`}
       style={{ borderColor: h.phase === 'now' ? TIER[h.tier].c + '44' : 'var(--color-line-2)' }}>
       <span title={h.nature} className="mono text-[9px] font-semibold mt-0.5 rounded px-1.5 py-0.5 shrink-0"
         style={{ color: acute ? 'var(--color-warn)' : 'var(--color-sky)', background: `color-mix(in oklab, ${acute ? 'var(--color-warn)' : 'var(--color-sky)'} 12%, transparent)` }}>
@@ -95,6 +114,7 @@ function HazardTile({ h }: { h: HZ }) {
         <div className="text-[13.5px] font-medium text-[var(--color-ink)] leading-snug">{h.name}</div>
         <div className="mono text-[10.5px] text-[var(--color-faint)] mt-0.5 leading-snug">{h.source}</div>
         {h.scope && <ScopeLine s={h.scope} />}
+        {open && <div className="mono text-[10px] text-[var(--color-sky)] mt-1 inline-flex items-center gap-1">see it on your book <ArrowRight size={10} /></div>}
       </div>
       <div className="shrink-0"><Badge h={h} /></div>
     </div>

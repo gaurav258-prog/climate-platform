@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronRight, Coins, PackageX, Percent, Boxes, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner, SectionHead, StatGrid, type StatItem } from '../components/ui'
@@ -36,7 +36,9 @@ const TIER: Record<string, { label: string; cls: string }> = {
 
 export default function Cogs() {
   const nav = useNavigate()
-  const [hazardFilter, setHazardFilter] = useState<string | null>(null)
+  const [sp] = useSearchParams()
+  // deep-link from Coverage ("see it on your book →") arrives pre-filtered to that hazard
+  const [hazardFilter, setHazardFilter] = useState<string | null>(sp.get('hazard'))
   const rowsRef = useRef<HTMLDivElement>(null)
   const q = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
   if (q.isLoading) return <Center>loading…</Center>
