@@ -51,7 +51,7 @@ EXT_BANKING_COLUMNS = [
     # per-loan attributes the customer provides (Data → provide by Excel): feed the Pillar 3 integrated cells
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
-    "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 alignment
+    "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 / EU CRFR4 (pending adoption) alignment
     "x.counterparty_govt_level",   # central/regional/local — scopes the GAR Art. 7(1) government exclusion
     "x.no_stated_maturity",   # EBA Q&A 2022_6515 — equity/perpetual instruments route to the >20yr bucket
 ]
@@ -80,7 +80,7 @@ def _map_asset_list_row(row):
         "evic_eur": row.get("counterparty_evic_eur"),
         "residual_maturity_years": row.get("residual_maturity_years"),
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
-        "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 (IEA)
+        "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 / EU CRFR4 (pending adoption) (IEA)
         "counterparty_govt_level": row.get("counterparty_govt_level"),   # feeds GAR Art. 7(1) exclusion scoping
         "no_stated_maturity": row.get("no_stated_maturity"),   # EBA Q&A 2022_6515 — routes to the >20yr bucket
         "hazards": row["hazards"], "headline_score": row["headline_score"],
@@ -445,7 +445,7 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "money", "description": "Remaining life of the loan, in years.", "example": "7"},
     {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
     {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
-    {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
+    {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 / EU CRFR4 (pending adoption) IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
     {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC (EUR)", "kind": "money",
      "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape.", "example": "185000000"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],

@@ -781,9 +781,11 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                                  "residential immovable property and repossessed real estate, distributed by the collateral's "
                                  "energy consumption (kWh/m², cols b–g) and EPC label (A–G, cols h–n), split Union / non-Union." + _epc_note})
 
-    # Template 3 — transition-risk ALIGNMENT METRICS (ITS 2022/2453, Annex XL §38–41): per IEA sector, the
-    # portfolio CO₂-intensity + its distance to the IEA NZE2050 2030 target. Gross amount + benchmark + distance
-    # computed by Tellumen; the counterparty intensity is a vendor/counterparty feed (shown 'pending' until fed).
+    # Template 3 / EU CRFR4 (pending adoption; renamed by EBA/ITS/2026/02, not yet in force — see
+    # docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md #10) — transition-risk ALIGNMENT METRICS (ITS 2022/2453, Annex
+    # XL §38–41): per IEA sector, the portfolio CO₂-intensity + its distance to the IEA NZE2050 2030 target.
+    # Gross amount + benchmark + distance computed by Tellumen; the counterparty intensity is a
+    # vendor/counterparty feed (shown 'pending' until fed).
     if assets:
         from services.governance.transition_alignment import template3_grid
         g3 = template3_grid(assets)
@@ -795,13 +797,15 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                 dist = f'{r["distance_pct"]}%' if r["distance_pct"] is not None else "—"
                 t3_rows.append({"type": "row", "cells": [
                     _txt(f'{r["label"]} · {r["metric"]}'), _num(_eur(r["gross"])), _num(cur), _num(tgt), _num(dist)]})
-            sections.append({"title": "Template 3 — Banking book · transition risk · alignment metrics (ITS 2022/2453, Annex XL)",
+            sections.append({"title": "Template 3 / EU CRFR4 (pending adoption) — Banking book · transition risk · alignment metrics (ITS 2022/2453, Annex XL)",
                              "columns": ["Sector · IEA metric", "Gross carrying amount", "Portfolio intensity", "IEA NZE2050 2030 target", "Distance"],
                              "col_sources": ["", "computed", "integrated", "computed", "computed"],
                              "rows": t3_rows,
                              "note": g3["formula"] + ". " + g3["source"] + " Customer/vendor input: " + g3["customer_input"]})
 
     # Template 4 — exposures to the top-20 carbon-intensive firms (ITS 2022/2453, Annex XL §42–44).
+    # Per EBA/ITS/2026/02 (pending adoption): DELETED outright, not renamed, in the amended ITS — kept here
+    # under its current, in-force name until that ITS is adopted (see docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md #10).
     if assets:
         from services.governance.transition_alignment import template4_top20
         g4 = template4_top20(assets)
@@ -891,12 +895,24 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     # GAR (Templates 6–8) — Green Asset Ratio by counterparty class, built to the ITS grid: gross carrying
     # amount, Taxonomy-eligible + Taxonomy-aligned per counterparty, the covered-assets denominator (excl.
     # general governments, Art. 7) and the GAR ratio on stock. Computed from the per-asset taxonomy_status.
+    #
+    # Pending change (found 2026-09-22, see docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md #10): EBA/ITS/2026/02's
+    # Final Report removes Templates 6–9 from the amended Pillar 3 ESG ITS entirely — not renamed, DELETED —
+    # because they duplicated the GAR/Taxonomy disclosure that already lives under the Taxonomy Regulation's
+    # own Delegated Reg. (EU) 2021/2178, Annex VI (which this platform separately implements in
+    # `_taxonomy_art8_annex_vi()` above, T0/T3). Once the amended ITS is adopted, GAR/BTAR should be dropped
+    # from THIS Pillar-3 bundle and left solely in the Annex VI section — not duplicated, matching what the
+    # EBA itself concluded. Not changed yet: ITS 2022/2453 (which still asks for Templates 6–9 here) remains
+    # the current, in-force regulation until the amended ITS is officially published, per the standing rule
+    # of running the adopted version, not a still-pending "Final Report".
     gar_section = _gar_grid_section(assets) or _gar_flat_summary_section(dps, total)
     if gar_section:
         sections.append(gar_section)
 
     # Template 9 — BTAR (banking book taxonomy alignment ratio) · ITS 2022/2453, Annex XXXIX (Templates 9.1/9.2/
-    # 9.3) + Annex XL instructions. BTAR extends the GAR to counterparties NOT subject to NFRD disclosure (EU
+    # 9.3) + Annex XL instructions. Also removed (not renamed) by the pending EBA/ITS/2026/02 amendment, same
+    # reasoning as Templates 6–8 above — kept here while ITS 2022/2453 remains in force.
+    # BTAR extends the GAR to counterparties NOT subject to NFRD disclosure (EU
     # SMEs / non-financial corps + non-EU corporates): the institution "may" disclose it, and must source the
     # alignment by collecting from counterparties bilaterally through loan origination / credit review, or by
     # internal estimates and proxies (Annex XL §9.1). None of that is derivable from our engine — the whole grid

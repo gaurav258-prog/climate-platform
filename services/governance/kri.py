@@ -399,8 +399,8 @@ _METHODOLOGY = {
     "chronic_share": "Share of the book in the top two bands whose driver is a CHRONIC, gradual peril — drought, chronic heat, coastal/sea-level, water stress. This is the long-run repricing lens of Template 5; the acute and chronic shares overlap where an exposure faces both.",
     "forward_share": "Projected share of the book crossing into High+ at the furthest modelled horizon under a warming pathway (per your reporting-settings scenario, or Disorderly 2°C). The forward early-warning to compare against today's point-in-time share.",
     "sector_concentration": "Share of the book in the EBA high-climate-impact sectors (NACE sections A–H and L), with the single most-concentrated sector called out. Concentration in these sectors is the axis Pillar 3 Templates 1 & 5 are organised around and a standard prudential concentration control.",
-    "p3_alignment": "Pillar 3 Template 3 — the gross-weighted distance of the book's counterparty CO₂-intensity to the IEA Net-Zero-by-2050 2030 pathway per sector: 100×((current intensity − IEA 2030 target)/IEA 2030 target). Tellumen holds the IEA benchmark and does the calculation; the counterparty physical intensity (gCO₂/kWh, tCO₂/t…) is a vendor/counterparty feed, so this reads '—' until that feed is provided. A TCFD-not-required, Pillar-3-specific indicator.",
-    "p3_top20": "Pillar 3 Template 4 — share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity. Policy action against top emitters can deteriorate their creditworthiness, so this is a concentrated transition-credit indicator prescribed by Pillar 3 (not TCFD).",
+    "p3_alignment": "Pillar 3 Template 3 / EU CRFR4 (pending adoption) — the gross-weighted distance of the book's counterparty CO₂-intensity to the IEA Net-Zero-by-2050 2030 pathway per sector: 100×((current intensity − IEA 2030 target)/IEA 2030 target). Tellumen holds the IEA benchmark and does the calculation; the counterparty physical intensity (gCO₂/kWh, tCO₂/t…) is a vendor/counterparty feed, so this reads '—' until that feed is provided. A TCFD-not-required, Pillar-3-specific indicator.",
+    "p3_top20": "Pillar 3 Template 4 (deleted by the pending EBA/ITS/2026/02 amendment — kept while ITS 2022/2453 remains in force) — share of the book lent to the world's 20 most carbon-intensive companies (the Carbon Majors list), matched by counterparty identity. Policy action against top emitters can deteriorate their creditworthiness, so this is a concentrated transition-credit indicator prescribed by Pillar 3 (not TCFD).",
     "coverage": "Share of the book carrying a physical-risk score on the golden source. Unscored exposure is excluded from the risk figures, never assumed safe.",
     "fin_emissions": "PCAF-attributed financed emissions (Scope 1–3, tCO₂e): counterparty emissions (reported, or a "
                      "NACE-intensity estimate where a counterparty figure is missing), weighted per loan by the "
@@ -763,7 +763,8 @@ def _bank_kri(session: Session, org_id: str) -> dict:
 def _p3esg_kri(session: Session, org_id: str) -> dict:
     """Pillar 3 ESG KRIs — the shared banking-book core (physical risk, financed emissions, GAR/Taxonomy) PLUS
     the indicators the EBA prudential templates prescribe that TCFD does NOT: the IEA-NZE2050 alignment-metric
-    distance (Template 3) and exposure to the top-20 carbon-intensive firms (Template 4). Tagged to the Pillar 3
+    distance (Template 3 / EU CRFR4 pending adoption) and exposure to the top-20 carbon-intensive firms (Template 4,
+    deleted by the pending EBA/ITS/2026/02 amendment). Tagged to the Pillar 3
     framework so it grades against its own appetite bands and regulator framing."""
     r = _bank_kri(session, org_id)
     r["framework"] = "bank_p3esg"
@@ -795,7 +796,7 @@ def _p3esg_kri(session: Session, org_id: str) -> dict:
         r["kpis"].append(_kpi(
             "p3_alignment", "IEA alignment distance", g3.get("portfolio_distance"), "pct",
             integrated=align_pending, integrated_note="needs intensity feed" if align_pending else None, tone="#fb7185",
-            hint="Template 3 — gross-weighted distance of the book's counterparty CO₂-intensity to the IEA NZE2050 "
+            hint="Template 3 / EU CRFR4 (pending adoption) — gross-weighted distance of the book's counterparty CO₂-intensity to the IEA NZE2050 "
                  "2030 pathway (100×((current−IEA2030)/IEA2030)). Needs a counterparty physical-intensity feed "
                  "(vendor/counterparty) — shows '—' until provided."))
         r["kpis"].append(_kpi(

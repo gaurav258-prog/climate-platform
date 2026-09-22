@@ -80,14 +80,14 @@ CATALOG: dict[str, list[dict]] = {
                  "attribution factor (outstanding ÷ counterparty EVIC, capped at 100%). Counterparty EVIC is a "
                  "required loan-tape field for new loans; a loan without it is excluded from this figure, "
                  "never counted unweighted. You may provide an audited PCAF figure to reconcile."),
-        _dp("p3_transition_align", "Template 3 — transition-risk alignment metrics (IEA NZE2050 distance)",
+        _dp("p3_transition_align", "Template 3 / EU CRFR4 (pending adoption) — transition-risk alignment metrics (IEA NZE2050 distance)",
             "customer", "provided", provider="Counterparty CO₂-intensity feed (climate-data vendor / counterparty)",
             note="ITS 2022/2453 prescribes a SPECIFIC metric: per IEA sector, the portfolio CO₂-INTENSITY (gCO₂/kWh, "
                  "gCO₂/MJ, tCO₂/t) and its DISTANCE to the IEA NZE2050 2030 target = 100×((current−IEA2030)/IEA2030). "
                  "Tellumen builds the NACE→IEA crosswalk, the benchmark table + the distance/aggregation; the binding "
                  "input — each counterparty's PHYSICAL production-intensity — is not computable from our physical-risk "
                  "engine, so you provide it (vendor feed or counterparty disclosure). Shows 'pending' until fed."),
-        _dp("p3_transition_top20", "Template 4 — exposures to the top-20 carbon-intensive firms",
+        _dp("p3_transition_top20", "Template 4 (deleted by the pending EBA/ITS/2026/02 amendment) — exposures to the top-20 carbon-intensive firms",
             "tellumen", "compute", provider="Tellumen (Carbon Majors list) + your loan book",
             note="Tellumen holds the published Carbon Majors top-20 list and matches your counterparties (by legal "
                  "identity/LEI) to it; gross carrying amount comes from your book. No external feed needed."),

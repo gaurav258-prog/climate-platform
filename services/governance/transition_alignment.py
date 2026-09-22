@@ -1,7 +1,15 @@
 """EBA Pillar 3 ESG — banking-book TRANSITION-risk templates 3 & 4 (ITS (EU) 2022/2453, Annex XXXIX/XL),
 built to the ACTUAL regulatory methodology, not a proprietary risk score.
 
-Template 3 — ALIGNMENT METRICS (Annex XL, §38–41). For each sector for which the IEA defines an alignment
+Naming note (added 2026-09-22): the EBA's Final Report on the amended ESG disclosure ITS (EBA/ITS/2026/02,
+22 June 2026) renames Template 3 to "EU CRFR4" and DELETES Template 4 entirely (see docs/
+GO_LIVE_EXTERNAL_DEPENDENCIES.md #10). That amended ITS is not yet adopted/published in the Official
+Journal, so ITS (EU) 2022/2453's Template 3/4 remain the CURRENT, IN-FORCE regulation this module targets —
+per the standing rule of always running the currently-adopted version and only cutting over once the new
+one is officially published, not on a "Final Report" draft. References below carry both names so this
+module doesn't need re-reading from scratch once the cutover happens.
+
+Template 3 / EU CRFR4 (pending adoption) — ALIGNMENT METRICS (Annex XL, §38–41). For each sector for which the IEA defines an alignment
 metric, the institution discloses, per sector:
     (a) gross carrying amount of exposures (loans, debt securities, equity);
     (b) the portfolio's CO₂-intensity in that sector's IEA metric unit (gCO₂/kWh, gCO₂/MJ, tCO₂/t, …);
@@ -21,7 +29,10 @@ Honesty split — what this platform can vs. cannot produce (never fabricated):
 
 Template 4 — TOP-20 CARBON-INTENSIVE FIRMS (Annex XL, §42–44): exposures to the world's 20 most
 carbon-intensive companies (the published Carbon Majors set). Tellumen holds the list and matches
-counterparties by name/identity; gross carrying amount comes from the book.
+counterparties by name/identity; gross carrying amount comes from the book. Per the same EBA/ITS/2026/02
+Final Report: Template 4 is not renamed but DELETED outright from the amended ITS (limited prudential
+relevance, methodological divergence, overlap with EU CRFR1 per the EBA's own stated reasoning) — kept here
+under its current, in-force name until the amended ITS is adopted and Template 4 formally drops.
 """
 from __future__ import annotations
 
@@ -159,7 +170,7 @@ def _val(a: dict) -> float:
 
 
 def template3_grid(assets: list[dict]) -> dict:
-    """Template 3 alignment metrics by IEA sector. Gross carrying amount is computed from the book; the
+    """Template 3 / EU CRFR4 (pending adoption) alignment metrics by IEA sector. Gross carrying amount is computed from the book; the
     portfolio CO₂-intensity is the gross-amount-weighted average of each counterparty's provided intensity
     (asset['emission_intensity'], only where the unit matches the IEA metric); the distance to the IEA 2030
     target is computed only where BOTH a real benchmark and a portfolio intensity exist — else 'pending'."""
