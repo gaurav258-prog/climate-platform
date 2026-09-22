@@ -4,7 +4,8 @@ A tiny fake session returns canned operator + plot rows so the assembly logic is
 a database. Pins the honesty gate: only deforestation-free plots are fileable, everything else is
 an explicit blocker, and the operator's still-required fields are surfaced.
 """
-from services.intelligence.eudr_dds import assemble_dds
+from services.intelligence.eudr_dds import DD_STATEMENT, DD_STATEMENT_BASIS, assemble_dds
+from services.intelligence.traces_client import build_submission
 
 
 class _Result:
@@ -95,3 +96,39 @@ def test_annex2_production_date_range_carried_and_flagged():
     dds = assemble_dds(s, "org")
     assert dds["items"][0]["plots"][0]["production_date_range"] is None
     assert any("date or time-range of production" in c for c in dds["operator_completes"])
+
+
+def test_dd_statement_is_verbatim_annex_ii_item_5():
+    # Regulation (EU) 2023/1115 Annex II item 5 — exact mandated text, character for character.
+    # Must attest "no OR only a negligible risk" (either claim), never collapsed to just "negligible".
+    assert DD_STATEMENT == (
+        "By submitting this due diligence statement the operator confirms that due diligence in "
+        "accordance with Regulation (EU) 2023/1115 was carried out and that no or only a negligible "
+        "risk was found that the relevant products do not comply with Article 3, point (a) or (b), "
+        "of that Regulation."
+    )
+    assert "no or only a negligible risk" in DD_STATEMENT
+    assert "negligible risk exists" not in DD_STATEMENT
+
+
+def test_dd_statement_has_no_appended_prose():
+    # The statutory text must stand alone — supporting context belongs in a separate field only.
+    assert DD_STATEMENT.strip().endswith(".")
+    assert "geolocation" not in DD_STATEMENT and "satellite" not in DD_STATEMENT
+    assert "geolocation" in DD_STATEMENT_BASIS
+
+
+def test_assembled_dds_carries_statement_and_basis_separately():
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")])
+    dds = assemble_dds(s, "org")
+    assert dds["statement"] == DD_STATEMENT
+    assert dds["statement_basis"] == DD_STATEMENT_BASIS
+
+
+def test_traces_submission_envelope_carries_verbatim_statement_unmodified():
+    # traces_client.build_submission() must pass DD_STATEMENT through to dueDiligenceStatement
+    # byte-for-byte — nothing concatenated onto it.
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")])
+    dds = assemble_dds(s, "org")
+    envelope = build_submission(dds, "org")
+    assert envelope["dueDiligenceStatement"] == DD_STATEMENT

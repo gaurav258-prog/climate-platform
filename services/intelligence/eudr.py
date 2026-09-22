@@ -33,6 +33,24 @@ NON_COMPLIANT = "non_compliant"
 GEO_INCOMPLETE = "geolocation_incomplete"
 INSUFFICIENT = "insufficient"
 
+# Art. 2(28): the >4 ha point-vs-polygon rule applies to plots "other than cattle". Per Annex II item 3,
+# cattle geolocation refers to the ESTABLISHMENT (a point), regardless of size — so a large cattle
+# establishment supplied as a point is not a geolocation defect. Names mirror the Bos taurus group in
+# eudr_dds._EUDR_SPECIES (cattle/beef/leather/hides all derive from the same cattle establishment) —
+# kept as a local, substring-matched set here to avoid a circular import with eudr_dds (which imports
+# from this module).
+_CATTLE_COMMODITY_TERMS = ("cattle", "bovine", "beef", "leather", "hides", "hide")
+
+
+def _is_cattle(commodity: str | None) -> bool:
+    """True when the commodity name identifies it as cattle/a cattle-derived product (Art. 2(28) exemption
+    from the >4 ha point-vs-polygon rule). Best-effort substring match, same pattern as
+    eudr_dds._species_for — never a guess when the name is missing."""
+    if not commodity:
+        return False
+    n = commodity.strip().lower()
+    return any(term in n for term in _CATTLE_COMMODITY_TERMS)
+
 
 @dataclass
 class EudrDetermination:
@@ -57,11 +75,15 @@ class EudrDetermination:
 
 def determine_plot(*, eudr_covered: bool, plot_geometry: Optional[dict] = None,
                    latitude: Optional[float] = None, longitude: Optional[float] = None,
-                   area_ha: Optional[float] = None, cutoff_year: int = EUDR_CUTOFF_YEAR) -> EudrDetermination:
+                   area_ha: Optional[float] = None, cutoff_year: int = EUDR_CUTOFF_YEAR,
+                   commodity: Optional[str] = None) -> EudrDetermination:
     """Compute the EUDR determination for one plot from its stored fields.
 
-    `plot_geometry` is the GeoJSON boundary (preferred); otherwise a lat/lon point is used. Pure
-    (no DB) so it is unit-testable; the endpoint layer persists `.as_row()`."""
+    `plot_geometry` is the GeoJSON boundary (preferred); otherwise a lat/lon point is used.
+    `commodity` identifies the relevant commodity (e.g. "Cattle") so the >4 ha point-vs-polygon
+    rule can be skipped for cattle establishments (Art. 2(28) / Annex II item 3) — omit it and the
+    rule applies uniformly, as before. Pure (no DB) so it is unit-testable; the endpoint layer
+    persists `.as_row()`."""
     if not eudr_covered:
         return EudrDetermination(NOT_COVERED, "Commodity is not within EUDR scope.",
                                  eudr_covered=False, geolocation="none")
@@ -80,8 +102,9 @@ def determine_plot(*, eudr_covered: bool, plot_geometry: Optional[dict] = None,
         return EudrDetermination(INSUFFICIENT, "No geolocation supplied.",
                                  eudr_covered=True, geolocation="none")
 
-    # EUDR geolocation rule: a point is only valid at/below 4 ha.
-    if kind == "point" and eff_area is not None and eff_area > EUDR_POINT_MAX_HA:
+    # EUDR geolocation rule: a point is only valid at/below 4 ha — EXCEPT cattle, whose geolocation is
+    # the establishment (a point) regardless of size (Art. 2(28) / Annex II item 3).
+    if kind == "point" and eff_area is not None and eff_area > EUDR_POINT_MAX_HA and not _is_cattle(commodity):
         return EudrDetermination(
             GEO_INCOMPLETE,
             f"Plot is {eff_area:.1f} ha (>{EUDR_POINT_MAX_HA:g}); EUDR requires a polygon boundary, not a point.",

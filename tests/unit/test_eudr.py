@@ -64,3 +64,29 @@ def test_as_row_is_persistable(monkeypatch):
     row = E.determine_plot(eudr_covered=True, plot_geometry=SMALL_SQ).as_row()
     assert row["eudr_determination"] == E.NON_COMPLIANT and row["eudr_first_loss_year"] == 2023
     assert "eudr_evidence" in row
+
+
+def test_large_cattle_establishment_as_point_is_not_geolocation_incomplete(no_loss):
+    # Art. 2(28) / Annex II item 3: cattle geolocation is the establishment (a point), regardless of size.
+    d = E.determine_plot(eudr_covered=True, latitude=6.69, longitude=-1.60, area_ha=50.0, commodity="Cattle")
+    assert d.status == E.DEFORESTATION_FREE and d.geolocation == "point"
+
+
+def test_large_non_cattle_point_is_still_geolocation_incomplete(monkeypatch):
+    # The exemption must not leak to other commodities — cocoa above 4 ha still needs a polygon.
+    monkeypatch.setattr(E, "forest_loss_since", lambda *a, **k: pytest.fail("should not read forest"))
+    d = E.determine_plot(eudr_covered=True, latitude=6.69, longitude=-1.60, area_ha=50.0, commodity="Cocoa")
+    assert d.status == E.GEO_INCOMPLETE
+
+
+def test_cattle_exemption_matches_case_insensitively_and_by_substring(no_loss):
+    for name in ("cattle", "CATTLE", "Bovine", "Beef"):
+        d = E.determine_plot(eudr_covered=True, latitude=6.69, longitude=-1.60, area_ha=50.0, commodity=name)
+        assert d.status == E.DEFORESTATION_FREE, f"{name} should be exempt from the >4ha point rule"
+
+
+def test_no_commodity_supplied_applies_the_rule_uniformly_as_before(monkeypatch):
+    # Omitting `commodity` preserves the old, pre-fix behaviour exactly.
+    monkeypatch.setattr(E, "forest_loss_since", lambda *a, **k: pytest.fail("should not read forest"))
+    d = E.determine_plot(eudr_covered=True, latitude=6.69, longitude=-1.60, area_ha=9.0)
+    assert d.status == E.GEO_INCOMPLETE

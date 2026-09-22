@@ -22,7 +22,8 @@ def protected_area_exposure(session: Session, org_id: str) -> dict:
     plots = session.execute(text("""
         SELECT COUNT(*) AS total,
                COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)) AS in_protected,
-               COALESCE(SUM(p.annual_spend_eur) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)), 0) AS spend_in
+               COALESCE(SUM(p.annual_spend_eur) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)), 0) AS spend_in,
+               COALESCE(SUM(p.plot_area_ha) FILTER (WHERE EXISTS (SELECT 1 FROM protected_h3_cell pc WHERE pc.h3_cell = p.h3_cell)), 0) AS area_ha_in
         FROM sc_sourcing_plots p WHERE p.org_id = :o
     """), {"o": org_id}).mappings().first()
     ds = session.execute(text("SELECT dataset, COUNT(*) n FROM protected_h3_cell GROUP BY dataset")).mappings().all()
@@ -31,5 +32,5 @@ def protected_area_exposure(session: Session, org_id: str) -> dict:
         "sites": {"total": int(sites["total"]), "in_protected": int(sites["in_protected"]),
                   "value_in_eur": float(sites["value_in"])},
         "plots": {"total": int(plots["total"]), "in_protected": int(plots["in_protected"]),
-                  "spend_in_eur": float(plots["spend_in"])},
+                  "spend_in_eur": float(plots["spend_in"]), "area_ha_in": float(plots["area_ha_in"])},
     }

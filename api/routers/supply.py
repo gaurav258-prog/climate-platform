@@ -1323,7 +1323,7 @@ def eudr_determine(session: DbSession, ctx: CurrentUser):
     org_id = ctx["org"]["org_id"]
     rows = session.execute(text("""
         SELECT p.plot_id::text AS plot_id, p.plot_geometry, p.latitude, p.longitude,
-               p.plot_area_ha, co.eudr_covered
+               p.plot_area_ha, co.eudr_covered, co.name AS commodity
         FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
         WHERE p.org_id = :o
     """), {"o": org_id}).mappings().all()
@@ -1334,7 +1334,8 @@ def eudr_determine(session: DbSession, ctx: CurrentUser):
         det = determine_plot(
             eudr_covered=bool(r["eudr_covered"]), plot_geometry=r["plot_geometry"],
             latitude=r["latitude"], longitude=r["longitude"],
-            area_ha=float(r["plot_area_ha"]) if r["plot_area_ha"] is not None else None)
+            area_ha=float(r["plot_area_ha"]) if r["plot_area_ha"] is not None else None,
+            commodity=r["commodity"])
         summary[det.status] = summary.get(det.status, 0) + 1
         session.execute(text("""
             UPDATE sc_sourcing_plots

@@ -109,11 +109,15 @@ def biodiversity_topic(session: Session, org_id: str) -> dict:
             "site_value_in_protected_eur": round(pa["sites"]["value_in_eur"], 2),
             "plots_in_protected": pa["plots"]["in_protected"], "plots_total": pa["plots"]["total"],
             "plot_spend_in_protected_eur": round(pa["plots"]["spend_in_eur"], 2),
+            "protected_area_ha": round(pa["plots"]["area_ha_in"], 2),
             "coverage": _protected_area_coverage(pa["datasets"]),
             "basis": "ESRS E4-5 — own sites and sourcing plots whose H3 cell falls in (or within the loaded "
                      "buffer of) a designated protected area, by indexed membership against the protected-area "
                      "overlap engine. Overlap is reported only for the areas actually loaded; non-covered "
-                     "geographies are disclosed as coverage gaps, never as 'no overlap'.",
+                     "geographies are disclosed as coverage gaps, never as 'no overlap'. `protected_area_ha` is "
+                     "the sourcing-plot area (ha) within protected areas — ESRS E4-5 para 35 requires both the "
+                     "number and the area of sites/plots in or near biodiversity-sensitive areas; own-site area "
+                     "is not held in our golden source, so this figure covers sourcing plots only.",
         },
     }
 

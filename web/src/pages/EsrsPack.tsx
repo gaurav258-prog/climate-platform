@@ -16,7 +16,7 @@ interface Topic {
   geolocation_incomplete?: number; not_determined?: number; deforestation_free_pct_of_determined?: number | null; post_cutoff_forest_loss_ha?: number
   protected_areas?: {
     sites_in_protected: number; sites_total: number; site_value_in_protected_eur: number
-    plots_in_protected: number; plots_total: number; plot_spend_in_protected_eur: number
+    plots_in_protected: number; plots_total: number; plot_spend_in_protected_eur: number; protected_area_ha: number
     coverage: { loaded: { dataset: string; label: string; geography: string; cells: number }[]; authoritative_global_loaded: boolean; note: string }
     basis: string
   }
@@ -103,6 +103,7 @@ export default function EsrsPack() {
                     <span className="col-span-2 mt-1.5 text-[11px] uppercase tracking-wide text-[var(--color-faint)]">Protected areas · E4-5</span>
                     <span className="text-[var(--color-mute)]">Sites in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.sites_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.sites_in_protected}/{t.protected_areas.sites_total}{t.protected_areas.site_value_in_protected_eur ? ` · ${eur(t.protected_areas.site_value_in_protected_eur)}` : ''}</span>
                     <span className="text-[var(--color-mute)]">Plots in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.plots_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.plots_in_protected}/{t.protected_areas.plots_total}{t.protected_areas.plot_spend_in_protected_eur ? ` · ${eur(t.protected_areas.plot_spend_in_protected_eur)}` : ''}</span>
+                    <span className="text-[var(--color-mute)]">Area in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.protected_area_ha ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.protected_area_ha} ha</span>
                   </>)}
                 </div>
               )}

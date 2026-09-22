@@ -150,12 +150,22 @@ metrics on the IFRS S2 / SASB FN-IN-450a headings: **NatCat underwriting summary
 (the asset half). No GAR/PCAF. Tested: `tests/unit/test_insurer_annex.py`; `test_located_annex_gar.py` guards that the
 bank GAR path is unchanged. Verified live on Iberia Mutual (insurer demo).
 
-## 7. EUDR — Due Diligence Statement · `eudr_dds`  ✅ Annex II fields complete
+## 7. EUDR — Due Diligence Statement · `eudr_dds`  ⚠️ Annex II fields built; item ordering still unconfirmed
 **Governing text.** Reg. **(EU) 2023/1115**, **Art. 4(2)** + **Art. 33** (TRACES/EUDR IS) + **Annex II** — DDS content:
 operator name/address + **EORI**; **HS code + description + trade name + scientific name**; **quantity (net mass,
 supplementary units)**; **country of production (+ parts)**; **geolocation of all plots** (point; **polygon >4 ha**)
 + **date/time range of production**; reference/verification number + declaration + signature. *(Annex II exact
 numbering: WebFetch couldn't render the annex block → confirm ordering on EUR-Lex before building.)*
+**FIXED — Annex II item 5, the statutory declaration text.** `DD_STATEMENT` in `eudr_dds.py` previously
+paraphrased ("only a negligible risk exists…"), which understates what the Regulation allows an operator to
+attest. It now holds the exact mandated sentence, verified verbatim against Annex II item 5: *"By submitting
+this due diligence statement the operator confirms that due diligence in accordance with Regulation (EU)
+2023/1115 was carried out and that no or only a negligible risk was found that the relevant products do not
+comply with Article 3, point (a) or (b), of that Regulation."* This is what flows unmodified into
+`traces_client.py`'s `build_submission()` → `dueDiligenceStatement`; supporting context ("supported by
+geolocation of all plots…") now lives in a separate `statement_basis` field, never concatenated into the
+statutory text. The Annex II item-ordering confirmation above remains open — that gap is unrelated to this
+fix and still needs an EUR-Lex check before the field ORDER (not content) is treated as final.
 **We produce.** Geolocation (point/polygon >4 ha), country/parts, HS/commodity, area, deforestation determination +
 evidence. Correctly flagged to operator (not faked): net-mass **quantity (kg)**, missing **EORI**, **signature**.
 **BUILT (Art. 9(1)(b) & (d)).** Each statement item now carries **trade name** (defaults to the commodity, operator

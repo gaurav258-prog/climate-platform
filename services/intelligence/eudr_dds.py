@@ -49,14 +49,25 @@ def _species_for(name: str | None) -> str | None:
     return None
 
 
-# The operator's due-diligence declaration (EUDR Art. 4/8) — the legal attestation they sign.
+# The operator's due-diligence declaration (EUDR Art. 4/8, Annex II item 5) — the EXACT legally-mandated
+# text, character for character. Do NOT paraphrase and do NOT append anything to this constant: it is what
+# goes verbatim into the TRACES submission envelope (traces_client.py's build_submission() ->
+# dueDiligenceStatement). "no or only a negligible risk" is deliberate — the Regulation lets the operator
+# attest EITHER zero risk OR negligible risk; collapsing this to "negligible risk exists" is a different,
+# narrower legal claim than Annex II actually requires.
 DD_STATEMENT = (
-    "The operator confirms that due diligence was carried out in accordance with Regulation (EU) "
-    "2023/1115 and that only a negligible risk exists that the relevant products do not comply — "
-    "i.e. they are deforestation-free (produced on land not subject to deforestation after "
-    "31 December 2020) and produced in accordance with the relevant legislation of the country of "
-    "production. This statement is supported by geolocation of all plots and satellite "
-    "verification of forest-cover change."
+    "By submitting this due diligence statement the operator confirms that due diligence in "
+    "accordance with Regulation (EU) 2023/1115 was carried out and that no or only a negligible "
+    "risk was found that the relevant products do not comply with Article 3, point (a) or (b), "
+    "of that Regulation."
+)
+
+# Supporting context for the platform's OWN internal display only — never concatenated into
+# DD_STATEMENT and never sent to TRACES. The statutory statement above must reach the submission
+# envelope unmodified.
+DD_STATEMENT_BASIS = (
+    "Supported by geolocation of all plots and satellite verification of forest-cover change "
+    "against the 31 December 2020 cutoff."
 )
 
 
@@ -141,6 +152,7 @@ def assemble_dds(session, org_id: str) -> dict:
         "operator": operator,
         "items": list(items.values()),
         "statement": DD_STATEMENT,
+        "statement_basis": DD_STATEMENT_BASIS,
         "covered_plots": covered,
         "fileable_plots": fileable_plots,
         "blockers": blockers,
