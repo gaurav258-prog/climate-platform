@@ -264,8 +264,12 @@ export default function Portfolio() {
       {/* combined physical + transition climate VaR — one loss distribution over both drivers (asset mgmt). */}
       <CombinedVarCard c={r?.combined_climate_var as CombinedVar | undefined} scenarioLabel={(SCENARIOS.find(([k]) => k === scenario)?.[1]) ?? scenario} />
 
-      {/* climate-risk concentration — where the portfolio VaR clusters (region/hazard/common-shock) (asset mgmt). */}
-      <ConcentrationCard c={(q.data as PortfolioResp | undefined)?.concentration as Concentration | undefined} />
+      {/* climate-risk concentration — where the portfolio VaR clusters (region/hazard/common-shock) (asset mgmt).
+          Each bar drills into the book below, same impulsive path as HazardExposure. */}
+      <ConcentrationCard c={(q.data as PortfolioResp | undefined)?.concentration as Concentration | undefined}
+        onRegion={(region) => { setView('book'); setHazardF(''); setBandF(''); setSearch(region); setTimeout(() => bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
+        onHazard={(hazard) => { setView('book'); setSearch(''); setBandF(''); setHazardF(prev => prev === hazard ? '' : hazard); setTimeout(() => bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }}
+        onCluster={(hazard, region) => { setView('book'); setBandF(''); setHazardF(hazard); setSearch(region); setTimeout(() => bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }} />
 
       {/* resilience & adaptation capex — spend vs avoided loss + Taxonomy-aligned capex (REIT). */}
       <ResilienceCard rc={r?.resilience_capex as Resilience | undefined} />
@@ -533,7 +537,7 @@ function CombinedVarCard({ c, scenarioLabel }: { c?: CombinedVar; scenarioLabel:
   )
 }
 
-function ConcentrationCard({ c }: { c?: Concentration }) {
+function ConcentrationCard({ c, onRegion, onHazard, onCluster }: { c?: Concentration; onRegion?: (region: string) => void; onHazard?: (hazard: string) => void; onCluster?: (hazard: string, region: string) => void }) {
   if (!c || !c.available) return null
   const cs = c.common_shock
   const metrics: StatItem[] = [
@@ -561,20 +565,23 @@ function ConcentrationCard({ c }: { c?: Concentration }) {
         {c.by_region.length > 0 && (
           <div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by region</div>
-            <HBar data={c.by_region.slice(0, 6).map(r => ({ label: r.region, value: r.climate_var_eur, sub: `${r.pct_of_book}%`, color: r.pct_of_book > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18} />
+            <HBar data={c.by_region.slice(0, 6).map(r => ({ label: r.region, value: r.climate_var_eur, sub: `${r.pct_of_book}%`, color: r.pct_of_book > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18}
+              onBar={onRegion ? (i) => onRegion!(c.by_region[i].region) : undefined} />
           </div>
         )}
         {c.by_hazard.length > 0 && (
           <div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Climate VaR by hazard</div>
-            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.climate_var_eur, sub: `${h.n}`, color: i === 0 ? '#E9744A' : 'var(--color-blue)' }))} format={eur} height={18} />
+            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.climate_var_eur, sub: `${h.n}`, color: i === 0 ? '#E9744A' : 'var(--color-blue)' }))} format={eur} height={18}
+              onBar={onHazard ? (i) => onHazard!(c.by_hazard[i].hazard) : undefined} />
           </div>
         )}
       </div>
       {c.clusters.length > 0 && (
         <div className="mt-4">
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Common-shock clusters — the concentration to diversify (VaR)</div>
-          <HBar data={c.clusters.slice(0, 6).map(cl => ({ label: `${hazardLabel(cl.hazard)} · ${cl.region}`, value: cl.climate_var_eur, sub: `${cl.n} · ${cl.pct_of_book}%`, color: '#E9744A' }))} format={eur} height={18} />
+          <HBar data={c.clusters.slice(0, 6).map(cl => ({ label: `${hazardLabel(cl.hazard)} · ${cl.region}`, value: cl.climate_var_eur, sub: `${cl.n} · ${cl.pct_of_book}%`, color: '#E9744A' }))} format={eur} height={18}
+            onBar={onCluster ? (i) => onCluster!(c.clusters[i].hazard, c.clusters[i].region) : undefined} />
         </div>
       )}
       {c.flags.length > 0 && (

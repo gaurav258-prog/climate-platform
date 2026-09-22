@@ -1,6 +1,7 @@
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Coins, PackageX, Percent, Boxes } from 'lucide-react'
+import { ChevronRight, Coins, PackageX, Percent, Boxes, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner, SectionHead, StatGrid, type StatItem } from '../components/ui'
 import { HBar } from '../components/Charts'
@@ -35,11 +36,14 @@ const TIER: Record<string, { label: string; cls: string }> = {
 
 export default function Cogs() {
   const nav = useNavigate()
+  const [hazardFilter, setHazardFilter] = useState<string | null>(null)
+  const rowsRef = useRef<HTMLDivElement>(null)
   const q = useQuery({ queryKey: ['summary'], queryFn: () => api.get<Summary>('/v1/supply/summary') })
   if (q.isLoading) return <Center>loading…</Center>
   if (q.error || !q.data) return <Center>We couldn't load this data. Please retry, or contact support if it persists.</Center>
   const d = q.data
-  const rows = [...d.commodities].sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))
+  const sorted = [...d.commodities].sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))
+  const rows = hazardFilter ? sorted.filter(c => c.top_hazard === hazardFilter) : sorted
 
   return (
     <div className="fadeup space-y-7">
@@ -57,8 +61,16 @@ export default function Cogs() {
           { label: 'commodities', value: d.commodities.length, icon: Boxes, tone: 'var(--color-sky)' },
         ]} />
 
-      <SupplyConcentrationCard c={d.concentration} />
+      <SupplyConcentrationCard c={d.concentration} commodityIds={d.commodity_ids}
+        onHazard={(hazard) => { setHazardFilter(prev => prev === hazard ? null : hazard); setTimeout(() => rowsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60) }} />
 
+      <div ref={rowsRef} className="scroll-mt-4" />
+      {hazardFilter && (
+        <div className="flex items-center gap-2 text-[12px] text-[var(--color-mute)]">
+          showing {rows.length} commodit{rows.length === 1 ? 'y' : 'ies'} exposed to <span className="font-medium text-[var(--color-ink)]">{hazardLabel(hazardFilter)}</span>
+          <button onClick={() => setHazardFilter(null)} className="inline-flex items-center gap-1 text-[var(--color-sky)] hover:underline">clear <X size={12} /></button>
+        </div>
+      )}
       <div className="space-y-3">
         {rows.map(c => {
           const tier = c.calibration ? TIER[c.calibration] : undefined
@@ -97,7 +109,8 @@ export default function Cogs() {
     </div>
   )
 }
-function SupplyConcentrationCard({ c }: { c?: Concentration }) {
+function SupplyConcentrationCard({ c, commodityIds, onHazard }: { c?: Concentration; commodityIds?: Record<string, string>; onHazard?: (hazard: string) => void }) {
+  const nav = useNavigate()
   if (!c || !c.available) return null
   const cs = c.common_shock
   return (
@@ -117,12 +130,22 @@ function SupplyConcentrationCard({ c }: { c?: Concentration }) {
           </div>
         </div>
       )}
-      {c.by_hazard.length > 0 && (
-        <div className="mt-4">
-          <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend exposed by hazard</div>
-          <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.spend_eur, sub: `${h.n_commodities} crops`, color: i === 0 ? '#E9744A' : 'var(--color-sky)' }))} format={eur} height={18} />
-        </div>
-      )}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {c.by_commodity.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend by commodity</div>
+            <HBar data={c.by_commodity.slice(0, 6).map(m => ({ label: m.commodity, value: m.spend_eur, sub: `${m.pct_of_spend}%`, color: m.pct_of_spend > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18}
+              onBar={(i) => { const cid = commodityIds?.[c.by_commodity[i].commodity]; if (cid) nav(`/detail/commodity/${cid}`) }} />
+          </div>
+        )}
+        {c.by_hazard.length > 0 && (
+          <div>
+            <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend exposed by hazard</div>
+            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.spend_eur, sub: `${h.n_commodities} crops`, color: i === 0 ? '#E9744A' : 'var(--color-sky)' }))} format={eur} height={18}
+              onBar={onHazard ? (i) => onHazard!(c.by_hazard[i].hazard) : undefined} />
+          </div>
+        )}
+      </div>
       {c.flags.length > 0 && <div className="mono text-[9.5px] mt-3" style={{ color: '#E8B24C' }}>{c.flags.join(' · ')}</div>}
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">{c.method}</div>
     </Card>
