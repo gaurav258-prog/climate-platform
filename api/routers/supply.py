@@ -190,7 +190,7 @@ def hex_hazard(session: DbSession, org_id: OrgId, res: int = Query(4, ge=2, le=9
     )
 
     plots = session.execute(text("""
-        SELECT p.h3_cell, CAST(p.latitude AS FLOAT) lat, CAST(p.longitude AS FLOAT) lon,
+        SELECT p.plot_id::text AS plot_id, p.h3_cell, CAST(p.latitude AS FLOAT) lat, CAST(p.longitude AS FLOAT) lon,
                p.plot_name, p.country, co.name AS commodity
         FROM sc_sourcing_plots p
         JOIN sc_commodities co ON co.commodity_id = p.commodity_id
@@ -204,11 +204,11 @@ def hex_hazard(session: DbSession, org_id: OrgId, res: int = Query(4, ge=2, le=9
     agg: dict[str, dict] = {}
     for p in plots:
         r8 = p["h3_cell"] or h3.latlng_to_cell(p["lat"], p["lon"], 8)
-        # exclude heat_acute so a hex shows the standing climate profile, not today's live temperature —
-        # the same rule lookup_score() uses for its baseline figure.
-        ov = _compute_overall(session, r8, exclude_hazards=frozenset({"heat_acute"}))
+        # heat_acute (today's live temperature) stays out of the pool by default, so a hex shows the standing
+        # climate profile, not today's reading — the same rule lookup_score() uses for its baseline figure.
+        ov = _compute_overall(session, r8)
         hx = h3.cell_to_parent(r8, res)
-        plot_label = {"name": p["plot_name"], "commodity": p["commodity"], "country": p["country"]}
+        plot_label = {"plot_id": p["plot_id"], "name": p["plot_name"], "commodity": p["commodity"], "country": p["country"]}
         cur = agg.get(hx)
         if cur is None:
             agg[hx] = {"score": ov.score, "bucket": ov.bucket, "driver": ov.driver_hazard,

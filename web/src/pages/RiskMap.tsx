@@ -15,7 +15,7 @@ interface Plot {
 }
 interface Portfolio { plots: Plot[] }
 
-interface HexPlot { name: string; commodity: string; country: string | null }
+interface HexPlot { plot_id?: string; name: string; commodity: string; country: string | null }
 interface Hex { cell: string; rings: [number, number][][]; score: number | null; bucket: string | null
   driver_hazard: string | null; n_plots: number; plots?: HexPlot[]; is_plot_cell: boolean; status: string }
 interface HexResponse { resolution: number; hexes: Hex[]; n_plot_cells?: number }
@@ -273,12 +273,16 @@ export default function RiskMap() {
                 </div>
                 {selected.plots?.length ? (
                   <div className="mt-3 pt-3 space-y-1 max-h-[160px] overflow-y-auto" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
-                    {selected.plots.map((pl, i) => (
-                      <div key={i} className="flex items-center justify-between text-[12px]">
-                        <span className="truncate mr-2" style={{ color: '#e2e8f0' }}>{pl.name}</span>
-                        <span className="shrink-0" style={{ color: '#7f9cc0' }}>{pl.commodity}</span>
-                      </div>
-                    ))}
+                    {selected.plots.map((pl, i) => {
+                      const Row = pl.plot_id ? 'button' : 'div'
+                      return (
+                        <Row key={i} {...(pl.plot_id ? { onClick: () => nav(`/detail/plot/${pl.plot_id}`) } : {})}
+                          className={`w-full flex items-center justify-between text-[12px] ${pl.plot_id ? 'hover:opacity-80 cursor-pointer' : ''}`}>
+                          <span className="truncate mr-2" style={{ color: pl.plot_id ? '#7dd3fc' : '#e2e8f0' }}>{pl.name}</span>
+                          <span className="shrink-0" style={{ color: '#7f9cc0' }}>{pl.commodity}</span>
+                        </Row>
+                      )
+                    })}
                   </div>
                 ) : null}
                 <div className="mt-3 mono text-[9px]" style={{ color: '#5b7396' }}>{selected.cell}</div>
