@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -5,6 +6,14 @@ import { SlidersHorizontal, AlertTriangle, Coins } from 'lucide-react'
 import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
+import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+
+// the insurer's own DrawerCfg (Portfolio.tsx's SECTORS.insurer) — trigger rows open the SAME drawer
+// Portfolio uses for a policy, not a second one
+const INSURER_CFG: DrawerCfg = {
+  prefix: 'insurance', itemKey: 'policy', nameKey: 'policy_name', valueKey: 'sum_insured_eur',
+  typeKey: 'policy_type', auditKey: 'audit', overrideMode: 'trigger',
+}
 
 // The financial-sector reporting workspace — the filing cockpit (requirements → eligibility & coverage →
 // reporting basis → calendar → register → the final form, recon & submit in the drawer). The forward-looking
@@ -54,6 +63,7 @@ export default function Compliance() {
 
 function TriggersView() {
   const q = useQuery({ queryKey: ['ins-triggers'], queryFn: () => api.get<TriggersResp>('/v1/insurance/triggers') })
+  const [openId, setOpenId] = useState<string | null>(null)
   if (q.isLoading) return <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading triggers…</Card>
   if (q.isError || !q.data) return null
   const r = q.data.rollup
@@ -72,10 +82,11 @@ function TriggersView() {
       {q.data.configured.length === 0
         ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">No parametric triggers configured yet. Configure index-based cover on a policy to monitor breaches here.</Card>
         : <div className="space-y-6">
-            {q.data.triggered_now.length > 0 && <TriggerTable title="Breached now · payout on the line" rows={q.data.triggered_now} breached />}
+            {q.data.triggered_now.length > 0 && <TriggerTable title="Breached now · payout on the line" rows={q.data.triggered_now} breached onOpen={setOpenId} />}
             {(() => { const armed = q.data.configured.filter(t => !t.trigger.is_triggered); return armed.length > 0
-              ? <TriggerTable title="Armed · monitoring" rows={armed} /> : null })()}
+              ? <TriggerTable title="Armed · monitoring" rows={armed} onOpen={setOpenId} /> : null })()}
           </div>}
+      {openId && <AssetDrawer cfg={INSURER_CFG} id={openId} onClose={() => setOpenId(null)} onChanged={() => q.refetch()} />}
     </div>
   )
 }
@@ -90,13 +101,13 @@ function BandGauge({ current, attach, exhaust }: { current: number | null; attac
     </div>
   )
 }
-function TriggerTable({ title, rows, breached }: { title: string; rows: TriggerRow[]; breached?: boolean }) {
+function TriggerTable({ title, rows, breached, onOpen }: { title: string; rows: TriggerRow[]; breached?: boolean; onOpen: (id: string) => void }) {
   return (
     <Card className="p-0 overflow-hidden">
       <SectionHead className="px-5 py-3 border-b border-[var(--color-line)]">{title}</SectionHead>
       <div className="divide-y divide-[var(--color-line)]">
         {rows.map(p => { const t = p.trigger; const [r, g, b] = col(t.current_score ?? 0); return (
-          <div key={p.policy_id} className="px-5 py-3 flex items-center gap-4">
+          <div key={p.policy_id} onClick={() => onOpen(p.policy_id)} className="px-5 py-3 flex items-center gap-4 cursor-pointer hover:bg-[var(--color-bg-2)] transition">
             <div className="min-w-0 flex-1">
               <div className="text-[14px] text-[var(--color-ink)] truncate">{p.policy_name}</div>
               <div className="mono text-[11px] text-[var(--color-faint)] truncate">{[p.region, hazardLabel(t.hazard_type)].filter(Boolean).join(' · ')} · band {Math.round(t.attachment_score)}–{Math.round(t.exhaustion_score)}</div>
