@@ -75,8 +75,10 @@ CATALOG: dict[str, list[dict]] = {
                  "compute the Green Asset Ratio and 4-eyes attest it. Until then the aligned share shows 'pending screening'."),
         _dp("p3_scope3", "Financed emissions (Scope 3) for the transition-risk templates",
             "tellumen", "compute", provider="Tellumen PCAF engine", reconcilable=True,
-            note="Tellumen computes PCAF-attributed Scope 1–3 from counterparty emissions; needs an issuer-emissions "
-                 "feed (ESG vendor) or falls back to a NACE-intensity estimate. You may provide an audited PCAF figure to reconcile."),
+            note="Tellumen sums Scope 1–3 from counterparty emissions (reported, or a NACE-intensity estimate where an "
+                 "issuer-emissions feed is missing). This is NOT PCAF-attribution-weighted: a rigorous PCAF figure "
+                 "additionally needs counterparty EVIC (customer- or vendor-supplied), not yet in the book. "
+                 "You may provide an audited PCAF figure to reconcile."),
         _dp("p3_transition_align", "Template 3 — transition-risk alignment metrics (IEA NZE2050 distance)",
             "customer", "provided", provider="Counterparty CO₂-intensity feed (climate-data vendor / counterparty)",
             note="ITS 2022/2453 prescribes a SPECIFIC metric: per IEA sector, the portfolio CO₂-INTENSITY (gCO₂/kWh, "
