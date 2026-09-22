@@ -1,0 +1,146 @@
+Policy ID,Insured name,Occupancy,Sum insured,Policy expiry,Risk country,Risk NUTS3
+POL-00001,Iberia (wildfire zone) property 397,Property,14920000.00,2028-12-31,ES,ES411
+POL-00002,Madrid property 454,Property,14790000.00,2027-12-31,ES,ES300
+POL-00003,Valencia (flood zone) property 885,Property,14700000.00,2028-12-31,ES,ES523
+POL-00004,Iberia (wildfire zone) property 561,Property,14620000.00,2028-12-31,ES,ES523
+POL-00005,Iberia (wildfire zone) property 774,Property,13960000.00,2028-12-31,ES,ES416
+POL-00006,Valencia (flood zone) property 915,Property,13920000.00,2026-12-31,ES,ES523
+POL-00007,Valencia (flood zone) property 353,Property,13730000.00,2026-12-31,ES,ES523
+POL-00008,Valencia (flood zone) property 365,Property,13720000.00,2028-12-31,ES,ES620
+POL-00009,Valencia (flood zone) property 799,Property,13590000.00,2028-12-31,ES,ES523
+POL-00010,Valencia (flood zone) property 276,Property,13530000.00,2027-12-31,ES,ES523
+POL-00011,Iberia (wildfire zone) property 721,Property,13420000.00,2028-12-31,ES,ES425
+POL-00012,Valencia (flood zone) property 286,Property,13100000.00,2028-12-31,ES,ES421
+POL-00013,Valencia (flood zone) property 693,Property,12890000.00,2028-12-31,ES,
+POL-00014,Iberia (wildfire zone) property 79,Property,12840000.00,2026-12-31,ES,
+POL-00015,Valencia (flood zone) property 341,Property,12050000.00,2026-12-31,ES,ES421
+POL-00016,Iberia (wildfire zone) property 439,Property,11990000.00,2027-12-31,ES,ES522
+POL-00017,Valencia (flood zone) property 769,Property,11950000.00,2028-12-31,ES,ES421
+POL-00018,Iberia (wildfire zone) property 738,Property,11700000.00,2028-12-31,PT,PT184
+POL-00019,Valencia (flood zone) property 233,Property,11360000.00,2027-12-31,ES,ES523
+POL-00020,Valencia (flood zone) property 29,Property,11230000.00,2028-12-31,ES,ES523
+POL-00021,Valencia (flood zone) property 295,Property,11210000.00,2028-12-31,ES,ES421
+POL-00022,Valencia (flood zone) property 909,Property,11030000.00,2028-12-31,ES,ES523
+POL-00023,Valencia (flood zone) property 92,Property,10810000.00,2026-12-31,ES,ES523
+POL-00024,Lisbon property 115,Property,10780000.00,2027-12-31,PT,PT170
+POL-00025,Valencia (flood zone) property 609,Property,10730000.00,2028-12-31,ES,ES523
+POL-00026,Valencia (flood zone) property 835,Property,10270000.00,2026-12-31,ES,ES523
+POL-00027,Iberia (wildfire zone) property 309,Property,10180000.00,2028-12-31,ES,
+POL-00028,Barcelona property 443,Property,10040000.00,2027-12-31,ES,ES511
+POL-00029,Valencia (flood zone) property 73,Property,9590000.00,2027-12-31,ES,ES523
+POL-00030,Iberia (wildfire zone) property 710,Property,9380000.00,2026-12-31,ES,ES615
+POL-00031,Barcelona property 382,Property,8940000.00,2026-12-31,ES,ES511
+POL-00032,Valencia (flood zone) property 855,Property,8620000.00,2026-12-31,ES,ES523
+POL-00033,Iberia (wildfire zone) property 934,Property,7800000.00,2028-12-31,ES,ES523
+POL-00034,Valencia (flood zone) property 709,Property,7700000.00,2026-12-31,ES,ES522
+POL-00035,Iberia (wildfire zone) property 122,Property,7530000.00,2026-12-31,PT,PT185
+POL-00036,Lisbon property 803,Property,7450000.00,2027-12-31,PT,PT170
+POL-00037,Valencia (flood zone) property 547,Property,7330000.00,2027-12-31,ES,ES523
+POL-00038,Iberia (wildfire zone) property 57,Property,7030000.00,2027-12-31,ES,ES523
+POL-00039,Seville property 561,Property,6980000.00,2026-12-31,ES,ES618
+POL-00040,Iberia (wildfire zone) property 289,Property,6810000.00,2028-12-31,ES,ES613
+POL-00041,Valencia (flood zone) property 970,Property,6620000.00,2026-12-31,ES,ES421
+POL-00042,Valencia (flood zone) property 494,Property,6520000.00,2027-12-31,ES,ES521
+POL-00043,Iberia (wildfire zone) property 163,Property,6520000.00,2028-12-31,ES,ES613
+POL-00044,Zaragoza property 406,Property,6070000.00,2028-12-31,ES,ES243
+POL-00045,Valencia (flood zone) property 201,Property,5750000.00,2028-12-31,ES,ES523
+POL-00046,Valencia (flood zone) property 639,Property,5640000.00,2027-12-31,ES,ES421
+POL-00047,Valencia (flood zone) property 148,Property,5370000.00,2026-12-31,ES,ES523
+POL-00048,Iberia (wildfire zone) property 145,Property,5230000.00,2026-12-31,ES,ES613
+POL-00049,Valencia (flood zone) property 928,Property,4810000.00,2028-12-31,ES,
+POL-00050,Iberia (wildfire zone) property 762,Property,4560000.00,2027-12-31,ES,
+POL-00051,Iberia (wildfire zone) property 67,Property,4540000.00,2026-12-31,ES,ES415
+POL-00052,Iberia (wildfire zone) property 775,Property,4290000.00,2027-12-31,ES,ES424
+POL-00053,Iberia (wildfire zone) property 188,Property,4050000.00,2028-12-31,ES,ES523
+POL-00054,Valencia (flood zone) property 640,Property,3860000.00,2026-12-31,ES,ES421
+POL-00055,Barcelona property 669,Property,3670000.00,2026-12-31,ES,
+POL-00056,Madrid property 320,Property,3590000.00,2027-12-31,ES,ES300
+POL-00057,Valencia (flood zone) property 120,Property,3350000.00,2028-12-31,ES,
+POL-00058,Valencia (flood zone) property 351,Property,3310000.00,2027-12-31,ES,ES523
+POL-00059,Malaga property 509,Property,2860000.00,2026-12-31,ES,ES617
+POL-00060,Valencia (flood zone) property 254,Property,2810000.00,2028-12-31,ES,ES421
+POL-00061,Valencia (flood zone) property 870,Property,2720000.00,2026-12-31,ES,ES421
+POL-00062,Iberia (wildfire zone) property 340,Property,2690000.00,2027-12-31,ES,ES415
+POL-00063,Iberia (wildfire zone) property 949,Property,2680000.00,2026-12-31,ES,ES413
+POL-00064,Barcelona property 639,Property,2530000.00,2027-12-31,ES,ES511
+POL-00065,Iberia (wildfire zone) property 855,Property,2420000.00,2026-12-31,ES,ES521
+POL-00066,Valencia (flood zone) property 877,Property,2170000.00,2026-12-31,ES,ES523
+POL-00067,Seville property 234,Property,2140000.00,2027-12-31,ES,ES618
+POL-00068,Valencia (flood zone) property 105,Property,2130000.00,2028-12-31,ES,ES523
+POL-00069,Valencia (flood zone) property 29,Property,1990000.00,2026-12-31,ES,ES421
+POL-00070,Valencia (flood zone) property 853,Property,1980000.00,2028-12-31,ES,ES523
+POL-00071,Valencia (flood zone) property 452,Property,1970000.00,2026-12-31,ES,ES421
+POL-00072,Valencia (flood zone) property 808,Property,1970000.00,2027-12-31,ES,ES521
+POL-00073,Iberia (wildfire zone) property 447,Property,1950000.00,2028-12-31,PT,ES432
+POL-00074,Valencia (flood zone) property 225,Property,1940000.00,2026-12-31,ES,
+POL-00075,Valencia (flood zone) property 80,Property,1940000.00,2026-12-31,ES,ES523
+POL-00076,Valencia (flood zone) property 541,Property,1920000.00,2027-12-31,ES,ES421
+POL-00077,Seville property 150,Property,1910000.00,2028-12-31,ES,ES618
+POL-00078,Valencia (flood zone) property 659,Property,1900000.00,2027-12-31,ES,ES523
+POL-00079,Iberia (wildfire zone) property 18,Property,1890000.00,2028-12-31,ES,ES523
+POL-00080,Iberia (wildfire zone) property 771,Property,1850000.00,2028-12-31,ES,ES611
+POL-00081,Valencia (flood zone) property 59,Property,1800000.00,2028-12-31,ES,ES523
+POL-00082,Seville property 239,Property,1790000.00,2026-12-31,ES,ES618
+POL-00083,Valencia (flood zone) property 968,Property,1730000.00,2028-12-31,ES,ES523
+POL-00084,Valencia (flood zone) property 207,Property,1710000.00,2028-12-31,ES,ES523
+POL-00085,Valencia (flood zone) property 154,Property,1620000.00,2027-12-31,ES,ES421
+POL-00086,Valencia (flood zone) property 520,Property,1610000.00,2026-12-31,ES,ES421
+POL-00087,Valencia (flood zone) property 318,Property,1540000.00,2026-12-31,ES,ES523
+POL-00088,Iberia (wildfire zone) property 51,Property,1520000.00,2027-12-31,ES,ES431
+POL-00089,Madrid property 189,Property,1510000.00,2026-12-31,ES,ES300
+POL-00090,Porto property 201,Property,1500000.00,2027-12-31,PT,PT11A
+POL-00091,Valencia (flood zone) property 980,Property,1480000.00,2026-12-31,ES,ES523
+POL-00092,Valencia (flood zone) property 528,Property,1470000.00,2026-12-31,ES,ES421
+POL-00093,Iberia (wildfire zone) property 298,Property,1450000.00,2027-12-31,ES,ES425
+POL-00094,Seville property 421,Property,1420000.00,2028-12-31,ES,ES618
+POL-00095,Iberia (wildfire zone) property 68,Property,1420000.00,2028-12-31,ES,
+POL-00096,Barcelona property 38,Property,1410000.00,2026-12-31,ES,ES511
+POL-00097,Malaga property 494,Property,1400000.00,2026-12-31,ES,ES617
+POL-00098,Valencia (flood zone) property 979,Property,1380000.00,2027-12-31,ES,ES523
+POL-00099,Iberia (wildfire zone) property 659,Property,1350000.00,2026-12-31,ES,ES522
+POL-00100,Valencia (flood zone) property 611,Property,1340000.00,2028-12-31,ES,
+POL-00101,Valencia (flood zone) property 808,Property,1340000.00,2026-12-31,ES,
+POL-00102,Iberia (wildfire zone) property 312,Property,1310000.00,2027-12-31,PT,ES415
+POL-00103,Valencia (flood zone) property 568,Property,1270000.00,2026-12-31,ES,ES523
+POL-00104,Valencia (flood zone) property 334,Property,1250000.00,2028-12-31,ES,
+POL-00105,Barcelona property 778,Property,1250000.00,2026-12-31,ES,ES511
+POL-00106,Valencia (flood zone) property 135,Property,1230000.00,2028-12-31,ES,ES522
+POL-00107,Valencia (flood zone) property 20,Property,1190000.00,2026-12-31,ES,ES421
+POL-00108,Malaga property 589,Property,1150000.00,2027-12-31,ES,ES617
+POL-00109,Iberia (wildfire zone) property 4,Property,1130000.00,2028-12-31,ES,ES423
+POL-00110,Valencia (flood zone) property 604,Property,1120000.00,2026-12-31,ES,ES523
+POL-00111,Iberia (wildfire zone) property 498,Property,1120000.00,2027-12-31,ES,ES523
+POL-00112,Iberia (wildfire zone) property 515,Property,1110000.00,2026-12-31,ES,
+POL-00113,Valencia (flood zone) property 348,Property,1070000.00,2028-12-31,ES,ES421
+POL-00114,Seville property 267,Property,1060000.00,2028-12-31,ES,
+POL-00115,Valencia (flood zone) property 628,Property,1050000.00,2028-12-31,ES,ES421
+POL-00116,Valencia (flood zone) property 893,Property,1040000.00,2026-12-31,ES,
+POL-00117,Valencia (flood zone) property 218,Property,1030000.00,2028-12-31,ES,ES523
+POL-00118,Valencia (flood zone) property 402,Property,1010000.00,2027-12-31,ES,ES421
+POL-00119,Lisbon property 401,Property,1000000.00,2028-12-31,PT,PT170
+POL-00120,Iberia (wildfire zone) property 463,Property,940000.00,2028-12-31,PT,PT186
+POL-00121,Lisbon property 829,Property,930000.00,2027-12-31,PT,PT170
+POL-00122,Valencia (flood zone) property 513,Property,790000.00,2028-12-31,ES,ES421
+POL-00123,Iberia (wildfire zone) property 92,Property,750000.00,2028-12-31,PT,PT11D
+POL-00124,Bilbao property 734,Property,750000.00,2028-12-31,ES,
+POL-00125,Lisbon property 87,Property,750000.00,2026-12-31,PT,PT170
+POL-00126,Madrid property 766,Property,740000.00,2028-12-31,ES,ES300
+POL-00127,Valencia (flood zone) property 300,Property,730000.00,2028-12-31,ES,ES421
+POL-00128,Zaragoza property 427,Property,700000.00,2027-12-31,ES,ES243
+POL-00129,Barcelona property 942,Property,700000.00,2026-12-31,ES,ES511
+POL-00130,Seville property 262,Property,650000.00,2026-12-31,ES,ES618
+POL-00131,Valencia (flood zone) property 412,Property,580000.00,2026-12-31,ES,ES523
+POL-00132,Iberia (wildfire zone) property 166,Property,580000.00,2027-12-31,PT,PT16H
+POL-00133,Iberia (wildfire zone) property 457,Property,570000.00,2027-12-31,ES,ES523
+POL-00134,Zaragoza property 996,Property,560000.00,2026-12-31,ES,ES243
+POL-00135,Valencia (flood zone) property 181,Property,560000.00,2028-12-31,ES,ES523
+POL-00136,Seville property 906,Property,560000.00,2028-12-31,ES,ES618
+POL-00137,Valencia (flood zone) property 548,Property,550000.00,2026-12-31,ES,ES523
+POL-00138,Iberia (wildfire zone) property 537,Property,540000.00,2027-12-31,ES,ES523
+POL-00139,Valencia (flood zone) property 581,Property,470000.00,2027-12-31,ES,ES523
+POL-00140,Iberia (wildfire zone) property 43,Property,440000.00,2026-12-31,ES,ES618
+POL-00141,Iberia (wildfire zone) property 856,Property,370000.00,2026-12-31,ES,ES513
+POL-00142,Valencia (flood zone) property 727,Property,370000.00,2027-12-31,ES,ES523
+POL-00143,Seville property 422,Property,350000.00,2026-12-31,ES,ES618
+POL-00144,Madrid property 240,Property,340000.00,2027-12-31,ES,ES300
+POL-00145,Seville property 309,Property,320000.00,2027-12-31,ES,ES618

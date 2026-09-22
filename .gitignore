@@ -12,6 +12,8 @@ data/storage/
 *.nc
 *.grib2
 mlflow.db
+mlruns/
+.DS_Store
 
 # fetched climate data (large, reproducible via scripts/fetch_era5_baseline.py)
 data/era5_baseline/
@@ -65,6 +67,15 @@ data/wildfire/fwi_*.npz
 data/wildfire/burnable_fraction.npz
 !data/wildfire/fwi_climatology.npz
 !data/wildfire/burned_area_climatology.npz
+
+# windstorm gust climatology per-year build caches (rebuilt by scripts/build_windstorm_*.py); the three final
+# *.npz files ml/scoring/windstorm_point.py and the NOAA/station validators actually read are tracked
+data/wind/annmax_conus/
+data/wind/annmax_conus_hr/
+data/wind/synoptic_conus/
+!data/wind/windstorm_gust_climatology.npz
+!data/wind/windstorm_gust_conus.npz
+!data/wind/windstorm_synoptic_conus.npz
 !data/reference/geo/
 data/reference/geo/*
 !data/reference/geo/nuts3_eu_20m_2021.geojson
@@ -89,4 +100,6 @@ data/parametric_val/
 data/reversal_val/
 data/windstorm_station_val/
 data/exposure_val/
+data/windstorm_val/
+data/landslide/
 data/storm_synthetic/

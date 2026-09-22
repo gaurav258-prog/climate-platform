@@ -1,0 +1,71 @@
+Property ID,Property name,Property type,Property value,Lease expiry,Property country,Property NUTS3
+PROP-00001,Lyon Office 78,Office,68500000.00,2027-12-31,EU,FRK26
+PROP-00002,Valencia (flood zone) Office 26,Office,64900000.00,2029-12-31,ES,ES523
+PROP-00003,Valencia (flood zone) Office 86,Office,64000000.00,2029-12-31,ES,ES523
+PROP-00004,Lyon Office 37,Office,62700000.00,2031-12-31,EU,FRK26
+PROP-00005,Antwerp Office 18,Office,62400000.00,2027-12-31,EU,BE211
+PROP-00006,Valencia (flood zone) Office 71,Office,60800000.00,2030-12-31,EU,
+PROP-00007,Bologna Logistics 78,Logistics,54700000.00,2027-12-31,EU,ITH55
+PROP-00008,Valencia (flood zone) Logistics 97,Logistics,53300000.00,2029-12-31,ES,
+PROP-00009,Iberia (wildfire zone) Logistics 37,Logistics,51700000.00,2031-12-31,ES,ES416
+PROP-00010,Iberia (wildfire zone) Logistics 35,Logistics,50400000.00,2031-12-31,ES,ES613
+PROP-00011,Valencia (flood zone) Office 40,Office,50100000.00,2028-12-31,ES,ES523
+PROP-00012,Zaragoza Logistics 23,Logistics,48500000.00,2029-12-31,ES,ES243
+PROP-00013,Iberia (wildfire zone) Office 74,Office,44600000.00,2027-12-31,EU,
+PROP-00014,Rotterdam Office 12,Office,42700000.00,2032-12-31,EU,NL33C
+PROP-00015,Lyon Office 16,Office,42500000.00,2032-12-31,EU,FRK26
+PROP-00016,Lyon Logistics 85,Logistics,37200000.00,2030-12-31,EU,FRK26
+PROP-00017,Zaragoza Logistics 66,Logistics,36600000.00,2028-12-31,ES,ES243
+PROP-00018,Iberia (wildfire zone) Office 96,Office,34900000.00,2029-12-31,EU,
+PROP-00019,Iberia (wildfire zone) Logistics 72,Logistics,29700000.00,2030-12-31,EU,
+PROP-00020,Duisburg Logistics 27,Logistics,29200000.00,2029-12-31,EU,DEA12
+PROP-00021,Valencia (flood zone) Logistics 15,Logistics,27600000.00,2031-12-31,ES,ES523
+PROP-00022,Iberia (wildfire zone) Office 9,Office,25600000.00,2028-12-31,ES,PT184
+PROP-00023,Lyon Office 65,Office,25200000.00,2030-12-31,EU,FRK26
+PROP-00024,Valencia (flood zone) Logistics 45,Logistics,25100000.00,2030-12-31,ES,
+PROP-00025,Zaragoza Retail 48,Retail,25000000.00,2027-12-31,ES,ES243
+PROP-00026,Iberia (wildfire zone) Light Industrial 19,Industrial,24800000.00,2031-12-31,ES,ES421
+PROP-00027,Valencia (flood zone) Logistics 42,Logistics,24100000.00,2032-12-31,ES,ES523
+PROP-00028,Duisburg Retail 45,Retail,23000000.00,2028-12-31,EU,DEA12
+PROP-00029,Valencia (flood zone) Logistics 58,Logistics,23000000.00,2031-12-31,ES,ES523
+PROP-00030,Hamburg Retail 45,Retail,22600000.00,2027-12-31,EU,DE600
+PROP-00031,Duisburg Retail 15,Retail,21900000.00,2030-12-31,EU,DEA12
+PROP-00032,Valencia (flood zone) Retail 5,Retail,21600000.00,2028-12-31,ES,ES523
+PROP-00033,Zaragoza Retail 80,Retail,21400000.00,2027-12-31,ES,ES243
+PROP-00034,Valencia (flood zone) Retail 48,Retail,20900000.00,2028-12-31,ES,ES523
+PROP-00035,Hamburg Logistics 91,Logistics,20900000.00,2029-12-31,EU,DE600
+PROP-00036,Valencia (flood zone) Retail 91,Retail,20800000.00,2029-12-31,ES,ES523
+PROP-00037,Valencia (flood zone) Retail 2,Retail,19300000.00,2027-12-31,EU,
+PROP-00038,Iberia (wildfire zone) Retail 64,Retail,19200000.00,2027-12-31,ES,ES415
+PROP-00039,Duisburg Light Industrial 71,Industrial,19100000.00,2030-12-31,EU,DEA12
+PROP-00040,Lyon Office 83,Office,19100000.00,2031-12-31,EU,FRK26
+PROP-00041,Lyon Retail 28,Retail,19000000.00,2027-12-31,EU,FRK26
+PROP-00042,Valencia (flood zone) Light Industrial 4,Industrial,18100000.00,2029-12-31,ES,ES522
+PROP-00043,Katowice Light Industrial 19,Industrial,17600000.00,2027-12-31,EU,PL22A
+PROP-00044,Valencia (flood zone) Light Industrial 63,Industrial,17300000.00,2029-12-31,EU,
+PROP-00045,Iberia (wildfire zone) Logistics 86,Logistics,17300000.00,2028-12-31,EU,
+PROP-00046,Valencia (flood zone) Light Industrial 70,Industrial,16800000.00,2031-12-31,ES,ES523
+PROP-00047,Iberia (wildfire zone) Light Industrial 79,Industrial,16600000.00,2027-12-31,EU,NO082
+PROP-00048,Iberia (wildfire zone) Light Industrial 33,Industrial,16000000.00,2032-12-31,ES,ES523
+PROP-00049,Iberia (wildfire zone) Office 69,Office,15000000.00,2030-12-31,ES,ES425
+PROP-00050,Lyon Office 33,Office,14500000.00,2027-12-31,EU,FRK26
+PROP-00051,Iberia (wildfire zone) Retail 12,Retail,14100000.00,2028-12-31,ES,ES616
+PROP-00052,Valencia (flood zone) Retail 57,Retail,13900000.00,2028-12-31,ES,
+PROP-00053,Valencia (flood zone) Retail 6,Retail,13700000.00,2028-12-31,ES,ES523
+PROP-00054,Antwerp Retail 39,Retail,13500000.00,2030-12-31,EU,BE211
+PROP-00055,Valencia (flood zone) Light Industrial 89,Industrial,12900000.00,2030-12-31,ES,ES523
+PROP-00056,Hamburg Retail 46,Retail,12400000.00,2031-12-31,EU,DE600
+PROP-00057,Valencia (flood zone) Retail 76,Retail,12000000.00,2027-12-31,EU,
+PROP-00058,Valencia (flood zone) Logistics 11,Logistics,11400000.00,2028-12-31,ES,ES523
+PROP-00059,Duisburg Light Industrial 33,Industrial,11000000.00,2029-12-31,EU,DEA12
+PROP-00060,Rotterdam Light Industrial 66,Industrial,11000000.00,2029-12-31,EU,NL33C
+PROP-00061,Zaragoza Light Industrial 95,Industrial,10900000.00,2031-12-31,ES,ES243
+PROP-00062,Duisburg Light Industrial 14,Industrial,8900000.00,2027-12-31,EU,DEA12
+PROP-00063,Valencia (flood zone) Light Industrial 95,Industrial,7400000.00,2029-12-31,EU,
+PROP-00064,Iberia (wildfire zone) Light Industrial 17,Industrial,7300000.00,2027-12-31,ES,
+PROP-00065,Duisburg Light Industrial 26,Industrial,6700000.00,2027-12-31,EU,DEA12
+PROP-00066,Valencia (flood zone) Light Industrial 70,Industrial,6400000.00,2032-12-31,ES,ES523
+PROP-00067,Valencia (flood zone) Retail 64,Retail,5800000.00,2029-12-31,EU,
+PROP-00068,Valencia (flood zone) Light Industrial 96,Industrial,5000000.00,2027-12-31,EU,
+PROP-00069,Iberia (wildfire zone) Retail 20,Retail,5000000.00,2032-12-31,ES,ES242
+PROP-00070,Lyon Retail 2,Retail,4900000.00,2031-12-31,EU,FRK26

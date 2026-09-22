@@ -1,0 +1,799 @@
+plot_name,latitude,longitude,commodity,annual_spend_eur,plot_geojson,plot_area_ha,region,country,irrigation_status
+Barry Callebaut - Ashanti Cocoa Plot 001,6.476806,-1.526819,Cocoa,546000,"{""type"":""Polygon"",""coordinates"":[[[-1.526819,6.476806],[-1.521907,6.476806],[-1.521907,6.483538],[-1.526819,6.483538],[-1.526819,6.476806]]]}",,Ashanti,GH,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 002,5.230649,-6.971494,Cocoa,174000,,3.46,San-Pedro,CI,mixed
+Cargill Cocoa - Daloa Cocoa Plot 003,6.588067,-6.028878,Cocoa,108000,,1.89,Daloa,CI,rain_fed
+Barry Callebaut - Western Cocoa Plot 004,5.235099,-2.055255,Cocoa,495000,,1.55,Western,GH,rain_fed
+Cargill Cocoa - Centre Cocoa Plot 005,4.380459,11.723203,Cocoa,81000,,3.49,Centre,CM,rain_fed
+Cemoi - Ondo Cocoa Plot 006,7.489252,5.14373,Cocoa,448000,,2.04,Ondo,NG,rain_fed
+Cemoi - Ashanti Cocoa Plot 007,6.332283,-2.107469,Cocoa,770000,"{""type"":""Polygon"",""coordinates"":[[[-2.107469,6.332283],[-2.101215,6.332283],[-2.101215,6.337894],[-2.107469,6.337894],[-2.107469,6.332283]]]}",,Ashanti,GH,rain_fed
+Barry Callebaut - Western Cocoa Plot 008,5.661263,-2.700859,Cocoa,627000,,1.94,Western,GH,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 009,6.664984,5.10561,Cocoa,137000,,0.41,Ondo,NG,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 010,4.920227,-6.942875,Cocoa,739000,,3.55,San-Pedro,CI,rain_fed
+Touton - Daloa Cocoa Plot 011,6.496982,-6.112524,Cocoa,706000,,1.55,Daloa,CI,mixed
+Cemoi - San-Pedro Cocoa Plot 012,4.930582,-6.467876,Cocoa,41000,,1.86,San-Pedro,CI,rain_fed
+Cemoi - Daloa Cocoa Plot 013,7.025733,-6.605516,Cocoa,102000,"{""type"":""Polygon"",""coordinates"":[[[-6.605516,7.025733],[-6.602819,7.025733],[-6.602819,7.029318],[-6.605516,7.029318],[-6.605516,7.025733]]]}",,Daloa,CI,rain_fed
+Cargill Cocoa - San-Pedro Cocoa Plot 014,4.703818,-6.909906,Cocoa,83000,,3.88,San-Pedro,CI,rain_fed
+Barry Callebaut - San-Pedro Cocoa Plot 015,4.906079,-6.716733,Cocoa,45000,,3.43,San-Pedro,CI,rain_fed
+Olam Cocoa - Western Cocoa Plot 016,5.692641,-2.450089,Cocoa,757000,,3.1,Western,GH,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 017,4.304265,-6.281537,Cocoa,754000,,1.47,San-Pedro,CI,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 018,6.858659,5.005993,Cocoa,724000,,2.51,Ondo,NG,rain_fed
+Olam Cocoa - Western Cocoa Plot 019,5.041247,-2.197162,Cocoa,307000,"{""type"":""Polygon"",""coordinates"":[[[-2.197162,5.041247],[-2.192366,5.041247],[-2.192366,5.047339],[-2.197162,5.047339],[-2.197162,5.041247]]]}",,Western,GH,rain_fed
+Barry Callebaut - Centre Cocoa Plot 020,4.536039,11.35131,Cocoa,248000,,2.16,Centre,CM,rain_fed
+Cemoi - Ashanti Cocoa Plot 021,6.781901,-1.640822,Cocoa,841000,,3.04,Ashanti,GH,rain_fed
+Cargill Cocoa - Daloa Cocoa Plot 022,6.98803,-6.812421,Cocoa,709000,,3.12,Daloa,CI,rain_fed
+Touton - Centre Cocoa Plot 023,4.312095,11.46515,Cocoa,451000,,3.44,Centre,CM,rain_fed
+Cargill Cocoa - Ondo Cocoa Plot 024,6.847585,5.330573,Cocoa,110000,,1.24,Ondo,NG,rain_fed
+Cargill Cocoa - Ondo Cocoa Plot 025,7.489561,4.992851,Cocoa,379000,"{""type"":""Polygon"",""coordinates"":[[[4.992851,7.489561],[4.9958,7.489561],[4.9958,7.493029],[4.992851,7.493029],[4.992851,7.489561]]]}",,Ondo,NG,rain_fed
+Cemoi - Western Cocoa Plot 026,4.988401,-2.294801,Cocoa,462000,,0.87,Western,GH,rain_fed
+Touton - Guayas Cocoa Plot 027,-2.301988,-79.78534,Cocoa,561000,,0.36,Guayas,EC,rain_fed
+Barry Callebaut - Ashanti Cocoa Plot 028,7.064059,-1.440252,Cocoa,54000,,1.49,Ashanti,GH,rain_fed
+Cemoi - Daloa Cocoa Plot 029,7.147222,-6.948031,Cocoa,593000,,3.12,Daloa,CI,rain_fed
+Touton - Centre Cocoa Plot 030,3.99622,11.484841,Cocoa,597000,,2.04,Centre,CM,rain_fed
+Cemoi - San-Pedro Cocoa Plot 031,4.436455,-6.149171,Cocoa,751000,"{""type"":""Polygon"",""coordinates"":[[[-6.149171,4.436455],[-6.142123,4.436455],[-6.142123,4.441718],[-6.149171,4.441718],[-6.149171,4.436455]]]}",,San-Pedro,CI,rain_fed
+Olam Cocoa - Ashanti Cocoa Plot 032,7.208664,-2.005047,Cocoa,446000,,3.21,Ashanti,GH,rain_fed
+Cemoi - Ashanti Cocoa Plot 033,6.440491,-1.739604,Cocoa,447000,,3.15,Ashanti,GH,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 034,6.764165,5.36363,Cocoa,555000,,0.5,Ondo,NG,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 035,6.660726,4.701116,Cocoa,534000,,3.76,Ondo,NG,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 036,4.42541,-6.819374,Cocoa,243000,,2.25,San-Pedro,CI,rain_fed
+Touton - Western Cocoa Plot 037,5.007949,-1.86951,Cocoa,663000,"{""type"":""Polygon"",""coordinates"":[[[-1.86951,5.007949],[-1.867349,5.007949],[-1.867349,5.010928],[-1.86951,5.010928],[-1.86951,5.007949]]]}",,Western,GH,rain_fed
+Touton - Ashanti Cocoa Plot 038,6.196638,-1.326961,Cocoa,177000,,1.99,Ashanti,GH,rain_fed
+Cemoi - Ondo Cocoa Plot 039,7.520269,4.99397,Cocoa,86000,,1.97,Ondo,NG,rain_fed
+Touton - San-Pedro Cocoa Plot 040,4.786792,-6.98931,Cocoa,835000,,0.99,San-Pedro,CI,rain_fed
+Cargill Cocoa - Western Cocoa Plot 041,6.043263,-2.826862,Cocoa,203000,,3.7,Western,GH,rain_fed
+Barry Callebaut - Daloa Cocoa Plot 042,7.188091,-5.914773,Cocoa,526000,,1.2,Daloa,CI,rain_fed
+Cemoi - Ashanti Cocoa Plot 043,6.328106,-1.879037,Cocoa,375000,"{""type"":""Polygon"",""coordinates"":[[[-1.879037,6.328106],[-1.87387,6.328106],[-1.87387,6.333373],[-1.879037,6.333373],[-1.879037,6.328106]]]}",,Ashanti,GH,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 044,7.262841,5.158027,Cocoa,310000,,0.8,Ondo,NG,rain_fed
+Cemoi - Western Cocoa Plot 045,5.489477,-1.89883,Cocoa,384000,,2.73,Western,GH,rain_fed
+Cemoi - Ashanti Cocoa Plot 046,7.041953,-1.195393,Cocoa,739000,,1.48,Ashanti,GH,rain_fed
+Olam Cocoa - Daloa Cocoa Plot 047,6.95686,-6.174666,Cocoa,299000,,2.23,Daloa,CI,mixed
+Olam Cocoa - Western Cocoa Plot 048,5.689632,-2.341504,Cocoa,405000,,2.76,Western,GH,rain_fed
+Cargill Cocoa - Daloa Cocoa Plot 049,6.487801,-6.626917,Cocoa,441000,"{""type"":""Polygon"",""coordinates"":[[[-6.626917,6.487801],[-6.621971,6.487801],[-6.621971,6.492979],[-6.626917,6.492979],[-6.626917,6.487801]]]}",,Daloa,CI,rain_fed
+Barry Callebaut - Centre Cocoa Plot 050,4.149115,11.615395,Cocoa,114000,,2.39,Centre,CM,mixed
+Touton - Western Cocoa Plot 051,5.99854,-2.227215,Cocoa,511000,,0.51,Western,GH,rain_fed
+Cemoi - Ondo Cocoa Plot 052,6.700557,5.646577,Cocoa,232000,,0.91,Ondo,NG,rain_fed
+Barry Callebaut - Ondo Cocoa Plot 053,6.78596,4.636676,Cocoa,47000,,2.33,Ondo,NG,rain_fed
+Touton - Western Cocoa Plot 054,5.900317,-2.090355,Cocoa,832000,,3.5,Western,GH,rain_fed
+Cemoi - Daloa Cocoa Plot 055,6.792037,-6.801158,Cocoa,288000,"{""type"":""Polygon"",""coordinates"":[[[-6.801158,6.792037],[-6.794465,6.792037],[-6.794465,6.798553],[-6.801158,6.798553],[-6.801158,6.792037]]]}",,Daloa,CI,rain_fed
+Barry Callebaut - Ondo Cocoa Plot 056,6.899545,5.076249,Cocoa,121000,,0.76,Ondo,NG,rain_fed
+Barry Callebaut - Centre Cocoa Plot 057,3.852382,11.453731,Cocoa,624000,,0.57,Centre,CM,mixed
+Cargill Cocoa - San-Pedro Cocoa Plot 058,5.152385,-6.270532,Cocoa,271000,,3.34,San-Pedro,CI,rain_fed
+Touton - Ondo Cocoa Plot 059,6.643109,5.071684,Cocoa,315000,,3.54,Ondo,NG,rain_fed
+Olam Cocoa - Ondo Cocoa Plot 060,6.786308,4.851519,Cocoa,411000,,3.61,Ondo,NG,rain_fed
+Touton - Daloa Cocoa Plot 061,7.25467,-6.88516,Cocoa,95000,"{""type"":""Polygon"",""coordinates"":[[[-6.88516,7.25467],[-6.879238,7.25467],[-6.879238,7.261714],[-6.88516,7.261714],[-6.88516,7.25467]]]}",,Daloa,CI,rain_fed
+Barry Callebaut - Daloa Cocoa Plot 062,7.358209,-6.794719,Cocoa,509000,,3.39,Daloa,CI,rain_fed
+Olam Cocoa - Guayas Cocoa Plot 063,-1.819385,-80.262025,Cocoa,456000,,0.68,Guayas,EC,rain_fed
+Cemoi - San-Pedro Cocoa Plot 064,5.028309,-7.178596,Cocoa,291000,,3.6,San-Pedro,CI,rain_fed
+Barry Callebaut - Ondo Cocoa Plot 065,7.013287,5.604268,Cocoa,542000,,0.73,Ondo,NG,rain_fed
+Olam Cocoa - Centre Cocoa Plot 066,3.621456,11.100903,Cocoa,368000,,0.61,Centre,CM,rain_fed
+Touton - Western Cocoa Plot 067,5.322348,-2.522803,Cocoa,815000,"{""type"":""Polygon"",""coordinates"":[[[-2.522803,5.322348],[-2.516007,5.322348],[-2.516007,5.327483],[-2.522803,5.327483],[-2.522803,5.322348]]]}",,Western,GH,rain_fed
+Cargill Cocoa - San-Pedro Cocoa Plot 068,4.229231,-6.457854,Cocoa,380000,,1.39,San-Pedro,CI,rain_fed
+Barry Callebaut - Ondo Cocoa Plot 069,7.262914,5.375511,Cocoa,864000,,2.49,Ondo,NG,rain_fed
+Cargill Cocoa - Centre Cocoa Plot 070,4.494389,11.901875,Cocoa,669000,,1.91,Centre,CM,rain_fed
+Cemoi - Ashanti Cocoa Plot 071,6.916839,-1.108444,Cocoa,418000,,1.71,Ashanti,GH,mixed
+Olam Cocoa - Western Cocoa Plot 072,5.282396,-1.802537,Cocoa,205000,,3.12,Western,GH,rain_fed
+Barry Callebaut - Guayas Cocoa Plot 073,-1.97091,-79.775222,Cocoa,165000,"{""type"":""Polygon"",""coordinates"":[[[-79.775222,-1.97091],[-79.771031,-1.97091],[-79.771031,-1.96563],[-79.775222,-1.96563],[-79.775222,-1.97091]]]}",,Guayas,EC,rain_fed
+Cargill Cocoa - Daloa Cocoa Plot 074,7.380791,-5.959545,Cocoa,599000,,0.46,Daloa,CI,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 075,5.195307,-6.861997,Cocoa,716000,,3.19,San-Pedro,CI,rain_fed
+Cargill Cocoa - Guayas Cocoa Plot 076,-1.930804,-80.413179,Cocoa,885000,,1.09,Guayas,EC,rain_fed
+Cemoi - Ashanti Cocoa Plot 077,6.141912,-1.511453,Cocoa,751000,,1.32,Ashanti,GH,rain_fed
+Touton - Ondo Cocoa Plot 078,6.685485,5.083861,Cocoa,167000,,2.84,Ondo,NG,rain_fed
+Cargill Cocoa - Ondo Cocoa Plot 079,6.604119,4.780734,Cocoa,442000,"{""type"":""Polygon"",""coordinates"":[[[4.780734,6.604119],[4.785153,6.604119],[4.785153,6.608871],[4.780734,6.608871],[4.780734,6.604119]]]}",,Ondo,NG,rain_fed
+Cemoi - Guayas Cocoa Plot 080,-2.426508,-80.306355,Cocoa,409000,,1.48,Guayas,EC,mixed
+Cargill Cocoa - Guayas Cocoa Plot 081,-1.709576,-79.922979,Cocoa,574000,,1.88,Guayas,EC,rain_fed
+Barry Callebaut - Western Cocoa Plot 082,5.502679,-2.396421,Cocoa,631000,,0.92,Western,GH,rain_fed
+Olam Cocoa - Ashanti Cocoa Plot 083,6.143116,-1.662578,Cocoa,313000,,3.03,Ashanti,GH,rain_fed
+Cargill Cocoa - Ondo Cocoa Plot 084,6.620002,4.633701,Cocoa,229000,,2.4,Ondo,NG,rain_fed
+Olam Cocoa - San-Pedro Cocoa Plot 085,4.70199,-6.134654,Cocoa,315000,"{""type"":""Polygon"",""coordinates"":[[[-6.134654,4.70199],[-6.130462,4.70199],[-6.130462,4.706942],[-6.134654,4.706942],[-6.134654,4.70199]]]}",,San-Pedro,CI,mixed
+Barry Callebaut - Western Cocoa Plot 086,5.365833,-2.754174,Cocoa,696000,,3.11,Western,GH,rain_fed
+Touton - Centre Cocoa Plot 087,4.2465,11.44578,Cocoa,139000,,3.07,Centre,CM,rain_fed
+Cemoi - Ashanti Cocoa Plot 088,6.902186,-1.367063,Cocoa,515000,,1.07,Ashanti,GH,rain_fed
+Touton - San-Pedro Cocoa Plot 089,4.617277,-6.307591,Cocoa,649000,,1.98,San-Pedro,CI,rain_fed
+Barry Callebaut - Ashanti Cocoa Plot 090,6.418341,-2.071179,Cocoa,57000,,0.71,Ashanti,GH,rain_fed
+Barry Callebaut - Ondo Cocoa Plot 091,7.35554,5.457594,Cocoa,337000,"{""type"":""Polygon"",""coordinates"":[[[5.457594,7.35554],[5.465632,7.35554],[5.465632,7.361888],[5.457594,7.361888],[5.457594,7.35554]]]}",,Ondo,NG,rain_fed
+Sucafina - Sao Paulo Coffee Plot 001,-22.008615,-46.579024,Coffee,869000,,0.71,Sao Paulo,BR,rain_fed
+Neumann Kaffee - Sidama Coffee Plot 002,6.64394,39.045623,Coffee,912000,,1.48,Sidama,ET,rain_fed
+Sucafina - Dak Lak Coffee Plot 003,12.209502,108.544298,Coffee,1100000,,1.51,Dak Lak,VN,rain_fed
+Neumann Kaffee - Minas Gerais Coffee Plot 004,-21.119441,-44.72037,Coffee,1121000,,2.56,Minas Gerais,BR,mixed
+ECOM - Sidama Coffee Plot 005,6.892652,38.712509,Coffee,1070000,,3.53,Sidama,ET,mixed
+ECOM - Sao Paulo Coffee Plot 006,-22.402775,-47.151643,Coffee,1176000,"{""type"":""Polygon"",""coordinates"":[[[-47.151643,-22.402775],[-47.145545,-22.402775],[-47.145545,-22.395552],[-47.151643,-22.395552],[-47.151643,-22.402775]]]}",,Sao Paulo,BR,rain_fed
+Volcafe - Sao Paulo Coffee Plot 007,-21.610727,-46.89476,Coffee,207000,,3.4,Sao Paulo,BR,rain_fed
+ECOM - Sidama Coffee Plot 008,7.181747,38.502369,Coffee,979000,,2.65,Sidama,ET,irrigated
+ECOM - Comayagua Coffee Plot 009,15.102341,-88.465144,Coffee,892000,,3.55,Comayagua,HN,mixed
+LDC Coffee - Minas Gerais Coffee Plot 010,-20.879824,-44.48328,Coffee,142000,,2.98,Minas Gerais,BR,mixed
+Volcafe - Comayagua Coffee Plot 011,14.520606,-88.367884,Coffee,599000,,3.06,Comayagua,HN,mixed
+LDC Coffee - Sidama Coffee Plot 012,7.247213,38.602147,Coffee,747000,"{""type"":""Polygon"",""coordinates"":[[[38.602147,7.247213],[38.604778,7.247213],[38.604778,7.249614],[38.602147,7.249614],[38.602147,7.247213]]]}",,Sidama,ET,mixed
+LDC Coffee - Antioquia Coffee Plot 013,6.508125,-75.796452,Coffee,1161000,,1.71,Antioquia,CO,rain_fed
+Neumann Kaffee - Comayagua Coffee Plot 014,14.117578,-87.81229,Coffee,498000,,3.19,Comayagua,HN,irrigated
+LDC Coffee - Dak Lak Coffee Plot 015,12.963687,108.170145,Coffee,660000,,2.5,Dak Lak,VN,irrigated
+Neumann Kaffee - Dak Lak Coffee Plot 016,13.002556,107.727469,Coffee,211000,,0.37,Dak Lak,VN,rain_fed
+Neumann Kaffee - Minas Gerais Coffee Plot 017,-20.67437,-45.404945,Coffee,1021000,,1.24,Minas Gerais,BR,mixed
+Neumann Kaffee - Minas Gerais Coffee Plot 018,-20.988346,-45.192152,Coffee,283000,"{""type"":""Polygon"",""coordinates"":[[[-45.192152,-20.988346],[-45.186309,-20.988346],[-45.186309,-20.984066],[-45.192152,-20.984066],[-45.192152,-20.988346]]]}",,Minas Gerais,BR,rain_fed
+LDC Coffee - Comayagua Coffee Plot 019,14.267963,-87.508055,Coffee,1161000,,2.61,Comayagua,HN,irrigated
+Volcafe - Sao Paulo Coffee Plot 020,-21.540437,-46.814095,Coffee,399000,,0.67,Sao Paulo,BR,rain_fed
+LDC Coffee - Minas Gerais Coffee Plot 021,-21.022128,-45.050167,Coffee,654000,,1.73,Minas Gerais,BR,mixed
+LDC Coffee - Comayagua Coffee Plot 022,14.323452,-88.390862,Coffee,146000,,0.37,Comayagua,HN,mixed
+Volcafe - Dak Lak Coffee Plot 023,12.676326,108.136187,Coffee,630000,,0.99,Dak Lak,VN,irrigated
+Sucafina - Comayagua Coffee Plot 024,14.132602,-87.638784,Coffee,369000,"{""type"":""Polygon"",""coordinates"":[[[-87.638784,14.132602],[-87.635552,14.132602],[-87.635552,14.135797],[-87.638784,14.135797],[-87.638784,14.132602]]]}",,Comayagua,HN,mixed
+LDC Coffee - Sao Paulo Coffee Plot 025,-21.778875,-47.364915,Coffee,382000,,1.73,Sao Paulo,BR,irrigated
+Neumann Kaffee - Antioquia Coffee Plot 026,5.788532,-75.679055,Coffee,1177000,,0.71,Antioquia,CO,rain_fed
+ECOM - Sidama Coffee Plot 027,7.01875,38.542377,Coffee,1050000,,3.08,Sidama,ET,irrigated
+LDC Coffee - Huila Coffee Plot 028,2.769559,-75.39898,Coffee,1020000,,0.96,Huila,CO,rain_fed
+LDC Coffee - Sao Paulo Coffee Plot 029,-21.63487,-47.431457,Coffee,491000,,2.35,Sao Paulo,BR,irrigated
+Sucafina - Antioquia Coffee Plot 030,6.261002,-75.180682,Coffee,1033000,"{""type"":""Polygon"",""coordinates"":[[[-75.180682,6.261002],[-75.176055,6.261002],[-75.176055,6.267095],[-75.180682,6.267095],[-75.180682,6.261002]]]}",,Antioquia,CO,irrigated
+Sucafina - Antioquia Coffee Plot 031,5.832094,-75.485712,Coffee,960000,,2.24,Antioquia,CO,rain_fed
+Sucafina - Sao Paulo Coffee Plot 032,-22.119629,-46.745951,Coffee,464000,,3.67,Sao Paulo,BR,rain_fed
+LDC Coffee - Sao Paulo Coffee Plot 033,-22.304589,-47.245343,Coffee,348000,,1.25,Sao Paulo,BR,rain_fed
+Volcafe - Huila Coffee Plot 034,3.020743,-75.333496,Coffee,215000,,1.11,Huila,CO,mixed
+LDC Coffee - Dak Lak Coffee Plot 035,12.993669,108.329648,Coffee,849000,,3.0,Dak Lak,VN,irrigated
+LDC Coffee - Dak Lak Coffee Plot 036,12.312826,108.180765,Coffee,151000,"{""type"":""Polygon"",""coordinates"":[[[108.180765,12.312826],[108.185861,12.312826],[108.185861,12.31939],[108.180765,12.31939],[108.180765,12.312826]]]}",,Dak Lak,VN,rain_fed
+Volcafe - Sao Paulo Coffee Plot 037,-22.364367,-46.747236,Coffee,82000,,2.44,Sao Paulo,BR,irrigated
+Neumann Kaffee - Huila Coffee Plot 038,2.959621,-75.280799,Coffee,582000,,3.56,Huila,CO,irrigated
+Sucafina - Sao Paulo Coffee Plot 039,-21.660862,-46.57924,Coffee,989000,,1.18,Sao Paulo,BR,rain_fed
+Sucafina - Minas Gerais Coffee Plot 040,-21.434511,-45.135736,Coffee,1004000,,1.21,Minas Gerais,BR,mixed
+ECOM - Minas Gerais Coffee Plot 041,-20.62264,-45.016665,Coffee,717000,,0.67,Minas Gerais,BR,mixed
+LDC Coffee - Sidama Coffee Plot 042,6.551086,38.264101,Coffee,534000,"{""type"":""Polygon"",""coordinates"":[[[38.264101,6.551086],[38.269709,6.551086],[38.269709,6.557897],[38.264101,6.557897],[38.264101,6.551086]]]}",,Sidama,ET,irrigated
+LDC Coffee - Dak Lak Coffee Plot 043,13.15844,107.957426,Coffee,860000,,0.59,Dak Lak,VN,rain_fed
+ECOM - Dak Lak Coffee Plot 044,13.057435,108.360071,Coffee,390000,,0.42,Dak Lak,VN,rain_fed
+Volcafe - Comayagua Coffee Plot 045,14.185145,-88.420561,Coffee,973000,,2.88,Comayagua,HN,irrigated
+Volcafe - Dak Lak Coffee Plot 046,12.374743,108.443755,Coffee,376000,,0.62,Dak Lak,VN,mixed
+Neumann Kaffee - Sao Paulo Coffee Plot 047,-22.53744,-46.50546,Coffee,256000,,3.53,Sao Paulo,BR,rain_fed
+Neumann Kaffee - Sidama Coffee Plot 048,6.259704,38.13107,Coffee,579000,"{""type"":""Polygon"",""coordinates"":[[[38.13107,6.259704],[38.137643,6.259704],[38.137643,6.265483],[38.13107,6.265483],[38.13107,6.259704]]]}",,Sidama,ET,irrigated
+Volcafe - Sao Paulo Coffee Plot 049,-22.418932,-47.244743,Coffee,417000,,1.09,Sao Paulo,BR,irrigated
+ECOM - Minas Gerais Coffee Plot 050,-20.713037,-44.73275,Coffee,196000,,0.59,Minas Gerais,BR,mixed
+LDC Coffee - Huila Coffee Plot 051,2.982302,-75.245641,Coffee,637000,,0.4,Huila,CO,irrigated
+ECOM - Comayagua Coffee Plot 052,14.138659,-88.035638,Coffee,382000,,0.5,Comayagua,HN,irrigated
+ECOM - Comayagua Coffee Plot 053,15.1098,-87.703377,Coffee,901000,,2.48,Comayagua,HN,mixed
+Sucafina - Minas Gerais Coffee Plot 054,-21.34718,-44.607125,Coffee,268000,"{""type"":""Polygon"",""coordinates"":[[[-44.607125,-21.34718],[-44.601903,-21.34718],[-44.601903,-21.341399],[-44.607125,-21.341399],[-44.607125,-21.34718]]]}",,Minas Gerais,BR,mixed
+LDC Coffee - Comayagua Coffee Plot 055,14.86946,-87.74493,Coffee,646000,,2.73,Comayagua,HN,mixed
+Sucafina - Dak Lak Coffee Plot 056,12.20335,108.576582,Coffee,650000,,0.86,Dak Lak,VN,mixed
+LDC Coffee - Comayagua Coffee Plot 057,14.961379,-87.506311,Coffee,1098000,,2.94,Comayagua,HN,mixed
+ECOM - Sidama Coffee Plot 058,6.370059,38.774321,Coffee,828000,,3.27,Sidama,ET,irrigated
+Neumann Kaffee - Sidama Coffee Plot 059,6.206606,38.255007,Coffee,313000,,1.83,Sidama,ET,irrigated
+Sucafina - Huila Coffee Plot 060,2.849011,-75.816383,Coffee,401000,"{""type"":""Polygon"",""coordinates"":[[[-75.816383,2.849011],[-75.811839,2.849011],[-75.811839,2.852986],[-75.816383,2.852986],[-75.816383,2.849011]]]}",,Huila,CO,mixed
+LDC Coffee - Huila Coffee Plot 061,2.590495,-75.349248,Coffee,560000,,3.17,Huila,CO,mixed
+Neumann Kaffee - Huila Coffee Plot 062,2.643426,-75.236546,Coffee,1171000,,0.81,Huila,CO,mixed
+Neumann Kaffee - Minas Gerais Coffee Plot 063,-20.747999,-45.233196,Coffee,225000,,3.6,Minas Gerais,BR,mixed
+Sucafina - Minas Gerais Coffee Plot 064,-20.724732,-44.700723,Coffee,970000,,3.11,Minas Gerais,BR,mixed
+Neumann Kaffee - Sidama Coffee Plot 065,6.971291,38.630411,Coffee,125000,,2.48,Sidama,ET,mixed
+Sucafina - Comayagua Coffee Plot 066,14.196148,-88.365759,Coffee,1053000,"{""type"":""Polygon"",""coordinates"":[[[-88.365759,14.196148],[-88.359707,14.196148],[-88.359707,14.200581],[-88.365759,14.200581],[-88.365759,14.196148]]]}",,Comayagua,HN,irrigated
+Neumann Kaffee - Sidama Coffee Plot 067,6.981966,38.349759,Coffee,676000,,1.86,Sidama,ET,mixed
+Sucafina - Huila Coffee Plot 068,2.928262,-75.638896,Coffee,599000,,3.34,Huila,CO,rain_fed
+Volcafe - Sidama Coffee Plot 069,6.962923,39.044741,Coffee,563000,,2.37,Sidama,ET,rain_fed
+Sucafina - Minas Gerais Coffee Plot 070,-21.217632,-45.519605,Coffee,362000,,1.48,Minas Gerais,BR,irrigated
+ECOM - Antioquia Coffee Plot 071,6.011098,-75.513632,Coffee,646000,,1.7,Antioquia,CO,rain_fed
+Volcafe - Comayagua Coffee Plot 072,14.259362,-87.957749,Coffee,341000,"{""type"":""Polygon"",""coordinates"":[[[-87.957749,14.259362],[-87.949547,14.259362],[-87.949547,14.265935],[-87.957749,14.265935],[-87.957749,14.259362]]]}",,Comayagua,HN,rain_fed
+Volcafe - Comayagua Coffee Plot 073,14.112139,-88.355629,Coffee,560000,,2.23,Comayagua,HN,rain_fed
+Neumann Kaffee - Huila Coffee Plot 074,2.661349,-75.94065,Coffee,717000,,0.87,Huila,CO,irrigated
+ECOM - Huila Coffee Plot 075,2.749477,-75.634062,Coffee,417000,,3.74,Huila,CO,mixed
+Neumann Kaffee - Dak Lak Coffee Plot 076,12.813181,107.847492,Coffee,1138000,,1.57,Dak Lak,VN,mixed
+Sucafina - Sidama Coffee Plot 077,7.134117,38.542359,Coffee,441000,,1.99,Sidama,ET,mixed
+Volcafe - Antioquia Coffee Plot 078,6.483514,-75.437829,Coffee,1160000,"{""type"":""Polygon"",""coordinates"":[[[-75.437829,6.483514],[-75.431705,6.483514],[-75.431705,6.491389],[-75.437829,6.491389],[-75.437829,6.483514]]]}",,Antioquia,CO,mixed
+Sucafina - Sidama Coffee Plot 079,6.574783,38.565569,Coffee,46000,,2.35,Sidama,ET,irrigated
+Sucafina - Sao Paulo Coffee Plot 080,-22.317825,-46.956319,Coffee,699000,,2.83,Sao Paulo,BR,mixed
+Neumann Kaffee - Comayagua Coffee Plot 081,14.457692,-87.95331,Coffee,807000,,0.63,Comayagua,HN,rain_fed
+Volcafe - Minas Gerais Coffee Plot 082,-20.849379,-44.723915,Coffee,84000,,1.39,Minas Gerais,BR,irrigated
+Sucafina - Comayagua Coffee Plot 083,14.607691,-88.411179,Coffee,171000,,3.15,Comayagua,HN,mixed
+Sucafina - Sao Paulo Coffee Plot 084,-22.408353,-47.339792,Coffee,241000,"{""type"":""Polygon"",""coordinates"":[[[-47.339792,-22.408353],[-47.332107,-22.408353],[-47.332107,-22.401252],[-47.339792,-22.401252],[-47.339792,-22.408353]]]}",,Sao Paulo,BR,rain_fed
+Sucafina - Dak Lak Coffee Plot 085,13.026575,108.187416,Coffee,567000,,1.16,Dak Lak,VN,irrigated
+Volcafe - Antioquia Coffee Plot 086,6.221135,-75.788562,Coffee,181000,,3.67,Antioquia,CO,irrigated
+ECOM - Sao Paulo Coffee Plot 087,-22.525778,-46.775438,Coffee,461000,,0.96,Sao Paulo,BR,irrigated
+LDC Coffee - Dak Lak Coffee Plot 088,12.442954,107.86664,Coffee,1029000,,2.93,Dak Lak,VN,rain_fed
+LDC Coffee - Sidama Coffee Plot 089,6.368962,38.728796,Coffee,513000,,0.3,Sidama,ET,rain_fed
+Volcafe - Sao Paulo Coffee Plot 090,-21.485366,-47.035974,Coffee,75000,"{""type"":""Polygon"",""coordinates"":[[[-47.035974,-21.485366],[-47.032387,-21.485366],[-47.032387,-21.481348],[-47.035974,-21.481348],[-47.035974,-21.485366]]]}",,Sao Paulo,BR,irrigated
+LDC Coffee - Minas Gerais Coffee Plot 091,-21.400168,-45.468974,Coffee,52000,,3.53,Minas Gerais,BR,mixed
+Cargill Grains - Illinois Soybean Plot 001,40.078982,-89.170636,Soybean,1294000,,3.31,Illinois,US,rain_fed
+Cargill Grains - Illinois Soybean Plot 002,40.043248,-88.714503,Soybean,3425000,,1.54,Illinois,US,rain_fed
+COFCO - Illinois Soybean Plot 003,39.776528,-88.645763,Soybean,2461000,,1.8,Illinois,US,rain_fed
+ADM - Iowa Soybean Plot 004,42.353677,-93.530355,Soybean,1555000,,1.53,Iowa,US,rain_fed
+Amaggi - Illinois Soybean Plot 005,39.471428,-88.973539,Soybean,1540000,"{""type"":""Polygon"",""coordinates"":[[[-88.973539,39.471428],[-88.965998,39.471428],[-88.965998,39.478328],[-88.973539,39.478328],[-88.973539,39.471428]]]}",,Illinois,US,rain_fed
+Cargill Grains - Illinois Soybean Plot 006,40.082313,-89.227051,Soybean,205000,,0.57,Illinois,US,rain_fed
+Amaggi - Mato Grosso Soybean Plot 007,-12.815462,-55.829186,Soybean,1045000,,3.33,Mato Grosso,BR,rain_fed
+Amaggi - Santa Fe Soybean Plot 008,-30.966404,-61.38228,Soybean,1538000,,2.36,Santa Fe,AR,rain_fed
+Bunge - Iowa Soybean Plot 009,42.427616,-93.762869,Soybean,1523000,,2.59,Iowa,US,rain_fed
+COFCO - Mato Grosso Soybean Plot 010,-12.918268,-56.32497,Soybean,3300000,,1.28,Mato Grosso,BR,rain_fed
+Amaggi - Iowa Soybean Plot 011,41.928015,-93.289665,Soybean,2216000,"{""type"":""Polygon"",""coordinates"":[[[-93.289665,41.928015],[-93.284821,41.928015],[-93.284821,41.932577],[-93.289665,41.932577],[-93.289665,41.928015]]]}",,Iowa,US,rain_fed
+Bunge - Mato Grosso Soybean Plot 012,-12.524559,-56.376138,Soybean,3227000,,0.89,Mato Grosso,BR,rain_fed
+Amaggi - Santa Fe Soybean Plot 013,-30.941618,-60.637291,Soybean,2547000,,1.06,Santa Fe,AR,rain_fed
+COFCO - Mato Grosso Soybean Plot 014,-12.753452,-55.867126,Soybean,1071000,,1.56,Mato Grosso,BR,rain_fed
+Amaggi - Parana Soybean Plot 015,-24.229511,-51.965842,Soybean,2041000,,2.09,Parana,BR,rain_fed
+Cargill Grains - Mato Grosso Soybean Plot 016,-12.98599,-55.527135,Soybean,1434000,,3.89,Mato Grosso,BR,rain_fed
+Bunge - Cordoba Soybean Plot 017,-30.936587,-63.309967,Soybean,3030000,"{""type"":""Polygon"",""coordinates"":[[[-63.309967,-30.936587],[-63.301909,-30.936587],[-63.301909,-30.931302],[-63.309967,-30.931302],[-63.309967,-30.936587]]]}",,Cordoba,AR,rain_fed
+Bunge - Mato Grosso Soybean Plot 018,-12.622597,-56.048146,Soybean,590000,,0.8,Mato Grosso,BR,rain_fed
+Bunge - Iowa Soybean Plot 019,41.629975,-93.856888,Soybean,2372000,,2.62,Iowa,US,rain_fed
+COFCO - Cordoba Soybean Plot 020,-30.875842,-63.568358,Soybean,1466000,,2.31,Cordoba,AR,rain_fed
+COFCO - Cordoba Soybean Plot 021,-31.663776,-63.643137,Soybean,2083000,,2.86,Cordoba,AR,rain_fed
+COFCO - Parana Soybean Plot 022,-24.546564,-51.832487,Soybean,1056000,,2.21,Parana,BR,rain_fed
+Cargill Grains - Mato Grosso Soybean Plot 023,-13.352427,-55.551485,Soybean,3238000,"{""type"":""Polygon"",""coordinates"":[[[-55.551485,-13.352427],[-55.549197,-13.352427],[-55.549197,-13.35012],[-55.551485,-13.35012],[-55.551485,-13.352427]]]}",,Mato Grosso,BR,rain_fed
+ADM - Santa Fe Soybean Plot 024,-31.067452,-61.301815,Soybean,167000,,0.81,Santa Fe,AR,rain_fed
+ADM - Cordoba Soybean Plot 025,-31.601557,-62.660951,Soybean,932000,,1.6,Cordoba,AR,rain_fed
+COFCO - Iowa Soybean Plot 026,41.969751,-93.531687,Soybean,925000,,1.34,Iowa,US,rain_fed
+COFCO - Illinois Soybean Plot 027,40.250905,-89.103291,Soybean,2586000,,1.81,Illinois,US,rain_fed
+ADM - Mato Grosso Soybean Plot 028,-12.66792,-55.964392,Soybean,140000,,3.28,Mato Grosso,BR,rain_fed
+Amaggi - Iowa Soybean Plot 029,41.572513,-93.756265,Soybean,2673000,"{""type"":""Polygon"",""coordinates"":[[[-93.756265,41.572513],[-93.747168,41.572513],[-93.747168,41.58007],[-93.756265,41.58007],[-93.756265,41.572513]]]}",,Iowa,US,rain_fed
+COFCO - Iowa Soybean Plot 030,41.915355,-93.341218,Soybean,201000,,2.11,Iowa,US,rain_fed
+COFCO - Mato Grosso Soybean Plot 031,-13.283139,-55.616851,Soybean,2268000,,2.08,Mato Grosso,BR,mixed
+ADM - Cordoba Soybean Plot 032,-31.461454,-62.683129,Soybean,375000,,2.9,Cordoba,AR,rain_fed
+Bunge - Illinois Soybean Plot 033,39.848089,-88.64411,Soybean,3495000,,0.64,Illinois,US,rain_fed
+Cargill Grains - Cordoba Soybean Plot 034,-30.980463,-62.911754,Soybean,347000,,2.14,Cordoba,AR,rain_fed
+Cargill Grains - Parana Soybean Plot 035,-24.637763,-51.171937,Soybean,2200000,"{""type"":""Polygon"",""coordinates"":[[[-51.171937,-24.637763],[-51.168271,-24.637763],[-51.168271,-24.633561],[-51.171937,-24.633561],[-51.171937,-24.637763]]]}",,Parana,BR,rain_fed
+Cargill Grains - Santa Fe Soybean Plot 036,-30.338566,-60.596832,Soybean,830000,,2.31,Santa Fe,AR,rain_fed
+ADM - Iowa Soybean Plot 037,41.550432,-93.365371,Soybean,1635000,,3.37,Iowa,US,rain_fed
+Cargill Grains - Santa Fe Soybean Plot 038,-30.625376,-60.653083,Soybean,380000,,3.06,Santa Fe,AR,rain_fed
+ADM - Santa Fe Soybean Plot 039,-30.159623,-61.434585,Soybean,2891000,,2.02,Santa Fe,AR,mixed
+COFCO - Cordoba Soybean Plot 040,-31.620158,-63.682519,Soybean,2519000,,0.83,Cordoba,AR,mixed
+Amaggi - Iowa Soybean Plot 041,42.059904,-93.912836,Soybean,2467000,"{""type"":""Polygon"",""coordinates"":[[[-93.912836,42.059904],[-93.904571,42.059904],[-93.904571,42.068233],[-93.912836,42.068233],[-93.912836,42.059904]]]}",,Iowa,US,mixed
+COFCO - Parana Soybean Plot 042,-24.769112,-51.13765,Soybean,1985000,,2.92,Parana,BR,rain_fed
+COFCO - Santa Fe Soybean Plot 043,-30.784978,-61.434237,Soybean,1868000,,2.62,Santa Fe,AR,rain_fed
+Bunge - Santa Fe Soybean Plot 044,-30.224274,-60.37873,Soybean,1180000,,3.85,Santa Fe,AR,rain_fed
+Cargill Grains - Mato Grosso Soybean Plot 045,-12.69106,-55.854585,Soybean,2705000,,1.41,Mato Grosso,BR,rain_fed
+Amaggi - Parana Soybean Plot 046,-24.799229,-51.558326,Soybean,1142000,,1.37,Parana,BR,rain_fed
+COFCO - Cordoba Soybean Plot 047,-31.82656,-62.948043,Soybean,2870000,"{""type"":""Polygon"",""coordinates"":[[[-62.948043,-31.82656],[-62.939107,-31.82656],[-62.939107,-31.820379],[-62.948043,-31.820379],[-62.948043,-31.82656]]]}",,Cordoba,AR,rain_fed
+COFCO - Illinois Soybean Plot 048,39.888144,-89.262877,Soybean,692000,,0.38,Illinois,US,rain_fed
+Cargill Grains - Iowa Soybean Plot 049,42.373501,-94.046685,Soybean,1898000,,3.64,Iowa,US,rain_fed
+Cargill Grains - Iowa Soybean Plot 050,42.256559,-93.356381,Soybean,2372000,,0.79,Iowa,US,rain_fed
+ADM - Parana Soybean Plot 051,-24.782122,-51.398399,Soybean,2607000,,1.86,Parana,BR,rain_fed
+Cargill Grains - Santa Fe Soybean Plot 052,-30.235063,-60.90846,Soybean,3450000,,0.89,Santa Fe,AR,rain_fed
+Bunge - Cordoba Soybean Plot 053,-31.427104,-63.650374,Soybean,1209000,"{""type"":""Polygon"",""coordinates"":[[[-63.650374,-31.427104],[-63.643364,-31.427104],[-63.643364,-31.422236],[-63.650374,-31.422236],[-63.650374,-31.427104]]]}",,Cordoba,AR,rain_fed
+Cargill Grains - Santa Fe Soybean Plot 054,-30.219113,-61.377748,Soybean,230000,,0.69,Santa Fe,AR,rain_fed
+ADM - Santa Fe Soybean Plot 055,-31.0292,-60.456267,Soybean,2694000,,2.35,Santa Fe,AR,rain_fed
+ADM - Santa Fe Soybean Plot 056,-30.316771,-60.808655,Soybean,324000,,2.1,Santa Fe,AR,rain_fed
+Amaggi - Parana Soybean Plot 057,-24.450374,-51.35692,Soybean,2638000,,1.42,Parana,BR,rain_fed
+Amaggi - Santa Fe Soybean Plot 058,-30.256326,-60.730369,Soybean,3320000,,0.8,Santa Fe,AR,rain_fed
+Bunge - Iowa Soybean Plot 059,42.387883,-93.478372,Soybean,3227000,"{""type"":""Polygon"",""coordinates"":[[[-93.478372,42.387883],[-93.470694,42.387883],[-93.470694,42.395322],[-93.478372,42.395322],[-93.478372,42.387883]]]}",,Iowa,US,rain_fed
+Cargill Grains - Mato Grosso Soybean Plot 060,-13.240347,-56.268635,Soybean,652000,,1.39,Mato Grosso,BR,mixed
+COFCO - Iowa Soybean Plot 061,41.650803,-93.224735,Soybean,1721000,,1.89,Iowa,US,rain_fed
+Cargill Grains - Mato Grosso Soybean Plot 062,-13.288967,-55.830612,Soybean,1707000,,3.87,Mato Grosso,BR,rain_fed
+Bunge - Iowa Soybean Plot 063,41.639883,-94.045887,Soybean,1068000,,0.98,Iowa,US,rain_fed
+Bunge - Mato Grosso Soybean Plot 064,-12.623148,-56.068122,Soybean,1420000,,0.81,Mato Grosso,BR,rain_fed
+Amaggi - Iowa Soybean Plot 065,41.957087,-94.041297,Soybean,2295000,"{""type"":""Polygon"",""coordinates"":[[[-94.041297,41.957087],[-94.036899,41.957087],[-94.036899,41.960441],[-94.041297,41.960441],[-94.041297,41.957087]]]}",,Iowa,US,rain_fed
+Amaggi - Cordoba Soybean Plot 066,-31.617543,-63.378598,Soybean,372000,,1.68,Cordoba,AR,mixed
+Amaggi - Iowa Soybean Plot 067,42.264185,-93.665038,Soybean,1483000,,2.88,Iowa,US,rain_fed
+Cargill Grains - Cordoba Soybean Plot 068,-31.443984,-63.116627,Soybean,235000,,2.04,Cordoba,AR,rain_fed
+Bunge - Illinois Soybean Plot 069,40.469452,-89.118164,Soybean,1819000,,3.02,Illinois,US,rain_fed
+Amaggi - Cordoba Soybean Plot 070,-31.263924,-63.72099,Soybean,2254000,,1.53,Cordoba,AR,rain_fed
+COFCO - Cordoba Soybean Plot 071,-31.170242,-63.053437,Soybean,1278000,"{""type"":""Polygon"",""coordinates"":[[[-63.053437,-31.170242],[-63.045903,-31.170242],[-63.045903,-31.162845],[-63.053437,-31.162845],[-63.053437,-31.170242]]]}",,Cordoba,AR,rain_fed
+Bunge - Parana Soybean Plot 072,-25.010798,-51.820023,Soybean,3115000,,0.81,Parana,BR,rain_fed
+Amaggi - Parana Soybean Plot 073,-24.216234,-51.778955,Soybean,3281000,,2.57,Parana,BR,mixed
+Bunge - Parana Soybean Plot 074,-24.660787,-51.043403,Soybean,3260000,,2.31,Parana,BR,rain_fed
+Bunge - Santa Fe Soybean Plot 075,-30.157311,-61.312328,Soybean,2833000,,3.0,Santa Fe,AR,rain_fed
+COFCO - Santa Fe Soybean Plot 076,-31.227689,-61.011391,Soybean,355000,,1.51,Santa Fe,AR,rain_fed
+ADM - Santa Fe Soybean Plot 077,-31.209068,-60.815866,Soybean,1514000,"{""type"":""Polygon"",""coordinates"":[[[-60.815866,-31.209068],[-60.807723,-31.209068],[-60.807723,-31.203118],[-60.815866,-31.203118],[-60.815866,-31.209068]]]}",,Santa Fe,AR,rain_fed
+Cargill Grains - Parana Soybean Plot 078,-24.348,-51.763295,Soybean,285000,,0.49,Parana,BR,rain_fed
+Bunge - Parana Soybean Plot 079,-24.389083,-51.930593,Soybean,1765000,,3.38,Parana,BR,rain_fed
+Bunge - Cordoba Soybean Plot 080,-31.610378,-63.20228,Soybean,1674000,,2.29,Cordoba,AR,rain_fed
+Amaggi - Parana Soybean Plot 081,-24.266201,-51.31624,Soybean,2301000,,2.56,Parana,BR,rain_fed
+Viterra - Kansas Wheat Plot 001,38.717954,-98.407789,Wheat,2121000,,0.9,Kansas,US,rain_fed
+GrainCorp - Kansas Wheat Plot 002,38.836625,-98.052486,Wheat,971000,"{""type"":""Polygon"",""coordinates"":[[[-98.052486,38.836625],[-98.045913,38.836625],[-98.045913,38.841192],[-98.052486,38.841192],[-98.052486,38.836625]]]}",,Kansas,US,rain_fed
+Cargill Grains - Beauce Wheat Plot 003,48.730416,1.477719,Wheat,684000,,1.46,Beauce,FR,rain_fed
+Soufflet - Kansas Wheat Plot 004,38.503245,-97.472128,Wheat,729000,,1.28,Kansas,US,rain_fed
+GrainCorp - Poltava Wheat Plot 005,49.251634,31.505964,Wheat,1536000,,1.62,Poltava,UA,mixed
+Viterra - Saskatchewan Wheat Plot 006,50.532685,-106.046984,Wheat,2082000,,1.16,Saskatchewan,CA,mixed
+Viterra - Wheatbelt Wheat Plot 007,-31.220531,117.175578,Wheat,1692000,,1.37,Wheatbelt,AU,rain_fed
+GrainCorp - Kansas Wheat Plot 008,38.711626,-97.981579,Wheat,933000,"{""type"":""Polygon"",""coordinates"":[[[-97.981579,38.711626],[-97.973892,38.711626],[-97.973892,38.718645],[-97.981579,38.718645],[-97.981579,38.711626]]]}",,Kansas,US,rain_fed
+ADM Milling - Saskatchewan Wheat Plot 009,51.532904,-106.042969,Wheat,483000,,2.51,Saskatchewan,CA,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 010,50.88755,-106.353443,Wheat,2142000,,2.54,Saskatchewan,CA,rain_fed
+Soufflet - Wheatbelt Wheat Plot 011,-31.796145,117.425847,Wheat,951000,,1.56,Wheatbelt,AU,rain_fed
+Viterra - Wheatbelt Wheat Plot 012,-31.151715,117.70872,Wheat,973000,,3.71,Wheatbelt,AU,rain_fed
+Viterra - Saskatchewan Wheat Plot 013,50.613865,-105.729125,Wheat,1937000,,2.67,Saskatchewan,CA,rain_fed
+ADM Milling - Wheatbelt Wheat Plot 014,-32.035254,117.164385,Wheat,2127000,"{""type"":""Polygon"",""coordinates"":[[[117.164385,-32.035254],[117.171292,-32.035254],[117.171292,-32.028769],[117.164385,-32.028769],[117.164385,-32.035254]]]}",,Wheatbelt,AU,rain_fed
+Viterra - Kansas Wheat Plot 015,38.45563,-97.833575,Wheat,543000,,1.09,Kansas,US,rain_fed
+ADM Milling - Saskatchewan Wheat Plot 016,51.448443,-106.48644,Wheat,932000,,3.78,Saskatchewan,CA,rain_fed
+GrainCorp - Saskatchewan Wheat Plot 017,50.855295,-105.607469,Wheat,1117000,,2.92,Saskatchewan,CA,rain_fed
+Cargill Grains - Kansas Wheat Plot 018,38.594771,-98.182237,Wheat,1466000,,1.93,Kansas,US,rain_fed
+ADM Milling - Beauce Wheat Plot 019,47.937178,1.813059,Wheat,2189000,,1.09,Beauce,FR,rain_fed
+Viterra - Kansas Wheat Plot 020,38.00314,-98.193667,Wheat,923000,"{""type"":""Polygon"",""coordinates"":[[[-98.193667,38.00314],[-98.18735,38.00314],[-98.18735,38.008136],[-98.193667,38.008136],[-98.193667,38.00314]]]}",,Kansas,US,rain_fed
+Viterra - Wheatbelt Wheat Plot 021,-31.830985,117.309006,Wheat,1318000,,3.12,Wheatbelt,AU,mixed
+Viterra - Wheatbelt Wheat Plot 022,-31.473323,116.985572,Wheat,580000,,0.91,Wheatbelt,AU,rain_fed
+GrainCorp - Kansas Wheat Plot 023,37.976925,-98.254258,Wheat,1815000,,1.36,Kansas,US,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 024,51.330748,-106.461095,Wheat,971000,,3.84,Saskatchewan,CA,rain_fed
+GrainCorp - Beauce Wheat Plot 025,48.666572,1.890032,Wheat,1078000,,2.69,Beauce,FR,rain_fed
+GrainCorp - Poltava Wheat Plot 026,49.021857,32.527899,Wheat,782000,"{""type"":""Polygon"",""coordinates"":[[[32.527899,49.021857],[32.533155,49.021857],[32.533155,49.025988],[32.527899,49.025988],[32.527899,49.021857]]]}",,Poltava,UA,rain_fed
+Soufflet - Wheatbelt Wheat Plot 027,-31.027892,116.961873,Wheat,1259000,,2.48,Wheatbelt,AU,rain_fed
+GrainCorp - Beauce Wheat Plot 028,48.200993,2.053635,Wheat,874000,,3.7,Beauce,FR,rain_fed
+Viterra - Saskatchewan Wheat Plot 029,51.048232,-106.537083,Wheat,853000,,0.97,Saskatchewan,CA,rain_fed
+GrainCorp - Beauce Wheat Plot 030,48.466324,1.543159,Wheat,1287000,,1.2,Beauce,FR,rain_fed
+GrainCorp - Kansas Wheat Plot 031,38.940211,-98.547397,Wheat,2088000,,3.58,Kansas,US,rain_fed
+Soufflet - Wheatbelt Wheat Plot 032,-31.171349,117.593873,Wheat,1162000,"{""type"":""Polygon"",""coordinates"":[[[117.593873,-31.171349],[117.602487,-31.171349],[117.602487,-31.164214],[117.593873,-31.164214],[117.593873,-31.171349]]]}",,Wheatbelt,AU,rain_fed
+ADM Milling - Wheatbelt Wheat Plot 033,-31.354377,117.386224,Wheat,2157000,,3.18,Wheatbelt,AU,rain_fed
+GrainCorp - Kansas Wheat Plot 034,38.131252,-97.488964,Wheat,659000,,2.2,Kansas,US,mixed
+ADM Milling - Beauce Wheat Plot 035,48.185377,1.974548,Wheat,499000,,2.28,Beauce,FR,rain_fed
+Soufflet - Saskatchewan Wheat Plot 036,51.073013,-105.915084,Wheat,1634000,,1.16,Saskatchewan,CA,mixed
+ADM Milling - Poltava Wheat Plot 037,48.760191,31.633456,Wheat,765000,,1.46,Poltava,UA,rain_fed
+Soufflet - Kansas Wheat Plot 038,38.366414,-97.784324,Wheat,491000,"{""type"":""Polygon"",""coordinates"":[[[-97.784324,38.366414],[-97.777387,38.366414],[-97.777387,38.371282],[-97.784324,38.371282],[-97.784324,38.366414]]]}",,Kansas,US,rain_fed
+ADM Milling - Saskatchewan Wheat Plot 039,51.042856,-106.020498,Wheat,564000,,0.54,Saskatchewan,CA,rain_fed
+Soufflet - Saskatchewan Wheat Plot 040,50.47572,-106.245094,Wheat,293000,,0.87,Saskatchewan,CA,rain_fed
+Soufflet - Saskatchewan Wheat Plot 041,50.770639,-106.453662,Wheat,1778000,,2.46,Saskatchewan,CA,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 042,50.967399,-106.023524,Wheat,1382000,,3.03,Saskatchewan,CA,rain_fed
+Soufflet - Poltava Wheat Plot 043,49.474881,32.312921,Wheat,1446000,,3.6,Poltava,UA,rain_fed
+Cargill Grains - Beauce Wheat Plot 044,47.667778,1.845153,Wheat,1570000,"{""type"":""Polygon"",""coordinates"":[[[1.845153,47.667778],[1.850004,47.667778],[1.850004,47.670559],[1.845153,47.670559],[1.845153,47.667778]]]}",,Beauce,FR,rain_fed
+Soufflet - Kansas Wheat Plot 045,38.25906,-98.20775,Wheat,1897000,,3.42,Kansas,US,rain_fed
+ADM Milling - Beauce Wheat Plot 046,48.381899,1.464704,Wheat,611000,,1.41,Beauce,FR,mixed
+Cargill Grains - Beauce Wheat Plot 047,47.917709,1.757295,Wheat,1135000,,2.09,Beauce,FR,rain_fed
+Soufflet - Beauce Wheat Plot 048,48.701987,2.127747,Wheat,1180000,,3.56,Beauce,FR,mixed
+Viterra - Wheatbelt Wheat Plot 049,-31.324655,117.125741,Wheat,519000,,3.64,Wheatbelt,AU,rain_fed
+GrainCorp - Saskatchewan Wheat Plot 050,51.365053,-105.520205,Wheat,1941000,"{""type"":""Polygon"",""coordinates"":[[[-105.520205,51.365053],[-105.514494,51.365053],[-105.514494,51.369814],[-105.520205,51.369814],[-105.520205,51.365053]]]}",,Saskatchewan,CA,mixed
+Soufflet - Beauce Wheat Plot 051,48.276749,2.083537,Wheat,1656000,,2.69,Beauce,FR,rain_fed
+GrainCorp - Poltava Wheat Plot 052,49.445698,31.650994,Wheat,1765000,,2.17,Poltava,UA,rain_fed
+Cargill Grains - Wheatbelt Wheat Plot 053,-31.336992,117.469174,Wheat,984000,,3.58,Wheatbelt,AU,rain_fed
+Cargill Grains - Wheatbelt Wheat Plot 054,-31.528643,117.08589,Wheat,1422000,,3.41,Wheatbelt,AU,rain_fed
+GrainCorp - Poltava Wheat Plot 055,48.551864,31.730278,Wheat,569000,,2.76,Poltava,UA,mixed
+Soufflet - Beauce Wheat Plot 056,48.694688,1.947668,Wheat,1302000,"{""type"":""Polygon"",""coordinates"":[[[1.947668,48.694688],[1.95372,48.694688],[1.95372,48.699802],[1.947668,48.699802],[1.947668,48.694688]]]}",,Beauce,FR,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 057,51.114084,-106.206213,Wheat,390000,,1.24,Saskatchewan,CA,rain_fed
+Viterra - Wheatbelt Wheat Plot 058,-31.605748,117.776412,Wheat,1301000,,0.45,Wheatbelt,AU,rain_fed
+ADM Milling - Beauce Wheat Plot 059,48.069073,2.054458,Wheat,2140000,,2.84,Beauce,FR,mixed
+GrainCorp - Wheatbelt Wheat Plot 060,-31.397843,117.263887,Wheat,1203000,,1.94,Wheatbelt,AU,mixed
+Cargill Grains - Beauce Wheat Plot 061,48.52647,1.726328,Wheat,1960000,,3.28,Beauce,FR,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 062,50.473179,-105.949265,Wheat,736000,"{""type"":""Polygon"",""coordinates"":[[[-105.949265,50.473179],[-105.94393,50.473179],[-105.94393,50.477763],[-105.949265,50.477763],[-105.949265,50.473179]]]}",,Saskatchewan,CA,rain_fed
+GrainCorp - Poltava Wheat Plot 063,48.781352,31.912164,Wheat,886000,,0.6,Poltava,UA,rain_fed
+GrainCorp - Wheatbelt Wheat Plot 064,-32.004408,118.002263,Wheat,1062000,,2.02,Wheatbelt,AU,mixed
+Viterra - Saskatchewan Wheat Plot 065,51.202357,-106.43463,Wheat,635000,,1.34,Saskatchewan,CA,rain_fed
+ADM Milling - Wheatbelt Wheat Plot 066,-31.083908,116.959254,Wheat,137000,,1.51,Wheatbelt,AU,rain_fed
+GrainCorp - Beauce Wheat Plot 067,47.805846,1.684601,Wheat,256000,,1.84,Beauce,FR,rain_fed
+Soufflet - Kansas Wheat Plot 068,38.923444,-97.703247,Wheat,1824000,"{""type"":""Polygon"",""coordinates"":[[[-97.703247,38.923444],[-97.699835,38.923444],[-97.699835,38.925608],[-97.703247,38.925608],[-97.703247,38.923444]]]}",,Kansas,US,mixed
+GrainCorp - Poltava Wheat Plot 069,48.52717,31.943588,Wheat,2101000,,1.07,Poltava,UA,rain_fed
+Cargill Grains - Saskatchewan Wheat Plot 070,51.165123,-105.922583,Wheat,1356000,,0.88,Saskatchewan,CA,rain_fed
+Soufflet - Beauce Wheat Plot 071,47.990886,2.089203,Wheat,1883000,,1.1,Beauce,FR,mixed
+COFCO - Mato Grosso Maize Plot 001,-13.070502,-55.828046,Maize,1858000,,2.29,Mato Grosso,BR,irrigated
+LDC - Aquitaine Maize Plot 002,44.18375,-0.010666,Maize,883000,,3.14,Aquitaine,FR,rain_fed
+ADM - Cherkasy Maize Plot 003,49.570192,31.556507,Maize,2358000,"{""type"":""Polygon"",""coordinates"":[[[31.556507,49.570192],[31.564213,49.570192],[31.564213,49.576856],[31.556507,49.576856],[31.556507,49.570192]]]}",,Cherkasy,UA,mixed
+COFCO - Buenos Aires Maize Plot 004,-32.57317,-62.464819,Maize,1437000,,0.94,Buenos Aires,AR,mixed
+LDC - Buenos Aires Maize Plot 005,-32.722632,-61.631359,Maize,1616000,,3.31,Buenos Aires,AR,mixed
+Cargill Grains - Buenos Aires Maize Plot 006,-32.688788,-62.074602,Maize,1616000,,3.49,Buenos Aires,AR,rain_fed
+Cargill Grains - Cherkasy Maize Plot 007,49.35793,31.540792,Maize,390000,,1.93,Cherkasy,UA,irrigated
+LDC - Mato Grosso Maize Plot 008,-13.289032,-55.238359,Maize,1720000,,2.34,Mato Grosso,BR,mixed
+COFCO - Aquitaine Maize Plot 009,44.242144,-0.052342,Maize,873000,"{""type"":""Polygon"",""coordinates"":[[[-0.052342,44.242144],[-0.042756,44.242144],[-0.042756,44.249539],[-0.052342,44.249539],[-0.052342,44.242144]]]}",,Aquitaine,FR,rain_fed
+Cargill Grains - Cherkasy Maize Plot 010,49.646066,31.680661,Maize,788000,,3.15,Cherkasy,UA,rain_fed
+COFCO - Iowa Maize Plot 011,41.893914,-93.111892,Maize,412000,,0.59,Iowa,US,rain_fed
+ADM - Aquitaine Maize Plot 012,43.742843,0.51101,Maize,419000,,0.96,Aquitaine,FR,rain_fed
+LDC - Buenos Aires Maize Plot 013,-33.411927,-61.970119,Maize,1243000,,3.32,Buenos Aires,AR,irrigated
+Bunge - Iowa Maize Plot 014,41.561846,-93.15799,Maize,908000,,3.26,Iowa,US,rain_fed
+Cargill Grains - Mato Grosso Maize Plot 015,-13.415658,-55.597507,Maize,2357000,"{""type"":""Polygon"",""coordinates"":[[[-55.597507,-13.415658],[-55.59351,-13.415658],[-55.59351,-13.410473],[-55.597507,-13.410473],[-55.597507,-13.415658]]]}",,Mato Grosso,BR,mixed
+ADM - Mato Grosso Maize Plot 016,-13.560506,-55.364563,Maize,830000,,2.63,Mato Grosso,BR,irrigated
+Cargill Grains - Buenos Aires Maize Plot 017,-32.937911,-62.540058,Maize,1481000,,3.34,Buenos Aires,AR,rain_fed
+COFCO - Buenos Aires Maize Plot 018,-32.856289,-61.492109,Maize,2102000,,0.62,Buenos Aires,AR,irrigated
+Cargill Grains - Aquitaine Maize Plot 019,44.519474,-0.043698,Maize,1301000,,0.74,Aquitaine,FR,irrigated
+Bunge - Iowa Maize Plot 020,41.973543,-93.872487,Maize,1591000,,2.01,Iowa,US,mixed
+Bunge - Nebraska Maize Plot 021,40.589279,-99.034869,Maize,1701000,"{""type"":""Polygon"",""coordinates"":[[[-99.034869,40.589279],[-99.02428,40.589279],[-99.02428,40.595467],[-99.034869,40.595467],[-99.034869,40.589279]]]}",,Nebraska,US,irrigated
+Cargill Grains - Cherkasy Maize Plot 022,49.579867,31.559689,Maize,425000,,1.42,Cherkasy,UA,irrigated
+Bunge - Buenos Aires Maize Plot 023,-33.338567,-62.141734,Maize,1087000,,0.63,Buenos Aires,AR,mixed
+Bunge - Buenos Aires Maize Plot 024,-33.525706,-62.154495,Maize,1671000,,2.57,Buenos Aires,AR,irrigated
+Bunge - Mato Grosso Maize Plot 025,-13.527182,-56.047818,Maize,843000,,3.3,Mato Grosso,BR,rain_fed
+Bunge - Nebraska Maize Plot 026,41.094795,-98.974321,Maize,1003000,,2.83,Nebraska,US,irrigated
+ADM - Mato Grosso Maize Plot 027,-12.968923,-55.950706,Maize,1473000,"{""type"":""Polygon"",""coordinates"":[[[-55.950706,-12.968923],[-55.946228,-12.968923],[-55.946228,-12.962917],[-55.950706,-12.962917],[-55.950706,-12.968923]]]}",,Mato Grosso,BR,mixed
+Bunge - Nebraska Maize Plot 028,41.356296,-99.049774,Maize,366000,,1.42,Nebraska,US,rain_fed
+Cargill Grains - Iowa Maize Plot 029,42.221896,-93.540896,Maize,2375000,,1.75,Iowa,US,rain_fed
+Cargill Grains - Iowa Maize Plot 030,42.523866,-93.412175,Maize,2357000,,3.03,Iowa,US,rain_fed
+ADM - Mato Grosso Maize Plot 031,-13.414886,-54.955771,Maize,175000,,3.27,Mato Grosso,BR,rain_fed
+COFCO - Iowa Maize Plot 032,41.745893,-93.764529,Maize,1842000,,1.5,Iowa,US,mixed
+COFCO - Aquitaine Maize Plot 033,43.875459,-0.313016,Maize,172000,"{""type"":""Polygon"",""coordinates"":[[[-0.313016,43.875459],[-0.304332,43.875459],[-0.304332,43.881567],[-0.313016,43.881567],[-0.313016,43.875459]]]}",,Aquitaine,FR,mixed
+Cargill Grains - Aquitaine Maize Plot 034,44.301842,0.002134,Maize,2320000,,2.49,Aquitaine,FR,rain_fed
+Cargill Grains - Buenos Aires Maize Plot 035,-33.333472,-61.525293,Maize,379000,,2.63,Buenos Aires,AR,rain_fed
+ADM - Aquitaine Maize Plot 036,44.329474,0.136739,Maize,1823000,,2.4,Aquitaine,FR,rain_fed
+Bunge - Aquitaine Maize Plot 037,44.078674,-0.46466,Maize,1572000,,2.81,Aquitaine,FR,mixed
+LDC - Iowa Maize Plot 038,41.877353,-93.558384,Maize,1546000,,3.03,Iowa,US,mixed
+ADM - Iowa Maize Plot 039,41.469748,-93.238462,Maize,2186000,"{""type"":""Polygon"",""coordinates"":[[[-93.238462,41.469748],[-93.231023,41.469748],[-93.231023,41.477332],[-93.238462,41.477332],[-93.238462,41.469748]]]}",,Iowa,US,mixed
+Cargill Grains - Mato Grosso Maize Plot 040,-13.105338,-55.528744,Maize,812000,,0.66,Mato Grosso,BR,rain_fed
+Bunge - Mato Grosso Maize Plot 041,-13.009196,-55.059161,Maize,712000,,1.2,Mato Grosso,BR,mixed
+Cargill Grains - Nebraska Maize Plot 042,41.147015,-98.963199,Maize,1959000,,2.98,Nebraska,US,rain_fed
+LDC - Mato Grosso Maize Plot 043,-13.66671,-55.589801,Maize,387000,,1.58,Mato Grosso,BR,rain_fed
+LDC - Buenos Aires Maize Plot 044,-32.883981,-62.327846,Maize,1797000,,3.79,Buenos Aires,AR,irrigated
+COFCO - Cherkasy Maize Plot 045,49.074106,31.125927,Maize,1124000,"{""type"":""Polygon"",""coordinates"":[[[31.125927,49.074106],[31.135465,49.074106],[31.135465,49.079489],[31.125927,49.079489],[31.125927,49.074106]]]}",,Cherkasy,UA,mixed
+COFCO - Iowa Maize Plot 046,41.752565,-93.46107,Maize,128000,,0.91,Iowa,US,mixed
+Cargill Grains - Iowa Maize Plot 047,42.337202,-93.246183,Maize,1415000,,3.8,Iowa,US,mixed
+LDC - Iowa Maize Plot 048,41.762195,-93.58949,Maize,1578000,,2.16,Iowa,US,irrigated
+Cargill Grains - Mato Grosso Maize Plot 049,-13.322002,-55.951527,Maize,1754000,,3.08,Mato Grosso,BR,irrigated
+ADM - Nebraska Maize Plot 050,41.08583,-98.871645,Maize,2330000,,0.67,Nebraska,US,rain_fed
+Cargill Grains - Nebraska Maize Plot 051,41.030397,-98.505388,Maize,2178000,"{""type"":""Polygon"",""coordinates"":[[[-98.505388,41.030397],[-98.497715,41.030397],[-98.497715,41.037959],[-98.505388,41.037959],[-98.505388,41.030397]]]}",,Nebraska,US,rain_fed
+Bunge - Buenos Aires Maize Plot 052,-33.376845,-61.71257,Maize,2009000,,2.1,Buenos Aires,AR,irrigated
+LDC - Aquitaine Maize Plot 053,44.34599,-0.17673,Maize,921000,,1.29,Aquitaine,FR,rain_fed
+COFCO - Mato Grosso Maize Plot 054,-13.879863,-54.960226,Maize,1373000,,3.27,Mato Grosso,BR,rain_fed
+Bunge - Aquitaine Maize Plot 055,44.145308,0.543639,Maize,945000,,1.17,Aquitaine,FR,mixed
+LDC - Aquitaine Maize Plot 056,44.25745,-0.3813,Maize,882000,,1.79,Aquitaine,FR,irrigated
+LDC - Iowa Maize Plot 057,42.322628,-94.014117,Maize,594000,"{""type"":""Polygon"",""coordinates"":[[[-94.014117,42.322628],[-94.005429,42.322628],[-94.005429,42.328567],[-94.014117,42.328567],[-94.014117,42.322628]]]}",,Iowa,US,mixed
+Bunge - Aquitaine Maize Plot 058,43.781847,0.448943,Maize,530000,,1.86,Aquitaine,FR,rain_fed
+Cargill Grains - Buenos Aires Maize Plot 059,-32.929979,-61.944711,Maize,2046000,,0.58,Buenos Aires,AR,mixed
+LDC - Aquitaine Maize Plot 060,44.334562,0.432352,Maize,134000,,2.74,Aquitaine,FR,rain_fed
+Bunge - Buenos Aires Maize Plot 061,-32.567386,-61.886208,Maize,792000,,1.99,Buenos Aires,AR,rain_fed
+ADM - Aquitaine Maize Plot 062,44.214884,0.492977,Maize,1806000,,1.76,Aquitaine,FR,mixed
+ADM - Buenos Aires Maize Plot 063,-33.511355,-62.307402,Maize,314000,"{""type"":""Polygon"",""coordinates"":[[[-62.307402,-33.511355],[-62.301779,-33.511355],[-62.301779,-33.505611],[-62.307402,-33.505611],[-62.307402,-33.511355]]]}",,Buenos Aires,AR,rain_fed
+COFCO - Iowa Maize Plot 064,41.996822,-93.666017,Maize,1613000,,1.18,Iowa,US,rain_fed
+Cargill Grains - Aquitaine Maize Plot 065,43.673255,-0.116668,Maize,2300000,,0.54,Aquitaine,FR,rain_fed
+LDC - Cherkasy Maize Plot 066,49.391163,31.43628,Maize,298000,,2.86,Cherkasy,UA,mixed
+LDC - Buenos Aires Maize Plot 067,-33.423047,-62.116298,Maize,1363000,,2.62,Buenos Aires,AR,irrigated
+Bunge - Aquitaine Maize Plot 068,44.521858,-0.491748,Maize,856000,,2.14,Aquitaine,FR,irrigated
+Bunge - Buenos Aires Maize Plot 069,-33.534576,-62.332832,Maize,1565000,"{""type"":""Polygon"",""coordinates"":[[[-62.332832,-33.534576],[-62.327131,-33.534576],[-62.327131,-33.528233],[-62.332832,-33.528233],[-62.332832,-33.534576]]]}",,Buenos Aires,AR,irrigated
+COFCO - Iowa Maize Plot 070,41.904294,-93.307986,Maize,1174000,,3.29,Iowa,US,irrigated
+ADM - Aquitaine Maize Plot 071,44.117382,0.378666,Maize,2271000,,0.58,Aquitaine,FR,rain_fed
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 001,14.568251,102.386692,Cane sugar,243000,,3.6,Nakhon Ratchasima,TH,irrigated
+EID Parry - Nakhon Ratchasima Cane sugar Plot 002,14.648529,102.076477,Cane sugar,901000,,2.51,Nakhon Ratchasima,TH,irrigated
+Wilmar Sugar - Queensland Cane sugar Plot 003,-19.736193,147.167062,Cane sugar,1044000,,2.65,Queensland,AU,irrigated
+Wilmar Sugar - Maharashtra Cane sugar Plot 004,19.631416,74.614606,Cane sugar,1088000,"{""type"":""Polygon"",""coordinates"":[[[74.614606,19.631416],[74.618337,19.631416],[74.618337,19.635546],[74.614606,19.635546],[74.614606,19.631416]]]}",,Maharashtra,IN,irrigated
+Wilmar Sugar - Sao Paulo Cane sugar Plot 005,-21.792144,-48.655499,Cane sugar,2070000,,2.49,Sao Paulo,BR,irrigated
+Copersucar - Uttar Pradesh Cane sugar Plot 006,27.128317,79.665465,Cane sugar,169000,,1.76,Uttar Pradesh,IN,irrigated
+Wilmar Sugar - Nakhon Ratchasima Cane sugar Plot 007,15.021776,102.242324,Cane sugar,492000,,1.51,Nakhon Ratchasima,TH,irrigated
+Raizen - Nakhon Ratchasima Cane sugar Plot 008,15.233047,102.292147,Cane sugar,1856000,,2.91,Nakhon Ratchasima,TH,irrigated
+Copersucar - Nakhon Ratchasima Cane sugar Plot 009,14.710288,102.364334,Cane sugar,2513000,,1.45,Nakhon Ratchasima,TH,irrigated
+Wilmar Sugar - Nakhon Ratchasima Cane sugar Plot 010,14.55185,102.357764,Cane sugar,239000,"{""type"":""Polygon"",""coordinates"":[[[102.357764,14.55185],[102.36422,14.55185],[102.36422,14.557532],[102.357764,14.557532],[102.357764,14.55185]]]}",,Nakhon Ratchasima,TH,irrigated
+Mitr Phol - Sao Paulo Cane sugar Plot 011,-21.056328,-48.929118,Cane sugar,2724000,,0.47,Sao Paulo,BR,irrigated
+Wilmar Sugar - Maharashtra Cane sugar Plot 012,19.312738,74.920771,Cane sugar,596000,,1.19,Maharashtra,IN,irrigated
+EID Parry - Sao Paulo Cane sugar Plot 013,-21.939134,-48.419814,Cane sugar,133000,,2.12,Sao Paulo,BR,irrigated
+Wilmar Sugar - Uttar Pradesh Cane sugar Plot 014,27.728033,79.629607,Cane sugar,419000,,3.35,Uttar Pradesh,IN,mixed
+Raizen - Nakhon Ratchasima Cane sugar Plot 015,15.302679,102.078732,Cane sugar,877000,,3.36,Nakhon Ratchasima,TH,mixed
+Mitr Phol - Sao Paulo Cane sugar Plot 016,-21.379746,-47.969427,Cane sugar,1320000,"{""type"":""Polygon"",""coordinates"":[[[-47.969427,-21.379746],[-47.964708,-21.379746],[-47.964708,-21.374791],[-47.969427,-21.374791],[-47.969427,-21.379746]]]}",,Sao Paulo,BR,irrigated
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 017,14.49742,101.709604,Cane sugar,820000,,3.81,Nakhon Ratchasima,TH,irrigated
+Copersucar - Uttar Pradesh Cane sugar Plot 018,28.020345,79.555891,Cane sugar,2458000,,2.78,Uttar Pradesh,IN,irrigated
+Copersucar - Maharashtra Cane sugar Plot 019,19.508891,74.100218,Cane sugar,612000,,0.43,Maharashtra,IN,mixed
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 020,14.885788,101.754347,Cane sugar,2516000,,2.39,Nakhon Ratchasima,TH,irrigated
+EID Parry - Queensland Cane sugar Plot 021,-19.064074,146.704435,Cane sugar,1501000,,1.55,Queensland,AU,irrigated
+Raizen - Maharashtra Cane sugar Plot 022,19.427341,74.813202,Cane sugar,2307000,"{""type"":""Polygon"",""coordinates"":[[[74.813202,19.427341],[74.81882,19.427341],[74.81882,19.43461],[74.813202,19.43461],[74.813202,19.427341]]]}",,Maharashtra,IN,mixed
+Raizen - Uttar Pradesh Cane sugar Plot 023,27.27348,80.026351,Cane sugar,1094000,,2.37,Uttar Pradesh,IN,irrigated
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 024,15.223465,101.566506,Cane sugar,1443000,,2.82,Nakhon Ratchasima,TH,irrigated
+Copersucar - Maharashtra Cane sugar Plot 025,19.407227,74.491403,Cane sugar,2403000,,3.35,Maharashtra,IN,irrigated
+Wilmar Sugar - Nakhon Ratchasima Cane sugar Plot 026,15.547079,101.688448,Cane sugar,722000,,2.12,Nakhon Ratchasima,TH,irrigated
+Raizen - Maharashtra Cane sugar Plot 027,19.854297,74.623316,Cane sugar,844000,,3.62,Maharashtra,IN,irrigated
+Mitr Phol - Sao Paulo Cane sugar Plot 028,-22.044249,-48.626897,Cane sugar,1748000,"{""type"":""Polygon"",""coordinates"":[[[-48.626897,-22.044249],[-48.620754,-22.044249],[-48.620754,-22.039402],[-48.626897,-22.039402],[-48.626897,-22.044249]]]}",,Sao Paulo,BR,irrigated
+Wilmar Sugar - Nakhon Ratchasima Cane sugar Plot 029,15.137549,102.378647,Cane sugar,796000,,3.69,Nakhon Ratchasima,TH,irrigated
+EID Parry - Queensland Cane sugar Plot 030,-18.998709,147.317753,Cane sugar,521000,,3.43,Queensland,AU,irrigated
+Mitr Phol - Sao Paulo Cane sugar Plot 031,-21.736131,-48.557317,Cane sugar,1380000,,1.75,Sao Paulo,BR,mixed
+Copersucar - Maharashtra Cane sugar Plot 032,19.277565,74.421008,Cane sugar,1808000,,0.44,Maharashtra,IN,irrigated
+Copersucar - Queensland Cane sugar Plot 033,-19.419369,146.779348,Cane sugar,2647000,,0.88,Queensland,AU,irrigated
+Wilmar Sugar - Maharashtra Cane sugar Plot 034,18.951672,74.382906,Cane sugar,157000,"{""type"":""Polygon"",""coordinates"":[[[74.382906,18.951672],[74.388777,18.951672],[74.388777,18.959042],[74.382906,18.959042],[74.382906,18.951672]]]}",,Maharashtra,IN,irrigated
+Raizen - Maharashtra Cane sugar Plot 035,19.817179,73.982611,Cane sugar,2061000,,3.07,Maharashtra,IN,irrigated
+Raizen - Sao Paulo Cane sugar Plot 036,-21.744696,-48.80375,Cane sugar,2425000,,0.44,Sao Paulo,BR,irrigated
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 037,14.726428,101.808848,Cane sugar,2615000,,2.38,Nakhon Ratchasima,TH,irrigated
+EID Parry - Uttar Pradesh Cane sugar Plot 038,28.002179,79.866048,Cane sugar,1415000,,3.18,Uttar Pradesh,IN,irrigated
+Copersucar - Uttar Pradesh Cane sugar Plot 039,27.038719,78.976198,Cane sugar,2534000,,2.56,Uttar Pradesh,IN,irrigated
+EID Parry - Uttar Pradesh Cane sugar Plot 040,27.439553,78.956724,Cane sugar,1603000,"{""type"":""Polygon"",""coordinates"":[[[78.956724,27.439553],[78.965025,27.439553],[78.965025,27.445978],[78.956724,27.445978],[78.956724,27.439553]]]}",,Uttar Pradesh,IN,irrigated
+EID Parry - Sao Paulo Cane sugar Plot 041,-21.449745,-48.376441,Cane sugar,210000,,2.3,Sao Paulo,BR,irrigated
+Copersucar - Nakhon Ratchasima Cane sugar Plot 042,14.450062,101.471491,Cane sugar,684000,,1.77,Nakhon Ratchasima,TH,irrigated
+Raizen - Uttar Pradesh Cane sugar Plot 043,27.486262,79.58313,Cane sugar,1911000,,3.38,Uttar Pradesh,IN,irrigated
+Raizen - Maharashtra Cane sugar Plot 044,19.445698,74.721145,Cane sugar,1194000,,3.41,Maharashtra,IN,irrigated
+Mitr Phol - Uttar Pradesh Cane sugar Plot 045,28.001075,79.907404,Cane sugar,2198000,,3.77,Uttar Pradesh,IN,irrigated
+Raizen - Uttar Pradesh Cane sugar Plot 046,27.61252,79.108212,Cane sugar,991000,"{""type"":""Polygon"",""coordinates"":[[[79.108212,27.61252],[79.117281,27.61252],[79.117281,27.618774],[79.108212,27.618774],[79.108212,27.61252]]]}",,Uttar Pradesh,IN,mixed
+Raizen - Sao Paulo Cane sugar Plot 047,-21.797917,-48.24635,Cane sugar,536000,,0.39,Sao Paulo,BR,irrigated
+Raizen - Uttar Pradesh Cane sugar Plot 048,27.902843,79.24761,Cane sugar,1898000,,3.59,Uttar Pradesh,IN,irrigated
+Copersucar - Maharashtra Cane sugar Plot 049,19.185492,74.594566,Cane sugar,442000,,0.37,Maharashtra,IN,irrigated
+EID Parry - Uttar Pradesh Cane sugar Plot 050,27.822817,78.982696,Cane sugar,1914000,,0.45,Uttar Pradesh,IN,irrigated
+Mitr Phol - Sao Paulo Cane sugar Plot 051,-21.568745,-48.465732,Cane sugar,1808000,,1.47,Sao Paulo,BR,irrigated
+Copersucar - Maharashtra Cane sugar Plot 052,18.990041,74.846057,Cane sugar,2441000,"{""type"":""Polygon"",""coordinates"":[[[74.846057,18.990041],[74.850774,18.990041],[74.850774,18.994332],[74.846057,18.994332],[74.846057,18.990041]]]}",,Maharashtra,IN,mixed
+EID Parry - Queensland Cane sugar Plot 053,-19.353238,146.690484,Cane sugar,2282000,,3.31,Queensland,AU,irrigated
+Copersucar - Sao Paulo Cane sugar Plot 054,-21.997182,-48.229983,Cane sugar,1176000,,0.64,Sao Paulo,BR,mixed
+Wilmar Sugar - Queensland Cane sugar Plot 055,-19.778852,147.548155,Cane sugar,1794000,,3.25,Queensland,AU,irrigated
+Wilmar Sugar - Maharashtra Cane sugar Plot 056,19.606283,74.993398,Cane sugar,2100000,,1.39,Maharashtra,IN,irrigated
+EID Parry - Uttar Pradesh Cane sugar Plot 057,27.57296,79.931224,Cane sugar,2744000,,3.1,Uttar Pradesh,IN,irrigated
+Raizen - Maharashtra Cane sugar Plot 058,19.204074,74.770685,Cane sugar,2221000,"{""type"":""Polygon"",""coordinates"":[[[74.770685,19.204074],[74.778002,19.204074],[74.778002,19.211323],[74.770685,19.211323],[74.770685,19.204074]]]}",,Maharashtra,IN,irrigated
+EID Parry - Uttar Pradesh Cane sugar Plot 059,27.510448,79.762382,Cane sugar,2506000,,2.88,Uttar Pradesh,IN,irrigated
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 060,14.80108,101.798341,Cane sugar,2682000,,0.32,Nakhon Ratchasima,TH,irrigated
+Mitr Phol - Nakhon Ratchasima Cane sugar Plot 061,15.217048,102.144406,Cane sugar,1840000,,2.45,Nakhon Ratchasima,TH,irrigated
+Cargill - Nouvelle-Aquitaine Sunflower Plot 001,45.363075,0.750844,Sunflower,149000,,1.46,Nouvelle-Aquitaine,FR,rain_fed
+Bunge - Andalucia Sunflower Plot 002,37.688992,-5.010386,Sunflower,1381000,,1.43,Andalucia,ES,rain_fed
+Bunge - Braila Sunflower Plot 003,44.406763,26.931299,Sunflower,409000,"{""type"":""Polygon"",""coordinates"":[[[26.931299,44.406763],[26.937144,44.406763],[26.937144,44.411062],[26.931299,44.411062],[26.931299,44.406763]]]}",,Braila,RO,rain_fed
+Cargill - Kirovohrad Sunflower Plot 004,48.018742,32.272374,Sunflower,1203000,,1.77,Kirovohrad,UA,rain_fed
+Bunge - Nouvelle-Aquitaine Sunflower Plot 005,44.959872,0.305659,Sunflower,395000,,0.75,Nouvelle-Aquitaine,FR,rain_fed
+Cargill - Kirovohrad Sunflower Plot 006,49.039183,31.921508,Sunflower,780000,,1.03,Kirovohrad,UA,rain_fed
+Kernel - Braila Sunflower Plot 007,44.027191,26.46267,Sunflower,802000,,1.07,Braila,RO,mixed
+Kernel - Kirovohrad Sunflower Plot 008,48.467405,32.102954,Sunflower,589000,,2.13,Kirovohrad,UA,rain_fed
+Cargill - Kirovohrad Sunflower Plot 009,48.303961,31.603459,Sunflower,325000,"{""type"":""Polygon"",""coordinates"":[[[31.603459,48.303961],[31.611925,48.303961],[31.611925,48.308706],[31.603459,48.308706],[31.603459,48.303961]]]}",,Kirovohrad,UA,rain_fed
+Kernel - Nouvelle-Aquitaine Sunflower Plot 010,46.043943,-0.035219,Sunflower,758000,,2.91,Nouvelle-Aquitaine,FR,rain_fed
+Bunge - Andalucia Sunflower Plot 011,37.076075,-5.235605,Sunflower,783000,,3.23,Andalucia,ES,rain_fed
+Bunge - Braila Sunflower Plot 012,43.964915,26.948784,Sunflower,1059000,,1.27,Braila,RO,rain_fed
+ADM - Braila Sunflower Plot 013,44.46841,26.56984,Sunflower,850000,,3.21,Braila,RO,rain_fed
+Cargill - La Pampa Sunflower Plot 014,-35.995482,-64.510201,Sunflower,1182000,,2.16,La Pampa,AR,rain_fed
+Kernel - Andalucia Sunflower Plot 015,36.956186,-4.53419,Sunflower,173000,"{""type"":""Polygon"",""coordinates"":[[[-4.53419,36.956186],[-4.525294,36.956186],[-4.525294,36.961668],[-4.53419,36.961668],[-4.53419,36.956186]]]}",,Andalucia,ES,rain_fed
+LDC - Braila Sunflower Plot 016,44.041893,27.439938,Sunflower,387000,,0.53,Braila,RO,rain_fed
+Bunge - La Pampa Sunflower Plot 017,-36.526136,-63.681306,Sunflower,1093000,,3.39,La Pampa,AR,rain_fed
+LDC - Nouvelle-Aquitaine Sunflower Plot 018,45.145887,0.732588,Sunflower,557000,,2.6,Nouvelle-Aquitaine,FR,rain_fed
+ADM - La Pampa Sunflower Plot 019,-36.254211,-64.296936,Sunflower,1330000,,1.7,La Pampa,AR,rain_fed
+Bunge - Braila Sunflower Plot 020,44.794883,27.478645,Sunflower,1156000,,3.05,Braila,RO,rain_fed
+Cargill - Kirovohrad Sunflower Plot 021,48.724833,32.230801,Sunflower,1307000,"{""type"":""Polygon"",""coordinates"":[[[32.230801,48.724833],[32.2408,48.724833],[32.2408,48.729804],[32.230801,48.729804],[32.230801,48.724833]]]}",,Kirovohrad,UA,rain_fed
+Bunge - Nouvelle-Aquitaine Sunflower Plot 022,45.064316,0.862428,Sunflower,1147000,,2.84,Nouvelle-Aquitaine,FR,rain_fed
+ADM - Braila Sunflower Plot 023,44.258387,26.826633,Sunflower,1306000,,3.27,Braila,RO,rain_fed
+Kernel - La Pampa Sunflower Plot 024,-35.930632,-63.926839,Sunflower,962000,,0.93,La Pampa,AR,rain_fed
+Bunge - La Pampa Sunflower Plot 025,-35.669086,-64.201892,Sunflower,1288000,,1.35,La Pampa,AR,rain_fed
+Cargill - Andalucia Sunflower Plot 026,37.877449,-4.989601,Sunflower,683000,,3.42,Andalucia,ES,rain_fed
+Kernel - Braila Sunflower Plot 027,44.211917,27.204612,Sunflower,124000,"{""type"":""Polygon"",""coordinates"":[[[27.204612,44.211917],[27.208798,44.211917],[27.208798,44.214988],[27.204612,44.214988],[27.204612,44.211917]]]}",,Braila,RO,rain_fed
+ADM - Kirovohrad Sunflower Plot 028,48.068966,31.92604,Sunflower,387000,,3.08,Kirovohrad,UA,rain_fed
+LDC - Andalucia Sunflower Plot 029,36.982546,-4.595558,Sunflower,265000,,3.76,Andalucia,ES,rain_fed
+ADM - Andalucia Sunflower Plot 030,37.828926,-5.099504,Sunflower,921000,,1.5,Andalucia,ES,rain_fed
+Kernel - Kirovohrad Sunflower Plot 031,48.387445,32.169413,Sunflower,888000,,1.79,Kirovohrad,UA,rain_fed
+Bunge - Kirovohrad Sunflower Plot 032,48.234099,31.611375,Sunflower,1006000,,2.07,Kirovohrad,UA,rain_fed
+Cargill - Nouvelle-Aquitaine Sunflower Plot 033,45.641214,0.693773,Sunflower,382000,"{""type"":""Polygon"",""coordinates"":[[[0.693773,45.641214],[0.699489,45.641214],[0.699489,45.644695],[0.693773,45.644695],[0.693773,45.641214]]]}",,Nouvelle-Aquitaine,FR,rain_fed
+LDC - Braila Sunflower Plot 034,44.579572,26.509554,Sunflower,968000,,0.58,Braila,RO,rain_fed
+Kernel - Kirovohrad Sunflower Plot 035,48.104178,32.170689,Sunflower,1399000,,1.06,Kirovohrad,UA,rain_fed
+Cargill - Kirovohrad Sunflower Plot 036,48.570414,32.166806,Sunflower,65000,,2.01,Kirovohrad,UA,rain_fed
+LDC - Braila Sunflower Plot 037,44.846529,26.763118,Sunflower,93000,,3.19,Braila,RO,rain_fed
+Cargill - Nouvelle-Aquitaine Sunflower Plot 038,45.781742,0.767699,Sunflower,738000,,3.27,Nouvelle-Aquitaine,FR,rain_fed
+Kernel - Braila Sunflower Plot 039,44.635096,27.384715,Sunflower,1209000,"{""type"":""Polygon"",""coordinates"":[[[27.384715,44.635096],[27.390931,44.635096],[27.390931,44.640984],[27.384715,44.640984],[27.384715,44.635096]]]}",,Braila,RO,rain_fed
+LDC - Nouvelle-Aquitaine Sunflower Plot 040,45.767358,0.633457,Sunflower,1062000,,1.29,Nouvelle-Aquitaine,FR,rain_fed
+Bunge - Nouvelle-Aquitaine Sunflower Plot 041,45.884844,0.186115,Sunflower,1102000,,0.35,Nouvelle-Aquitaine,FR,rain_fed
+Cargill - La Pampa Sunflower Plot 042,-36.223285,-64.179417,Sunflower,1147000,,1.58,La Pampa,AR,rain_fed
+Cargill - La Pampa Sunflower Plot 043,-35.988433,-63.874845,Sunflower,438000,,3.54,La Pampa,AR,rain_fed
+Cargill - Nouvelle-Aquitaine Sunflower Plot 044,45.805435,0.410742,Sunflower,1192000,,0.85,Nouvelle-Aquitaine,FR,rain_fed
+Bunge - Kirovohrad Sunflower Plot 045,48.533661,31.886945,Sunflower,1271000,"{""type"":""Polygon"",""coordinates"":[[[31.886945,48.533661],[31.896566,48.533661],[31.896566,48.539951],[31.886945,48.539951],[31.886945,48.533661]]]}",,Kirovohrad,UA,rain_fed
+Bunge - Kirovohrad Sunflower Plot 046,48.714755,32.124364,Sunflower,466000,,1.21,Kirovohrad,UA,rain_fed
+Kernel - Braila Sunflower Plot 047,45.018636,27.191377,Sunflower,341000,,1.46,Braila,RO,rain_fed
+LDC - La Pampa Sunflower Plot 048,-36.403996,-63.829852,Sunflower,442000,,0.92,La Pampa,AR,mixed
+LDC - Nouvelle-Aquitaine Sunflower Plot 049,45.354661,0.093798,Sunflower,1208000,,2.58,Nouvelle-Aquitaine,FR,rain_fed
+LDC - La Pampa Sunflower Plot 050,-36.153345,-63.59125,Sunflower,730000,,2.1,La Pampa,AR,rain_fed
+ADM - Braila Sunflower Plot 051,44.992096,27.090547,Sunflower,100000,"{""type"":""Polygon"",""coordinates"":[[[27.090547,44.992096],[27.098012,44.992096],[27.098012,44.996309],[27.090547,44.996309],[27.090547,44.992096]]]}",,Braila,RO,mixed
+Cutrale - Nile Delta Citrus Plot 001,30.038998,30.565782,Citrus,610000,,3.76,Nile Delta,EG,irrigated
+Indian River - Valencia Citrus Plot 002,39.366402,-0.564571,Citrus,1334000,,1.52,Valencia,ES,irrigated
+Citrosuco - Nile Delta Citrus Plot 003,30.534516,31.200565,Citrus,750000,,3.88,Nile Delta,EG,irrigated
+Indian River - Sao Paulo Citrus Plot 004,-21.432185,-48.539445,Citrus,408000,,2.52,Sao Paulo,BR,irrigated
+Cutrale - Nile Delta Citrus Plot 005,31.009994,30.919509,Citrus,1472000,,1.77,Nile Delta,EG,mixed
+Indian River - Valencia Citrus Plot 006,39.040185,-0.372608,Citrus,1019000,"{""type"":""Polygon"",""coordinates"":[[[-0.372608,39.040185],[-0.365309,39.040185],[-0.365309,39.044817],[-0.372608,39.044817],[-0.372608,39.040185]]]}",,Valencia,ES,irrigated
+LoBue - Sao Paulo Citrus Plot 007,-21.462691,-48.677547,Citrus,1043000,,2.31,Sao Paulo,BR,mixed
+LoBue - Florida Citrus Plot 008,27.012085,-81.922097,Citrus,666000,,3.85,Florida,US,irrigated
+Indian River - Nile Delta Citrus Plot 009,30.442802,30.770884,Citrus,797000,,1.67,Nile Delta,EG,mixed
+Citrosuco - Valencia Citrus Plot 010,39.719485,-0.197034,Citrus,408000,,3.19,Valencia,ES,irrigated
+Indian River - Valencia Citrus Plot 011,39.87223,-1.00769,Citrus,1155000,,1.21,Valencia,ES,irrigated
+Citrosuco - Nile Delta Citrus Plot 012,30.921077,31.067882,Citrus,1439000,"{""type"":""Polygon"",""coordinates"":[[[31.067882,30.921077],[31.074533,30.921077],[31.074533,30.928139],[31.067882,30.928139],[31.067882,30.921077]]]}",,Nile Delta,EG,irrigated
+AMC Group - Valencia Citrus Plot 013,39.598595,-0.324041,Citrus,1528000,,2.39,Valencia,ES,irrigated
+Citrosuco - Nile Delta Citrus Plot 014,30.049393,30.649298,Citrus,1034000,,1.05,Nile Delta,EG,irrigated
+Citrosuco - Nile Delta Citrus Plot 015,30.789535,31.069947,Citrus,1593000,,3.66,Nile Delta,EG,irrigated
+AMC Group - Nile Delta Citrus Plot 016,30.367707,31.354859,Citrus,757000,,3.59,Nile Delta,EG,irrigated
+AMC Group - Valencia Citrus Plot 017,39.11239,-0.943746,Citrus,1549000,,1.35,Valencia,ES,irrigated
+Cutrale - Valencia Citrus Plot 018,39.475269,-0.678559,Citrus,585000,"{""type"":""Polygon"",""coordinates"":[[[-0.678559,39.475269],[-0.670587,39.475269],[-0.670587,39.480725],[-0.678559,39.480725],[-0.678559,39.475269]]]}",,Valencia,ES,irrigated
+Cutrale - Sao Paulo Citrus Plot 019,-20.758962,-48.391624,Citrus,354000,,1.38,Sao Paulo,BR,irrigated
+Indian River - Sao Paulo Citrus Plot 020,-20.589423,-48.526465,Citrus,359000,,3.41,Sao Paulo,BR,irrigated
+Citrosuco - Mpumalanga Citrus Plot 021,-24.961875,30.647365,Citrus,805000,,2.22,Mpumalanga,ZA,irrigated
+Cutrale - Sao Paulo Citrus Plot 022,-20.93691,-48.08261,Citrus,1258000,,1.83,Sao Paulo,BR,irrigated
+LoBue - Valencia Citrus Plot 023,39.766598,-0.871004,Citrus,391000,,1.1,Valencia,ES,irrigated
+AMC Group - Mpumalanga Citrus Plot 024,-25.434222,31.542988,Citrus,164000,"{""type"":""Polygon"",""coordinates"":[[[31.542988,-25.434222],[31.547851,-25.434222],[31.547851,-25.42893],[31.542988,-25.42893],[31.542988,-25.434222]]]}",,Mpumalanga,ZA,mixed
+Cutrale - Valencia Citrus Plot 025,39.441704,-0.446955,Citrus,673000,,0.51,Valencia,ES,mixed
+Indian River - Florida Citrus Plot 026,27.154669,-81.605983,Citrus,545000,,3.76,Florida,US,irrigated
+Cutrale - Mpumalanga Citrus Plot 027,-24.800131,31.361217,Citrus,369000,,0.72,Mpumalanga,ZA,irrigated
+LoBue - Mpumalanga Citrus Plot 028,-24.749677,31.475691,Citrus,365000,,1.03,Mpumalanga,ZA,irrigated
+AMC Group - Florida Citrus Plot 029,27.148778,-81.233405,Citrus,617000,,2.03,Florida,US,mixed
+AMC Group - Valencia Citrus Plot 030,38.942056,-0.432211,Citrus,1494000,"{""type"":""Polygon"",""coordinates"":[[[-0.432211,38.942056],[-0.427812,38.942056],[-0.427812,38.946664],[-0.432211,38.946664],[-0.432211,38.942056]]]}",,Valencia,ES,irrigated
+AMC Group - Mpumalanga Citrus Plot 031,-24.89275,31.34445,Citrus,1295000,,2.54,Mpumalanga,ZA,mixed
+Indian River - Mpumalanga Citrus Plot 032,-25.182354,31.136807,Citrus,127000,,3.58,Mpumalanga,ZA,irrigated
+Cutrale - Valencia Citrus Plot 033,39.302906,-0.19245,Citrus,675000,,0.33,Valencia,ES,irrigated
+AMC Group - Mpumalanga Citrus Plot 034,-24.455784,31.081357,Citrus,1438000,,1.14,Mpumalanga,ZA,irrigated
+AMC Group - Sao Paulo Citrus Plot 035,-20.68123,-48.618746,Citrus,264000,,0.95,Sao Paulo,BR,mixed
+LoBue - Nile Delta Citrus Plot 036,31.014561,31.259974,Citrus,1492000,"{""type"":""Polygon"",""coordinates"":[[[31.259974,31.014561],[31.262225,31.014561],[31.262225,31.017068],[31.259974,31.017068],[31.259974,31.014561]]]}",,Nile Delta,EG,mixed
+Indian River - Nile Delta Citrus Plot 037,30.960658,30.93441,Citrus,605000,,3.84,Nile Delta,EG,irrigated
+Citrosuco - Nile Delta Citrus Plot 038,30.275264,31.497432,Citrus,946000,,0.82,Nile Delta,EG,irrigated
+Citrosuco - Mpumalanga Citrus Plot 039,-24.802915,31.037757,Citrus,679000,,0.82,Mpumalanga,ZA,irrigated
+Cutrale - Nile Delta Citrus Plot 040,30.288726,30.993292,Citrus,643000,,3.5,Nile Delta,EG,irrigated
+AMC Group - Florida Citrus Plot 041,27.138194,-81.241893,Citrus,848000,,0.7,Florida,US,irrigated
+AMC Group - Sao Paulo Citrus Plot 042,-21.165084,-48.838153,Citrus,785000,"{""type"":""Polygon"",""coordinates"":[[[-48.838153,-21.165084],[-48.832913,-21.165084],[-48.832913,-21.161417],[-48.838153,-21.161417],[-48.838153,-21.165084]]]}",,Sao Paulo,BR,irrigated
+LoBue - Nile Delta Citrus Plot 043,30.529942,31.494468,Citrus,1139000,,0.39,Nile Delta,EG,irrigated
+AMC Group - Florida Citrus Plot 044,27.317964,-81.634093,Citrus,1329000,,2.04,Florida,US,irrigated
+Cutrale - Florida Citrus Plot 045,27.880334,-81.766723,Citrus,850000,,0.89,Florida,US,irrigated
+Cutrale - Nile Delta Citrus Plot 046,30.235082,30.582857,Citrus,682000,,2.48,Nile Delta,EG,irrigated
+Deoleo - Jaen Olive oil Plot 001,38.070301,-3.923498,Olive oil,748000,,1.13,Jaen,ES,rain_fed
+CHO - Sfax Olive oil Plot 002,34.968624,9.646403,Olive oil,534000,"{""type"":""Polygon"",""coordinates"":[[[9.646403,34.968624],[9.651023,34.968624],[9.651023,34.973157],[9.646403,34.973157],[9.646403,34.968624]]]}",,Sfax,TN,mixed
+Terra Creta - Sfax Olive oil Plot 003,35.149564,9.586211,Olive oil,832000,,0.36,Sfax,TN,mixed
+Sovena - Alentejo Olive oil Plot 004,38.88119,-7.60472,Olive oil,990000,,2.93,Alentejo,PT,irrigated
+Terra Creta - Jaen Olive oil Plot 005,37.397295,-4.319583,Olive oil,398000,,1.07,Jaen,ES,irrigated
+Sovena - Peloponnese Olive oil Plot 006,37.148143,22.275759,Olive oil,1022000,,0.53,Peloponnese,GR,irrigated
+Sovena - Sfax Olive oil Plot 007,35.216903,10.473959,Olive oil,788000,,2.93,Sfax,TN,rain_fed
+Sovena - Peloponnese Olive oil Plot 008,37.714856,22.394566,Olive oil,1203000,"{""type"":""Polygon"",""coordinates"":[[[22.394566,37.714856],[22.401476,37.714856],[22.401476,37.721389],[22.394566,37.721389],[22.394566,37.714856]]]}",,Peloponnese,GR,irrigated
+Sovena - Peloponnese Olive oil Plot 009,37.693772,22.345641,Olive oil,556000,,0.39,Peloponnese,GR,rain_fed
+Sovena - Peloponnese Olive oil Plot 010,37.678909,21.509614,Olive oil,370000,,3.17,Peloponnese,GR,mixed
+Borges - Peloponnese Olive oil Plot 011,36.83782,21.540267,Olive oil,284000,,1.13,Peloponnese,GR,irrigated
+CHO - Sfax Olive oil Plot 012,35.553916,9.483485,Olive oil,282000,,1.1,Sfax,TN,rain_fed
+Deoleo - Alentejo Olive oil Plot 013,38.682245,-7.872718,Olive oil,145000,,1.97,Alentejo,PT,mixed
+Deoleo - Alentejo Olive oil Plot 014,38.959017,-8.257748,Olive oil,1186000,"{""type"":""Polygon"",""coordinates"":[[[-8.257748,38.959017],[-8.248372,38.959017],[-8.248372,38.964835],[-8.257748,38.964835],[-8.257748,38.959017]]]}",,Alentejo,PT,irrigated
+CHO - Sfax Olive oil Plot 015,35.789224,9.530023,Olive oil,259000,,0.73,Sfax,TN,mixed
+Sovena - Jaen Olive oil Plot 016,37.857485,-3.600513,Olive oil,301000,,2.06,Jaen,ES,rain_fed
+CHO - Alentejo Olive oil Plot 017,38.268783,-7.981239,Olive oil,591000,,1.24,Alentejo,PT,mixed
+Borges - Alentejo Olive oil Plot 018,38.26694,-7.649196,Olive oil,1224000,,0.53,Alentejo,PT,rain_fed
+Deoleo - Puglia Olive oil Plot 019,41.33488,16.863716,Olive oil,678000,,3.46,Puglia,IT,rain_fed
+Deoleo - Puglia Olive oil Plot 020,40.847869,17.517606,Olive oil,777000,"{""type"":""Polygon"",""coordinates"":[[[17.517606,40.847869],[17.525872,40.847869],[17.525872,40.855532],[17.517606,40.855532],[17.517606,40.847869]]]}",,Puglia,IT,irrigated
+Terra Creta - Sfax Olive oil Plot 021,35.152231,10.203734,Olive oil,501000,,2.81,Sfax,TN,rain_fed
+Deoleo - Puglia Olive oil Plot 022,40.645186,17.454675,Olive oil,77000,,1.56,Puglia,IT,irrigated
+CHO - Jaen Olive oil Plot 023,37.996386,-3.930413,Olive oil,413000,,0.33,Jaen,ES,irrigated
+Sovena - Alentejo Olive oil Plot 024,38.086919,-7.558238,Olive oil,1149000,,3.31,Alentejo,PT,irrigated
+CHO - Alentejo Olive oil Plot 025,38.170311,-8.292913,Olive oil,860000,,2.97,Alentejo,PT,irrigated
+Borges - Jaen Olive oil Plot 026,38.046451,-3.774436,Olive oil,538000,"{""type"":""Polygon"",""coordinates"":[[[-3.774436,38.046451],[-3.766555,38.046451],[-3.766555,38.052973],[-3.774436,38.052973],[-3.774436,38.046451]]]}",,Jaen,ES,rain_fed
+Sovena - Jaen Olive oil Plot 027,37.334004,-3.435219,Olive oil,998000,,1.49,Jaen,ES,rain_fed
+Terra Creta - Jaen Olive oil Plot 028,37.635658,-4.150451,Olive oil,146000,,2.97,Jaen,ES,rain_fed
+Sovena - Sfax Olive oil Plot 029,35.203777,9.704751,Olive oil,1169000,,0.93,Sfax,TN,rain_fed
+Deoleo - Puglia Olive oil Plot 030,40.725357,16.484594,Olive oil,295000,,1.56,Puglia,IT,rain_fed
+CHO - Puglia Olive oil Plot 031,40.503319,17.452386,Olive oil,923000,,2.84,Puglia,IT,mixed
+CHO - Puglia Olive oil Plot 032,41.095439,17.158267,Olive oil,566000,"{""type"":""Polygon"",""coordinates"":[[[17.158267,41.095439],[17.161164,41.095439],[17.161164,41.097788],[17.158267,41.097788],[17.158267,41.095439]]]}",,Puglia,IT,mixed
+Terra Creta - Jaen Olive oil Plot 033,38.334334,-3.578571,Olive oil,1218000,,1.75,Jaen,ES,mixed
+Borges - Jaen Olive oil Plot 034,37.854548,-3.669856,Olive oil,514000,,2.63,Jaen,ES,irrigated
+Sovena - Alentejo Olive oil Plot 035,38.204088,-8.057145,Olive oil,532000,,1.56,Alentejo,PT,irrigated
+Terra Creta - Sfax Olive oil Plot 036,35.212036,9.816766,Olive oil,687000,,1.2,Sfax,TN,mixed
+Terra Creta - Sfax Olive oil Plot 037,35.849333,10.381742,Olive oil,789000,,2.66,Sfax,TN,mixed
+CHO - Alentejo Olive oil Plot 038,38.313686,-7.964659,Olive oil,666000,"{""type"":""Polygon"",""coordinates"":[[[-7.964659,38.313686],[-7.957571,38.313686],[-7.957571,38.319088],[-7.964659,38.319088],[-7.964659,38.313686]]]}",,Alentejo,PT,rain_fed
+Borges - Jaen Olive oil Plot 039,38.018839,-3.403445,Olive oil,178000,,3.0,Jaen,ES,rain_fed
+Terra Creta - Sfax Olive oil Plot 040,35.483062,10.326139,Olive oil,1034000,,0.81,Sfax,TN,irrigated
+Deoleo - Sfax Olive oil Plot 041,34.961224,9.903859,Olive oil,584000,,1.55,Sfax,TN,irrigated
+Malteurop - Champagne Barley Plot 001,48.715368,3.860869,Barley,104000,,1.43,Champagne,FR,rain_fed
+Soufflet Malt - Bavaria Barley Plot 002,48.282283,11.371172,Barley,299000,,3.39,Bavaria,DE,rain_fed
+Soufflet Malt - South Australia Barley Plot 003,-34.861661,138.604657,Barley,390000,"{""type"":""Polygon"",""coordinates"":[[[138.604657,-34.861661],[138.614514,-34.861661],[138.614514,-34.855763],[138.604657,-34.855763],[138.604657,-34.861661]]]}",,South Australia,AU,rain_fed
+Malteurop - East Anglia Barley Plot 004,52.237404,0.985069,Barley,624000,,2.93,East Anglia,GB,rain_fed
+Viterra - Bavaria Barley Plot 005,48.311608,11.601761,Barley,113000,,0.64,Bavaria,DE,rain_fed
+Boortmalt - South Australia Barley Plot 006,-34.385818,139.041748,Barley,509000,,0.41,South Australia,AU,rain_fed
+GrainCorp Malt - South Australia Barley Plot 007,-34.257461,138.421147,Barley,333000,,0.95,South Australia,AU,rain_fed
+Malteurop - South Australia Barley Plot 008,-34.479275,137.956663,Barley,674000,,1.9,South Australia,AU,rain_fed
+Boortmalt - South Australia Barley Plot 009,-34.117644,138.696723,Barley,1057000,"{""type"":""Polygon"",""coordinates"":[[[138.696723,-34.117644],[138.703933,-34.117644],[138.703933,-34.109964],[138.696723,-34.109964],[138.696723,-34.117644]]]}",,South Australia,AU,rain_fed
+Malteurop - Alberta Barley Plot 010,52.756658,-113.735475,Barley,878000,,1.0,Alberta,CA,rain_fed
+Boortmalt - East Anglia Barley Plot 011,52.313001,1.019887,Barley,211000,,2.57,East Anglia,GB,rain_fed
+Boortmalt - South Australia Barley Plot 012,-34.142123,138.653293,Barley,459000,,3.02,South Australia,AU,rain_fed
+Viterra - Champagne Barley Plot 013,49.208029,3.961812,Barley,453000,,1.47,Champagne,FR,rain_fed
+Boortmalt - Bavaria Barley Plot 014,48.5638,11.327229,Barley,97000,,3.68,Bavaria,DE,rain_fed
+Boortmalt - South Australia Barley Plot 015,-34.053644,138.212316,Barley,630000,"{""type"":""Polygon"",""coordinates"":[[[138.212316,-34.053644],[138.215781,-34.053644],[138.215781,-34.051057],[138.212316,-34.051057],[138.212316,-34.053644]]]}",,South Australia,AU,rain_fed
+Soufflet Malt - South Australia Barley Plot 016,-34.404905,138.761298,Barley,433000,,2.75,South Australia,AU,rain_fed
+Soufflet Malt - South Australia Barley Plot 017,-33.965719,138.642229,Barley,723000,,2.88,South Australia,AU,rain_fed
+Boortmalt - South Australia Barley Plot 018,-34.350679,138.561714,Barley,919000,,2.28,South Australia,AU,rain_fed
+Soufflet Malt - Alberta Barley Plot 019,51.952684,-113.030366,Barley,86000,,1.63,Alberta,CA,rain_fed
+GrainCorp Malt - Bavaria Barley Plot 020,48.618844,11.394487,Barley,592000,,0.71,Bavaria,DE,rain_fed
+Boortmalt - Bavaria Barley Plot 021,48.527745,11.650676,Barley,519000,"{""type"":""Polygon"",""coordinates"":[[[11.650676,48.527745],[11.659572,48.527745],[11.659572,48.533439],[11.650676,48.533439],[11.650676,48.527745]]]}",,Bavaria,DE,rain_fed
+GrainCorp Malt - East Anglia Barley Plot 022,52.52013,1.398044,Barley,1027000,,2.16,East Anglia,GB,rain_fed
+Viterra - Alberta Barley Plot 023,52.72653,-113.048879,Barley,348000,,1.56,Alberta,CA,rain_fed
+Boortmalt - Champagne Barley Plot 024,49.028523,3.977945,Barley,375000,,1.94,Champagne,FR,mixed
+Soufflet Malt - Champagne Barley Plot 025,49.210394,3.926771,Barley,896000,,3.65,Champagne,FR,rain_fed
+Soufflet Malt - South Australia Barley Plot 026,-34.06469,138.684238,Barley,726000,,2.85,South Australia,AU,rain_fed
+Boortmalt - Champagne Barley Plot 027,48.435686,4.450549,Barley,432000,"{""type"":""Polygon"",""coordinates"":[[[4.450549,48.435686],[4.461145,48.435686],[4.461145,48.441145],[4.450549,48.441145],[4.450549,48.435686]]]}",,Champagne,FR,rain_fed
+Viterra - South Australia Barley Plot 028,-34.220101,138.309313,Barley,576000,,2.5,South Australia,AU,rain_fed
+Boortmalt - Bavaria Barley Plot 029,48.785259,11.952278,Barley,547000,,1.41,Bavaria,DE,rain_fed
+Soufflet Malt - Champagne Barley Plot 030,48.764491,4.424745,Barley,585000,,2.16,Champagne,FR,rain_fed
+Viterra - Alberta Barley Plot 031,52.320899,-113.302224,Barley,142000,,3.7,Alberta,CA,rain_fed
+Malteurop - Bavaria Barley Plot 032,49.345812,11.906262,Barley,764000,,0.37,Bavaria,DE,rain_fed
+Soufflet Malt - Champagne Barley Plot 033,49.260622,3.752669,Barley,772000,"{""type"":""Polygon"",""coordinates"":[[[3.752669,49.260622],[3.757136,49.260622],[3.757136,49.26428],[3.752669,49.26428],[3.752669,49.260622]]]}",,Champagne,FR,rain_fed
+Viterra - East Anglia Barley Plot 034,52.182951,1.267929,Barley,708000,,1.48,East Anglia,GB,rain_fed
+Boortmalt - Alberta Barley Plot 035,53.023562,-113.899993,Barley,375000,,3.6,Alberta,CA,rain_fed
+Barilla Grani - North Dakota Durum wheat Plot 001,47.791747,-99.4574,Durum wheat,135000,,3.4,North Dakota,US,rain_fed
+ADM Durum - Saskatchewan Durum wheat Plot 002,50.403425,-107.561834,Durum wheat,558000,,1.91,Saskatchewan,CA,rain_fed
+ADM Durum - Chaouia Durum wheat Plot 003,32.711142,-7.626933,Durum wheat,999000,,2.76,Chaouia,MA,rain_fed
+De Cecco - Saskatchewan Durum wheat Plot 004,50.443093,-107.828669,Durum wheat,896000,"{""type"":""Polygon"",""coordinates"":[[[-107.828669,50.443093],[-107.820702,50.443093],[-107.820702,50.448874],[-107.828669,50.448874],[-107.828669,50.443093]]]}",,Saskatchewan,CA,rain_fed
+Semouleries - Saskatchewan Durum wheat Plot 005,50.709179,-107.75729,Durum wheat,692000,,1.12,Saskatchewan,CA,rain_fed
+Semouleries - North Dakota Durum wheat Plot 006,47.840787,-99.780021,Durum wheat,662000,,2.3,North Dakota,US,rain_fed
+Semouleries - North Dakota Durum wheat Plot 007,47.050059,-99.852315,Durum wheat,454000,,2.15,North Dakota,US,rain_fed
+Barilla Grani - Foggia Durum wheat Plot 008,41.424407,15.352863,Durum wheat,837000,,0.91,Foggia,IT,rain_fed
+Semouleries - Chaouia Durum wheat Plot 009,32.452781,-7.388665,Durum wheat,1120000,,2.34,Chaouia,MA,rain_fed
+De Cecco - Foggia Durum wheat Plot 010,41.427514,15.397764,Durum wheat,950000,"{""type"":""Polygon"",""coordinates"":[[[15.397764,41.427514],[15.400101,41.427514],[15.400101,41.429949],[15.397764,41.429949],[15.397764,41.427514]]]}",,Foggia,IT,rain_fed
+De Cecco - Saskatchewan Durum wheat Plot 011,50.031115,-107.931497,Durum wheat,549000,,2.82,Saskatchewan,CA,rain_fed
+De Cecco - Saskatchewan Durum wheat Plot 012,50.225273,-107.060015,Durum wheat,345000,,3.38,Saskatchewan,CA,mixed
+ADM Durum - North Dakota Durum wheat Plot 013,47.530554,-100.227718,Durum wheat,494000,,3.4,North Dakota,US,rain_fed
+De Cecco - North Dakota Durum wheat Plot 014,48.00737,-100.346782,Durum wheat,1185000,,0.72,North Dakota,US,rain_fed
+Semouleries - Foggia Durum wheat Plot 015,41.465001,15.844807,Durum wheat,634000,,0.75,Foggia,IT,rain_fed
+De Cecco - North Dakota Durum wheat Plot 016,47.831124,-100.031252,Durum wheat,1018000,"{""type"":""Polygon"",""coordinates"":[[[-100.031252,47.831124],[-100.020125,47.831124],[-100.020125,47.837458],[-100.031252,47.837458],[-100.031252,47.831124]]]}",,North Dakota,US,rain_fed
+De Cecco - Konya Durum wheat Plot 017,37.706835,34.893484,Durum wheat,605000,,2.31,Konya,TR,rain_fed
+De Cecco - Chaouia Durum wheat Plot 018,33.321814,-7.672701,Durum wheat,737000,,1.28,Chaouia,MA,rain_fed
+De Cecco - Chaouia Durum wheat Plot 019,33.337346,-7.04198,Durum wheat,113000,,2.98,Chaouia,MA,rain_fed
+Panzani - North Dakota Durum wheat Plot 020,47.951181,-99.505186,Durum wheat,137000,,1.22,North Dakota,US,mixed
+ADM Durum - Saskatchewan Durum wheat Plot 021,50.96261,-107.052205,Durum wheat,976000,,3.24,Saskatchewan,CA,mixed
+De Cecco - Chaouia Durum wheat Plot 022,32.917077,-7.827408,Durum wheat,415000,"{""type"":""Polygon"",""coordinates"":[[[-7.827408,32.917077],[-7.819681,32.917077],[-7.819681,32.922439],[-7.827408,32.922439],[-7.827408,32.917077]]]}",,Chaouia,MA,rain_fed
+De Cecco - North Dakota Durum wheat Plot 023,47.636289,-99.773873,Durum wheat,465000,,0.57,North Dakota,US,rain_fed
+Panzani - Konya Durum wheat Plot 024,37.101591,34.925713,Durum wheat,1162000,,2.32,Konya,TR,rain_fed
+Semouleries - Konya Durum wheat Plot 025,37.977613,34.955261,Durum wheat,889000,,0.88,Konya,TR,rain_fed
+De Cecco - Konya Durum wheat Plot 026,37.229167,35.275443,Durum wheat,1126000,,3.13,Konya,TR,rain_fed
+De Cecco - Chaouia Durum wheat Plot 027,33.443164,-7.512793,Durum wheat,452000,,1.47,Chaouia,MA,mixed
+Barilla Grani - Foggia Durum wheat Plot 028,41.33692,15.713546,Durum wheat,876000,"{""type"":""Polygon"",""coordinates"":[[[15.713546,41.33692],[15.722108,41.33692],[15.722108,41.342992],[15.713546,41.342992],[15.713546,41.33692]]]}",,Foggia,IT,rain_fed
+Panzani - Saskatchewan Durum wheat Plot 029,50.720047,-107.317807,Durum wheat,466000,,0.33,Saskatchewan,CA,rain_fed
+Semouleries - Saskatchewan Durum wheat Plot 030,50.747037,-107.125924,Durum wheat,547000,,2.19,Saskatchewan,CA,mixed
+Castel - Rioja Wine grapes Plot 001,42.224347,-2.114844,Wine grapes,248000,,0.87,Rioja,ES,rain_fed
+Pernod Ricard Vin - Barossa Wine grapes Plot 002,-34.208941,138.590747,Wine grapes,469000,,1.98,Barossa,AU,rain_fed
+Treasury Estates - Rioja Wine grapes Plot 003,42.467507,-2.65165,Wine grapes,200000,,2.83,Rioja,ES,irrigated
+Concha y Toro - Tuscany Wine grapes Plot 004,43.155132,11.735245,Wine grapes,538000,"{""type"":""Polygon"",""coordinates"":[[[11.735245,43.155132],[11.740911,43.155132],[11.740911,43.159367],[11.735245,43.159367],[11.735245,43.155132]]]}",,Tuscany,IT,rain_fed
+Treasury Estates - Tuscany Wine grapes Plot 005,43.054831,11.727907,Wine grapes,1839000,,1.38,Tuscany,IT,mixed
+Treasury Estates - Napa Wine grapes Plot 006,38.564738,-122.220889,Wine grapes,482000,,2.16,Napa,US,irrigated
+Treasury Estates - Rioja Wine grapes Plot 007,42.339244,-2.269124,Wine grapes,1581000,,3.83,Rioja,ES,irrigated
+Concha y Toro - Barossa Wine grapes Plot 008,-33.986114,138.931068,Wine grapes,1373000,,0.92,Barossa,AU,irrigated
+Castel - Napa Wine grapes Plot 009,38.261826,-121.902209,Wine grapes,685000,,2.76,Napa,US,irrigated
+Concha y Toro - Bordeaux Wine grapes Plot 010,44.354607,-0.998276,Wine grapes,1964000,"{""type"":""Polygon"",""coordinates"":[[[-0.998276,44.354607],[-0.992079,44.354607],[-0.992079,44.359344],[-0.998276,44.359344],[-0.998276,44.354607]]]}",,Bordeaux,FR,mixed
+E&J Gallo Sourcing - Napa Wine grapes Plot 011,38.529277,-122.343978,Wine grapes,673000,,2.93,Napa,US,irrigated
+Pernod Ricard Vin - Rioja Wine grapes Plot 012,41.97521,-2.332373,Wine grapes,450000,,2.69,Rioja,ES,rain_fed
+Concha y Toro - Napa Wine grapes Plot 013,38.205052,-121.861205,Wine grapes,1887000,,2.9,Napa,US,rain_fed
+Treasury Estates - Bordeaux Wine grapes Plot 014,44.626887,-0.196924,Wine grapes,1619000,,3.16,Bordeaux,FR,mixed
+Castel - Tuscany Wine grapes Plot 015,43.265889,11.651187,Wine grapes,1265000,,0.4,Tuscany,IT,mixed
+Treasury Estates - Rioja Wine grapes Plot 016,42.35408,-1.972165,Wine grapes,1058000,"{""type"":""Polygon"",""coordinates"":[[[-1.972165,42.35408],[-1.964187,42.35408],[-1.964187,42.361396],[-1.972165,42.361396],[-1.972165,42.35408]]]}",,Rioja,ES,rain_fed
+Treasury Estates - Barossa Wine grapes Plot 017,-34.909767,139.215528,Wine grapes,683000,,2.14,Barossa,AU,mixed
+Castel - Tuscany Wine grapes Plot 018,43.692443,11.551555,Wine grapes,373000,,1.74,Tuscany,IT,rain_fed
+E&J Gallo Sourcing - Rioja Wine grapes Plot 019,42.102435,-1.955865,Wine grapes,414000,,0.57,Rioja,ES,rain_fed
+E&J Gallo Sourcing - Tuscany Wine grapes Plot 020,43.460603,10.793067,Wine grapes,674000,,2.4,Tuscany,IT,rain_fed
+E&J Gallo Sourcing - Tuscany Wine grapes Plot 021,43.508925,11.276267,Wine grapes,1376000,,3.78,Tuscany,IT,irrigated
+E&J Gallo Sourcing - Barossa Wine grapes Plot 022,-34.744782,139.126026,Wine grapes,1660000,"{""type"":""Polygon"",""coordinates"":[[[139.126026,-34.744782],[139.13354,-34.744782],[139.13354,-34.739774],[139.126026,-34.739774],[139.126026,-34.744782]]]}",,Barossa,AU,rain_fed
+Treasury Estates - Barossa Wine grapes Plot 023,-34.046926,139.437268,Wine grapes,647000,,1.47,Barossa,AU,mixed
+Treasury Estates - Napa Wine grapes Plot 024,38.766253,-122.837184,Wine grapes,222000,,1.11,Napa,US,rain_fed
+Pernod Ricard Vin - Maipo Wine grapes Plot 025,-33.785398,-70.263407,Wine grapes,383000,,0.82,Maipo,CL,irrigated
+E&J Gallo Sourcing - Rioja Wine grapes Plot 026,42.391412,-2.159839,Wine grapes,140000,,1.02,Rioja,ES,rain_fed
+E&J Gallo Sourcing - Bordeaux Wine grapes Plot 027,44.846973,-0.856801,Wine grapes,528000,,2.3,Bordeaux,FR,mixed
+Pernod Ricard Vin - Barossa Wine grapes Plot 028,-34.468635,139.42155,Wine grapes,959000,"{""type"":""Polygon"",""coordinates"":[[[139.42155,-34.468635],[139.428365,-34.468635],[139.428365,-34.463732],[139.42155,-34.463732],[139.42155,-34.468635]]]}",,Barossa,AU,mixed
+Treasury Estates - Barossa Wine grapes Plot 029,-34.393881,138.367339,Wine grapes,510000,,2.39,Barossa,AU,rain_fed
+Treasury Estates - Rioja Wine grapes Plot 030,42.176273,-2.651667,Wine grapes,1834000,,1.53,Rioja,ES,mixed
+Riceland - Punjab Rice Plot 001,30.569482,75.542132,Rice,244000,,0.95,Punjab,IN,irrigated
+Riceland - Suphan Buri Rice Plot 002,15.404451,100.72706,Rice,1396000,,0.32,Suphan Buri,TH,mixed
+Riceland - Suphan Buri Rice Plot 003,15.523017,100.44853,Rice,474000,,2.69,Suphan Buri,TH,irrigated
+Olam Rice - Suphan Buri Rice Plot 004,15.511476,100.904381,Rice,333000,"{""type"":""Polygon"",""coordinates"":[[[100.904381,15.511476],[100.910651,15.511476],[100.910651,15.518455],[100.904381,15.518455],[100.904381,15.511476]]]}",,Suphan Buri,TH,irrigated
+Riceland - Suphan Buri Rice Plot 005,15.652043,100.743792,Rice,1001000,,2.83,Suphan Buri,TH,irrigated
+LT Foods - Punjab Rice Plot 006,30.163276,75.266055,Rice,330000,,2.07,Punjab,IN,irrigated
+Ebro Foods - Arkansas Rice Plot 007,35.177556,-91.153804,Rice,1416000,,3.82,Arkansas,US,mixed
+Riceland - Vercelli Rice Plot 008,44.836184,8.697667,Rice,1243000,,0.95,Vercelli,IT,irrigated
+Olam Rice - Vercelli Rice Plot 009,45.44522,8.294842,Rice,182000,,1.15,Vercelli,IT,irrigated
+LT Foods - Arkansas Rice Plot 010,34.347107,-91.993546,Rice,1336000,"{""type"":""Polygon"",""coordinates"":[[[-91.993546,34.347107],[-91.985764,34.347107],[-91.985764,34.354193],[-91.993546,34.354193],[-91.993546,34.347107]]]}",,Arkansas,US,irrigated
+Riceland - Mekong Delta Rice Plot 011,9.772115,106.028881,Rice,822000,,2.07,Mekong Delta,VN,irrigated
+Olam Rice - Mekong Delta Rice Plot 012,9.842472,105.204321,Rice,1020000,,2.61,Mekong Delta,VN,irrigated
+Riceland - Arkansas Rice Plot 013,35.105888,-91.96197,Rice,786000,,2.24,Arkansas,US,irrigated
+Riceland - Vercelli Rice Plot 014,45.538994,8.617327,Rice,417000,,1.1,Vercelli,IT,irrigated
+LT Foods - Vercelli Rice Plot 015,45.729012,7.940428,Rice,772000,,1.15,Vercelli,IT,irrigated
+Riceland - Vercelli Rice Plot 016,45.174646,8.63372,Rice,402000,"{""type"":""Polygon"",""coordinates"":[[[8.63372,45.174646],[8.641914,45.174646],[8.641914,45.180213],[8.63372,45.180213],[8.63372,45.174646]]]}",,Vercelli,IT,mixed
+Riceland - Arkansas Rice Plot 017,34.443818,-92.023789,Rice,1454000,,2.05,Arkansas,US,irrigated
+Olam Rice - Punjab Rice Plot 018,30.903915,75.43973,Rice,1225000,,2.87,Punjab,IN,irrigated
+LT Foods - Arkansas Rice Plot 019,34.19741,-91.468277,Rice,215000,,1.87,Arkansas,US,irrigated
+Ebro Foods - Suphan Buri Rice Plot 020,15.601404,100.973657,Rice,381000,,3.65,Suphan Buri,TH,irrigated
+Riceland - Suphan Buri Rice Plot 021,15.621677,100.804303,Rice,921000,,2.38,Suphan Buri,TH,irrigated
+Riceland - Suphan Buri Rice Plot 022,15.806096,100.558708,Rice,1215000,,2.49,Suphan Buri,TH,irrigated
+Riceland - Mekong Delta Rice Plot 023,10.22078,105.164225,Rice,937000,,0.9,Mekong Delta,VN,irrigated
+Olam Rice - Mekong Delta Rice Plot 024,10.041831,105.849526,Rice,79000,,3.71,Mekong Delta,VN,irrigated
+LT Foods - Mekong Delta Rice Plot 025,10.410857,105.652767,Rice,175000,,2.75,Mekong Delta,VN,irrigated
+Olam Rice - Punjab Rice Plot 026,30.812632,75.482229,Rice,542000,,2.46,Punjab,IN,irrigated
+Olam Rice - Vercelli Rice Plot 027,45.531462,8.418938,Rice,765000,,2.38,Vercelli,IT,mixed
+Riceland - Arkansas Rice Plot 028,34.883138,-91.100382,Rice,169000,,0.78,Arkansas,US,irrigated
+LDC Rice - Arkansas Rice Plot 029,35.206069,-91.932017,Rice,1413000,,3.15,Arkansas,US,irrigated
+LDC Rice - Suphan Buri Rice Plot 030,15.013497,100.914572,Rice,667000,,1.79,Suphan Buri,TH,irrigated
+LDC Rice - Punjab Rice Plot 031,30.918955,75.918888,Rice,1054000,,1.27,Punjab,IN,irrigated
+LDC Rice - Punjab Rice Plot 032,30.729524,75.409085,Rice,1308000,,2.25,Punjab,IN,irrigated
+LDC Rice - Punjab Rice Plot 033,30.798571,75.833217,Rice,1297000,,0.5,Punjab,IN,irrigated
+Ebro Foods - Suphan Buri Rice Plot 034,15.80366,100.669807,Rice,1042000,,3.56,Suphan Buri,TH,irrigated
+Riceland - Mekong Delta Rice Plot 035,10.289448,105.476144,Rice,971000,,1.7,Mekong Delta,VN,irrigated
+Riceland - Vercelli Rice Plot 036,45.416591,8.258234,Rice,672000,,1.94,Vercelli,IT,irrigated
+Ebro Foods - Vercelli Rice Plot 037,45.355659,8.71089,Rice,728000,,1.7,Vercelli,IT,irrigated
+LT Foods - Mekong Delta Rice Plot 038,10.283547,105.258917,Rice,735000,,1.21,Mekong Delta,VN,irrigated
+Riceland - Vercelli Rice Plot 039,45.237621,7.900836,Rice,1486000,,0.35,Vercelli,IT,irrigated
+LDC Rice - Punjab Rice Plot 040,30.053164,75.104107,Rice,551000,,0.49,Punjab,IN,irrigated
+LT Foods - Punjab Rice Plot 041,30.411391,75.808392,Rice,878000,,2.18,Punjab,IN,irrigated
+Borges - Sunraysia Almonds Plot 001,-33.704556,141.863025,Almonds,960000,,1.19,Sunraysia,AU,mixed
+Blue Diamond - Sunraysia Almonds Plot 002,-33.697914,142.055133,Almonds,1918000,,3.79,Sunraysia,AU,irrigated
+Olam Almonds - Sunraysia Almonds Plot 003,-33.73952,142.53596,Almonds,705000,,3.36,Sunraysia,AU,irrigated
+Olam Almonds - Central Valley Almonds Plot 004,37.000583,-119.46522,Almonds,1758000,,0.68,Central Valley,US,irrigated
+Olam Almonds - Central Valley Almonds Plot 005,36.969266,-119.982093,Almonds,607000,,3.68,Central Valley,US,irrigated
+Olam Almonds - Central Valley Almonds Plot 006,36.032078,-119.768885,Almonds,1815000,,1.11,Central Valley,US,irrigated
+Select Harvests - Sunraysia Almonds Plot 007,-33.68693,142.653403,Almonds,1300000,,1.14,Sunraysia,AU,irrigated
+RPAC - Sunraysia Almonds Plot 008,-34.119954,141.850573,Almonds,1216000,,3.88,Sunraysia,AU,irrigated
+RPAC - Sunraysia Almonds Plot 009,-33.976945,142.020681,Almonds,880000,,0.42,Sunraysia,AU,irrigated
+RPAC - Central Valley Almonds Plot 010,36.1135,-119.56084,Almonds,1204000,,3.38,Central Valley,US,irrigated
+RPAC - Sunraysia Almonds Plot 011,-34.701352,142.177433,Almonds,1774000,,0.71,Sunraysia,AU,irrigated
+Borges - Sunraysia Almonds Plot 012,-34.624994,142.164095,Almonds,1074000,,2.37,Sunraysia,AU,irrigated
+Olam Almonds - Granada Almonds Plot 013,36.49087,-3.173323,Almonds,1599000,,1.83,Granada,ES,irrigated
+RPAC - Sunraysia Almonds Plot 014,-33.80936,141.80876,Almonds,477000,,3.5,Sunraysia,AU,irrigated
+Olam Almonds - Sunraysia Almonds Plot 015,-34.261272,142.562712,Almonds,713000,,0.56,Sunraysia,AU,irrigated
+RPAC - Granada Almonds Plot 016,37.006215,-2.973483,Almonds,594000,,2.57,Granada,ES,irrigated
+Olam Almonds - Granada Almonds Plot 017,36.884638,-2.607446,Almonds,1346000,,1.79,Granada,ES,irrigated
+Olam Almonds - Central Valley Almonds Plot 018,36.795676,-120.039753,Almonds,335000,,2.41,Central Valley,US,irrigated
+RPAC - Sunraysia Almonds Plot 019,-34.048981,142.020288,Almonds,959000,,0.88,Sunraysia,AU,irrigated
+Select Harvests - Central Valley Almonds Plot 020,36.09264,-119.666521,Almonds,1765000,,2.24,Central Valley,US,irrigated
+Borges - Granada Almonds Plot 021,37.130017,-2.466673,Almonds,1378000,,1.17,Granada,ES,irrigated
+Borges - Granada Almonds Plot 022,36.790214,-3.016234,Almonds,1662000,,2.48,Granada,ES,mixed
+Blue Diamond - Sunraysia Almonds Plot 023,-34.031287,141.678862,Almonds,802000,,1.88,Sunraysia,AU,irrigated
+Blue Diamond - Central Valley Almonds Plot 024,36.874028,-119.797231,Almonds,1840000,,0.41,Central Valley,US,mixed
+Select Harvests - Central Valley Almonds Plot 025,36.2438,-119.95239,Almonds,1986000,,0.59,Central Valley,US,irrigated
+Tereos - Minnesota Sugar beet Plot 001,47.726195,-96.614492,Sugar beet,426000,,3.62,Minnesota,US,mixed
+Tereos - Minnesota Sugar beet Plot 002,47.575413,-96.424312,Sugar beet,1003000,,3.51,Minnesota,US,irrigated
+British Sugar - Picardy Sugar beet Plot 003,49.546219,3.122601,Sugar beet,440000,,0.39,Picardy,FR,rain_fed
+Cosun - East of England Sugar beet Plot 004,52.729454,0.552777,Sugar beet,730000,,1.28,East of England,GB,mixed
+Sudzucker - Picardy Sugar beet Plot 005,49.411876,3.192411,Sugar beet,1013000,,3.89,Picardy,FR,rain_fed
+Tereos - Minnesota Sugar beet Plot 006,47.769916,-96.088354,Sugar beet,368000,,2.26,Minnesota,US,rain_fed
+Tereos - Flevoland Sugar beet Plot 007,52.406112,5.466884,Sugar beet,1025000,,1.02,Flevoland,NL,mixed
+Tereos - Flevoland Sugar beet Plot 008,52.037507,5.593771,Sugar beet,248000,,3.6,Flevoland,NL,mixed
+Tereos - Minnesota Sugar beet Plot 009,47.044795,-96.576646,Sugar beet,374000,,2.51,Minnesota,US,rain_fed
+Nordzucker - East of England Sugar beet Plot 010,52.53054,-0.028319,Sugar beet,434000,,0.81,East of England,GB,irrigated
+British Sugar - East of England Sugar beet Plot 011,52.747646,0.316371,Sugar beet,204000,,2.72,East of England,GB,rain_fed
+Cosun - Minnesota Sugar beet Plot 012,47.435143,-96.079674,Sugar beet,511000,,2.05,Minnesota,US,rain_fed
+Cosun - Lower Saxony Sugar beet Plot 013,52.25776,10.472248,Sugar beet,397000,,1.24,Lower Saxony,DE,mixed
+British Sugar - Lower Saxony Sugar beet Plot 014,52.57295,9.60965,Sugar beet,1080000,,0.8,Lower Saxony,DE,rain_fed
+Nordzucker - Minnesota Sugar beet Plot 015,47.520324,-96.272827,Sugar beet,373000,,0.53,Minnesota,US,mixed
+Sudzucker - Picardy Sugar beet Plot 016,49.266933,2.874556,Sugar beet,1012000,,2.68,Picardy,FR,mixed
+Cosun - Lower Saxony Sugar beet Plot 017,52.5542,10.479884,Sugar beet,449000,,3.47,Lower Saxony,DE,mixed
+Nordzucker - Picardy Sugar beet Plot 018,49.966582,2.298301,Sugar beet,510000,,1.8,Picardy,FR,mixed
+Nordzucker - Picardy Sugar beet Plot 019,49.419547,2.667337,Sugar beet,820000,,0.67,Picardy,FR,irrigated
+Sudzucker - Lower Saxony Sugar beet Plot 020,52.476426,9.90852,Sugar beet,241000,,2.84,Lower Saxony,DE,irrigated
+Tereos - Minnesota Sugar beet Plot 021,47.915385,-96.335071,Sugar beet,857000,,3.5,Minnesota,US,rain_fed
+Nordzucker - Minnesota Sugar beet Plot 022,47.387143,-96.934745,Sugar beet,1030000,,3.84,Minnesota,US,irrigated
+Cosun - Picardy Sugar beet Plot 023,49.220988,2.491311,Sugar beet,680000,,3.13,Picardy,FR,irrigated
+Tereos - Flevoland Sugar beet Plot 024,52.624159,5.744058,Sugar beet,277000,,1.75,Flevoland,NL,rain_fed
+British Sugar - East of England Sugar beet Plot 025,53.144172,0.053116,Sugar beet,804000,,0.97,East of England,GB,mixed
+Cargill Cocoa - Unmapped Lot A,MISSING,MISSING,Cocoa,75000,,1.8,Western,GH,rain_fed
+Volcafe - Unmapped Lot B,MISSING,MISSING,Coffee,95000,,2.1,Huila,CO,mixed
+Olam - Palm Estate 01,3.12,101.59,Palm oil,260000,,3.4,Selangor,MY,rain_fed
+Bunge - Bowtie Field (bad boundary),,,Soybean,480000,"{""type"":""Polygon"",""coordinates"":[[[-56.0,-13.0],[-55.98,-12.98],[-56.0,-12.98],[-55.98,-13.0],[-56.0,-13.0]]]}",,Mato Grosso,BR,rain_fed
+Raizen - Big Cane Block (point only),-21.51,-48.52,Cane sugar,1400000,,38.0,Sao Paulo,BR,irrigated
+ADM - Frontier Wheat Lot,49.01,32.01,Wheat,210000,,3.2,Poltava,ZZ,rain_fed
+LDC - Frontier Maize Lot,41.01,-99.01,Maize,230000,,2.7,Nebraska,XX,mixed
+Touton - Pending Contract Plot,6.7,-1.61,Cocoa,TBD,,1.5,Ashanti,GH,rain_fed

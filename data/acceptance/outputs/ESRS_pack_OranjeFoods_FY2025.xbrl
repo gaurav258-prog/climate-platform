@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tellumen ESRS Climate & Nature — tagged facts, generated 2026-09-06T13:33:43.216650+00:00. Taxonomy profile: provisional (provisional). Provisional namespace — a real tagged-data layer, NOT a validated ESEF filing. A euro is a firm figure only where the hazard->yield/asset chain is validated; otherwise exposure is mapped and the euro withheld. -->
+<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"
+            xmlns:link="http://www.xbrl.org/2003/linkbase"
+            xmlns:xlink="http://www.w3.org/1999/xlink"
+            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+            xmlns:tesrs="https://tellumen.example/xbrl/esrs-provisional">
+  <link:schemaRef xlink:type="simple" xlink:href="https://tellumen.example/xbrl/esrs-provisional.xsd"/>
+  <xbrli:context id="c_instant">
+    <xbrli:entity><xbrli:identifier scheme="https://ec.europa.eu/eori">UNKNOWN</xbrli:identifier></xbrli:entity>
+    <xbrli:period><xbrli:instant>2025-12-31</xbrli:instant></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="c_duration">
+    <xbrli:entity><xbrli:identifier scheme="https://ec.europa.eu/eori">UNKNOWN</xbrli:identifier></xbrli:entity>
+    <xbrli:period><xbrli:startDate>2025-01-01</xbrli:startDate><xbrli:endDate>2025-12-31</xbrli:endDate></xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="eur"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="pure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="hectare"><xbrli:measure>tesrs:hectare</xbrli:measure></xbrli:unit>
+  <tesrs:AssetValueAtMaterialPhysicalRisk contextRef="c_instant" unitRef="eur" decimals="0">46810000000</tesrs:AssetValueAtMaterialPhysicalRisk>  <!-- ESRS E1-9: Asset value at material physical risk -->
+  <tesrs:BusinessInterruptionExposure contextRef="c_duration" unitRef="eur" decimals="0">5668890000</tesrs:BusinessInterruptionExposure>  <!-- ESRS E1-9: Business-interruption exposure (v0) -->
+  <tesrs:SourcingCOGSAtRiskPublished contextRef="c_duration" unitRef="eur" decimals="0">0</tesrs:SourcingCOGSAtRiskPublished>  <!-- ESRS E1-9: Sourcing COGS at risk (published) -->
+  <tesrs:ExposureMappedWithheld contextRef="c_instant" unitRef="eur" decimals="0">760941000</tesrs:ExposureMappedWithheld>  <!-- ESRS E1-9: Exposure mapped, euro withheld (chain not validated) -->
+  <tesrs:SitesWaterStressed contextRef="c_instant" unitRef="pure" decimals="0">71</tesrs:SitesWaterStressed>  <!-- ESRS E3-4: Own sites under water stress -->
+  <tesrs:AssetValueExposedToWaterStress contextRef="c_instant" unitRef="eur" decimals="0">16025400000</tesrs:AssetValueExposedToWaterStress>  <!-- ESRS E3-5: Asset value exposed to water stress -->
+  <tesrs:SourcingPlotsWaterStressed contextRef="c_instant" unitRef="pure" decimals="0">159</tesrs:SourcingPlotsWaterStressed>  <!-- ESRS E3-4: Sourcing plots under water stress -->
+  <tesrs:SpendExposedToWaterStress contextRef="c_duration" unitRef="eur" decimals="0">138047000</tesrs:SpendExposedToWaterStress>  <!-- ESRS E3-5: Sourcing spend exposed to water stress -->
+  <tesrs:EUDRCoveredPlots contextRef="c_instant" unitRef="pure" decimals="0">263</tesrs:EUDRCoveredPlots>  <!-- ESRS E4-5: EUDR-covered sourcing plots -->
+  <tesrs:DeforestationFreePlots contextRef="c_instant" unitRef="pure" decimals="0">221</tesrs:DeforestationFreePlots>  <!-- ESRS E4-5: Deforestation-free plots (determined) -->
+  <tesrs:NonCompliantPlots contextRef="c_instant" unitRef="pure" decimals="0">42</tesrs:NonCompliantPlots>  <!-- ESRS E4-5: Non-compliant plots (post-cutoff forest loss) -->
+  <tesrs:PostCutoffForestLossHa contextRef="c_duration" unitRef="hectare" decimals="2">42.62</tesrs:PostCutoffForestLossHa>  <!-- ESRS E4-5: Post-cutoff forest loss -->
+  <tesrs:SitesInProtectedArea contextRef="c_instant" unitRef="pure" decimals="0">2</tesrs:SitesInProtectedArea>  <!-- ESRS E4-5: Own sites in or near a protected area -->
+  <tesrs:SourcingPlotsInProtectedArea contextRef="c_instant" unitRef="pure" decimals="0">18</tesrs:SourcingPlotsInProtectedArea>  <!-- ESRS E4-5: Sourcing plots in or near a protected area -->
+  <tesrs:SiteValueInProtectedAreaEUR contextRef="c_duration" unitRef="eur" decimals="0">151600000</tesrs:SiteValueInProtectedAreaEUR>  <!-- ESRS E4-5: Annual site value in or near a protected area -->
+  <tesrs:SourcingSpendInProtectedAreaEUR contextRef="c_duration" unitRef="eur" decimals="0">16095000</tesrs:SourcingSpendInProtectedAreaEUR>  <!-- ESRS E4-5: Annual sourcing spend in or near a protected area -->
+</xbrli:xbrl>

@@ -1,0 +1,201 @@
+name,site_type,address,latitude,longitude,country,annual_value_eur,annual_throughput_eur
+Oranje Foods Global HQ - Rotterdam,hq,"128 Portside Road, Rotterdam, NL",51.8902,4.516249,NL,664800000,0
+Oranje Foods Processing Plant - Marseille 1,factory,"224 Distribution Blvd, Marseille, FR",43.260541,5.40755,FR,663400000,355000000
+Oranje Foods Processing Plant - Santos 2,factory,"214 Commerce Park, Santos, BR",-23.975038,-46.391716,BR,980500000,1405000000
+Oranje Foods Processing Plant - Lyon 3,factory,"249 Havenweg, Lyon, FR",45.817568,4.791942,FR,750900000,1921200000
+Oranje Foods Processing Plant - Bremen 4,factory,"40 Fabrieksstraat, Bremen, DE",53.047404,8.771836,DE,1193400000,731000000
+Oranje Foods Processing Plant - Rotterdam 5,factory,"167 Industrieweg, Rotterdam, NL",51.935874,4.482006,NL,774800000,1479400000
+Oranje Foods Processing Plant - Poznan 6,factory,"416 Zona Industrial, Poznan, PL",52.430319,16.906151,PL,183200000,458200000
+Oranje Foods Processing Plant - Barcelona 7,factory,"97 Distribution Blvd, Barcelona, ES",41.433526,2.18039,ES,1199200000,2657300000
+Oranje Foods Processing Plant - Manchester 8,factory,"287 Parc Logistique, Manchester, GB",53.533362,-2.192925,GB,1338200000,962400000
+Oranje Foods Processing Plant - Atlanta 9,factory,"50 Portside Road, Atlanta, US",33.808155,-84.418509,US,351800000,1467400000
+Oranje Foods Processing Plant - Shanghai 10,factory,"157 Commerce Park, Shanghai, CN",31.28474,121.443393,CN,1254900000,2958200000
+Oranje Foods Processing Plant - Guadalajara 11,factory,"288 Fabrieksstraat, Guadalajara, MX",20.613897,-103.313974,MX,1461200000,865000000
+Oranje Foods Processing Plant - Warsaw 12,factory,"79 Fabrieksstraat, Warsaw, PL",52.251897,20.983564,PL,894500000,2862800000
+Oranje Foods Processing Plant - Accra 13,factory,"478 Gongye Road, Accra, GH",5.649322,-0.146622,GH,628800000,2299300000
+Oranje Foods Processing Plant - Ghent 14,factory,"384 Logistiekpark, Ghent, BE",51.027907,3.710174,BE,181300000,1637800000
+Oranje Foods Processing Plant - Buenos Aires 15,factory,"247 Rue de l'Industrie, Buenos Aires, AR",-34.594286,-58.3401,AR,1450500000,1365700000
+Oranje Foods Processing Plant - Tilburg 16,factory,"455 Industrieweg, Tilburg, NL",51.606432,5.106134,NL,267600000,811600000
+Oranje Foods Processing Plant - London 17,factory,"189 Dock Road, London, GB",51.45227,-0.165764,GB,728200000,879100000
+Oranje Foods Processing Plant - Manchester 18,factory,"165 Gongye Road, Manchester, GB",53.523439,-2.282523,GB,595800000,1052800000
+Oranje Foods Processing Plant - Utrecht 19,factory,"271 Industrial Estate, Utrecht, NL",52.133892,5.162474,NL,562000000,2796300000
+Oranje Foods Processing Plant - Dubai 20,factory,"131 Gongye Road, Dubai, AE",25.253499,55.271327,AE,408900000,2287100000
+Oranje Foods Processing Plant - Sao Paulo 21,factory,"321 Logistiekpark, Sao Paulo, BR",-23.563159,-46.575098,BR,201700000,2921900000
+Oranje Foods Processing Plant - Buenos Aires 22,factory,"240 Industrial Estate, Buenos Aires, AR",-34.618474,-58.359016,AR,1091400000,2643600000
+Oranje Foods Processing Plant - Frankfurt 23,factory,"385 Dock Road, Frankfurt, DE",50.066288,8.6428,DE,182500000,1654400000
+Oranje Foods Processing Plant - Amsterdam 24,factory,"148 Rue de l'Industrie, Amsterdam, NL",52.422291,4.895008,NL,798300000,488700000
+Oranje Foods Processing Plant - Mumbai 25,factory,"60 Fabrieksstraat, Mumbai, IN",19.042058,72.906308,IN,479000000,936700000
+Oranje Foods Processing Plant - Singapore 26,factory,"88 Havenweg, Singapore, SG",1.33705,103.855649,SG,592100000,505600000
+Oranje Foods Processing Plant - Vienna 27,factory,"327 Commerce Park, Vienna, AT",48.181805,16.425188,AT,477000000,2041800000
+Oranje Foods Processing Plant - Toronto 28,factory,"92 Fabrieksstraat, Toronto, CA",43.690069,-79.331234,CA,187600000,646800000
+Oranje Foods Processing Plant - Chicago 29,factory,"31 Distribution Blvd, Chicago, US",41.932252,-87.661441,US,451700000,2585700000
+Oranje Foods Processing Plant - Toronto 30,factory,"64 Gongye Road, Toronto, CA",43.643076,-79.386684,CA,913100000,1734300000
+Oranje Foods Processing Plant - Athens 31,factory,"84 Commerce Park, Athens, GR",37.960675,23.673871,GR,458000000,1538800000
+Oranje Foods Processing Plant - Prague 32,factory,"252 Rue de l'Industrie, Prague, CZ",50.05046,14.42116,CZ,1484200000,1271500000
+Oranje Foods Processing Plant - Tilburg 33,factory,"263 Commerce Park, Tilburg, NL",51.515571,5.062871,NL,397300000,1027800000
+Oranje Foods Processing Plant - Shanghai 34,factory,"80 Commerce Park, Shanghai, CN",31.188993,121.504955,CN,593600000,2257000000
+Oranje Foods Processing Plant - Istanbul 35,factory,"36 Via Industriale, Istanbul, TR",40.975476,28.993369,TR,1098400000,369400000
+Oranje Foods Processing Plant - Bangkok 36,factory,"199 Industrieweg, Bangkok, TH",13.758806,100.448888,TH,1069700000,1108200000
+Oranje Foods Processing Plant - Buenos Aires 37,factory,"161 Hafenstrasse, Buenos Aires, AR",-34.571514,-58.355936,AR,329100000,914700000
+Oranje Foods Processing Plant - Jakarta 38,factory,"334 Fabrieksstraat, Jakarta, ID",-6.239109,106.851416,ID,180700000,795600000
+Oranje Foods Processing Plant - Prague 39,factory,"58 Via Industriale, Prague, CZ",50.13009,14.471078,CZ,993400000,359100000
+Oranje Foods Processing Plant - Casablanca 40,factory,"479 Industrial Estate, Casablanca, MA",33.616516,-7.623969,MA,1357100000,1979800000
+Oranje Foods Processing Plant - Istanbul 41,factory,"155 Commerce Park, Istanbul, TR",41.022704,29.015739,TR,277800000,382600000
+Oranje Foods Processing Plant - Bremen 42,factory,"155 Industrial Estate, Bremen, DE",53.124387,8.75661,DE,555500000,1934700000
+Oranje Foods Processing Plant - Dublin 43,factory,"200 Rue de l'Industrie, Dublin, IE",53.367229,-6.210996,IE,864400000,557200000
+Oranje Foods Processing Plant - Lagos 44,factory,"282 Fabrieksstraat, Lagos, NG",6.548752,3.361626,NG,800200000,367500000
+Oranje Foods Processing Plant - Lisbon 45,factory,"423 Industrieweg, Lisbon, PT",38.767894,-9.172676,PT,429200000,2129400000
+Oranje Foods Processing Plant - Istanbul 46,factory,"124 Fabrieksstraat, Istanbul, TR",41.008734,28.940445,TR,445400000,458300000
+Oranje Foods Distribution Centre - Bogota 1,distribution_centre,"201 Industrieweg, Bogota, CO",4.714074,-74.052052,CO,179400000,373700000
+Oranje Foods Distribution Centre - Casablanca 2,distribution_centre,"182 Via Industriale, Casablanca, MA",33.537201,-7.55133,MA,41700000,367600000
+Oranje Foods Distribution Centre - Cape Town 3,distribution_centre,"272 Hafenstrasse, Cape Town, ZA",-33.914106,18.423669,ZA,49400000,151300000
+Oranje Foods Distribution Centre - Lisbon 4,distribution_centre,"195 Fabrieksstraat, Lisbon, PT",38.693802,-9.18247,PT,147400000,350500000
+Oranje Foods Distribution Centre - Jakarta 5,distribution_centre,"30 Zona Industrial, Jakarta, ID",-6.201525,106.799814,ID,85400000,1003700000
+Oranje Foods Distribution Centre - Ghent 6,distribution_centre,"133 Distribution Blvd, Ghent, BE",51.040097,3.684638,BE,263500000,737500000
+Oranje Foods Distribution Centre - Lisbon 7,distribution_centre,"354 Dock Road, Lisbon, PT",38.768346,-9.119997,PT,117800000,278200000
+Oranje Foods Distribution Centre - Buenos Aires 8,distribution_centre,"431 Havenweg, Buenos Aires, AR",-34.545013,-58.432865,AR,45500000,345800000
+Oranje Foods Distribution Centre - Jakarta 9,distribution_centre,"392 Commerce Park, Jakarta, ID",-6.214396,106.803745,ID,162100000,216800000
+Oranje Foods Distribution Centre - Santos 10,distribution_centre,"477 Havenweg, Santos, BR",-23.95159,-46.319251,BR,207400000,366200000
+Oranje Foods Distribution Centre - Bangkok 11,distribution_centre,"263 Logistiekpark, Bangkok, TH",13.758063,100.512695,TH,51800000,174300000
+Oranje Foods Distribution Centre - Abidjan 12,distribution_centre,"366 Parc Logistique, Abidjan, CI",5.39167,-4.020768,CI,48500000,153800000
+Oranje Foods Distribution Centre - Ho Chi Minh City 13,distribution_centre,"40 Industrieweg, Ho Chi Minh City, VN",10.786078,106.665058,VN,76800000,179800000
+Oranje Foods Distribution Centre - Accra 14,distribution_centre,"48 Parc Logistique, Accra, GH",5.663266,-0.203172,GH,86500000,534800000
+Oranje Foods Distribution Centre - Bucharest 15,distribution_centre,"399 Fabrieksstraat, Bucharest, RO",44.471638,26.072868,RO,319300000,351000000
+Oranje Foods Distribution Centre - Sao Paulo 16,distribution_centre,"270 Havenweg, Sao Paulo, BR",-23.511964,-46.65559,BR,53200000,820500000
+Oranje Foods Distribution Centre - Shanghai 17,distribution_centre,"37 Rue de l'Industrie, Shanghai, CN",31.209808,121.504246,CN,69100000,412000000
+Oranje Foods Distribution Centre - Poznan 18,distribution_centre,"313 Hafenstrasse, Poznan, PL",52.351257,16.909213,PL,105700000,452900000
+Oranje Foods Distribution Centre - Athens 19,distribution_centre,"146 Zona Industrial, Athens, GR",37.956421,23.780124,GR,251700000,423800000
+Oranje Foods Distribution Centre - Shanghai 20,distribution_centre,"52 Havenweg, Shanghai, CN",31.25456,121.415916,CN,153700000,155700000
+Oranje Foods Distribution Centre - Milan 21,distribution_centre,"173 Fabrieksstraat, Milan, IT",45.506861,9.164907,IT,248900000,214800000
+Oranje Foods Distribution Centre - Atlanta 22,distribution_centre,"250 Parc Logistique, Atlanta, US",33.689639,-84.435578,US,130300000,839300000
+Oranje Foods Distribution Centre - Los Angeles 23,distribution_centre,"378 Zona Industrial, Los Angeles, US",34.065598,-118.191103,US,59700000,641600000
+Oranje Foods Distribution Centre - Lisbon 24,distribution_centre,"423 Distribution Blvd, Lisbon, PT",38.707762,-9.134725,PT,140700000,237600000
+Oranje Foods Distribution Centre - Chicago 25,distribution_centre,"176 Rue de l'Industrie, Chicago, US",41.841104,-87.582604,US,58300000,1095900000
+Oranje Foods Distribution Centre - Bucharest 26,distribution_centre,"206 Distribution Blvd, Bucharest, RO",44.407736,26.09058,RO,173100000,963300000
+Oranje Foods Distribution Centre - Rotterdam 27,distribution_centre,"163 Distribution Blvd, Rotterdam, NL",51.978561,4.522038,NL,283100000,188800000
+Oranje Foods Distribution Centre - Tilburg 28,distribution_centre,"477 Zona Industrial, Tilburg, NL",51.607761,5.082804,NL,251900000,367100000
+Oranje Foods Distribution Centre - Mumbai 29,distribution_centre,"110 Portside Road, Mumbai, IN",19.090145,72.860308,IN,148400000,840000000
+Oranje Foods Distribution Centre - Fresno 30,distribution_centre,"477 Zona Industrial, Fresno, US",36.724222,-119.73875,US,50600000,596600000
+Oranje Foods Distribution Centre - Bangkok 31,distribution_centre,"77 Havenweg, Bangkok, TH",13.726762,100.459983,TH,117400000,867600000
+Oranje Foods Distribution Centre - Prague 32,distribution_centre,"465 Distribution Blvd, Prague, CZ",50.06379,14.424347,CZ,198600000,967200000
+Oranje Foods Distribution Centre - Bremen 33,distribution_centre,"382 Portside Road, Bremen, DE",53.122701,8.855328,DE,55200000,1009300000
+Oranje Foods Distribution Centre - Eindhoven 34,distribution_centre,"139 Fabrieksstraat, Eindhoven, NL",51.412568,5.424207,NL,41600000,935600000
+Oranje Foods Distribution Centre - Ho Chi Minh City 35,distribution_centre,"174 Zona Industrial, Ho Chi Minh City, VN",10.841228,106.606646,VN,69600000,194100000
+Oranje Foods Distribution Centre - Amsterdam 36,distribution_centre,"371 Hafenstrasse, Amsterdam, NL",52.375659,4.942012,NL,171600000,171600000
+Oranje Foods Distribution Centre - Amsterdam 37,distribution_centre,"63 Gongye Road, Amsterdam, NL",52.35893,4.936392,NL,61200000,154800000
+Oranje Foods Distribution Centre - Tilburg 38,distribution_centre,"146 Havenweg, Tilburg, NL",51.559613,5.076645,NL,51200000,348800000
+Oranje Foods Distribution Centre - Toronto 39,distribution_centre,"36 Rue de l'Industrie, Toronto, CA",43.672664,-79.440959,CA,63400000,829700000
+Oranje Foods Distribution Centre - Santos 40,distribution_centre,"98 Hafenstrasse, Santos, BR",-24.001184,-46.378462,BR,144600000,217900000
+Oranje Foods Distribution Centre - Nairobi 41,distribution_centre,"35 Industrieweg, Nairobi, KE",-1.30144,36.858402,KE,73400000,225100000
+Oranje Foods Distribution Centre - Buenos Aires 42,distribution_centre,"98 Commerce Park, Buenos Aires, AR",-34.629781,-58.405176,AR,72600000,166900000
+Oranje Foods Distribution Centre - Cologne 43,distribution_centre,"409 Hafenstrasse, Cologne, DE",50.892896,6.965859,DE,281500000,150200000
+Oranje Foods Distribution Centre - Bucharest 44,distribution_centre,"139 Portside Road, Bucharest, RO",44.474927,26.12582,RO,293000000,181300000
+Oranje Foods Distribution Centre - Bremen 45,distribution_centre,"67 Havenweg, Bremen, DE",53.051572,8.799436,DE,40400000,629600000
+Oranje Foods Distribution Centre - Atlanta 46,distribution_centre,"308 Via Industriale, Atlanta, US",33.709506,-84.426275,US,156600000,813200000
+Oranje Foods Distribution Centre - Copenhagen 47,distribution_centre,"76 Rue de l'Industrie, Copenhagen, DK",55.633747,12.57869,DK,44100000,245700000
+Oranje Foods Distribution Centre - Singapore 48,distribution_centre,"234 Zona Industrial, Singapore, SG",1.316598,103.874075,SG,42200000,692200000
+Oranje Foods Distribution Centre - Nairobi 49,distribution_centre,"299 Commerce Park, Nairobi, KE",-1.264977,36.797289,KE,65900000,189200000
+Oranje Foods Distribution Centre - Bucharest 50,distribution_centre,"55 Parc Logistique, Bucharest, RO",44.452219,26.055979,RO,102900000,170400000
+Oranje Foods Distribution Centre - Zwolle 51,distribution_centre,"446 Rue de l'Industrie, Zwolle, NL",52.534789,6.118561,NL,298500000,970300000
+Oranje Foods Distribution Centre - Bangkok 52,distribution_centre,"254 Commerce Park, Bangkok, TH",13.776937,100.500962,TH,145700000,1039300000
+Oranje Foods Distribution Centre - Buenos Aires 53,distribution_centre,"396 Via Industriale, Buenos Aires, AR",-34.618192,-58.433253,AR,196200000,192700000
+Oranje Foods Distribution Centre - Singapore 54,distribution_centre,"6 Distribution Blvd, Singapore, SG",1.407269,103.857244,SG,44400000,155300000
+Oranje Foods Distribution Centre - Bogota 55,distribution_centre,"202 Hafenstrasse, Bogota, CO",4.704174,-74.032353,CO,131700000,783600000
+Oranje Foods Cold Store - Athens 1,warehouse,"333 Commerce Park, Athens, GR",37.99957,23.756284,GR,24200000,186900000
+Oranje Foods Cold Store - Bremen 2,warehouse,"90 Gongye Road, Bremen, DE",53.086631,8.861049,DE,18200000,361400000
+Oranje Foods Cold Store - Dallas 3,warehouse,"110 Commerce Park, Dallas, US",32.81701,-96.838563,US,18600000,596600000
+Oranje Foods Cold Store - Jakarta 4,warehouse,"297 Havenweg, Jakarta, ID",-6.245748,106.793005,ID,89600000,312900000
+Oranje Foods Cold Store - Chicago 5,warehouse,"470 Fabrieksstraat, Chicago, US",41.930936,-87.584869,US,150000000,343600000
+Oranje Foods Cold Store - Toronto 6,warehouse,"348 Gongye Road, Toronto, CA",43.653362,-79.378389,CA,150200000,360500000
+Oranje Foods Cold Store - Dallas 7,warehouse,"251 Hafenstrasse, Dallas, US",32.721072,-96.803627,US,120500000,165100000
+Oranje Foods Cold Store - Copenhagen 8,warehouse,"297 Distribution Blvd, Copenhagen, DK",55.637065,12.583179,DK,30800000,213900000
+Oranje Foods Cold Store - Zwolle 9,warehouse,"158 Zona Industrial, Zwolle, NL",52.526699,6.112018,NL,134400000,253400000
+Oranje Foods Cold Store - Chicago 10,warehouse,"20 Industrieweg, Chicago, US",41.822263,-87.670562,US,86300000,214500000
+Oranje Foods Cold Store - Utrecht 11,warehouse,"266 Zona Industrial, Utrecht, NL",52.078661,5.15887,NL,30200000,575100000
+Oranje Foods Cold Store - Ho Chi Minh City 12,warehouse,"207 Gongye Road, Ho Chi Minh City, VN",10.807918,106.664521,VN,102000000,155400000
+Oranje Foods Cold Store - Barcelona 13,warehouse,"152 Zona Industrial, Barcelona, ES",41.410811,2.122071,ES,103100000,506800000
+Oranje Foods Cold Store - Atlanta 14,warehouse,"322 Industrial Estate, Atlanta, US",33.690356,-84.418533,US,137200000,591600000
+Oranje Foods Cold Store - Guadalajara 15,warehouse,"300 Industrieweg, Guadalajara, MX",20.621806,-103.316621,MX,24800000,378600000
+Oranje Foods Cold Store - Lyon 16,warehouse,"408 Gongye Road, Lyon, FR",45.727373,4.82937,FR,107600000,83100000
+Oranje Foods Cold Store - Toronto 17,warehouse,"2 Commerce Park, Toronto, CA",43.698157,-79.42606,CA,43900000,141700000
+Oranje Foods Cold Store - Toronto 18,warehouse,"117 Logistiekpark, Toronto, CA",43.695523,-79.359181,CA,152200000,629700000
+Oranje Foods Cold Store - Lisbon 19,warehouse,"311 Zona Industrial, Lisbon, PT",38.682203,-9.131442,PT,18700000,158600000
+Oranje Foods Cold Store - Barcelona 20,warehouse,"350 Via Industriale, Barcelona, ES",41.375316,2.150725,ES,68500000,92600000
+Oranje Foods Cold Store - Ho Chi Minh City 21,warehouse,"480 Logistiekpark, Ho Chi Minh City, VN",10.812513,106.663877,VN,73400000,70100000
+Oranje Foods Cold Store - Milan 22,warehouse,"127 Rue de l'Industrie, Milan, IT",45.511994,9.18711,IT,25400000,99900000
+Oranje Foods Cold Store - Lyon 23,warehouse,"48 Dock Road, Lyon, FR",45.761061,4.79572,FR,154500000,291800000
+Oranje Foods Cold Store - Cologne 24,warehouse,"122 Zona Industrial, Cologne, DE",50.990319,6.998015,DE,20600000,390100000
+Oranje Foods Cold Store - Abidjan 25,warehouse,"75 Havenweg, Abidjan, CI",5.314592,-4.066356,CI,56400000,546300000
+Oranje Foods Cold Store - Bogota 26,warehouse,"442 Rue de l'Industrie, Bogota, CO",4.697966,-74.125534,CO,50500000,163200000
+Oranje Foods Cold Store - Warsaw 27,warehouse,"241 Portside Road, Warsaw, PL",52.26391,20.961032,PL,73900000,392400000
+Oranje Foods Cold Store - Shanghai 28,warehouse,"133 Fabrieksstraat, Shanghai, CN",31.279666,121.532789,CN,69900000,198200000
+Oranje Foods Cold Store - Lagos 29,warehouse,"325 Parc Logistique, Lagos, NG",6.556754,3.379757,NG,38600000,536900000
+Oranje Foods Cold Store - Atlanta 30,warehouse,"315 Havenweg, Atlanta, US",33.783354,-84.353453,US,19200000,80900000
+Oranje Foods Cold Store - Marseille 31,warehouse,"451 Rue de l'Industrie, Marseille, FR",43.265282,5.392573,FR,47700000,109000000
+Oranje Foods Cold Store - Bangkok 32,warehouse,"474 Via Industriale, Bangkok, TH",13.780416,100.456479,TH,19500000,503900000
+Oranje Foods Cold Store - Singapore 33,warehouse,"239 Rue de l'Industrie, Singapore, SG",1.326328,103.863847,SG,92600000,140800000
+Oranje Foods Cold Store - Dallas 34,warehouse,"453 Logistiekpark, Dallas, US",32.776222,-96.76526,US,73000000,530900000
+Oranje Foods Cold Store - Dubai 35,warehouse,"440 Rue de l'Industrie, Dubai, AE",25.184466,55.243318,AE,20300000,552400000
+Oranje Foods Cold Store - Cape Town 36,warehouse,"276 Gongye Road, Cape Town, ZA",-33.928893,18.4366,ZA,84700000,340300000
+Oranje Foods Cold Store - Rotterdam 37,warehouse,"129 Havenweg, Rotterdam, NL",51.901881,4.462729,NL,30500000,211600000
+Oranje Foods Cold Store - Bogota 38,warehouse,"304 Fabrieksstraat, Bogota, CO",4.680827,-74.092029,CO,138000000,77100000
+Oranje Foods Cold Store - Casablanca 39,warehouse,"108 Via Industriale, Casablanca, MA",33.540793,-7.573818,MA,44500000,565500000
+Oranje Foods Cold Store - Toronto 40,warehouse,"192 Industrial Estate, Toronto, CA",43.700967,-79.362948,CA,24200000,484000000
+Oranje Foods Cold Store - Buenos Aires 41,warehouse,"344 Havenweg, Buenos Aires, AR",-34.64376,-58.358822,AR,50000000,295900000
+Oranje Foods Cold Store - Abidjan 42,warehouse,"228 Via Industriale, Abidjan, CI",5.302923,-4.002095,CI,46700000,129200000
+Oranje Foods Cold Store - Antwerp 43,warehouse,"67 Portside Road, Antwerp, BE",51.223547,4.357561,BE,86800000,101000000
+Oranje Foods Cold Store - Rotterdam 44,warehouse,"460 Parc Logistique, Rotterdam, NL",51.930416,4.426731,NL,138200000,152300000
+Oranje Foods Commercial Office - Lagos 1,office,"262 Havenweg, Lagos, NG",6.499223,3.358078,NG,57400000,0
+Oranje Foods Commercial Office - Rotterdam 2,office,"379 Via Industriale, Rotterdam, NL",51.926435,4.521026,NL,47600000,0
+Oranje Foods Commercial Office - Atlanta 3,office,"73 Gongye Road, Atlanta, US",33.785985,-84.377047,US,8100000,0
+Oranje Foods Commercial Office - Fresno 4,office,"112 Via Industriale, Fresno, US",36.756067,-119.817417,US,37000000,0
+Oranje Foods Commercial Office - Eindhoven 5,office,"120 Via Industriale, Eindhoven, NL",51.433641,5.476358,NL,16000000,0
+Oranje Foods Commercial Office - Los Angeles 6,office,"17 Havenweg, Los Angeles, US",34.070893,-118.273241,US,17600000,0
+Oranje Foods Commercial Office - Amsterdam 7,office,"223 Portside Road, Amsterdam, NL",52.356238,4.909034,NL,44300000,0
+Oranje Foods Commercial Office - Dallas 8,office,"134 Dock Road, Dallas, US",32.752086,-96.812352,US,18400000,0
+Oranje Foods Commercial Office - Jakarta 9,office,"72 Portside Road, Jakarta, ID",-6.210225,106.849084,ID,10700000,0
+Oranje Foods Commercial Office - Atlanta 10,office,"346 Dock Road, Atlanta, US",33.712563,-84.447261,US,10700000,0
+Oranje Foods Commercial Office - Hamburg 11,office,"313 Zona Industrial, Hamburg, DE",53.510785,9.986492,DE,72400000,0
+Oranje Foods Commercial Office - Casablanca 12,office,"195 Commerce Park, Casablanca, MA",33.584928,-7.538748,MA,30500000,0
+Oranje Foods Commercial Office - Chicago 13,office,"348 Gongye Road, Chicago, US",41.825757,-87.59231,US,35800000,0
+Oranje Foods Commercial Office - Rotterdam 14,office,"180 Distribution Blvd, Rotterdam, NL",51.893331,4.480051,NL,35500000,0
+Oranje Foods Commercial Office - Abidjan 15,office,"21 Havenweg, Abidjan, CI",5.338596,-3.982465,CI,43700000,0
+Oranje Foods Commercial Office - Casablanca 16,office,"302 Distribution Blvd, Casablanca, MA",33.530391,-7.629292,MA,10900000,0
+Oranje Foods Commercial Office - Atlanta 17,office,"222 Rue de l'Industrie, Atlanta, US",33.770015,-84.376166,US,80600000,0
+Oranje Foods Commercial Office - Guadalajara 18,office,"477 Portside Road, Guadalajara, MX",20.605796,-103.369153,MX,88100000,0
+Oranje Foods Commercial Office - Bucharest 19,office,"185 Industrieweg, Bucharest, RO",44.41312,26.08065,RO,38500000,0
+Oranje Foods Commercial Office - Lisbon 20,office,"405 Logistiekpark, Lisbon, PT",38.7127,-9.197857,PT,35400000,0
+Oranje Foods Commercial Office - Lyon 21,office,"158 Rue de l'Industrie, Lyon, FR",45.713318,4.841517,FR,45800000,0
+Oranje Foods Commercial Office - Fresno 22,office,"294 Distribution Blvd, Fresno, US",36.788308,-119.839963,US,39400000,0
+Oranje Foods Commercial Office - Guadalajara 23,office,"191 Via Industriale, Guadalajara, MX",20.600088,-103.364537,MX,13100000,0
+Oranje Foods Commercial Office - Newark 24,office,"321 Hafenstrasse, Newark, US",40.689237,-74.202165,US,16400000,0
+Oranje Foods Commercial Office - Abidjan 25,office,"250 Industrial Estate, Abidjan, CI",5.331687,-4.015814,CI,33700000,0
+Oranje Foods Commercial Office - Dallas 26,office,"108 Via Industriale, Dallas, US",32.753167,-96.801519,US,11200000,0
+Oranje Foods Commercial Office - Ho Chi Minh City 27,office,"457 Havenweg, Ho Chi Minh City, VN",10.808236,106.641292,VN,41500000,0
+Oranje Foods Commercial Office - Valencia 28,office,"340 Commerce Park, Valencia, ES",39.46971,-0.42076,ES,24200000,0
+Oranje Foods Commercial Office - Guadalajara 29,office,"103 Parc Logistique, Guadalajara, MX",20.619642,-103.384335,MX,8100000,0
+Oranje Foods Commercial Office - Hamburg 30,office,"70 Commerce Park, Hamburg, DE",53.506272,9.934712,DE,73600000,0
+Oranje Foods Facility - Ho Chi Minh City 1,other,"270 Rue de l'Industrie, Ho Chi Minh City, VN",10.76699,106.645131,VN,210300000,269100000
+Oranje Foods Facility - Ghent 2,other,"476 Dock Road, Ghent, BE",51.07061,3.669956,BE,10600000,37900000
+Oranje Foods Facility - Marseille 3,other,"177 Commerce Park, Marseille, FR",43.352922,5.393249,FR,178600000,50000000
+Oranje Foods Facility - Valencia 4,other,"335 Industrial Estate, Valencia, ES",39.44029,-0.334434,ES,178400000,103600000
+Oranje Foods Facility - London 5,other,"217 Parc Logistique, London, GB",51.561734,-0.110487,GB,43500000,435500000
+Oranje Foods Facility - Los Angeles 6,other,"143 Hafenstrasse, Los Angeles, US",34.064712,-118.229625,US,63200000,244200000
+Oranje Foods Facility - Lisbon 7,other,"449 Logistiekpark, Lisbon, PT",38.756273,-9.159491,PT,16400000,72500000
+Oranje Foods Facility - Bogota 8,other,"25 Fabrieksstraat, Bogota, CO",4.752991,-74.051035,CO,28200000,255600000
+Oranje Foods Facility - Manchester 9,other,"153 Parc Logistique, Manchester, GB",53.511528,-2.248378,GB,11900000,219600000
+Oranje Foods Facility - Ghent 10,other,"340 Industrial Estate, Ghent, BE",51.079332,3.717698,BE,10500000,30800000
+Oranje Foods Facility - Tilburg 11,other,"444 Zona Industrial, Tilburg, NL",51.578778,5.075711,NL,65900000,48500000
+Oranje Foods Facility - Bangkok 12,other,"169 Logistiekpark, Bangkok, TH",13.713358,100.557032,TH,62300000,55900000
+Oranje Foods Facility - Amsterdam 13,other,"414 Industrieweg, Amsterdam, NL",52.311235,4.922205,NL,155600000,36300000
+Oranje Foods Facility - Antwerp 14,other,"123 Commerce Park, Antwerp, BE",51.249806,4.414313,BE,230700000,135600000
+Oranje Foods Facility - Atlanta 15,other,"204 Distribution Blvd, Atlanta, US",33.735465,-84.388091,US,240600000,319200000
+Oranje Foods Facility - Poznan 16,other,"5 Industrieweg, Poznan, PL",52.442903,16.96077,PL,59000000,31600000
+Oranje Foods Facility - Mumbai 17,other,"396 Commerce Park, Mumbai, IN",19.131042,72.873533,IN,76500000,191800000
+Oranje Foods Facility - Milan 18,other,"216 Industrieweg, Milan, IT",45.463867,9.199428,IT,256400000,404300000
+Oranje Foods Facility - Zwolle 19,other,"17 Via Industriale, Zwolle, NL",52.469437,6.091479,NL,70400000,89800000
+Oranje Foods Facility - Santos 20,other,"147 Portside Road, Santos, BR",-24.017561,-46.354106,BR,11700000,52600000
+Oranje Foods Facility - Utrecht 21,other,"117 Portside Road, Utrecht, NL",52.057579,5.134016,NL,257300000,32500000
+Oranje Foods Facility - Newark 22,other,"83 Rue de l'Industrie, Newark, US",40.771282,-74.187457,US,55800000,297600000
+Oranje Foods Facility - Casablanca 23,other,"136 Gongye Road, Casablanca, MA",33.618869,-7.617677,MA,82500000,209800000
+Oranje Foods Facility - Dubai 24,other,"129 Fabrieksstraat, Dubai, AE",25.190849,55.214341,AE,30700000,150300000
