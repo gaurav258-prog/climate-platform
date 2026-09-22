@@ -30,25 +30,31 @@ import re
 from services.governance.pillar3_templates import NACE_SECTIONS, _section  # noqa: F401
 
 
-# NACE section/division/class → IEA Template-3 sector. The ITS lists (Annex XL): power generation, oil & gas,
-# coal, iron & steel, cement, aluminium, automotive, aviation, maritime transport, and real estate. Mapped from
-# the NACE code of each counterparty (Reg 1893/2006) — the DIVISION (2-digit) decides the sector for most
-# codes, but division 24 ("manufacture of basic metals") spans two distinct ITS sectors (iron & steel vs.
-# aluminium/other non-ferrous), so that one division is split at the CLASS level (24.1–24.3 vs. 24.4–24.5).
+# NACE division → IEA Template-3 sector. Annex XL §19(a) of the adopted ITS states rows 1-8 are the "mandatory
+# minimum set" of EIGHT sectors: power, fossil fuel combustion, cement, iron & steel, chemicals, automotive,
+# aviation, maritime transport (verified against the EBA's own Annex XL instructions PDF + cross-checked
+# against 3 independent secondary trackers — EUR-Lex itself would not render through the available fetch
+# tools). "Aluminium" and "real estate" are NOT ITS Template-3 sectors — an earlier version of this module
+# invented both (real estate is a genuinely different template, EBA Template 2, collateral energy efficiency —
+# not this one) and was missing the real 8th sector, chemicals; both are now corrected. Mapped from the NACE
+# DIVISION (2-digit) of each counterparty (Reg 1893/2006) — this platform keeps "coal" and "oil_gas" as two
+# separate, more granular rows under the ITS's single "fossil fuel combustion" heading (a bank may disclose
+# finer than the mandatory minimum; never coarser), so effectively 9 rows are produced for the 8 mandatory
+# sectors.
 def _iea_sector(nace_code) -> str | None:
     if not nace_code:
         return None
     s = str(nace_code).strip().upper()
-    digits = "".join(ch for ch in s if ch.isdigit())   # "24.42"/"2442" → "2442"; strips the class-code dot
+    digits = "".join(ch for ch in s if ch.isdigit())
     if not digits:
-        return "real_estate" if s[:1] == "L" else None
+        return None
     d = int(digits[:2])
-    if d == 24:
-        # a 4-digit class (e.g. "24.10"/"2410") carries the group digit that splits iron/steel from aluminium;
-        # a bare 2-digit division ("24") can't be split, so it conservatively falls to iron & steel (the larger
-        # of the two sub-sectors by count) rather than silently dropping the exposure from Template 3 entirely.
-        group = int(digits[2]) if len(digits) >= 3 else 1
-        return "aluminium" if group >= 4 else "iron_steel"
+    if d == 24:                        # manufacture of basic metals — iron & steel (incl. all metal casting,
+        return "iron_steel"            # NACE 24.5, which covers both iron/steel AND non-ferrous casting and
+                                        # can't be cleanly split at the class level; conservatively kept whole
+                                        # under iron & steel rather than guessed apart)
+    if d == 20:                        # manufacture of chemicals and chemical products
+        return "chemicals"
     if d == 5:                         # mining of coal and lignite
         return "coal"
     if d in (6, 19):                   # extraction of oil & gas · coke & refined petroleum
@@ -66,8 +72,6 @@ def _iea_sector(nace_code) -> str | None:
         return "aviation"
     if d == 50:                        # water transport
         return "maritime"
-    if d == 68 or s[:1] == "L":        # real estate activities
-        return "real_estate"
     return None
 
 
@@ -79,12 +83,11 @@ IEA_NZE2050: dict[str, dict] = {
     "oil_gas":     {"label": "Oil & gas", "metric": "CO₂ intensity of energy supplied", "unit": "gCO₂/MJ", "target_2030": None},
     "coal":        {"label": "Coal", "metric": "CO₂ intensity of energy supplied", "unit": "gCO₂/MJ", "target_2030": None},
     "iron_steel":  {"label": "Iron & steel", "metric": "CO₂ intensity of crude steel", "unit": "tCO₂/t", "target_2030": None},
-    "aluminium":   {"label": "Aluminium", "metric": "CO₂ intensity of primary aluminium", "unit": "tCO₂/t", "target_2030": None},
+    "chemicals":   {"label": "Chemicals", "metric": "CO₂ intensity of chemical production", "unit": "tCO₂/t", "target_2030": None},
     "cement":      {"label": "Cement", "metric": "Direct CO₂ intensity of cement", "unit": "tCO₂/t", "target_2030": None},
     "automotive":  {"label": "Automotive", "metric": "CO₂ intensity of new vehicles", "unit": "gCO₂/km", "target_2030": None},
     "aviation":    {"label": "Aviation", "metric": "CO₂ intensity per passenger-km", "unit": "gCO₂/pkm", "target_2030": None},
     "maritime":    {"label": "Maritime transport", "metric": "CO₂ intensity of energy used", "unit": "gCO₂/MJ", "target_2030": 23.4},
-    "real_estate": {"label": "Commercial & residential real estate", "metric": "Energy intensity", "unit": "kWh/m²", "target_2030": None},
 }
 IEA_SOURCE = "IEA Net Zero by 2050 (NZE2050) Roadmap — 2030 sector targets. Shipping value cited in ITS (EU) 2022/2453 §39 (NZE2050, 2021 vintage); other sectors pending ingest of the licensed IEA Roadmap Excel."
 
@@ -149,6 +152,13 @@ CARBON_MAJORS_TOP20 = [
 CARBON_MAJORS_SOURCE = "Carbon Majors database (InfluenceMap / Climate Accountability Institute) — the 20 highest cumulative-emission producers. A real deployment matches on legal identity (LEI); demo books use fictional counterparties, so matches are honestly 0."
 
 
+def _normalize_name(name: str) -> str:
+    """Hyphens and slashes count as \\W (word-boundary) characters, so a raw word-boundary match on a
+    hyphenated legal-name rendering (e.g. "Royal-Dutch-Shell", a real-world loan-tape normalization pattern)
+    would otherwise never match the space-separated "royal dutch shell" list entry — treat them as spaces."""
+    return re.sub(r"[-/]", " ", name)
+
+
 def template4_top20(assets: list[dict]) -> dict:
     """Template 4 — exposures to the world's top-20 carbon-intensive firms. Matches counterparty names to the
     Carbon Majors list (case-insensitive, WORD-boundary matching — not a raw substring test) and sums gross
@@ -156,15 +166,24 @@ def template4_top20(assets: list[dict]) -> dict:
     Majors names are short (BP, BHP): a raw substring test would false-positive on any unrelated counterparty
     whose name happens to contain "bp" mid-word (e.g. a fictional "Kabpur Textiles"); requiring the match sit
     between non-word characters (or string start/end) rules that out while still matching "BP plc", "BP
-    Global Trading", etc. Still not real LEI/legal-identity matching — see CARBON_MAJORS_SOURCE."""
-    norm = [(m, re.escape(m.lower())) for m in CARBON_MAJORS_TOP20]
+    Global Trading", etc. The reverse direction (the counterparty's OWN name is a fragment of a major's full
+    name — e.g. "Shell" matching "Royal Dutch Shell") is gated to counterparty names of 4+ characters to rule
+    out the shortest fragments; it does NOT fully close the risk of a short generic/country word (e.g. a
+    fictional counterparty literally named "Kuwait") false-positive-matching "Kuwait Petroleum" — length alone
+    can't distinguish a legitimate short brand form ("Shell") from a coincidental generic word, and this is a
+    disclosed, accepted residual limitation of name-matching (not real LEI/legal-identity matching — see
+    CARBON_MAJORS_SOURCE)."""
+    norm = [(m, re.escape(_normalize_name(m).lower())) for m in CARBON_MAJORS_TOP20]
     matched: dict[str, float] = {}
     for a in assets:
-        nm = (a.get("asset_name") or "").lower()
+        raw_nm = a.get("asset_name") or ""
+        nm = _normalize_name(raw_nm).lower()
         if not nm:
             continue
         for orig, low_pat in norm:
-            if re.search(rf"(?:^|\W){low_pat}(?:$|\W)", nm) or re.search(rf"(?:^|\W){re.escape(nm)}(?:$|\W)", orig.lower()):
+            forward = re.search(rf"(?:^|\W){low_pat}(?:$|\W)", nm)
+            reverse = len(nm) >= 4 and re.search(rf"(?:^|\W){re.escape(nm)}(?:$|\W)", _normalize_name(orig).lower())
+            if forward or reverse:
                 matched[orig] = matched.get(orig, 0.0) + _val(a)
                 break
     rows = [{"firm": k, "gross": round(v)} for k, v in sorted(matched.items(), key=lambda kv: -kv[1])]

@@ -19,19 +19,23 @@ def test_nace_to_iea_sector_mapping():
     assert _iea_sector("35.11") == "power"        # electricity
     assert _iea_sector("50.20") == "maritime"     # water transport
     assert _iea_sector("23.51") == "cement"       # non-metallic minerals
-    assert _iea_sector("24.10") == "iron_steel"   # basic metals — iron & steel sub-group
-    assert _iea_sector("24.42") == "aluminium"    # basic metals — non-ferrous (aluminium) sub-group, split from iron/steel
-    assert _iea_sector("24") == "iron_steel"      # bare division (no class digit) — conservative fallback, not dropped
+    assert _iea_sector("24.10") == "iron_steel"   # basic metals (iron & steel)
+    assert _iea_sector("24.51") == "iron_steel"   # metal casting — NOT split (24.5 covers iron/steel AND
+                                                   # non-ferrous casting; can't be cleanly separated at class level)
+    assert _iea_sector("20.13") == "chemicals"    # manufacture of chemicals — the real 8th ITS sector
     assert _iea_sector("05.10") == "coal"         # coal mining
     assert _iea_sector("29.10") == "automotive"   # motor vehicle manufacture
     assert _iea_sector("30.11") is None           # shipbuilding — NOT folded into automotive (manufacturer, not operator)
+    assert _iea_sector("68.10") is None           # real estate — NOT an ITS Template-3 sector (that's Template 2)
     assert _iea_sector("62.01") is None           # software — no IEA transition sector
 
 
-def test_iea_nze2050_has_all_ten_its_sectors_including_aluminium():
-    # Annex XL / this module's own docstring lists 10 ITS sectors, including aluminium as distinct from iron & steel
-    assert set(IEA_NZE2050) == {"power", "oil_gas", "coal", "iron_steel", "aluminium", "cement",
-                                "automotive", "aviation", "maritime", "real_estate"}
+def test_iea_nze2050_has_exactly_the_eight_mandatory_its_sectors():
+    # Annex XL §19(a): rows 1-8 are the mandatory minimum set — power, fossil fuel combustion (kept as two
+    # finer rows here: coal + oil_gas), cement, iron & steel, chemicals, automotive, aviation, maritime.
+    # Neither "aluminium" nor "real estate" is an ITS Template-3 sector (real estate is Template 2).
+    assert set(IEA_NZE2050) == {"power", "oil_gas", "coal", "iron_steel", "chemicals", "cement",
+                                "automotive", "aviation", "maritime"}
 
 
 def test_template3_distance_matches_its_formula():
@@ -75,3 +79,18 @@ def test_template4_still_matches_a_short_name_as_a_real_word():
     assets = [_a("06.10", 700, name="BP Global Trading Ltd")]
     g = template4_top20(assets)
     assert g["matched_count"] == 1 and g["rows"][0]["firm"] == "BP" and g["rows"][0]["gross"] == 700
+
+
+def test_template4_matches_a_hyphenated_rendering_of_a_multi_word_major():
+    assets = [_a("06.10", 850, name="Royal-Dutch-Shell Group")]
+    g = template4_top20(assets)
+    assert g["matched_count"] == 1 and g["rows"][0]["firm"] == "Royal Dutch Shell"
+
+
+def test_template4_reverse_match_needs_at_least_4_characters():
+    # a 3-char-or-shorter counterparty name can't reverse-match into a longer major's name at all
+    assets = [_a("62.01", 200, name="BP")]   # "BP" itself (2 chars) — not the same as "BP plc" etc.
+    g = template4_top20(assets)
+    # "BP" the counterparty name IS itself a listed major (forward direction matches trivially): this proves
+    # the short-name case still resolves correctly when it's an exact/whole-word match, not a coincidental one
+    assert g["matched_count"] == 1 and g["rows"][0]["firm"] == "BP"

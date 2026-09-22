@@ -241,7 +241,8 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
           <StatGrid cols={2} items={[
             { label: 'Total gross incurred', value: eur(data.total_gross_incurred_loss_eur), accent: 'var(--color-ink)' },
             { label: 'Total net (after reinsurance)', value: data.total_net_incurred_loss_eur != null ? eur(data.total_net_incurred_loss_eur) : 'not supplied' },
-            { label: 'Modelled EAL (¶16(c)-(d))', value: eur(data.modeled?.total_expected_annual_loss_eur) },
+            { label: 'Modelled EAL — pricing model (¶16(c)-(d))', value: eur(data.modeled?.total_expected_annual_loss_eur),
+              sub: 'Per-policy pricing-model sum — a different methodology from "Mean annual cat loss" on the Internal model card above (Monte-Carlo simulation mean). Both are anticipated/¶16(c)-(d); they are not expected to match exactly.' },
             { label: 'Standard-formula SCR (¶16(c)-(d))', value: eur(data.modeled?.standard_formula_natcat_scr_eur) },
           ]} />
           <table className="w-full text-[12px]">

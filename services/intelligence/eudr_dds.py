@@ -184,6 +184,15 @@ def assemble_dds(session, org_id: str) -> dict:
             operator_completes.append(
                 f"immediate customer address/contact email (Art. 9(1)(f)) for: {', '.join(incomplete_customers)}")
 
+    # Art. 9(1)(h): evidence the relevant product was produced in accordance with the country of production's
+    # relevant legislation (Art. 3, point (b) — legality, distinct from point (a) deforestation-free). This
+    # platform computes the deforestation-free determination (g) from forest-cover data, but has no signal at
+    # all for legality-of-production compliance — no field, no data source — so it is always surfaced here,
+    # never silently absent, matching the honest-gap discipline used for every other Art. 9(1) item above.
+    operator_completes.append(
+        "evidence of compliance with the country of production's relevant legislation (Art. 9(1)(h) / Art. 3(b) "
+        "legality) — not assessed by this platform; the operator must supply this evidence directly")
+
     operator_completes.append("signature of the due-diligence declaration")
 
     covered = len(rows)

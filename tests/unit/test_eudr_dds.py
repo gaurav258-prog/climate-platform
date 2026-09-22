@@ -199,3 +199,11 @@ def test_customer_on_file_missing_contact_is_flagged():
     s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")], customers=[cust])
     dds = assemble_dds(s, "org")
     assert any("Art. 9(1)(f)" in c and "Nordic Retail AB" in c for c in dds["operator_completes"])
+
+
+def test_legality_of_production_evidence_always_flagged_art_9_1_h():
+    # Art. 9(1)(h) legality-of-production evidence is never computed by this platform — always surfaced,
+    # never silently absent, exactly like every other honest gap in operator_completes.
+    s = _FakeSession(OP_FULL, [_plot("A", "deforestation_free")])
+    dds = assemble_dds(s, "org")
+    assert any("Art. 9(1)(h)" in c and "legality" in c for c in dds["operator_completes"])

@@ -145,3 +145,42 @@ def test_dnsh_boilerplate_is_fixed_regulatory_text():
         assert "do no significant harm" in dnsh["value"].lower()
     finally:
         _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_dnsh_methodology_undeclared_is_not_available_not_not_applicable():
+    """A fund with no declared planned-investment % (a fresh, never-configured fund) is UNKNOWN, not zero —
+    the DNSH-methodology question must be 'not_available' (a real, counted gap needing operator input), never
+    'not_applicable' (which would silently exclude it from the coverage_summary gap count and make the
+    disclosure look more complete than it actually is). Adversarial-review regression test."""
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        dnsh_method = _find(r["sections"], "not cause significant harm")
+        assert dnsh_method["status"] == "not_available"
+        assert dnsh_method["input_required"] is not None
+        assert r["coverage_summary"]["not_available"] >= 1
+    finally:
+        _cleanup(fid, iid)
+
+
+@pytest.mark.integration
+def test_dnsh_methodology_genuinely_not_applicable_when_planned_pct_is_zero():
+    """A fund that explicitly declared 0% planned sustainable investments genuinely has nothing for a DNSH
+    methodology to apply to — that IS a correct 'not_applicable', distinct from simply not having declared
+    anything yet."""
+    with get_session() as s:
+        fid, iid = _seed(s, "article_8")
+        s.execute(text(
+            "UPDATE funds SET sfdr_precontractual = :p WHERE fund_id = :f"),
+            {"f": fid, "p": json.dumps({"proportion_investments_planned_pct": 0})})
+    try:
+        with get_session() as s:
+            r = build_precontractual(s, fid)
+        dnsh_method = _find(r["sections"], "not cause significant harm")
+        assert dnsh_method["status"] == "not_applicable"
+        assert dnsh_method["input_required"] is None
+    finally:
+        _cleanup(fid, iid)

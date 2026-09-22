@@ -190,11 +190,18 @@ def build_precontractual(session, fund_id: str) -> dict:
                             value=_DNSH_BOILERPLATE,
                             source="Commission Delegated Regulation (EU) 2022/1288, Annex II/III (prescribed text)"))
     dnsh_method = d("dnsh_methodology")
+    # An explicit 0% sustainable-investment commitment (planned_pct == 0) genuinely makes this question
+    # not_applicable — there's nothing to apply a DNSH methodology to. planned_pct being UNSET (None) is a
+    # different state entirely — it's unknown, not zero — and must NOT be treated the same way: conflating
+    # "not yet declared" with "not applicable" was a real bug (found by adversarial review) that silently
+    # excluded this field from the completeness count for any fund that simply hasn't declared a planned %
+    # yet, making the disclosure look more complete than it actually is.
+    dnsh_not_applicable = dnsh_method is None and planned_pct in ("0", 0)
+    dnsh_status = "declared" if dnsh_method else ("not_applicable" if dnsh_not_applicable else "not_available")
     sections.append(_field(
         "How do the sustainable investments not cause significant harm?",
-        "declared" if dnsh_method else ("not_applicable" if planned_pct in (None, "0", 0) else "not_available"),
-        value=dnsh_method, source="customer/declared",
-        input_required=None if dnsh_method else
+        dnsh_status, value=dnsh_method, source="customer/declared",
+        input_required=None if (dnsh_method or dnsh_status == "not_applicable") else
         "a description of the DNSH methodology applied to this product's sustainable investments"))
 
     # ── PAI consideration — reuse the fund's own PAI statement (single source of truth) ──
