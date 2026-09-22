@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated, Optional
 
 import h3
@@ -37,6 +37,7 @@ from ml.scoring.cat_accumulation import catastrophe_accumulation
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
+from services.governance.ifrs_s2_incurred import incurred_loss_summary, list_incurred_losses, submit_incurred_loss
 from services.governance.solvency2_natcat import natcat_scr
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
 from services.scoring.combined_var import combined_climate_var
@@ -340,6 +341,78 @@ def reinsurance(session: DbSession, org_id: OrgId,
     cat = catastrophe_accumulation(policies, org_id, scenario, horizon,
                                    pml_return_period=_st["pml_return_period"], reinsurance=prog)
     return _reinsurance_from_cat(cat, prog, scenario, horizon)
+
+
+class IncurredLossRequest(BaseModel):
+    period_start: date
+    period_end: date
+    peril: str
+    gross_incurred_loss_eur: float = Field(..., ge=0)
+    net_incurred_loss_eur: Optional[float] = Field(None, ge=0)
+    source: str = Field("client", description="Where this figure came from, e.g. 'client', 'audited_accounts'.")
+
+
+def _modeled_for_incurred(session, org_id: str, scenario: str, horizon: str) -> dict:
+    """The ¶16(c)-(d) ANTICIPATED figures (EAL + NatCat SCR, both bases) already disclosed elsewhere — passed
+    alongside the ¶16(a) actual-incurred rollup so a reader can compare modelled vs actual without re-deriving
+    it. Same underlying cat run the /solvency-scr and /summary endpoints use; honest when nothing is scored."""
+    _st = get_calc_settings(session, org_id)
+    policies = _policies_with_risk(session, org_id, scenario, horizon, _st["insurance_return_period_model"],
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+    rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"])
+    cat = rollup.get("catastrophe") or {}
+    scr = _scr_from_cat(cat, policies, scenario, horizon)
+    sf = scr.get("standard_formula_natcat") or {}
+    return {
+        "regulation": "IFRS S2 paragraph 16(c)-(d) — anticipated financial effects",
+        "scenario": scenario, "horizon": horizon,
+        "total_expected_annual_loss_eur": rollup.get("total_expected_annual_loss_eur"),
+        "internal_model_natcat_scr_1_in_200_eur": scr.get("natcat_scr_eur") if scr.get("available") else None,
+        "standard_formula_natcat_scr_eur": sf.get("natcat_scr_eur") if sf.get("available") else None,
+        "available": bool(scr.get("available")),
+    }
+
+
+@router.get("/incurred-losses", summary="IFRS S2 ¶16(a) — actual incurred NatCat losses on file, by peril and period")
+def get_incurred_losses(session: DbSession, org_id: OrgId,
+                        scenario: str = Query("baseline"), horizon: str = Query("current")):
+    """Actual, backward-looking claims for the reporting period — the honest counterpart to the modelled
+    EAL/SCR everywhere else on this page (IFRS S2 ¶16(c)-(d)). Customer-supplied; says so explicitly when
+    nothing has been submitted yet rather than showing a silent zero."""
+    modeled = _modeled_for_incurred(session, org_id, scenario, horizon)
+    return {"org_id": org_id, **incurred_loss_summary(session, org_id, modeled=modeled)}
+
+
+@router.get("/incurred-losses/records", summary="Raw incurred-loss submissions on file (audit ledger)")
+def get_incurred_loss_records(session: DbSession, org_id: OrgId):
+    return {"org_id": org_id, "records": list_incurred_losses(session, org_id)}
+
+
+@router.post("/incurred-losses", summary="Submit an actual incurred NatCat loss for a reporting period (audited)")
+def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: CurrentUser):
+    """Customer-supplied — same discipline as the bank's EVIC backfill / REIT gross-revenue field: an honest
+    input for data the platform cannot observe itself (the insurer's own claims/financial records), never
+    fabricated. A second submission for the same period+peril is additive (e.g. a claims-development update),
+    not an overwrite, so restated history stays visible in the ledger."""
+    if "pricing.approve" not in ctx["permissions"]:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Missing permission: pricing.approve"})
+    if body.peril not in HAZARD_VALUES:
+        raise HTTPException(status_code=400, detail=f"Unrecognised peril. Choose one of: {', '.join(HAZARD_VALUES)}")
+    if body.period_end < body.period_start:
+        raise HTTPException(status_code=400, detail="period_end must not be before period_start")
+    if body.net_incurred_loss_eur is not None and body.net_incurred_loss_eur > body.gross_incurred_loss_eur:
+        raise HTTPException(status_code=400, detail="net_incurred_loss_eur cannot exceed gross_incurred_loss_eur")
+
+    org_id = ctx["org"]["org_id"]
+    res = submit_incurred_loss(session, org_id, body.period_start, body.period_end, body.peril,
+                               body.gross_incurred_loss_eur, body.net_incurred_loss_eur, body.source,
+                               created_by=ctx["user"]["id"])
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="incurred_loss.submit",
+                target_type="insurer_incurred_losses", target_id=res["loss_id"],
+                detail={"period_start": str(body.period_start), "period_end": str(body.period_end),
+                        "peril": body.peril, "gross_incurred_loss_eur": body.gross_incurred_loss_eur,
+                        "net_incurred_loss_eur": body.net_incurred_loss_eur, "source": body.source})
+    return {"loss_id": res["loss_id"], "reported_at": res["reported_at"].isoformat(), **body.model_dump(mode="json")}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")

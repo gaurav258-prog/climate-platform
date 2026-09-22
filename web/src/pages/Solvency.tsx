@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, ShieldCheck, Layers, ChevronRight } from 'lucide-react'
+import { Building2, ShieldCheck, Layers, ChevronRight, FileClock } from 'lucide-react'
 import { api } from '../lib/api'
-import { Card, SectionHead, PageHeader, HeroBanner, StatGrid } from '../components/ui'
+import { useAuth } from '../lib/auth'
+import { Card, Button, SectionHead, PageHeader, HeroBanner, StatGrid } from '../components/ui'
 import { HBar } from '../components/Charts'
+import { HAZARD_LABEL, hazardLabel } from '../lib/hazards'
 
 // Solvency II capital for a property insurer — the catastrophe SCR on TWO labelled bases:
 //  · internal-model: our common-shock cat engine's 1-in-200 (99.5% VaR), gross & net of reinsurance
@@ -38,9 +40,25 @@ const eurM = (v?: number | null) => (typeof v === 'number' ? `€${(v / 1e6).toF
 const PERIL_LABEL: Record<string, string> = { windstorm: 'Windstorm', earthquake: 'Earthquake', flood: 'Flood', hail: 'Hail', subsidence: 'Subsidence' }
 const PERIL_COLOR: Record<string, string> = { windstorm: '#7db8ff', earthquake: '#e0574a', flood: '#3f7fd6', hail: '#a78bfa', subsidence: '#f2b45a' }
 
+// IFRS S2 ¶16(a) — actual incurred losses for the reporting period, alongside the ¶16(c)-(d) modelled figures.
+interface PerilLossRow { peril: string; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; n_records: number }
+interface PeriodLossRow { period_start: string; period_end: string; gross_incurred_loss_eur: number; net_incurred_loss_eur?: number | null; perils: string[] }
+interface ModeledFigures {
+  available?: boolean; scenario?: string; horizon?: string
+  total_expected_annual_loss_eur?: number | null
+  internal_model_natcat_scr_1_in_200_eur?: number | null
+  standard_formula_natcat_scr_eur?: number | null
+}
+interface IncurredSummary {
+  status: 'not_yet_supplied' | 'supplied'; regulation: string; note?: string
+  n_records?: number; total_gross_incurred_loss_eur?: number; total_net_incurred_loss_eur?: number | null
+  by_peril: PerilLossRow[]; by_period: PeriodLossRow[]; modeled?: ModeledFigures | null; comparison_note?: string
+}
+
 export default function Solvency() {
   const scr = useQuery({ queryKey: ['ins-scr'], queryFn: () => api.get<ScrResp>('/v1/insurance/solvency-scr?scenario=baseline&horizon=current') })
   const reins = useQuery({ queryKey: ['ins-reins'], queryFn: () => api.get<ReinResp>('/v1/insurance/reinsurance?scenario=baseline&horizon=current') })
+  const incurred = useQuery({ queryKey: ['ins-incurred'], queryFn: () => api.get<IncurredSummary>('/v1/insurance/incurred-losses?scenario=baseline&horizon=current') })
   const d = scr.data
   const sf = d?.standard_formula_natcat
 
@@ -111,6 +129,9 @@ export default function Solvency() {
 
       {/* per-peril regional detail */}
       {sf?.available && <PerilDetail sf={sf} />}
+
+      {/* IFRS S2 ¶16(a) — actual incurred losses for the reporting period, alongside ¶16(c)-(d) modelled figures */}
+      <IncurredLosses data={incurred.data} loading={incurred.isLoading} onSaved={() => incurred.refetch()} />
 
       <Card>
         <div className="text-[11.5px] text-[var(--color-mute)] leading-relaxed">
@@ -184,5 +205,121 @@ function PerilDetail({ sf }: { sf: SF }) {
         })}
       </div>
     </Card>
+  )
+}
+
+const apiErrText = (e: unknown, fb: string) => {
+  const b = (e as { body?: unknown })?.body as { message?: string; error?: { message?: string } } | string | undefined
+  if (typeof b === 'string') return b
+  return b?.message ?? b?.error?.message ?? fb
+}
+
+// IFRS S2 ¶16(a): actual, incurred NatCat losses for the reporting period — customer-supplied, shown alongside
+// the ¶16(c)-(d) modelled figures (EAL, standard-formula/internal-model SCR) that already appear above. Never a
+// silent zero: an honest "not yet supplied" state when nothing has been submitted.
+function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; loading: boolean; onSaved: () => void }) {
+  const { profile } = useAuth()
+  const canSubmit = (profile?.permissions ?? []).includes('pricing.approve')
+
+  return (
+    <Card>
+      <SectionHead icon={FileClock} hint="IFRS S2 ¶16(a) · actual, for the reporting period">Incurred NatCat losses</SectionHead>
+      <div className="mt-2 text-[11.5px] text-[var(--color-mute)] leading-relaxed">
+        What the SCR and expected annual loss above model as <i>anticipated</i> (¶16(c)-(d)); this is what your book
+        actually <i>incurred</i> — real claims for a stated reporting period, customer-supplied since the platform
+        cannot observe your claims ledger itself.
+      </div>
+
+      {loading ? (
+        <div className="mt-3 mono text-[12px] text-[var(--color-faint)]">loading…</div>
+      ) : !data || data.status === 'not_yet_supplied' ? (
+        <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-2.5 text-[12.5px] text-[var(--color-mute)]">
+          No incurred losses submitted for any reporting period yet — not yet supplied.
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <StatGrid cols={2} items={[
+            { label: 'Total gross incurred', value: eur(data.total_gross_incurred_loss_eur), accent: 'var(--color-ink)' },
+            { label: 'Total net (after reinsurance)', value: data.total_net_incurred_loss_eur != null ? eur(data.total_net_incurred_loss_eur) : 'not supplied' },
+            { label: 'Modelled EAL (¶16(c)-(d))', value: eur(data.modeled?.total_expected_annual_loss_eur) },
+            { label: 'Standard-formula SCR (¶16(c)-(d))', value: eur(data.modeled?.standard_formula_natcat_scr_eur) },
+          ]} />
+          <table className="w-full text-[12px]">
+            <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase">
+              <th className="text-left font-normal px-2 py-1.5">Peril</th>
+              <th className="text-right font-normal px-2 py-1.5">Gross incurred</th>
+              <th className="text-right font-normal px-2 py-1.5">Net incurred</th>
+              <th className="text-right font-normal px-2 py-1.5">Records</th>
+            </tr></thead>
+            <tbody>
+              {data.by_peril.map(p => (
+                <tr key={p.peril} className="border-t border-[var(--color-line-2)]">
+                  <td className="px-2 py-1.5 text-[var(--color-ink)]">{hazardLabel(p.peril) ?? p.peril}</td>
+                  <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(p.gross_incurred_loss_eur)}</td>
+                  <td className="px-2 py-1.5 text-right mono text-[var(--color-mute)]">{p.net_incurred_loss_eur != null ? eur(p.net_incurred_loss_eur) : '—'}</td>
+                  <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{p.n_records}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.comparison_note && <div className="mono text-[10.5px] text-[var(--color-faint)] leading-relaxed">{data.comparison_note}</div>}
+        </div>
+      )}
+
+      {canSubmit ? <IncurredLossForm onSaved={onSaved} /> : (
+        <div className="mt-3 pt-3 border-t border-[var(--color-line)] text-[11.5px] text-[var(--color-faint)]">
+          Submitting an incurred loss needs the <span className="mono">pricing.approve</span> permission.
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
+  const perils = Object.keys(HAZARD_LABEL)
+  const [peril, setPeril] = useState(perils[0] ?? 'flood')
+  const [periodStart, setPeriodStart] = useState(`${new Date().getFullYear()}-01-01`)
+  const [periodEnd, setPeriodEnd] = useState(`${new Date().getFullYear()}-12-31`)
+  const [gross, setGross] = useState('')
+  const [net, setNet] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const submit = async () => {
+    setErr(null)
+    if (!gross || Number(gross) < 0) { setErr('Enter the gross incurred loss (EUR).'); return }
+    if (periodEnd < periodStart) { setErr('The period end cannot be before the period start.'); return }
+    setBusy(true)
+    try {
+      await api.post('/v1/insurance/incurred-losses', {
+        period_start: periodStart, period_end: periodEnd, peril,
+        gross_incurred_loss_eur: Number(gross),
+        net_incurred_loss_eur: net ? Number(net) : undefined,
+        source: 'client',
+      })
+      setGross(''); setNet(''); onSaved()
+    } catch (e) { setErr(apiErrText(e, 'Could not save the incurred loss.')) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[var(--color-line)] space-y-2">
+      <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Submit an incurred loss</div>
+      {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <select value={peril} onChange={e => setPeril(e.target.value)}
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
+          {perils.map(p => <option key={p} value={p}>{HAZARD_LABEL[p] ?? p}</option>)}
+        </select>
+        <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <input type="number" min={0} placeholder="Gross EUR" value={gross} onChange={e => setGross(e.target.value)}
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <input type="number" min={0} placeholder="Net EUR (optional)" value={net} onChange={e => setNet(e.target.value)}
+          className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+      </div>
+      <Button variant="primary" onClick={submit} disabled={busy}><FileClock size={14} /> Submit incurred loss</Button>
+    </div>
   )
 }
