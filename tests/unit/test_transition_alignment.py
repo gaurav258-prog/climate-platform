@@ -19,9 +19,19 @@ def test_nace_to_iea_sector_mapping():
     assert _iea_sector("35.11") == "power"        # electricity
     assert _iea_sector("50.20") == "maritime"     # water transport
     assert _iea_sector("23.51") == "cement"       # non-metallic minerals
-    assert _iea_sector("24.10") == "iron_steel"   # basic metals
+    assert _iea_sector("24.10") == "iron_steel"   # basic metals — iron & steel sub-group
+    assert _iea_sector("24.42") == "aluminium"    # basic metals — non-ferrous (aluminium) sub-group, split from iron/steel
+    assert _iea_sector("24") == "iron_steel"      # bare division (no class digit) — conservative fallback, not dropped
     assert _iea_sector("05.10") == "coal"         # coal mining
+    assert _iea_sector("29.10") == "automotive"   # motor vehicle manufacture
+    assert _iea_sector("30.11") is None           # shipbuilding — NOT folded into automotive (manufacturer, not operator)
     assert _iea_sector("62.01") is None           # software — no IEA transition sector
+
+
+def test_iea_nze2050_has_all_ten_its_sectors_including_aluminium():
+    # Annex XL / this module's own docstring lists 10 ITS sectors, including aluminium as distinct from iron & steel
+    assert set(IEA_NZE2050) == {"power", "oil_gas", "coal", "iron_steel", "aluminium", "cement",
+                                "automotive", "aviation", "maritime", "real_estate"}
 
 
 def test_template3_distance_matches_its_formula():
@@ -52,3 +62,16 @@ def test_template4_top20_match_by_name():
     assert g["matched_count"] == 1 and g["total_exposure"] == 900
     assert g["rows"][0]["firm"] == "Saudi Aramco"
     assert g["list_size"] == len(CARBON_MAJORS_TOP20) == 20
+
+
+def test_template4_does_not_false_positive_on_a_short_name_mid_word():
+    # "BP" (2 chars) must not match as a raw substring inside an unrelated counterparty's name
+    assets = [_a("62.01", 500, name="Kabpur Textiles Ltd")]   # contains "bp" mid-word — must NOT match "BP"
+    g = template4_top20(assets)
+    assert g["matched_count"] == 0 and g["total_exposure"] == 0
+
+
+def test_template4_still_matches_a_short_name_as_a_real_word():
+    assets = [_a("06.10", 700, name="BP Global Trading Ltd")]
+    g = template4_top20(assets)
+    assert g["matched_count"] == 1 and g["rows"][0]["firm"] == "BP" and g["rows"][0]["gross"] == 700
