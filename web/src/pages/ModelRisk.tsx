@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, download } from '../lib/api'
 import { toast } from '../lib/toast'
@@ -74,8 +74,8 @@ export default function ModelRisk() {
         {q.isLoading ? <div className="text-[12.5px] text-[var(--color-faint)] py-6 text-center">assembling the model cards…</div> : (
           <div className="overflow-x-auto"><table className="data-table text-[12px]">
             <thead><tr><th>Model</th><th>Hazard</th><th>Tier</th><th>What it may claim</th><th className="num">OOS r²</th><th>Fidelity</th><th>Validation</th><th>Review</th><th></th></tr></thead>
-            <tbody>{rows.map(c => (<>
-              <tr key={c.ref}>
+            <tbody>{rows.map(c => (<Fragment key={c.ref}>
+              <tr>
                 <td><span className="text-[var(--color-ink)]">{c.name}</span><div className="mono text-[10px] text-[var(--color-faint)]">{c.kind === 'score' ? 'score' : 'impact'} · {c.lifecycle}{c.active ? '' : ' · not in use'}</div></td>
                 <td>{c.hazard}</td>
                 <td><span className="font-medium" style={{ color: TIER[c.tier] ?? 'var(--color-mute)' }}>{c.tier}</span></td>
@@ -88,8 +88,8 @@ export default function ModelRisk() {
                   {' · '}<button onClick={() => download(`/v1/model-risk/card.pdf?ref=${encodeURIComponent(c.ref)}`, `model-card-${c.hazard}.pdf`)} className="text-[var(--color-sky)] hover:underline">PDF</button>
                   {d?.can_review && <>{' · '}<button onClick={() => setReview(c)} className="text-[var(--color-sky)] hover:underline font-medium">Review</button></>}</td>
               </tr>
-              {open === c.ref && <tr key={c.ref + '-d'}><td colSpan={9} className="bg-[var(--color-panel-2)]"><CardDetail c={c} /></td></tr>}
-            </>))}</tbody>
+              {open === c.ref && <tr><td colSpan={9} className="bg-[var(--color-panel-2)]"><CardDetail c={c} /></td></tr>}
+            </Fragment>))}</tbody>
           </table></div>)}
       </Card>
       {review && d && <ReviewDialog c={review} conclusions={d.conclusions} onClose={() => setReview(null)} />}
