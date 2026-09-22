@@ -1,5 +1,6 @@
 """KRI appetite thresholds — grading a KRI against per-org RAG bands. Requires PostgreSQL."""
 import pytest
+from sqlalchemy import text
 
 from core.db.session import get_session
 from services.governance import kri_thresholds as KT
@@ -24,7 +25,17 @@ def test_grade_pure():
 
 @pytest.mark.integration
 def test_platform_defaults_grade_live_kpis():
+    """Platform defaults apply when an org hasn't customized a band. Meridian (BANK_ORG) is a real demo
+    tenant that HAS set its own pct_at_risk/coverage bands via the appetite UI (a legitimate org override,
+    not a bug — dated well before this test suite existed). set_threshold(amber=None, red=None) does NOT
+    restore the platform default; it leaves the org row in place with both edges cleared, which grade()
+    treats as explicitly ungraded (see test_org_override_beats_default_and_regrades below) — so this
+    deletes the org's override row outright, inside the rolled-back transaction, to deterministically
+    exercise the actual "no org row → platform default" path rather than assume a particular org's current
+    live customization state."""
     with get_session() as s:
+        s.execute(text("DELETE FROM kri_threshold WHERE org_id = :o AND framework = 'bank_tcfd' "
+                       "AND kri_key IN ('pct_at_risk', 'coverage')"), {"o": BANK_ORG})
         d = kri(s, BANK_ORG, "bank_tcfd")
         assert d["supported"]
         kb = {k["key"]: k for k in d["kpis"]}

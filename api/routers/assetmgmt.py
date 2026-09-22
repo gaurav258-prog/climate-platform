@@ -351,6 +351,8 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
 
     org_id = ctx["org"]["org_id"]
+    from services.governance.entities import default_reporting_entity
+    default_entity = default_reporting_entity(session, org_id)
     records, cell_coords = [], {}
     for _, row in df.iterrows():
         try:
@@ -364,7 +366,7 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
-            "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "entity_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
             "entity_name": str(row["holding_name"]), "sector": str(row["sector"]),
             "nace_code": str(row["nace_code"]) if "nace_code" in df.columns and pd.notna(row.get("nace_code")) else None,
             "latitude": lat, "longitude": lon, "h3_cell": cell,
@@ -380,10 +382,10 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code,
                                          latitude, longitude, h3_cell, region, country, primary_value_eur,
-                                         borrower_entity_id, minimum_safeguards_status)
+                                         borrower_entity_id, minimum_safeguards_status, reporting_entity_id)
         VALUES (:entity_id, :org_id, 'assetmgmt', :entity_name, :sector, :nace_code,
                 :latitude, :longitude, :h3_cell, :region, :country, :primary_value_eur,
-                :borrower_entity_id, :minimum_safeguards_status)
+                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid))
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="holdings.upload",
                 target_type="assetmgmt_holdings", target_id=None,

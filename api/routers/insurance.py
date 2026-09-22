@@ -541,6 +541,8 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
         })
 
     org_id = ctx["org"]["org_id"]
+    from services.governance.entities import default_reporting_entity
+    default_entity = default_reporting_entity(session, org_id)
     records, cell_coords = [], {}
     for _, row in df.iterrows():
         try:
@@ -562,7 +564,7 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
-            "policy_id": str(uuid.uuid4()), "org_id": org_id,
+            "policy_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
             "policy_name": str(row["policy_name"]),
             "policy_type": str(row["policy_type"]) if "policy_type" in df.columns and pd.notna(row.get("policy_type")) else "property",
             "latitude": lat, "longitude": lon, "h3_cell": cell,
@@ -583,10 +585,10 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
                                          h3_cell, region, country, primary_value_eur,
-                                         construction_type, year_built, number_of_stories)
+                                         construction_type, year_built, number_of_stories, reporting_entity_id)
         VALUES (:policy_id, :org_id, 'insurance', :policy_name, :policy_type, :latitude, :longitude,
                 :h3_cell, :region, :country, :sum_insured_eur,
-                :construction_type, :year_built, :number_of_stories)
+                :construction_type, :year_built, :number_of_stories, CAST(:reporting_entity_id AS uuid))
     """), records)
     session.execute(text("""
         INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,

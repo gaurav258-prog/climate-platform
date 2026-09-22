@@ -11,14 +11,18 @@ from core.db.session import get_session
 
 
 def test_no_duplicate_active_rows_per_key():
+    """The append-only invariant is per (cell, hazard, scenario, horizon, LANE) — a standing climatology and
+    a live nowcast legitimately coexist as two active rows for the same (cell,hazard,scenario,horizon) by
+    design (the score-lane invariant: a nowcast must never retire a calibrated standing climatology). A
+    genuine race/bug is two ACTIVE rows on the SAME lane for the same key — that's what this checks."""
     with get_session() as s:
         n = s.execute(text("""
             SELECT COUNT(*) FROM (
-                SELECT h3_cell, hazard_type, scenario, time_horizon, COUNT(*) c
+                SELECT h3_cell, hazard_type, scenario, time_horizon, score_lane, COUNT(*) c
                 FROM canonical_scores WHERE valid_to IS NULL
-                GROUP BY 1,2,3,4 HAVING COUNT(*) > 1) x
+                GROUP BY 1,2,3,4,5 HAVING COUNT(*) > 1) x
         """)).scalar()
-    assert n == 0, f"{n} (cell,hazard,scenario,horizon) keys have >1 active canonical row"
+    assert n == 0, f"{n} (cell,hazard,scenario,horizon,lane) keys have >1 active canonical row"
 
 
 def test_physical_risk_views_never_double_count():

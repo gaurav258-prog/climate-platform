@@ -50,10 +50,16 @@ def test_mention_queues_email(monkeypatch):
         target = str(s.execute(text("SELECT user_id FROM users WHERE email='approver@meridian.demo'")).scalar())
         t = T.create_task(s, BANK_ORG, maker, title="Ping by email")
         T.comment(s, BANK_ORG, t["task_id"], maker, "@Pieter please confirm", mentions=[target])
-        # console is a fast transport → dispatch() delivers inline in the same transaction
+        # console is a fast transport → dispatch() delivers inline in the same transaction. Scoped to this
+        # task's own ref_id, not "most recent task_mention" — under concurrent load (parallel test/worker
+        # runs, or two orgs mentioning someone around the same moment) an unscoped query can pick up a
+        # different row than the one this test just created.
         row = s.execute(text("""
-            SELECT to_email, status FROM email_outbox WHERE kind='task_mention' ORDER BY created_at DESC LIMIT 1
-        """)).mappings().first()
+            SELECT to_email, status FROM email_outbox WHERE kind='task_mention' AND ref_type='task_mention'
+              AND org_id = CAST(:o AS uuid) AND ref_id::text IN (
+                SELECT mention_id::text FROM regulatory_task_mention WHERE task_id = CAST(:t AS uuid))
+            ORDER BY created_at DESC LIMIT 1
+        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().first()
         assert row["to_email"] == "approver@meridian.demo" and row["status"] == "sent"
         s.rollback()
 
@@ -69,7 +75,10 @@ def test_smtp_transport_defers_to_worker(monkeypatch):
         t = T.create_task(s, BANK_ORG, maker, title="SMTP defer")
         T.comment(s, BANK_ORG, t["task_id"], maker, "@Pieter please confirm", mentions=[target])
         row = s.execute(text("""
-            SELECT status, attempts FROM email_outbox WHERE kind='task_mention' ORDER BY created_at DESC LIMIT 1
-        """)).mappings().first()
+            SELECT status, attempts FROM email_outbox WHERE kind='task_mention' AND ref_type='task_mention'
+              AND org_id = CAST(:o AS uuid) AND ref_id::text IN (
+                SELECT mention_id::text FROM regulatory_task_mention WHERE task_id = CAST(:t AS uuid))
+            ORDER BY created_at DESC LIMIT 1
+        """), {"o": BANK_ORG, "t": t["task_id"]}).mappings().first()
         assert row["status"] == "pending" and row["attempts"] == 0
         s.rollback()

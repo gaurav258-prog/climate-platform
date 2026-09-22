@@ -367,6 +367,8 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
 
     org_id = ctx["org"]["org_id"]
+    from services.governance.entities import default_reporting_entity
+    default_entity = default_reporting_entity(session, org_id)
     records, cell_coords = [], {}
     for _, row in df.iterrows():
         try:
@@ -393,7 +395,7 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         cell = h3.latlng_to_cell(lat, lon, 8)
         cell_coords[cell] = (lat, lon)
         records.append({
-            "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "entity_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
             "entity_name": str(row["property_name"]), "entity_type": str(row["property_type"]),
             "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
@@ -414,11 +416,11 @@ async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFi
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type,
                                          latitude, longitude, h3_cell, region, country,
                                          primary_value_eur, construction_type, year_built, number_of_stories,
-                                         borrower_entity_id, minimum_safeguards_status)
+                                         borrower_entity_id, minimum_safeguards_status, reporting_entity_id)
         VALUES (:entity_id, :org_id, 'realestate', :entity_name, :entity_type,
                 :latitude, :longitude, :h3_cell, :region, :country,
                 :primary_value_eur, :construction_type, :year_built, :number_of_stories,
-                :borrower_entity_id, :minimum_safeguards_status)
+                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid))
     """), records)
     session.execute(text("""
         INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur)

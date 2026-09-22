@@ -6,11 +6,15 @@ runs in one uncommitted session and rolls back.
 """
 from __future__ import annotations
 
+import uuid
+
 import pytest
+from sqlalchemy import text
 
 from api.routers.bank import build_disclosure_snapshot
 from core.db.session import get_session
 from services.governance import entities as E
+from services.ingest.portfolio_ingest import ingest_bank_assets
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 
@@ -46,4 +50,73 @@ def test_group_consolidation_is_ownership_weighted():
         assert cons == pytest.approx(whole - (1 - w) * leas_full, rel=1e-6)
         assert cons < whole
 
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_no_orphan_reporting_entity_for_orgs_with_a_hierarchy():
+    """An asset with reporting_entity_id=NULL is invisible to every per-entity/consolidated-group filing —
+    it only shows up in the org-wide unscoped view. This was a real bug (54 assets across 2 demo orgs, 499M
+    + more, silently orphaned) caused by the ingest paths never assigning one. Guards against it recurring."""
+    with get_session() as s:
+        orphans = s.execute(text("""
+            SELECT pe.org_id::text, COUNT(*) n, SUM(pe.primary_value_eur) v
+            FROM portfolio_entities pe
+            WHERE pe.reporting_entity_id IS NULL
+              AND EXISTS (SELECT 1 FROM reporting_entities re WHERE re.org_id = pe.org_id)
+            GROUP BY 1
+        """)).mappings().all()
+        assert not orphans, f"orgs with a reporting-entity hierarchy have orphaned book rows: {orphans}"
+
+
+@pytest.mark.integration
+def test_ingest_assigns_reporting_entity_when_unambiguous():
+    """A single-entity org: a freshly ingested asset must be assigned that entity automatically (no reason
+    to leave it orphaned when there's only one place it could belong)."""
+    with get_session() as s:
+        # find (or skip) an org with exactly one non-group reporting entity
+        row = s.execute(text("""
+            SELECT org_id::text FROM reporting_entities WHERE kind <> 'group'
+            GROUP BY org_id HAVING COUNT(*) = 1 LIMIT 1
+        """)).first()
+        if not row:
+            pytest.skip("no single-entity org seeded")
+        org_id = row[0]
+        expected = E.default_reporting_entity(s, org_id)
+        assert expected is not None
+
+        test_asset_name = f"consolidation-test-{uuid.uuid4()}"
+        result = ingest_bank_assets(s, org_id, [{
+            "asset_name": test_asset_name, "asset_type": "commercial_real_estate",
+            "latitude": "52.5", "longitude": "13.4", "appraised_value_eur": "1000000",
+            "sector": "real_estate", "counterparty_evic_eur": "50000000",
+        }])
+        assert result["n_ingested"] == 1
+        assert "reporting_entity_gap" not in result
+        rid = s.execute(text(
+            "SELECT reporting_entity_id::text FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) "
+            "AND entity_name = :n"), {"o": org_id, "n": test_asset_name}).scalar()
+        assert rid == expected
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_ingest_discloses_the_gap_when_ambiguous():
+    """A multi-entity org: a freshly ingested asset with no reporting_entity specified must stay honestly
+    unassigned (never guessed) AND the ingest response must say so — never a silent orphan."""
+    with get_session() as s:
+        assert E.default_reporting_entity(s, BANK_ORG) is None  # Meridian has 3 legal entities: ambiguous
+
+        test_asset_name = f"consolidation-test-{uuid.uuid4()}"
+        result = ingest_bank_assets(s, BANK_ORG, [{
+            "asset_name": test_asset_name, "asset_type": "commercial_real_estate",
+            "latitude": "52.5", "longitude": "13.4", "appraised_value_eur": "1000000",
+            "sector": "real_estate", "counterparty_evic_eur": "50000000",
+        }])
+        assert result["n_ingested"] == 1
+        assert "reporting_entity_gap" in result
+        rid = s.execute(text(
+            "SELECT reporting_entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) "
+            "AND entity_name = :n"), {"o": BANK_ORG, "n": test_asset_name}).scalar()
+        assert rid is None
         s.rollback()

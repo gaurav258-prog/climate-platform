@@ -854,6 +854,26 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
                          "key": "t5", "columns": cols, "col_sources": srcs, "rows": t5_rows,
                          "note": grid["basis"] + _feed_note})
+
+        # EBA Q&A 2022_6600: "breakdown by geography" means a SEPARATE template instance per geographical area,
+        # not one portfolio-wide grid. One section per geography (top-exposure countries + an "Other" rollup),
+        # each the same NACE-section × physical-risk grid as the portfolio-wide one above.
+        for geo in grid.get("geographies", []):
+            geo_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in geo["rows"]]
+            geo_rows.append(_t5row("TOTAL", geo["total"]))
+            _geo_fed = []
+            if geo.get("maturity_covered"):
+                _geo_fed.append("maturity buckets + average-weighted maturity")
+            if geo.get("ifrs9_covered"):
+                _geo_fed.append("IFRS-9 Stage 2 / non-performing")
+            _geo_feed_note = (" " + "; ".join(_geo_fed).capitalize() + " are filled from the loan-tape attributes "
+                               "you provided." if _geo_fed else " Maturity, IFRS-9 staging and impairment columns "
+                               "are integrated from the institution's loan tape.")
+            sections.append({
+                "title": f"Template 5 — {geo['label']} · climate-change physical risk (ITS 2022/2453, Annex XXXIX, "
+                         f"geography breakdown per EBA Q&A 2022_6600)",
+                "key": f"t5_geo_{geo['country']}", "columns": cols, "col_sources": srcs, "rows": geo_rows,
+                "note": f"Exposure in this geography: {_eur(geo['exposure_eur'])}." + _geo_feed_note})
     else:
         # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
         haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))

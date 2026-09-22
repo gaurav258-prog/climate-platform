@@ -46,6 +46,9 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
     result: how many landed, how many were skipped, and why (a sample), plus the scoring summary. A row
     missing a required field or with an out-of-range coordinate is skipped with a reason, never fatal to the
     batch and never guessed."""
+    from services.governance.entities import default_reporting_entity
+    default_entity = default_reporting_entity(session, org_id)
+
     records: list[dict] = []
     cell_coords: dict = {}
     skipped: list[dict] = []
@@ -82,6 +85,7 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
         origination = _str(row.get("loan_origination_date"))
         records.append({
             "entity_id": str(uuid.uuid4()), "org_id": org_id,
+            "reporting_entity_id": default_entity,
             "entity_name": name, "entity_type": atype,
             "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _str(row.get("region")), "country": _str(row.get("country")),
@@ -100,10 +104,10 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
         session.execute(text("""
             INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
                                              h3_cell, region, country, primary_value_eur, sector,
-                                             borrower_entity_id, minimum_safeguards_status)
+                                             borrower_entity_id, minimum_safeguards_status, reporting_entity_id)
             VALUES (:entity_id, :org_id, 'banking', :entity_name, :entity_type, :latitude, :longitude,
                     :h3_cell, :region, :country, :primary_value_eur, :sector,
-                    :borrower_entity_id, :minimum_safeguards_status)
+                    :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid))
         """), records)
         session.execute(text("""
             INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status, counterparty_evic_eur, counterparty_govt_level)
@@ -121,4 +125,13 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
         except Exception as exc:  # noqa: BLE001 — deliberately broad; dispatch is fire-and-forget
             processing = {"scoring": "deferred", "n_cells": len(cell_coords),
                           "note": f"async scoring will run when available ({type(exc).__name__})"}
-    return {"n_ingested": len(records), "n_skipped": len(skipped), "skipped": skipped, "processing": processing}
+    result = {"n_ingested": len(records), "n_skipped": len(skipped), "skipped": skipped, "processing": processing}
+    if records and default_entity is None:
+        # honest, not silent: these rows will show in the org-wide view but be invisible to any per-entity
+        # or consolidated-group filing until an operator assigns them (multi-entity orgs have no unambiguous
+        # default — see services.governance.entities.default_reporting_entity).
+        result["reporting_entity_gap"] = (
+            f"{len(records)} ingested asset(s) have no reporting entity assigned (this org has more than one "
+            "legal entity/fund, so none could be inferred). They will appear in the org-wide book but not in "
+            "any per-entity or consolidated-group filing until assigned via the entity hierarchy.")
+    return result

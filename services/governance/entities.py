@@ -34,6 +34,27 @@ def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     return dict(r) if r else None
 
 
+def default_reporting_entity(session: Session, org_id: str) -> str | None:
+    """The reporting entity a NEWLY INGESTED asset should be filed under, when the ingest row doesn't say.
+
+    A book asset with no reporting_entity_id is invisible to every entity-scoped or consolidated-group
+    filing (it only shows up in the unscoped org-wide view) — an on-demand-verified real bug, not a
+    theoretical one: 54 assets across two demo orgs (bank + insurer) had silently fallen into this gap
+    before this function existed. Every ingest path must assign one.
+
+    Unambiguous only when the org has exactly one non-group reporting entity — then that's obviously
+    where a new asset belongs. An org with a real multi-entity hierarchy (a group over several legal
+    entities/funds) has no way to infer which leaf a bare row belongs to from the row alone, so this
+    returns None rather than guess; the caller must then either ask the uploader (a reporting_entity
+    field on the template) or accept the row stays unscoped until an operator assigns it via the entity
+    hierarchy UI. Never silently pick the "first" or "biggest" leaf — that would misattribute exposure
+    to the wrong legal entity in a consolidated filing, which is worse than leaving it honestly gapped."""
+    rows = session.execute(text(
+        "SELECT entity_id::text FROM reporting_entities WHERE org_id = :o AND kind <> 'group'"
+    ), {"o": org_id}).scalars().all()
+    return rows[0] if len(rows) == 1 else None
+
+
 def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
     """The entity + all its descendants (recursive) — the set of reporting entities a consolidated filing
     at `entity_id` covers. Tenant-scoped."""
