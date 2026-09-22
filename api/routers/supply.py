@@ -732,6 +732,12 @@ def disclosure(session: DbSession, org_id: OrgId,
                    "cogs_at_risk_p50_eur": r.cogs_at_risk_p50, "volume_at_risk_eur": r.volume_at_risk_eur,
                    "pct_cogs_at_risk": r.pct_cogs_at_risk},
         "concentration": supply_concentration(r.commodities),
+        # name → commodity_id, so the UI can deep-link each commodity to its analytics detail (same query as /summary)
+        "commodity_ids": {row["name"]: row["commodity_id"] for row in session.execute(text("""
+            SELECT DISTINCT co.commodity_id::text AS commodity_id, co.name
+            FROM sc_sourcing_plots p JOIN sc_commodities co ON co.commodity_id = p.commodity_id
+            WHERE p.org_id = :o
+        """), {"o": org_id}).mappings().all()},
         "csrd": csrd, "eudr": {"summary": eudr_summary, "plots": eudr},
     }
 

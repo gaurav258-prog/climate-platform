@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts'
 import { Satellite, ShieldCheck, FileCheck2, AlertTriangle, Loader2, Percent } from 'lucide-react'
 import { api } from '../lib/api'
@@ -12,6 +13,7 @@ interface Disc {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number; ingredient_spend_eur: number; total_cogs_eur: number }
   csrd: { commodity: string; volume_at_risk_eur: number | null; status: string; calibration: string | null; avg_hazard: number | null; spend_eur: number }[]
   eudr: { summary: Record<string, number>; plots: EudrPlot[] }
+  commodity_ids: Record<string, string>
 }
 interface EudrPlot {
   plot_id: string; plot: string; commodity: string; country: string | null; eudr_covered: boolean
@@ -37,6 +39,7 @@ const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1
 const eurk = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 export default function Disclosure() {
+  const nav = useNavigate()
   const qc = useQueryClient()
   const disc = useQuery({ queryKey: ['disclosure'], queryFn: () => api.get<Disc>('/v1/supply/disclosure') })
   const rs = useQuery({ queryKey: ['resourcing'], queryFn: () => api.get<Resourcing>('/v1/supply/resourcing') })
@@ -109,7 +112,8 @@ export default function Disclosure() {
                   <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ fill: '#16223a55' }} contentStyle={{ background: '#111a2c', border: '1px solid #1e2a40', borderRadius: 10, fontSize: 12 }}
                     formatter={(v) => [`€${Number(v).toFixed(2)}m`, 'at risk']} />
-                  <Bar dataKey="v" radius={[5, 5, 0, 0]}>
+                  <Bar dataKey="v" radius={[5, 5, 0, 0]} className="cursor-pointer"
+                    onClick={(bar) => { const name = (bar as { name?: string; payload?: { name?: string } }).name ?? (bar as { payload?: { name?: string } }).payload?.name; const cid = name ? d.commodity_ids?.[name] : undefined; if (cid) nav(`/detail/commodity/${cid}`) }}>
                     {chart.map((_, i) => <Cell key={i} fill="#38bdf8" />)}
                   </Bar>
                 </BarChart>
@@ -147,7 +151,7 @@ export default function Disclosure() {
             <tbody>
               {covered.map(p => (
                 <tr key={p.plot_id} className="border-t border-[var(--color-line)]">
-                  <td className="py-2.5 pr-3 text-[var(--color-ink)]">{p.plot}</td>
+                  <td className="py-2.5 pr-3"><Link to={`/detail/plot/${p.plot_id}`} className="text-[var(--color-ink)] hover:text-[var(--color-sky)] hover:underline">{p.plot}</Link></td>
                   <td className="pr-3 text-[var(--color-mute)]">{p.commodity}</td>
                   <td className="pr-3 mono text-[12px] text-[var(--color-mute)]">{p.country ?? '—'}</td>
                   <td className="pr-3"><span className="mono text-[11px] text-[var(--color-faint)]">{p.eudr_declared ?? '—'}</span></td>
