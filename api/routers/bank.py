@@ -52,6 +52,7 @@ EXT_BANKING_COLUMNS = [
     "CAST(x.residual_maturity_years AS FLOAT) AS residual_maturity_years",
     "x.epc_label", "x.ifrs9_stage",
     "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 alignment
+    "x.counterparty_govt_level",   # central/regional/local — scopes the GAR Art. 7(1) government exclusion
 ]
 
 
@@ -79,6 +80,7 @@ def _map_asset_list_row(row):
         "residual_maturity_years": row.get("residual_maturity_years"),
         "epc_label": row.get("epc_label"), "ifrs9_stage": row.get("ifrs9_stage"),
         "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 (IEA)
+        "counterparty_govt_level": row.get("counterparty_govt_level"),   # feeds GAR Art. 7(1) exclusion scoping
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"],
@@ -368,6 +370,8 @@ ASSET_TEMPLATE_FIELDS = [
     {"name": "minimum_safeguards_status", "required": False, "label": "Minimum-safeguards status", "kind": "text", "description": "compliant / non_compliant, from your own "
      "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check (also requires a "
      "nace_code on the loan, which today's upload doesn't yet collect — see the taxonomy_status note below).", "example": "compliant"},
+    {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
+     "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
 ]
 REQUIRED_ASSET_COLUMNS = [f["name"] for f in ASSET_TEMPLATE_FIELDS if f["required"]]
 SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
@@ -437,8 +441,11 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
     {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC (EUR)", "kind": "money",
      "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape.", "example": "185000000"},
+    {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
+     "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
 ]
-_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur"}
+_ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
+              "counterparty_govt_level"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -505,6 +512,9 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         evic = row.get("counterparty_evic_eur")
         if evic not in (None, ""):
             sets.append("counterparty_evic_eur = :evic"); params["evic"] = float(str(evic).replace(",", ""))
+        gl = row.get("counterparty_govt_level")
+        if gl not in (None, ""):
+            sets.append("counterparty_govt_level = :gl"); params["gl"] = str(gl).strip().lower()
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

@@ -11,7 +11,8 @@ _ASSETS = [
     {"nace_code": "C25", "outstanding_loan_balance_eur": 2_000_000_000, "taxonomy_status": "eligible"},
     {"nace_code": "C25", "outstanding_loan_balance_eur": 200_000_000, "taxonomy_status": "aligned"},
     {"nace_code": "T97", "outstanding_loan_balance_eur": 30_000_000, "taxonomy_status": ""},  # household
-    {"nace_code": "O84", "outstanding_loan_balance_eur": 500_000_000, "taxonomy_status": ""},  # govt (excluded)
+    # central govt (Art. 7(1)) — excluded; local/regional govt is NOT excluded, so the govt_level signal matters
+    {"nace_code": "O84", "outstanding_loan_balance_eur": 500_000_000, "taxonomy_status": "", "counterparty_govt_level": "central"},
 ]
 
 

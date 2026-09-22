@@ -32,29 +32,50 @@ def test_concentration_split_acute_chronic_and_sector():
     assert c["acute_val"] <= 1000 and c["chronic_val"] <= 1000
 
 
-def test_gar_grid_excludes_government_and_computes_ratio():
+def test_gar_grid_excludes_only_central_government():
     assets = [
         {"nace_code": "64.19", "value_eur": 100, "taxonomy_status": "aligned"},   # financial (K), aligned
         {"nace_code": "35.11", "value_eur": 200, "taxonomy_status": "eligible"},  # non-financial, eligible only
         {"nace_code": "C", "value_eur": 100, "taxonomy_status": "not_eligible"},  # non-financial, not eligible
-        {"nace_code": "84.11", "value_eur": 500, "taxonomy_status": "aligned"},   # general government (O) — excluded
+        {"nace_code": "84.11", "value_eur": 500, "taxonomy_status": "aligned",
+         "counterparty_govt_level": "central"},                                  # central govt (O) — excluded
+        {"nace_code": "84.12", "value_eur": 300, "taxonomy_status": "aligned",
+         "counterparty_govt_level": "local"},                                    # local govt (O) — NOT excluded
     ]
     g = gar_grid(assets)
-    assert g["total_assets"] == 900
-    assert g["general_government"] == 500
-    assert g["covered_assets"] == 400                     # 900 - 500 govt
-    assert g["eligible"] == 300                           # 100 aligned + 200 eligible (govt's 500 excluded)
-    assert g["aligned"] == 100                            # only the financial one (govt aligned excluded)
-    assert g["gar_stock_pct"] == 25.0                     # 100 / 400
-    assert g["pct_eligible"] == 75.0                      # 300 / 400
+    assert g["total_assets"] == 1200
+    assert g["general_government"] == 500                 # only the central-govt exposure
+    assert g["covered_assets"] == 700                      # 1200 - 500 central govt
+    assert g["eligible"] == 600                            # 100 + 200 + 300 (govt's 500 excluded)
+    assert g["aligned"] == 400                             # 100 financial + 300 local govt (central govt's 500 excluded)
+    assert g["gar_stock_pct"] == round(400 / 700 * 100, 1)
+    assert g["pct_eligible"] == round(600 / 700 * 100, 1)
     by = {r["counterparty"]: r for r in g["rows"]}
     assert by["Financial corporations"]["aligned"] == 100
-    assert by["General governments"]["gross"] == 500
+    assert by["General governments"]["gross"] == 500       # central govt only
+    assert by["Non-financial corporations"]["gross"] == 200 + 100 + 300   # includes the local-govt exposure
     # aligned is a subset of eligible on every row
     for r in g["rows"]:
         assert r["aligned"] <= r["eligible"] <= r["gross"]
     # per-objective CCM/CCA split is declared customer, not fabricated
     assert any("CCM" in c for c in g["customer_columns"])
+    assert g["govt_level_coverage"] == {"n_nace_o": 2, "n_signalled": 2}
+
+
+def test_gar_grid_unsignalled_nace_o_defaults_to_in_scope_not_excluded():
+    # a NACE-O counterparty with NO counterparty_govt_level must NOT be excluded — the bug this fixes was
+    # excluding it by default; the conservative fix keeps it in scope (covered assets) until signalled.
+    assets = [
+        {"nace_code": "84.11", "value_eur": 400, "taxonomy_status": "eligible"},   # no govt_level at all
+    ]
+    g = gar_grid(assets)
+    assert g["general_government"] == 0
+    assert g["covered_assets"] == 400
+    by = {r["counterparty"]: r for r in g["rows"]}
+    assert "General governments" not in by
+    assert by["Non-financial corporations"]["gross"] == 400
+    assert g["govt_level_coverage"] == {"n_nace_o": 1, "n_signalled": 0}
+    assert "counterparty_govt_level" in g["basis"] and "IN SCOPE" in g["basis"]
 
 
 def _asset(nace, gross, hazards):
@@ -74,9 +95,30 @@ def test_template1_transition_grid_emissions_by_sector():
     # total financed emissions = sum of all scopes (platform's financed-emissions basis); Scope3 subset
     assert g["total"]["fin_emissions"] == 485 and g["total"]["scope3"] == 320
     assert g["total"]["scope3"] <= g["total"]["fin_emissions"]
-    # alignment / credit-quality / maturity columns are declared customer-supplied, not fabricated
+    # alignment / Paris-benchmark / impairment columns are declared customer-supplied, not fabricated
     assert any("Taxonomy-aligned" in c for c in g["customer_columns"])
-    assert any("Stage 2" in c for c in g["customer_columns"])
+    assert any("accumulated impairment" in c for c in g["customer_columns"])
+    # no per-loan maturity/IFRS-9 attrs supplied → computed but uncovered, not silently dropped as "customer data"
+    assert not g["maturity_covered"] and not g["ifrs9_covered"]
+    assert not any("Stage 2" in c for c in g["customer_columns"])   # Stage 2 IS computed now (Fix 3), not declared
+
+
+def test_template1_wires_maturity_and_ifrs9_from_provided_attrs():
+    # Fix 3: Template 1 must compute the same maturity-bucket / IFRS-9 staging columns Template 5 does, from
+    # the same per-loan attributes, instead of declaring them customer/IFRS-9 data it "doesn't hold".
+    assets = [
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 1000, "residual_maturity_years": 3, "ifrs9_stage": "2",
+         "ghg1": 0, "ghg2": 0, "ghg3": 0},
+        {"nace_code": "D35", "outstanding_loan_balance_eur": 2000, "residual_maturity_years": 12, "ifrs9_stage": "1",
+         "ghg1": 0, "ghg2": 0, "ghg3": 0},
+    ]
+    g = template1_grid(assets)
+    assert g["maturity_covered"] and g["ifrs9_covered"]
+    by = {r["section"]: r for r in g["rows"]}
+    assert by["D"]["le5"] == 1000 and by["D"]["m10_20"] == 2000
+    assert by["D"]["avg_maturity"] == 9.0
+    assert by["D"]["stage2"] == 1000 and by["D"]["npe"] == 0
+    assert by["D"]["has_maturity"] and by["D"]["has_ifrs9"]
 
 
 def test_nace_section_mapping():
@@ -127,6 +169,38 @@ def test_template5_maturity_and_ifrs9_from_provided_attrs():
     assert g["total"]["avg_maturity"] == round((500 * 25 + 1000 * 3 + 2000 * 12) / 3500, 1)
     # impairment is still declared customer-supplied (never fabricated)
     assert any("impairment" in c for c in g["customer_columns"])
+
+
+def test_template5_geography_axis_top_n_and_other_rollup():
+    # EBA Q&A 2022_6600: Template 5 needs a SEPARATE grid per geography, not one portfolio-wide grid.
+    assets = (
+        [{"nace_code": "C", "outstanding_loan_balance_eur": 100, "country": "DE", "hazards": []}] +
+        [{"nace_code": "A", "outstanding_loan_balance_eur": 50, "country": "FR", "hazards": []}] +
+        [{"nace_code": "C", "outstanding_loan_balance_eur": 5, "country": f"C{i}", "hazards": []} for i in range(12)]
+    )
+    g = template5_grid(assets)
+    # portfolio-wide top level is unchanged (existing consumers keep working)
+    assert g["total"]["gross"] == 100 + 50 + 12 * 5
+    geos = {x["country"]: x for x in g["geographies"]}
+    # top 10 by exposure = DE(100), FR(50), then 8 of the 12 C0..C11 at 5 each; the remaining 4 roll into OTHER
+    assert len(g["geographies"]) == 11   # 10 named + 1 "Other / rest of book"
+    assert "DE" in geos and "FR" in geos and "OTHER" in geos
+    assert geos["DE"]["exposure_eur"] == 100
+    assert geos["DE"]["rows"][0]["section"] == "C" and geos["DE"]["rows"][0]["gross"] == 100
+    other = geos["OTHER"]
+    assert other["label"] == "Other / rest of book"
+    assert other["exposure_eur"] == 4 * 5    # the 4 smallest countries that didn't make the top 10
+    # nothing silently disappears: sum of every geography's gross == the portfolio total
+    assert sum(x["total"]["gross"] for x in g["geographies"]) == g["total"]["gross"]
+    assert "geography" in g["basis"].lower()
+
+
+def test_template5_geography_no_rollup_when_within_top_n():
+    assets = [{"nace_code": "C", "outstanding_loan_balance_eur": 10, "country": "DE", "hazards": []},
+              {"nace_code": "A", "outstanding_loan_balance_eur": 5, "country": "FR", "hazards": []}]
+    g = template5_grid(assets)
+    assert len(g["geographies"]) == 2
+    assert {x["country"] for x in g["geographies"]} == {"DE", "FR"}
 
 
 def test_template5_columns_blank_when_no_attrs_provided():

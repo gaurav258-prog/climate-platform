@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 # Mirrors bank.py ASSET_TEMPLATE_FIELDS required set — the fields a loan-tape row must carry.
 BANK_REQUIRED = ["asset_name", "asset_type", "latitude", "longitude", "appraised_value_eur", "sector", "counterparty_evic_eur"]
 _SAFEGUARDS = {"compliant", "non_compliant"}
+_GOVT_LEVELS = {"central", "regional", "local"}
 
 
 def _num(v):
@@ -75,6 +76,9 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
         safeguards = (_str(row.get("minimum_safeguards_status")) or "").lower() or None
         if safeguards and safeguards not in _SAFEGUARDS:
             safeguards = None
+        govt_level = (_str(row.get("counterparty_govt_level")) or "").lower() or None
+        if govt_level and govt_level not in _GOVT_LEVELS:
+            govt_level = None
         origination = _str(row.get("loan_origination_date"))
         records.append({
             "entity_id": str(uuid.uuid4()), "org_id": org_id,
@@ -85,6 +89,7 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
             "outstanding_loan_balance_eur": _num(row.get("outstanding_loan_balance_eur")),
             "loan_origination_date": origination[:10] if origination else None,
             "counterparty_evic_eur": evic,
+            "counterparty_govt_level": govt_level,
             "borrower_entity_id": _str(row.get("borrower_entity_id")),
             "minimum_safeguards_status": safeguards,
             # No nace_code on intake yet, so EU Taxonomy classification can't run — honest "not_assessed".
@@ -101,8 +106,8 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> d
                     :borrower_entity_id, :minimum_safeguards_status)
         """), records)
         session.execute(text("""
-            INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status, counterparty_evic_eur)
-            VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status, :counterparty_evic_eur)
+            INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status, counterparty_evic_eur, counterparty_govt_level)
+            VALUES (:entity_id, :outstanding_loan_balance_eur, :loan_origination_date, :taxonomy_status, :counterparty_evic_eur, :counterparty_govt_level)
         """), records)
 
     # Async scoring dispatch is best-effort: the rows are already stored and will be scored on demand when
