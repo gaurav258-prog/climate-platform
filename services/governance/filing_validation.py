@@ -15,9 +15,20 @@ Rules fall in three families, mirroring how a filing goes wrong:
 
 Honesty carries through: a rule never invents a value — it reads what the assembler produced and flags a gap
 as a gap. Because it reads the frozen snapshot, a filing's validation result is stable and reproducible.
+
+Ledger reconciliation (added 2026-09-23, closing a gap an independent architecture review found): the GL
+reconciliation (services/governance/gl_recon.py) and seasonal-arrears overlay (services/governance/
+seasonal_arrears.py) used to be pure dashboard tiles — a variance could sit well outside tolerance and a
+filing would still submit, review, attest and file with nobody in that chain ever shown it. This module now
+checks the live reconciliation state as a `tie_out` rule on every filing, org-type-scoped (GL for bank /
+insurer / reit / asset_manager, seasonal-arrears for agri): no ledger uploaded yet is a WARNING (many orgs
+haven't onboarded this overlay — that alone shouldn't block filing), but an uploaded ledger showing a
+variance OUTSIDE tolerance is BLOCKING — a known, quantified reconciliation failure can no longer pass
+through submit_for_review silently.
 """
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.governance.filings import get_filing
@@ -137,6 +148,61 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
 _RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai}
 
 
+def _arrears_finding(r: dict) -> dict:
+    """Pure: interpret a seasonal_arrears.assessment() result as a validation finding. No fixed tolerance
+    the way GL has one — the gate is that the overlay ran and every past-due loan reached a classification
+    (none silently skipped; country-less loans are honestly counted as genuine, never guessed at)."""
+    if not r.get("available"):
+        return _f("ledger_reconciled", "tie_out", "warning", True,
+                  "No arrears book uploaded yet — seasonal-vs-genuine reconciliation not checked "
+                  "for this filing (upload one under Your data to enable this check)")
+    s = r.get("summary") or {}
+    genuine_pct = round(100 * (s.get("n_genuine") or 0) / s["n_past_due"], 1) if s.get("n_past_due") else 0
+    unclassified = s.get("n_not_checked_no_country", 0) or 0
+    return _f("ledger_reconciled", "tie_out", "warning", True,
+              f"Seasonal-arrears overlay ran: {s.get('n_past_due', 0)} past-due loan(s), "
+              f"{genuine_pct}% classified genuine deterioration"
+              + (f" — {unclassified} had no country on record and were conservatively counted as genuine"
+                 if unclassified else ""))
+
+
+def _gl_finding(r: dict) -> dict:
+    """Pure: interpret a gl_recon.reconciliation() result as a validation finding. An uploaded ledger with a
+    variance OUTSIDE tolerance is BLOCKING — the actual gap this closes (see module docstring); no ledger at
+    all is only a WARNING, since not every org has onboarded this overlay yet."""
+    if not r.get("available"):
+        return _f("ledger_reconciled", "tie_out", "warning", True,
+                  "No general ledger uploaded yet — the reported book has not been tied to your GL for this "
+                  "filing (upload one under Your data to enable this check)")
+    var_pct = r.get("variance_pct")
+    tol = r.get("tolerance_pct")
+    reconciled = bool(r.get("reconciled"))
+    return _f("ledger_reconciled", "tie_out", "blocking", reconciled,
+              f"Reported book ties to the GL (variance {var_pct}%, within ±{tol}% tolerance)" if reconciled
+              else f"Reported book variance {var_pct}% EXCEEDS the ±{tol}% GL tolerance "
+                   f"({r.get('reported_book_eur')} reported vs {r.get('gl_book_eur')} on the ledger) — "
+                   "resolve the variance or correct the upload before this filing can be submitted for review")
+
+
+def _reconciliation_finding(session: Session, org_id: str, org_type: str | None) -> dict | None:
+    """The ledger-tie-out gate: GL reconciliation for bank/insurer/reit/asset_manager, seasonal-arrears
+    assessment for agri (manufacturer). Returns None only when the org type has no reconciliation overlay
+    at all (nothing to check, nothing to flag). Fetches live state, then hands off to the pure interpreters
+    above (_gl_finding / _arrears_finding), which is what tests exercise directly."""
+    if org_type == "manufacturer":
+        from services.governance.seasonal_arrears import assessment
+        return _arrears_finding(assessment(session, org_id))
+    from services.governance.gl_recon import VERTICAL, reconciliation
+    if org_type not in VERTICAL:
+        return None
+    return _gl_finding(reconciliation(session, org_id, org_type))
+
+
+def _org_type(session: Session, org_id: str) -> str | None:
+    return session.execute(text("SELECT type FROM organizations WHERE org_id = CAST(:o AS uuid)"),
+                           {"o": org_id}).scalar()
+
+
 # ── entry point ─────────────────────────────────────────────────────────
 
 def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
@@ -162,6 +228,11 @@ def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
         # cross-report reconciliation vs sibling filings (warning/info only — never blocks a real change)
         from services.governance.filing_crosscheck import cross_report_findings
         findings.extend(cross_report_findings(session, org_id, filing))
+        # ledger tie-out (GL for bank/insurer/reit/asset_manager, seasonal-arrears for agri) — genuinely
+        # gates submission now; see module docstring
+        recon = _reconciliation_finding(session, org_id, _org_type(session, org_id))
+        if recon:
+            findings.append(recon)
 
     blocking = sum(1 for f in findings if f["severity"] == "blocking" and not f["passed"])
     warnings = sum(1 for f in findings if f["severity"] == "warning" and not f["passed"])

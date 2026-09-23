@@ -5,7 +5,7 @@ plausibility / tie-out logic and the blocking-vs-warning split are pinned.
 """
 from __future__ import annotations
 
-from services.governance.filing_validation import _validate_bank_tcfd, _validate_sfdr_pai
+from services.governance.filing_validation import _arrears_finding, _gl_finding, _validate_bank_tcfd, _validate_sfdr_pai
 
 
 def _blocking(findings):
@@ -79,3 +79,38 @@ def test_sfdr_ready_statement_has_no_blockers():
 def test_sfdr_build_error_is_a_single_blocker():
     findings = _validate_sfdr_pai({"error": "manager has no positions to report on"})
     assert len(_blocking(findings)) == 1
+
+
+# ── ledger reconciliation gate (closes the "recon tile exists but never blocks anything" gap) ──
+
+def test_gl_no_ledger_uploaded_is_a_warning_not_a_blocker():
+    f = _gl_finding({"available": False, "reason": "no_gl_uploaded"})
+    assert f["severity"] == "warning" and f["passed"]
+
+
+def test_gl_within_tolerance_passes_as_blocking_rule():
+    f = _gl_finding({"available": True, "reconciled": True, "variance_pct": 0.2, "tolerance_pct": 0.5,
+                     "reported_book_eur": 1000000, "gl_book_eur": 998000})
+    assert f["severity"] == "blocking" and f["passed"]
+
+
+def test_gl_out_of_tolerance_actually_blocks_now():
+    # This is the exact scenario the independent review flagged: a real, known GL variance that used to
+    # sail through submit_for_review unblocked. It must now fail as a blocking rule.
+    f = _gl_finding({"available": True, "reconciled": False, "variance_pct": 13.558, "tolerance_pct": 0.5,
+                     "reported_book_eur": 4161900000, "gl_book_eur": 3665000000})
+    assert f["severity"] == "blocking" and not f["passed"]
+    assert "13.558" in f["message"] and "EXCEEDS" in f["message"]
+
+
+def test_arrears_no_book_uploaded_is_a_warning():
+    f = _arrears_finding({"available": False, "reason": "no_arrears_uploaded"})
+    assert f["severity"] == "warning" and f["passed"]
+
+
+def test_arrears_overlay_ran_is_reported_but_never_blocks():
+    # Arrears has no fixed tolerance the way GL does — the gate is that it ran, not a pass/fail threshold.
+    f = _arrears_finding({"available": True, "summary": {"n_past_due": 4, "n_genuine": 1,
+                          "n_not_checked_no_country": 1}})
+    assert f["severity"] == "warning" and f["passed"]
+    assert "4 past-due" in f["message"] and "no country on record" in f["message"]
