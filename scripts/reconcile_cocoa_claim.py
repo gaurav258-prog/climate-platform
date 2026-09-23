@@ -20,7 +20,9 @@ from services.intelligence.supply_cogs import project_org_supply
 
 def main() -> None:
     with get_session() as s:
-        org = s.execute(text("SELECT org_id FROM organizations WHERE name ILIKE '%Terra%' LIMIT 1")).scalar()
+        # exact match, not ILIKE '%Terra%': that substring also matches "Mediterraneo Immobiliare"
+        # (a REIT with no supply-chain data) — a real false-positive collision found 2026-09-23.
+        org = s.execute(text("SELECT org_id FROM organizations WHERE name = 'Terra Foods (demo)'")).scalar()
         if org is None:
             print("No agriculture demo org — nothing to reconcile.")
             return

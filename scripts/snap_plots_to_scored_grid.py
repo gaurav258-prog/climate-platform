@@ -63,7 +63,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
 
-    snapped = already = unreachable = no_driver = 0
+    snapped = already = unreachable = no_driver = no_coords = 0
     with get_session() as s:
         # Every plot + the hazard its crop+origin is calibrated against.
         rows = s.execute(text("""
@@ -106,6 +106,15 @@ def main(argv=None) -> int:
             if not scored:
                 unreachable += 1
                 continue
+            if r["lat"] is None or r["lon"] is None:
+                # a plot with no coordinates at all (not merely off-grid) can never be snapped by
+                # distance — this is a genuine, separate gap (the plot was never geocoded) and must
+                # never be silently treated as "unreachable"/skipped without a trace, nor crash the
+                # whole run and hide every OTHER plot's real result behind it.
+                no_coords += 1
+                print(f"  ? {r['commodity']:12s} {r['country']}  {r['plot_name'][:34]:34s} "
+                      f"has no latitude/longitude at all → cannot be snapped (needs geocoding, not a distance check)")
+                continue
             cell, dist = min(((c, _km(r["lat"], r["lon"], la, lo)) for c, la, lo in scored),
                              key=lambda t: t[1])
             if dist > args.max_km:
@@ -122,7 +131,7 @@ def main(argv=None) -> int:
             snapped += 1
 
     print(f"\nsnapped {snapped} · already on grid {already} · "
-          f"unreachable {unreachable} · no calibrated driver {no_driver}"
+          f"unreachable {unreachable} · no calibrated driver {no_driver} · no coordinates {no_coords}"
           + ("  [DRY RUN — nothing written]" if args.dry_run else ""))
     return 0
 

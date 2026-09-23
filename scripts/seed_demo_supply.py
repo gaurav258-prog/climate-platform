@@ -256,11 +256,19 @@ def main():
             ("analyst@terra.demo",  "Tomas Analyst (Terra)", "Demo!analyst1", "analyst"),
             ("approver@terra.demo", "Pia Approver (Terra)",  "Demo!approve1", "approver"),
         ]:
-            s.execute(text("DELETE FROM users WHERE org_id=:o AND email=:e"), {"o": ORG, "e": email})
-            uid = str(uuid.uuid4())
+            # UPSERT, never delete-then-insert: a real re-seed target can have accumulated real history
+            # against this exact user_id (e.g. approval_requests.checker_user_id) — deleting the row to
+            # re-create it with a fresh random id breaks that FK and, worse, would be destroying real
+            # audit trail to make a demo reseed convenient. Keep the same user_id across reseeds.
+            existing_uid = s.execute(text("SELECT user_id::text FROM users WHERE org_id=:o AND email=:e"),
+                                     {"o": ORG, "e": email}).scalar()
+            uid = existing_uid or str(uuid.uuid4())
             s.execute(text("""
                 INSERT INTO users (user_id, org_id, email, role, full_name, hashed_password, status)
                 VALUES (:u,:o,:e,:r,:fn,:pw,'active')
+                ON CONFLICT (org_id, email) DO UPDATE SET
+                    role = EXCLUDED.role, full_name = EXCLUDED.full_name,
+                    hashed_password = EXCLUDED.hashed_password, status = 'active'
             """), {"u": uid, "o": ORG, "e": email, "r": role_name, "fn": full_name, "pw": hash_password(pw)})
 
             # grant the role if it exists for this org already; else clone it fresh

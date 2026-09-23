@@ -47,8 +47,11 @@ def test_cocoa_recorded_claim_matches_what_the_engine_actually_produces():
     forgets to update the record, the Trust page would advertise a number the product no longer
     computes — so tie the record to the engine, not to a note."""
     with get_session() as s:
+        # exact match, not ILIKE '%Terra%': that substring also matches "Mediterraneo Immobiliare"
+        # (a REIT with no supply-chain data at all) — a real false-positive collision found
+        # 2026-09-23 that made this test silently check the wrong org and always skip.
         org = s.execute(text(
-            "SELECT org_id FROM organizations WHERE name ILIKE '%Terra%' LIMIT 1"
+            "SELECT org_id FROM organizations WHERE name = 'Terra Foods (demo)'"
         )).scalar()
         if org is None:
             pytest.skip("no agriculture demo org seeded")

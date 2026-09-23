@@ -29,6 +29,10 @@ PLAN = {
         ("Stellar Logistics Fund I", "fund"), ("Stellar Logistics Fund II", "fund")]),
     "55555555-5555-4555-8555-555555555555": ("manufacturer", [
         ("Terra Foods SA", "legal_entity"), ("Terra Ingredients BV", "legal_entity")]),
+    # a genuine single-entity org: entities.default_reporting_entity() is unambiguous only when an org has
+    # exactly one non-group entity — every other demo bank has 3+, so nothing exercised that path for real.
+    # tests/integration/test_consolidation.py::test_ingest_assigns_reporting_entity_when_unambiguous needs it.
+    "3c12adb3-11d2-5e75-a359-66990dc15a24": ("bank", [("Hibernia Bank plc", "legal_entity")]),
 }
 ASSET_TABLES = {
     "bank": [("bank_assets", "asset_id")],
@@ -58,6 +62,16 @@ def main():
                     s.execute(text(f"UPDATE {tbl} SET entity_id=:e WHERE {idc}=:r"),
                               {"e": eids[i % len(eids)], "r": rid})
                 print(f"  {tbl}: assigned {len(rows)} across {len(eids)} entities")
+            # some orgs' located book lives directly in portfolio_entities (never went through a raw ext
+            # table above, e.g. Hibernia Bank) — unambiguous to backfill only when this org has exactly one
+            # entity; a multi-entity org's ambiguous rows are deliberately left for an operator to assign.
+            if len(eids) == 1:
+                n = s.execute(text(
+                    "UPDATE portfolio_entities SET reporting_entity_id = CAST(:e AS uuid) "
+                    "WHERE org_id = :o AND reporting_entity_id IS NULL"),
+                    {"e": eids[0], "o": org}).rowcount
+                if n:
+                    print(f"  portfolio_entities: backfilled {n} orphaned rows to the sole entity")
         s.commit()
     print("done")
 
