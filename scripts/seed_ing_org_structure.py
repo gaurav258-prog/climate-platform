@@ -78,6 +78,13 @@ BRANCHES_OF_BANK_NV = [
 # nested under that subsidiary once it's created, matching the annual report exactly.
 BRANCH_OF_HUBS = ("Sri Lanka", "LK")
 
+# The Netherlands domestic book itself — its own row in the CbCR table ("Netherlands / ING Bank N.V.",
+# €302,740m total assets, 15,280 employees) but NOT a separate legal entity or branch; it's what remains of
+# ING Bank N.V.'s own book once every subsidiary/branch below is carved out. Modelled as its own reporting
+# entity (not left as the implicit whole-org default) so the NL book can be told apart from the consolidated
+# total, the same way every other country already can.
+NL_HEAD_OFFICE = "ING Bank N.V. — Netherlands (head office)"
+
 # Explicitly excluded, and why (never silently dropped):
 #   Payvision Canada Services Ltd — dissolved in 2023 per the 2025 annual report itself; including a
 #   dissolved entity in a CURRENT structure mirror would misrepresent it, not mirror it.
@@ -94,6 +101,11 @@ def main() -> None:
         print(f"tenant created: {ORG_NAME} -> org_id {org_id}")
 
         created = {}
+        e = create_entity(s, org_id, name=NL_HEAD_OFFICE, kind="legal_entity",
+                          ownership_pct=100.0, consolidation_method="full")
+        created["NL_HEAD_OFFICE"] = e["entity_id"]
+        print(f"  + {NL_HEAD_OFFICE} — 100.0% full — domestic book, not a separate legal entity/branch")
+
         for name, country, pct, method, note in SUBSIDIARIES + ASSOCIATES:
             e = create_entity(s, org_id, name=f"{name} ({country})", kind="legal_entity",
                               ownership_pct=pct, consolidation_method=method)
@@ -112,7 +124,7 @@ def main() -> None:
         print(f"  + Branch (of ING Hubs B.V.) — {name} ({country})")
 
         s.commit()
-        n_total = len(SUBSIDIARIES) + len(ASSOCIATES) + len(BRANCHES_OF_BANK_NV) + 1
+        n_total = 1 + len(SUBSIDIARIES) + len(ASSOCIATES) + len(BRANCHES_OF_BANK_NV) + 1
         print(f"\ndone — {n_total} reporting entities under {ORG_NAME}")
         print(f"login: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
         print("no exposures/loan book attached — upload one via Portfolio to populate it")

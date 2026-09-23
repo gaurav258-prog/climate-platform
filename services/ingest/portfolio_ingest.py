@@ -40,14 +40,22 @@ def _str(v):
     return s or None
 
 
-def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict]) -> dict:
+def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],
+                       reporting_entity_id: str | None = None) -> dict:
     """Land loan-tape rows into portfolio_entities + ext_banking, then score the new H3 cells against the
     golden source (process_new_cells) — the same path an any-address lookup takes. Returns a coverage-style
     result: how many landed, how many were skipped, and why (a sample), plus the scoring summary. A row
     missing a required field or with an out-of-range coordinate is skipped with a reason, never fatal to the
-    batch and never guessed."""
+    batch and never guessed.
+
+    reporting_entity_id: when the caller already knows which entity this WHOLE batch belongs to (e.g.
+    uploading one subsidiary's own book separately, or a batch import doing one call per legal entity), pass
+    it explicitly — every row in this call lands under it. Without it, the entity is auto-inferred only when
+    the org happens to have exactly one non-group entity (default_reporting_entity); an org with a real
+    multi-entity hierarchy has no way to infer which entity an unlabelled batch belongs to, so it stays
+    honestly unassigned (reporting_entity_gap) rather than guessed."""
     from services.governance.entities import default_reporting_entity
-    default_entity = default_reporting_entity(session, org_id)
+    default_entity = reporting_entity_id or default_reporting_entity(session, org_id)
 
     records: list[dict] = []
     cell_coords: dict = {}
