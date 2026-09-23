@@ -40,6 +40,38 @@ _LIST_CFG = {
     "bank_p3esg":      {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
     "reit_tcfd":       {"list": "properties", "id": "property_id", "name": "property_name", "value": "property_value_eur"},
     "insurer_climate": {"list": "policies",   "id": "policy_id",   "name": "policy_name",   "value": "sum_insured_eur"},
+    # Found while extending lineage coverage (2026-09-23): assetmgmt_tcfd's frozen snapshot carries the same
+    # {h3_cell, hazards[]} per-holding shape as the other located books — it had simply never been added.
+    "assetmgmt_tcfd":  {"list": "holdings",   "id": "holding_id",  "name": "holding_name",  "value": "position_value_eur"},
+}
+
+# The frameworks NOT in _LIST_CFG genuinely have a DIFFERENT, real lineage mechanism rather than none —
+# checked directly (2026-09-23, an independent architecture review had flagged this as unverified, not
+# confirmed either way) rather than assumed:
+#   - sfdr_pai (asset manager): per-issuer drill-down, GET /v1/issuers/{issuer_id} — "full facility
+#     footprint + physical + transition detail" for any holding.
+#   - csrd_e1 / esrs_pack (agri): per-plot drill-down, GET /v1/supply/plot/{plot_id} — "projection +
+#     provenance" for any sourcing plot; own-site lineage is the E1 report's own material-hazard rows.
+#   - reit_taxonomy / insurer_solvency: these two are DERIVED KPI reports built ON TOP OF reit_tcfd's /
+#     insurer_climate's own book, and their frozen snapshot deliberately keeps only `rollup` + the KPI calc
+#     (not the full per-asset list, to avoid duplicating the whole book into a second frozen snapshot) — so
+#     this endpoint can't trace them directly, but the sibling reit_tcfd / insurer_climate filing for the
+#     same org/period (when one exists) carries the identical underlying book and supports full spatial
+#     lineage.
+_ALT_LINEAGE = {
+    "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "
+                "transition detail for any holding) — not a spatial cell trace, since funds hold issuers, "
+                "not geolocated assets.",
+    "csrd_e1": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
+               "sourcing; own-site exposure is in this filing's own material-hazard rows directly.",
+    "esrs_pack": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
+                 "sourcing; own-site exposure is in this filing's own material-hazard/E3/E4 rows directly.",
+    "reit_taxonomy": "This KPI report's frozen snapshot doesn't carry the full per-property list (only "
+                     "rollup + the KPI calc) — trace the sibling reit_tcfd filing for the same org/period "
+                     "instead; it shares the identical underlying property book.",
+    "insurer_solvency": "This SCR report's frozen snapshot doesn't carry the full per-policy list (only "
+                        "rollup + the SCR calc) — trace the sibling insurer_climate filing for the same "
+                        "org/period instead; it shares the identical underlying policy book.",
 }
 
 
@@ -81,14 +113,12 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
     scenario = basis.get("scenario", "baseline")
     horizon = basis.get("horizon", "current")
 
-    # spatial lineage serves every located book (bank / reit / insurer); the SFDR statement and the agri
-    # reports don't carry per-entity geolocation, so they stay unsupported (honest, not a stub).
     cfg = _LIST_CFG.get(framework)
     if not cfg or "by_hazard" not in payload:
         return {"supported": False, "framework": framework,
-                "message": "Spatial lineage is available for the located-book filings (loan book, property book, "
-                           "underwriting book). SFDR traces emissions provenance per issuer; agri reports assemble "
-                           "from the sites & sourcing book."}
+                "message": _ALT_LINEAGE.get(framework,
+                    "Spatial lineage is available for the located-book filings (loan book, property book, "
+                    "underwriting book).")}
 
     cell = (payload.get("by_hazard") or {}).get(hazard)
     if cell is None:

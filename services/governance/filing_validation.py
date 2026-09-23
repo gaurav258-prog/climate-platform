@@ -145,7 +145,151 @@ def _validate_sfdr_pai(payload: dict) -> list[dict]:
     return out
 
 
-_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai}
+def _validate_reit_taxonomy(payload: dict) -> list[dict]:
+    """EU Taxonomy Article 8 KPIs (property book) — added 2026-09-23, closing a gap an independent
+    architecture review found: this framework had zero pre-submission checks (only the two generic
+    integrity checks every framework gets), unlike bank_tcfd/sfdr_pai."""
+    out: list[dict] = []
+    rollup = payload.get("rollup") or {}
+    n_total, n_scored = rollup.get("n_properties", 0), rollup.get("n_scored", 0)
+    total = rollup.get("total_value_eur", 0) or 0
+
+    out.append(_f("has_properties", "completeness", "blocking", n_total > 0,
+                  f"{n_total} properties in scope" if n_total > 0 else "No properties in scope — nothing to file"))
+    out.append(_f("total_value_positive", "plausibility", "blocking", total > 0,
+                  f"Portfolio value {_eur(total)}" if total > 0 else "Portfolio value is zero"))
+    cov = round(100 * n_scored / n_total, 1) if n_total else 0
+    out.append(_f("full_coverage", "completeness", "warning", n_total > 0 and n_scored == n_total,
+                  f"All {n_total} properties scored ({cov}%)" if n_scored == n_total
+                  else f"{n_scored}/{n_total} scored ({cov}%) — the rest are excluded from the KPI"))
+
+    art8 = payload.get("art8") or {}
+    turnover = art8.get("turnover_kpi") or {}
+    rows = {r["row"]: r for r in (turnover.get("rows") or [])}
+    eligible = (rows.get("Taxonomy-eligible turnover") or {}).get("pct")
+    non_eligible = (rows.get("Taxonomy-non-eligible turnover") or {}).get("pct")
+    if eligible is not None and non_eligible is not None:
+        tie = abs((eligible + non_eligible) - 100) <= 0.5
+        out.append(_f("turnover_eligible_ties_to_100pct", "tie_out", "blocking", tie,
+                      f"Eligible + non-eligible turnover = {round(eligible + non_eligible, 1)}% of the book"
+                      if tie else f"Eligible ({eligible}%) + non-eligible ({non_eligible}%) turnover "
+                                  f"= {round(eligible + non_eligible, 1)}% — should tie to 100%"))
+    aligned = (rows.get("of which Taxonomy-aligned") or {}).get("pct")
+    if aligned is not None and eligible is not None:
+        out.append(_f("aligned_within_eligible", "plausibility", "blocking", aligned <= eligible + 0.01,
+                      f"Aligned ({aligned}%) is within eligible ({eligible}%)" if aligned <= eligible + 0.01
+                      else f"Aligned ({aligned}%) EXCEEDS eligible ({eligible}%) — impossible, an aligned "
+                           "activity is by definition also eligible"))
+    if turnover.get("noi_proxy_used"):
+        n_proxy = turnover.get("n_properties_using_noi_proxy", 0)
+        out.append(_f("turnover_basis", "completeness", "warning", False,
+                      f"{n_proxy} of {n_total} properties have no gross-revenue figure on file — turnover "
+                      "uses the NOI proxy, which UNDERSTATES true gross revenue"))
+    capex = art8.get("capex_kpi") or {}
+    if capex.get("status") == "declared_customer_data" and capex.get("total_eur") is None:
+        out.append(_f("capex_kpi", "completeness", "info", False,
+                      "CapEx KPI not available — requires the undertaking's own capex ledger, not derivable "
+                      "from asset location"))
+    return out
+
+
+def _validate_insurer_solvency(payload: dict) -> list[dict]:
+    """Solvency II S.26.01 NatCat SCR — added 2026-09-23, same gap as reit_taxonomy above."""
+    out: list[dict] = []
+    rollup = payload.get("rollup") or {}
+    n_total, n_priced = rollup.get("n_policies", 0), rollup.get("n_priced", 0)
+    total = rollup.get("total_sum_insured_eur", 0) or 0
+
+    out.append(_f("has_policies", "completeness", "blocking", n_total > 0,
+                  f"{n_total} policies in scope" if n_total > 0 else "No policies in scope — nothing to file"))
+    out.append(_f("some_priced", "completeness", "blocking", n_priced > 0,
+                  f"{n_priced} policies priced" if n_priced > 0 else "No policies priced — the SCR would be zero"))
+    out.append(_f("total_sum_insured_positive", "plausibility", "blocking", total > 0,
+                  f"Total sum insured {_eur(total)}" if total > 0 else "Total sum insured is zero"))
+
+    s2601 = payload.get("s2601") or {}
+    scr = s2601.get("natcat_scr") or {}
+    gross = scr.get("gross_1_in_200_eur")
+    net = scr.get("net_of_reinsurance_1_in_200_eur")
+    mean = scr.get("mean_annual_loss_eur")
+    if gross is not None and net is not None:
+        out.append(_f("net_within_gross", "plausibility", "blocking", net <= gross + 1,
+                      f"Net-of-reinsurance SCR ({_eur(net)}) is within gross ({_eur(gross)})" if net <= gross + 1
+                      else f"Net-of-reinsurance SCR ({_eur(net)}) EXCEEDS gross ({_eur(gross)}) — "
+                           "reinsurance cannot increase the loss"))
+    if gross is not None and mean is not None:
+        out.append(_f("tail_exceeds_mean", "plausibility", "blocking", gross >= mean - 1,
+                      f"1-in-200 tail loss ({_eur(gross)}) is at or above the mean annual loss ({_eur(mean)})"
+                      if gross >= mean - 1 else f"1-in-200 tail loss ({_eur(gross)}) is BELOW the mean annual "
+                                                f"loss ({_eur(mean)}) — a tail estimate should never be lower"))
+    # the engine's own internal cross-check: per-zone independent EALs should sum to the portfolio mean
+    cat = (rollup.get("catastrophe") or {})
+    if cat.get("available") and "mean_reconciles" in cat:
+        out.append(_f("cat_mean_reconciles", "tie_out", "blocking", bool(cat["mean_reconciles"]),
+                      "Per-zone independent EALs reconcile to the portfolio mean annual loss"
+                      if cat["mean_reconciles"] else
+                      "Per-zone independent EALs do NOT reconcile to the portfolio mean annual loss — "
+                      "an internal engine inconsistency, not a data gap"))
+    sf = s2601.get("standard_formula_natcat") or {}
+    out.append(_f("standard_formula_available", "completeness", "info", bool(sf.get("available")),
+                  "Prescribed standard-formula NatCat SCR (Art. 120-125) computed alongside the internal model"
+                  if sf.get("available") else "Standard-formula NatCat SCR not computed for this book"))
+    return out
+
+
+def _validate_csrd_e1(payload: dict) -> list[dict]:
+    """CSRD ESRS E1 physical-risk report — added 2026-09-23, same gap as above, for the agri sector."""
+    out: list[dict] = []
+    entity = payload.get("entity") or {}
+    out.append(_f("has_entity_identity", "completeness", "blocking", bool(entity.get("name")),
+                  f"Reporting entity: {entity.get('name')}" if entity.get("name")
+                  else "No reporting-entity name on file"))
+    hazards = payload.get("material_hazards") or []
+    out.append(_f("material_hazards_assessed", "completeness", "info", bool(hazards),
+                  f"{len(hazards)} material hazard(s) identified" if hazards
+                  else "No material hazards identified for this org — disclosed as-is, not assumed clean"))
+    for h in hazards:
+        for leg, label in (("own_operations", "own operations"), ("upstream", "upstream sourcing")):
+            leg_data = h.get(leg)
+            if leg_data is None:
+                continue
+            for key, name in (("asset_value_eur", "asset value"), ("bi_at_risk_eur", "BI at risk"),
+                              ("spend_eur", "spend"), ("cogs_at_risk_eur", "COGS at risk")):
+                v = leg_data.get(key)
+                if v is not None and v < 0:
+                    out.append(_f(f"non_negative:{h.get('hazard')}:{leg}:{key}", "plausibility", "blocking",
+                                 False, f"{h.get('label', h.get('hazard'))} ({label}) {name} is negative ({_eur(v)})"))
+    return out
+
+
+def _validate_esrs_pack(payload: dict) -> list[dict]:
+    """ESRS Climate & Nature pack (E1/E3/E4) — reuses the E1 checks for the embedded climate topic (which
+    already includes the entity-identity check), plus plausibility checks on E4's deforestation counters
+    (added 2026-09-23)."""
+    out: list[dict] = []
+    entity = payload.get("entity") or {}
+    topics = {t.get("topic"): t for t in (payload.get("topics") or [])}
+    out.extend(_validate_csrd_e1({"entity": entity,
+                                  "material_hazards": (topics.get("E1") or {}).get("material_hazards") or []}))
+    e4 = topics.get("E4")
+    if e4:
+        covered = e4.get("eudr_covered_plots", 0) or 0
+        free = e4.get("deforestation_free", 0) or 0
+        non_compliant = e4.get("non_compliant", 0) or 0
+        incomplete = e4.get("geolocation_incomplete", 0) or 0
+        not_determined = e4.get("not_determined", 0) or 0
+        accounted = free + non_compliant + incomplete + not_determined
+        out.append(_f("eudr_plots_account_for_covered", "tie_out", "blocking", accounted == covered,
+                      f"Every EUDR-covered plot ({covered}) is accounted for across the 4 determination states"
+                      if accounted == covered else
+                      f"{covered} EUDR-covered plots but the 4 determination states sum to {accounted} — "
+                      "a plot fell through the classification"))
+    return out
+
+
+_RULESETS = {"bank_tcfd": _validate_bank_tcfd, "bank_p3esg": _validate_bank_tcfd, "sfdr_pai": _validate_sfdr_pai,
+             "reit_taxonomy": _validate_reit_taxonomy, "insurer_solvency": _validate_insurer_solvency,
+             "csrd_e1": _validate_csrd_e1, "esrs_pack": _validate_esrs_pack}
 
 
 def _arrears_finding(r: dict) -> dict:
