@@ -37,6 +37,9 @@ export default function SeasonalArrears() {
     finally { if (fileRef.current) fileRef.current.value = '' }
   }
   const s = d?.summary
+  const FORMAT_HINT = "CSV file. Required columns: loan_ref, days_past_due. Optional: borrower_name, crop, "
+    + "region, country (ISO-2 — enables climate-attributed yield-shock checking), exposure_eur, as_of_date. "
+    + "One upload = one dated batch; the latest one is assessed."
 
   return (
     <Card className="p-4">
@@ -45,16 +48,22 @@ export default function SeasonalArrears() {
         <h3 className="font-semibold text-[14px] text-[var(--color-ink)]">Seasonal-arrears overlay</h3>
         <span className="text-[12px] text-[var(--color-mute)] hidden sm:inline">· harvest carry-over vs genuine deterioration</span>
         <span className="ml-auto flex items-center gap-2">
-          <button onClick={() => download('/v1/arrears/template.csv', 'tellumen_arrears_template.csv').catch(() => {})} className="text-[var(--color-faint)] hover:text-[var(--color-sky)]" title="Download template"><Download size={13} /></button>
+          <button onClick={() => download('/v1/arrears/template.csv', 'tellumen_arrears_template.csv').catch(() => {})} className="text-[var(--color-faint)] hover:text-[var(--color-sky)]" title={"Download a blank CSV with the right columns. " + FORMAT_HINT}><Download size={13} /></button>
           <input ref={fileRef} type="file" accept=".csv" onChange={onFile} className="hidden" />
-          <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload arrears</button>
+          <button onClick={() => fileRef.current?.click()} title={FORMAT_HINT} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload arrears</button>
         </span>
+      </div>
+      <div className="text-[11px] text-[var(--color-faint)] -mt-2 mb-3">
+        CSV · <span className="mono">loan_ref</span>, <span className="mono">days_past_due</span> required ·{' '}
+        <span className="mono">borrower_name</span>, <span className="mono">crop</span>,{' '}
+        <span className="mono">region</span>, <span className="mono">country</span> (enables climate-shock check),{' '}
+        <span className="mono">exposure_eur</span>, <span className="mono">as_of_date</span> optional · one upload = one dated batch, latest one used
       </div>
 
       {!d ? <div className="text-[12.5px] text-[var(--color-faint)] py-4">Loading…</div>
         : !d.available ? (
           <div className="text-[12.5px] text-[var(--color-mute)] py-3">
-            No arrears uploaded. Provide the book's days-past-due (columns: <span className="mono text-[11px]">loan_ref, borrower_name, crop, region, country, exposure_eur, days_past_due, as_of_date</span>) and Tellumen separates seasonal carry-over, a climate-attributed bad harvest (observed national yield shock, when <span className="mono text-[11px]">country</span> is given), and genuine deterioration.
+            No arrears uploaded — upload the book's days-past-due above and Tellumen separates seasonal carry-over, a climate-attributed bad harvest (observed national yield shock, when <span className="mono text-[11px]">country</span> is given), and genuine deterioration.
           </div>
         ) : s ? (
           <>
