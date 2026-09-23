@@ -211,10 +211,20 @@ def fetch_entities_with_risk(
         # consolidation weighting: a proportional/equity line contributes only its owned share of VALUE
         # (physical risk SCORES are per-asset and unchanged; scaling the value flows through to every
         # value-based aggregate — value-at-risk, financed emissions, taxonomy €). Full lines weight 1.0.
+        #
+        # outstanding_loan_balance_eur (the bank vertical's PCAF exposure input) gets the SAME weight — fixed
+        # 2026-09-23 (C4, independent consolidation-scope review): it used to stay unweighted while
+        # primary_value_eur (used for value-at-risk/taxonomy € on the SAME snapshot) was correctly weighted,
+        # so a proportionally/equity-consolidated bank's financed emissions silently overstated its owned
+        # share — internally inconsistent numbers in one frozen filing. counterparty_evic_eur is NEVER
+        # weighted: EVIC is the counterparty's own total enterprise value, not ours to scale by our stake —
+        # it's the PCAF attribution factor's denominator, and scaling it would understate the attribution.
         ev = dict(e)
         w = value_weights.get(e["reporting_entity_id"], 1.0) if value_weights else 1.0
         if w != 1.0 and ev["primary_value_eur"] is not None:
             ev["primary_value_eur"] = ev["primary_value_eur"] * w
+        if w != 1.0 and ev.get("outstanding_loan_balance_eur") is not None:
+            ev["outstanding_loan_balance_eur"] = ev["outstanding_loan_balance_eur"] * w
 
         extra_val_kwargs = valuation_kwargs(ev) if valuation_kwargs else {}
         attrs = {"construction_type": ev["construction_type"], "year_built": ev["year_built"],
