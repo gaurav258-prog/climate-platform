@@ -107,6 +107,50 @@ def test_preflight_reports_coverage_headline_and_gaps():
         s.rollback()
 
 
+# "Test Bank Onboarding" has zero filings on record — a clean org/framework slot for the confirm_token tests
+# below, so the assertions exercise the token check itself, not the separate "a live filing already exists"
+# guard (which sits AFTER the token check in generate_filing, but a slot that's actually empty removes any
+# doubt about which guard fired).
+EMPTY_BANK_ORG = "7ec33d97-e346-4d1a-8c84-e257a43aa95c"
+
+
+@pytest.mark.integration
+def test_generate_filing_rejects_missing_confirm_token():
+    """Closes a real race an independent architecture review found: `confirmed` used to be a bare boolean,
+    so any truthy value would do. A filing must not freeze without a real, freshly-verified token."""
+    with get_session() as s:
+        maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
+        with pytest.raises(F.FilingError, match="must be confirmed"):
+            F.generate_filing(s, EMPTY_BANK_ORG, "bank", "bank_tcfd", maker, confirm_token=None)
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_generate_filing_rejects_a_stale_or_invalid_confirm_token():
+    """A token that doesn't match what preflight() would compute RIGHT NOW — whether garbage or a real token
+    from a since-changed state — must be refused, not just checked for presence."""
+    with get_session() as s:
+        maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
+        with pytest.raises(F.FilingError, match="changed since you last confirmed"):
+            F.generate_filing(s, EMPTY_BANK_ORG, "bank", "bank_tcfd", maker,
+                              confirm_token="0" * 32)
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_generate_filing_accepts_a_fresh_confirm_token_from_preflight():
+    """The real happy path: fetch preflight, use ITS token, generate succeeds. Proves the token isn't just a
+    rejection mechanism — a genuinely fresh one works end to end."""
+    with get_session() as s:
+        maker = str(s.execute(text("SELECT user_id FROM users WHERE email='admin@meridian.demo'")).scalar())
+        pf = F.preflight(s, EMPTY_BANK_ORG, "bank", "bank_tcfd")
+        assert pf["confirm_token"] and len(pf["confirm_token"]) == 32
+        f = F.generate_filing(s, EMPTY_BANK_ORG, "bank", "bank_tcfd", maker,
+                              confirm_token=pf["confirm_token"])
+        assert f["status"] == "draft"
+        s.rollback()
+
+
 @pytest.mark.integration
 def test_illegal_transition_is_refused():
     """You can't attest a draft, or submit-for-review a filing that's already accepted."""

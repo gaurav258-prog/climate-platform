@@ -413,9 +413,30 @@ def _log_event(session: Session, filing_id: str, from_status: str | None, to_sta
 
 # ── lifecycle operations ────────────────────────────────────────────────
 
+def _confirm_token(org_id: str, framework: str, basis: dict, summary: dict) -> str:
+    """Bind a preflight result to a token generate_filing() can re-verify. Fixes a real race an independent
+    architecture review found: `confirmed` used to be a bare boolean, completely disconnected from the
+    specific preflight state a human actually looked at — a human could confirm a clean preflight, the
+    underlying book could change seconds later (a concurrent upload, a recalibration), and the frozen filing
+    would silently reflect the NEW, unreviewed state while still being logged as 'data_confirmed: true'.
+    The token is a hash of exactly what the preparer saw (org, framework, scope, basis, coverage, gaps,
+    headline figures) — generate_filing() recomputes the identical summary fresh and refuses unless the
+    hash still matches, i.e. unless nothing relevant has changed since the preflight was shown."""
+    # Deliberately NOT entity_id-bound: the preflight summary itself isn't entity-scoped today (it shows
+    # the same org-wide coverage/headline regardless of which entity the preparer eventually generates
+    # against), so binding the token to entity_id here would make it mismatch on every entity-scoped
+    # generate call for no real safety benefit — the actual entity/consolidation resolution is validated
+    # independently in generate_filing(). If preflight ever becomes entity-aware, entity_id belongs here too.
+    import hashlib
+    payload = json.dumps({"org_id": org_id, "framework": framework,
+                          "basis": basis, "summary": summary}, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode()).hexdigest()[:32]
+
+
 def preflight(session: Session, org_id: str, org_type: str, framework: str) -> dict:
     """The confirm-data step before freezing: shows the basis, the data coverage, the headline figures and
-    any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes nothing."""
+    any gaps, so a preparer confirms 'this is my data' before a filing is frozen. Computes but freezes
+    nothing. Returns a confirm_token binding this exact result — see _confirm_token()."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS:
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
@@ -428,10 +449,11 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
     from services.governance.reporting_settings import get_settings
     basis = get_settings(session, org_id)
     summary = _preflight_summary(session, org_id, framework, basis)
+    token = _confirm_token(org_id, framework, basis, summary)
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
             "period_label": _period_label(period_end), "basis": basis,
             "can_generate": existing is None, "existing_status": existing,
-            "entity_scoped": framework in _ENTITY_SCOPED, **summary}
+            "entity_scoped": framework in _ENTITY_SCOPED, "confirm_token": token, **summary}
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
@@ -490,19 +512,29 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
 
 
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
-                    actor_user_id: str, note: str | None = None, confirmed: bool = False,
+                    actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
                     entity_id: str | None = None) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
     (framework, period, entity) — regenerating while one is live is refused (supersede it first).
     entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
-    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership)."""
+    its whole subtree CONSOLIDATED (proportional/equity lines value-weighted by ownership).
+
+    confirm_token must be the exact token GET /filings/preflight?framework=... just returned for this same
+    (org, framework) — recomputed and compared fresh here, not merely checked for presence. This closes the
+    preflight->generate race: a bare `confirmed: bool` used to let a stale confirmation freeze data the
+    preparer never actually looked at if the book changed in between."""
     if framework not in FRAMEWORKS or framework not in _BUILDERS:
         raise FilingError(f"unknown framework '{framework}'")
     if org_type not in FRAMEWORKS[framework]["sectors"]:
         raise FilingError(f"framework '{framework}' does not apply to a {org_type}")
-    # the confirm-data step is mandatory — a filing is never frozen without an explicit human confirmation
-    if not confirmed:
+    if not confirm_token:
         raise FilingError("data must be confirmed (via the pre-filing check) before a filing is frozen")
+    from services.governance.reporting_settings import get_settings
+    _basis = get_settings(session, org_id)
+    _summary = _preflight_summary(session, org_id, framework, _basis)
+    if confirm_token != _confirm_token(org_id, framework, _basis, _summary):
+        raise FilingError("the data has changed since you last confirmed it (or the token is invalid) — "
+                          "re-run the pre-filing check and confirm again before freezing")
 
     # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
     # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD has no per-legal-entity split.
@@ -541,7 +573,8 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
-                "payload_sha256": snap["payload_sha256"], "data_confirmed": bool(confirmed)})
+                "payload_sha256": snap["payload_sha256"], "data_confirmed": True,
+                "confirm_token": confirm_token})
     return get_filing(session, org_id, fid, with_payload=False)
 
 

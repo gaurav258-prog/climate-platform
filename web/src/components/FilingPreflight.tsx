@@ -14,6 +14,9 @@ interface Preflight {
   can_generate: boolean; existing_status: string | null; entity_scoped: boolean
   coverage: { label: string; done: number; total: number; pct: number } | null
   total_value_eur: number | null; value_at_risk_eur?: number | null; noun: string; positions?: number; gaps: string[]
+  // Binds this exact preflight result — generate must echo it back, and the backend re-verifies it's still
+  // fresh (the book hasn't changed since). Never a bare "I confirm" boolean; see filings._confirm_token.
+  confirm_token: string
 }
 interface Ent { entity_id: string; name: string; kind: string; parent_entity_id: string | null; n_assets: number }
 
@@ -30,11 +33,18 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
   const entities = ents.data?.entities ?? []
 
   const freeze = async () => {
+    if (!d?.confirm_token) return
     setBusy(true); setErr(null)
     try {
-      const f = await api.post<{ filing_id: string }>('/v1/filings', { framework, confirmed: true, entity_id: entityId || null })
+      const f = await api.post<{ filing_id: string }>('/v1/filings',
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null })
       onGenerated(f.filing_id)
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not freeze the filing.') }
+    } catch (e) {
+      // A stale token (the book changed since this preflight loaded) surfaces here — refetch so the
+      // preparer sees the CURRENT data and can confirm again, rather than silently retrying the old one.
+      setErr(e instanceof ApiError ? e.message : 'Could not freeze the filing.')
+      q.refetch()
+    }
     finally { setBusy(false) }
   }
   // when a specific entity is chosen the backend's own (entity-aware) guard decides; only block whole-org

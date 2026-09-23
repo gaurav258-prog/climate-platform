@@ -37,7 +37,9 @@ router = APIRouter(prefix="/v1", tags=["Reporting cockpit"])
 class GenerateBody(BaseModel):
     framework: str = Field(..., min_length=1, max_length=60)
     note: Optional[str] = Field(None, max_length=500)
-    confirmed: bool = False   # set by the confirm-data preflight step
+    # The confirm_token GET /filings/preflight?framework=... just returned — proves the caller actually saw
+    # (and is confirming) the CURRENT data, not a stale bare `confirmed: true` (see filings._confirm_token).
+    confirm_token: Optional[str] = Field(None, max_length=64)
     entity_id: Optional[str] = None   # scope to one reporting entity; None = whole org (the default)
 
 
@@ -439,8 +441,8 @@ def generate(body: GenerateBody, session: DbSession,
              ctx: dict = Depends(require_permission("approvals.create"))):
     try:
         f = F.generate_filing(session, ctx["org"]["org_id"], ctx["org"]["type"],
-                              body.framework, ctx["user"]["id"], note=body.note, confirmed=body.confirmed,
-                              entity_id=body.entity_id)
+                              body.framework, ctx["user"]["id"], note=body.note,
+                              confirm_token=body.confirm_token, entity_id=body.entity_id)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
     _audit(session, ctx, "filing.generate", f["filing_id"], {"framework": body.framework, "entity_id": body.entity_id})
