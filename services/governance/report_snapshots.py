@@ -130,19 +130,35 @@ def _insurer_climate(session, org_id, scenario, horizon, entity_ids=None, value_
 
 
 def _reit_taxonomy(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
-    """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot)."""
+    """EU Taxonomy Article 8 KPIs for the REIT property book (on top of the same frozen disclosure snapshot).
+
+    Carries the full `properties` + `by_hazard` alongside `rollup`/`art8` (fixed 2026-09-23 — an independent
+    architecture review found this framework couldn't be traced back to source: build_disclosure_snapshot()
+    computes the full per-property {h3_cell, hazards[]} list right here, in `snap`, and this used to discard
+    it, keeping only the rollup aggregate. That made the earlier "documented workaround" — trace the sibling
+    reit_tcfd filing instead — not just inconvenient but sometimes impossible: an org that only ever files
+    reit_taxonomy (never reit_tcfd) had no sibling to trace at all, and a snapshot that depends on a SEPARATE
+    filing to be reproducible isn't really self-contained. Carrying the same data this framework already
+    computes is the actual fix, not a workaround. Duplicating it against reit_tcfd's own frozen snapshot for
+    the same period is no different in kind from the duplication every WORM version-to-version freeze already
+    accepts; see filing_lineage._LIST_CFG."""
     from api.routers.realestate import build_disclosure_snapshot
     from services.governance.reit_taxonomy import art8_kpis
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
-    return {"rollup": snap.get("rollup"), "art8": art8_kpis(snap.get("properties") or [])}
+    return {"rollup": snap.get("rollup"), "properties": snap.get("properties"), "by_hazard": snap.get("by_hazard"),
+            "art8": art8_kpis(snap.get("properties") or [])}
 
 
 def _insurer_solvency(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
-    """Solvency II S.26.01.01 NatCat SCR, mapped from the insurer disclosure snapshot (no re-run)."""
+    """Solvency II S.26.01.01 NatCat SCR, mapped from the insurer disclosure snapshot (no re-run).
+
+    Carries the full `policies` + `by_hazard` alongside `rollup`/`s2601` — same fix and same reasoning as
+    _reit_taxonomy() above."""
     from api.routers.insurance import build_disclosure_snapshot
     from services.governance.insurer_solvency import s2601_natcat
     snap = build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=entity_ids, value_weights=value_weights)
-    return {"rollup": snap.get("rollup"), "s2601": s2601_natcat(snap)}
+    return {"rollup": snap.get("rollup"), "policies": snap.get("policies"), "by_hazard": snap.get("by_hazard"),
+            "s2601": s2601_natcat(snap)}
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:

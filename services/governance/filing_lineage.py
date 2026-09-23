@@ -34,7 +34,9 @@ _VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
 
 # spatial-lineage config per framework: the entity list in the frozen payload + its id/name/value keys.
 # Every located book (bank/reit/insurer) shares the same {h3_cell, hazards[]} entity shape, so one trace
-# serves them all. SFDR/agri statements don't carry per-entity geolocation, so they stay unsupported.
+# serves them all — including the two KPI-derived reports (reit_taxonomy/insurer_solvency), which carry the
+# same shape alongside their own calc. SFDR/agri hold issuers/plots, not geolocated assets, so they use a
+# genuinely different (not missing) lineage mechanism — see _ALT_LINEAGE below.
 _LIST_CFG = {
     "bank_tcfd":       {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
     "bank_p3esg":      {"list": "assets",     "id": "asset_id",    "name": "asset_name",    "value": "value_eur"},
@@ -43,6 +45,11 @@ _LIST_CFG = {
     # Found while extending lineage coverage (2026-09-23): assetmgmt_tcfd's frozen snapshot carries the same
     # {h3_cell, hazards[]} per-holding shape as the other located books — it had simply never been added.
     "assetmgmt_tcfd":  {"list": "holdings",   "id": "holding_id",  "name": "holding_name",  "value": "position_value_eur"},
+    # Fixed foundationally 2026-09-23 (see report_snapshots._reit_taxonomy/_insurer_solvency): these two now
+    # carry the full per-asset list + by_hazard alongside their KPI calc, so they trace directly — no longer
+    # routed through the sibling-filing workaround in _ALT_LINEAGE below.
+    "reit_taxonomy":    {"list": "properties", "id": "property_id", "name": "property_name", "value": "property_value_eur"},
+    "insurer_solvency": {"list": "policies",   "id": "policy_id",   "name": "policy_name",   "value": "sum_insured_eur"},
 }
 
 # The frameworks NOT in _LIST_CFG genuinely have a DIFFERENT, real lineage mechanism rather than none —
@@ -52,12 +59,9 @@ _LIST_CFG = {
 #     footprint + physical + transition detail" for any holding.
 #   - csrd_e1 / esrs_pack (agri): per-plot drill-down, GET /v1/supply/plot/{plot_id} — "projection +
 #     provenance" for any sourcing plot; own-site lineage is the E1 report's own material-hazard rows.
-#   - reit_taxonomy / insurer_solvency: these two are DERIVED KPI reports built ON TOP OF reit_tcfd's /
-#     insurer_climate's own book, and their frozen snapshot deliberately keeps only `rollup` + the KPI calc
-#     (not the full per-asset list, to avoid duplicating the whole book into a second frozen snapshot) — so
-#     this endpoint can't trace them directly, but the sibling reit_tcfd / insurer_climate filing for the
-#     same org/period (when one exists) carries the identical underlying book and supports full spatial
-#     lineage.
+# (reit_taxonomy / insurer_solvency used to be routed through a "trace the sibling filing" workaround here —
+# fixed foundationally instead: they're in _LIST_CFG above now, since the data they need was always computed,
+# just discarded before freezing. See report_snapshots._reit_taxonomy/_insurer_solvency.)
 _ALT_LINEAGE = {
     "sfdr_pai": "Per-issuer drill-down: GET /v1/issuers/{issuer_id} (full facility footprint + physical + "
                 "transition detail for any holding) — not a spatial cell trace, since funds hold issuers, "
@@ -66,12 +70,6 @@ _ALT_LINEAGE = {
                "sourcing; own-site exposure is in this filing's own material-hazard rows directly.",
     "esrs_pack": "Per-plot drill-down: GET /v1/supply/plot/{plot_id} (projection + provenance) for upstream "
                  "sourcing; own-site exposure is in this filing's own material-hazard/E3/E4 rows directly.",
-    "reit_taxonomy": "This KPI report's frozen snapshot doesn't carry the full per-property list (only "
-                     "rollup + the KPI calc) — trace the sibling reit_tcfd filing for the same org/period "
-                     "instead; it shares the identical underlying property book.",
-    "insurer_solvency": "This SCR report's frozen snapshot doesn't carry the full per-policy list (only "
-                        "rollup + the SCR calc) — trace the sibling insurer_climate filing for the same "
-                        "org/period instead; it shares the identical underlying policy book.",
 }
 
 

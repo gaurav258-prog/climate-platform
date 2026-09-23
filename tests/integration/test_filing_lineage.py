@@ -9,8 +9,21 @@ from sqlalchemy import text
 from core.db.session import get_session
 from services.data.feeds import HAZARD_FEEDS
 from services.governance.filing_lineage import cell_lineage, cell_upstream, reported_hazards
+from services.governance.report_snapshots import create_snapshot
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
+
+
+def _mk_filing(session, org_id: str, framework: str, actor_email: str) -> str:
+    """Freeze a real, current snapshot into a throwaway-period draft filing (rolled back by the caller) —
+    same non-polluting pattern as tests/integration/test_filing_lifecycle.py's _mk_draft."""
+    u = session.execute(text("SELECT user_id::text FROM users WHERE email = :e"), {"e": actor_email}).scalar()
+    snap = create_snapshot(session, org_id, framework, u)
+    fid = session.execute(text("""
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, created_by)
+        VALUES (:o, :fk, '2099-12-31', 'FY2099', 'draft', :snap, :u) RETURNING filing_id
+    """), {"o": org_id, "fk": framework, "snap": snap["snapshot_id"], "u": u}).scalar()
+    return str(fid)
 
 
 def _a_bank_filing(session):
@@ -69,6 +82,41 @@ def test_reverse_lineage_finds_the_filing_that_reuses_a_cell():
         assert up["used_by"], "the cell must be reused by at least the filing we came from"
         banking = next((g for g in up["used_by"] if g["vertical"] == "banking"), None)
         assert banking and banking["framework"] == "bank_tcfd" and banking["n"] >= 1
+
+
+@pytest.mark.integration
+def test_reit_taxonomy_traces_directly_not_via_sibling_workaround():
+    """Fixed foundationally 2026-09-23: reit_taxonomy used to have no per-property list in its own frozen
+    snapshot, so it couldn't be traced at all (an earlier pass had it point at the sibling reit_tcfd filing
+    instead — a workaround, not a fix, and not even always possible). report_snapshots._reit_taxonomy now
+    carries the same {h3_cell, hazards[]} list its sibling does, so it must trace directly, standalone."""
+    with get_session() as s:
+        org_id = s.execute(text("SELECT org_id::text FROM organizations WHERE name LIKE 'Stellar%'")).scalar()
+        fid = _mk_filing(s, org_id, "reit_taxonomy", "admin@stellar.demo")
+        hazards = reported_hazards(s, org_id, fid)
+        hz = next((h["hazard"] for h in hazards if (h["exposed_value_eur"] or 0) > 0), None)
+        assert hz, "expected at least one exposed hazard on Stellar's property book"
+        lin = cell_lineage(s, org_id, fid, hz)
+        assert lin["supported"] is True
+        assert lin["contributors"], "reit_taxonomy must trace to real contributing properties, standalone"
+        assert lin["contributors"][0]["h3_cell"]
+        s.rollback()
+
+
+@pytest.mark.integration
+def test_insurer_solvency_traces_directly_not_via_sibling_workaround():
+    """Same fix as reit_taxonomy above, for the insurer sector."""
+    with get_session() as s:
+        org_id = s.execute(text("SELECT org_id::text FROM organizations WHERE name LIKE 'Iberia%'")).scalar()
+        fid = _mk_filing(s, org_id, "insurer_solvency", "admin@iberia.demo")
+        hazards = reported_hazards(s, org_id, fid)
+        hz = next((h["hazard"] for h in hazards if (h["exposed_value_eur"] or 0) > 0), None)
+        assert hz, "expected at least one exposed hazard on Iberia's underwriting book"
+        lin = cell_lineage(s, org_id, fid, hz)
+        assert lin["supported"] is True
+        assert lin["contributors"], "insurer_solvency must trace to real contributing policies, standalone"
+        assert lin["contributors"][0]["h3_cell"]
+        s.rollback()
 
 
 @pytest.mark.integration
