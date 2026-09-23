@@ -25,7 +25,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from services.governance.entities import METHODS, EntityError, create_entity
+from services.governance.entities import METHODS, EntityError, _consolidation_needs_basis, create_entity
 
 VALID_SOURCES = {"manual_csv", "document_extraction"}
 VALID_STATUSES = {"proposed", "edited", "rejected"}
@@ -217,6 +217,16 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
             raise ImportError_(f"'{r['name']}': ownership_pct must be between 0 and 100")
         if r.get("consolidation_method") and r["consolidation_method"] not in METHODS:
             raise ImportError_(f"'{r['name']}': consolidation_method must be one of {sorted(METHODS)}")
+        # same C2 guardrail create_entity() enforces one row at a time — checked here too so a batch fails
+        # validation up front (naming the row) rather than partway through topological creation. The row's
+        # source_note stands in for consolidation_basis: it's already where an import row explains "why" —
+        # e.g. "de facto control per IFRS 10.B41-45, board majority despite 40% stake".
+        eff_pct = r.get("ownership_pct") if r.get("ownership_pct") is not None else 100.0
+        eff_method = r.get("consolidation_method") or "full"
+        if _consolidation_needs_basis(eff_pct, eff_method) and not (r.get("source_note") or "").strip():
+            raise ImportError_(
+                f"'{r['name']}': consolidation_method={eff_method!r} at {eff_pct}% ownership runs counter to "
+                "the IFRS 10 control presumption from ownership alone — set source_note to say why")
 
     ordered = _topological_order(live_rows)   # raises on a cycle before anything is created
 
@@ -229,7 +239,8 @@ def confirm_import(session: Session, org_id: str, import_id: str, actor_user_id:
         try:
             e = create_entity(session, org_id, name=r["name"], kind=r["kind"] or "legal_entity",
                               parent_entity_id=parent_id, ownership_pct=r.get("ownership_pct") or 100.0,
-                              consolidation_method=r.get("consolidation_method") or "full")
+                              consolidation_method=r.get("consolidation_method") or "full",
+                              consolidation_basis=r.get("source_note"))
         except EntityError as exc:
             raise ImportError_(f"'{r['name']}': {exc}") from exc
         r["created_entity_id"] = e["entity_id"]

@@ -19,7 +19,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind,
                e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis,
                e.requires_solo_filing, e.solo_waiver_reason,
                (SELECT count(*) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS n_assets,
                (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur,
@@ -33,7 +33,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
 def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     r = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind, e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis,
                e.requires_solo_filing, e.solo_waiver_reason,
                EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
         FROM reporting_entities e WHERE e.org_id = :o AND e.entity_id = :e
@@ -112,6 +112,21 @@ def _validate(name=None, kind=None, ownership_pct=None, consolidation_method=Non
         raise EntityError(f"consolidation_method must be one of {sorted(METHODS)}")
 
 
+def _consolidation_needs_basis(ownership_pct: float, consolidation_method: str) -> bool:
+    """True when the method contradicts the ownership%-implied presumption of control: 'full' consolidation
+    of a minority stake, or 'proportional'/'equity' consolidation of a majority stake. IFRS 10 control is
+    genuinely principles-based, not a raw ownership% cutoff, so this never blocks the combination outright
+    — it requires the customer to say why (consolidation_basis), the same pattern as solo_waiver_reason.
+    Exactly 50% is left alone: a classic joint-control candidate, not a presumption either way."""
+    if ownership_pct is None or consolidation_method is None:
+        return False
+    if consolidation_method == "full" and ownership_pct < 50:
+        return True
+    if consolidation_method in ("proportional", "equity") and ownership_pct > 50:
+        return True
+    return False
+
+
 def _parent_in_org(session, org_id, parent_entity_id) -> bool:
     return bool(session.execute(text(
         "SELECT 1 FROM reporting_entities WHERE org_id=:o AND entity_id=:e"),
@@ -121,7 +136,7 @@ def _parent_in_org(session, org_id, parent_entity_id) -> bool:
 def create_entity(session: Session, org_id: str, *, name: str, kind: str = "legal_entity",
                   parent_entity_id: str | None = None, ownership_pct: float = 100.0,
                   consolidation_method: str = "full", requires_solo_filing: bool | None = None,
-                  solo_waiver_reason: str | None = None) -> dict:
+                  solo_waiver_reason: str | None = None, consolidation_basis: str | None = None) -> dict:
     """requires_solo_filing defaults to True — the CRR-safe assumption (Art 6) that an entity's own
     individual-reporting duty applies unless a customer explicitly records why it's waived (Art 7:
     parent guarantee, prudent-management sign-off, no impediment to fund transfer). Never default this to
@@ -133,35 +148,61 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
     its own — that duty belongs to the head office, once, covering every branch worldwide. `kind='branch'`
     defaults requires_solo_filing to False unless the caller explicitly overrides (e.g. a jurisdiction that
     genuinely imposes host-country solo reporting on a branch, which does happen in some third-country
-    regimes — Tellumen doesn't assume it away, it just isn't the CRR default)."""
+    regimes — Tellumen doesn't assume it away, it just isn't the CRR default).
+
+    consolidation_method is checked against ownership_pct's IFRS 10 control presumption (see
+    _consolidation_needs_basis) — 'full' below 50% or 'proportional'/'equity' above 50% requires an explicit
+    consolidation_basis, or the create is rejected. This never overrides the method itself (control is a
+    genuine judgement call, not a formula); it only refuses to let that judgement go unrecorded."""
     _validate(name, kind, ownership_pct, consolidation_method)
     if requires_solo_filing is None:
         requires_solo_filing = (kind.strip().lower() != "branch")
     if solo_waiver_reason and requires_solo_filing:
         raise EntityError("a waiver reason implies requires_solo_filing=false — set both consistently")
+    if _consolidation_needs_basis(ownership_pct, consolidation_method) and not (consolidation_basis or "").strip():
+        raise EntityError(
+            f"consolidation_method={consolidation_method!r} at {ownership_pct}% ownership runs counter to the "
+            "IFRS 10 control presumption from ownership alone — set consolidation_basis to say why (e.g. a "
+            "majority voting agreement or de facto control under IFRS 10.B41-45 for 'full' below 50%; the "
+            "joint-control or associate arrangement that justifies 'proportional'/'equity' despite majority "
+            "ownership)")
     if parent_entity_id and not _parent_in_org(session, org_id, parent_entity_id):
         raise EntityError("parent entity not found in your organisation")
     eid = session.execute(text("""
         INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct,
-                                        consolidation_method, requires_solo_filing, solo_waiver_reason)
-        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :rsf, :swr) RETURNING entity_id
+                                        consolidation_method, consolidation_basis, requires_solo_filing,
+                                        solo_waiver_reason)
+        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :basis, :rsf, :swr) RETURNING entity_id
     """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id,
-           "pct": ownership_pct, "m": consolidation_method, "rsf": requires_solo_filing,
-           "swr": (solo_waiver_reason or "").strip() or None}).scalar()
+           "pct": ownership_pct, "m": consolidation_method,
+           "basis": (consolidation_basis or "").strip() or None,
+           "rsf": requires_solo_filing, "swr": (solo_waiver_reason or "").strip() or None}).scalar()
     return get_entity(session, org_id, str(eid))
 
 
 def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
                   parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None,
-                  requires_solo_filing=None, solo_waiver_reason=_UNSET) -> dict:
-    if not get_entity(session, org_id, entity_id):
+                  consolidation_basis=_UNSET, requires_solo_filing=None, solo_waiver_reason=_UNSET) -> dict:
+    current = get_entity(session, org_id, entity_id)
+    if not current:
         raise EntityError("entity not found")
     _validate(name, kind, ownership_pct, consolidation_method)
+    if ownership_pct is not None or consolidation_method is not None:
+        eff_pct = ownership_pct if ownership_pct is not None else current["ownership_pct"]
+        eff_method = consolidation_method if consolidation_method is not None else current["consolidation_method"]
+        eff_basis = (consolidation_basis if consolidation_basis is not _UNSET
+                    else current.get("consolidation_basis"))
+        if _consolidation_needs_basis(eff_pct, eff_method) and not (eff_basis or "").strip():
+            raise EntityError(
+                f"consolidation_method={eff_method!r} at {eff_pct}% ownership runs counter to the IFRS 10 "
+                "control presumption from ownership alone — set consolidation_basis to say why")
     sets, params = [], {"o": org_id, "e": entity_id}
     if name is not None: sets.append("name = :n"); params["n"] = name.strip()
     if kind is not None: sets.append("kind = :k"); params["k"] = kind.strip()
     if ownership_pct is not None: sets.append("ownership_pct = :pct"); params["pct"] = ownership_pct
     if consolidation_method is not None: sets.append("consolidation_method = :m"); params["m"] = consolidation_method
+    if consolidation_basis is not _UNSET:
+        sets.append("consolidation_basis = :basis"); params["basis"] = (consolidation_basis or "").strip() or None
     if requires_solo_filing is not None:
         sets.append("requires_solo_filing = :rsf"); params["rsf"] = requires_solo_filing
     if solo_waiver_reason is not _UNSET:

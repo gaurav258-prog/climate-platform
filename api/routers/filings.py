@@ -208,6 +208,9 @@ class EntityCreate(BaseModel):
     parent_entity_id: Optional[str] = None
     ownership_pct: float = Field(100.0, ge=0, le=100)
     consolidation_method: str = Field("full", max_length=20)
+    # Required only when the method runs counter to the IFRS 10 control presumption from ownership_pct alone
+    # (e.g. 'full' below 50% or 'proportional'/'equity' above 50%) — rejected by the service layer otherwise.
+    consolidation_basis: Optional[str] = Field(None, max_length=2000)
     # None = use the CRR-safe default (True, except kind='branch' → False — see entities.create_entity).
     # Setting a waiver reason without also setting requires_solo_filing=False is rejected by the service layer.
     requires_solo_filing: Optional[bool] = None
@@ -221,6 +224,8 @@ class EntityPatch(BaseModel):
     set_parent: bool = False   # apply parent_entity_id (True lets you move a node to the top with null)
     ownership_pct: Optional[float] = Field(None, ge=0, le=100)
     consolidation_method: Optional[str] = Field(None, max_length=20)
+    consolidation_basis: Optional[str] = Field(None, max_length=2000)
+    set_consolidation_basis: bool = False   # apply consolidation_basis (True lets you clear it with null)
     requires_solo_filing: Optional[bool] = None
     solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
     set_solo_waiver_reason: bool = False   # apply solo_waiver_reason (True lets you clear it with null)
@@ -233,6 +238,7 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
         e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
                             parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
                             consolidation_method=body.consolidation_method,
+                            consolidation_basis=body.consolidation_basis,
                             requires_solo_filing=body.requires_solo_filing,
                             solo_waiver_reason=body.solo_waiver_reason)
     except E.EntityError as ex:
@@ -250,6 +256,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.kind is not None: kwargs["kind"] = body.kind
     if body.ownership_pct is not None: kwargs["ownership_pct"] = body.ownership_pct
     if body.consolidation_method is not None: kwargs["consolidation_method"] = body.consolidation_method
+    if body.set_consolidation_basis: kwargs["consolidation_basis"] = body.consolidation_basis
     if body.set_parent: kwargs["parent_entity_id"] = body.parent_entity_id
     if body.requires_solo_filing is not None: kwargs["requires_solo_filing"] = body.requires_solo_filing
     if body.set_solo_waiver_reason: kwargs["solo_waiver_reason"] = body.solo_waiver_reason
