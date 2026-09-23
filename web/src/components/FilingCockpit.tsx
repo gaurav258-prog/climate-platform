@@ -617,6 +617,9 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
   const canReview = perms.includes('approvals.create')
   const canDecide = perms.includes('approvals.decide')
   const canPublish = perms.includes('reports.publish')
+  // Attestation is personal accountability, not process control — its own permission, separate from the
+  // publish/submit/accept actions, so a preparer can't self-attest just by holding reports.publish.
+  const canAttest = perms.includes('board.attest')
 
   const call = async (fn: () => Promise<unknown>) => {
     setBusy(true); setErr(null)
@@ -630,7 +633,6 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
     call(() => api.post(`/v1/approvals/${f.approval_request_id}/decide`, { decision, reason: reason || undefined }))
 
   const [reason, setReason] = useState('')
-  const [attName, setAttName] = useState(profile?.user?.name ?? '')
   const [attStmt, setAttStmt] = useState('I certify these figures are complete and accurate to the best of my knowledge.')
   const [subRef, setSubRef] = useState('')
   const [ackRef, setAckRef] = useState('')
@@ -669,12 +671,12 @@ function ActionPanel({ f, perms, onDone, blocking, onOpen }: { f: FilingDetail; 
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Waiting for an approver to clear the 4-eyes review.</p>)}
 
-      {f.status === 'approved' && (canPublish
+      {f.status === 'approved' && (canAttest
         ? <div className="space-y-2">
             <p className="text-[12px] text-[var(--color-mute)]">Attest — the accountable person certifies the frozen numbers.</p>
-            <input className={box} placeholder="Accountable person & role" value={attName} onChange={e => setAttName(e.target.value)} />
+            <p className="text-[11.5px] text-[var(--color-faint)]">Attesting as <span className="text-[var(--color-ink)]">{profile?.user?.name ?? profile?.user?.email}</span> — bound to your own sign-in, not editable.</p>
             <textarea className={box} rows={2} value={attStmt} onChange={e => setAttStmt(e.target.value)} />
-            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/attest`, { attestor_name: attName, statement: attStmt }))} disabled={busy || !attName || !attStmt}><Stamp size={14} /> Attest filing</Button>
+            <Button variant="primary" onClick={() => call(() => api.post(`/v1/filings/${f.filing_id}/attest`, { statement: attStmt }))} disabled={busy || !attStmt}><Stamp size={14} /> Attest filing</Button>
           </div>
         : <p className="text-[12px] text-[var(--color-mute)]">Approved. Awaiting attestation by an accountable person.</p>)}
 

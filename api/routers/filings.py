@@ -3,8 +3,18 @@
 The lifecycle maps onto existing permissions and machinery:
   - prepare / submit-for-review   → approvals.create (the maker)
   - approve                       → done through /v1/approvals/{id}/decide (approvals.decide, checker ≠ maker)
-  - attest / submit / accept      → reports.publish (the accountable person)
+  - attest                        → board.attest (the accountable person's personal certification — see below)
+  - submit / accept               → reports.publish (transmitting to / recording acknowledgement from the regulator)
   - view                         → reports.view
+
+Attestation identity (fixed 2026-09-23, an independent architecture review finding): attest() used to take
+`attestor_name` as free text from the request body — anyone holding `reports.publish` could type any name in
+and it would be recorded as having certified the filing. Attestation is personal accountability, not process
+control (that's what 4-eyes approval already is), so it must be bound to a real, authenticated identity: the
+name recorded is now always the CALLING user's own `full_name` on file, resolved server-side from their
+session — never a client-supplied string — and attest sits behind its own permission (`board.attest`,
+already in the tenant permission catalog but previously unused) rather than sharing `reports.publish` with
+submit/accept, so a preparer with only publish rights cannot self-attest.
 
 Nothing here re-freezes a report: generate wraps report_snapshots.create_snapshot, so the frozen bytes are
 the same immutable, hashed, versioned record the assurance pack already verifies.
@@ -145,7 +155,8 @@ class BasisPatch(BaseModel):
 
 
 class AttestBody(BaseModel):
-    attestor_name: str = Field(..., min_length=1, max_length=200)
+    # No attestor_name field: the attestor is always the calling user's own authenticated identity (see
+    # module docstring) — a client can never supply who is attesting, only what they certify.
     statement: str = Field(..., min_length=1, max_length=2000)
 
 
@@ -449,13 +460,17 @@ def submit_for_review(filing_id: str, session: DbSession,
 
 @router.post("/filings/{filing_id}/attest", summary="Attest the filing — named accountable sign-off")
 def attest(filing_id: str, body: AttestBody, session: DbSession,
-           ctx: dict = Depends(require_permission("reports.publish"))):
+           ctx: dict = Depends(require_permission("board.attest"))):
+    # The attestor is always the CALLING user's own name on file — never client-supplied (see module
+    # docstring). Falls back to email only in the unlikely case full_name is blank, so attestation is never
+    # recorded against an empty string.
+    attestor_name = ctx["user"].get("full_name") or ctx["user"]["email"]
     try:
         f = F.attest(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"],
-                     body.attestor_name, body.statement)
+                     attestor_name, body.statement)
     except F.FilingError as e:
         raise HTTPException(409, {"error": "filing_error", "message": str(e)})
-    _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": body.attestor_name})
+    _audit(session, ctx, "filing.attest", filing_id, {"attestor_name": attestor_name})
     return f
 
 
