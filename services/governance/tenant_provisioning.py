@@ -19,8 +19,7 @@ from sqlalchemy.orm import Session
 # contracts.view / contracts.manage are included so a tenant gets contract access the moment those permissions
 # exist in the catalog; a role_permissions insert for a not-yet-defined code simply grants nothing (no error).
 # Every tenant-scoped capability (excludes the two cross-tenant operator codes platform.admin / onboarding.manage,
-# which belong only to the Tellumen platform tenant — a customer role never holds them). The analyst is the tenant
-# SUPER-USER: it holds all of these, so every in-tenant surface is visible to it. Other roles are strict subsets.
+# which belong only to the Tellumen platform tenant — a customer role never holds them).
 ALL_TENANT_PERMS: list[str] = [
     "modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
     "admin.users.manage", "admin.roles.manage", "admin.audit.view", "admin.approval_policy.manage",
@@ -29,11 +28,24 @@ ALL_TENANT_PERMS: list[str] = [
     "oversight.view", "ops.oversee", "decisions.view", "board.attest",
 ]
 
+# Permissions that make a role administratively or decisively equivalent to "admin" — tenant administration,
+# deciding a 4-eyes approval, or personally attesting a filing. A preparer role must never hold these; that
+# is exactly the separation of duties the maker/checker and attestation model depends on.
+_ADMIN_AND_DECISION_PERMS = {"admin.users.manage", "admin.roles.manage", "admin.approval_policy.manage",
+                             "approvals.decide", "board.attest"}
+
 DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
-    # admin = the tenant super-user for administration too: everything analyst sees, plus it owns the same set.
+    # admin = the tenant super-user for administration too: everything else sees, plus it owns the same set.
     "admin": list(ALL_TENANT_PERMS),
-    # analyst = tenant super-user: sees and works every in-tenant surface (the persona used to review the whole app).
-    "analyst": list(ALL_TENANT_PERMS),
+    # analyst = the tenant PREPARER role (fixed 2026-09-23, an independent architecture review finding): it
+    # used to be a second tenant super-user, identical to admin — including admin.users.manage and
+    # approvals.decide. That meant a bank creating a normal "analyst" user (the natural, professional-sounding
+    # name for a report preparer) silently handed them full tenant administration and the power to approve
+    # their own team's filings, undermining the maker/checker design by role catalog rather than by
+    # convention. analyst now sees and prepares everything (every reports.view/publish, approvals.create, the
+    # data-upload/operational surfaces) but excludes _ADMIN_AND_DECISION_PERMS — it is a strict subset of
+    # admin, not an equal. Use the "admin" role for a genuine full-access reviewer/QA persona instead.
+    "analyst": [p for p in ALL_TENANT_PERMS if p not in _ADMIN_AND_DECISION_PERMS],
     # approver (checker): reviews, decides, discloses and oversees — but not tenant administration (users/roles/billing).
     "approver": ["modules.view", "reports.view", "reports.publish", "pricing.view", "pricing.approve",
                  "approvals.view", "approvals.decide", "submissions.release", "portal.use", "contracts.view",
