@@ -582,11 +582,31 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
                           "re-run the pre-filing check and confirm again before freezing")
 
     # resolve the reporting scope — refuse a per-entity/consolidated scope for a framework that can't honour it
-    # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD has no per-legal-entity split.
+    # (would mislabel a whole-org number). SFDR consolidates by fund; agri CSRD/ESRS has TWO distinct gaps —
+    # see the C5 note below, not just the one this used to name.
     if entity_id is not None and framework not in _ENTITY_SCOPED:
+        if framework in ("csrd_e1", "esrs_pack"):
+            # Fixed 2026-09-23 (C5, independent consolidation-scope review): this used to cite only the
+            # data-attribution gap (no per-legal-entity COGS split), which understates what's actually
+            # missing. CSRD Art 19a (consolidated) vs Art 29a (individual undertaking) turns on a genuine
+            # LEGAL-SCOPING question this platform doesn't track at all: which subsidiary is the real Art
+            # 19a/29a reporting undertaking, and which one — if any — claims the Art 19a(3)/29a(3) exemption
+            # (available only when included in a parent's Art 29a consolidated report, and even then the
+            # exempted subsidiary must still disclose the parent's name, registered office and a weblink to
+            # that report). Reporting_entities has no field for either fact, so a customer reading only the
+            # data-attribution reason would reasonably think a COGS-mapping improvement is all that's needed
+            # — it is not; the legal designation itself would need to be built first.
+            raise FilingError(
+                f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
+                f"consolidated scope isn't available for it, for two separate reasons: (1) data attribution — "
+                f"the supply-chain COGS-at-risk model has no per-legal-entity split, only an org-wide "
+                f"footprint; (2) legal scoping — this platform doesn't yet track which subsidiary is the "
+                f"actual CSRD Art 19a (consolidated) or Art 29a (individual undertaking) reporting entity, or "
+                f"which one would claim the Art 19a(3)/29a(3) exemption. Both would need to be built, not just "
+                f"the first.")
         raise FilingError(f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
                           f"consolidated scope isn't available for it (SFDR consolidates by fund in the Funds "
-                          f"workspace; agri CSRD/ESRS has no per-legal-entity COGS attribution).")
+                          f"workspace).")
     entity_ids = value_weights = None
     if entity_id is not None:
         from services.governance import entities as _E
