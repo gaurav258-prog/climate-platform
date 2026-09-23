@@ -13,6 +13,19 @@ per-peril exposure that drives it, ALONGSIDE the PRESCRIBED STANDARD-FORMULA Nat
 and labelled. The only remaining external dependency is intra-country: the EXACT zonal SCR (Annex IX risk
 zones) needs postcode/administrative boundary geodata to assign each location to its zone — a bounded,
 declared external dependency, like the bank's EBA DPM binding, not the aggregate SCR itself.
+
+GROUP-SCOPE HONESTY (C3, 2026-09-23 independent consolidation-scope review): when this is computed for a
+consolidated (parent/group) scope, what's built is a NatCat sub-module figure on the ownership-weighted POOL
+of the group's policies — ONE Basic SCR module (catastrophe risk), not a Solvency II Title III group solvency
+position. Real group supervision (Arts 218-243) needs either Method 1 (Art 230: accounting-consolidation
+basis — group eligible own funds minus a group SCR computed from the FULL Basic SCR module set: market,
+health, life, non-life underwriting, default, catastrophe, aggregated through the Art 104 correlation matrix)
+or Method 2 (Art 233: deduction and aggregation — parent's solo SCR plus its proportional share of each
+related undertaking's own solo SCR, which does NOT capture diversification benefit). Neither group own funds,
+the other Basic SCR modules, nor the Art 230/233 aggregation formula exist in this codebase — this function
+computes one input a Method 1/2 calculation would need, not the calculation itself. s2601_natcat() discloses
+this explicitly via `group_method_note` whenever `group_scope=True`; it never silently presents the pooled
+NatCat SCR as a group solvency figure.
 """
 from __future__ import annotations
 
@@ -26,8 +39,12 @@ _S2601_PERIL = {
 }
 
 
-def s2601_natcat(snapshot: dict) -> dict:
-    """Build the S.26.01.01 natural-catastrophe block from a frozen insurer disclosure snapshot."""
+def s2601_natcat(snapshot: dict, group_scope: bool = False) -> dict:
+    """Build the S.26.01.01 natural-catastrophe block from a frozen insurer disclosure snapshot.
+
+    group_scope=True means this was computed over an ownership-weighted pool of a group's subtree (see the
+    module docstring's GROUP-SCOPE HONESTY note) — stamps group_method_note disclosing that this is one
+    Basic SCR sub-module on the consolidated exposure, not a Title III Method 1/2 group solvency position."""
     scr = snapshot.get("solvency_scr") or {}
     reins = snapshot.get("reinsurance") or {}
     by_hazard = snapshot.get("by_hazard") or {}
@@ -54,10 +71,24 @@ def s2601_natcat(snapshot: dict) -> dict:
     gross = scr.get("natcat_scr_eur")
     # net NatCat SCR = the net-of-reinsurance annual-aggregate 1-in-200 (same AEP basis as the gross SCR)
     net = ((reins.get("net") or {}).get("net_aep_eur") or {}).get("rp_200")
+    group_method_note = None
+    if group_scope:
+        group_method_note = {
+            "status": "not_a_group_solvency_position",
+            "note": "This figure is the catastrophe-risk sub-module SCR on an ownership-weighted pool of the "
+                    "group's policies — ONE Basic SCR module, computed over consolidated exposure. It is NOT a "
+                    "Solvency II Title III group solvency position: no group eligible own funds, no other "
+                    "Basic SCR modules (market/health/life/non-life underwriting/default), and neither the "
+                    "Method 1 consolidation-basis formula (Art 230) nor the Method 2 deduction-and-aggregation "
+                    "formula (Art 233) is applied. Use this as one input into a real group-SCR calculation, "
+                    "not as that calculation's result.",
+            "regulation": "Directive 2009/138/EC (Solvency II) Title III, Arts 218-243 — group supervision",
+        }
     return {
         "framework": "insurer_solvency",
         "regulation": "Commission Delegated Regulation (EU) 2015/35 — SCR Non-Life catastrophe risk (S.26.01.01)",
         "basis": scr.get("scr_basis", "internal_model_99_5_var"),
+        "group_method_note": group_method_note,
         "natcat_scr": {
             "gross_1_in_200_eur": round(gross) if gross is not None else None,
             "net_of_reinsurance_1_in_200_eur": round(net) if net is not None else None,

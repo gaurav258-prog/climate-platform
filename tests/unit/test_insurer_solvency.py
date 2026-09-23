@@ -52,3 +52,20 @@ def test_remaining_cells_still_declared_external():
 def test_unavailable_when_no_scr():
     s = s2601_natcat({"solvency_scr": {"available": False, "reason": "no_scored_policies"}})
     assert s["available"] is False
+
+
+def test_solo_scope_has_no_group_method_note():
+    """Default (group_scope=False, the ordinary solo/whole-org case) — no group-solvency caveat needed."""
+    s = s2601_natcat(_snap())
+    assert s["group_method_note"] is None
+
+
+def test_group_scope_discloses_it_is_not_a_group_solvency_position():
+    """C3 (2026-09-23): a consolidated/group-scoped figure must explicitly say it's one Basic SCR sub-module
+    on a weighted pool, not a Title III Method 1/2 group solvency position — never silently pass as one."""
+    s = s2601_natcat(_snap(), group_scope=True)
+    note = s["group_method_note"]
+    assert note is not None
+    assert note["status"] == "not_a_group_solvency_position"
+    assert "Method 1" in note["note"] and "Method 2" in note["note"]
+    assert "Title III" in note["regulation"]
