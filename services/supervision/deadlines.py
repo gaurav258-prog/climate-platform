@@ -9,6 +9,7 @@ read. Reminder windows come from the registry; nothing here names a sector.
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from typing import Optional
 
@@ -46,8 +47,13 @@ def stage_for(due: date, today: date, r: Optional[dict] = None) -> Optional[str]
 
 
 def _period_end(period_label: str) -> date:
-    y = int("".join(ch for ch in period_label if ch.isdigit())[-4:])
-    return date(y, 12, 31)
+    """The year from a label like '2026', 'FY2026' or '2026-Q3'. Matches the first 4-digit RUN, not the last 4
+    digits overall — stripping all digits from '2026-Q3' first (old bug) gives '20263', whose last 4 are '0263':
+    a valid-looking but wrong date (year 263) that silently passed every downstream check."""
+    m = re.search(r"\d{4}", period_label)
+    if not m:
+        raise ValueError(f"no 4-digit year found in period_label {period_label!r}")
+    return date(int(m.group()), 12, 31)
 
 
 # ── the supervisory calendar ────────────────────────────────────────────────────────────────────────────────

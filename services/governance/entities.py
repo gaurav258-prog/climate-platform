@@ -12,13 +12,18 @@ from sqlalchemy.orm import Session
 
 
 def entity_tree(session: Session, org_id: str) -> list[dict]:
-    """Every reporting entity for the org (flat, with parent refs + book size), newest-kind first."""
+    """Every reporting entity for the org (flat, with parent refs + book size), newest-kind first.
+    has_children + requires_solo_filing together tell a reader whether this node's own individual-reporting
+    duty (CRR Art 6, or the Solvency II solo-supervision equivalent) is live — a leaf with
+    requires_solo_filing=true genuinely owes its own filing, not just a share of the group's."""
     rows = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind,
                e.parent_entity_id::text AS parent_entity_id,
                e.ownership_pct::float AS ownership_pct, e.consolidation_method,
+               e.requires_solo_filing, e.solo_waiver_reason,
                (SELECT count(*) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS n_assets,
-               (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur
+               (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur,
+               EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
         FROM reporting_entities e WHERE e.org_id = :o
         ORDER BY (e.kind = 'group') DESC, e.name
     """), {"o": org_id}).mappings().all()
@@ -27,11 +32,26 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
 
 def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     r = session.execute(text("""
-        SELECT entity_id::text AS entity_id, name, kind, parent_entity_id::text AS parent_entity_id,
-               ownership_pct::float AS ownership_pct, consolidation_method
-        FROM reporting_entities WHERE org_id = :o AND entity_id = :e
+        SELECT e.entity_id::text AS entity_id, e.name, e.kind, e.parent_entity_id::text AS parent_entity_id,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method,
+               e.requires_solo_filing, e.solo_waiver_reason,
+               EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
+        FROM reporting_entities e WHERE e.org_id = :o AND e.entity_id = :e
     """), {"o": org_id, "e": entity_id}).mappings().first()
     return dict(r) if r else None
+
+
+def filing_role_for(session: Session, org_id: str, entity_id: str | None) -> str:
+    """Derive the explicit role a filing at this scope plays, per CRR Art 6 (solo) vs Art 18 (consolidated):
+    entity_id None = whole_org (today's default, whole-company scope); a leaf entity (no children) = solo,
+    the entity's own individual-reporting duty; an entity WITH children = consolidated, since selecting it
+    rolls up its whole subtree (entities.subtree_ids / ownership_weights)."""
+    if entity_id is None:
+        return "whole_org"
+    has_children = session.execute(text(
+        "SELECT EXISTS(SELECT 1 FROM reporting_entities WHERE org_id = :o AND parent_entity_id = :e)"),
+        {"o": org_id, "e": entity_id}).scalar()
+    return "consolidated" if has_children else "solo"
 
 
 def default_reporting_entity(session: Session, org_id: str) -> str | None:
@@ -100,20 +120,40 @@ def _parent_in_org(session, org_id, parent_entity_id) -> bool:
 
 def create_entity(session: Session, org_id: str, *, name: str, kind: str = "legal_entity",
                   parent_entity_id: str | None = None, ownership_pct: float = 100.0,
-                  consolidation_method: str = "full") -> dict:
+                  consolidation_method: str = "full", requires_solo_filing: bool | None = None,
+                  solo_waiver_reason: str | None = None) -> dict:
+    """requires_solo_filing defaults to True — the CRR-safe assumption (Art 6) that an entity's own
+    individual-reporting duty applies unless a customer explicitly records why it's waived (Art 7:
+    parent guarantee, prudent-management sign-off, no impediment to fund transfer). Never default this to
+    False just because the entity sits inside a consolidated group — that's exactly the assumption CRR
+    forbids making silently.
+
+    ONE exception, not a guess but a settled legal fact: a `branch` is the SAME legal entity as its head
+    office (it has no separate legal personality), so it has no independent Art 6 solo-reporting duty of
+    its own — that duty belongs to the head office, once, covering every branch worldwide. `kind='branch'`
+    defaults requires_solo_filing to False unless the caller explicitly overrides (e.g. a jurisdiction that
+    genuinely imposes host-country solo reporting on a branch, which does happen in some third-country
+    regimes — Tellumen doesn't assume it away, it just isn't the CRR default)."""
     _validate(name, kind, ownership_pct, consolidation_method)
+    if requires_solo_filing is None:
+        requires_solo_filing = (kind.strip().lower() != "branch")
+    if solo_waiver_reason and requires_solo_filing:
+        raise EntityError("a waiver reason implies requires_solo_filing=false — set both consistently")
     if parent_entity_id and not _parent_in_org(session, org_id, parent_entity_id):
         raise EntityError("parent entity not found in your organisation")
     eid = session.execute(text("""
-        INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct, consolidation_method)
-        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m) RETURNING entity_id
+        INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct,
+                                        consolidation_method, requires_solo_filing, solo_waiver_reason)
+        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :rsf, :swr) RETURNING entity_id
     """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id,
-           "pct": ownership_pct, "m": consolidation_method}).scalar()
+           "pct": ownership_pct, "m": consolidation_method, "rsf": requires_solo_filing,
+           "swr": (solo_waiver_reason or "").strip() or None}).scalar()
     return get_entity(session, org_id, str(eid))
 
 
 def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
-                  parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None) -> dict:
+                  parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None,
+                  requires_solo_filing=None, solo_waiver_reason=_UNSET) -> dict:
     if not get_entity(session, org_id, entity_id):
         raise EntityError("entity not found")
     _validate(name, kind, ownership_pct, consolidation_method)
@@ -122,6 +162,10 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
     if kind is not None: sets.append("kind = :k"); params["k"] = kind.strip()
     if ownership_pct is not None: sets.append("ownership_pct = :pct"); params["pct"] = ownership_pct
     if consolidation_method is not None: sets.append("consolidation_method = :m"); params["m"] = consolidation_method
+    if requires_solo_filing is not None:
+        sets.append("requires_solo_filing = :rsf"); params["rsf"] = requires_solo_filing
+    if solo_waiver_reason is not _UNSET:
+        sets.append("solo_waiver_reason = :swr"); params["swr"] = (solo_waiver_reason or "").strip() or None
     if parent_entity_id is not _UNSET:
         if parent_entity_id == entity_id:
             raise EntityError("an entity can't be its own parent")

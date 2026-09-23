@@ -250,7 +250,16 @@ def _period_label(period_end: date) -> str:
 
 def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
     """Make sure an obligation row exists for every framework applicable to this org, for the current
-    reference period (last completed year-end). Idempotent — safe to call on every calendar read."""
+    reference period (last completed year-end). Idempotent — safe to call on every calendar read.
+
+    Fixed 2026-09-23 (the most severe finding in that day's independent consolidation-scope review): this
+    used to insert ONLY one blanket whole-org obligation per framework, full stop — a bank group with
+    unwaived subsidiaries had no way to see that CRR Art 6 requires each of them to ALSO file its own solo
+    return, in parallel with (not instead of) the consolidated one. Now, for every _ENTITY_SCOPED framework,
+    this also inserts one 'solo' obligation per entity in the org's tree whose requires_solo_filing is still
+    true (the CRR-safe default — see entities.create_entity) — so "you owe N solo filings + 1 consolidated
+    filing" is finally a real, visible fact in the calendar, not an implicit consequence of which entity_id
+    someone happened to pick when generating a filing."""
     period_end = date(date.today().year - 1, 12, 31)
     for f in available_frameworks(org_type):
         fk = f["framework"]
@@ -260,30 +269,58 @@ def ensure_obligations(session: Session, org_id: str, org_type: str) -> None:
             SELECT 1 FROM regulatory_obligation
             WHERE org_id = :o AND framework = :fk AND period_end = :pe AND entity_id IS NULL
         """), {"o": org_id, "fk": fk, "pe": period_end}).first()
-        if exists:
+        if not exists:
+            session.execute(text("""
+                INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, filing_role)
+                VALUES (:o, :fk, :pe, :pl, :due, :freq, 'whole_org')
+            """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
+                   "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"]})
+
+        if fk not in _ENTITY_SCOPED:
             continue
-        session.execute(text("""
-            INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency)
-            VALUES (:o, :fk, :pe, :pl, :due, :freq)
-        """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
-               "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"]})
+        solo_entities = session.execute(text("""
+            SELECT entity_id::text AS entity_id FROM reporting_entities
+            WHERE org_id = :o AND requires_solo_filing = true
+        """), {"o": org_id}).scalars().all()
+        for eid in solo_entities:
+            exists = session.execute(text("""
+                SELECT 1 FROM regulatory_obligation
+                WHERE org_id = :o AND framework = :fk AND period_end = :pe AND entity_id = CAST(:e AS uuid)
+            """), {"o": org_id, "fk": fk, "pe": period_end, "e": eid}).first()
+            if exists:
+                continue
+            session.execute(text("""
+                INSERT INTO regulatory_obligation (org_id, framework, period_end, period_label, due_date, frequency, entity_id, filing_role)
+                VALUES (:o, :fk, :pe, :pl, :due, :freq, CAST(:e AS uuid), 'solo')
+            """), {"o": org_id, "fk": fk, "pe": period_end, "pl": _period_label(period_end),
+                   "due": _due_date(fk, period_end), "freq": FRAMEWORKS[fk]["frequency"], "e": eid})
 
 
 def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]:
-    """The filing calendar — each obligation with the live filing that satisfies it (if any) and its status."""
+    """The filing calendar — each obligation with the live filing that satisfies it (if any) and its status.
+
+    Fixed 2026-09-23 alongside ensure_obligations(): the filing-match JOIN used to key on
+    (org_id, framework, period_end) only — harmless while every obligation was the single whole-org row per
+    framework/period, but wrong the moment per-entity solo obligations exist (as they now do): every
+    obligation for a given framework/period would have matched the SAME filing regardless of entity, so a
+    subsidiary's still-unfiled solo return could show as satisfied by the parent's consolidated filing.
+    Now keys on entity_id too (NULL-safe via IS NOT DISTINCT FROM, since entity_id is NULL for whole_org)."""
     ensure_obligations(session, org_id, org_type)
     rows = session.execute(text("""
-        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency, ob.source, ob.set_by,
+        SELECT ob.obligation_id, ob.framework, ob.period_end, ob.period_label, ob.due_date, ob.frequency,
+               ob.source, ob.set_by, ob.entity_id, ob.filing_role, re.name AS entity_name,
                f.filing_id, f.status AS filing_status
         FROM regulatory_obligation ob
+        LEFT JOIN reporting_entities re ON re.entity_id = ob.entity_id
         LEFT JOIN LATERAL (
             SELECT filing_id, status FROM regulatory_filing rf
             WHERE rf.org_id = ob.org_id AND rf.framework = ob.framework
               AND rf.period_end = ob.period_end AND rf.status <> 'superseded'
+              AND rf.entity_id IS NOT DISTINCT FROM ob.entity_id
             ORDER BY rf.created_at DESC LIMIT 1
         ) f ON TRUE
         WHERE ob.org_id = :o
-        ORDER BY ob.due_date
+        ORDER BY ob.due_date, (ob.filing_role = 'whole_org') DESC, (ob.filing_role = 'consolidated') DESC
     """), {"o": org_id}).mappings().all()
     today = date.today()
     out = []
@@ -300,6 +337,9 @@ def list_obligations(session: Session, org_id: str, org_type: str) -> list[dict]
             "filing_status": status, "days_to_due": days_left,
             "source": r["source"] or "entity", "set_by": r["set_by"],
             "overdue": (not done and days_left < 0),
+            "entity_id": str(r["entity_id"]) if r["entity_id"] else None,
+            "entity_name": r["entity_name"],
+            "filing_role": r["filing_role"] or "whole_org",
         })
     return out
 
@@ -317,9 +357,14 @@ def _row_to_summary(r) -> dict:
         "superseded_by": str(r["superseded_by"]) if r["superseded_by"] else None,
         "note": r["note"], "created_by": r.get("created_by_name"),
         "created_at": r["created_at"].isoformat(), "updated_at": r["updated_at"].isoformat(),
-        # reporting scope: NULL entity = whole org; a group kind = a consolidated filing
         "entity_id": str(r["entity_id"]) if r.get("entity_id") else None,
         "entity_name": r.get("entity_name"),
+        # filing_role is the real, stamped value (services.governance.entities.filing_role_for, set once at
+        # generate_filing() time) — solo | consolidated | whole_org. NULL only for filings created before
+        # this column existed (2026-09-23); never backfilled with a guess. `scope` is kept for any existing
+        # caller reading the old inferred field, derived the same way it always was (entity_kind == 'group'
+        # is a weaker signal than filing_role's actual has-children check, so prefer filing_role going forward).
+        "filing_role": r.get("filing_role"),
         "scope": ("consolidated" if r.get("entity_kind") == "group" else "entity") if r.get("entity_id") else "organisation",
     }
 
@@ -328,7 +373,7 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
     """Every filing for the org — the register, newest first."""
     rows = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
-               rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at,
+               rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at, rf.filing_role,
                rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
@@ -345,7 +390,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     """One filing with its full lifecycle history and (optionally) the frozen report payload."""
     r = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
-               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note,
+               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role,
                rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
@@ -564,17 +609,20 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
 
     snap = create_snapshot(session, org_id, framework, actor_user_id, note=note,
                            entity_ids=entity_ids, value_weights=value_weights)
+    from services.governance.entities import filing_role_for
+    role = filing_role_for(session, org_id, entity_id)
     row = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by, entity_id)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by, entity_id, filing_role)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role)
         RETURNING filing_id
     """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
-           "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id}).mappings().first()
+           "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id,
+           "role": role}).mappings().first()
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
                 "payload_sha256": snap["payload_sha256"], "data_confirmed": True,
-                "confirm_token": confirm_token})
+                "confirm_token": confirm_token, "filing_role": role})
     return get_filing(session, org_id, fid, with_payload=False)
 
 

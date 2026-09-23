@@ -208,6 +208,10 @@ class EntityCreate(BaseModel):
     parent_entity_id: Optional[str] = None
     ownership_pct: float = Field(100.0, ge=0, le=100)
     consolidation_method: str = Field("full", max_length=20)
+    # None = use the CRR-safe default (True, except kind='branch' → False — see entities.create_entity).
+    # Setting a waiver reason without also setting requires_solo_filing=False is rejected by the service layer.
+    requires_solo_filing: Optional[bool] = None
+    solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
 
 
 class EntityPatch(BaseModel):
@@ -217,6 +221,9 @@ class EntityPatch(BaseModel):
     set_parent: bool = False   # apply parent_entity_id (True lets you move a node to the top with null)
     ownership_pct: Optional[float] = Field(None, ge=0, le=100)
     consolidation_method: Optional[str] = Field(None, max_length=20)
+    requires_solo_filing: Optional[bool] = None
+    solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
+    set_solo_waiver_reason: bool = False   # apply solo_waiver_reason (True lets you clear it with null)
 
 
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
@@ -225,7 +232,9 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
     try:
         e = E.create_entity(session, ctx["org"]["org_id"], name=body.name, kind=body.kind,
                             parent_entity_id=body.parent_entity_id, ownership_pct=body.ownership_pct,
-                            consolidation_method=body.consolidation_method)
+                            consolidation_method=body.consolidation_method,
+                            requires_solo_filing=body.requires_solo_filing,
+                            solo_waiver_reason=body.solo_waiver_reason)
     except E.EntityError as ex:
         raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
@@ -233,7 +242,7 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
     return e
 
 
-@router.patch("/filings/entities/{entity_id}", summary="Edit a reporting entity (name / parent / ownership / method)")
+@router.patch("/filings/entities/{entity_id}", summary="Edit a reporting entity (name / parent / ownership / method / solo-filing waiver)")
 def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
     from services.governance import entities as E
     kwargs: dict = {}
@@ -242,6 +251,8 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.ownership_pct is not None: kwargs["ownership_pct"] = body.ownership_pct
     if body.consolidation_method is not None: kwargs["consolidation_method"] = body.consolidation_method
     if body.set_parent: kwargs["parent_entity_id"] = body.parent_entity_id
+    if body.requires_solo_filing is not None: kwargs["requires_solo_filing"] = body.requires_solo_filing
+    if body.set_solo_waiver_reason: kwargs["solo_waiver_reason"] = body.solo_waiver_reason
     try:
         e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
     except E.EntityError as ex:
