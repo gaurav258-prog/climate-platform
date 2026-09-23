@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,17 +33,32 @@ LAYER_VOLCANOES = "GVP-VOTW:Smithsonian_VOTW_Holocene_Volcanoes"
 LAYER_ERUPTIONS = "GVP-VOTW:Smithsonian_VOTW_Holocene_Eruptions"
 OUT_PATH = Path(__file__).resolve().parents[1] / "data" / "reference" / "gvp_holocene_volcanoes.json"
 
+# The GVP GeoServer occasionally drops the connection outright (no HTTP response at all — not a 403/5xx,
+# just a closed socket) rather than rejecting the request; a bare requests.exceptions.ConnectionError from a
+# transient edge/rate-limit blip shouldn't kill a whole scheduled refresh. Retry with backoff before giving
+# up; a genuinely dead endpoint (or a real 4xx/5xx after connecting) still surfaces as 'failed' as before.
+_RETRY_ATTEMPTS = 4
+_RETRY_BACKOFF_S = (2, 4, 8)
+
 
 def _wfs_all(type_name: str, timeout: int = 180) -> list[dict]:
-    r = requests.get(GVP_WFS, params={
-        "service": "WFS", "version": "2.0.0", "request": "GetFeature",
-        "typeName": type_name, "outputFormat": "application/json",
-    }, headers=HEADERS, timeout=timeout)
-    r.raise_for_status()
-    feats = r.json().get("features", [])
-    if not feats:
-        raise RuntimeError(f"GVP WFS returned no features for {type_name}")
-    return feats
+    last_err: Exception | None = None
+    for attempt in range(_RETRY_ATTEMPTS):
+        try:
+            r = requests.get(GVP_WFS, params={
+                "service": "WFS", "version": "2.0.0", "request": "GetFeature",
+                "typeName": type_name, "outputFormat": "application/json",
+            }, headers=HEADERS, timeout=timeout)
+            r.raise_for_status()
+            feats = r.json().get("features", [])
+            if not feats:
+                raise RuntimeError(f"GVP WFS returned no features for {type_name}")
+            return feats
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_err = e
+            if attempt < _RETRY_ATTEMPTS - 1:
+                time.sleep(_RETRY_BACKOFF_S[attempt])
+    raise RuntimeError(f"GVP WFS unreachable for {type_name} after {_RETRY_ATTEMPTS} attempts: {last_err}")
 
 
 def _vei(p: dict) -> float | None:
