@@ -34,10 +34,13 @@ export default function GlRecon() {
     catch { toast.error('Upload failed — check the template columns.') }
     finally { if (fileRef.current) fileRef.current.value = '' }
   }
+  const FORMAT_HINT = "CSV file. Required columns: account_code, balance_eur. Optional: account_name, "
+    + "control_for (defaults to 'book' — the reported total this reconciles against), as_of_date. "
+    + "One upload = one dated batch; reconciliation always uses your latest upload."
   const uploadBtn = (
     <>
       <input ref={fileRef} type="file" accept=".csv" onChange={onFile} className="hidden" />
-      <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload GL</button>
+      <button onClick={() => fileRef.current?.click()} title={FORMAT_HINT} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload GL</button>
     </>
   )
 
@@ -48,15 +51,20 @@ export default function GlRecon() {
         <h3 className="font-semibold text-[14px] text-[var(--color-ink)]">General-ledger reconciliation</h3>
         <span className="text-[12px] text-[var(--color-mute)] hidden sm:inline">· reported book tied back to the ledger</span>
         <span className="ml-auto flex items-center gap-2">
-          <button onClick={() => download('/v1/gl/template.csv', 'tellumen_gl_template.csv').catch(() => {})} className="text-[var(--color-faint)] hover:text-[var(--color-sky)]" title="Download template"><Download size={13} /></button>
+          <button onClick={() => download('/v1/gl/template.csv', 'tellumen_gl_template.csv').catch(() => {})} className="text-[var(--color-faint)] hover:text-[var(--color-sky)]" title={"Download a blank CSV with the right columns. " + FORMAT_HINT}><Download size={13} /></button>
           {uploadBtn}
         </span>
+      </div>
+      <div className="text-[11px] text-[var(--color-faint)] -mt-2 mb-3">
+        CSV · <span className="mono">account_code</span>, <span className="mono">balance_eur</span> required ·{' '}
+        <span className="mono">account_name</span>, <span className="mono">control_for</span>,{' '}
+        <span className="mono">as_of_date</span> optional · one upload = one dated batch, latest one used
       </div>
 
       {!d ? <div className="text-[12.5px] text-[var(--color-faint)] py-4">Loading…</div>
         : !d.available ? (
           <div className="text-[12.5px] text-[var(--color-mute)] py-3">
-            No general ledger uploaded yet. Upload a GL trial-balance (columns: <span className="mono text-[11px]">account_code, account_name, balance_eur, control_for, as_of_date</span>) and Tellumen ties the reported book total back to it.
+            No general ledger uploaded yet — upload one above and Tellumen ties the reported book total back to it.
           </div>
         ) : (
           <>
