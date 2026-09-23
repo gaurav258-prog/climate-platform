@@ -24,7 +24,12 @@ from scripts.ingest_ghcn_extremes import extremes, fetch
 
 OUT = Path("data/ghcn_global/extremes.json")
 REGIONS = ("africa", "asia", "latin_america_caribbean", "oceania")
-CAP_PER_REGION = 150
+# 2026-09-23: raised from 150 so Africa (305 candidate boxes) and Latin America/Caribbean (285) get their
+# FULL candidate pool searched, not just the first 150 hash-ordered boxes — the prior 150-box Africa sample
+# found zero qualifying stations, and the honest next step is to search the rest of the real candidate pool,
+# never to relax the completeness rule itself to manufacture a result. Asia (1170) stays effectively capped
+# by this same ceiling for now — a full Asia search is a much larger, separate network-bound run.
+CAP_PER_REGION = 310
 MAX_TRIES = 5
 
 
