@@ -574,6 +574,25 @@ def _preflight_summary(session: Session, org_id: str, framework: str, basis: dic
     return {"coverage": None, "total_value_eur": None, "noun": "sites & sourcing plots", "gaps": []}
 
 
+def org_data_coverage_pct(session: Session, org_id: str, org_type: str, framework: str) -> float | None:
+    """LIVE per-org data-completeness % for this framework right now (e.g. "312/340 assets scored") — the
+    same number the preflight/confirm-data step shows, reused here for the supervisor oversight rollup.
+
+    Deliberately NOT datapoint_catalog.coverage()'s "pct_computed": that is a STATIC, framework-architectural
+    constant (what fraction of the framework's datapoints Tellumen's engine computes vs needs from the
+    customer) — identical for every customer on a given framework regardless of how complete THEIR book
+    actually is. Platform E2E audit (2026-09-24) finding #7: the oversight rollup was showing that static
+    number next to per-org rows (last filed, KRI breaches), where a reader would reasonably — but wrongly —
+    read it as "how complete is my filing." Returns None where no single completeness ratio applies (e.g.
+    agri csrd_e1/esrs_pack), same honesty as preflight itself — never a fabricated 0%."""
+    if framework not in FRAMEWORKS or framework not in _BUILDERS or org_type not in FRAMEWORKS[framework]["sectors"]:
+        return None
+    from services.governance.reporting_settings import get_settings
+    basis = get_settings(session, org_id)
+    cov = _preflight_summary(session, org_id, framework, basis).get("coverage")
+    return cov.get("pct") if cov else None
+
+
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
                     actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
                     entity_id: str | None = None) -> dict:

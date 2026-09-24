@@ -220,7 +220,7 @@ function PostureView({ q, nav }: { q: ReturnType<typeof useQuery<Posture>>; nav:
           <SectionHead hint="status · coverage · breaches">Mandatory filings</SectionHead>
         </div>
         <div className="hidden sm:grid grid-cols-[2fr_1fr_0.8fr_0.9fr_0.8fr] gap-3 px-5 py-2 border-b border-[var(--color-line)] mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">
-          <span>Filing · regulator</span><span>Last filed</span><span>Produced</span><span>KRI breaches</span><span>Due</span>
+          <span>Filing · regulator</span><span>Last filed</span><span title="Live: how much of this org's book is currently scored/computed for this framework">Data coverage</span><span>KRI breaches</span><span>Due</span>
         </div>
         <div className="divide-y divide-[var(--color-line)]">
           {d.frameworks.map(f => (

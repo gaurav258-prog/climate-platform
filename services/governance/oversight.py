@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 
 def supervisor_view(session: Session, org_id: str, org_type: str | None) -> dict:
-    from services.governance.datapoint_catalog import coverage
     from services.governance.exception_monitor import exceptions
-    from services.governance.filings import reporting_requirements
+    from services.governance.filings import org_data_coverage_pct, reporting_requirements
     from services.governance.kri import kri, kri_frameworks
     from services.governance.readiness import org_readiness
 
@@ -19,7 +18,10 @@ def supervisor_view(session: Session, org_id: str, org_type: str | None) -> dict
     frameworks, total_breaches, never_filed = [], 0, 0
     for r in reqs:
         fw = r["framework"]
-        cov = coverage(fw) or {}
+        try:
+            cov_pct = org_data_coverage_pct(session, org_id, org_type, fw)
+        except Exception:
+            cov_pct = None
         breaches = None
         breach_kris: list[str] = []
         if fw in kfw:
@@ -37,7 +39,7 @@ def supervisor_view(session: Session, org_id: str, org_type: str | None) -> dict
             "framework": fw, "label": r.get("official_name") or r.get("label"),
             "regulator": r.get("regulator"), "due_label": r.get("due_label"),
             "last_filed": last, "n_filings": r.get("n_filings", 0),
-            "coverage_pct": cov.get("pct_computed"),
+            "coverage_pct": cov_pct,
             "breaches": breaches, "breach_kris": breach_kris,
         })
 
