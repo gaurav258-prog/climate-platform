@@ -610,6 +610,34 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
     }
 
 
+def frozen_or_live_statement(session, fund_id: str) -> tuple[dict, bool]:
+    """The statement to actually EXPORT/download for this fund: the FROZEN, filed record for its current
+    reference year if one exists — never a live recompute — else the live draft.
+
+    Fixed 2026-09-24 (independent platform-wide E2E audit): sfdr_statement_xlsx/.xbrl/.ixbrl in
+    api/routers/funds.py used to call sfdr_pai_statement() directly on every single request, even for an
+    already-FILED fund. Proved live: froze a statement (WACI=292.0), made one further look-through change,
+    re-downloaded the SAME export endpoint, and got a DIFFERENT number (WACI=179.9) — an attested/filed
+    export silently drifting from what was actually filed. services/governance/filing_export.py already
+    established the right discipline for the older report_snapshots-based filings ("never recomputed or
+    freshened"); this applies the identical discipline to the fund_sfdr_filings model.
+
+    Returns (statement, is_frozen). is_frozen=False means there is no filed record for the current
+    reference year — this is the legitimate pre-filing preview case, and the caller must disclose that
+    (never present a live draft as if it were the filed record)."""
+    live = sfdr_pai_statement(session, fund_id)
+    if live.get("error"):
+        return live, False
+    ref_year = (live.get("summary") or {}).get("reference_year")
+    if ref_year:
+        row = session.execute(text("""
+            SELECT statement FROM fund_sfdr_filings WHERE fund_id = :f AND reference_year = :y AND status = 'filed'
+        """), {"f": fund_id, "y": ref_year}).scalar()
+        if row:
+            return row, True   # the exact frozen dict, byte-for-byte — never recomputed
+    return live, False
+
+
 def entity_pai_statement(session, org_id: str) -> dict:
     """Entity-level SFDR PAI statement — ONE statement value-weighted across ALL of
     a manager's funds (every position the org holds, counted once). This is what a

@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from api.deps import DbSession
-from ml.regulatory.sfdr_pai import entity_pai_statement, sfdr_pai_statement, sfdr_pai_statement_xlsx
+from ml.regulatory.sfdr_pai import entity_pai_statement, frozen_or_live_statement, sfdr_pai_statement, sfdr_pai_statement_xlsx
 from ml.regulatory.sfdr_periodic import periodic_report
 from ml.regulatory.sfdr_precontractual import build_precontractual
 from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
@@ -803,12 +803,15 @@ def _fund_owned_or_error(session, fund_id: str, org_id: str):
     return None
 
 
-@router.get("/funds/{fund_id}/sfdr-statement", summary="SFDR PAI statement — the filing, as structured JSON")
+@router.get("/funds/{fund_id}/sfdr-statement", summary="SFDR PAI statement — the filed record if one exists for the current period, else the live draft")
 def sfdr_statement(fund_id: str, session: DbSession, org_id: OrgId):
     err = _fund_owned_or_error(session, fund_id, org_id)
     if err:
         return {"error": err}
-    return sfdr_pai_statement(session, fund_id)
+    statement, is_frozen = frozen_or_live_statement(session, fund_id)
+    if not statement.get("error"):
+        statement["filing_status"] = "filed" if is_frozen else "draft_not_yet_filed"
+    return statement
 
 
 @router.get("/funds/{fund_id}/sfdr-statement.xlsx", summary="Download the SFDR PAI statement as a filing-shaped .xlsx")
@@ -816,11 +819,16 @@ def sfdr_statement_xlsx(fund_id: str, session: DbSession, org_id: OrgId):
     err = _fund_owned_or_error(session, fund_id, org_id)
     if err:
         return {"error": err}
-    statement = sfdr_pai_statement(session, fund_id)
+    # Fixed 2026-09-24 (E2E audit): this used to recompute live on every request, so a downloaded export
+    # could silently drift from what was actually filed — reads the FROZEN record now, same discipline as
+    # services/governance/filing_export.py. is_frozen=False only for a fund that hasn't filed yet (a
+    # legitimate draft preview), stamped in the filename so it's never mistaken for the official filing.
+    statement, is_frozen = frozen_or_live_statement(session, fund_id)
     if statement.get("error"):
         return statement
     buf = sfdr_pai_statement_xlsx(statement)
-    fname = f"SFDR_PAI_Statement_{statement['entity']['fund_name'].replace(' ', '_')}.xlsx"
+    suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
+    fname = f"SFDR_PAI_Statement_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xlsx"
     return StreamingResponse(
         buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
@@ -831,11 +839,12 @@ def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
     err = _fund_owned_or_error(session, fund_id, org_id)
     if err:
         return {"error": err}
-    statement = sfdr_pai_statement(session, fund_id)
+    statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
     if statement.get("error"):
         return statement
     xml = sfdr_pai_xbrl(statement)
-    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}.xbrl"
+    suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
+    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xbrl"
     return StreamingResponse(
         iter([xml]), media_type="application/xml",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
@@ -846,12 +855,13 @@ def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
     err = _fund_owned_or_error(session, fund_id, org_id)
     if err:
         return {"error": err}
-    statement = sfdr_pai_statement(session, fund_id)
+    statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
     if statement.get("error"):
         return statement
     from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
     doc = sfdr_pai_ixbrl(statement)
-    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}.xhtml"
+    suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
+    fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xhtml"
     return StreamingResponse(
         iter([doc]), media_type="application/xhtml+xml",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})

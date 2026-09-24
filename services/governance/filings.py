@@ -137,10 +137,21 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     groups = build_form(r["framework"], r["payload"] or {})
     # merge the audited manual-override layer over the immutable snapshot: an APPROVED override replaces the
     # cell (flagged manual, original preserved); a PENDING one is surfaced awaiting 4-eyes.
+    #
+    # Fixed 2026-09-24 (platform-wide E2E audit): build_form() returns TWO incompatible shapes depending on
+    # framework — {"group","datapoints"} (bank/reit/insurer_climate/sfdr/generic) vs {"section","rows"}
+    # (insurer_solvency, reit_taxonomy, assetmgmt_tcfd — see filing_form.py's _insurer_solvency_form /
+    # _reit_taxonomy_form / _assetmgmt_tcfd_form). This loop used to assume every group had "datapoints"
+    # unconditionally — a real KeyError → 500 on EVERY filing review screen for those 3 frameworks,
+    # reproduced live during the audit. Row-shaped sections use plain string labels, not filing_form._dp()'s
+    # stable `key` — cell-level manual overrides were never wired for them (a real, separate, pre-existing
+    # limitation, not newly introduced here), so they're skipped here rather than crashing.
     from services.governance.filing_overrides import overrides_for_filing
     ov = overrides_for_filing(session, org_id, filing_id)
     n_manual = n_pending = 0
     for g in groups:
+        if "datapoints" not in g:
+            continue
         for d in g["datapoints"]:
             o = ov.get(d["key"])
             if not o:
@@ -176,7 +187,7 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     # the official regulator-form layout (SFDR Annex I Table 1, Taxonomy Art.8 GAR, ESRS E1 …) built from the
     # SAME merged datapoints, so the official form and the datapoint list stay in lock-step (overrides included).
     from services.governance.filing_annex import build_annex
-    dps_by_key = {d["key"]: d for g in groups for d in g["datapoints"]}
+    dps_by_key = {d["key"]: d for g in groups if "datapoints" in g for d in g["datapoints"]}
     # the raw frozen payload is passed too — some official templates (e.g. EBA Pillar 3 Template 5) are
     # structured GRIDS computed from the per-asset book, not flat datapoints, and are rebuilt at read time.
     annex = build_annex(r["framework"], dps_by_key, groups, payload=r["payload"] or {})

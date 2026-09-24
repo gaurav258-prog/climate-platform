@@ -30,6 +30,7 @@ interface Statement { error?: string; message?: string
   entity?: { fund_name: string; manager_legal_name?: string; manager_lei?: string; reference_period?: string }
   summary?: { reference_period: string; reference_year: number; declaration?: string }
   filing_readiness?: { ready_to_file: boolean; missing: string[]; note?: string }
+  filing_status?: 'filed' | 'draft_not_yet_filed'
   indicators?: Indicator[]; real_estate_indicators?: Indicator[]; sovereign_indicators?: Indicator[]
   taxonomy?: { taxonomy_eligible_pct?: number
     // DEPRECATED ambiguous pair — kept for back-compat, equal to the turnover_* fields below.
@@ -122,7 +123,12 @@ export default function FundDetail() {
           <div className="px-5 py-3 border-b border-[var(--color-line)] flex items-center justify-between gap-3">
             <div>
               <SectionHead>SFDR PAI statement</SectionHead>
-              <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{st.summary?.reference_period ?? st.entity?.reference_period} · {cov ? `${cov.computed}/${cov.mandatory_indicators} indicators computed` : ''}</div>
+              <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5 flex items-center gap-2">
+                <span>{st.summary?.reference_period ?? st.entity?.reference_period} · {cov ? `${cov.computed}/${cov.mandatory_indicators} indicators computed` : ''}</span>
+                {st.filing_status === 'filed'
+                  ? <span className="inline-flex items-center gap-1 text-[var(--color-good)]"><CheckCircle2 size={11} /> filed — this is the official record</span>
+                  : <span className="inline-flex items-center gap-1 text-[var(--color-warn)]"><Clock size={11} /> draft — not yet filed</span>}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => download(`/v1/funds/${id}/sfdr-statement.xlsx`, `SFDR_PAI_${s.fund.name.replace(/\s+/g, '_')}.xlsx`).catch(() => toast.error('Could not download.'))}
