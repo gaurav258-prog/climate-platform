@@ -417,6 +417,33 @@ def mark_mentions_seen(session: Session, org_id: str, task_id: str, user_id: str
     """), {"o": org_id, "t": task_id, "u": user_id})
 
 
+def sync_status_from_engagement(session: Session, org_id: str, task_id: str, status: str, note: str) -> dict:
+    """A supervision-engagement thread (services.supervision.engagement) drives its linked entity task's
+    status as a genuine consequence of a real, two-sided, authenticated event on that thread (a regulator or
+    the entity closing/reopening it) — not a discretionary Kanban board action, so it doesn't go through the
+    human stage-gate (_gate_check) a card mover would face, including K1's 4-eyes-for-done rule.
+
+    Fixed 2026-09-24 (K2, independent Kanban review): this used to be a raw `UPDATE regulatory_task SET
+    status = ...` with NO regulatory_task_event row at all — the WORM audit trail's append-only guarantee
+    was real for every path that went through move_task(), but silently incomplete for this one (live DB:
+    86/97 non-initial-status tasks had zero 'moved' events). No status column on regulatory_task may ever
+    change again without leaving a record of who/what changed it and why — 'system:supervision_engagement'
+    as actor (no user_id column can name a two-sided cross-org event) with the reason in the note."""
+    if status not in ("icebox", "todo", "blocked", "doing", "review", "done", "cancelled"):
+        raise TaskError(f"unknown status '{status}'")
+    cur = _load(session, org_id, task_id)
+    if cur["status"] == status:
+        return get_task(session, org_id, task_id)
+    session.execute(text("""
+        UPDATE regulatory_task SET status = :s,
+            position = COALESCE((SELECT MAX(position)+1 FROM regulatory_task WHERE org_id=:o AND status=:s), 0)
+        WHERE org_id = :o AND task_id = :t
+    """), {"s": status, "o": org_id, "t": task_id})
+    _event(session, task_id, "moved", None, from_val=cur["status"], to_val=status,
+           note=f"system:supervision_engagement · {note}")
+    return get_task(session, org_id, task_id)
+
+
 def assign_task(session: Session, org_id: str, task_id: str, actor: str, assignee_user_id: str | None) -> dict:
     cur = _load(session, org_id, task_id)
     if assignee_user_id:

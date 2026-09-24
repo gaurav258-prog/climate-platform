@@ -135,6 +135,11 @@ def _notify_entity(session, req: dict, actor_user_id: str) -> None:
                "c": _criticality(req["kind"], req.get("severity")), "ref": req["request_id"], "due": req.get("due_date")}).scalar()
         session.execute(text("UPDATE supervision_request SET entity_task_id = CAST(:t AS uuid) WHERE request_id = CAST(:i AS uuid)"),
                         {"t": tid, "i": req["request_id"]})
+        # same audit gap as the status-sync below (K2, 2026-09-24): this INSERT never had a matching
+        # regulatory_task_event row, so the task's own origin was invisible in its own audit trail.
+        from services.governance.tasks import _event as _task_event
+        _task_event(session, tid, "created", None, to_val="todo",
+                    note=f"system:supervision_engagement · raised by {req['regulator']}: {req['title']}")
         admins = session.execute(text("""
             SELECT DISTINCT u.email FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
             JOIN role_permissions rp ON rp.role_id = ur.role_id JOIN permissions p ON p.permission_id = rp.permission_id
@@ -194,8 +199,17 @@ def add_message(session, request_id: str, *, side: str, author_id: str, body: Op
                                 WHERE request_id = CAST(:i AS uuid)"""),
                         {"st": status_to, "closed": closed, "u": author_id, "i": request_id, "entity": side == ENTITY})
         if req.get("entity_task_id"):
-            session.execute(text("UPDATE regulatory_task SET status = :s, updated_at = now() WHERE task_id = CAST(:t AS uuid)"),
-                            {"s": "done" if closed else ("review" if side == ENTITY else "todo"), "t": req["entity_task_id"]})
+            # A real audit event, not a bare status flip (fixed 2026-09-24, K2 independent Kanban review —
+            # this used to be a raw UPDATE with no regulatory_task_event row at all, a silent hole in the
+            # WORM audit trail's append-only guarantee). See tasks.sync_status_from_engagement's own
+            # docstring for why this bypasses the human Kanban gate rather than calling move_task().
+            from services.governance.tasks import sync_status_from_engagement
+            who = session.execute(text("SELECT COALESCE(full_name, email) FROM users WHERE user_id = CAST(:u AS uuid)"),
+                                  {"u": author_id}).scalar() or side
+            sync_status_from_engagement(
+                session, req["supervised_org_id"], req["entity_task_id"],
+                "done" if closed else ("review" if side == ENTITY else "todo"),
+                f"{req['kind_label']} '{req['title']}' set to {status_label(status_to)} by {who} ({side})")
     else:
         session.execute(text("UPDATE supervision_request SET updated_at = now() WHERE request_id = CAST(:i AS uuid)"), {"i": request_id})
     session.execute(text("""INSERT INTO supervision_request_message (request_id, side, author_id, body, status_to)
