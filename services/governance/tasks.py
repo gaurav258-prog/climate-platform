@@ -177,10 +177,24 @@ def _gate_check(session: Session, org_id: str, task_id: str, cur: dict, target: 
         if dep:
             raise TaskError(f"{dep} dependency task(s) are still open — clear them before starting.")
     if target == "review":
-        desc = session.execute(text("SELECT description FROM regulatory_task WHERE org_id=:o AND task_id=:t"),
-                               {"o": org_id, "t": task_id}).scalar()
-        if not (desc or "").strip():
+        row = session.execute(text("SELECT description, filing_id::text AS filing_id FROM regulatory_task WHERE org_id=:o AND task_id=:t"),
+                              {"o": org_id, "t": task_id}).mappings().first()
+        if not (row["description"] or "").strip():
             raise TaskError("Record what was done (add a description) before sending this task to Review.")
+        # a filing-linked task's "validation was run with no blocking errors" is now a REAL server-side
+        # read of the filing's own validation, not a self-ticked checklist item (fixed 2026-09-24, K4,
+        # independent Kanban review — filing_id used to be purely decorative: nothing ever checked the
+        # filing's actual state). Runs the SAME validate_filing() the filing-generation gate itself uses.
+        if row["filing_id"]:
+            from services.governance.filing_validation import blocking_messages, validate_filing
+            try:
+                result = validate_filing(session, org_id, row["filing_id"])
+            except ValueError:
+                result = None   # filing not found (deleted/wrong org) — don't block on a dangling link
+            if result and not result["passed"]:
+                msgs = blocking_messages(result)
+                raise TaskError("The linked filing still has blocking validation errors: "
+                                + "; ".join(msgs[:3]) + (" …" if len(msgs) > 3 else ""))
     # human attestations — a gated forward move must carry its confirmed checklist
     items = [a for a in (attestations or []) if str(a).strip()]
     if not items:
