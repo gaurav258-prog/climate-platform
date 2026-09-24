@@ -66,6 +66,21 @@ def kri(session: Session, org_id: str, framework: str) -> dict:
         # summarise submission-readiness (which core datapoints the regulator expects are covered)
         result["regulator"] = kri_regmap.regulator(result["framework"])
         result["readiness"] = kri_regmap.annotate(result["framework"], result["kpis"])
+        # Fixed 2026-09-24 (platform-wide E2E audit finding #5, confirmed independently across bank,
+        # insurer, agri and asset-manager KRI): the KPI cards above are live-recomputed from the CURRENT
+        # book/basis on every call, not read from the last filed snapshot — only `history` reads frozen
+        # data (this module's own docstring already disclosed the design in code, but nothing on the
+        # dashboard itself said so). A viewer could read a live number as "what we told the regulator" when
+        # it may have moved since. Surface it explicitly rather than silently — never hide the distinction.
+        hist = result.get("history") or []
+        result["basis"] = {
+            "kpis": "live",
+            "note": "These figures reflect the current book and reporting basis, recomputed live — not "
+                    "necessarily the number last filed with the regulator. See the trend/history for what "
+                    "was actually filed.",
+            "last_filed": ({"period_label": hist[-1]["label"], "filing_id": hist[-1]["filing_id"]}
+                           if hist else None),
+        }
     return result
 
 

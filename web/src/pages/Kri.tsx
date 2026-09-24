@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { ChevronRight, ShieldCheck, ArrowUpRight, Upload, SlidersHorizontal, ListPlus, Gauge, CheckCircle2, AlertTriangle, ShieldAlert, Clock } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Area, ReferenceLine, ReferenceArea } from 'recharts'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -32,7 +32,8 @@ interface Regulator { authority: string; disclosure: string; legal_basis: string
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
 interface Hist { label: string; filing_id: string | null; total_value: number | null; value_at_risk: number | null; pct_at_risk: number | null }
-interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness }
+interface Basis { kpis: 'live'; note: string; last_filed: { period_label: string; filing_id: string | null } | null }
+interface Resp { framework: string; supported: boolean; label: string; kpis: Kpi[]; by_hazard: Haz[]; history: Hist[]; note?: string; message?: string; breaches?: number; scope_note?: string; regulator?: Regulator; readiness?: Readiness; basis?: Basis }
 const RAG: Record<string, string> = { ok: 'var(--color-good)', amber: '#f0a860', red: '#fb7185' }
 // the appetite band in words, in the KRI's own unit
 const bandNote = (k: Kpi) => {
@@ -139,6 +140,15 @@ export default function Kri() {
               { label: 'In breach', value: nRed, icon: ShieldAlert, tone: nRed > 0 ? '#D23B3B' : '#4FA46E', pulse: nRed > 0 },
             ]} />
           {d.note && <div className="text-[12.5px] text-[var(--color-warn)]">{d.note}</div>}
+          {/* Fixed 2026-09-24 (platform E2E audit): these KPI cards recompute live from the current book —
+              never silently pass that off as "what we filed". See the History tab for the actual filed trend. */}
+          {d.basis && (
+            <div className="flex items-center gap-1.5 mono text-[10.5px] text-[var(--color-faint)]">
+              <Clock size={11} />
+              <span>live — as of now</span>
+              {d.basis.last_filed && <span>· last filed: {d.basis.last_filed.period_label}</span>}
+            </div>
+          )}
           {/* regulator framing + scope note now live in the 'Regulator view' tab below (Details) */}
           {(d.breaches ?? 0) > 0 && (
             <button onClick={() => setOnlyBreaches(v => !v)}
