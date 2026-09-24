@@ -80,7 +80,13 @@ const GROUPS: Group[] = [
     { to: '/oversight', label: 'Supervisory view', icon: Scale, perm: 'oversight.view' },
   ] },
   { label: 'Operate', color: 'var(--stage-operate)', flow: true, items: [
-    { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'modules.view' },
+    // Fixed 2026-09-24 (K3, independent Kanban review): every reg-tasks endpoint actually requires
+    // reports.view (see) / approvals.create (act) — was gated here on modules.view, a real, silent
+    // mismatch confirmed live: roles with modules.view but not reports.view (data_steward/head/inspector/
+    // policy/risk_analyst/supervisor, and even 4/50 orgs' own admin role) saw the link and got 403 on
+    // every single call; a 'respondent' role with reports.view but not modules.view never saw the link at
+    // all despite being able to use the page. Gate on exactly what the backend requires, not a proxy for it.
+    { to: '/tasks', label: 'Tasks', icon: KanbanSquare, perm: 'reports.view' },
     { to: '/approvals', label: 'My approvals', icon: ClipboardCheck, perm: 'approvals.view' },
     { to: '/exceptions', label: 'Control Tower', icon: AlertOctagon, perm: 'ops.oversee' },
     { to: '/calendar', label: 'Calendar', icon: CalendarDays, perm: 'ops.oversee' },
