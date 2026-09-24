@@ -19,19 +19,39 @@ def _num(d, *path):
     return d
 
 
-def _located_book_form(payload: dict) -> list[dict]:
-    """bank_tcfd / reit_tcfd / insurer_climate — all assembled by build_disclosure_snapshot (rollup + by_hazard
-    + taxonomy + financed_emissions)."""
-    r = payload.get("rollup", {}) or {}
-    groups = []
-
-    headline = [
+def _headline_block(framework: str, r: dict) -> list[dict]:
+    """The book's headline exposure figures, per framework — NOT a generic shape. Fixed 2026-09-24 (platform
+    E2E audit): insurer_climate used to be forced through the bank/REIT field names (total_value_eur/
+    n_scored/n_assets/value_at_risk_eur), which insurance's own rollup (api/routers/insurance.py:_rollup)
+    never populates — it has EAL/premium/priced-policy concepts, not a VaR/discount/scored-asset concept.
+    That silently rendered "Assets scored: 0/0" and dropped the value/VaR rows entirely on a real,
+    correctly-computed book. filing_annex.py's _insurer_annex() already read the raw payload directly and
+    was never affected — only this plain-form headline block was wrong."""
+    if framework == "insurer_climate":
+        return [
+            _dp("book.total_sum_insured_eur", "Total sum insured", r.get("total_sum_insured_eur"), "eur", source="book"),
+            _dp("book.total_expected_annual_loss_eur", "Expected annual loss (NatCat)", r.get("total_expected_annual_loss_eur"), "eur"),
+            _dp("book.total_gross_premium_eur", "Gross written premium", r.get("total_gross_premium_eur"), "eur", source="book"),
+            _dp("book.portfolio_loss_ratio_pct", "Modelled NatCat loss ratio", r.get("portfolio_loss_ratio_pct"), "pct"),
+            _dp("book.coverage", "Policies priced", f"{r.get('n_priced', 0)} / {r.get('n_policies', 0)}", "text", source="book"),
+        ]
+    return [
         _dp("book.total_value_eur", "Total book value", r.get("total_value_eur"), "eur", source="book"),
         _dp("book.value_at_risk_eur", "Value at risk (High+)", r.get("value_at_risk_eur"), "eur"),
         _dp("book.pct_value_at_risk", "Share of book at risk", r.get("pct_value_at_risk"), "pct"),
         _dp("book.total_discounted_value_eur", "Risk-adjusted (climate-discounted) value", r.get("total_discounted_value_eur"), "eur"),
         _dp("book.coverage", "Assets scored", f"{r.get('n_scored', 0)} / {r.get('n_assets', 0)}", "text", source="book"),
     ]
+
+
+def _located_book_form(framework: str, payload: dict) -> list[dict]:
+    """bank_tcfd / reit_tcfd / insurer_climate — all assembled by build_disclosure_snapshot (rollup + by_hazard
+    + taxonomy + financed_emissions). The headline block is framework-specific (_headline_block); the rest
+    (financed emissions / taxonomy / by-hazard) reads generic payload keys shared or gracefully absent."""
+    r = payload.get("rollup", {}) or {}
+    groups = []
+
+    headline = _headline_block(framework, r)
     groups.append({"group": "Headline exposure", "datapoints": [d for d in headline if d["value"] is not None]})
 
     fe = payload.get("financed_emissions_tco2e") or {}
@@ -98,7 +118,7 @@ def build_form(framework: str, payload: dict) -> list[dict]:
     if not payload:
         return []
     if framework in ("bank_tcfd", "bank_p3esg", "reit_tcfd", "insurer_climate"):
-        return _located_book_form(payload)
+        return _located_book_form(framework, payload)
     if framework == "reit_taxonomy":
         return _reit_taxonomy_form(payload)
     if framework == "insurer_solvency":
