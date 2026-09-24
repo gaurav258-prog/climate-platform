@@ -73,6 +73,26 @@ def _today(session: Session) -> str:
     return session.execute(text("SELECT CURRENT_DATE")).scalar().isoformat()
 
 
+def _check_assignable(session: Session, org_id: str, assignee_user_id: str) -> None:
+    """The assignee must be a real member of this org AND actually able to WORK a task once assigned — every
+    write action on a task (move, comment, attach, assign) is gated on approvals.create. Shared by
+    create_task() and assign_task() (fixed 2026-09-24, K5, independent Kanban review — create_task() used to
+    insert an unvalidated assignee_user_id directly, not even the org-membership check assign_task() had)."""
+    ok = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:a AS uuid) AND org_id = :o"),
+                         {"a": assignee_user_id, "o": org_id}).first()
+    if not ok:
+        raise TaskError("assignee must be a user in this organisation")
+    can_act = session.execute(text("""
+        SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.user_id
+        JOIN role_permissions rp ON rp.role_id = ur.role_id
+        JOIN permissions p ON p.permission_id = rp.permission_id
+        WHERE u.user_id = CAST(:a AS uuid) AND u.org_id = :o AND p.code = 'approvals.create'
+    """), {"a": assignee_user_id, "o": org_id}).first()
+    if not can_act:
+        raise TaskError("this colleague's role can't act on tasks — assign it to someone who can "
+                        "(needs the approvals.create permission)")
+
+
 def create_task(session: Session, org_id: str, actor: str, *, title: str, description: str | None = None,
                 criticality: str = "normal", assignee_user_id: str | None = None, filing_id: str | None = None,
                 due_date: str | None = None, source: str = "manual", source_ref: str | None = None,
@@ -81,6 +101,8 @@ def create_task(session: Session, org_id: str, actor: str, *, title: str, descri
         raise TaskError("a task needs a title")
     if criticality not in _CRIT:
         raise TaskError(f"criticality must be one of {_CRIT}")
+    if assignee_user_id:
+        _check_assignable(session, org_id, assignee_user_id)
     # a linked filing must belong to THIS org — never attach to another tenant's filing UUID
     if filing_id:
         owned = session.execute(text(
@@ -461,10 +483,7 @@ def sync_status_from_engagement(session: Session, org_id: str, task_id: str, sta
 def assign_task(session: Session, org_id: str, task_id: str, actor: str, assignee_user_id: str | None) -> dict:
     cur = _load(session, org_id, task_id)
     if assignee_user_id:
-        ok = session.execute(text("SELECT 1 FROM users WHERE user_id = CAST(:a AS uuid) AND org_id = :o"),
-                             {"a": assignee_user_id, "o": org_id}).first()
-        if not ok:
-            raise TaskError("assignee must be a user in this organisation")
+        _check_assignable(session, org_id, assignee_user_id)
     session.execute(text("UPDATE regulatory_task SET assignee_user_id = CAST(:a AS uuid) WHERE org_id=:o AND task_id=:t"),
                     {"a": assignee_user_id, "o": org_id, "t": task_id})
     _event(session, task_id, "assigned", actor,

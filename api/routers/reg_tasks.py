@@ -205,8 +205,15 @@ def board(session: DbSession, ctx: dict = Depends(require_permission("reports.vi
 
 @router.get("/members", summary="Users a task can be assigned to")
 def members(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    # only users who can actually ACT on a task once assigned (fixed 2026-09-24, K5, independent Kanban
+    # review) — same approvals.create check assign_task() itself now enforces, so the picker never offers
+    # a choice the server would refuse.
     rows = session.execute(text("""
-        SELECT user_id, email, full_name FROM users WHERE org_id = :o AND status = 'active' ORDER BY email
+        SELECT DISTINCT u.user_id, u.email, u.full_name FROM users u
+        JOIN user_roles ur ON ur.user_id = u.user_id
+        JOIN role_permissions rp ON rp.role_id = ur.role_id
+        JOIN permissions p ON p.permission_id = rp.permission_id
+        WHERE u.org_id = :o AND u.status = 'active' AND p.code = 'approvals.create' ORDER BY u.email
     """), {"o": ctx["org"]["org_id"]}).mappings().all()
     return [{"user_id": str(r["user_id"]), "email": r["email"], "name": r["full_name"]} for r in rows]
 
