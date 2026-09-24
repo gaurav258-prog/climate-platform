@@ -169,8 +169,15 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     # Lane 2 — attested "provided" (customer/vendor) values that passed 4-eyes now LAND in the filing: as their
     # own datapoint group AND an annex section, each with its reconciliation vs the Tellumen baseline. Previously
     # these dead-ended at the provided-data list view and never reached a disclosure.
-    from services.governance.provided_data import attested_values
-    provided = attested_values(session, org_id, r["framework"])
+    #
+    # Fixed 2026-09-24 (platform E2E audit finding #6): this used to call attested_values() LIVE on every
+    # read — so an already-accepted/attested filing's "Provided & attested" section could silently change
+    # if someone attested a NEW value for the same framework afterward, breaking the immutability guarantee
+    # every other section of a frozen filing has. report_snapshots.create_snapshot() now bakes the attested
+    # values into the frozen payload (hash-verified, like the rest) at freeze time — read that instead. A
+    # filing frozen BEFORE this fix has no "_provided_attested" key at all; it correctly shows nothing here
+    # rather than being retroactively backfilled with data that was never actually part of what was frozen.
+    provided = (r["payload"] or {}).get("_provided_attested") or []
     if provided:
         groups.append({
             "group": "Provided & attested (customer / vendor)",

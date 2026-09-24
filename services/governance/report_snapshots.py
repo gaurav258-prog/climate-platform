@@ -188,6 +188,15 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
              "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
     payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
                                         entity_ids, value_weights)
+    # Lane 2 (customer/vendor provided values, attested under 4-eyes) is baked into the frozen payload here,
+    # not joined live at read time — fixed 2026-09-24 (platform E2E audit finding #6). This used to be
+    # computed live inside filings.form_view()/get_filing() on EVERY read, so the "Provided & attested"
+    # section of an already-accepted/attested filing could silently change if a new value was attested
+    # afterward for the same framework — a real break in the immutability guarantee every OTHER section of
+    # a frozen filing has (sha256-verified, WORM-enforced). Baking it in here makes it hash-verified and
+    # genuinely frozen like the rest of the snapshot.
+    from services.governance.provided_data import attested_values
+    payload["_provided_attested"] = attested_values(session, org_id, report_type)
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
 
