@@ -17,7 +17,7 @@ interface Task {
   task_id: string; title: string; description: string | null; status: string; criticality: string
   assignee_user_id: string | null; assignee: string | null; assignee_email: string | null
   filing_id: string | null; source: string; source_ref: string | null; due_date: string | null
-  depends_on: string[]; created_by: string | null
+  depends_on: string[]; created_by: string | null; pending_completion_request_id: string | null
 }
 interface TaskEvent { kind: string; from: string | null; to: string | null; note: string | null; at: string; actor: string | null }
 interface Attachment { attachment_id: string; filename: string; content_type: string | null; size_bytes: number; by: string | null; at: string }
@@ -39,6 +39,13 @@ const SRC_LABEL: Record<string, string> = { manual: 'manual', validation: 'valid
 // verified from the task's own state (assignee set, work documented, no open dependencies) and can't be
 // faked; the rest are attestations the mover confirms. A forward move — by drag OR arrow — is held until
 // every item is satisfied. Only the meaningful "you must have done X to be here" stages are gated.
+//
+// 'done' is NOT a checklist gate (fixed 2026-09-24, independent Kanban review — a self-ticked "Reviewed by
+// a second person" checkbox was never real 4-eyes: no checker_user_id exists anywhere in the schema, so any
+// single user could tick their own box). Entering 'done' now requires a REAL second person: request
+// completion (CompletionModal below) opens a genuine approval_requests row, and only a DIFFERENT user
+// approving it (via the Approvals page) actually moves the card — see api/routers/approvals.py's
+// task.complete branch and services/governance/tasks.request_completion/_complete_via_approval.
 interface GateItem { id: string; label: string; auto?: (t: Task) => boolean; onlyIfFiling?: boolean }
 const GATE: Record<string, GateItem[]> = {
   doing: [
@@ -50,10 +57,6 @@ const GATE: Record<string, GateItem[]> = {
     { id: 'documented', label: 'The work done is recorded in the task', auto: t => !!(t.description && t.description.trim()) },
     { id: 'complete', label: 'The deliverable is complete and self-checked' },
     { id: 'validation', label: 'The linked filing’s validation was run with no blocking errors', onlyIfFiling: true },
-  ],
-  done: [
-    { id: 'foureyes', label: 'Reviewed by a second person (4-eyes)' },
-    { id: 'recorded', label: 'The outcome is recorded / the filing is submitted' },
   ],
 }
 const idx = (s: string) => COLS.indexOf(s)
@@ -76,6 +79,7 @@ export default function Tasks() {
   const [drag, setDrag] = useState<Task | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
   const [gate, setGate] = useState<{ task: Task; target: string } | null>(null)
+  const [completing, setCompleting] = useState<Task | null>(null)   // task requesting 4-eyes completion sign-off
   useEffect(() => { const t = params.get('task'); if (t) setOpenId(t) }, [params])
   const members = mq.data ?? []
   const refresh = () => qc.invalidateQueries({ queryKey: ['reg-tasks-board'] })
@@ -92,9 +96,23 @@ export default function Tasks() {
     try { await api.post(`/v1/reg-tasks/${t.task_id}/move`, { status, attestations }); refresh() }
     catch (e) { toast.error(errMsg(e, 'Could not move the task.')) }
   }
-  // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight through
+  const requestCompletion = async (t: Task, note: string) => {
+    try {
+      await api.post(`/v1/reg-tasks/${t.task_id}/request-completion`, { note })
+      toast.success('Completion requested — a different colleague needs to approve it on the Approvals page.')
+      refresh()
+    } catch (e) { toast.error(errMsg(e, 'Could not request completion.')) }
+  }
+  // a forward move into a gated stage is held for its checklist; backward / same-column moves go straight
+  // through. 'done' is never a plain move — it needs a real second person, via requestCompletion() below.
   const attemptMove = (t: Task, target: string) => {
     if (target === t.status) return
+    if (target === 'done') {
+      if (t.status !== 'review') { toast.error('Move this task to Review first.'); return }
+      if (t.pending_completion_request_id) { toast.error('Already awaiting a colleague’s approval — see Approvals.'); return }
+      setCompleting(t)
+      return
+    }
     if (isGatedForward(t, target)) { setGate({ task: t, target }); return }
     move(t, target)
   }
@@ -140,7 +158,7 @@ export default function Tasks() {
           <div className="grid grid-cols-6 gap-3 min-w-[1050px]">
             {b.columns.map(c => {
               const isTarget = overCol === c.key && !!drag && drag.status !== c.key
-              const gated = !!drag && idx(c.key) > idx(drag.status) && gateItemsFor(c.key, drag).length > 0
+              const gated = !!drag && idx(c.key) > idx(drag.status) && (c.key === 'done' || gateItemsFor(c.key, drag).length > 0)
               return (
               <div key={c.key}
                 onDragOver={e => { if (drag) { e.preventDefault(); setOverCol(c.key) } }}
@@ -167,6 +185,39 @@ export default function Tasks() {
       {openId && <TaskDrawer taskId={openId} members={members} onClose={closeDrawer} onChanged={refresh} />}
       {gate && <GateModal task={gate.task} target={gate.target} onClose={() => setGate(null)}
         onConfirm={atts => { const g = gate; setGate(null); move(g.task, g.target, atts) }} />}
+      {completing && <CompletionModal task={completing} onClose={() => setCompleting(null)}
+        onConfirm={note => { const t = completing; setCompleting(null); requestCompletion(t, note) }} />}
+    </div>
+  )
+}
+
+// Request 4-eyes sign-off to complete a task — this does NOT move the card. It opens a real approval_requests
+// row that only a DIFFERENT colleague, on the Approvals page, can grant (services/governance/tasks.py
+// request_completion/_complete_via_approval + api/routers/approvals.py's task.complete branch).
+function CompletionModal({ task, onClose, onConfirm }: { task: Task; onClose: () => void; onConfirm: (note: string) => void }) {
+  const [note, setNote] = useState('')
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="relative w-full max-w-md rounded-2xl bg-[var(--color-bg-2)] border border-[var(--color-line)] shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <div>
+            <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-sky)] flex items-center gap-1.5"><ShieldCheck size={12} /> 4-eyes required</div>
+            <h3 className="display text-lg font-semibold mt-1">Request completion</h3>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={18} /></button>
+        </div>
+        <p className="text-[12.5px] text-[var(--color-mute)] mb-3">
+          “{task.title}” moves to Done only once a <b className="text-[var(--color-ink)]">different colleague</b> approves
+          it on the Approvals page — the same 4-eyes mechanism used everywhere else in Tellumen. You can't approve your own request.
+        </p>
+        <textarea autoFocus value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="What's the outcome? (e.g. filed as bank_tcfd v3, accepted by the regulator)"
+          className="w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!note.trim()} onClick={() => onConfirm(note.trim())}><Send size={14} /> Request approval</Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -228,6 +279,7 @@ function TaskCard({ t, members, onMove, onAssign, onOpen, dragging, onDragStart,
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         {t.source !== 'manual' && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-faint)]">{SRC_LABEL[t.source]}</span>}
         {t.filing_id && <span className="mono text-[9px] text-[var(--color-sky)]">filing-linked</span>}
+        {t.pending_completion_request_id && <span className="inline-flex items-center gap-0.5 mono text-[9px] text-[var(--color-sky)]"><ShieldCheck size={9} />awaiting 4-eyes</span>}
         {overdue && <span className="inline-flex items-center gap-0.5 text-[9.5px] text-[var(--color-bad)]"><AlertTriangle size={9} />overdue</span>}
         {t.due_date && !overdue && <span className="mono text-[9px] text-[var(--color-faint)]">due {t.due_date.slice(5)}</span>}
       </div>
@@ -239,7 +291,11 @@ function TaskCard({ t, members, onMove, onAssign, onOpen, dragging, onDragStart,
         </select>
         <div className="flex items-center gap-0.5">
           {PREV[t.status] && <button onClick={() => onMove(t, PREV[t.status])} title="move back" className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><ChevronLeft size={14} /></button>}
-          {NEXT[t.status] && <button onClick={() => onMove(t, NEXT[t.status])} title={gatedNext ? `move to ${COL_LABEL[NEXT[t.status]]} — passes a stage gate` : 'move forward'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] inline-flex items-center">{gatedNext && <ShieldCheck size={11} className="text-[var(--color-faint)] group-hover/card:text-[var(--color-sky)]" />}<ChevronRight size={14} /></button>}
+          {NEXT[t.status] && (
+            t.pending_completion_request_id
+              ? <span title="Awaiting a different colleague's 4-eyes approval — see Approvals" className="text-[var(--color-sky)] inline-flex items-center"><ShieldCheck size={13} /></span>
+              : <button onClick={() => onMove(t, NEXT[t.status])} title={NEXT[t.status] === 'done' ? 'request 4-eyes completion' : gatedNext ? `move to ${COL_LABEL[NEXT[t.status]]} — passes a stage gate` : 'move forward'} className="text-[var(--color-faint)] hover:text-[var(--color-sky)] inline-flex items-center">{(gatedNext || NEXT[t.status] === 'done') && <ShieldCheck size={11} className="text-[var(--color-faint)] group-hover/card:text-[var(--color-sky)]" />}<ChevronRight size={14} /></button>
+          )}
         </div>
       </div>
     </div>
@@ -255,13 +311,26 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
   const q = useQuery({ queryKey: ['reg-task', taskId], queryFn: () => api.get<TaskDetail>(`/v1/reg-tasks/${taskId}`) })
   const t = q.data
   const [gate, setGate] = useState<string | null>(null)   // target stage awaiting its checklist
+  const [completing, setCompleting] = useState(false)      // requesting 4-eyes completion sign-off
   const reload = () => { qc.invalidateQueries({ queryKey: ['reg-task', taskId] }); onChanged() }
   const call = async (fn: () => Promise<unknown>) => { try { await fn(); reload() } catch (e) { toast.error(errMsg(e, 'Action failed.')) } }
   // opening a task clears my unread @mentions on it (drives the header bell)
   useEffect(() => { api.post(`/v1/reg-tasks/${taskId}/seen`, {}).then(() => qc.invalidateQueries({ queryKey: ['reg-task-mentions'] })).catch(() => {}) }, [taskId, qc])
-  // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist
+  // changing status here obeys the same stage gate as the board — a gated forward move opens the checklist.
+  // 'done' is never a plain move (see Tasks.tsx's GATE comment) — it opens the completion-request modal.
   const doMove = (target: string, attestations?: string[]) => call(() => api.post(`/v1/reg-tasks/${taskId}/move`, { status: target, attestations }))
-  const changeStatus = (target: string) => { if (!t || target === t.status) return; if (isGatedForward(t, target)) setGate(target); else doMove(target) }
+  const requestCompletion = (note: string) => call(() => api.post(`/v1/reg-tasks/${taskId}/request-completion`, { note }))
+    .then(() => toast.success('Completion requested — a different colleague needs to approve it on the Approvals page.'))
+  const changeStatus = (target: string) => {
+    if (!t || target === t.status) return
+    if (target === 'done') {
+      if (t.status !== 'review') { toast.error('Move this task to Review first.'); return }
+      if (t.pending_completion_request_id) { toast.error('Already awaiting a colleague’s approval — see Approvals.'); return }
+      setCompleting(true)
+      return
+    }
+    if (isGatedForward(t, target)) setGate(target); else doMove(target)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -277,6 +346,12 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
             <input defaultValue={t.title} onBlur={e => e.target.value.trim() && e.target.value !== t.title && call(() => api.patch(`/v1/reg-tasks/${taskId}`, { title: e.target.value.trim() }))}
               className="w-full bg-transparent outline-none display text-lg font-semibold" />
 
+            {t.pending_completion_request_id && (
+              <div className="flex items-center gap-1.5 text-[11.5px] text-[var(--color-sky)] bg-[color-mix(in_oklab,var(--color-sky)_8%,transparent)] rounded-lg px-3 py-2">
+                <ShieldCheck size={13} /> Awaiting a different colleague's 4-eyes approval to reach Done —
+                <button onClick={() => nav('/approvals')} className="underline hover:no-underline">see Approvals</button>
+              </div>
+            )}
             {/* quick facts + controls */}
             <div className="grid grid-cols-2 gap-3 text-[12px]">
               <Field label="Status">
@@ -335,6 +410,8 @@ function TaskDrawer({ taskId, members, onClose, onChanged }: { taskId: string; m
       </div>
       {t && gate && <GateModal task={t} target={gate} onClose={() => setGate(null)}
         onConfirm={atts => { const target = gate; setGate(null); doMove(target, atts) }} />}
+      {t && completing && <CompletionModal task={t} onClose={() => setCompleting(false)}
+        onConfirm={note => { setCompleting(false); requestCompletion(note) }} />}
     </div>
   )
 }

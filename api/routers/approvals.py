@@ -234,6 +234,18 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     elif row["request_type"] == "provided.datapoint":
         from services.governance.provided_data import attest as attest_provided
         applied = attest_provided(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
+    # Kanban task completion: on approval the task moves Review→Done, the mover (checker) named on the
+    # 'moved' event — the platform's real 4-eyes (checker ≠ maker, enforced above), not a self-ticked
+    # checklist item. Rejected/returned leaves the task in Review; nothing silently advances.
+    elif row["request_type"] == "task.complete" and body.decision == "approved":
+        from services.governance.tasks import TaskError, _complete_via_approval
+        payload = row["payload"] or {}
+        try:
+            applied = _complete_via_approval(session, org_id, payload.get("task_id"), ctx["user"]["id"],
+                                             payload.get("note"))
+        except TaskError as e:
+            raise HTTPException(409, {"error": "apply_failed",
+                                      "message": f"Approved, but could not complete the task: {e}"})
 
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="approval.decide",
                 target_type="approval", target_id=request_id,

@@ -33,6 +33,10 @@ class TaskAssign(BaseModel):
     assignee_user_id: Optional[str] = None
 
 
+class TaskCompletionRequest(BaseModel):
+    note: str = Field(..., min_length=1, max_length=2000)  # what the outcome is / where it's filed
+
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=300)
     description: Optional[str] = Field(None, max_length=4000)
@@ -236,6 +240,16 @@ def move(task_id: str, body: TaskMove, session: DbSession,
          ctx: dict = Depends(require_permission("approvals.create"))):
     try:
         return T.move_task(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.status, body.attestations)
+    except T.TaskError as e:
+        raise HTTPException(409, {"error": "task_error", "message": str(e)})
+
+
+@router.post("/{task_id}/request-completion", status_code=201,
+            summary="Request 4-eyes sign-off to move a Review task to Done (see POST /v1/approvals/{id}/decide)")
+def request_completion(task_id: str, body: TaskCompletionRequest, session: DbSession,
+                       ctx: dict = Depends(require_permission("approvals.create"))):
+    try:
+        return T.request_completion(session, ctx["org"]["org_id"], task_id, ctx["user"]["id"], body.note)
     except T.TaskError as e:
         raise HTTPException(409, {"error": "task_error", "message": str(e)})
 

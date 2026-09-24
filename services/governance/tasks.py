@@ -37,15 +37,21 @@ def _row(r) -> dict:
         "depends_on": [str(x) for x in (r["depends_on"] or [])],
         "position": r["position"], "created_by": r.get("created_by_name"),
         "created_at": r["created_at"].isoformat(), "updated_at": r["updated_at"].isoformat(),
+        # a pending 'task.complete' approval_requests row — the board must show a task is AWAITING a real
+        # second person's sign-off, not offer to request it again or claim it's still just sitting in Review.
+        "pending_completion_request_id": str(r["pcr"]) if r.get("pcr") else None,
     }
 
 
 def list_tasks(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
-        SELECT t.*, a.full_name AS assignee_name, a.email AS assignee_email, c.full_name AS created_by_name
+        SELECT t.*, a.full_name AS assignee_name, a.email AS assignee_email, c.full_name AS created_by_name,
+               ar.request_id AS pcr
         FROM regulatory_task t
         LEFT JOIN users a ON a.user_id = t.assignee_user_id
         LEFT JOIN users c ON c.user_id = t.created_by
+        LEFT JOIN approval_requests ar ON ar.org_id = t.org_id AND ar.request_type = 'task.complete'
+             AND ar.status = 'pending' AND ar.payload->>'task_id' = t.task_id::text
         WHERE t.org_id = :o AND t.status <> 'cancelled'
         ORDER BY t.status, t.position, t.created_at
     """), {"o": org_id}).mappings().all()
@@ -106,10 +112,13 @@ def create_task(session: Session, org_id: str, actor: str, *, title: str, descri
 
 def get_task(session: Session, org_id: str, task_id: str) -> dict | None:
     r = session.execute(text("""
-        SELECT t.*, a.full_name AS assignee_name, a.email AS assignee_email, c.full_name AS created_by_name
+        SELECT t.*, a.full_name AS assignee_name, a.email AS assignee_email, c.full_name AS created_by_name,
+               ar.request_id AS pcr
         FROM regulatory_task t
         LEFT JOIN users a ON a.user_id = t.assignee_user_id
         LEFT JOIN users c ON c.user_id = t.created_by
+        LEFT JOIN approval_requests ar ON ar.org_id = t.org_id AND ar.request_type = 'task.complete'
+             AND ar.status = 'pending' AND ar.payload->>'task_id' = t.task_id::text
         WHERE t.org_id = :o AND t.task_id = :t
     """), {"o": org_id, "t": task_id}).mappings().first()
     if not r:
@@ -144,10 +153,18 @@ _GATED_STAGES = {"doing", "review", "done"}
 
 
 def _gate_check(session: Session, org_id: str, task_id: str, cur: dict, target: str, attestations) -> None:
-    """Raise TaskError if a forward move into `target` doesn't clear that stage's mandatory gate."""
+    """Raise TaskError if a forward move into `target` doesn't clear that stage's mandatory gate.
+
+    'done' is NOT handled here — see request_completion()/_complete_via_approval() below. A self-ticked
+    checklist item can never BE the platform's 4-eyes guarantee (fixed 2026-09-24, independent Kanban
+    review): entering 'done' now requires a real approval_requests row, checker != maker enforced by the
+    same DB CHECK every other 4-eyes action in this codebase relies on."""
     forward = _STAGE_ORDER.get(target, 0) > _STAGE_ORDER.get(cur["status"], 0)
     if not forward or target not in _GATED_STAGES:
         return  # only advancing INTO a gated stage is gated; backward / sideways moves are free
+    if target == "done":
+        raise TaskError("Moving to Done needs 4-eyes approval — use request_completion(), "
+                        "not a direct move (see task.complete in /v1/approvals).")
     # objective conditions — read from the task's own state
     if target == "doing":
         if not cur.get("assignee_user_id"):
@@ -189,6 +206,60 @@ def move_task(session: Session, org_id: str, task_id: str, actor: str, status: s
         if confirmed:
             note = "gate confirmed · " + " · ".join(confirmed)
     _event(session, task_id, "moved", actor, from_val=cur["status"], to_val=status, note=note)
+    return get_task(session, org_id, task_id)
+
+
+# ── completion = REAL 4-eyes, via the platform's generic approval_requests mechanism ───────────────────────
+# (fixed 2026-09-24, independent Kanban review — was a self-ticked "Reviewed by a second person" checkbox
+# with no checker_user_id anywhere in the schema; any single user could tick their own box and move to done)
+def request_completion(session: Session, org_id: str, task_id: str, actor: str, note: str | None = None) -> dict:
+    """A task in 'review' requests 4-eyes sign-off to move to 'done'. Creates a real approval_requests row
+    (request_type='task.complete', maker=actor) — the task itself stays in 'review' until a DIFFERENT user
+    with approvals.decide approves it (services/governance/tasks._complete_via_approval, called from
+    api/routers/approvals.decide). Mirrors the objective 'recorded' checklist item the old self-attested
+    gate had — 'reviewed by a second person' is no longer a checklist item at all, it's the approval itself."""
+    cur = _load(session, org_id, task_id)
+    if cur["status"] != "review":
+        raise TaskError("A task must be in Review before its completion can be requested.")
+    if not (note or "").strip():
+        raise TaskError("Record what the outcome is / where it's filed before requesting completion.")
+    existing = session.execute(text("""
+        SELECT request_id FROM approval_requests
+        WHERE org_id = :o AND request_type = 'task.complete' AND status = 'pending'
+              AND payload->>'task_id' = :t
+    """), {"o": org_id, "t": task_id}).scalar()
+    if existing:
+        raise TaskError("A completion request for this task is already pending.")
+    import json
+    rid = session.execute(text("""
+        INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
+        VALUES (:o, 'task.complete', :ti, CAST(:p AS jsonb), :m)
+        RETURNING request_id
+    """), {"o": org_id, "ti": f"Complete: {cur['title']}"[:300],
+           "p": json.dumps({"task_id": task_id, "note": note.strip()}), "m": actor}).scalar()
+    _event(session, task_id, "completion_requested", actor, note=note.strip())
+    out = get_task(session, org_id, task_id)
+    out["pending_completion_request_id"] = str(rid)
+    return out
+
+
+def _complete_via_approval(session: Session, org_id: str, task_id: str, checker_actor: str, note: str | None) -> dict:
+    """Called ONLY from api/routers/approvals.decide() on approval of a 'task.complete' request — never
+    reachable from the /move endpoint (see _gate_check's explicit refusal above). checker_actor is the
+    APPROVER, a real different user (approval_requests' own DB CHECK + approvals.decide()'s maker==caller
+    422 already guarantee this before this function is ever called) — so the 'moved' event this writes
+    names the genuine second pair of eyes, not the mover's own self-attestation."""
+    cur = _load(session, org_id, task_id)
+    if cur["status"] != "review":
+        raise TaskError(f"This task is no longer in Review (now '{cur['status']}') — "
+                        "the completion request is stale; withdraw and re-request if still needed.")
+    session.execute(text("""
+        UPDATE regulatory_task SET status = 'done',
+            position = COALESCE((SELECT MAX(position)+1 FROM regulatory_task WHERE org_id=:o AND status='done'), 0)
+        WHERE org_id = :o AND task_id = :t
+    """), {"o": org_id, "t": task_id})
+    _event(session, task_id, "moved", checker_actor, from_val="review", to_val="done",
+           note=f"4-eyes approved" + (f" · {note.strip()}" if note and note.strip() else ""))
     return get_task(session, org_id, task_id)
 
 
