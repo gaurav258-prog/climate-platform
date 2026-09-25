@@ -16,7 +16,7 @@ from typing import Annotated, Optional
 
 import h3
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -1363,8 +1363,45 @@ def plots_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_sourcing_plot_template.xlsx"})
 
 
+def _plot_specs(df) -> list[dict]:
+    """Template specs for the intake controls: latitude/longitude are required only when no boundary is supplied
+    (a boundary-only row derives its point from the polygon)."""
+    specs = [dict(f) for f in PLOT_TEMPLATE_FIELDS]
+    if "plot_geojson" in df.columns:
+        for f in specs:
+            if f["name"] in ("latitude", "longitude"):
+                f["required"] = False
+    return specs
+
+
+@router.post("/plots/validate", summary="Check a sourcing-plot CSV before importing — nothing is saved")
+async def validate_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                         declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run of the intake controls (receipt, transformation, gate) for a plot upload. Writes nothing."""
+    from api.services.intake_http import declared_from_form
+    from services.ingest.batches import preview_controls
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+    raw = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(raw))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+    required_cols = [f["name"] for f in _plot_specs(df) if f["required"]]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
+    ctl = preview_controls(session, ctx["org"]["org_id"], "supply_plots", raw, df, _plot_specs(df),
+                           declared=declared_from_form(declared_row_count, declared_totals), value_field="annual_spend_eur")
+    rep = ctl.report
+    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
+            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+
+
 @router.post("/plots/upload", summary="Bulk-upload sourcing plots from a CSV into your procurement book")
-async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                       declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                       signoff_reason: Optional[str] = Form(None)):
     """Same shape as bank.py's assets/upload: lands in the uploader's OWN org,
     resolves an H3 cell per row, then processes new cells against the golden
     source via the shared services.scoring.on_demand.process_new_cells."""
@@ -1389,6 +1426,15 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
                      session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}
 
     org_id = ctx["org"]["org_id"]
+    from api.services.intake_http import declared_from_form, gate_409
+    from services.ingest.batches import GateError, begin_import
+    try:
+        ctl = begin_import(session, org_id, ctx["user"]["id"], "supply_plots", raw, df, _plot_specs(df),
+                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
+                           value_field="annual_spend_eur", signoff_reason=signoff_reason)
+    except GateError as e:
+        raise gate_409(e) from e
+    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
     import json as _json
     has_geo = "plot_geojson" in df.columns
     records, cell_coords, unknown_commodities = [], {}, set()
@@ -1467,12 +1513,15 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
                 target_type="sc_sourcing_plots", target_id=None,
                 detail={"n_rows": len(records), "filename": file.filename,
                         "unknown_commodities": list(unknown_commodities),
-                        "geometry_errors": geometry_errors, "needs_polygon": needs_polygon})
+                        "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
+                        "batch_id": ctl.batch_id, "gate": ctl.controls["gate"]["status"]})
+    ctl.finish(session, n_landed=len(records), value_landed=float(sum(r["annual_spend_eur"] for r in records)))
 
     schedule_scoring(cell_coords)  # background — a bulk upload spanning fresh cells shouldn't block the response
     return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
             "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
-            "skipped": skipped, "invalid_country_codes": invalid_country_codes, "scoring": "queued"}
+            "skipped": skipped, "invalid_country_codes": invalid_country_codes, "scoring": "queued",
+            "batch_id": ctl.batch_id, "controls": ctl.controls}
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")

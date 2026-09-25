@@ -32,28 +32,50 @@ class BankAssetsIn(BaseModel):
                              description="Loan-tape rows — same fields as the CSV template "
                                          "(asset_name, asset_type, latitude, longitude, appraised_value_eur, sector, "
                                          "counterparty_evic_eur, …).")
+    declared_row_count: int | None = Field(None, description="Optional control: how many rows you are sending.")
+    declared_totals: dict[str, float] | None = Field(
+        None, description='Optional control totals, e.g. {"appraised_value_eur": 1250000000} — the batch is refused '
+                          "if the rows do not add up to what you declared.")
 
 
 @router.post("/bank/assets", summary="Push loan-tape rows directly into your bank tenant")
 def ingest_bank(body: BankAssetsIn, session: DbSession, ctx: IngestOrg):
-    """Land loan-tape rows via the API — identical processing to the CSV upload: validated, geocoded to an
-    H3 cell, and scored against the golden source. Idempotency is the caller's to manage (each call inserts
-    the rows given); a row missing a required field is skipped and reported, never guessed."""
+    """Land loan-tape rows via the API — identical processing to the CSV upload: the same intake controls
+    (receipt, transformation, gate), then geocoding to an H3 cell and scoring against the golden source.
+    A batch that fails a control is refused with the full control report (an API token cannot sign a batch off —
+    fix and resend, or have a user import it in the app with a sign-off). Nothing is guessed or defaulted."""
     if ctx["org_type"] != "bank":
         raise HTTPException(409, {"error": "wrong_sector",
                                   "message": f"This token's tenant is '{ctx['org_type']}', not a bank. "
                                              f"Use the ingest endpoint for your sector."})
+    import json as _json
+
+    import pandas as pd
+
+    from api.routers.bank import ASSET_TEMPLATE_FIELDS
+    from api.services.intake_http import gate_409
+    from services.ingest.batches import GateError, begin_import
+    declared = {}
+    if body.declared_row_count is not None:
+        declared["row_count"] = body.declared_row_count
+    if body.declared_totals:
+        declared["control_totals"] = body.declared_totals
+    raw = _json.dumps(body.rows, sort_keys=True, default=str).encode()
+    try:
+        ctl = begin_import(session, ctx["org_id"], None, "bank_assets", raw, pd.DataFrame(body.rows), ASSET_TEMPLATE_FIELDS,
+                           filename=f"api:{ctx['token_id']}", via="api", declared=declared or None,
+                           value_field="appraised_value_eur")
+    except GateError as e:
+        raise gate_409(e) from e
     from services.ingest.portfolio_ingest import ingest_bank_assets
-    res = ingest_bank_assets(session, ctx["org_id"], body.rows)
-    if res["n_ingested"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows",
-                                  "message": "No row carried all required fields.", "skipped": res["skipped"]})
+    res = ingest_bank_assets(session, ctx["org_id"], ctl.clean_df.to_dict("records"))
+    ctl.finish(session, n_landed=res["n_ingested"], value_landed=res.get("value_ingested"))
     write_audit(session, org_id=ctx["org_id"], actor_user_id=None, action="ingest.bank.assets",
-                target_type="bank_assets", target_id=None,
-                detail={"n_ingested": res["n_ingested"], "n_skipped": res["n_skipped"],
+                target_type="bank_assets", target_id=ctl.batch_id,
+                detail={"n_ingested": res["n_ingested"], "n_skipped": res["n_skipped"], "batch_id": ctl.batch_id,
                         "via": "api", "token_id": ctx["token_id"]})
-    return {"ingested": res["n_ingested"], "skipped": res["n_skipped"],
-            "skipped_detail": res["skipped"], "scoring": res["processing"]}
+    return {"ingested": res["n_ingested"], "skipped": res["n_skipped"], "skipped_detail": res["skipped"],
+            "batch_id": ctl.batch_id, "controls": ctl.controls, "scoring": res["processing"]}
 
 
 # ─────────────────────────── TOKEN management (admin JWT) ───────────────────────────

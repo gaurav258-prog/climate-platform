@@ -79,8 +79,9 @@ export const api = {
 
 // Typed convenience for a single-file multipart POST. Builds the FormData and goes through the shared
 // request() transport (which now handles FormData correctly), so there is ONE upload path, not a parallel one.
-export function upload<T>(path: string, file: File, field = 'file'): Promise<T> {
+export function upload<T>(path: string, file: File, field = 'file', extra?: Record<string, string | undefined>): Promise<T> {
   const fd = new FormData(); fd.append(field, file)
+  for (const [k, v] of Object.entries(extra ?? {})) if (v !== undefined && v !== '') fd.append(k, v)   // optional form fields (declared controls, sign-off)
   return api.post<T>(path, fd)
 }
 

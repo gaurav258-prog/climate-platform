@@ -21,7 +21,7 @@ from typing import Annotated, Optional
 
 import h3
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -320,22 +320,33 @@ def holdings_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_holdings_template.xlsx"})
 
 
-@router.post("/holdings/validate", summary="Check a holdings book (CSV or Excel) before importing — nothing is saved")
-async def validate_holdings(ctx: CurrentUser, file: UploadFile = File(...)):
-    """Dry run: report which rows are ready and which need fixing (a reason per row), writing nothing."""
-    from services.ingest.upload_validation import parse_and_validate
+@router.post("/holdings/validate", summary="Check the holdings book file (CSV or Excel) before importing — nothing is saved")
+async def validate_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run: which rows are ready and which need fixing (a reason per row), plus the intake controls — receipt,
+    transformation and the gate the import enforces. Writes nothing."""
+    from api.services.intake_http import declared_from_form
+    from services.ingest.batches import preview_controls
+    from services.ingest.upload_validation import parse_table
+    raw = await file.read()
     try:
-        rep = parse_and_validate(await file.read(), file.filename, HOLDING_TEMPLATE_FIELDS)
+        df = parse_table(raw, file.filename)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    if not rep["ok"]:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    missing = [c for c in REQUIRED_HOLDING_COLUMNS if c not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
+    ctl = preview_controls(session, ctx["org"]["org_id"], "assetmgmt_holdings", raw, df, HOLDING_TEMPLATE_FIELDS,
+                           declared=declared_from_form(declared_row_count, declared_totals), value_field="position_value_eur")
+    rep = ctl.report
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
 
 
 @router.post("/holdings/upload", summary="Import holdings from a CSV into your portfolio")
-async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                          declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                          signoff_reason: Optional[str] = Form(None)):
     """Same shape as bank.py/insurance.py/supply.py/realestate.py's upload
     endpoints: lands in the uploader's OWN org, resolves an H3 cell per row,
     then processes new cells against the golden source via process_new_cells."""
@@ -350,7 +361,16 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
     if missing:
         raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
 
+    from api.services.intake_http import declared_from_form, gate_409
+    from services.ingest.batches import GateError, begin_import
     org_id = ctx["org"]["org_id"]
+    try:
+        ctl = begin_import(session, org_id, ctx["user"]["id"], "assetmgmt_holdings", raw, df, HOLDING_TEMPLATE_FIELDS,
+                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
+                           value_field="position_value_eur", signoff_reason=signoff_reason)
+    except GateError as e:
+        raise gate_409(e) from e
+    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
     from services.governance.entities import default_reporting_entity
     default_entity = default_reporting_entity(session, org_id)
     records, cell_coords = [], {}
@@ -377,7 +397,8 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
             "minimum_safeguards_status": safeguards,
         })
     if not records:
-        raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
+        raise HTTPException(status_code=400, detail={"error": "no_rows_landed", "controls": ctl.controls,
+                            "message": "Rows passed validation but none could be landed."})
 
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code,
@@ -389,11 +410,13 @@ async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="holdings.upload",
                 target_type="assetmgmt_holdings", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename})
+                detail={"n_rows": len(records), "filename": file.filename, "batch_id": ctl.batch_id,
+                        "gate": ctl.controls["gate"]["status"]})
+    ctl.finish(session, n_landed=len(records), value_landed=float(sum(r["primary_value_eur"] for r in records)))
 
     from services.tasks.jobs import submit
     processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)} if cell_coords else {}
-    return {"n_uploaded": len(records), **processing}
+    return {"n_uploaded": len(records), "batch_id": ctl.batch_id, "controls": ctl.controls, **processing}
 
 
 @router.get("/portfolio.xlsx", summary="Portfolio climate VaR book (Excel)")

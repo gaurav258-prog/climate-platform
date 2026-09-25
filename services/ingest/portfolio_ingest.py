@@ -133,7 +133,8 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],
         except Exception as exc:  # noqa: BLE001 — deliberately broad; dispatch is fire-and-forget
             processing = {"scoring": "deferred", "n_cells": len(cell_coords),
                           "note": f"async scoring will run when available ({type(exc).__name__})"}
-    result = {"n_ingested": len(records), "n_skipped": len(skipped), "skipped": skipped, "processing": processing}
+    result = {"n_ingested": len(records), "n_skipped": len(skipped), "skipped": skipped, "processing": processing,
+              "value_ingested": float(sum(r["primary_value_eur"] for r in records))}
     if records and default_entity is None:
         # honest, not silent: these rows will show in the org-wide view but be invisible to any per-entity
         # or consolidated-group filing until an operator assigns them (multi-entity orgs have no unambiguous

@@ -24,7 +24,7 @@ from typing import Annotated, Optional
 
 import h3
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -561,12 +561,12 @@ POLICY_TEMPLATE_FIELDS = [
     {"name": "business_interruption_value_eur", "required": False, "description": "TIV component (business income).", "example": "200000"},
     {"name": "sum_insured_eur", "required": False, "description": "Total Insured Value, if not broken into components above.", "example": "3700000"},
     {"name": "construction_type", "required": False, "description": "ISO Construction Class: frame / joisted_masonry / non_combustible / masonry_non_combustible / fire_resistive.", "example": "masonry_non_combustible"},
-    {"name": "year_built", "required": False, "description": "Year of construction.", "example": "1998"},
-    {"name": "number_of_stories", "required": False, "description": "Number of stories.", "example": "3"},
+    {"name": "year_built", "required": False, "kind": "int", "description": "Year of construction.", "example": "1998"},
+    {"name": "number_of_stories", "required": False, "kind": "int", "description": "Number of stories.", "example": "3"},
     {"name": "deductible_pct", "required": False, "description": "Policy deductible, as a fraction (0.02 = 2%).", "example": "0.02"},
     {"name": "region", "required": False, "description": "Free-text region.", "example": "Valencia"},
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "ES"},
-    {"name": "cresta_zone", "required": False, "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
+    {"name": "cresta_zone", "required": False, "kind": "int", "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
     {"name": "motor_sum_insured_eur", "required": False, "description": "Motor-vehicle sum insured at this location (Art. 123(7)/124(7)), added into the flood/hail standard-formula SCR at 1.5x/5x. Leave blank for a pure property book.", "example": "150000"},
 ]
 REQUIRED_POLICY_COLUMNS = [f["name"] for f in POLICY_TEMPLATE_FIELDS if f["required"]]
@@ -581,25 +581,39 @@ def policies_template_xlsx():
 
 
 @router.post("/policies/validate", summary="Check a Statement of Values (CSV or Excel) before importing — nothing is saved")
-async def validate_policies(ctx: CurrentUser, file: UploadFile = File(...)):
-    """Dry run: report which rows are ready and which need fixing (a reason per row), writing nothing."""
-    from services.ingest.upload_validation import parse_and_validate
+async def validate_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                            declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run: which rows are ready and which need fixing (a reason per row), plus the intake controls — receipt,
+    transformation and the gate the import enforces. Writes nothing."""
+    from api.services.intake_http import declared_from_form
+    from services.ingest.batches import preview_controls
+    from services.ingest.upload_validation import parse_table
+    raw = await file.read()
     try:
-        rep = parse_and_validate(await file.read(), file.filename, POLICY_TEMPLATE_FIELDS)
+        df = parse_table(raw, file.filename)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-    if not rep["ok"]:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+    missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
+    ctl = preview_controls(session, ctx["org"]["org_id"], "insurance_policies", raw, df, POLICY_TEMPLATE_FIELDS,
+                           declared=declared_from_form(declared_row_count, declared_totals),
+                           value_field="sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur")
+    rep = ctl.report
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
 
 
 @router.post("/policies/upload", summary="Import policies from a CSV into your property book")
-async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
-    """Same shape as bank.py's assets/upload and supply.py's plots/upload: lands
-    in the uploader's OWN org, resolves an H3 cell per row, then processes new
-    cells against the golden source via the shared
-    services.scoring.on_demand.process_new_cells."""
+async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                          declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                          signoff_reason: Optional[str] = Form(None)):
+    """Same shape as bank.py's assets/upload: passes the intake gate (receipt + transformation controls) first,
+    lands in the uploader's OWN org, resolves an H3 cell per row, then processes new cells against the golden
+    source via the shared services.scoring.on_demand.process_new_cells. A row dropped by a rule AFTER validation
+    (e.g. no valuation) is reported in the landing check, never silent."""
+    from api.services.intake_http import declared_from_form, gate_409
+    from services.ingest.batches import GateError, begin_import
     from services.ingest.upload_validation import parse_table
     raw = await file.read()
     try:
@@ -618,6 +632,14 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
         })
 
     org_id = ctx["org"]["org_id"]
+    try:
+        ctl = begin_import(session, org_id, ctx["user"]["id"], "insurance_policies", raw, df, POLICY_TEMPLATE_FIELDS,
+                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
+                           value_field="sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur",
+                           signoff_reason=signoff_reason)
+    except GateError as e:
+        raise gate_409(e) from e
+    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
     from services.governance.entities import default_reporting_entity
     default_entity = default_reporting_entity(session, org_id)
     records, cell_coords = [], {}
@@ -657,7 +679,9 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
             "motor_sum_insured_eur": float(row["motor_sum_insured_eur"]) if "motor_sum_insured_eur" in df.columns and pd.notna(row.get("motor_sum_insured_eur")) else None,
         })
     if not records:
-        raise HTTPException(status_code=400, detail="No valid rows found in the uploaded CSV")
+        raise HTTPException(status_code=400, detail={"error": "no_rows_landed", "message":
+                            "Rows passed validation but none carried a usable valuation (sum insured or a value component).",
+                            "controls": ctl.controls})
 
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
@@ -675,10 +699,12 @@ async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile
     """), records)
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
                 target_type="insurance_policies", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename})
+                detail={"n_rows": len(records), "filename": file.filename, "batch_id": ctl.batch_id,
+                        "gate": ctl.controls["gate"]["status"]})
+    ctl.finish(session, n_landed=len(records))
 
     processing = process_new_cells(cell_coords)
-    return {"n_uploaded": len(records), **processing}
+    return {"n_uploaded": len(records), "batch_id": ctl.batch_id, "controls": ctl.controls, **processing}
 
 
 @router.get("/portfolio.xlsx", summary="Loss-curve pricing book (Excel)")

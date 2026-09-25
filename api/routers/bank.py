@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -391,51 +391,70 @@ def assets_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_loan_tape_template.xlsx"})
 
 
-def _report(raw: bytes, filename: Optional[str]) -> dict:
-    """Parse (CSV or Excel) + validate a loan-tape upload — the shared step behind both the pre-import check and
-    the import itself, so what you preview is exactly what gets saved."""
-    from services.ingest.upload_validation import parse_table, validate_table
-    df = parse_table(raw, filename)   # raises ValueError → clean 400 in the callers
-    return validate_table(df, ASSET_TEMPLATE_FIELDS)
+def _parse(raw: bytes, filename: Optional[str]):
+    from services.ingest.upload_validation import parse_table
+    try:
+        return parse_table(raw, filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
+
+
+def _missing_columns_400(df) -> None:
+    missing = [s["name"] for s in ASSET_TEMPLATE_FIELDS if s.get("required") and s["name"] not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
 
 
 @router.post("/assets/validate", summary="Check a loan tape (CSV or Excel) before importing — nothing is saved")
-async def validate_assets(ctx: CurrentUser, file: UploadFile = File(...)):
-    """Dry run: report how many rows are ready and which need fixing (with a reason per row), without writing
-    anything. The UI shows this as the pre-import preview; the preparer then confirms the import."""
-    try:
-        rep = _report(await file.read(), file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-    if not rep["ok"]:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
+async def validate_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                          declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run: report how many rows are ready and which need fixing (with a reason per row), plus the intake
+    controls — receipt (did it all arrive), transformation (did every value keep its meaning) and the gate the
+    import will enforce — without writing anything. Declaring your row count / control totals is optional."""
+    from api.services.intake_http import declared_from_form
+    from services.ingest.batches import preview_controls
+    raw = await file.read()
+    df = _parse(raw, file.filename)
+    _missing_columns_400(df)
+    ctl = preview_controls(session, ctx["org"]["org_id"], "bank_assets", raw, df, ASSET_TEMPLATE_FIELDS,
+                           declared=declared_from_form(declared_row_count, declared_totals), value_field="appraised_value_eur")
+    rep = ctl.report
     return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200]}
+            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
 
 
 @router.post("/assets/upload", summary="Import a loan tape (CSV or Excel) into your loan book")
-async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                        signoff_reason: Optional[str] = Form(None)):
     """Imports the rows that pass validation and reports any that didn't — nothing invalid is silently dropped.
-    Each imported asset lands in the uploader's OWN org, gets an H3 cell, and is scored against the golden source
-    the same way an any-address lookup is (services.scoring.on_demand.process_new_cells)."""
-    try:
-        rep = _report(await file.read(), file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-    if not rep["ok"]:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": rep["missing_columns"]})
-    if rep["n_valid"] == 0:
-        raise HTTPException(status_code=400, detail="None of the rows are ready to import yet — please fix the flagged rows and try again.")
-
+    Before anything lands the batch passes the intake gate (receipt + transformation controls); a batch that fails
+    a control imports only with a named person's sign-off. Each imported asset lands in the uploader's OWN org,
+    gets an H3 cell, and is scored against the golden source the same way an any-address lookup is."""
+    from api.services.intake_http import declared_from_form, gate_409
+    from services.ingest.batches import GateError, begin_import
+    raw = await file.read()
+    df = _parse(raw, file.filename)
+    _missing_columns_400(df)
     org_id = ctx["org"]["org_id"]
-    from services.ingest.portfolio_ingest import ingest_bank_assets
-    res = ingest_bank_assets(session, org_id, rep["valid_rows"])
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
-                target_type="bank_assets", target_id=None,
-                detail={"n_rows": res["n_ingested"], "n_invalid": rep["n_error"], "filename": file.filename})
+    try:
+        ctl = begin_import(session, org_id, ctx["user"]["id"], "bank_assets", raw, df, ASSET_TEMPLATE_FIELDS,
+                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
+                           value_field="appraised_value_eur", signoff_reason=signoff_reason)
+    except GateError as e:
+        raise gate_409(e) from e
 
-    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], "n_invalid": rep["n_error"],
-            "errors": rep["errors"][:200], **res["processing"]}
+    from services.ingest.portfolio_ingest import ingest_bank_assets
+    res = ingest_bank_assets(session, org_id, ctl.clean_df.to_dict("records"))
+    landing = ctl.finish(session, n_landed=res["n_ingested"], value_landed=res.get("value_ingested"))
+    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
+                target_type="bank_assets", target_id=ctl.batch_id,
+                detail={"n_rows": res["n_ingested"], "n_invalid": ctl.report["n_error"], "filename": file.filename,
+                        "batch_id": ctl.batch_id, "gate": ctl.controls["gate"]["status"],
+                        "signed_off": ctl.controls["gate"]["status"] == "needs_signoff"})
+
+    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], "n_invalid": ctl.report["n_error"],
+            "errors": ctl.report["errors"][:200], "batch_id": ctl.batch_id, "controls": ctl.controls, **res["processing"]}
 
 
 # ── Per-loan regulatory attributes the engine can't derive from location — provided in bulk by Excel, matched to

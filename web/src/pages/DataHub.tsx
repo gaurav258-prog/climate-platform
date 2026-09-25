@@ -9,6 +9,7 @@ import ProvidedData from '../components/ProvidedData'
 import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
+import { ControlsPanel, LandingNote, type Controls } from '../components/IntakeControls'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -20,7 +21,7 @@ const SECTORS: Record<string, { prefix: string; listKey: string; bookNoun: strin
 }
 const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round((n || 0) / 1e3)}k`
 
-interface ValRep { filename: string; n_total: number; n_valid: number; n_error: number; errors: { row: number; problems: string[] }[] }
+interface ValRep { filename: string; n_total: number; n_valid: number; n_error: number; errors: { row: number; problems: string[] }[]; controls?: Controls }
 interface Rollup { n_scored?: number; total_value_eur?: number; value_at_risk_eur?: number; pct_value_at_risk?: number; n_high?: number; by_hazard?: { hazard: string }[] }
 
 export default function DataHub() {
@@ -138,29 +139,53 @@ function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone }: {
   const [phase, setPhase] = useState<'idle' | 'checking' | 'checked' | 'importing' | 'done' | 'error'>('idle')
   const [msg, setMsg] = useState<string | null>(null)
   const [result, setResult] = useState<Record<string, unknown> | null>(null)
+  const [declRows, setDeclRows] = useState('')
+  const [declTotal, setDeclTotal] = useState('')
+  const [signoff, setSignoff] = useState('')
+  const [rechecking, setRechecking] = useState(false)
+
+  // what the customer says they sent — the receipt control compares the file to it
+  const declared = (): Record<string, string | undefined> => {
+    const vf = rep?.controls?.transformation.excluded.value_field
+    return {
+      declared_row_count: declRows.trim() || undefined,
+      declared_totals: declTotal.trim() && vf ? JSON.stringify({ [vf]: Number(declTotal.replace(/[, ]/g, '')) }) : undefined,
+    }
+  }
+  const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; missing_columns?: string[] } } })?.body?.error
 
   const pick = async (f: File) => {
-    setFile(f); setResult(null); setMsg(null); setRep(null); setPhase('checking')
+    setFile(f); setResult(null); setMsg(null); setRep(null); setSignoff(''); setDeclRows(''); setDeclTotal(''); setPhase('checking')
     try {
       const v = await uploadFile<ValRep>(endpoints.validate, f)
       setRep(v); setPhase('checked')
     } catch (e: unknown) {
-      const d = (e as { data?: { detail?: unknown } })?.data?.detail
-      setMsg(missingMsg(d) ?? `We couldn’t read that file — please upload a CSV or Excel ${dropLabel}.`)
+      setMsg(missingMsg(errOf(e)) ?? `We couldn’t read that file — please upload a CSV or Excel ${dropLabel}.`)
       setPhase('error')
     }
+  }
+  const recheck = async () => {
+    if (!file) return
+    setRechecking(true); setMsg(null)
+    try { setRep(await uploadFile<ValRep>(endpoints.validate, file, 'file', declared())) }
+    catch (e: unknown) { setMsg(errOf(e)?.message ?? 'Those declared figures could not be read — check the numbers.') }
+    finally { setRechecking(false) }
   }
   const doImport = async () => {
     if (!file) return
     setPhase('importing'); setMsg(null)
     try {
-      const res = await uploadFile<Record<string, unknown>>(endpoints.upload, file)
+      const res = await uploadFile<Record<string, unknown>>(endpoints.upload, file, 'file', { ...declared(), signoff_reason: signoff.trim() || undefined })
       setResult(res); setPhase('done'); onDone()
-    } catch {
-      setMsg('Something went wrong saving — please try again.'); setPhase('error')
+    } catch (e: unknown) {
+      const er = errOf(e)
+      if (er?.controls) { setRep(r => r ? { ...r, controls: er.controls } : r); setMsg(er.message ?? 'This batch needs attention before it can be imported.'); setPhase('checked') }
+      else { setMsg('Something went wrong saving — please try again.'); setPhase('error') }
     }
   }
-  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
+  const gateNeedsSignoff = rep?.controls?.gate.status === 'needs_signoff'
+  const gateBlocked = rep?.controls?.gate.status === 'blocked'
+  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setSignoff(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
   const downloadFixList = () => {
     if (!rep) return
     const rows = [['row', 'what to fix'], ...rep.errors.map(e => [String(e.row), e.problems.join('; ')])]
@@ -205,8 +230,18 @@ function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone }: {
             </div>
           ))}
           {rep.n_error > 6 && <div className="px-4 py-2 border-b border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">…and {rep.n_error - 6} more</div>}
+          {rep.controls && <ControlsPanel controls={rep.controls} valueLabel={rep.controls.transformation.excluded.value_field} declRows={declRows} declTotal={declTotal}
+            setDeclRows={setDeclRows} setDeclTotal={setDeclTotal} onRecheck={recheck} checking={rechecking} />}
+          {msg && phase === 'checked' && <div className="px-4 py-2 text-[12px] border-t border-[var(--color-line-2)]" style={{ color: 'var(--color-warn)' }}>{msg}</div>}
+          {gateNeedsSignoff && (
+            <div className="px-4 py-3 border-t border-[var(--color-line-2)]">
+              <label className="text-[11.5px] text-[var(--color-ink)]">To import this batch anyway, you accept the points above. Say why (recorded with your name):
+                <textarea value={signoff} onChange={e => setSignoff(e.target.value)} rows={2} placeholder="e.g. Second-quarter re-send agreed with the loan servicer; rejected rows are closed loans."
+                  className="block mt-1 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1.5 text-[12px] text-[var(--color-ink)]" /></label>
+            </div>
+          )}
           <div className="flex items-center gap-2.5 flex-wrap px-4 py-3">
-            <button disabled={rep.n_valid === 0 || phase === 'importing'} onClick={doImport}
+            <button disabled={rep.n_valid === 0 || phase === 'importing' || gateBlocked || (gateNeedsSignoff && signoff.trim().length < 10)} onClick={doImport}
               className="mono text-[11.5px] px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
               {phase === 'importing' ? 'importing…' : `Import ${rep.n_valid} ready ${rep.n_valid === 1 ? 'row' : 'rows'}`}</button>
             {rep.n_error > 0 && <button onClick={downloadFixList} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"><Download size={12} className="inline mr-1" />Download rows to fix</button>}
@@ -219,7 +254,7 @@ function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone }: {
       {phase === 'done' && result && (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--color-line)] px-4 py-3" style={{ background: 'color-mix(in oklab,var(--color-good) 8%,transparent)' }}>
           <CheckCircle2 size={16} style={{ color: 'var(--color-good)' }} />
-          <span className="text-[13px] text-[var(--color-ink)]">{renderDone(result)}</span>
+          <span className="text-[13px] text-[var(--color-ink)]">{renderDone(result)}{(result as { controls?: Controls }).controls && <LandingNote controls={(result as { controls: Controls }).controls} />}</span>
           <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-auto">upload another file</button>
         </div>
       )}

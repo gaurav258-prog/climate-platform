@@ -62,10 +62,11 @@ def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = 
         if kind == "lon" and not -180 <= f <= 180:
             return f"{label} must be between −180 and 180 (got {f})"
     elif kind == "money":
-        try:
-            f = float(str(v).replace(",", ""))
-        except ValueError:
-            return f"{label} must be a number (got “{v}”)"
+        from services.ingest.batch_controls import parse_money   # the ONE money parser (see its docstring)
+        f = parse_money(v)
+        if f is None:
+            hint = " — write it as 1234.5 or 1,234.5 (a decimal comma can't be read safely)" if "," in v else ""
+            return f"{label} must be a number (got “{v}”){hint}"
         if f < 0:
             return f"{label} can't be negative (got {f})"
     elif kind == "date":
@@ -75,6 +76,14 @@ def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = 
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             return f"{label} isn't a valid calendar date (got “{v}”)"
+    elif kind == "int":
+        f = None
+        try:
+            f = float(v.replace(",", "")) if isinstance(v, str) else float(v)
+        except ValueError:
+            pass
+        if f is None or f != int(f) or f < 0:
+            return f"{label} must be a whole number (got “{v}”)"
     elif kind == "iso2":
         if not re.fullmatch(r"[A-Za-z]{2}", v):
             return f"{label} must be a 2-letter country code (got “{v}”)"
