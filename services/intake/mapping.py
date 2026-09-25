@@ -4,14 +4,15 @@ A profile says, per template field, which source column feeds it, and optionally
     {"multiply": 1000}                      values given in thousands
     {"currency": "USD"}                     whole column in USD → EUR at the ECB rate for the book date
     {"currency_column": "Ccy"}              currency per row, read from another source column
-    {"values": {"Concrete": "fire_resistive"}}   the customer's vocabulary → ours
+    {"values": {"Concrete": "fire_resistive", "n/a": ""}}   the customer's values → ours ("" = leave blank, on purpose)
 Profiles are versioned and immutable (DB trigger): editing saves a new version, and every batch records the exact
-version that produced its values. Unmapped source columns are reported, never silently used.
+version that produced its values. Unmapped source columns are reported, never silently used. A profile remembers
+the layout (column names) it was confirmed on: a later file with the same layout uses it automatically.
 """
 from __future__ import annotations
 
+import hashlib
 import json
-import re
 from datetime import date
 from typing import Optional
 
@@ -20,27 +21,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.batch_controls import parse_money
-
-_SYNONYMS = {
-    "latitude": ["lat", "y", "latitude_dd"], "longitude": ["lon", "lng", "long", "x", "longitude_dd"],
-    "external_ref": ["id", "asset_id", "loan_id", "policy_id", "property_id", "holding_id", "plot_id", "reference", "ref", "your_asset_id"],
-    "asset_name": ["name", "asset", "property", "borrower_name", "collateral_name"],
-    "policy_name": ["name", "location_name", "location", "site_name", "risk_name"],
-    "property_name": ["name", "property", "building", "asset_name"],
-    "holding_name": ["name", "issuer", "security_name", "company"],
-    "plot_name": ["name", "farm", "farm_name", "plot"],
-    "appraised_value_eur": ["value", "appraised_value", "collateral_value", "market_value"],
-    "sum_insured_eur": ["tiv", "total_insured_value", "sum_insured", "insured_value"],
-    "building_value_eur": ["building_value", "buildings"], "contents_value_eur": ["contents_value", "contents"],
-    "business_interruption_value_eur": ["bi_value", "business_interruption", "bi"],
-    "property_value_eur": ["value", "market_value", "property_value", "valuation"],
-    "position_value_eur": ["value", "market_value", "position_value", "exposure"],
-    "annual_noi_eur": ["noi", "net_operating_income"], "annual_spend_eur": ["spend", "annual_spend", "purchases"],
-    "country": ["country_code", "iso2", "ctry"], "year_built": ["built", "year_of_construction", "yearbuilt"],
-    "number_of_stories": ["stories", "storeys", "floors", "number_of_floors"],
-    "counterparty_evic_eur": ["evic", "enterprise_value"], "construction_type": ["construction", "construction_class"],
-}
-
+from services.ingest.fields import norm_token
+from services.intake.values import is_blank
 
 STALE_RATE_DAYS = 7   # an FX rate older than this, relative to the book date, needs a person to accept it
 
@@ -49,24 +31,9 @@ class MappingError(ValueError):
     pass
 
 
-def _key(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", str(s).lower()).strip("_")
-
-
-def suggest(columns: list[str], specs: list[dict]) -> dict[str, str]:
-    """Best-guess source column per template field (exact name, then known synonyms). Only unambiguous guesses."""
-    keyed = {_key(c): c for c in columns}
-    out: dict[str, str] = {}
-    used: set[str] = set()
-    for s in specs:
-        f = s["name"]
-        for cand in [f, f.removesuffix("_eur"), *_SYNONYMS.get(f, [])]:
-            k = _key(cand)
-            if k in keyed and keyed[k] not in used:
-                out[f] = keyed[k]
-                used.add(keyed[k])
-                break
-    return out
+def fingerprint(columns: list[str]) -> str:
+    """The file's layout: its column names, ignoring case, spacing, separators and order."""
+    return hashlib.sha256("|".join(sorted(norm_token(c) for c in columns)).encode()).hexdigest()[:32]
 
 
 def validate_profile(column_map: dict, transforms: dict, specs: list[dict]) -> None:
@@ -92,7 +59,7 @@ def validate_profile(column_map: dict, transforms: dict, specs: list[dict]) -> N
 
 
 def save(session: Session, org_id: str, template: str, name: str, column_map: dict, transforms: dict,
-         user_id: str, specs: list[dict]) -> dict:
+         user_id: str, specs: list[dict], source_columns: Optional[list[str]] = None) -> dict:
     name = (name or "").strip()
     if not name:
         raise MappingError("Give the mapping a name (for example the source system).")
@@ -101,10 +68,13 @@ def save(session: Session, org_id: str, template: str, name: str, column_map: di
                                  WHERE org_id = CAST(:o AS uuid) AND template = :t AND name = :n"""),
                          {"o": org_id, "t": template, "n": name}).scalar() or 0) + 1
     pid = session.execute(text("""
-        INSERT INTO intake_mapping_profiles (org_id, template, name, version, column_map, transforms, created_by)
-        VALUES (CAST(:o AS uuid), :t, :n, :v, CAST(:c AS jsonb), CAST(:x AS jsonb), CAST(:u AS uuid)) RETURNING profile_id::text
+        INSERT INTO intake_mapping_profiles (org_id, template, name, version, column_map, transforms, created_by,
+                                             source_fingerprint, source_columns)
+        VALUES (CAST(:o AS uuid), :t, :n, :v, CAST(:c AS jsonb), CAST(:x AS jsonb), CAST(:u AS uuid), :fp, CAST(:sc AS jsonb))
+        RETURNING profile_id::text
     """), {"o": org_id, "t": template, "n": name, "v": v, "c": json.dumps(column_map), "x": json.dumps(transforms or {}),
-           "u": user_id}).scalar()
+           "u": user_id, "fp": fingerprint(source_columns) if source_columns else None,
+           "sc": json.dumps(source_columns) if source_columns else None}).scalar()
     return {"profile_id": pid, "name": name, "version": v}
 
 
@@ -120,9 +90,32 @@ def get(session: Session, org_id: str, profile_id: str) -> dict:
     return dict(r)
 
 
+def for_layout(session: Session, org_id: str, template: str, columns: list[str]) -> Optional[dict]:
+    """The confirmed mapping for exactly this layout: the latest version of the ONE named mapping whose latest version
+    was confirmed on these columns. Two different mappings claiming the same layout → None (ask, don't guess)."""
+    fp = fingerprint(columns)
+    rows = [r for r in latest(session, org_id, template) if r.get("source_fingerprint") == fp]
+    return get(session, org_id, rows[0]["profile_id"]) if len(rows) == 1 else None
+
+
+def closest(session: Session, org_id: str, template: str, columns: list[str]) -> Optional[dict]:
+    """A saved mapping whose columns mostly still exist in this file — the starting point when a layout changed."""
+    have = {norm_token(c) for c in columns}
+    best, score = None, 0.0
+    for r in latest(session, org_id, template):
+        src = [s for s in (r["column_map"] or {}).values() if s]
+        if not src:
+            continue
+        s = sum(1 for c in src if norm_token(c) in have) / len(src)
+        if s > score:
+            best, score = r, s
+    return {**best, "overlap": round(score, 2)} if best and score >= 0.5 else None
+
+
 def latest(session: Session, org_id: str, template: Optional[str] = None) -> list[dict]:
     rows = session.execute(text("""
-        SELECT DISTINCT ON (template, name) profile_id::text, template, name, version, column_map, transforms, created_at
+        SELECT DISTINCT ON (template, name) profile_id::text, template, name, version, column_map, transforms, created_at,
+               source_fingerprint, source_columns
         FROM intake_mapping_profiles WHERE org_id = CAST(:o AS uuid) AND (CAST(:t AS text) IS NULL OR template = :t)
         ORDER BY template, name, version DESC
     """), {"o": org_id, "t": template}).mappings().all()
@@ -148,8 +141,8 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
             continue
         col = out[t]
         if "values" in spec:
-            vm = {str(k).strip().lower(): v for k, v in spec["values"].items()}
-            out[t] = [vm.get(str(v).strip().lower(), v) if v is not None and not (isinstance(v, float) and pd.isna(v)) else v for v in col]
+            vm = {norm_token(k): v for k, v in spec["values"].items()}
+            out[t] = [(vm[norm_token(v)] or None) if not is_blank(v) and norm_token(v) in vm else v for v in col]
             report["conversions"].append({"field": t, "kind": "vocabulary", "n_values": len(vm)})
             col = out[t]
         if "multiply" in spec:
@@ -183,3 +176,4 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
                     report.setdefault("warnings", []).append(
                         f"{t}: the latest {ccy}→EUR rate we hold is from {r['rate_date']}, {age} days before the book date")
     return out, report
+

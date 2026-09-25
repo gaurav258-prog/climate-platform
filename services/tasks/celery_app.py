@@ -27,7 +27,7 @@ celery_app = Celery(
     # hazard_tasks.py, so none of its @celery_app.task decorators run and the
     # worker starts with an empty [tasks] list — confirmed live, a real bug,
     # not a hypothetical caveat.
-    include=["services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
+    include=["services.tasks.intake_tasks", "services.tasks.hazard_tasks", "services.tasks.feed_refresh_tasks", "services.tasks.email_tasks",
              "services.tasks.decision_tasks", "services.tasks.kri_tasks", "services.tasks.reg_scan_tasks",
              "services.tasks.supervision_tasks"],
 )
@@ -115,5 +115,10 @@ celery_app.conf.beat_schedule = {
     "controls-test-sweep-daily": {
         "task": "controls.test_sweep",
         "schedule": crontab(hour=6, minute=30),
+    },
+    # Pick up customer files dropped by SFTP into each drop-folder channel and run them through the intake pipeline.
+    "intake-drop-folder-sweep": {
+        "task": "intake.sweep_drop_folders",
+        "schedule": 300.0,   # seconds
     },
 }

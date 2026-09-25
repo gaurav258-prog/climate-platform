@@ -22,9 +22,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector are re-exported for callers
-    _GOVT_LEVELS,
     RowIssue,
     Sector,
+    _bool,
     _f,
     _i,
     _location,
@@ -33,12 +33,6 @@ from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector 
     _positive,
     _s,
     _vocab,
-)
-from services.ingest.templates import (
-    CONSTRUCTION_TYPES,
-    EPC_RATINGS,
-    IRRIGATION_VALUES,
-    SAFEGUARDS_STATUSES,
 )
 
 
@@ -83,12 +77,13 @@ def _bank_build(ctx: dict, row: dict) -> dict:
             "region": _s(row, "region"), "country": _s(row, "country"),
             "primary_value_eur": _positive(row, "appraised_value_eur", "appraised_value_eur"), "sector": sector,
             "borrower_entity_id": _s(row, "borrower_entity_id"),
-            "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", SAFEGUARDS_STATUSES),
+            "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", "safeguards_status"),
             "external_ref": _s(row, "external_ref"),
             "outstanding_loan_balance_eur": _m(row, "outstanding_loan_balance_eur"),
             "loan_origination_date": origination[:10] if origination else None,
             "counterparty_evic_eur": evic,
-            "counterparty_govt_level": _vocab(row, "counterparty_govt_level", _GOVT_LEVELS)}
+            "counterparty_govt_level": _vocab(row, "counterparty_govt_level", "govt_level"),
+            "no_stated_maturity": _bool(row, "no_stated_maturity")}
 
 
 def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
@@ -105,9 +100,9 @@ def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     """), recs)
     session.execute(text("""
         INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status,
-                                 counterparty_evic_eur, counterparty_govt_level)
+                                 counterparty_evic_eur, counterparty_govt_level, no_stated_maturity)
         VALUES (CAST(:entity_id AS uuid), :outstanding_loan_balance_eur, CAST(:loan_origination_date AS date), 'not_assessed',
-                :counterparty_evic_eur, :counterparty_govt_level)
+                :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity)
     """), recs)
 
 
@@ -118,18 +113,20 @@ def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     session.execute(text("""
         UPDATE ext_banking SET outstanding_loan_balance_eur = :outstanding_loan_balance_eur,
                loan_origination_date = CAST(:loan_origination_date AS date), counterparty_evic_eur = :counterparty_evic_eur,
-               counterparty_govt_level = :counterparty_govt_level
+               counterparty_govt_level = :counterparty_govt_level, no_stated_maturity = :no_stated_maturity
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
 
 BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
               _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status",
-                            "outstanding_loan_balance_eur", "loan_origination_date", "counterparty_evic_eur", "counterparty_govt_level"),
+                            "outstanding_loan_balance_eur", "loan_origination_date", "counterparty_evic_eur", "counterparty_govt_level",
+                            "no_stated_maturity"),
               _default_entity, _bank_build,
               _pe_existing("banking", """, CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
                            to_char(x.loan_origination_date, 'YYYY-MM-DD') AS loan_origination_date,
-                           CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level""",
+                           CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level,
+                           x.no_stated_maturity""",
                            "LEFT JOIN ext_banking x ON x.entity_id = e.entity_id"),
               _bank_insert, _bank_update)
 
@@ -155,7 +152,7 @@ def _ins_build(ctx: dict, row: dict) -> dict:
         raise RowIssue(f"deductible_pct {ded} must be a fraction between 0 and 1 (0.02 = 2%)")
     rec = {"entity_name": name, "entity_type": _s(row, "policy_type"), "latitude": lat, "longitude": lon,
            "h3_cell": cell, "region": _s(row, "region"), "country": _s(row, "country"), "primary_value_eur": tiv,
-           "construction_type": _vocab(row, "construction_type", CONSTRUCTION_TYPES), "year_built": _i(row, "year_built"),
+           "construction_type": _vocab(row, "construction_type", "construction_type"), "year_built": _i(row, "year_built"),
            "number_of_stories": _i(row, "number_of_stories"), "external_ref": _s(row, "external_ref"),
            "deductible_pct": ded, "building_value_eur": b, "contents_value_eur": c,
            "business_interruption_value_eur": bi, "cresta_zone": _i(row, "cresta_zone"),
@@ -225,10 +222,10 @@ def _rei_build(ctx: dict, row: dict) -> dict:
            "region": _s(row, "region"), "country": _s(row, "country"),
            "primary_value_eur": _positive(row, "property_value_eur", "property_value_eur"), "annual_noi_eur": noi,
            "annual_gross_rental_revenue_eur": _m(row, "annual_gross_rental_revenue_eur"),
-           "construction_type": _vocab(row, "construction_type", CONSTRUCTION_TYPES), "year_built": _i(row, "year_built"),
-           "number_of_stories": _i(row, "number_of_stories"), "epc_rating": _vocab(row, "epc_rating", EPC_RATINGS, upper=True),
+           "construction_type": _vocab(row, "construction_type", "construction_type"), "year_built": _i(row, "year_built"),
+           "number_of_stories": _i(row, "number_of_stories"), "epc_rating": _vocab(row, "epc_rating", "epc_rating"),
            "borrower_entity_id": _s(row, "borrower_entity_id"),
-           "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", SAFEGUARDS_STATUSES),
+           "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", "safeguards_status"),
            "external_ref": _s(row, "external_ref")}
     _plausible_building(rec)
     return rec
@@ -285,7 +282,7 @@ def _hol_build(ctx: dict, row: dict) -> dict:
             "h3_cell": cell, "region": _s(row, "region"), "country": _s(row, "country"),
             "primary_value_eur": _positive(row, "position_value_eur", "position_value_eur"),
             "borrower_entity_id": _s(row, "borrower_entity_id"),
-            "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", SAFEGUARDS_STATUSES),
+            "minimum_safeguards_status": _vocab(row, "minimum_safeguards_status", "safeguards_status"),
             "external_ref": _s(row, "external_ref")}
 
 
@@ -353,7 +350,7 @@ def _plot_build(ctx: dict, row: dict) -> dict:
         raise RowIssue(f"country '{country}' is not a valid ISO-2 code")
     return {"plot_name": name, "commodity_id": cid, "latitude": lat, "longitude": lon, "h3_cell": cell,
             "region": _s(row, "region"), "country": country.upper() if country else None, "annual_spend_eur": spend,
-            "plot_area_ha": area, "plot_geometry": geojson, "irrigation_status": _vocab(row, "irrigation_status", IRRIGATION_VALUES),
+            "plot_area_ha": area, "plot_geometry": geojson, "irrigation_status": _vocab(row, "irrigation_status", "irrigation"),
             "external_ref": _s(row, "external_ref"), "_needs_polygon": needs_polygon}
 
 

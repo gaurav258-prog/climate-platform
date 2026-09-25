@@ -100,13 +100,15 @@ def test_insurance_blank_type_and_deductible_are_not_defaulted_at_build():
     assert rec["entity_type"] is None and rec["deductible_pct"] is None   # defaults apply only when inserting a new asset
 
 
-def test_mapping_suggest_and_validate():
+def test_mapping_validate():
     specs = [{"name": "asset_name"}, {"name": "latitude"}, {"name": "longitude"}, {"name": "appraised_value_eur", "kind": "money"},
              {"name": "external_ref"}]
-    s = mapping.suggest(["Name", "Lat", "Lng", "Collateral Value", "Loan ID"], specs)
-    assert s == {"asset_name": "Name", "latitude": "Lat", "longitude": "Lng", "appraised_value_eur": "Collateral Value",
-                 "external_ref": "Loan ID"}
     with pytest.raises(mapping.MappingError, match="two fields"):
         mapping.validate_profile({"asset_name": "X", "external_ref": "X"}, {}, specs)
     with pytest.raises(mapping.MappingError, match="not a money field"):
         mapping.validate_profile({"asset_name": "X"}, {"asset_name": {"multiply": 1000}}, specs)
+
+
+def test_layout_fingerprint_ignores_case_spacing_and_order():
+    assert mapping.fingerprint(["Loan ID", "Lat", "Lng"]) == mapping.fingerprint(["lng", "loan-id", " LAT "])
+    assert mapping.fingerprint(["Loan ID", "Lat"]) != mapping.fingerprint(["Loan ID", "Lat", "Lng"])

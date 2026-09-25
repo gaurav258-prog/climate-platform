@@ -1,5 +1,9 @@
 """The templates a customer can send, one per sector book: accepted formats, field specs, the value that ties the
-file together, and the sector rules (services.ingest.sector_ingest) that turn a row into an asset."""
+file together, and the sector rules (services.ingest.sector_ingest) that turn a row into an asset.
+
+Every intake step — security, mapping, value matching, profiling, checks, matching, landing, the API push — is
+generic over this registry. Adding a sector = its fields in services/ingest/templates.py, its Sector rules in
+services/ingest/sector_ingest.py, and one line here."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,6 +20,7 @@ from services.ingest.sector_contract import Sector
 class Template:
     key: str
     sector: Sector
+    org_type: str                # the organisation type whose book this is (a token/user of another type is refused)
     label: str
     formats: tuple[str, ...]
     specs: Callable[[pd.DataFrame], list[dict]]
@@ -42,18 +47,18 @@ def _plot_specs(df: pd.DataFrame) -> list[dict]:
 
 
 TEMPLATES: dict[str, Template] = {
-    "bank_assets": Template("bank_assets", si.BANK, "loan tape", ("csv", "xlsx"), lambda df: T.ASSET_TEMPLATE_FIELDS,
+    "bank_assets": Template("bank_assets", si.BANK, "bank", "loan tape", ("csv", "xlsx"), lambda df: T.ASSET_TEMPLATE_FIELDS,
                             lambda df: "appraised_value_eur", "assets.upload"),
-    "insurance_policies": Template("insurance_policies", si.INSURANCE, "Statement of Values", ("csv", "xlsx"),
+    "insurance_policies": Template("insurance_policies", si.INSURANCE, "insurer", "Statement of Values", ("csv", "xlsx"),
                                    lambda df: T.POLICY_TEMPLATE_FIELDS,
                                    lambda df: "sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur",
                                    "policies.upload", _insurance_valuation),
-    "realestate_properties": Template("realestate_properties", si.REALESTATE, "property schedule", ("csv", "xlsx"),
+    "realestate_properties": Template("realestate_properties", si.REALESTATE, "reit", "property schedule", ("csv", "xlsx"),
                                       lambda df: T.PROPERTY_TEMPLATE_FIELDS, lambda df: "property_value_eur",
                                       "properties.upload"),
-    "assetmgmt_holdings": Template("assetmgmt_holdings", si.HOLDINGS, "holdings book", ("csv", "xlsx"),
+    "assetmgmt_holdings": Template("assetmgmt_holdings", si.HOLDINGS, "asset_manager", "holdings book", ("csv", "xlsx"),
                                    lambda df: T.HOLDING_TEMPLATE_FIELDS, lambda df: "position_value_eur", "holdings.upload"),
-    "supply_plots": Template("supply_plots", si.PLOTS, "sourcing plots", ("csv",), _plot_specs,
+    "supply_plots": Template("supply_plots", si.PLOTS, "manufacturer", "sourcing plots", ("csv",), _plot_specs,
                              lambda df: "annual_spend_eur", "plots.upload"),
 }
 
@@ -63,3 +68,7 @@ def template_fields(key: str) -> list[dict]:
     from services.ingest.upload_validation import enrich_specs
     tpl = TEMPLATES[key]
     return enrich_specs(tpl.specs(pd.DataFrame(columns=["plot_geojson"] if key == "supply_plots" else [])))
+
+
+def templates_for(org_type: str) -> list[Template]:
+    return [t for t in TEMPLATES.values() if t.org_type == org_type]

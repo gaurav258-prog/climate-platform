@@ -8,6 +8,7 @@ __pycache__/
 dist/
 *.egg-info/
 data/storage/
+data/intake_drop/
 *.tif
 *.nc
 *.grib2

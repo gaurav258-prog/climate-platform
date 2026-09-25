@@ -12,6 +12,7 @@ export interface Controls {
     tie_outs: { field: string; raw_total: number; accepted_total: number; rejected_total: number; status: string }[]
     excluded: { n_rows: number; pct_rows: number; value_field: string | null; value: number | null; pct_value: number | null }
   }
+  values?: Record<string, { label: string; required: boolean; n_recognised: number; n_unknown: number; n_unknown_values: number; unknown: Record<string, number> }>
   readiness?: { status: string; n_not_ready: number; value_staged: number }
   matching?: Matching
   gate: { status: 'pass' | 'needs_signoff' | 'blocked'; reasons: string[] }
@@ -32,11 +33,13 @@ function Pill({ status, children }: { status: string; children: React.ReactNode 
   return <span className="mono text-[9.5px] px-2 py-0.5 rounded-full whitespace-nowrap" style={{ color: c, background: `color-mix(in oklab, ${c} 14%, transparent)` }}>{children}</span>
 }
 
-export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDeclRows, setDeclTotal, onRecheck, checking }: {
+export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDeclRows, setDeclTotal, onRecheck, checking, onMapValues }: {
   controls: Controls; valueLabel?: string | null; declRows: string; declTotal: string
   setDeclRows: (v: string) => void; setDeclTotal: (v: string) => void; onRecheck: () => void; checking?: boolean
+  onMapValues?: () => void
 }) {
-  const { receipt, transformation: tr, gate, readiness: rd, matching: m } = controls
+  const { receipt, transformation: tr, gate, readiness: rd, matching: m, values: vals } = controls
+  const unknown = Object.entries(vals ?? {}).filter(([, v]) => v.n_unknown > 0)
   const failed = receipt.checks.filter(c => c.status === 'fail')
   return (
     <div className="border-t border-[var(--color-line)]">
@@ -58,6 +61,15 @@ export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDe
             {tr.excluded.n_rows > 0 && <div style={{ color: TONE.fail }}>{tr.excluded.n_rows} row{tr.excluded.n_rows === 1 ? '' : 's'} ({tr.excluded.pct_rows}%) will be left out{tr.excluded.value != null ? `, carrying ${num(tr.excluded.value)} (${tr.excluded.pct_value}%) of the ${valueLabel ?? tr.excluded.value_field}` : ''}.</div>}
             {tr.tie_outs.filter(t => t.status !== 'pass').map(t => <div key={t.field} style={{ color: TONE.fail }}>{t.field} does not tie.</div>)}</div>
         </div>
+        {vals && Object.keys(vals).length > 0 && (
+          <div className="flex items-start gap-2">
+            {unknown.length === 0 ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: TONE.pass }} /> : <XCircle size={14} className="mt-0.5 shrink-0" style={{ color: TONE.fail }} />}
+            <div><b className="text-[var(--color-ink)]">Values matched to our lists</b> <span className="text-[var(--color-mute)]">— {Object.values(vals).map(v => v.label).join(', ')}.</span>
+              {unknown.map(([f, v]) => (
+                <div key={f} style={{ color: TONE.fail }}>{v.label}: {Object.entries(v.unknown).slice(0, 4).map(([k, c]) => `“${k}” ×${c}`).join(', ')}{v.n_unknown_values > 4 ? ', …' : ''} not recognised — {v.required ? 'those rows are refused' : 'left blank'} unless you map them.</div>))}
+              {unknown.length > 0 && onMapValues && <button onClick={onMapValues} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline">map these values →</button>}</div>
+          </div>
+        )}
         {rd && (
           <div className="flex items-start gap-2">
             {rd.n_not_ready === 0 ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: TONE.pass }} /> : <XCircle size={14} className="mt-0.5 shrink-0" style={{ color: TONE.fail }} />}

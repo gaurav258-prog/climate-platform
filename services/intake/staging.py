@@ -1,6 +1,6 @@
 """Staging: every checked row, turned into exactly what the engine will receive, and matched to the live book.
 
-    validated rows ─► build (engine-readiness) ─► match (new / update / unchanged) ─► staged records
+    their values ─► our values (fixed-list fields) ─► validated rows ─► build (engine-readiness) ─► match (new / update / unchanged) ─► staged records
                          │                           │
                          └─ cannot become an asset   └─ ambiguous, or a second row for the same asset
                             → rejected row, reason      → rejected row, reason
@@ -22,10 +22,11 @@ from services.ingest import batch_controls as bc
 from services.ingest import sector_ingest as si
 from services.ingest.sector_contract import RowIssue, Sector
 from services.ingest.upload_validation import validate_table
-from services.intake import matching
+from services.intake import matching, values
 
 
 def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs: list[dict]) -> dict:
+    df, value_report = values.normalise(session, df, specs)   # our values for every fixed-list field, unknowns reported
     report = validate_table(df, specs)
     normalised = bc.normalise_rows(report["valid_rows"], specs)
     ctx = sector.prepare(session, org_id)
@@ -56,7 +57,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
     summary = matching.summarize(results, names)
     summary["n_not_ready"] = n_not_ready
     summary["ambiguous_rows"] = [rn for rn, res in zip(row_nos, results) if res.get("status") == "ambiguous"][:50]
-    return {"report": report, "normalised": [normalised[i] for i in keep],
+    return {"report": report, "normalised": [normalised[i] for i in keep], "values": value_report,
             "staged": [{"row_no": row_nos[i], "record": records[i], "match": results[i]} for i in keep],
             "rejected": rejected, "match_statuses": {rn: res.get("status") for rn, res in zip(row_nos, results)},
             "matching": summary, "ctx": ctx, "existing": {e["entity_id"]: e for e in existing},

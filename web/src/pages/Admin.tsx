@@ -10,6 +10,7 @@ import { AppetiteHistory, WhatApplies } from '../components/GrcFollowups'
 import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
+import DropFolders, { SECTOR_TEMPLATES } from '../components/DropFolders'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 import { actionLabel } from '../lib/actionLabels'
 
@@ -168,7 +169,7 @@ function Integrations() {
   const copy = () => { if (revealed?.raw) { navigator.clipboard?.writeText(revealed.raw); setCopied(true); setTimeout(() => setCopied(false), 1500) } }
 
   const origin = window.location.origin
-  const isBank = sector === 'bank'
+  const pushTpl = SECTOR_TEMPLATES[sector]?.[0]
   const rows = q.data ?? []
 
   return (
@@ -231,20 +232,17 @@ function Integrations() {
         <ol className="space-y-3 text-[13px] text-[var(--color-mute)]">
           <li><b className="text-[var(--color-ink)]">1. Check the token</b> — confirm it authenticates your tenant:
             <pre className="mono text-[11.5px] mt-1.5 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 overflow-x-auto">curl -H "Authorization: Bearer &lt;token&gt;" {origin}/v1/ingest/ping</pre></li>
-          <li><b className="text-[var(--color-ink)]">2. Push your data</b> —
-            {isBank
-              ? <> POST your loan-tape rows (same fields as the CSV template):
-                  <pre className="mono text-[11.5px] mt-1.5 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 overflow-x-auto">{`curl -X POST ${origin}/v1/ingest/bank/assets \\
+          <li><b className="text-[var(--color-ink)]">2. Push your data</b> — POST rows of your {pushTpl ? pushTpl.label : 'book'} (our template’s fields, or your own names with a saved mapping):
+            <pre className="mono text-[11.5px] mt-1.5 bg-[var(--color-bg-2)] border border-[var(--color-line)] rounded-lg px-3 py-2 overflow-x-auto">{`curl -X POST ${origin}/v1/ingest/books/${pushTpl?.key ?? '<template>'} \\
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \\
-  -d '{"rows":[{"asset_name":"Frankfurt Tower 1","asset_type":"commercial_real_estate",
-      "latitude":50.11,"longitude":8.68,"appraised_value_eur":12000000,"sector":"Commercial real estate"}]}'`}</pre>
-                  Rows are validated, located, and scored against the golden source — exactly like the upload. A row missing a required field is skipped and reported, never guessed.</>
-              : <span className="text-[var(--color-faint)]"> the direct-push endpoint for the <b className="capitalize">{sector.replace('_', ' ')}</b> sector is rolling out — your token and the handshake work today; talk to us to be an early integration partner. Template upload remains available now.</span>}
+  -d '{"rows":[{ ...one object per row... }], "mapping_profile_id": "<optional>"}'`}</pre>
+            Rows go through the same checks as an upload: a clean batch is imported, a batch that fails a check waits for a second person, and every refused row comes back with its reason.
           </li>
         </ol>
         <a href="/docs" className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--color-sky)] hover:underline mt-3"><Database size={13} /> Full data-in guide in Documentation</a>
       </Card>
 
+      <DropFolders sector={sector} />
       <Webhooks />
       <SourceSystems />
     </div>

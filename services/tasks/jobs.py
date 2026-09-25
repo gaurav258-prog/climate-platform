@@ -21,6 +21,7 @@ JOBS: dict[str, str] = {
     "transmission.send": "services.transmission.service:send",
     "controls.test_sweep": "services.governance.controls:sweep_all",
     "scoring.process_cells": "services.scoring.on_demand:process_new_cells",
+    "intake.sweep_drop_folders": "services.intake.dropfolder:sweep_all",
 }
 
 

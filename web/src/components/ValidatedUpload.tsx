@@ -36,9 +36,9 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
   const [declTotal, setDeclTotal] = useState('')
   const [reason, setReason] = useState('')
   const [rechecking, setRechecking] = useState(false)
-  const { fields, saved, reload } = useTemplateMappings(template)
+  const { saved, reload } = useTemplateMappings(template)
   const [profileId, setProfileId] = useState('')
-  const [mapFor, setMapFor] = useState<MissingCols | null>(null)   // open mapping editor for this file's columns
+  const [mapping, setMapping] = useState(false)   // the mapping editor is open for this file
 
   const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; security?: Security } & MissingCols } })?.body?.error
   const declared = (): Record<string, string | undefined> => {
@@ -51,23 +51,17 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
   }
 
   const check = async (f: File, pid: string) => {
-    setResult(null); setMsg(null); setRep(null); setMapFor(null); setPhase('checking')
+    setResult(null); setMsg(null); setRep(null); setMapping(false); setPhase('checking')
     try {
       setRep(await uploadFile<ValRep>(endpoints.validate, f, 'file', { mapping_profile_id: pid || undefined })); setPhase('checked')
     } catch (e: unknown) {
       const er = errOf(e)
-      if (template && er?.source_columns?.length) { setMapFor(er); setPhase('error'); setMsg(missingMsg(er)); return }
+      if (template && er?.source_columns?.length) { setMapping(true); setPhase('error'); setMsg(missingMsg(er)); return }
       setMsg(missingMsg(er) ?? er?.message ?? `We couldn’t read that file — please upload a ${dropLabel} as ${accept.replaceAll(',', ' or ')}.`)
       setPhase('error')
     }
   }
   const pick = (f: File) => { setFile(f); setReason(''); setDeclRows(''); setDeclTotal(''); check(f, profileId) }
-  const openMapping = async () => {   // re-read the header so the editor lists this file's own columns
-    if (!file) return
-    const head = (await file.slice(0, 64 * 1024).text()).split(/\r?\n/)[0] ?? ''
-    const cols = file.name.toLowerCase().endsWith('.csv') ? head.split(',').map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean) : []
-    setMapFor({ source_columns: cols.length ? cols : undefined })
-  }
   const recheck = async () => {
     if (!file) return
     setRechecking(true); setMsg(null)
@@ -87,7 +81,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
       else { setMsg(er?.message ?? 'Something went wrong saving — please try again.'); setPhase('error') }
     }
   }
-  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setMapFor(null); setReason(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
+  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setMapping(false); setReason(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
   const base = saved.find(s => s.profile_id === profileId)
   const downloadFixList = () => {
     if (!rep) return
@@ -114,7 +108,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             {saved.map(s => <option key={s.profile_id} value={s.profile_id}>{s.name} (v{s.version})</option>)}
           </select></label>
       )}
-      {phase !== 'done' && !mapFor && (
+      {phase !== 'done' && !mapping && (
         <div onClick={() => inputRef.current?.click()}
           onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
           className="rounded-xl border border-dashed border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-4 py-6 text-center cursor-pointer hover:border-[var(--color-sky)] transition">
@@ -127,14 +121,13 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
 
       {phase === 'checking' && <div className="mono text-[11px] text-[var(--color-faint)] mt-3">inspecting the file and checking every row…</div>}
       {phase === 'error' && msg && <div className="mt-3 text-[12.5px] flex items-center gap-2 flex-wrap" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={14} /> {msg} <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-1">try another file</button></div>}
-      {template && mapFor?.source_columns && file && (
-        <MappingEditor key={profileId + (mapFor.source_columns ?? []).join('|')} template={template} fields={fields} sourceColumns={mapFor.source_columns}
-          suggested={mapFor.suggested_mapping} base={base && !mapFor.suggested_mapping ? base : undefined}
-          onCancel={() => { setMapFor(null); if (!rep) reset() }}
+      {template && mapping && file && (
+        <MappingEditor key={profileId + file.name} template={template} file={file} base={base}
+          onCancel={() => { setMapping(false); if (!rep) reset() }}
           onSaved={async pid => { setProfileId(pid); await reload(); check(file, pid) }} />
       )}
 
-      {(phase === 'checked' || phase === 'importing') && rep && (
+      {(phase === 'checked' || phase === 'importing') && rep && !mapping && (
         <div className="mt-3 rounded-xl border border-[var(--color-line)] overflow-hidden">
           <div className="flex items-center gap-2.5 flex-wrap px-4 py-2.5 bg-[var(--color-bg-2)] border-b border-[var(--color-line)]">
             <FileSpreadsheet size={14} className="text-[var(--color-faint)]" />
@@ -161,7 +154,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
           ))}
           {rep.n_error > 6 && <div className="px-4 py-2 border-b border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">…and {rep.n_error - 6} more</div>}
 
-          {rep.controls && <ControlsPanel controls={rep.controls} valueLabel={rep.controls.transformation.excluded.value_field} declRows={declRows} declTotal={declTotal}
+          {rep.controls && <ControlsPanel controls={rep.controls} onMapValues={template ? () => setMapping(true) : undefined} valueLabel={rep.controls.transformation.excluded.value_field} declRows={declRows} declTotal={declTotal}
             setDeclRows={setDeclRows} setDeclTotal={setDeclTotal} onRecheck={recheck} checking={rechecking} />}
           {msg && <div className="px-4 py-2 text-[12px] border-t border-[var(--color-line-2)]" style={{ color: 'var(--color-warn)' }}>{msg}</div>}
 
@@ -176,7 +169,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             <button disabled={rep.n_valid === 0 || phase === 'importing' || gate === 'blocked' || (needsApproval && reason.trim().length < 10)} onClick={doImport}
               className="mono text-[11.5px] px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
               {phase === 'importing' ? 'sending…' : needsApproval ? 'Send for approval' : `Import ${rep.n_valid} ready ${rep.n_valid === 1 ? 'row' : 'rows'}`}</button>
-            {template && file?.name.toLowerCase().endsWith('.csv') && <button onClick={openMapping} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]">{profileId ? 'Edit column mapping' : 'Map my columns'}</button>}
+            {template && file && <button onClick={() => setMapping(true)} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]">{profileId ? 'Edit column mapping' : 'Map my columns'}</button>}
             {rep.n_error > 0 && <button onClick={downloadFixList} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"><Download size={12} className="inline mr-1" />Download rows to fix</button>}
             <button onClick={reset} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)] ml-auto">choose a different file</button>
             <span className="mono text-[9.5px] text-[var(--color-faint)] w-full">Nothing is saved until you {needsApproval ? 'send it and a second person approves' : 'import'}.</span>

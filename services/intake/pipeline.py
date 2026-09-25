@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from datetime import date, timedelta
 from typing import Optional
 
@@ -31,7 +32,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from services.ingest import batch_controls as bc
 from services.ingest.upload_validation import enrich_specs
-from services.intake import malware, mapping, security, staging, storage
+from services.intake import malware, mapping, profiling, security, staging, storage, values
 from services.intake.catalog import TEMPLATES, Template
 
 MIN_REASON = 10
@@ -50,21 +51,30 @@ class IntakeError(Exception):
 def _parse(raw: bytes, detected: str, via: str) -> pd.DataFrame:
     try:
         if via == "api":
-            return pd.DataFrame(json.loads(raw.decode("utf-8")))
-        if detected == "xlsx":
-            return pd.read_excel(io.BytesIO(raw))
-        return pd.read_csv(io.BytesIO(raw), encoding_errors="replace")
+            df = pd.DataFrame(json.loads(raw.decode("utf-8")))
+        elif detected == "xlsx":
+            df = pd.read_excel(io.BytesIO(raw))
+        else:
+            df = pd.read_csv(io.BytesIO(raw), encoding_errors="replace")
     except Exception as e:  # noqa: BLE001 — any parser failure is the customer's to fix, reported plainly
         raise IntakeError(400, {"error": "unreadable", "message": f"We couldn't read the file as a table ({type(e).__name__})."})
+    # column names as a person reads them: our own template marks required columns "name *"
+    df.columns = [re.sub(r"\s*\*+\s*$", "", str(c)).strip() for c in df.columns]
+    return df
 
 
-def _required_missing(tpl: Template, df: pd.DataFrame) -> Optional[dict]:
-    specs = tpl.specs(df)
-    missing = [s["name"] for s in specs if s.get("required") and s["name"] not in df.columns]
+def _missing(tpl: Template, df: pd.DataFrame) -> list[str]:
+    return [s["name"] for s in tpl.specs(df) if s.get("required") and s["name"] not in df.columns]
+
+
+def _required_missing(session: Session, org_id: str, tpl: Template, df: pd.DataFrame) -> Optional[dict]:
+    missing = _missing(tpl, df)
     if missing:
         cols = [str(c) for c in df.columns]
+        sug = profiling.suggest(session, df, enrich_specs(tpl.specs(df)))
         return {"error": "missing_columns", "missing_columns": missing, "source_columns": cols,
-                "suggested_mapping": mapping.suggest(cols, specs),
+                "suggestion": sug, "suggested_mapping": profiling.column_map(sug),
+                "closest_mapping": mapping.closest(session, org_id, tpl.key, cols),
                 "message": f"The file is missing required column(s): {', '.join(missing)}. If your file names them "
                            "differently, map your columns to ours."}
     return tpl.precheck(df) if tpl.precheck else None
@@ -72,14 +82,22 @@ def _required_missing(tpl: Template, df: pd.DataFrame) -> Optional[dict]:
 
 def _canonical(session: Session, org_id: str, tpl: Template, df: pd.DataFrame, profile_id: Optional[str],
                as_of: Optional[date] = None) -> tuple[pd.DataFrame, Optional[dict]]:
-    """Apply the pinned mapping profile (if any): the customer's columns, units and currency → our template."""
+    """Apply the pinned mapping profile: the customer's columns, units and currency → our template. With none pinned,
+    a file in our own layout needs none; a file in a layout the customer already confirmed uses that mapping."""
+    auto = False
     if not profile_id:
-        return df, None
+        if not _missing(tpl, df):
+            return df, None
+        prof = mapping.for_layout(session, org_id, tpl.key, [str(c) for c in df.columns])
+        if not prof:
+            return df, None
+        profile_id, auto = prof["profile_id"], True
     try:
         prof = mapping.get(session, org_id, profile_id)
         if prof["template"] != tpl.key:
             raise mapping.MappingError(f"That mapping is for {prof['template']}, not {tpl.key}.")
-        return mapping.apply(session, df, prof, as_of)
+        out, rep_ = mapping.apply(session, df, prof, as_of)
+        return out, {**rep_, "auto": auto}
     except mapping.MappingError as e:
         raise IntakeError(400, {"error": "mapping_failed", "message": str(e)})
 
@@ -114,13 +132,13 @@ def _run_controls(session: Session, org_id: str, tpl: Template, sha: str, df: pd
     receipt = bc.receipt_check(df, declared=declared, duplicate_of=_prior_import(session, org_id, tpl.key, sha, exclude_batch))
     transform = bc.transformation_check(df, specs, report, normalised, value_field=vf)
     gate = bc.evaluate_gate(receipt, transform, report["n_valid"])
-    large = staging.large_change_reason(st["matching"])
-    if large and gate["status"] != "blocked":
-        gate = {**gate, "status": "needs_signoff", "reasons": gate["reasons"] + [large]}
+    for extra in (values.gate_reason(st["values"]), staging.large_change_reason(st["matching"])):
+        if extra and gate["status"] != "blocked":
+            gate = {**gate, "status": "needs_signoff", "reasons": gate["reasons"] + [extra]}
     readiness = {"status": "pass" if not st["matching"]["n_not_ready"] else "attention",
                  "n_not_ready": st["matching"]["n_not_ready"], "value_staged": st["value_staged"]}
     return {"report": report, "normalised": normalised, "value_field": vf, "value_valid": st["value_staged"], "staged": st,
-            "controls": {"receipt": receipt, "transformation": transform, "readiness": readiness,
+            "controls": {"receipt": receipt, "transformation": transform, "values": st["values"], "readiness": readiness,
                          "matching": {k: v for k, v in st["matching"].items()}, "gate": gate}}
 
 
@@ -254,7 +272,7 @@ def preview(session: Session, org_id: str, template: str, raw: bytes, filename: 
     if sec["status"] == "blocked":
         raise IntakeError(422, {"error": "security_blocked", "message": sec["findings"][0]["message"], "security": sec})
     df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via), mapping_profile_id)
-    err = _required_missing(tpl, df)
+    err = _required_missing(session, org_id, tpl, df)
     if err:
         raise IntakeError(400, {**err, "security": sec})
     ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared)
@@ -278,7 +296,7 @@ def storage_sha(raw: bytes) -> str:
 
 def submit(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], *, via: str = "upload",
            user_id: Optional[str] = None, token_id: Optional[str] = None, declared: Optional[dict] = None,
-           reason: Optional[str] = None, mapping_profile_id: Optional[str] = None) -> dict:
+           reason: Optional[str] = None, mapping_profile_id: Optional[str] = None, channel_id: Optional[str] = None) -> dict:
     """Receive a batch and take it as far as the principles allow. Returns {"http_status", ...body}."""
     tpl = TEMPLATES[template]
     reason = (reason or "").strip() or None
@@ -309,7 +327,7 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
 
     # 3. parse + required columns + controls, all in memory before anything is persisted
     df, mrep = _canonical(session, org_id, tpl, _parse(raw, sec["detected_type"], via), mapping_profile_id)
-    err = _required_missing(tpl, df)
+    err = _required_missing(session, org_id, tpl, df)
     if err:
         raise IntakeError(400, err)
     sha = storage_sha(raw)
@@ -326,13 +344,17 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
         raise IntakeError(409, {"error": "approval_reason_required", "controls": ctl["controls"],
                                 "message": f"This batch failed a check, so a second person must approve it. Say why it should "
                                            f"be imported (at least {MIN_REASON} characters) and it will be sent for approval."})
-    if via == "api" and gate == "needs_signoff" and reason is None:
-        reason = "Submitted by an API integration; a check failed, so a person must review it before it is imported."
+    if via != "upload" and gate == "needs_signoff" and reason is None:
+        reason = (f"Sent by {'an API integration' if via == 'api' else 'the drop folder'}; a check failed, so a person "
+                  "must review it before it is imported.")
 
     # 4. persist the file and the batch
     f = _record_file(session, org_id, raw, filename, sec, scan, via=via, user_id=user_id, token_id=token_id, keep_bytes=True)
     bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason,
                      profile_id=mapping_profile_id)
+    if channel_id:
+        session.execute(text("UPDATE ingest_batches SET channel_id = CAST(:c AS uuid) WHERE batch_id = CAST(:b AS uuid)"),
+                        {"c": channel_id, "b": bid})
 
     if decision == "held":
         why = ("the malware scanner could not be reached" if scan["status"] == "error"

@@ -43,8 +43,10 @@ def _clean(v) -> Optional[str]:
     return s or None
 
 
-def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = None) -> Optional[str]:
-    """Return a plain-language problem message, or None if the value is acceptable for its kind."""
+def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = None,
+                rng: Optional[list] = None) -> Optional[str]:
+    """Return a plain-language problem message, or None if the value is acceptable for its kind.
+    ("vocab" values are matched and reported by services/intake/values.py before validation, not here.)"""
     v = _clean(raw)
     if v is None:
         return None  # emptiness is handled by the required-check upstream
@@ -78,14 +80,18 @@ def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = 
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             return f"{label} isn't a valid calendar date (got “{v}”)"
-    elif kind == "int":
+    elif kind in ("int", "number"):
         f = None
         try:
             f = float(v.replace(",", "")) if isinstance(v, str) else float(v)
         except ValueError:
             pass
-        if f is None or f != int(f) or f < 0:
+        if kind == "int" and (f is None or f != int(f) or f < 0):
             return f"{label} must be a whole number (got “{v}”)"
+        if f is None:
+            return f"{label} must be a number (got “{v}”)"
+        if rng and not rng[0] <= f <= rng[1]:
+            return f"{label} must be between {rng[0]:g} and {rng[1]:g} (got {f:g})"
     elif kind == "iso2":
         if not re.fullmatch(r"[A-Za-z]{2}", v):
             return f"{label} must be a 2-letter country code (got “{v}”)"
@@ -156,7 +162,7 @@ def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
             if s.get("required") and _clean(val) is None:
                 problems.append(f"{label} is required")
                 continue
-            msg = _check_kind(s.get("kind"), label, val, s.get("allowed"))
+            msg = _check_kind(s.get("kind"), label, val, s.get("allowed"), s.get("range"))
             if msg:
                 problems.append(msg)
         if problems:

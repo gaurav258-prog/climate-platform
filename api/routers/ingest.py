@@ -23,43 +23,62 @@ router = APIRouter(prefix="/v1/ingest", tags=["Integration"])
 def ping(ctx: IngestOrg):
     """A cheap health/handshake call for a customer wiring up their integration — confirms the token works
     and reports the tenant and sector it acts as, so they hit the right ingest endpoint."""
+    from services.intake.catalog import templates_for
     return {"ok": True, "org_id": ctx["org_id"], "org_name": ctx["org_name"],
-            "sector": ctx["org_type"], "ready": True}
+            "sector": ctx["org_type"], "ready": True,
+            "templates": [{"template": t.key, "label": t.label, "endpoint": f"/v1/ingest/books/{t.key}"}
+                          for t in templates_for(ctx["org_type"])]}
 
 
-class BankAssetsIn(BaseModel):
+class BookRowsIn(BaseModel):
     rows: list[dict] = Field(..., min_length=1, max_length=5000,
-                             description="Loan-tape rows — same fields as the CSV template "
-                                         "(asset_name, asset_type, latitude, longitude, appraised_value_eur, sector, "
-                                         "counterparty_evic_eur, …).")
+                             description="Rows of your book — our template's fields, or your own field names with a "
+                                         "mapping_profile_id (see GET /v1/intake/mappings).")
     declared_row_count: int | None = Field(None, description="Optional control: how many rows you are sending.")
     declared_totals: dict[str, float] | None = Field(
-        None, description='Optional control totals, e.g. {"appraised_value_eur": 1250000000} — the batch is refused '
+        None, description='Optional control totals, e.g. {"appraised_value_eur": 1250000000} — the batch fails a check '
                           "if the rows do not add up to what you declared.")
-    mapping_profile_id: str | None = Field(None, description="Optional: a saved column mapping (GET /v1/intake/mappings) "
-                                                             "when your rows use your own field names, units or currency.")
+    mapping_profile_id: str | None = Field(None, description="Optional: a saved column mapping, when your rows use your "
+                                                             "own field names, units or currency.")
 
 
-@router.post("/bank/assets", summary="Push loan-tape rows directly into your bank tenant")
-def ingest_bank(body: BankAssetsIn, session: DbSession, ctx: IngestOrg):
-    """Land loan-tape rows via the API through the SAME intake pipeline as a file upload: the payload is stored
-    write-once, scanned and checked. Every check passed → imported (200). A check failed → sent for approval by a
-    person other than the token's owner (202; nothing lands until approved). Nothing valid → 422."""
-    if ctx["org_type"] != "bank":
-        raise HTTPException(409, {"error": "wrong_sector",
-                                  "message": f"This token's tenant is '{ctx['org_type']}', not a bank. "
-                                             f"Use the ingest endpoint for your sector."})
+def _push(template: str, body: BookRowsIn, session, ctx: dict):
+    """Every sector's API push runs the SAME intake pipeline as a file upload: stored write-once, scanned, mapped,
+    checked, matched to the book. Every check passed → imported (200). A check failed → sent for approval by a person
+    other than the token's owner (202; nothing lands until approved). Nothing valid → 422."""
     import json as _json
 
     from api.services.intake_http import submit
+    from services.intake.catalog import TEMPLATES
+    tpl = TEMPLATES.get(template)
+    if tpl is None:
+        raise HTTPException(404, {"error": "unknown_template", "message": f"No template '{template}'.",
+                                  "templates": sorted(TEMPLATES)})
+    if ctx["org_type"] != tpl.org_type:
+        from services.intake.catalog import templates_for
+        raise HTTPException(409, {"error": "wrong_sector",
+                                  "message": f"This token's tenant is '{ctx['org_type']}'; the {tpl.label} template is for "
+                                             f"'{tpl.org_type}'. Your templates: {', '.join(t.key for t in templates_for(ctx['org_type'])) or 'none'}."})
     declared = {}
     if body.declared_row_count is not None:
         declared["row_count"] = body.declared_row_count
     if body.declared_totals:
         declared["control_totals"] = body.declared_totals
     raw = _json.dumps(body.rows, sort_keys=True, default=str).encode()
-    return submit(session, ctx["org_id"], "bank_assets", raw, f"api:{ctx['token_id']}", token_id=ctx["token_id"],
+    return submit(session, ctx["org_id"], template, raw, f"api:{ctx['token_id']}", token_id=ctx["token_id"],
                   via="api", declared=declared or None, mapping_profile_id=body.mapping_profile_id)
+
+
+@router.post("/books/{template}", summary="Push rows of your book (any sector) directly into your tenant")
+def ingest_book(template: str, body: BookRowsIn, session: DbSession, ctx: IngestOrg):
+    """template: bank_assets | insurance_policies | realestate_properties | assetmgmt_holdings | supply_plots —
+    the one for your sector (GET /v1/ingest/ping tells you which)."""
+    return _push(template, body, session, ctx)
+
+
+@router.post("/bank/assets", summary="Push loan-tape rows directly into your bank tenant (same as /books/bank_assets)")
+def ingest_bank(body: BookRowsIn, session: DbSession, ctx: IngestOrg):
+    return _push("bank_assets", body, session, ctx)
 
 
 # ─────────────────────────── TOKEN management (admin JWT) ───────────────────────────

@@ -170,7 +170,7 @@ def normalise_rows(rows: list[dict], specs: list[dict]) -> list[dict]:
             kind = (by_name.get(k) or {}).get("kind")
             if kind == "money":
                 n[k] = parse_money(v)
-            elif kind in ("lat", "lon"):
+            elif kind in ("lat", "lon", "number"):
                 n[k] = parse_money(v)
             elif kind == "int":
                 f = parse_money(v)
@@ -231,7 +231,7 @@ def transformation_check(df: pd.DataFrame, specs: list[dict], report: dict, norm
             if v is None:
                 continue
             bad = None
-            if kind == "money" and not isinstance(v, (int, float)):
+            if kind in ("money", "number") and not isinstance(v, (int, float)):
                 bad = "not a number"
             elif kind == "lat" and not (isinstance(v, (int, float)) and -90 <= v <= 90):
                 bad = "not a valid latitude"

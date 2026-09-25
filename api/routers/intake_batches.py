@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from api.deps import CurrentUser, DbSession, require_permission
@@ -55,6 +55,20 @@ def template_fields(template: str, ctx: CurrentUser):
     return {"template": template, "fields": _fields(template)}
 
 
+@router.post("/templates/{template}/inspect", summary="Read a file's columns and propose how they map — nothing is saved")
+async def inspect_file(template: str, session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+    """Security-inspects and reads the file (CSV or Excel), then proposes which of your columns feeds each field —
+    from the column names and the values, with a confidence and the reasons — and any mapping you already confirmed
+    for this exact layout. You confirm or correct it in the mapping editor."""
+    from services.intake.inspect import inspect
+    from services.intake.pipeline import IntakeError
+    _template_or_404(template)
+    try:
+        return inspect(session, ctx["org"]["org_id"], template, await file.read(), file.filename)
+    except IntakeError as e:
+        raise HTTPException(e.status, e.body) from e
+
+
 @router.get("/mappings", summary="Your saved column mappings (latest version of each)")
 def list_mappings(session: DbSession, ctx: CurrentUser, template: Optional[str] = Query(None)):
     from services.intake.mapping import latest
@@ -65,6 +79,8 @@ class MappingIn(BaseModel):
     template: str
     name: str = Field(..., min_length=1, max_length=80, description="Usually the source system, e.g. 'Core banking'.")
     column_map: dict[str, Optional[str]] = Field(..., description="Our field → your column name.")
+    source_columns: Optional[list[str]] = Field(None, description="The file's column names — lets the next file with the "
+                                                                 "same layout use this mapping automatically.")
     transforms: dict[str, dict] = Field(default_factory=dict,
                                         description='Per field: {"multiply": 1000} | {"currency": "USD"} | '
                                                     '{"currency_column": "Ccy"} | {"values": {"Concrete": "fire_resistive"}}')
@@ -77,8 +93,48 @@ def save_mapping(body: MappingIn, session: DbSession, ctx: dict = Depends(requir
     _template_or_404(body.template)
     try:
         out = save(session, ctx["org"]["org_id"], body.template, body.name, {k: v for k, v in body.column_map.items() if v},
-                   body.transforms, ctx["user"]["id"], _fields(body.template))
+                   body.transforms, ctx["user"]["id"], _fields(body.template), body.source_columns)
     except MappingError as e:
         raise HTTPException(400, {"error": "bad_mapping", "message": str(e)}) from e
     session.commit()
     return out
+
+
+# ── drop-folder channels: where an SFTP feed lands, one per template; each file runs through the intake pipeline ──
+
+class ChannelIn(BaseModel):
+    template: str
+    owner_user_id: str = Field(..., description="Stands as the sender: a batch with a failed check goes to a DIFFERENT person.")
+    mapping_profile_id: Optional[str] = Field(None, description="Optional pinned mapping; otherwise your confirmed layout is used.")
+
+
+@router.get("/channels", summary="Your drop-folder channels (where your SFTP feed lands)")
+def list_channels(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.dropfolder import list_channels as _list
+    return {"channels": _list(session, ctx["org"]["org_id"])}
+
+
+@router.post("/channels", status_code=201, summary="Open a drop folder for one of your templates")
+def create_channel(body: ChannelIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.dropfolder import ChannelError
+    from services.intake.dropfolder import create_channel as _create
+    try:
+        out = _create(session, ctx["org"]["org_id"], body.template, body.owner_user_id, ctx["user"]["id"], body.mapping_profile_id)
+    except ChannelError as e:
+        raise HTTPException(400, {"error": "bad_channel", "message": str(e)}) from e
+    session.commit()
+    return out
+
+
+@router.post("/channels/{channel_id}/sweep", summary="Pick up the files waiting in a drop folder now")
+def sweep_channel(channel_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.dropfolder import get_channel
+    from services.intake.dropfolder import sweep_channel as _sweep
+    try:
+        ch = get_channel(session, ctx["org"]["org_id"], channel_id)
+    except Exception:   # a malformed id
+        ch = None
+    if not ch:
+        raise HTTPException(404, {"error": "not_found", "message": "Channel not found."})
+    session.rollback()   # the sweep uses its own transaction per file
+    return {"channel_id": channel_id, "files": _sweep(ch, ctx["org"]["org_id"])}

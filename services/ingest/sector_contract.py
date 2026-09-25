@@ -12,7 +12,7 @@ import h3
 import pandas as pd
 from sqlalchemy.orm import Session
 
-_GOVT_LEVELS = {"central", "regional", "local"}
+from services.ingest.fields import VOCABS, norm_token
 
 
 class RowIssue(Exception):
@@ -52,12 +52,16 @@ def _i(row: dict, k: str) -> Optional[int]:
     return None if f is None else int(f)
 
 
-def _vocab(row: dict, k: str, allowed: set, upper: bool = False) -> Optional[str]:
+def _vocab(row: dict, k: str, vocab: str) -> Optional[str]:
+    """Our value for a fixed-list field. In the intake pipeline values are already matched (and anything
+    unrecognised reported) by services/intake/values.py; this is the same lookup, so the two cannot disagree."""
     v = _s(row, k)
-    if v is None:
-        return None
-    v = v.upper() if upper else v.lower()
-    return v if v in allowed else None   # unrecognised → treated as undeclared, never guessed
+    return None if v is None else VOCABS[vocab].lookup().get(norm_token(v))
+
+
+def _bool(row: dict, k: str) -> Optional[bool]:
+    v = _vocab(row, k, "boolean")
+    return None if v is None else v == "true"
 
 
 def _location(row: dict) -> tuple[float, float, str]:
