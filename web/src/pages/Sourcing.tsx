@@ -150,15 +150,14 @@ export default function Sourcing() {
           <div className="flex items-end"><Button onClick={add} disabled={busy}>{busy ? 'Adding…' : 'Add & score'}</Button></div>
         </div>
         <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-          <ValidatedUpload dropLabel="sourcing-plot CSV" accept=".csv" onDone={() => q.refetch()}
+          <ValidatedUpload dropLabel="sourcing-plot CSV" accept=".csv" template="supply_plots" onDone={() => q.refetch()}
             intro={<>Bulk-add plots from a CSV. Every file is inspected and every row checked <b className="text-[var(--color-ink)]">before</b> anything is saved; if a check fails, a second person approves before import.</>}
             endpoints={{ validate: '/v1/supply/plots/validate', upload: '/v1/supply/plots/upload', template: '/v1/supply/plots/template.xlsx', templateFile: 'tellumen_sourcing_plot_template.xlsx' }}
             renderDone={r => {
-              const n = (r.notes ?? {}) as { unknown_commodities?: string[]; geometry_errors?: unknown[]; needs_polygon?: unknown[] }
-              const parts = [`Added ${Number(r.n_uploaded) || 0} plot${Number(r.n_uploaded) === 1 ? '' : 's'}`]
-              if (n.unknown_commodities?.length) parts.push(`${n.unknown_commodities.length} not added (unknown commodity: ${n.unknown_commodities.join(', ')})`)
-              if (n.geometry_errors?.length) parts.push(`${n.geometry_errors.length} bad geometry`)
-              if (n.needs_polygon?.length) parts.push(`${n.needs_polygon.length} need a polygon (>4 ha)`)
+              // unusable rows (unknown commodity, bad boundary) are refused at check time with their reason, never dropped here
+              const n = (r.notes ?? {}) as { needs_polygon?: number }
+              const parts = [`${Number(r.n_uploaded) || 0} plot${Number(r.n_uploaded) === 1 ? '' : 's'} in your book`]
+              if (n.needs_polygon) parts.push(`${n.needs_polygon} need a boundary polygon for EUDR (over 4 ha)`)
               return <>{parts.join(' · ')}.</>
             }} />
         </div>

@@ -1351,18 +1351,19 @@ def plots_template_xlsx():
 
 @router.post("/plots/validate", summary="Check a sourcing-plot CSV before importing — nothing is saved")
 async def validate_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
-                         declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+                         declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
+                         mapping_profile_id: Optional[str] = Form(None)):
     """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
     the gate the import will enforce). Nothing is stored or written."""
     from api.services.intake_http import declared_from_form, preview
     return preview(session, ctx["org"]["org_id"], "supply_plots", await file.read(), file.filename,
-                   declared_from_form(declared_row_count, declared_totals))
+                   declared_from_form(declared_row_count, declared_totals), mapping_profile_id)
 
 
 @router.post("/plots/upload", summary="Bulk-upload sourcing plots from a CSV into your procurement book")
 async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                       approval_reason: Optional[str] = Form(None)):
+                       approval_reason: Optional[str] = Form(None), mapping_profile_id: Optional[str] = Form(None)):
     """Runs the sourcing-plot file through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
     security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
     sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
@@ -1370,7 +1371,7 @@ async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = 
     from api.services.intake_http import declared_from_form, submit
     return submit(session, ctx["org"]["org_id"], "supply_plots", await file.read(), file.filename,
                   user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
-                  reason=approval_reason)
+                  reason=approval_reason, mapping_profile_id=mapping_profile_id)
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")

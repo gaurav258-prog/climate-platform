@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, ShieldCheck, Clock } from 'lucide-react'
 import { upload as uploadFile, download } from '../lib/api'
 import { ControlsPanel, LandingNote, type Controls } from './IntakeControls'
+import MappingEditor, { MappingNote, useTemplateMappings, type MappingReport } from './MappingEditor'
 
 // The one customer-data upload control, used by every sector's book (loan tape, SoV, properties, holdings, plots).
 // It fronts the intake pipeline (services/intake/pipeline.py):
@@ -14,14 +15,16 @@ interface Finding { code: string; severity: 'block' | 'warn'; message: string }
 interface Security { status: 'passed' | 'warned' | 'blocked'; findings: Finding[]; malware_scan?: string; malware?: string }
 export interface ValRep {
   filename: string; n_total: number; n_valid: number; n_error: number
-  errors: { row: number; problems: string[] }[]; controls?: Controls; security?: Security
+  errors: { row: number; problems: string[] }[]; controls?: Controls; security?: Security; mapping?: MappingReport | null
 }
+interface MissingCols { missing_columns?: string[]; source_columns?: string[]; suggested_mapping?: Record<string, string> }
 interface Endpoints { validate: string; upload: string; template: string; templateFile: string }
 type Outcome = { state: string; message?: string; batch_id?: string; approval_request_id?: string; n_uploaded?: number; controls?: Controls; notes?: Record<string, unknown> } & Record<string, unknown>
 
-export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone, accept = '.csv,.xlsx' }: {
+export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone, accept = '.csv,.xlsx', template }: {
   intro: React.ReactNode; dropLabel: string; endpoints: Endpoints; onDone: () => void
   renderDone: (res: Outcome) => React.ReactNode; accept?: string
+  template?: string   // intake template key — enables column mapping for files in the customer's own layout
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -33,25 +36,37 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
   const [declTotal, setDeclTotal] = useState('')
   const [reason, setReason] = useState('')
   const [rechecking, setRechecking] = useState(false)
+  const { fields, saved, reload } = useTemplateMappings(template)
+  const [profileId, setProfileId] = useState('')
+  const [mapFor, setMapFor] = useState<MissingCols | null>(null)   // open mapping editor for this file's columns
 
-  const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; missing_columns?: string[]; security?: Security } } })?.body?.error
+  const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; security?: Security } & MissingCols } })?.body?.error
   const declared = (): Record<string, string | undefined> => {
     const vf = rep?.controls?.transformation.excluded.value_field
     return {
+      mapping_profile_id: profileId || undefined,
       declared_row_count: declRows.trim() || undefined,
       declared_totals: declTotal.trim() && vf ? JSON.stringify({ [vf]: Number(declTotal.replace(/[, ]/g, '')) }) : undefined,
     }
   }
 
-  const pick = async (f: File) => {
-    setFile(f); setResult(null); setMsg(null); setRep(null); setReason(''); setDeclRows(''); setDeclTotal(''); setPhase('checking')
+  const check = async (f: File, pid: string) => {
+    setResult(null); setMsg(null); setRep(null); setMapFor(null); setPhase('checking')
     try {
-      setRep(await uploadFile<ValRep>(endpoints.validate, f)); setPhase('checked')
+      setRep(await uploadFile<ValRep>(endpoints.validate, f, 'file', { mapping_profile_id: pid || undefined })); setPhase('checked')
     } catch (e: unknown) {
       const er = errOf(e)
+      if (template && er?.source_columns?.length) { setMapFor(er); setPhase('error'); setMsg(missingMsg(er)); return }
       setMsg(missingMsg(er) ?? er?.message ?? `We couldn’t read that file — please upload a ${dropLabel} as ${accept.replaceAll(',', ' or ')}.`)
       setPhase('error')
     }
+  }
+  const pick = (f: File) => { setFile(f); setReason(''); setDeclRows(''); setDeclTotal(''); check(f, profileId) }
+  const openMapping = async () => {   // re-read the header so the editor lists this file's own columns
+    if (!file) return
+    const head = (await file.slice(0, 64 * 1024).text()).split(/\r?\n/)[0] ?? ''
+    const cols = file.name.toLowerCase().endsWith('.csv') ? head.split(',').map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean) : []
+    setMapFor({ source_columns: cols.length ? cols : undefined })
   }
   const recheck = async () => {
     if (!file) return
@@ -72,7 +87,8 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
       else { setMsg(er?.message ?? 'Something went wrong saving — please try again.'); setPhase('error') }
     }
   }
-  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setReason(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
+  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setMapFor(null); setReason(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
+  const base = saved.find(s => s.profile_id === profileId)
   const downloadFixList = () => {
     if (!rep) return
     const rows = [['row', 'what to fix'], ...rep.errors.map(e => [String(e.row), e.problems.join('; ')])]
@@ -90,7 +106,15 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
       <p className="text-[13px] text-[var(--color-mute)] mb-3">{intro}</p>
       <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) pick(f) }} />
 
-      {phase !== 'done' && (
+      {template && saved.length > 0 && phase !== 'done' && (
+        <label className="flex items-center gap-2 mb-2 text-[11.5px] text-[var(--color-mute)]">Your file’s layout
+          <select value={profileId} onChange={e => { setProfileId(e.target.value); if (file) check(file, e.target.value) }}
+            className="rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-[12px] text-[var(--color-ink)]">
+            <option value="">our template’s column names</option>
+            {saved.map(s => <option key={s.profile_id} value={s.profile_id}>{s.name} (v{s.version})</option>)}
+          </select></label>
+      )}
+      {phase !== 'done' && !mapFor && (
         <div onClick={() => inputRef.current?.click()}
           onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
           className="rounded-xl border border-dashed border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-4 py-6 text-center cursor-pointer hover:border-[var(--color-sky)] transition">
@@ -102,7 +126,13 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
       )}
 
       {phase === 'checking' && <div className="mono text-[11px] text-[var(--color-faint)] mt-3">inspecting the file and checking every row…</div>}
-      {phase === 'error' && msg && <div className="mt-3 text-[12.5px] flex items-center gap-2" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={14} /> {msg} <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-1">try another file</button></div>}
+      {phase === 'error' && msg && <div className="mt-3 text-[12.5px] flex items-center gap-2 flex-wrap" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={14} /> {msg} <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-1">try another file</button></div>}
+      {template && mapFor?.source_columns && file && (
+        <MappingEditor key={profileId + (mapFor.source_columns ?? []).join('|')} template={template} fields={fields} sourceColumns={mapFor.source_columns}
+          suggested={mapFor.suggested_mapping} base={base && !mapFor.suggested_mapping ? base : undefined}
+          onCancel={() => { setMapFor(null); if (!rep) reset() }}
+          onSaved={async pid => { setProfileId(pid); await reload(); check(file, pid) }} />
+      )}
 
       {(phase === 'checked' || phase === 'importing') && rep && (
         <div className="mt-3 rounded-xl border border-[var(--color-line)] overflow-hidden">
@@ -114,6 +144,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             {rep.n_error > 0 && <span className="mono text-[9.5px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab,var(--color-warn) 14%,transparent)' }}>{rep.n_error} need fixing</span>}
           </div>
 
+          {rep.mapping && <MappingNote report={rep.mapping} />}
           {sec && (
             <div className="flex items-start gap-2 px-4 py-2 border-b border-[var(--color-line-2)] text-[12px]">
               <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: sec.status === 'passed' ? 'var(--color-good)' : 'var(--color-warn)' }} />
@@ -145,6 +176,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             <button disabled={rep.n_valid === 0 || phase === 'importing' || gate === 'blocked' || (needsApproval && reason.trim().length < 10)} onClick={doImport}
               className="mono text-[11.5px] px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
               {phase === 'importing' ? 'sending…' : needsApproval ? 'Send for approval' : `Import ${rep.n_valid} ready ${rep.n_valid === 1 ? 'row' : 'rows'}`}</button>
+            {template && file?.name.toLowerCase().endsWith('.csv') && <button onClick={openMapping} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]">{profileId ? 'Edit column mapping' : 'Map my columns'}</button>}
             {rep.n_error > 0 && <button onClick={downloadFixList} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"><Download size={12} className="inline mr-1" />Download rows to fix</button>}
             <button onClick={reset} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)] ml-auto">choose a different file</button>
             <span className="mono text-[9.5px] text-[var(--color-faint)] w-full">Nothing is saved until you {needsApproval ? 'send it and a second person approves' : 'import'}.</span>
@@ -160,7 +192,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             {ok ? renderDone(result)
               : result.state === 'awaiting_approval' ? <>Sent for approval — nothing is imported until a second person approves it. <Link to="/approvals" className="text-[var(--color-sky)] hover:underline">Open approvals</Link></>
               : result.message}
-            {result.controls && <LandingNote controls={result.controls} />}
+            {result.controls && <LandingNote controls={result.controls} notes={result.notes} />}
             {result.batch_id && !result.controls?.landing && <div className="mono text-[10px] text-[var(--color-faint)] mt-1">batch {String(result.batch_id).slice(0, 8)}</div>}
           </span>
           <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-auto">upload another file</button>
@@ -172,7 +204,8 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
 
 function missingMsg(detail: unknown): string | null {
   const m = (detail as { missing_columns?: string[] })?.missing_columns
-  if (Array.isArray(m) && m.length) return `Your file is missing required column${m.length === 1 ? '' : 's'}: ${m.join(', ')}. Start from the template.`
+  const mapped = (detail as MissingCols)?.source_columns?.length
+  if (Array.isArray(m) && m.length) return `Your file is missing required column${m.length === 1 ? '' : 's'}: ${m.join(', ')}. ${mapped ? 'If your file names them differently, map your columns below.' : 'Start from the template.'}`
   if (typeof detail === 'string') return detail
   return null
 }

@@ -34,20 +34,22 @@ def declared_from_form(row_count: Optional[str], totals: Optional[str]) -> Optio
     return out or None
 
 
-def preview(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], declared: Optional[dict]) -> dict:
+def preview(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], declared: Optional[dict],
+            mapping_profile_id: Optional[str] = None) -> dict:
     try:
-        return pipeline.preview(session, org_id, template, raw, filename, declared)
+        return pipeline.preview(session, org_id, template, raw, filename, declared, mapping_profile_id=mapping_profile_id or None)
     except pipeline.IntakeError as e:
         raise HTTPException(e.status, e.body) from e
 
 
 def submit(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], *, user_id: Optional[str] = None,
-           token_id: Optional[str] = None, via: str = "upload", declared: Optional[dict] = None, reason: Optional[str] = None):
+           token_id: Optional[str] = None, via: str = "upload", declared: Optional[dict] = None, reason: Optional[str] = None,
+           mapping_profile_id: Optional[str] = None):
     """Runs the pipeline. A refusal that recorded evidence (a batch) is committed before the error is returned,
     so the rejected attempt stays on the ledger."""
     try:
         out = pipeline.submit(session, org_id, template, raw, filename, via=via, user_id=user_id, token_id=token_id,
-                              declared=declared, reason=reason)
+                              declared=declared, reason=reason, mapping_profile_id=mapping_profile_id or None)
     except pipeline.IntakeError as e:
         if e.body.get("batch_id"):
             session.commit()

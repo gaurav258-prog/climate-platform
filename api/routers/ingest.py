@@ -36,6 +36,8 @@ class BankAssetsIn(BaseModel):
     declared_totals: dict[str, float] | None = Field(
         None, description='Optional control totals, e.g. {"appraised_value_eur": 1250000000} — the batch is refused '
                           "if the rows do not add up to what you declared.")
+    mapping_profile_id: str | None = Field(None, description="Optional: a saved column mapping (GET /v1/intake/mappings) "
+                                                             "when your rows use your own field names, units or currency.")
 
 
 @router.post("/bank/assets", summary="Push loan-tape rows directly into your bank tenant")
@@ -57,7 +59,7 @@ def ingest_bank(body: BankAssetsIn, session: DbSession, ctx: IngestOrg):
         declared["control_totals"] = body.declared_totals
     raw = _json.dumps(body.rows, sort_keys=True, default=str).encode()
     return submit(session, ctx["org_id"], "bank_assets", raw, f"api:{ctx['token_id']}", token_id=ctx["token_id"],
-                  via="api", declared=declared or None)
+                  via="api", declared=declared or None, mapping_profile_id=body.mapping_profile_id)
 
 
 # ─────────────────────────── TOKEN management (admin JWT) ───────────────────────────

@@ -71,7 +71,7 @@ export default function DataHub() {
       <Step n={1} title="Upload your book" tone="you">
         <ValidatedUpload
           intro={<>Your {cfg.bookNoun} is the source every climate score starts from — one row per {cfg.rowNoun}. We validate every row <b className="text-[var(--color-ink)]">before</b> anything is saved.</>}
-          dropLabel={cfg.bookNoun}
+          dropLabel={cfg.bookNoun} template={`${cfg.prefix}_${cfg.listKey}`}
           endpoints={{ validate: `/v1/${cfg.prefix}/${cfg.listKey}/validate`, upload: `/v1/${cfg.prefix}/${cfg.listKey}/upload`, template: `/v1/${cfg.prefix}/${cfg.listKey}/template.xlsx`, templateFile: `tellumen_${cfg.listKey}_template.xlsx` }}
           onDone={refresh}
           renderDone={res => <>Imported <b>{Number(res.n_uploaded) || 0}</b> {cfg.rowNoun}{Number(res.n_uploaded) === 1 ? '' : 's'} — scored and ready below.</>}

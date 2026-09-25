@@ -142,10 +142,11 @@ def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
     missing_columns = [s["name"] for s in specs if s.get("required") and s["name"] not in present]
     if missing_columns:
         return {"ok": False, "missing_columns": missing_columns, "n_total": int(len(df)),
-                "n_valid": 0, "n_error": 0, "errors": [], "valid_rows": []}
+                "n_valid": 0, "n_error": 0, "errors": [], "valid_rows": [], "valid_row_numbers": []}
 
     records = df.where(pd.notnull(df), None).to_dict("records")
     valid_rows: list[dict] = []
+    valid_row_numbers: list[int] = []
     errors: list[dict] = []
     for i, row in enumerate(records):
         problems: list[str] = []
@@ -162,6 +163,8 @@ def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
             errors.append({"row": i + 2, "problems": problems})   # +2: 1 header row + 1-based
         else:
             valid_rows.append(row)
+            valid_row_numbers.append(i + 2)
 
     return {"ok": True, "missing_columns": [], "n_total": len(records),
-            "n_valid": len(valid_rows), "n_error": len(errors), "errors": errors, "valid_rows": valid_rows}
+            "n_valid": len(valid_rows), "n_error": len(errors), "errors": errors, "valid_rows": valid_rows,
+            "valid_row_numbers": valid_row_numbers}

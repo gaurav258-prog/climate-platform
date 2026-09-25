@@ -37,23 +37,6 @@ def _csv(rows) -> bytes:
     return pd.DataFrame(rows).to_csv(index=False).encode()
 
 
-def _login(c, email, pw):
-    return {"Authorization": "Bearer " + c.post("/v1/auth/login", json={"email": email, "password": pw}).json()["access_token"]}
-
-
-@pytest.fixture()
-def client(monkeypatch):
-    from fastapi.testclient import TestClient
-
-    import services.tasks.jobs as jobs
-    from api.main import app
-    monkeypatch.setattr(jobs, "submit", lambda *a, **k: {"job": "stubbed-in-test"})   # never queue real scoring
-    with TestClient(app, raise_server_exceptions=False) as c:
-        c.maker = _login(c, "admin@meridian.demo", "Demo!admin1")
-        c.checker = _login(c, "approver@meridian.demo", "Demo!approve1")
-        yield c
-
-
 def _purge(tag):
     """Remove everything a test created. The ledger is append-only in production; only this cleanup transaction
     lifts the triggers, and re-arms them before it commits."""
@@ -107,39 +90,39 @@ def tag():
 
 
 @pytest.mark.integration
-def test_clean_file_imports_automatically_and_is_stored_write_once(client, tag):
+def test_clean_file_imports_automatically_and_is_stored_write_once(intake_client, tag):
     raw = _csv(_rows(tag))
-    r = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)},
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
                     data={"declared_row_count": "4", "declared_totals": json.dumps({"appraised_value_eur": 4_000_000})})
     assert r.status_code == 200, r.text
     b = r.json()
     assert b["state"] == "imported" and b["n_uploaded"] == 4 and b["controls"]["landing"]["status"] == "pass"
     assert _landed(tag) == 4
     assert _events(b["batch_id"]) == ["received", "checked", "imported"]
-    led = client.get(f"/v1/intake/batches/{b['batch_id']}", headers=client.maker).json()
+    led = intake_client.get(f"/v1/intake/batches/{b['batch_id']}", headers=intake_client.maker).json()
     assert led["security_status"] == "passed" and led["storage_uri"].startswith("local://")
     assert storage.get(led["file_sha256"]) == raw                     # exactly what was received, kept
 
 
 @pytest.mark.integration
-def test_failed_check_needs_a_reason_then_a_second_person(client, tag):
+def test_failed_check_needs_a_reason_then_a_second_person(intake_client, tag):
     raw = _csv(_rows(tag, n=4, bad=1))       # 1 of 5 rows invalid → 20% rejected → a check fails
-    r0 = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)})
+    r0 = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)})
     assert r0.status_code == 409 and r0.json()["error"]["error"] == "approval_reason_required"
     with get_session() as s:                 # nothing persisted for a request that was simply incomplete
         assert s.execute(text("SELECT count(*) FROM ingest_batches WHERE filename = :f"), {"f": f"{tag}.csv"}).scalar() == 0
 
-    r = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)},
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
                     data={"approval_reason": "The invalid row is a closed loan; the rest are current exposures"})
     assert r.status_code == 202, r.text
     b = r.json()
     assert b["state"] == "awaiting_approval" and _landed(tag) == 0    # nothing lands before approval
 
-    own = client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=client.maker,
+    own = intake_client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=intake_client.maker,
                       json={"decision": "approved", "reason": "self"})
     assert own.status_code == 422                                     # the sender can never approve their own batch
 
-    ok = client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=client.checker,
+    ok = intake_client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=intake_client.checker,
                      json={"decision": "approved", "reason": "Checked the rejected row against the servicing system"})
     assert ok.status_code == 200, ok.text
     assert ok.json()["applied"]["state"] == "imported" and ok.json()["applied"]["n_landed"] == 4
@@ -148,80 +131,80 @@ def test_failed_check_needs_a_reason_then_a_second_person(client, tag):
 
 
 @pytest.mark.integration
-def test_rejected_approval_lands_nothing(client, tag):
+def test_rejected_approval_lands_nothing(intake_client, tag):
     raw = _csv(_rows(tag, n=4, bad=1))
-    b = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)},
+    b = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
                     data={"approval_reason": "Please review the one invalid row"}).json()
-    d = client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=client.checker,
+    d = intake_client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=intake_client.checker,
                     json={"decision": "rejected", "reason": "Invalid row must be fixed at source"})
     assert d.status_code == 200 and d.json()["applied"]["state"] == "rejected"
     assert _landed(tag) == 0 and _events(b["batch_id"])[-1] == "rejected"
 
 
 @pytest.mark.integration
-def test_the_same_file_twice_needs_approval(client, tag):
+def test_the_same_file_twice_needs_approval(intake_client, tag):
     raw = _csv(_rows(tag))
-    assert client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)}).status_code == 200
-    again = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", raw)})
+    assert intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}).status_code == 200
+    again = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)})
     assert again.status_code == 409
     assert any("identical file was imported" in x for x in again.json()["error"]["controls"]["gate"]["reasons"])
     assert _landed(tag) == 4
 
 
 @pytest.mark.integration
-def test_security_refusal_is_recorded_but_the_file_is_not_kept(client, tag):
-    r = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.xlsm", b"PK\x03\x04junk")})
+def test_security_refusal_is_recorded_but_the_file_is_not_kept(intake_client, tag):
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.xlsm", b"PK\x03\x04junk")})
     assert r.status_code == 422 and r.json()["error"]["error"] == "security_blocked"
-    led = client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=client.maker).json()
+    led = intake_client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=intake_client.maker).json()
     assert led["state"] == "rejected" and led["storage_uri"] == "not-retained:security"
 
 
 @pytest.mark.integration
-def test_infected_file_is_refused_and_not_kept(client, tag, monkeypatch):
+def test_infected_file_is_refused_and_not_kept(intake_client, tag, monkeypatch):
     from services.intake import malware
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "infected", "signature": "Eicar-Test-Signature", "engine": "ClamAV test"})
-    r = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)) + EICAR)})
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)) + EICAR)})
     assert r.status_code == 422 and r.json()["error"]["error"] == "malware_detected"
-    led = client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=client.maker).json()
+    led = intake_client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=intake_client.maker).json()
     assert led["malware_status"] == "infected" and led["storage_uri"] == "not-retained:security" and _landed(tag) == 0
 
 
 @pytest.mark.integration
-def test_held_when_a_required_scan_is_unavailable_then_resumed(client, tag, monkeypatch):
+def test_held_when_a_required_scan_is_unavailable_then_resumed(intake_client, tag, monkeypatch):
     from services.intake import malware
     monkeypatch.setattr(malware.settings, "INTAKE_REQUIRE_MALWARE_SCAN", True)
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "not_configured", "signature": None, "engine": None})
-    r = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))})
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))})
     assert r.status_code == 202 and r.json()["state"] == "held" and _landed(tag) == 0
 
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "clean", "signature": None, "engine": "ClamAV test"})
-    res = client.post(f"/v1/intake/batches/{r.json()['batch_id']}/rescan", headers=client.maker)
+    res = intake_client.post(f"/v1/intake/batches/{r.json()['batch_id']}/rescan", headers=intake_client.maker)
     assert res.status_code == 200, res.text
     assert res.json()["state"] == "imported" and _landed(tag) == 4
     assert _events(r.json()["batch_id"]) == ["received", "held", "checked", "imported"]
 
 
 @pytest.mark.integration
-def test_api_push_goes_through_the_same_pipeline(client, tag):
-    tok = client.post("/v1/ingest/tokens", headers=client.maker, json={"name": f"TEST-PIPE-{tag}"}).json()
+def test_api_push_goes_through_the_same_pipeline(intake_client, tag):
+    tok = intake_client.post("/v1/ingest/tokens", headers=intake_client.maker, json={"name": f"TEST-PIPE-{tag}"}).json()
     raw_token = tok.get("token") or tok.get("raw_token")
     h = {"Authorization": f"Bearer {raw_token}"}
     try:
         rows = _rows(tag)
-        bad = client.post("/v1/ingest/bank/assets", headers=h, json={"rows": rows, "declared_totals": {"appraised_value_eur": 9_999_999}})
+        bad = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": rows, "declared_totals": {"appraised_value_eur": 9_999_999}})
         assert bad.status_code == 202 and bad.json()["state"] == "awaiting_approval"   # token owner is the maker
-        ok = client.post("/v1/ingest/bank/assets", headers=h, json={"rows": _rows(tag + "b")})
+        ok = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": _rows(tag + "b")})
         assert ok.status_code == 200 and ok.json()["n_uploaded"] == 4
     finally:
-        client.delete(f"/v1/ingest/tokens/{tok['token_id']}", headers=client.maker)
+        intake_client.delete(f"/v1/ingest/tokens/{tok['token_id']}", headers=intake_client.maker)
         with get_session() as s:
             s.execute(text("UPDATE ingest_batches SET filename = :f WHERE filename = :a"), {"f": f"api-{tag}", "a": f"api:{tok['token_id']}"})
             s.commit()
 
 
 @pytest.mark.integration
-def test_history_and_file_identity_cannot_be_rewritten(client, tag):
-    b = client.post("/v1/bank/assets/upload", headers=client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))}).json()
+def test_history_and_file_identity_cannot_be_rewritten(intake_client, tag):
+    b = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))}).json()
     with get_session() as s:
         with pytest.raises(Exception, match="append-only"):
             s.execute(text("UPDATE ingest_batch_events SET to_state = 'x' WHERE batch_id = CAST(:b AS uuid)"), {"b": b["batch_id"]})
@@ -252,9 +235,9 @@ SECTOR_FILES = {
 
 @pytest.mark.integration
 @pytest.mark.parametrize("path", sorted(SECTOR_FILES))
-def test_every_sector_previews_the_same_checks(client, tag, path):
+def test_every_sector_previews_the_same_checks(intake_client, tag, path):
     rows = [SECTOR_FILES[path](tag, i, bad=(i == 0)) for i in range(4)]
-    r = client.post(path, headers=client.maker, files={"file": (f"{tag}.csv", _csv(rows))})
+    r = intake_client.post(path, headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(rows))})
     assert r.status_code == 200, r.text
     b = r.json()
     assert b["n_error"] == 1 and b["n_valid"] == 3 and b["security"]["status"] == "passed"

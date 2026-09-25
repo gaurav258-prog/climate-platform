@@ -12,8 +12,16 @@ export interface Controls {
     tie_outs: { field: string; raw_total: number; accepted_total: number; rejected_total: number; status: string }[]
     excluded: { n_rows: number; pct_rows: number; value_field: string | null; value: number | null; pct_value: number | null }
   }
+  readiness?: { status: string; n_not_ready: number; value_staged: number }
+  matching?: Matching
   gate: { status: 'pass' | 'needs_signoff' | 'blocked'; reasons: string[] }
   landing?: { status: string; n_validated: number; n_landed: number; n_dropped_after_validation: number; detail: string }
+}
+
+export interface Matching {
+  new: number; update: number; unchanged: number; ambiguous: number; duplicate: number
+  updates: { name: string; changes: Record<string, [unknown, unknown]> }[]
+  large_changes: { name: string; reasons: string[] }[]
 }
 
 const TONE = { pass: 'var(--color-good)', fail: 'var(--color-warn)', attention: 'var(--color-warn)', blocked: 'var(--color-bad, #e0574a)', needs_signoff: 'var(--color-warn)' } as Record<string, string>
@@ -28,7 +36,7 @@ export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDe
   controls: Controls; valueLabel?: string | null; declRows: string; declTotal: string
   setDeclRows: (v: string) => void; setDeclTotal: (v: string) => void; onRecheck: () => void; checking?: boolean
 }) {
-  const { receipt, transformation: tr, gate } = controls
+  const { receipt, transformation: tr, gate, readiness: rd, matching: m } = controls
   const failed = receipt.checks.filter(c => c.status === 'fail')
   return (
     <div className="border-t border-[var(--color-line)]">
@@ -50,6 +58,14 @@ export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDe
             {tr.excluded.n_rows > 0 && <div style={{ color: TONE.fail }}>{tr.excluded.n_rows} row{tr.excluded.n_rows === 1 ? '' : 's'} ({tr.excluded.pct_rows}%) will be left out{tr.excluded.value != null ? `, carrying ${num(tr.excluded.value)} (${tr.excluded.pct_value}%) of the ${valueLabel ?? tr.excluded.value_field}` : ''}.</div>}
             {tr.tie_outs.filter(t => t.status !== 'pass').map(t => <div key={t.field} style={{ color: TONE.fail }}>{t.field} does not tie.</div>)}</div>
         </div>
+        {rd && (
+          <div className="flex items-start gap-2">
+            {rd.n_not_ready === 0 ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: TONE.pass }} /> : <XCircle size={14} className="mt-0.5 shrink-0" style={{ color: TONE.fail }} />}
+            <div><b className="text-[var(--color-ink)]">Ready for the engine</b> <span className="text-[var(--color-mute)]">— every accepted row has a real location, a positive value and plausible attributes.</span>
+              {rd.n_not_ready > 0 && <div style={{ color: TONE.fail }}>{rd.n_not_ready} row{rd.n_not_ready === 1 ? '' : 's'} can’t be used by the engine (listed above with the reason).</div>}</div>
+          </div>
+        )}
+        {m && <MatchRow m={m} />}
         {gate.reasons.length > 0 && (
           <div className="flex items-start gap-2 rounded-lg px-3 py-2" style={{ background: `color-mix(in oklab, ${TONE[gate.status]} 9%, transparent)` }}>
             <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: TONE[gate.status] }} />
@@ -71,12 +87,36 @@ export function ControlsPanel({ controls, valueLabel, declRows, declTotal, setDe
   )
 }
 
-export function LandingNote({ controls }: { controls: Controls }) {
+const FIELD = (f: string) => f.replace(/_eur$/, '').replace(/^primary_value$/, 'value').replace(/^entity_name$|^plot_name$/, 'name').replaceAll('_', ' ')
+const show = (v: unknown) => v == null ? 'blank' : typeof v === 'number' ? num(v) : String(v).length > 28 ? String(v).slice(0, 26) + '…' : String(v)
+
+function MatchRow({ m }: { m: Matching }) {
+  const held = m.update + m.unchanged
+  return (
+    <div className="flex items-start gap-2">
+      <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: m.large_changes.length ? TONE.fail : TONE.pass }} />
+      <div className="min-w-0"><b className="text-[var(--color-ink)]">Matched to your book</b> <span className="text-[var(--color-mute)]">— {m.new} new, {m.update} updated, {m.unchanged} unchanged{held ? ' (matched on your asset ID, or name + location)' : ''}. A blank cell never clears a value we hold.</span>
+        {(m.ambiguous > 0 || m.duplicate > 0) && <div style={{ color: TONE.fail }}>{m.ambiguous > 0 ? `${m.ambiguous} row${m.ambiguous === 1 ? '' : 's'} match more than one asset` : ''}{m.ambiguous && m.duplicate ? '; ' : ''}{m.duplicate > 0 ? `${m.duplicate} row${m.duplicate === 1 ? '' : 's'} repeat an asset already in this file` : ''} — left out, listed above.</div>}
+        {m.updates.length > 0 && (
+          <details className="mt-1"><summary className="cursor-pointer mono text-[10.5px] text-[var(--color-sky)]">what changes ({m.update})</summary>
+            <div className="mt-1 space-y-0.5 text-[11.5px]">{m.updates.map((u, i) => (
+              <div key={i}><span className="text-[var(--color-ink)]">{u.name}</span> <span className="text-[var(--color-mute)]">{Object.entries(u.changes).map(([f, [a, b]]) => `${FIELD(f)} ${show(a)} → ${show(b)}`).join(' · ')}</span></div>))}
+              {m.update > m.updates.length && <div className="mono text-[10px] text-[var(--color-faint)]">…and {m.update - m.updates.length} more</div>}</div>
+          </details>
+        )}
+        {m.large_changes.length > 0 && <div style={{ color: TONE.fail }}>Big changes: {m.large_changes.slice(0, 3).map(c => `${c.name} (${c.reasons.join(', ')})`).join('; ')}{m.large_changes.length > 3 ? '; …' : ''}</div>}
+      </div>
+    </div>
+  )
+}
+
+export function LandingNote({ controls, notes }: { controls: Controls; notes?: Record<string, unknown> }) {
   const l = controls.landing
   if (!l) return null
+  const split = notes && typeof notes.n_new === 'number' ? ` — ${notes.n_new} new, ${notes.n_updated} updated, ${notes.n_unchanged} unchanged` : ''
   return (
     <div className="mt-2 text-[12px]" style={{ color: l.status === 'pass' ? 'var(--color-mute)' : TONE.attention }}>
-      {l.status === 'pass' ? `Reconciled: all ${l.n_landed} validated rows landed.` : `Landing check: ${l.detail} (${l.n_landed} of ${l.n_validated} validated rows landed).`}
+      {l.status === 'pass' ? `Reconciled: all ${l.n_landed} rows are in your book${split}.` : `Landing check: ${l.detail} (${l.n_landed} of ${l.n_validated} validated rows landed).`}
       {controls.batch_id && <span className="mono text-[10px] text-[var(--color-faint)] ml-2">batch {controls.batch_id.slice(0, 8)}</span>}
     </div>
   )

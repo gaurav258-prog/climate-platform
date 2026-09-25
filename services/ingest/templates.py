@@ -31,6 +31,8 @@ ASSET_TEMPLATE_FIELDS = [
      "instrument, or similar (NOT simply a loan whose maturity you haven't supplied yet). Per EBA Q&A 2022_6515, "
      "these are disclosed in the largest ('>20 years') Pillar 3 maturity bucket rather than left uncounted.",
      "example": "true"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text",
+     "description": "Your own loan / facility id. When you send the book again, rows with the same ID update that asset instead of adding a new one.", "example": "REF-000123"},
 ]
 
 POLICY_TEMPLATE_FIELDS = [
@@ -49,6 +51,8 @@ POLICY_TEMPLATE_FIELDS = [
     {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "ES"},
     {"name": "cresta_zone", "required": False, "kind": "int", "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
     {"name": "motor_sum_insured_eur", "required": False, "description": "Motor-vehicle sum insured at this location (Art. 123(7)/124(7)), added into the flood/hail standard-formula SCR at 1.5x/5x. Leave blank for a pure property book.", "example": "150000"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text",
+     "description": "Your own policy or location id. When you send the book again, rows with the same ID update that asset instead of adding a new one.", "example": "REF-000123"},
 ]
 
 CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
@@ -73,6 +77,8 @@ PROPERTY_TEMPLATE_FIELDS = [
      "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per property.", "example": "5493001KJTIIGC8Y1R12"},
     {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
      "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text",
+     "description": "Your own property id. When you send the book again, rows with the same ID update that asset instead of adding a new one.", "example": "REF-000123"},
 ]
 
 EPC_RATINGS = {"A", "B", "C", "D", "E", "F", "G"}
@@ -90,6 +96,8 @@ HOLDING_TEMPLATE_FIELDS = [
      "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per row.", "example": "5493001KJTIIGC8Y1R12"},
     {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
      "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text",
+     "description": "Your own holding / position id. When you send the book again, rows with the same ID update that asset instead of adding a new one.", "example": "REF-000123"},
 ]
 
 PLOT_TEMPLATE_FIELDS = [
@@ -105,6 +113,8 @@ PLOT_TEMPLATE_FIELDS = [
     {"name": "irrigation_status", "required": False, "description": "irrigated / rain_fed / mixed. Declared, "
      "not modelled: an irrigated plot's drought score is shown as an upper bound; the crop € is unchanged "
      "(it reflects the origin's national irrigated/rain-fed mix).", "example": "irrigated"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text",
+     "description": "Your own plot or farm id. When you send the book again, rows with the same ID update that asset instead of adding a new one.", "example": "REF-000123"},
 ]
 
 IRRIGATION_VALUES = {"irrigated", "rain_fed", "mixed"}
