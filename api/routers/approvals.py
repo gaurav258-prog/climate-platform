@@ -237,6 +237,16 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     # Kanban task completion: on approval the task moves Review→Done, the mover (checker) named on the
     # 'moved' event — the platform's real 4-eyes (checker ≠ maker, enforced above), not a self-ticked
     # checklist item. Rejected/returned leaves the task in Review; nothing silently advances.
+    # Customer data batch that failed an intake check: on approval it is imported from the stored file after every
+    # check is re-run on those exact bytes; 4-eyes (checker ≠ maker) is enforced above.
+    elif row["request_type"] == "intake.batch":
+        from services.intake.pipeline import IntakeError
+        from services.intake.pipeline import decide as decide_batch
+        try:
+            applied = decide_batch(session, org_id, (row["payload"] or {}).get("batch_id"), body.decision,
+                                   ctx["user"]["id"], body.reason)
+        except IntakeError as e:
+            raise HTTPException(e.status, {**e.body, "message": f"Decision not applied: {e.body.get('message')}"}) from e
     elif row["request_type"] == "task.complete" and body.decision == "approved":
         from services.governance.tasks import TaskError, _complete_via_approval
         payload = row["payload"] or {}

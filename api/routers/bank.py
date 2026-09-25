@@ -24,6 +24,7 @@ from api.deps import CurrentUser, DbSession
 from api.services.rbac import write_audit
 from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
+from services.ingest.templates import ASSET_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
 )
@@ -353,33 +354,7 @@ def clear_asset_valuation_override(asset_id: str, session: DbSession, ctx: Curre
 # services/templates/workbook.py's template. appraised_value_eur is the CSV/
 # template-facing name (industry-recognizable); it maps onto the existing
 # asset_value_eur DB column (a disclosed rename, not a churny migration).
-ASSET_TEMPLATE_FIELDS = [
-    {"name": "asset_name", "required": True, "label": "Asset name", "kind": "text", "description": "Free-text asset/property name.", "example": "Frankfurt Tower 1"},
-    {"name": "asset_type", "required": True, "label": "Asset type", "kind": "text", "description": "Property/collateral type.", "example": "commercial_real_estate"},
-    {"name": "latitude", "required": True, "label": "Latitude", "kind": "lat", "description": "Decimal degrees.", "example": "50.1109"},
-    {"name": "longitude", "required": True, "label": "Longitude", "kind": "lon", "description": "Decimal degrees.", "example": "8.6821"},
-    {"name": "appraised_value_eur", "required": True, "label": "Appraised value (EUR)", "kind": "money", "description": "Current appraised/collateral value.", "example": "12000000"},
-    {"name": "sector", "required": True, "label": "Sector", "kind": "text", "description": "Sector / NACE classification.", "example": "Commercial real estate"},
-    {"name": "counterparty_evic_eur", "required": True, "label": "Counterparty EVIC (EUR)", "kind": "money",
-     "description": "Enterprise Value Including Cash of the borrowing counterparty (market cap + total debt + cash; the latest reported or credibly estimated figure). Required for PCAF-attributed financed emissions.",
-     "example": "185000000"},
-    {"name": "outstanding_loan_balance_eur", "required": False, "label": "Outstanding loan balance (EUR)", "kind": "money", "description": "Current outstanding principal — enables LTV.", "example": "8400000"},
-    {"name": "loan_origination_date", "required": False, "label": "Loan origination date", "kind": "date", "description": "YYYY-MM-DD.", "example": "2022-03-01"},
-    {"name": "region", "required": False, "label": "Region", "kind": "text", "description": "Free-text region/city.", "example": "Frankfurt"},
-    {"name": "country", "required": False, "label": "Country", "kind": "iso2", "description": "ISO-2 country code.", "example": "DE"},
-    {"name": "borrower_entity_id", "required": False, "label": "Borrower ID (LEI)", "kind": "text", "description": "Borrower's LEI or other stable entity ID — "
-     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per loan.", "example": "5493001KJTIIGC8Y1R12"},
-    {"name": "minimum_safeguards_status", "required": False, "label": "Minimum-safeguards status", "kind": "text", "description": "compliant / non_compliant, from your own "
-     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check (also requires a "
-     "nace_code on the loan, which today's upload doesn't yet collect — see the taxonomy_status note below).", "example": "compliant"},
-    {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
-     "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
-    {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
-     "description": "True for an exposure with no stated maturity BY ITS NATURE — an equity holding, a perpetual "
-     "instrument, or similar (NOT simply a loan whose maturity you haven't supplied yet). Per EBA Q&A 2022_6515, "
-     "these are disclosed in the largest ('>20 years') Pillar 3 maturity bucket rather than left uncounted.",
-     "example": "true"},
-]
+# ASSET_TEMPLATE_FIELDS lives in services/ingest/templates.py (shared with the intake pipeline)
 REQUIRED_ASSET_COLUMNS = [f["name"] for f in ASSET_TEMPLATE_FIELDS if f["required"]]
 SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
@@ -391,70 +366,28 @@ def assets_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_loan_tape_template.xlsx"})
 
 
-def _parse(raw: bytes, filename: Optional[str]):
-    from services.ingest.upload_validation import parse_table
-    try:
-        return parse_table(raw, filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-
-
-def _missing_columns_400(df) -> None:
-    missing = [s["name"] for s in ASSET_TEMPLATE_FIELDS if s.get("required") and s["name"] not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
-
-
 @router.post("/assets/validate", summary="Check a loan tape (CSV or Excel) before importing — nothing is saved")
 async def validate_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                           declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
-    """Dry run: report how many rows are ready and which need fixing (with a reason per row), plus the intake
-    controls — receipt (did it all arrive), transformation (did every value keep its meaning) and the gate the
-    import will enforce — without writing anything. Declaring your row count / control totals is optional."""
-    from api.services.intake_http import declared_from_form
-    from services.ingest.batches import preview_controls
-    raw = await file.read()
-    df = _parse(raw, file.filename)
-    _missing_columns_400(df)
-    ctl = preview_controls(session, ctx["org"]["org_id"], "bank_assets", raw, df, ASSET_TEMPLATE_FIELDS,
-                           declared=declared_from_form(declared_row_count, declared_totals), value_field="appraised_value_eur")
-    rep = ctl.report
-    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+    """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
+    the gate the import will enforce). Nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "bank_assets", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals))
 
 
 @router.post("/assets/upload", summary="Import a loan tape (CSV or Excel) into your loan book")
 async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                         declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                        signoff_reason: Optional[str] = Form(None)):
-    """Imports the rows that pass validation and reports any that didn't — nothing invalid is silently dropped.
-    Before anything lands the batch passes the intake gate (receipt + transformation controls); a batch that fails
-    a control imports only with a named person's sign-off. Each imported asset lands in the uploader's OWN org,
-    gets an H3 cell, and is scored against the golden source the same way an any-address lookup is."""
-    from api.services.intake_http import declared_from_form, gate_409
-    from services.ingest.batches import GateError, begin_import
-    raw = await file.read()
-    df = _parse(raw, file.filename)
-    _missing_columns_400(df)
-    org_id = ctx["org"]["org_id"]
-    try:
-        ctl = begin_import(session, org_id, ctx["user"]["id"], "bank_assets", raw, df, ASSET_TEMPLATE_FIELDS,
-                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="appraised_value_eur", signoff_reason=signoff_reason)
-    except GateError as e:
-        raise gate_409(e) from e
-
-    from services.ingest.portfolio_ingest import ingest_bank_assets
-    res = ingest_bank_assets(session, org_id, ctl.clean_df.to_dict("records"))
-    landing = ctl.finish(session, n_landed=res["n_ingested"], value_landed=res.get("value_ingested"))
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.upload",
-                target_type="bank_assets", target_id=ctl.batch_id,
-                detail={"n_rows": res["n_ingested"], "n_invalid": ctl.report["n_error"], "filename": file.filename,
-                        "batch_id": ctl.batch_id, "gate": ctl.controls["gate"]["status"],
-                        "signed_off": ctl.controls["gate"]["status"] == "needs_signoff"})
-
-    return {"n_uploaded": res["n_ingested"], "n_skipped": res["n_skipped"], "n_invalid": ctl.report["n_error"],
-            "errors": ctl.report["errors"][:200], "batch_id": ctl.batch_id, "controls": ctl.controls, **res["processing"]}
+                        approval_reason: Optional[str] = Form(None)):
+    """Runs the loan tape through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
+    security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
+    sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
+    where required → held (202). Nothing valid, or refused on security grounds → 422, and the attempt is recorded."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "bank_assets", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason)
 
 
 # ── Per-loan regulatory attributes the engine can't derive from location — provided in bulk by Excel, matched to

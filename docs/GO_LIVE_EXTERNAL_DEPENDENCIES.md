@@ -8,7 +8,7 @@ already built and tested**; this file exists so none of these is forgotten when 
 Companion docs: agri last-mile detail is in [`AGRI_OPS_READINESS.md`](AGRI_OPS_READINESS.md). Every item below
 degrades honestly in-product today (shows "pending" / "prepared" / withholds the figure) — nothing is faked.
 
-_Last reviewed: 2026-09-22._
+_Last reviewed: 2026-09-25._
 
 ## Status at a glance
 
@@ -24,6 +24,8 @@ _Last reviewed: 2026-09-22._
 | 6 | WDPA global protected-area layer | Agri / ESRS E4-5 | dataset-agnostic overlap engine + ingest script + E4 filing wiring | commercial data licence (IBAT) | an IBAT-licensed WDPA export → we load it, non-EU assets light up (no code change) |
 | 7 | **GEM Global Exposure Model commercial licence** | Exposure / hazard→loss | not used: GHSL (CC BY 4.0) is the exposure source; GEM was never downloaded (`data/exposure_val/MANIFEST.md`) | CC BY-NC-SA 4.0 forbids commercial use + share-alike; **must be resolved before go-live / first customer** if GEM is ever used | licence request to licensing@globalquakemodel.org (commercial + 1 km disaggregation) → until granted, GEM stays out of every customer-facing output |
 | 8 | OpenFEMA NFIP attribution + counsel confirmation | Validation evidence (`loss_us_nfip_flood`) | terms read 2026-09-20: commercial use allowed; disclaimer + citation required (in validator docstring) | counsel to confirm reading before quoting NFIP numbers to customers | add "not endorsed by FEMA" disclaimer + dataset/version/date citation wherever the NFIP result is shown |
+| 11 | **Malware scanner (ClamAV daemon)** for customer data intake | All sectors — data intake | scanner client (`services/intake/malware.py`, clamd INSTREAM, tested against a protocol-faithful fake), policy: required everywhere except development; without a scanner a batch is **held**, not processed | a running `clamd` with signature updates (`freshclam`) in each deployment | set `CLAMD_HOST`/`CLAMD_PORT` (or `CLAMD_SOCKET`) → held batches can be released with `POST /v1/intake/batches/{id}/rescan` |
+| 12 | **Object storage for received customer files** | All sectors — data intake | write-once, content-addressed store with a local-directory backend (`services/intake/storage.py`); asking for any other backend fails loudly | an S3-compatible bucket (versioning + object lock, encryption at rest, region per data-residency) per deployment | bucket + credentials → we add the object-store backend behind the same `put`/`get` |
 
 ---
 

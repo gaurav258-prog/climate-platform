@@ -62,7 +62,9 @@ def _check_kind(kind: Optional[str], label: str, raw, allowed: Optional[list] = 
         if kind == "lon" and not -180 <= f <= 180:
             return f"{label} must be between −180 and 180 (got {f})"
     elif kind == "money":
-        from services.ingest.batch_controls import parse_money   # the ONE money parser (see its docstring)
+        from services.ingest.batch_controls import (
+            parse_money,  # the ONE money parser (see its docstring)
+        )
         f = parse_money(v)
         if f is None:
             hint = " — write it as 1234.5 or 1,234.5 (a decimal comma can't be read safely)" if "," in v else ""

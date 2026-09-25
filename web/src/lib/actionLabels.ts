@@ -24,6 +24,7 @@ const LABELS: Record<string, string> = {
   'role_permission.update': 'Change role permissions', 'approval_policy.update': 'Change approval policy',
   'kri_appetite.update': 'Change risk appetite', 'decision_playbook.update': 'Edit decision playbook',
   'task.complete': 'Complete task (4-eyes)',
+  'intake.batch': 'Import customer data (4-eyes)',
 
   // ---- audit-trail actions ----
   'approval.create': 'Requested approval', 'approval.request': 'Requested approval',

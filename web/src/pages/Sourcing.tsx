@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Upload, Sprout, Coins, TreePine } from 'lucide-react'
+import { Plus, Sprout, Coins, TreePine } from 'lucide-react'
 import { api } from '../lib/api'
+import ValidatedUpload from '../components/ValidatedUpload'
 import { useAuth } from '../lib/auth'
 import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, SectionHead, PlainLead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
@@ -58,24 +59,6 @@ export default function Sourcing() {
       await q.refetch()
     } catch (e) {
       setMsg({ text: (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not add — pick a place or enter coordinates.', tone: 'err' })
-    } finally { setBusy(false) }
-  }
-
-  const upload = async (file: File) => {
-    setBusy(true); setMsg(null)
-    try {
-      const fd = new FormData(); fd.append('file', file)
-      const r = await api.post<{ n_uploaded: number; unknown_commodities: string[]; geometry_errors: { plot: string }[]; needs_polygon: string[] }>('/v1/supply/plots/upload', fd)
-      const parts = [`Added ${r.n_uploaded} plot${r.n_uploaded === 1 ? '' : 's'}`]
-      if (r.unknown_commodities?.length) parts.push(`${r.unknown_commodities.length} skipped (unknown commodity: ${r.unknown_commodities.join(', ')})`)
-      if (r.geometry_errors?.length) parts.push(`${r.geometry_errors.length} bad geometry`)
-      if (r.needs_polygon?.length) parts.push(`${r.needs_polygon.length} need a polygon (>4 ha)`)
-      setMsg({ text: `✓ ${parts.join(' · ')}.`, tone: 'ok' })
-      await q.refetch()
-    } catch (e) {
-      setMsg({ text: (e as { body?: { detail?: { missing?: string[] } } })?.body?.detail?.missing
-        ? `Upload failed — missing columns: ${(e as { body: { detail: { missing: string[] } } }).body.detail.missing.join(', ')}.`
-        : 'Upload failed — check the CSV columns against the template.', tone: 'err' })
     } finally { setBusy(false) }
   }
 
@@ -166,12 +149,18 @@ export default function Sourcing() {
           <Field label="Longitude"><input className={inp} value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="-5.55" inputMode="decimal" /></Field>
           <div className="flex items-end"><Button onClick={add} disabled={busy}>{busy ? 'Adding…' : 'Add & score'}</Button></div>
         </div>
-        <div className="flex items-center gap-3 text-[12px] mt-3">
-          <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--color-mute)] hover:text-[var(--color-sky)]">
-            <Upload size={14} /> Bulk-upload CSV
-            <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-          </label>
-          <a href="/v1/supply/plots/template.xlsx" className="text-[var(--color-faint)] hover:text-[var(--color-sky)] underline">template</a>
+        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+          <ValidatedUpload dropLabel="sourcing-plot CSV" accept=".csv" onDone={() => q.refetch()}
+            intro={<>Bulk-add plots from a CSV. Every file is inspected and every row checked <b className="text-[var(--color-ink)]">before</b> anything is saved; if a check fails, a second person approves before import.</>}
+            endpoints={{ validate: '/v1/supply/plots/validate', upload: '/v1/supply/plots/upload', template: '/v1/supply/plots/template.xlsx', templateFile: 'tellumen_sourcing_plot_template.xlsx' }}
+            renderDone={r => {
+              const n = (r.notes ?? {}) as { unknown_commodities?: string[]; geometry_errors?: unknown[]; needs_polygon?: unknown[] }
+              const parts = [`Added ${Number(r.n_uploaded) || 0} plot${Number(r.n_uploaded) === 1 ? '' : 's'}`]
+              if (n.unknown_commodities?.length) parts.push(`${n.unknown_commodities.length} not added (unknown commodity: ${n.unknown_commodities.join(', ')})`)
+              if (n.geometry_errors?.length) parts.push(`${n.geometry_errors.length} bad geometry`)
+              if (n.needs_polygon?.length) parts.push(`${n.needs_polygon.length} need a polygon (>4 ha)`)
+              return <>{parts.join(' · ')}.</>
+            }} />
         </div>
         {msg && <div className={`mt-3 text-[12.5px] font-medium ${msg.tone === 'ok' ? 'text-[var(--color-good)]' : 'text-[var(--color-warn)]'}`}>{msg.text}</div>}
       </Card>

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,6 +98,19 @@ class Settings(BaseSettings):
     STRIPE_API_KEY: str = ""
     # E-signature: absent → upload-signed-PDF into the vault; set to route through a vendor (DocuSign).
     DOCUSIGN_API_KEY: str = ""
+    # ── Customer data intake (services/intake) ──
+    # Where received files are kept, write-once and content-addressed. "local" = a directory on this host
+    # (dev / single-node); an object-store backend is a go-live item (docs/GO_LIVE_EXTERNAL_DEPENDENCIES.md).
+    INTAKE_STORAGE_BACKEND: str = "local"
+    INTAKE_STORAGE_DIR: str = "data/storage/intake"
+    INTAKE_MAX_BYTES: int = 50 * 1024 * 1024          # a single file above this is refused before parsing
+    INTAKE_RETENTION_DAYS: int = 2555                 # ~7 years: kept as evidence behind filings
+    # Malware scanning via a ClamAV daemon (clamd). Unset host+socket = no scanner configured.
+    CLAMD_HOST: str = ""
+    CLAMD_PORT: int = 3310
+    CLAMD_SOCKET: str = ""
+    # Whether a file may proceed when no scanner is reachable. None = required everywhere except development.
+    INTAKE_REQUIRE_MALWARE_SCAN: Optional[bool] = None
     # Data retention: how long the audit trail is kept before the retention sweep prunes it (default 2 years).
     AUDIT_RETENTION_DAYS: int = 730
     # USDA Market News (MARS) API key (free) — enables the almond price feed. Absent → feed stays off.

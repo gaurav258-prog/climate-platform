@@ -1,15 +1,14 @@
-import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, ArrowRight, Plug } from 'lucide-react'
-import { api, upload as uploadFile, download } from '../lib/api'
+import { Upload, FileSpreadsheet, ArrowRight, Plug } from 'lucide-react'
+import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
 import ProvidedData from '../components/ProvidedData'
 import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
-import { ControlsPanel, LandingNote, type Controls } from '../components/IntakeControls'
+import ValidatedUpload from '../components/ValidatedUpload'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -21,7 +20,6 @@ const SECTORS: Record<string, { prefix: string; listKey: string; bookNoun: strin
 }
 const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round((n || 0) / 1e3)}k`
 
-interface ValRep { filename: string; n_total: number; n_valid: number; n_error: number; errors: { row: number; problems: string[] }[]; controls?: Controls }
 interface Rollup { n_scored?: number; total_value_eur?: number; value_at_risk_eur?: number; pct_value_at_risk?: number; n_high?: number; by_hazard?: { hazard: string }[] }
 
 export default function DataHub() {
@@ -125,148 +123,6 @@ export default function DataHub() {
       </Link>
     </div>
   )
-}
-
-// ── the validated upload: drop → we check every row → you confirm the import ─────────────────────────────────
-interface UploadEndpoints { validate: string; upload: string; template: string; templateFile: string }
-function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone }: {
-  intro: React.ReactNode; dropLabel: string; endpoints: UploadEndpoints; onDone: () => void
-  renderDone: (res: Record<string, unknown>) => React.ReactNode
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [file, setFile] = useState<File | null>(null)
-  const [rep, setRep] = useState<ValRep | null>(null)
-  const [phase, setPhase] = useState<'idle' | 'checking' | 'checked' | 'importing' | 'done' | 'error'>('idle')
-  const [msg, setMsg] = useState<string | null>(null)
-  const [result, setResult] = useState<Record<string, unknown> | null>(null)
-  const [declRows, setDeclRows] = useState('')
-  const [declTotal, setDeclTotal] = useState('')
-  const [signoff, setSignoff] = useState('')
-  const [rechecking, setRechecking] = useState(false)
-
-  // what the customer says they sent — the receipt control compares the file to it
-  const declared = (): Record<string, string | undefined> => {
-    const vf = rep?.controls?.transformation.excluded.value_field
-    return {
-      declared_row_count: declRows.trim() || undefined,
-      declared_totals: declTotal.trim() && vf ? JSON.stringify({ [vf]: Number(declTotal.replace(/[, ]/g, '')) }) : undefined,
-    }
-  }
-  const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; missing_columns?: string[] } } })?.body?.error
-
-  const pick = async (f: File) => {
-    setFile(f); setResult(null); setMsg(null); setRep(null); setSignoff(''); setDeclRows(''); setDeclTotal(''); setPhase('checking')
-    try {
-      const v = await uploadFile<ValRep>(endpoints.validate, f)
-      setRep(v); setPhase('checked')
-    } catch (e: unknown) {
-      setMsg(missingMsg(errOf(e)) ?? `We couldn’t read that file — please upload a CSV or Excel ${dropLabel}.`)
-      setPhase('error')
-    }
-  }
-  const recheck = async () => {
-    if (!file) return
-    setRechecking(true); setMsg(null)
-    try { setRep(await uploadFile<ValRep>(endpoints.validate, file, 'file', declared())) }
-    catch (e: unknown) { setMsg(errOf(e)?.message ?? 'Those declared figures could not be read — check the numbers.') }
-    finally { setRechecking(false) }
-  }
-  const doImport = async () => {
-    if (!file) return
-    setPhase('importing'); setMsg(null)
-    try {
-      const res = await uploadFile<Record<string, unknown>>(endpoints.upload, file, 'file', { ...declared(), signoff_reason: signoff.trim() || undefined })
-      setResult(res); setPhase('done'); onDone()
-    } catch (e: unknown) {
-      const er = errOf(e)
-      if (er?.controls) { setRep(r => r ? { ...r, controls: er.controls } : r); setMsg(er.message ?? 'This batch needs attention before it can be imported.'); setPhase('checked') }
-      else { setMsg('Something went wrong saving — please try again.'); setPhase('error') }
-    }
-  }
-  const gateNeedsSignoff = rep?.controls?.gate.status === 'needs_signoff'
-  const gateBlocked = rep?.controls?.gate.status === 'blocked'
-  const reset = () => { setFile(null); setRep(null); setResult(null); setMsg(null); setSignoff(''); setDeclRows(''); setDeclTotal(''); setPhase('idle'); if (inputRef.current) inputRef.current.value = '' }
-  const downloadFixList = () => {
-    if (!rep) return
-    const rows = [['row', 'what to fix'], ...rep.errors.map(e => [String(e.row), e.problems.join('; ')])]
-    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    const a = document.createElement('a'); a.href = url; a.download = 'rows-to-fix.csv'; a.click(); URL.revokeObjectURL(url)
-  }
-
-  return (
-    <div>
-      <p className="text-[13px] text-[var(--color-mute)] mb-3">{intro}</p>
-      <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) pick(f) }} />
-
-      {phase !== 'done' && (
-        <div onClick={() => inputRef.current?.click()}
-          onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) pick(f) }}
-          className="rounded-xl border border-dashed border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-4 py-6 text-center cursor-pointer hover:border-[var(--color-sky)] transition">
-          <Upload size={18} className="mx-auto text-[var(--color-faint)] mb-2" />
-          <div className="text-[13px] text-[var(--color-ink)]">Drop your {dropLabel} here <span className="text-[var(--color-faint)]">— CSV or Excel —</span> or <span className="text-[var(--color-sky)]">browse</span></div>
-          <button onClick={e => { e.stopPropagation(); download(endpoints.template, endpoints.templateFile) }}
-            className="mt-2 inline-flex items-center gap-1.5 mono text-[10.5px] text-[var(--color-mute)] hover:text-[var(--color-sky)]"><Download size={12} /> download the template</button>
-        </div>
-      )}
-
-      {phase === 'checking' && <div className="mono text-[11px] text-[var(--color-faint)] mt-3">checking every row…</div>}
-      {phase === 'error' && msg && <div className="mt-3 text-[12.5px] flex items-center gap-2" style={{ color: 'var(--color-warn)' }}><AlertTriangle size={14} /> {msg} <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-1">try another file</button></div>}
-
-      {/* preview: what's ready vs what needs fixing — nothing saved yet */}
-      {(phase === 'checked' || phase === 'importing') && rep && (
-        <div className="mt-3 rounded-xl border border-[var(--color-line)] overflow-hidden">
-          <div className="flex items-center gap-2.5 flex-wrap px-4 py-2.5 bg-[var(--color-bg-2)] border-b border-[var(--color-line)]">
-            <FileSpreadsheet size={14} className="text-[var(--color-faint)]" />
-            <span className="mono text-[11.5px] text-[var(--color-ink)] truncate max-w-[240px]">{rep.filename}</span>
-            <span className="mono text-[10px] text-[var(--color-faint)]">{rep.n_total} rows</span>
-            <span className="mono text-[9.5px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-good)', background: 'color-mix(in oklab,var(--color-good) 14%,transparent)' }}>{rep.n_valid} ready</span>
-            {rep.n_error > 0 && <span className="mono text-[9.5px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab,var(--color-warn) 14%,transparent)' }}>{rep.n_error} need fixing</span>}
-          </div>
-          {rep.errors.slice(0, 6).map(e => (
-            <div key={e.row} className="flex gap-3 px-4 py-2 border-b border-[var(--color-line-2)] text-[12px]">
-              <span className="mono text-[10px] text-[var(--color-faint)] w-14 shrink-0">row {e.row}</span>
-              <span style={{ color: 'var(--color-bad, #e0574a)' }}>{e.problems.join(' · ')}</span>
-            </div>
-          ))}
-          {rep.n_error > 6 && <div className="px-4 py-2 border-b border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">…and {rep.n_error - 6} more</div>}
-          {rep.controls && <ControlsPanel controls={rep.controls} valueLabel={rep.controls.transformation.excluded.value_field} declRows={declRows} declTotal={declTotal}
-            setDeclRows={setDeclRows} setDeclTotal={setDeclTotal} onRecheck={recheck} checking={rechecking} />}
-          {msg && phase === 'checked' && <div className="px-4 py-2 text-[12px] border-t border-[var(--color-line-2)]" style={{ color: 'var(--color-warn)' }}>{msg}</div>}
-          {gateNeedsSignoff && (
-            <div className="px-4 py-3 border-t border-[var(--color-line-2)]">
-              <label className="text-[11.5px] text-[var(--color-ink)]">To import this batch anyway, you accept the points above. Say why (recorded with your name):
-                <textarea value={signoff} onChange={e => setSignoff(e.target.value)} rows={2} placeholder="e.g. Second-quarter re-send agreed with the loan servicer; rejected rows are closed loans."
-                  className="block mt-1 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1.5 text-[12px] text-[var(--color-ink)]" /></label>
-            </div>
-          )}
-          <div className="flex items-center gap-2.5 flex-wrap px-4 py-3">
-            <button disabled={rep.n_valid === 0 || phase === 'importing' || gateBlocked || (gateNeedsSignoff && signoff.trim().length < 10)} onClick={doImport}
-              className="mono text-[11.5px] px-3.5 py-2 rounded-lg bg-[var(--color-sky)] text-white hover:brightness-110 transition disabled:opacity-45">
-              {phase === 'importing' ? 'importing…' : `Import ${rep.n_valid} ready ${rep.n_valid === 1 ? 'row' : 'rows'}`}</button>
-            {rep.n_error > 0 && <button onClick={downloadFixList} className="mono text-[11px] px-3 py-2 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"><Download size={12} className="inline mr-1" />Download rows to fix</button>}
-            <button onClick={reset} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)] ml-auto">choose a different file</button>
-            <span className="mono text-[9.5px] text-[var(--color-faint)] w-full">Nothing is saved until you import.</span>
-          </div>
-        </div>
-      )}
-
-      {phase === 'done' && result && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--color-line)] px-4 py-3" style={{ background: 'color-mix(in oklab,var(--color-good) 8%,transparent)' }}>
-          <CheckCircle2 size={16} style={{ color: 'var(--color-good)' }} />
-          <span className="text-[13px] text-[var(--color-ink)]">{renderDone(result)}{(result as { controls?: Controls }).controls && <LandingNote controls={(result as { controls: Controls }).controls} />}</span>
-          <button onClick={reset} className="mono text-[10.5px] text-[var(--color-sky)] hover:underline ml-auto">upload another file</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function missingMsg(detail: unknown): string | null {
-  const m = (detail as { missing_columns?: string[] })?.missing_columns
-  if (Array.isArray(m) && m.length) return `Your file is missing required column${m.length === 1 ? '' : 's'}: ${m.join(', ')}. Start from the template.`
-  if (typeof detail === 'string') return detail
-  return null
 }
 
 // ── small presentational helpers ────────────────────────────────────────────────────────────────────────────

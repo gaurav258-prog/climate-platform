@@ -17,13 +17,10 @@ as every other hazard-projected book here.
 """
 from __future__ import annotations
 
-import uuid
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Annotated, Optional
 
-import h3
-import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -37,11 +34,18 @@ from ml.scoring.cat_accumulation import catastrophe_accumulation
 from ml.scoring.insurance_pricing import price_policy
 from ml.scoring.parametric_trigger import trigger_block
 from services.calc_settings import get_calc_settings
-from services.governance.ifrs_s2_incurred import incurred_loss_summary, list_incurred_losses, submit_incurred_loss
+from services.governance.ifrs_s2_incurred import (
+    incurred_loss_summary,
+    list_incurred_losses,
+    submit_incurred_loss,
+)
 from services.governance.solvency2_natcat import natcat_scr
+from services.ingest.templates import (  # noqa: F401 — re-exported
+    CONSTRUCTION_TYPES,
+    POLICY_TEMPLATE_FIELDS,
+)
 from services.portfolio_engine import fetch_entities_with_risk, get_entity_org, get_entity_with_risk
 from services.scoring.combined_var import combined_climate_var
-from services.scoring.on_demand import process_new_cells
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
 router = APIRouter(prefix="/v1/insurance", tags=["Insurance"])
@@ -552,25 +556,8 @@ def set_trigger_config(policy_id: str, body: TriggerConfigRequest, session: DbSe
 # template. TIV (Total Insured Value) is properly building + contents + business
 # interruption; a bare sum_insured_eur is still accepted as a fallback for a
 # counterparty that only has one lump figure.
-POLICY_TEMPLATE_FIELDS = [
-    {"name": "policy_name", "required": True, "description": "Free-text location/policy name.", "example": "Valencia Warehouse 12"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees.", "example": "39.4699"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "-0.3763"},
-    {"name": "building_value_eur", "required": False, "description": "TIV component. Provide this + contents + BI, OR sum_insured_eur directly.", "example": "3000000"},
-    {"name": "contents_value_eur", "required": False, "description": "TIV component (business personal property).", "example": "500000"},
-    {"name": "business_interruption_value_eur", "required": False, "description": "TIV component (business income).", "example": "200000"},
-    {"name": "sum_insured_eur", "required": False, "description": "Total Insured Value, if not broken into components above.", "example": "3700000"},
-    {"name": "construction_type", "required": False, "description": "ISO Construction Class: frame / joisted_masonry / non_combustible / masonry_non_combustible / fire_resistive.", "example": "masonry_non_combustible"},
-    {"name": "year_built", "required": False, "kind": "int", "description": "Year of construction.", "example": "1998"},
-    {"name": "number_of_stories", "required": False, "kind": "int", "description": "Number of stories.", "example": "3"},
-    {"name": "deductible_pct", "required": False, "description": "Policy deductible, as a fraction (0.02 = 2%).", "example": "0.02"},
-    {"name": "region", "required": False, "description": "Free-text region.", "example": "Valencia"},
-    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "ES"},
-    {"name": "cresta_zone", "required": False, "kind": "int", "description": "EIOPA/CRESTA risk-zone number for this location (Del. Reg. 2015/35 Annex IX). Enables the exact standard-formula zonal SCR; leave blank for the country-level approximation.", "example": "21"},
-    {"name": "motor_sum_insured_eur", "required": False, "description": "Motor-vehicle sum insured at this location (Art. 123(7)/124(7)), added into the flood/hail standard-formula SCR at 1.5x/5x. Leave blank for a pure property book.", "example": "150000"},
-]
+# POLICY_TEMPLATE_FIELDS lives in services/ingest/templates.py (shared with the intake pipeline)
 REQUIRED_POLICY_COLUMNS = [f["name"] for f in POLICY_TEMPLATE_FIELDS if f["required"]]
-CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
 
 
 @router.get("/policies/template.xlsx", summary="Download the Statement of Values upload template (Excel)")
@@ -583,128 +570,25 @@ def policies_template_xlsx():
 @router.post("/policies/validate", summary="Check a Statement of Values (CSV or Excel) before importing — nothing is saved")
 async def validate_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                             declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
-    """Dry run: which rows are ready and which need fixing (a reason per row), plus the intake controls — receipt,
-    transformation and the gate the import enforces. Writes nothing."""
-    from api.services.intake_http import declared_from_form
-    from services.ingest.batches import preview_controls
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-    missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
-    ctl = preview_controls(session, ctx["org"]["org_id"], "insurance_policies", raw, df, POLICY_TEMPLATE_FIELDS,
-                           declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur")
-    rep = ctl.report
-    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+    """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
+    the gate the import will enforce). Nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "insurance_policies", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals))
 
 
-@router.post("/policies/upload", summary="Import policies from a CSV into your property book")
+@router.post("/policies/upload", summary="Import policies (CSV or Excel) into your property book")
 async def upload_policies(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                           declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                          signoff_reason: Optional[str] = Form(None)):
-    """Same shape as bank.py's assets/upload: passes the intake gate (receipt + transformation controls) first,
-    lands in the uploader's OWN org, resolves an H3 cell per row, then processes new cells against the golden
-    source via the shared services.scoring.on_demand.process_new_cells. A row dropped by a rule AFTER validation
-    (e.g. no valuation) is reported in the landing check, never silent."""
-    from api.services.intake_http import declared_from_form, gate_409
-    from services.ingest.batches import GateError, begin_import
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="The file could not be read. Please upload a valid CSV or Excel file that matches the template.") from e
-
-    missing = [c for c in REQUIRED_POLICY_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
-    tiv_components = {"building_value_eur", "contents_value_eur", "business_interruption_value_eur"}
-    if "sum_insured_eur" not in df.columns and not (tiv_components & set(df.columns)):
-        raise HTTPException(status_code=400, detail={
-            "error": "missing_valuation",
-            "message": "Provide either sum_insured_eur, or at least one of building_value_eur/contents_value_eur/business_interruption_value_eur",
-        })
-
-    org_id = ctx["org"]["org_id"]
-    try:
-        ctl = begin_import(session, org_id, ctx["user"]["id"], "insurance_policies", raw, df, POLICY_TEMPLATE_FIELDS,
-                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="sum_insured_eur" if "sum_insured_eur" in df.columns else "building_value_eur",
-                           signoff_reason=signoff_reason)
-    except GateError as e:
-        raise gate_409(e) from e
-    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
-    from services.governance.entities import default_reporting_entity
-    default_entity = default_reporting_entity(session, org_id)
-    records, cell_coords = [], {}
-    for _, row in df.iterrows():
-        try:
-            lat, lon = float(row["latitude"]), float(row["longitude"])
-        except (TypeError, ValueError):
-            continue
-        building = float(row["building_value_eur"]) if "building_value_eur" in df.columns and pd.notna(row.get("building_value_eur")) else None
-        contents = float(row["contents_value_eur"]) if "contents_value_eur" in df.columns and pd.notna(row.get("contents_value_eur")) else None
-        bi = float(row["business_interruption_value_eur"]) if "business_interruption_value_eur" in df.columns and pd.notna(row.get("business_interruption_value_eur")) else None
-        if building is not None or contents is not None or bi is not None:
-            sum_insured = (building or 0) + (contents or 0) + (bi or 0)
-        elif "sum_insured_eur" in df.columns and pd.notna(row.get("sum_insured_eur")):
-            sum_insured = float(row["sum_insured_eur"])
-        else:
-            continue  # no valuation data for this row -- skip, don't fabricate a TIV
-        construction = str(row["construction_type"]).strip().lower() if "construction_type" in df.columns and pd.notna(row.get("construction_type")) else None
-        if construction and construction not in CONSTRUCTION_TYPES:
-            construction = None  # unrecognized value -- omit rather than violate the DB CHECK constraint
-        cell = h3.latlng_to_cell(lat, lon, 8)
-        cell_coords[cell] = (lat, lon)
-        records.append({
-            "policy_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
-            "policy_name": str(row["policy_name"]),
-            "policy_type": str(row["policy_type"]) if "policy_type" in df.columns and pd.notna(row.get("policy_type")) else "property",
-            "latitude": lat, "longitude": lon, "h3_cell": cell,
-            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "sum_insured_eur": sum_insured,
-            "building_value_eur": building, "contents_value_eur": contents, "business_interruption_value_eur": bi,
-            "construction_type": construction,
-            "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
-            "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
-            "deductible_pct": float(row["deductible_pct"]) if "deductible_pct" in df.columns and pd.notna(row.get("deductible_pct")) else 0.02,
-            "cresta_zone": int(row["cresta_zone"]) if "cresta_zone" in df.columns and pd.notna(row.get("cresta_zone")) else None,
-            "motor_sum_insured_eur": float(row["motor_sum_insured_eur"]) if "motor_sum_insured_eur" in df.columns and pd.notna(row.get("motor_sum_insured_eur")) else None,
-        })
-    if not records:
-        raise HTTPException(status_code=400, detail={"error": "no_rows_landed", "message":
-                            "Rows passed validation but none carried a usable valuation (sum insured or a value component).",
-                            "controls": ctl.controls})
-
-    session.execute(text("""
-        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude,
-                                         h3_cell, region, country, primary_value_eur,
-                                         construction_type, year_built, number_of_stories, reporting_entity_id)
-        VALUES (:policy_id, :org_id, 'insurance', :policy_name, :policy_type, :latitude, :longitude,
-                :h3_cell, :region, :country, :sum_insured_eur,
-                :construction_type, :year_built, :number_of_stories, CAST(:reporting_entity_id AS uuid))
-    """), records)
-    session.execute(text("""
-        INSERT INTO ext_insurance (entity_id, deductible_pct, building_value_eur, contents_value_eur,
-                                    business_interruption_value_eur, cresta_zone, motor_sum_insured_eur)
-        VALUES (:policy_id, :deductible_pct, :building_value_eur, :contents_value_eur,
-                :business_interruption_value_eur, :cresta_zone, :motor_sum_insured_eur)
-    """), records)
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="policies.upload",
-                target_type="insurance_policies", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename, "batch_id": ctl.batch_id,
-                        "gate": ctl.controls["gate"]["status"]})
-    ctl.finish(session, n_landed=len(records))
-
-    processing = process_new_cells(cell_coords)
-    return {"n_uploaded": len(records), "batch_id": ctl.batch_id, "controls": ctl.controls, **processing}
+                          approval_reason: Optional[str] = Form(None)):
+    """Runs the Statement of Values through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
+    security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
+    sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
+    where required → held (202). Nothing valid, or refused on security grounds → 422, and the attempt is recorded."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "insurance_policies", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason)
 
 
 @router.get("/portfolio.xlsx", summary="Loss-curve pricing book (Excel)")

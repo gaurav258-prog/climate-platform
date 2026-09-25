@@ -41,7 +41,7 @@ def _str(v):
 
 
 def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],
-                       reporting_entity_id: str | None = None) -> dict:
+                       reporting_entity_id: str | None = None, dispatch_scoring: bool = True) -> dict:
     """Land loan-tape rows into portfolio_entities + ext_banking, then score the new H3 cells against the
     golden source (process_new_cells) — the same path an any-address lookup takes. Returns a coverage-style
     result: how many landed, how many were skipped, and why (a sample), plus the scoring summary. A row
@@ -126,7 +126,7 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],
     # viewed (the globe/any-address path warms them) or when a worker runs. A broker/scorer being down must
     # never fail — or roll back — a completed ingest.
     processing: dict = {}
-    if cell_coords:
+    if cell_coords and dispatch_scoring:
         try:   # never inside the request: raster and reanalysis reads run on the jobs layer (worker or child process)
             from services.tasks.jobs import submit
             processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)}
@@ -134,7 +134,7 @@ def ingest_bank_assets(session: Session, org_id: str, rows: Iterable[dict],
             processing = {"scoring": "deferred", "n_cells": len(cell_coords),
                           "note": f"async scoring will run when available ({type(exc).__name__})"}
     result = {"n_ingested": len(records), "n_skipped": len(skipped), "skipped": skipped, "processing": processing,
-              "value_ingested": float(sum(r["primary_value_eur"] for r in records))}
+              "value_ingested": float(sum(r["primary_value_eur"] for r in records)), "cell_coords": cell_coords}
     if records and default_entity is None:
         # honest, not silent: these rows will show in the org-wide view but be invisible to any per-entity
         # or consolidated-group filing until an operator assigns them (multi-entity orgs have no unambiguous

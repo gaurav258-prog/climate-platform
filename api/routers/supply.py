@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession, require_permission
 from api.services.rbac import write_audit
+from services.ingest.templates import PLOT_TEMPLATE_FIELDS  # noqa: F401 — re-exported
 from services.intelligence.company_sites import (
     SITE_TYPES,
     SiteLocationError,
@@ -34,7 +35,6 @@ from services.intelligence.company_sites import (
 from services.intelligence.csrd_e1 import build_e1_report
 from services.intelligence.eudr import determine_plot
 from services.intelligence.eudr_dds import assemble_dds
-from services.intelligence.geometry import validate_plot_geometry
 from services.intelligence.supply_cogs import (
     IMPACT_VERSION,
     apply_commodity_override,
@@ -42,7 +42,6 @@ from services.intelligence.supply_cogs import (
     project_org_supply,
 )
 from services.intelligence.supply_concentration import supply_concentration
-from services.reference.iso_country import is_valid_country
 from services.scoring.on_demand import schedule_scoring
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -1339,20 +1338,7 @@ async def upload_customer_attributes(session: DbSession, ctx: CurrentUser, file:
 # EUDR due-diligence-informed fields: geolocation + commodity are the regulation's own
 # core requirement; plot_area_ha matters because EUDR itself splits at >4ha (a full
 # polygon is required) vs <=4ha (a single point suffices) -- see services/templates/workbook.py.
-PLOT_TEMPLATE_FIELDS = [
-    {"name": "plot_name", "required": True, "description": "Free-text plot/farm name.", "example": "Ashanti Plot 4"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees, 6 d.p. (EUDR point geolocation). Leave blank if you supply plot_geojson — we take the centroid.", "example": "6.694400"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees, 6 d.p. Leave blank if you supply plot_geojson.", "example": "-1.605500"},
-    {"name": "commodity", "required": True, "description": "Must match a commodity already on this platform (e.g. Cocoa, Coffee, Citrus).", "example": "Cocoa"},
-    {"name": "annual_spend_eur", "required": True, "description": "Annual procurement spend sourced from this plot.", "example": "150000"},
-    {"name": "plot_geojson", "required": False, "description": "EUDR plot BOUNDARY as a GeoJSON Polygon — REQUIRED for any plot over 4 ha (a point is only valid at/below 4 ha). Area is computed from it.", "example": '{"type":"Polygon","coordinates":[[[-1.606,6.694],[-1.604,6.694],[-1.604,6.696],[-1.606,6.696],[-1.606,6.694]]]}'},
-    {"name": "plot_area_ha", "required": False, "description": "Plot area in hectares. Auto-computed (geodesic) when plot_geojson is given; only needed for a point-only plot.", "example": "2.3"},
-    {"name": "region", "required": False, "description": "Free-text region.", "example": "Ashanti"},
-    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "GH"},
-    {"name": "irrigation_status", "required": False, "description": "irrigated / rain_fed / mixed. Declared, "
-     "not modelled: an irrigated plot's drought score is shown as an upper bound; the crop € is unchanged "
-     "(it reflects the origin's national irrigated/rain-fed mix).", "example": "irrigated"},
-]
+# PLOT_TEMPLATE_FIELDS lives in services/ingest/templates.py (shared with the intake pipeline)
 REQUIRED_PLOT_COLUMNS = [f["name"] for f in PLOT_TEMPLATE_FIELDS if f["required"]]
 
 
@@ -1363,165 +1349,28 @@ def plots_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_sourcing_plot_template.xlsx"})
 
 
-def _plot_specs(df) -> list[dict]:
-    """Template specs for the intake controls: latitude/longitude are required only when no boundary is supplied
-    (a boundary-only row derives its point from the polygon)."""
-    specs = [dict(f) for f in PLOT_TEMPLATE_FIELDS]
-    if "plot_geojson" in df.columns:
-        for f in specs:
-            if f["name"] in ("latitude", "longitude"):
-                f["required"] = False
-    return specs
-
-
 @router.post("/plots/validate", summary="Check a sourcing-plot CSV before importing — nothing is saved")
 async def validate_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                          declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
-    """Dry run of the intake controls (receipt, transformation, gate) for a plot upload. Writes nothing."""
-    from api.services.intake_http import declared_from_form
-    from services.ingest.batches import preview_controls
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
-    raw = await file.read()
-    try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
-    required_cols = [f["name"] for f in _plot_specs(df) if f["required"]]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
-    ctl = preview_controls(session, ctx["org"]["org_id"], "supply_plots", raw, df, _plot_specs(df),
-                           declared=declared_from_form(declared_row_count, declared_totals), value_field="annual_spend_eur")
-    rep = ctl.report
-    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+    """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
+    the gate the import will enforce). Nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "supply_plots", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals))
 
 
 @router.post("/plots/upload", summary="Bulk-upload sourcing plots from a CSV into your procurement book")
 async def upload_plots(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                       signoff_reason: Optional[str] = Form(None)):
-    """Same shape as bank.py's assets/upload: lands in the uploader's OWN org,
-    resolves an H3 cell per row, then processes new cells against the golden
-    source via the shared services.scoring.on_demand.process_new_cells."""
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
-    raw = await file.read()
-    try:
-        df = pd.read_csv(io.BytesIO(raw))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
-
-    # latitude/longitude are required only when no plot_geojson column is supplied — a boundary-only
-    # upload derives the point from the polygon centroid.
-    required_cols = REQUIRED_PLOT_COLUMNS
-    if "plot_geojson" in df.columns:
-        required_cols = [c for c in REQUIRED_PLOT_COLUMNS if c not in ("latitude", "longitude")]
-    missing = [c for c in required_cols if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
-
-    commodity_ids = {row["name"]: str(row["commodity_id"]) for row in
-                     session.execute(text("SELECT commodity_id, name FROM sc_commodities")).mappings().all()}
-
-    org_id = ctx["org"]["org_id"]
-    from api.services.intake_http import declared_from_form, gate_409
-    from services.ingest.batches import GateError, begin_import
-    try:
-        ctl = begin_import(session, org_id, ctx["user"]["id"], "supply_plots", raw, df, _plot_specs(df),
-                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="annual_spend_eur", signoff_reason=signoff_reason)
-    except GateError as e:
-        raise gate_409(e) from e
-    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
-    import json as _json
-    has_geo = "plot_geojson" in df.columns
-    records, cell_coords, unknown_commodities = [], {}, set()
-    geometry_errors, needs_polygon, skipped, invalid_country_codes = [], [], [], []
-    for _, row in df.iterrows():
-        name = (str(row.get("plot_name")).strip() if pd.notna(row.get("plot_name")) else "") or "(unnamed)"
-        try:
-            spend = float(row["annual_spend_eur"])
-        except (TypeError, ValueError):
-            skipped.append({"plot": name, "reason": "missing or unparseable annual_spend_eur"})
-            continue
-        commodity = str(row["commodity"])
-        commodity_id = commodity_ids.get(commodity)
-        if not commodity_id:
-            unknown_commodities.add(commodity)
-            continue
-
-        # Geolocation: a GeoJSON boundary (preferred, EUDR-grade) wins; else the lat/lon point.
-        geojson = None
-        area_ha = float(row["plot_area_ha"]) if "plot_area_ha" in df.columns and pd.notna(row.get("plot_area_ha")) else None
-        lat = lon = None
-        if has_geo and pd.notna(row.get("plot_geojson")) and str(row.get("plot_geojson")).strip():
-            v = validate_plot_geometry(row["plot_geojson"], declared_area_ha=area_ha)
-            if not v["ok"]:
-                geometry_errors.append({"plot": name, "error": v["error"]})
-                continue
-            geojson, lat, lon = _json.dumps(v["geojson"]), v["lat"], v["lon"]
-            if v["kind"] == "polygon":
-                area_ha = v["area_ha"]
-            if v["needs_polygon"]:
-                needs_polygon.append(name)  # a >4ha plot still sent as a point — flagged, not blocked
-        else:
-            try:
-                lat, lon = float(row["latitude"]), float(row["longitude"])
-            except (TypeError, ValueError):
-                skipped.append({"plot": name, "reason": "missing or unparseable coordinates"})
-                continue
-            # a blank cell parses to NaN — skip it, never let NaN reach h3 (which would 500 the whole upload)
-            if lat != lat or lon != lon:
-                skipped.append({"plot": name, "reason": "missing or unparseable coordinates"})
-                continue
-            # A >4ha plot with only a point is EUDR-insufficient — flag it honestly.
-            if area_ha is not None and area_ha > 4.0:
-                needs_polygon.append(name)
-
-        cell = h3.latlng_to_cell(lat, lon, 8)
-        cell_coords[cell] = (lat, lon)
-        country = str(row["country"]).strip() if "country" in df.columns and pd.notna(row.get("country")) else None
-        if country and not is_valid_country(country):
-            invalid_country_codes.append({"plot": name, "country": country})
-            country = None   # a bogus ISO code is flagged and dropped, not stored silently
-        records.append({
-            "plot_id": str(uuid.uuid4()), "org_id": org_id, "commodity_id": commodity_id,
-            "plot_name": name, "latitude": lat, "longitude": lon, "h3_cell": cell,
-            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": country,
-            "annual_spend_eur": spend, "plot_area_ha": area_ha, "plot_geometry": geojson,
-            # bulk upload supplies exact coordinates → exact precision, full confidence (audit T4b)
-            "confidence": 1.0, "geocode_precision": "exact",
-            "irrigation_status": _norm_irrigation(row.get("irrigation_status")) if "irrigation_status" in df.columns else None,
-        })
-    if not records:
-        raise HTTPException(status_code=400, detail={"error": "no_valid_rows",
-            "unknown_commodities": list(unknown_commodities), "geometry_errors": geometry_errors,
-            "skipped": skipped, "invalid_country_codes": invalid_country_codes})
-
-    session.execute(text("""
-        INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
-                                        h3_cell, region, country, annual_spend_eur, plot_area_ha, plot_geometry,
-                                        confidence, geocode_precision, irrigation_status)
-        VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :latitude, :longitude,
-                :h3_cell, :region, :country, :annual_spend_eur, :plot_area_ha, CAST(:plot_geometry AS jsonb),
-                :confidence, :geocode_precision, :irrigation_status)
-    """), records)
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.upload",
-                target_type="sc_sourcing_plots", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename,
-                        "unknown_commodities": list(unknown_commodities),
-                        "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
-                        "batch_id": ctl.batch_id, "gate": ctl.controls["gate"]["status"]})
-    ctl.finish(session, n_landed=len(records), value_landed=float(sum(r["annual_spend_eur"] for r in records)))
-
-    schedule_scoring(cell_coords)  # background — a bulk upload spanning fresh cells shouldn't block the response
-    return {"n_uploaded": len(records), "unknown_commodities": list(unknown_commodities),
-            "geometry_errors": geometry_errors, "needs_polygon": needs_polygon,
-            "skipped": skipped, "invalid_country_codes": invalid_country_codes, "scoring": "queued",
-            "batch_id": ctl.batch_id, "controls": ctl.controls}
+                       approval_reason: Optional[str] = Form(None)):
+    """Runs the sourcing-plot file through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
+    security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
+    sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
+    where required → held (202). Nothing valid, or refused on security grounds → 422, and the attempt is recorded."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "supply_plots", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason)
 
 
 @router.post("/eudr/determine", summary="Run the satellite deforestation-free determination across the book")

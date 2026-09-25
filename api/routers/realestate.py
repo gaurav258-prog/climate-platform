@@ -14,12 +14,9 @@ property, since 68.20 real estate is already mapped eligible).
 """
 from __future__ import annotations
 
-import uuid
 from collections import defaultdict
 from typing import Annotated, Optional
 
-import h3
-import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -33,6 +30,12 @@ from ml.scoring.epc_stranding import epc_stranding, stranding_rollup
 from ml.scoring.realestate_impact import noi_impact
 from ml.scoring.valuation_discount import value_loss_band
 from services.calc_settings import get_calc_settings
+from services.ingest.templates import (  # noqa: F401 — re-exported
+    CONSTRUCTION_TYPES,
+    EPC_RATINGS,
+    PROPERTY_TEMPLATE_FIELDS,
+    SAFEGUARDS_STATUSES,
+)
 from services.intelligence.resilience_capex import resilience_capex_plan
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
@@ -229,32 +232,8 @@ def disclosure(session: DbSession, org_id: OrgId,
 # A property schedule -- ~80% the same shape as insurance's Statement of Values,
 # already built (see services/templates/workbook.py). annual_noi_eur is required:
 # without it, this vertical's headline NOI-impact figure can't be computed.
-PROPERTY_TEMPLATE_FIELDS = [
-    {"name": "property_name", "required": True, "description": "Free-text property name.", "example": "Rotterdam Logistics Park 4"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees.", "example": "51.9244"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "4.4777"},
-    {"name": "property_value_eur", "required": True, "description": "Current market/appraised value.", "example": "42000000"},
-    {"name": "annual_noi_eur", "required": True, "description": "Annual net operating income.", "example": "2400000"},
-    {"name": "annual_gross_rental_revenue_eur", "required": False, "description": "Annual GROSS rental revenue "
-     "before operating expenses (Del. Reg. (EU) 2021/2178 Annex I §1.1.1 turnover-KPI basis) — enables the real "
-     "EU Taxonomy Turnover KPI instead of the NOI-as-proxy fallback.", "example": "3600000"},
-    {"name": "property_type", "required": True, "description": "office / retail / logistics / light_industrial / multifamily.", "example": "logistics"},
-    {"name": "construction_type", "required": False, "description": "ISO Construction Class: frame / joisted_masonry / non_combustible / masonry_non_combustible / fire_resistive.", "example": "non_combustible"},
-    {"name": "year_built", "required": False, "kind": "int", "description": "Year of construction.", "example": "2011"},
-    {"name": "number_of_stories", "required": False, "kind": "int", "description": "Number of stories.", "example": "1"},
-    {"name": "region", "required": False, "description": "Free-text region.", "example": "South Holland"},
-    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "NL"},
-    {"name": "epc_rating", "required": False, "description": "Building Energy Performance Certificate grade (A-G) — "
-     "enables a real EU Taxonomy substantial-contribution check instead of an unverified gap.", "example": "B"},
-    {"name": "borrower_entity_id", "required": False, "description": "Owning entity's LEI or other stable ID — "
-     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per property.", "example": "5493001KJTIIGC8Y1R12"},
-    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
-     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
-]
+# PROPERTY_TEMPLATE_FIELDS lives in services/ingest/templates.py (shared with the intake pipeline)
 REQUIRED_PROPERTY_COLUMNS = [f["name"] for f in PROPERTY_TEMPLATE_FIELDS if f["required"]]
-CONSTRUCTION_TYPES = {"frame", "joisted_masonry", "non_combustible", "masonry_non_combustible", "fire_resistive"}
-EPC_RATINGS = {"A", "B", "C", "D", "E", "F", "G"}
-SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
 
 @router.get("/property/{property_id}", summary="One property — full projection + provenance")
@@ -336,126 +315,28 @@ def properties_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_property_schedule_template.xlsx"})
 
 
-@router.post("/properties/validate", summary="Check the property schedule file (CSV or Excel) before importing — nothing is saved")
+@router.post("/properties/validate", summary="Check a property schedule (CSV or Excel) before importing — nothing is saved")
 async def validate_properties(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
-                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
-    """Dry run: which rows are ready and which need fixing (a reason per row), plus the intake controls — receipt,
-    transformation and the gate the import enforces. Writes nothing."""
-    from api.services.intake_http import declared_from_form
-    from services.ingest.batches import preview_controls
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    missing = [c for c in REQUIRED_PROPERTY_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
-    ctl = preview_controls(session, ctx["org"]["org_id"], "realestate_properties", raw, df, PROPERTY_TEMPLATE_FIELDS,
-                           declared=declared_from_form(declared_row_count, declared_totals), value_field="property_value_eur")
-    rep = ctl.report
-    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+                              declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
+    the gate the import will enforce). Nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "realestate_properties", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals))
 
 
-@router.post("/properties/upload", summary="Import properties from a CSV into your portfolio")
+@router.post("/properties/upload", summary="Import properties (CSV or Excel) into your portfolio")
 async def upload_properties(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                             declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                            signoff_reason: Optional[str] = Form(None)):
-    """Same shape as bank.py/insurance.py/supply.py's upload endpoints: lands in
-    the uploader's OWN org, resolves an H3 cell per row, then processes new
-    cells against the golden source via the shared process_new_cells."""
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    missing = [c for c in REQUIRED_PROPERTY_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
-
-    from api.services.intake_http import declared_from_form, gate_409
-    from services.ingest.batches import GateError, begin_import
-    org_id = ctx["org"]["org_id"]
-    try:
-        ctl = begin_import(session, org_id, ctx["user"]["id"], "realestate_properties", raw, df, PROPERTY_TEMPLATE_FIELDS,
-                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="property_value_eur", signoff_reason=signoff_reason)
-    except GateError as e:
-        raise gate_409(e) from e
-    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
-    from services.governance.entities import default_reporting_entity
-    default_entity = default_reporting_entity(session, org_id)
-    records, cell_coords = [], {}
-    for _, row in df.iterrows():
-        try:
-            lat, lon = float(row["latitude"]), float(row["longitude"])
-            value_eur = float(row["property_value_eur"])
-            noi_eur = float(row["annual_noi_eur"])
-        except (TypeError, ValueError):
-            continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
-        construction = str(row["construction_type"]).strip().lower() if "construction_type" in df.columns and pd.notna(row.get("construction_type")) else None
-        if construction and construction not in CONSTRUCTION_TYPES:
-            construction = None
-        epc = str(row["epc_rating"]).strip().upper() if "epc_rating" in df.columns and pd.notna(row.get("epc_rating")) else None
-        if epc and epc not in EPC_RATINGS:
-            epc = None
-        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
-        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
-            safeguards = None
-        gross_revenue = None
-        if "annual_gross_rental_revenue_eur" in df.columns and pd.notna(row.get("annual_gross_rental_revenue_eur")):
-            try:
-                gross_revenue = float(row["annual_gross_rental_revenue_eur"])
-            except (TypeError, ValueError):
-                gross_revenue = None
-        cell = h3.latlng_to_cell(lat, lon, 8)
-        cell_coords[cell] = (lat, lon)
-        records.append({
-            "entity_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
-            "entity_name": str(row["property_name"]), "entity_type": str(row["property_type"]),
-            "latitude": lat, "longitude": lon, "h3_cell": cell,
-            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "primary_value_eur": value_eur, "annual_noi_eur": noi_eur,
-            "annual_gross_rental_revenue_eur": gross_revenue,
-            "construction_type": construction,
-            "year_built": int(row["year_built"]) if "year_built" in df.columns and pd.notna(row.get("year_built")) else None,
-            "number_of_stories": int(row["number_of_stories"]) if "number_of_stories" in df.columns and pd.notna(row.get("number_of_stories")) else None,
-            "epc_rating": epc,
-            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
-            "minimum_safeguards_status": safeguards,
-        })
-    if not records:
-        raise HTTPException(status_code=400, detail={"error": "no_rows_landed", "controls": ctl.controls,
-                            "message": "Rows passed validation but none could be landed."})
-
-    session.execute(text("""
-        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type,
-                                         latitude, longitude, h3_cell, region, country,
-                                         primary_value_eur, construction_type, year_built, number_of_stories,
-                                         borrower_entity_id, minimum_safeguards_status, reporting_entity_id)
-        VALUES (:entity_id, :org_id, 'realestate', :entity_name, :entity_type,
-                :latitude, :longitude, :h3_cell, :region, :country,
-                :primary_value_eur, :construction_type, :year_built, :number_of_stories,
-                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid))
-    """), records)
-    session.execute(text("""
-        INSERT INTO ext_realestate (entity_id, annual_noi_eur, epc_rating, annual_gross_rental_revenue_eur)
-        VALUES (:entity_id, :annual_noi_eur, :epc_rating, :annual_gross_rental_revenue_eur)
-    """), records)
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="properties.upload",
-                target_type="realestate_properties", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename, "batch_id": ctl.batch_id,
-                        "gate": ctl.controls["gate"]["status"]})
-    ctl.finish(session, n_landed=len(records), value_landed=float(sum(r["primary_value_eur"] for r in records)))
-
-    from services.tasks.jobs import submit
-    processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)} if cell_coords else {}
-    return {"n_uploaded": len(records), "batch_id": ctl.batch_id, "controls": ctl.controls, **processing}
+                            approval_reason: Optional[str] = Form(None)):
+    """Runs the property schedule through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
+    security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
+    sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
+    where required → held (202). Nothing valid, or refused on security grounds → 422, and the attempt is recorded."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "realestate_properties", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason)
 
 
 @router.get("/portfolio.xlsx", summary="Portfolio & NOI impact book (Excel)")

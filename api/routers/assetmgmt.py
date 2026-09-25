@@ -15,12 +15,9 @@ functions three verticals now share.
 """
 from __future__ import annotations
 
-import uuid
 from collections import defaultdict
 from typing import Annotated, Optional
 
-import h3
-import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -32,6 +29,10 @@ from api.services.rbac import write_audit
 from ml.regulatory.eu_taxonomy_classifier import classify_taxonomy
 from ml.scoring.valuation_discount import monte_carlo_var
 from services.calc_settings import get_calc_settings
+from services.ingest.templates import (  # noqa: F401 — re-exported
+    HOLDING_TEMPLATE_FIELDS,
+    SAFEGUARDS_STATUSES,
+)
 from services.portfolio_engine import (
     apply_valuation_override as engine_apply_override,
 )
@@ -228,22 +229,8 @@ def disclosure(session: DbSession, org_id: OrgId,
 # (name, position size, sector); nace_code is optional but -- unlike banking's
 # or real estate's upload today -- IS supported directly, since a manager's own
 # data typically already carries a NACE classification.
-HOLDING_TEMPLATE_FIELDS = [
-    {"name": "holding_name", "required": True, "description": "Company / security name.", "example": "Nordisk Logistics Properties AB"},
-    {"name": "latitude", "required": True, "description": "Decimal degrees (HQ or primary asset location).", "example": "59.3293"},
-    {"name": "longitude", "required": True, "description": "Decimal degrees.", "example": "18.0686"},
-    {"name": "position_value_eur", "required": True, "description": "Market value of the position.", "example": "18500000"},
-    {"name": "sector", "required": True, "description": "Free-text sector / industry.", "example": "Real estate"},
-    {"name": "nace_code", "required": False, "description": "NACE code, if known — enables real EU Taxonomy classification.", "example": "68.20"},
-    {"name": "region", "required": False, "description": "Free-text region.", "example": "Stockholm"},
-    {"name": "country", "required": False, "description": "ISO-2 country code.", "example": "SE"},
-    {"name": "borrower_entity_id", "required": False, "description": "Holding's LEI or other stable entity ID — "
-     "lets a minimum-safeguards compliance flag be matched/refreshed by entity rather than re-collected per row.", "example": "5493001KJTIIGC8Y1R12"},
-    {"name": "minimum_safeguards_status", "required": False, "description": "compliant / non_compliant, from your own "
-     "OECD/UN/ILO counterparty screening — enables a real EU Taxonomy minimum-safeguards check.", "example": "compliant"},
-]
+# HOLDING_TEMPLATE_FIELDS lives in services/ingest/templates.py (shared with the intake pipeline)
 REQUIRED_HOLDING_COLUMNS = [f["name"] for f in HOLDING_TEMPLATE_FIELDS if f["required"]]
-SAFEGUARDS_STATUSES = {"compliant", "non_compliant"}
 
 
 @router.get("/holding/{holding_id}", summary="One holding — full projection + provenance")
@@ -320,103 +307,28 @@ def holdings_template_xlsx():
                               headers={"Content-Disposition": "attachment; filename=tellumen_holdings_template.xlsx"})
 
 
-@router.post("/holdings/validate", summary="Check the holdings book file (CSV or Excel) before importing — nothing is saved")
+@router.post("/holdings/validate", summary="Check a holdings book (CSV or Excel) before importing — nothing is saved")
 async def validate_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
-                        declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
-    """Dry run: which rows are ready and which need fixing (a reason per row), plus the intake controls — receipt,
-    transformation and the gate the import enforces. Writes nothing."""
-    from api.services.intake_http import declared_from_form
-    from services.ingest.batches import preview_controls
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    missing = [c for c in REQUIRED_HOLDING_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing_columns": missing})
-    ctl = preview_controls(session, ctx["org"]["org_id"], "assetmgmt_holdings", raw, df, HOLDING_TEMPLATE_FIELDS,
-                           declared=declared_from_form(declared_row_count, declared_totals), value_field="position_value_eur")
-    rep = ctl.report
-    return {"filename": file.filename, "n_total": rep["n_total"], "n_valid": rep["n_valid"],
-            "n_error": rep["n_error"], "errors": rep["errors"][:200], "controls": ctl.controls}
+                            declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None)):
+    """Dry run of every intake check (security inspection, required columns, row checks, receipt, transformation and
+    the gate the import will enforce). Nothing is stored or written."""
+    from api.services.intake_http import declared_from_form, preview
+    return preview(session, ctx["org"]["org_id"], "assetmgmt_holdings", await file.read(), file.filename,
+                   declared_from_form(declared_row_count, declared_totals))
 
 
-@router.post("/holdings/upload", summary="Import holdings from a CSV into your portfolio")
+@router.post("/holdings/upload", summary="Import holdings (CSV or Excel) into your portfolio")
 async def upload_holdings(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
                           declared_row_count: Optional[str] = Form(None), declared_totals: Optional[str] = Form(None),
-                          signoff_reason: Optional[str] = Form(None)):
-    """Same shape as bank.py/insurance.py/supply.py/realestate.py's upload
-    endpoints: lands in the uploader's OWN org, resolves an H3 cell per row,
-    then processes new cells against the golden source via process_new_cells."""
-    from services.ingest.upload_validation import parse_table
-    raw = await file.read()
-    try:
-        df = parse_table(raw, file.filename)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    missing = [c for c in REQUIRED_HOLDING_COLUMNS if c not in df.columns]
-    if missing:
-        raise HTTPException(status_code=400, detail={"error": "missing_columns", "missing": missing})
-
-    from api.services.intake_http import declared_from_form, gate_409
-    from services.ingest.batches import GateError, begin_import
-    org_id = ctx["org"]["org_id"]
-    try:
-        ctl = begin_import(session, org_id, ctx["user"]["id"], "assetmgmt_holdings", raw, df, HOLDING_TEMPLATE_FIELDS,
-                           filename=file.filename, declared=declared_from_form(declared_row_count, declared_totals),
-                           value_field="position_value_eur", signoff_reason=signoff_reason)
-    except GateError as e:
-        raise gate_409(e) from e
-    df = ctl.clean_df   # the ONLY rows the loop below may read: validated and normalised
-    from services.governance.entities import default_reporting_entity
-    default_entity = default_reporting_entity(session, org_id)
-    records, cell_coords = [], {}
-    for _, row in df.iterrows():
-        try:
-            lat, lon = float(row["latitude"]), float(row["longitude"])
-            value_eur = float(row["position_value_eur"])
-        except (TypeError, ValueError):
-            continue  # a row with an unparsable required field is skipped, not fatal to the whole upload
-        safeguards = str(row["minimum_safeguards_status"]).strip().lower() if "minimum_safeguards_status" in df.columns and pd.notna(row.get("minimum_safeguards_status")) else None
-        if safeguards and safeguards not in SAFEGUARDS_STATUSES:
-            safeguards = None
-        cell = h3.latlng_to_cell(lat, lon, 8)
-        cell_coords[cell] = (lat, lon)
-        records.append({
-            "entity_id": str(uuid.uuid4()), "org_id": org_id, "reporting_entity_id": default_entity,
-            "entity_name": str(row["holding_name"]), "sector": str(row["sector"]),
-            "nace_code": str(row["nace_code"]) if "nace_code" in df.columns and pd.notna(row.get("nace_code")) else None,
-            "latitude": lat, "longitude": lon, "h3_cell": cell,
-            "region": str(row["region"]) if "region" in df.columns and pd.notna(row.get("region")) else None,
-            "country": str(row["country"]) if "country" in df.columns and pd.notna(row.get("country")) else None,
-            "primary_value_eur": value_eur,
-            "borrower_entity_id": str(row["borrower_entity_id"]) if "borrower_entity_id" in df.columns and pd.notna(row.get("borrower_entity_id")) else None,
-            "minimum_safeguards_status": safeguards,
-        })
-    if not records:
-        raise HTTPException(status_code=400, detail={"error": "no_rows_landed", "controls": ctl.controls,
-                            "message": "Rows passed validation but none could be landed."})
-
-    session.execute(text("""
-        INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code,
-                                         latitude, longitude, h3_cell, region, country, primary_value_eur,
-                                         borrower_entity_id, minimum_safeguards_status, reporting_entity_id)
-        VALUES (:entity_id, :org_id, 'assetmgmt', :entity_name, :sector, :nace_code,
-                :latitude, :longitude, :h3_cell, :region, :country, :primary_value_eur,
-                :borrower_entity_id, :minimum_safeguards_status, CAST(:reporting_entity_id AS uuid))
-    """), records)
-    write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="holdings.upload",
-                target_type="assetmgmt_holdings", target_id=None,
-                detail={"n_rows": len(records), "filename": file.filename, "batch_id": ctl.batch_id,
-                        "gate": ctl.controls["gate"]["status"]})
-    ctl.finish(session, n_landed=len(records), value_landed=float(sum(r["primary_value_eur"] for r in records)))
-
-    from services.tasks.jobs import submit
-    processing = {"scoring": "queued", "n_cells": len(cell_coords), **submit("scoring.process_cells", cell_coords)} if cell_coords else {}
-    return {"n_uploaded": len(records), "batch_id": ctl.batch_id, "controls": ctl.controls, **processing}
+                          approval_reason: Optional[str] = Form(None)):
+    """Runs the holdings book through the intake pipeline (services/intake/pipeline.py): the file is stored write-once,
+    security-inspected and malware-scanned, then checked. Every check passed → imported now (200). A check failed →
+    sent to a second person for approval with your reason (202; nothing lands until approved). Scanner unavailable
+    where required → held (202). Nothing valid, or refused on security grounds → 422, and the attempt is recorded."""
+    from api.services.intake_http import declared_from_form, submit
+    return submit(session, ctx["org"]["org_id"], "assetmgmt_holdings", await file.read(), file.filename,
+                  user_id=ctx["user"]["id"], declared=declared_from_form(declared_row_count, declared_totals),
+                  reason=approval_reason)
 
 
 @router.get("/portfolio.xlsx", summary="Portfolio climate VaR book (Excel)")
