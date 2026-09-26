@@ -11,6 +11,8 @@ import Approvals from './Approvals'
 import Audit from './Audit'
 import AdminEntities from '../components/AdminEntities'
 import DropFolders, { SECTOR_TEMPLATES } from '../components/DropFolders'
+import ClientRates from '../components/ClientRates'
+import { useCurrencies } from '../components/MoneyDeclaration'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 import { actionLabel } from '../lib/actionLabels'
 
@@ -534,6 +536,9 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
       {/* reporting basis — the as-of assumptions every filing is computed on */}
       <ReportingBasis />
 
+      {/* the organisation's own exchange rates — used first, always compared with the official rate */}
+      <ClientRates />
+
       {/* golden-source freshness — is the data under a filing current? */}
       <GoldenSourceFeeds />
 
@@ -559,7 +564,7 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
   )
 }
 
-interface RSettings { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string; is_override: boolean }
+interface RSettings { scenario: string; horizon: string; materiality_threshold: number; reporting_period_end: string; presentation_currency: string; is_override: boolean }
 const SCENARIOS = [['baseline', 'Baseline (today)'], ['rcp45', 'RCP 4.5 — moderate'], ['rcp85', 'RCP 8.5 — high']]
 const HORIZONS = [['current', 'Current'], ['2030', '2030'], ['2040', '2040'], ['2050', '2050']]
 
@@ -570,11 +575,12 @@ function ReportingBasis() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const d = q.data
-  const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, materiality_threshold: d.materiality_threshold, reporting_period_end: d.reporting_period_end }); setEdit(true); setMsg(null) }
+  const currencies = useCurrencies()
+  const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, materiality_threshold: d.materiality_threshold, reporting_period_end: d.reporting_period_end, presentation_currency: d.presentation_currency }); setEdit(true); setMsg(null) }
   const save = async () => {
     setBusy(true); setMsg(null)
     try { await api.patch('/v1/admin/reporting-settings', f); setEdit(false); await q.refetch(); setMsg('✓ Saved — every filing now uses this basis.') }
-    catch (e) { setMsg((e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not save.') }
+    catch (e) { setMsg((e as { body?: { error?: { message?: string } } })?.body?.error?.message || 'Could not save.') }
     finally { setBusy(false) }
   }
   const sel = 'bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
@@ -589,7 +595,7 @@ function ReportingBasis() {
       <p className="text-[11.5px] text-[var(--color-faint)] mb-3">The as-of assumptions every CSRD/ESRS filing is computed on. The r²≥0.40 publish gate is a fixed honesty constant — not settable here.</p>
       {q.isLoading || !d ? <div className="text-[13px] text-[var(--color-faint)] py-2">loading…</div> : !edit ? (
         <div className="grid sm:grid-cols-4 gap-x-8 gap-y-2 text-[13px]">
-          {[['Reporting period', d.reporting_period_end], ['Scenario', label(SCENARIOS, d.scenario)], ['Horizon', label(HORIZONS, d.horizon)], ['Materiality threshold', `score ≥ ${d.materiality_threshold}`]].map(([k, v]) => (
+          {[['Reporting period', d.reporting_period_end], ['Scenario', label(SCENARIOS, d.scenario)], ['Horizon', label(HORIZONS, d.horizon)], ['Materiality threshold', `score ≥ ${d.materiality_threshold}`], ['Presentation currency', d.presentation_currency]].map(([k, v]) => (
             <div key={k}><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5 mono">{k}</div><div className="text-[var(--color-ink)]">{v}</div></div>
           ))}
           <div className="sm:col-span-4 text-[11px] text-[var(--color-faint)]">{d.is_override ? 'Custom basis set for this organization.' : 'Using platform defaults.'}</div>
@@ -605,6 +611,9 @@ function ReportingBasis() {
               <select className={sel + ' w-full'} value={f.scenario} onChange={e => setF({ ...f, scenario: e.target.value })}>{SCENARIOS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
             <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Time horizon</div>
               <select className={sel + ' w-full'} value={f.horizon} onChange={e => setF({ ...f, horizon: e.target.value })}>{HORIZONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+            <label className="block"><div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono">Presentation currency</div>
+              <select className={sel + ' w-full mono'} value={f.presentation_currency} onChange={e => setF({ ...f, presentation_currency: e.target.value })}>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>
+              <span className="text-[10.5px] text-[var(--color-faint)]">Group / consolidated figures are presented in this; each legal entity files solo in its own functional currency (Entities tab).</span></label>
           </div>
           <div className="flex gap-3 items-center"><Button onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save basis'}</Button>
             <button onClick={() => setEdit(false)} className="text-[13px] text-[var(--color-mute)] hover:text-[var(--color-ink)]">Cancel</button></div>

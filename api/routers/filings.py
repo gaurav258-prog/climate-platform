@@ -199,7 +199,12 @@ def reporting_requirements(session: DbSession, ctx: dict = Depends(require_permi
 @router.get("/filings/entities", summary="The reporting-entity hierarchy — file per entity or consolidate a group")
 def filing_entities(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance import entities as E
-    return {"entities": E.entity_tree(session, ctx["org"]["org_id"])}
+    from services.governance.reporting_settings import get_settings
+    org_id = ctx["org"]["org_id"]
+    eff = E.effective_currencies(session, org_id)
+    tree = [{**e, "effective_currency": eff.get(e["entity_id"], {}).get("currency"),
+             "currency_inherited_from": eff.get(e["entity_id"], {}).get("inherited_from")} for e in E.entity_tree(session, org_id)]
+    return {"entities": tree, "presentation_currency": get_settings(session, org_id)["presentation_currency"]}
 
 
 class EntityCreate(BaseModel):
@@ -215,6 +220,7 @@ class EntityCreate(BaseModel):
     # Setting a waiver reason without also setting requires_solo_filing=False is rejected by the service layer.
     requires_solo_filing: Optional[bool] = None
     solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
+    functional_currency: Optional[str] = Field(None, max_length=3, description="ISO 4217; blank = inherit from the parent")
 
 
 class EntityPatch(BaseModel):
@@ -229,6 +235,8 @@ class EntityPatch(BaseModel):
     requires_solo_filing: Optional[bool] = None
     solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
     set_solo_waiver_reason: bool = False   # apply solo_waiver_reason (True lets you clear it with null)
+    functional_currency: Optional[str] = Field(None, max_length=3)
+    set_functional_currency: bool = False  # apply functional_currency (True with null = inherit from the parent)
 
 
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
@@ -240,7 +248,7 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
                             consolidation_method=body.consolidation_method,
                             consolidation_basis=body.consolidation_basis,
                             requires_solo_filing=body.requires_solo_filing,
-                            solo_waiver_reason=body.solo_waiver_reason)
+                            solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency)
     except E.EntityError as ex:
         raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
@@ -260,6 +268,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.set_parent: kwargs["parent_entity_id"] = body.parent_entity_id
     if body.requires_solo_filing is not None: kwargs["requires_solo_filing"] = body.requires_solo_filing
     if body.set_solo_waiver_reason: kwargs["solo_waiver_reason"] = body.solo_waiver_reason
+    if body.set_functional_currency: kwargs["functional_currency"] = body.functional_currency
     try:
         e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
     except E.EntityError as ex:

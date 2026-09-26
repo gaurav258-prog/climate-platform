@@ -406,7 +406,8 @@ def _plot_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 PLOTS = Sector("supply_plots", "plot_name", "annual_spend_eur",
                ("plot_name", "commodity_id", "latitude", "longitude", "region", "country", "annual_spend_eur", "plot_area_ha",
                 "plot_geometry", "irrigation_status", "external_ref"),
-               _plot_prepare, _plot_build, _plot_existing, _plot_insert, _plot_update)
+               _plot_prepare, _plot_build, _plot_existing, _plot_insert, _plot_update,
+               table="sc_sourcing_plots", id_column="plot_id")
 
 
 SECTORS: dict[str, Sector] = {s.key: s for s in (BANK, INSURANCE, REALESTATE, HOLDINGS, PLOTS)}

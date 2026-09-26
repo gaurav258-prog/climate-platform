@@ -200,3 +200,49 @@ def fx_coverage(session: DbSession, ctx: CurrentUser, on: Optional[str] = Query(
     except ValueError as e:
         raise HTTPException(400, {"error": "bad_date", "message": "Use YYYY-MM-DD."}) from e
     return coverage(session, d)
+
+
+# ── the organisation's own exchange rates (governed: compared with the official rate; tolerance is a governed setting) ──
+
+class ClientRatesIn(BaseModel):
+    rows: list[dict] = Field(..., min_length=1, max_length=5000,
+                             description="{currency, rate_date, units_per_eur (per 1 EUR, as the ECB quotes), basis?="
+                                         "'closing'|'period_average', period_start? (for an average), note?}")
+
+
+@router.get("/fx/client-rates", summary="Your own exchange rates on file (latest per currency and date)")
+def list_client_rates(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.reference.client_fx import latest_rates
+    return {"rates": latest_rates(session, ctx["org"]["org_id"])}
+
+
+@router.post("/fx/client-rates", status_code=201, summary="Submit your own exchange rates (JSON rows)")
+def submit_client_rates(body: ClientRatesIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    return _submit_rates(session, ctx, body.rows, "json")
+
+
+@router.post("/fx/client-rates/upload", status_code=201, summary="Submit your own exchange rates (CSV file)")
+async def upload_client_rates(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage")),
+                              file: UploadFile = File(...)):
+    import csv
+    import io
+    rows = list(csv.DictReader(io.StringIO((await file.read()).decode("utf-8-sig", errors="replace"))))
+    if not rows:
+        raise HTTPException(422, {"error": "empty", "message": "No rows — columns: currency, rate_date, units_per_eur, "
+                                                                "basis (optional), period_start (for an average)."})
+    return _submit_rates(session, ctx, rows, file.filename or "csv")
+
+
+def _submit_rates(session, ctx: dict, rows: list[dict], via: str) -> dict:
+    from api.services.rbac import write_audit
+    from services.reference.client_fx import submit
+    out = submit(session, ctx["org"]["org_id"], rows, ctx["user"]["id"])
+    if not out["n_accepted"]:
+        raise HTTPException(422, {"error": "no_valid_rates", "refused": out["refused"],
+                                  "message": "No usable rates. " + (out["refused"][0]["reason"] if out["refused"] else "")})
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="fx.client_rates.submit",
+                target_type="fx_client_rates", target_id=None,
+                detail={"via": via, "n_accepted": out["n_accepted"], "n_refused": out["n_refused"],
+                        "currencies": sorted({a["currency"] for a in out["accepted"]})})
+    session.commit()
+    return out

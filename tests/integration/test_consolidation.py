@@ -141,3 +141,23 @@ def test_ownership_weights_multiply_along_the_chain_and_the_root_counts_in_full(
         w_mid = E.ownership_weights(s, org, root_entity_id=_u.UUID(mid))       # a UUID, as it comes from the DB
         assert w_mid[mid] == 1.0 and w_mid[leaf] == pytest.approx(0.6)
         s.rollback()
+
+
+@pytest.mark.integration
+def test_functional_currency_is_own_else_inherited_else_the_organisation():
+    import uuid as _u
+    with get_session() as s:
+        org = s.execute(text("SELECT org_id::text FROM organizations WHERE type = 'bank' LIMIT 1")).scalar()
+        top = E.create_entity(s, org, name=f"TEST-CCY-top-{_u.uuid4().hex[:6]}")
+        uk = E.create_entity(s, org, name="TEST-CCY-uk", parent_entity_id=top["entity_id"], functional_currency="gbp")
+        uk_sub = E.create_entity(s, org, name="TEST-CCY-uk-sub", parent_entity_id=uk["entity_id"])
+        eff = E.effective_currencies(s, org)
+        assert uk["functional_currency"] == "GBP"
+        assert eff[uk["entity_id"]] == {"currency": "GBP", "inherited_from": None}
+        assert eff[uk_sub["entity_id"]] == {"currency": "GBP", "inherited_from": uk["entity_id"]}
+        assert eff[top["entity_id"]]["inherited_from"] == "organisation"
+        with pytest.raises(E.EntityError, match="not a currency"):
+            E.update_entity(s, org, uk_sub["entity_id"], functional_currency="ZZZ")
+        E.update_entity(s, org, uk["entity_id"], functional_currency=None)          # back to inheriting
+        assert E.effective_currencies(s, org)[uk_sub["entity_id"]]["inherited_from"] == "organisation"
+        s.rollback()

@@ -21,7 +21,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind,
                e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency,
                e.requires_solo_filing, e.solo_waiver_reason,
                (SELECT count(*) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS n_assets,
                (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur,
@@ -35,7 +35,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
 def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     r = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind, e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency,
                e.requires_solo_filing, e.solo_waiver_reason,
                EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
         FROM reporting_entities e WHERE e.org_id = :o AND e.entity_id = :e
@@ -138,7 +138,8 @@ def _parent_in_org(session, org_id, parent_entity_id) -> bool:
 def create_entity(session: Session, org_id: str, *, name: str, kind: str = "legal_entity",
                   parent_entity_id: str | None = None, ownership_pct: float = 100.0,
                   consolidation_method: str = "full", requires_solo_filing: bool | None = None,
-                  solo_waiver_reason: str | None = None, consolidation_basis: str | None = None) -> dict:
+                  solo_waiver_reason: str | None = None, consolidation_basis: str | None = None,
+                  functional_currency: str | None = None) -> dict:
     """requires_solo_filing defaults to True — the CRR-safe assumption (Art 6) that an entity's own
     individual-reporting duty applies unless a customer explicitly records why it's waived (Art 7:
     parent guarantee, prudent-management sign-off, no impediment to fund transfer). Never default this to
@@ -170,12 +171,13 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
             "ownership)")
     if parent_entity_id and not _parent_in_org(session, org_id, parent_entity_id):
         raise EntityError("parent entity not found in your organisation")
+    _currency(session, functional_currency)            # checked before anything is written
     eid = session.execute(text("""
         INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct,
                                         consolidation_method, consolidation_basis, requires_solo_filing,
-                                        solo_waiver_reason)
-        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :basis, :rsf, :swr) RETURNING entity_id
-    """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id,
+                                        solo_waiver_reason, functional_currency)
+        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :basis, :rsf, :swr, :fc) RETURNING entity_id
+    """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id, "fc": _currency(session, functional_currency),
            "pct": ownership_pct, "m": consolidation_method,
            "basis": (consolidation_basis or "").strip() or None,
            "rsf": requires_solo_filing, "swr": (solo_waiver_reason or "").strip() or None}).scalar()
@@ -184,7 +186,8 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
 
 def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
                   parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None,
-                  consolidation_basis=_UNSET, requires_solo_filing=None, solo_waiver_reason=_UNSET) -> dict:
+                  consolidation_basis=_UNSET, requires_solo_filing=None, solo_waiver_reason=_UNSET,
+                  functional_currency=_UNSET) -> dict:
     current = get_entity(session, org_id, entity_id)
     if not current:
         raise EntityError("entity not found")
@@ -209,6 +212,8 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
         sets.append("requires_solo_filing = :rsf"); params["rsf"] = requires_solo_filing
     if solo_waiver_reason is not _UNSET:
         sets.append("solo_waiver_reason = :swr"); params["swr"] = (solo_waiver_reason or "").strip() or None
+    if functional_currency is not _UNSET:   # None / "" = inherit from the parent (at the top: the org's presentation currency)
+        sets.append("functional_currency = :fc"); params["fc"] = _currency(session, functional_currency)
     if parent_entity_id is not _UNSET:
         if parent_entity_id == entity_id:
             raise EntityError("an entity can't be its own parent")
@@ -222,6 +227,38 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
     if sets:
         session.execute(text(f"UPDATE reporting_entities SET {', '.join(sets)} WHERE org_id=:o AND entity_id=:e"), params)
     return get_entity(session, org_id, entity_id)
+
+
+def _currency(session: Session, code) -> Optional[str]:
+    """A functional currency must be one we can convert; blank means 'inherit'."""
+    if not (code or "").strip():
+        return None
+    from services.intake.money import MoneyError, validate_declaration
+    try:
+        return validate_declaration(session, code, None)[0]
+    except MoneyError as e:
+        raise EntityError(str(e))
+
+
+def effective_currencies(session: Session, org_id: str) -> dict[str, dict]:
+    """entity_id -> {currency, inherited_from}: each entity's functional currency — its own, else its nearest
+    ancestor's, else the organisation's presentation currency. The currency its SOLO figures are presented in."""
+    from services.governance.reporting_settings import get_settings
+    org_ccy = get_settings(session, org_id)["presentation_currency"]
+    rows = session.execute(text("""SELECT entity_id::text, parent_entity_id::text, functional_currency
+                                   FROM reporting_entities WHERE org_id = :o"""), {"o": org_id}).all()
+    parent = {r[0]: r[1] for r in rows}
+    own = {r[0]: (r[2] or "").strip() or None for r in rows}
+    out = {}
+    for eid in parent:
+        cur, hops = eid, 0
+        while cur is not None and own.get(cur) is None and hops < 64:
+            cur, hops = parent.get(cur), hops + 1
+        if cur is not None and own.get(cur):
+            out[eid] = {"currency": own[cur], "inherited_from": None if cur == eid else cur}
+        else:
+            out[eid] = {"currency": org_ccy, "inherited_from": "organisation"}
+    return out
 
 
 def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:

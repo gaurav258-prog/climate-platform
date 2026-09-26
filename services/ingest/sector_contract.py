@@ -111,4 +111,6 @@ class Sector:
     existing: Callable[[Session, str], list[dict]]
     insert: Callable[[Session, str, dict, list[dict]], None]
     update: Callable[[Session, str, dict, list[dict]], None]
+    table: str = "portfolio_entities"       # where the sector's assets live, and their id column — used to record
+    id_column: str = "entity_id"            # where each stored amount came from (money_source)
     notes: dict = field(default_factory=dict)

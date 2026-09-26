@@ -58,8 +58,8 @@ def test_balances_convert_at_the_closing_rate_of_the_book_date(session_rolled_ba
     used = [u for u in ctl["controls"]["currency"]["rates"] if u["currency"] == "USD"]
     assert used and all(u["policy"] == "closing" and u["book_date"] == "2026-06-30" for u in used)
     assert ctl["normalised"][0]["appraised_value_eur"] == pytest.approx(round(1_000_000 * r["rate"], 2))
-    staged = ctl["staged"]["staged"][0]["record"]["_native"]
-    assert staged["appraised_value_eur"] == [1_000_000.0, "USD"]          # the amount as sent is kept
+    staged = ctl["staged"]["staged"][0]["record"]["_money"]["appraised_value_eur"]
+    assert (staged["amount"], staged["currency"], staged["policy"]) == (1_000_000.0, "USD", "closing")   # as sent, kept
 
 
 def test_each_row_can_carry_its_own_currency(session_rolled_back):
@@ -130,3 +130,23 @@ def test_an_approval_replays_at_the_declared_currency_and_book_date(session_roll
     v = s.execute(text("SELECT CAST(primary_value_eur AS FLOAT) FROM portfolio_entities WHERE external_ref = :r"),
                   {"r": f"{tag}-0"}).scalar()
     assert v == pytest.approx(round(1e6 * rate_for(s, "USD", BOOK)["rate"], 2))
+
+
+def test_each_stored_amount_keeps_where_it_came_from_and_later_batches_merge(session_rolled_back):
+    s, tag = session_rolled_back, uuid.uuid4().hex[:8]
+    org_id, user_id = _org_and_admin(s, "bank")
+    rows = [{**r, "outstanding_loan_balance_eur": 700_000} for r in _bank(tag, n=2)]
+    out = pipeline.submit(s, org_id, "bank_assets", _csv(rows), f"{tag}-1.csv", user_id=user_id, currency="USD", book_date="2026-06-30")
+    assert out["state"] == "imported", out.get("controls", {}).get("gate")
+    ms = s.execute(text("SELECT money_source FROM portfolio_entities WHERE external_ref = :r"), {"r": f"{tag}-0"}).scalar()
+    f = ms["fields"]
+    assert set(f) >= {"appraised_value_eur", "counterparty_evic_eur", "outstanding_loan_balance_eur"}
+    assert (f["appraised_value_eur"]["amount"], f["appraised_value_eur"]["currency"]) == (1_000_000.0, "USD")
+    assert f["appraised_value_eur"]["origin"] == f"batch:{out['batch_id']}"
+    # a later batch in GBP that sends only the value: the value's origin changes, the balance keeps its USD origin
+    upd = [{k: v for k, v in r.items() if k != "outstanding_loan_balance_eur"} | {"appraised_value_eur": 900_000} for r in rows]
+    out2 = pipeline.submit(s, org_id, "bank_assets", _csv(upd), f"{tag}-2.csv", user_id=user_id, currency="GBP", book_date="2026-06-30")
+    assert out2["state"] == "imported", out2.get("controls", {}).get("gate")
+    f2 = s.execute(text("SELECT money_source FROM portfolio_entities WHERE external_ref = :r"), {"r": f"{tag}-0"}).scalar()["fields"]
+    assert f2["appraised_value_eur"]["currency"] == "GBP" and f2["appraised_value_eur"]["origin"] == f"batch:{out2['batch_id']}"
+    assert f2["outstanding_loan_balance_eur"]["currency"] == "USD"

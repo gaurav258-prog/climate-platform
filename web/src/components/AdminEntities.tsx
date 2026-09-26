@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, CornerDownRight, Check, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { Card, Button } from './ui'
+import { useCurrencies } from './MoneyDeclaration'
 
 // Manage the reporting-entity hierarchy — the legal-entity / fund tree a group files and consolidates over.
 // A filing can be scoped to one entity (its own book) or a parent/group (its whole subtree, consolidated).
@@ -10,13 +11,18 @@ import { Card, Button } from './ui'
 interface Ent {
   entity_id: string; name: string; kind: string; parent_entity_id: string | null
   ownership_pct: number; consolidation_method: string; n_assets: number; value_eur: number
+  functional_currency: string | null; effective_currency: string | null; currency_inherited_from: string | null
 }
-interface Form { name: string; kind: string; parent_entity_id: string; ownership_pct: number; consolidation_method: string }
+interface Form { name: string; kind: string; parent_entity_id: string; ownership_pct: number; consolidation_method: string; functional_currency: string }
 
 const KINDS = ['group', 'sub_group', 'legal_entity', 'fund', 'division']
 const METHODS = ['full', 'proportional', 'equity']
 const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
-const err = (e: unknown, fb: string) => e instanceof ApiError ? (typeof e.body === 'object' && e.body && 'message' in e.body ? String((e.body as { message: unknown }).message) : fb) : fb
+const err = (e: unknown, fb: string) => {
+  if (!(e instanceof ApiError) || typeof e.body !== 'object' || !e.body) return fb
+  const b = e.body as { message?: unknown; error?: { message?: unknown } }
+  return String(b.error?.message ?? b.message ?? fb)   // the API wraps a refusal as {error: {message}}
+}
 
 export default function AdminEntities() {
   const qc = useQueryClient()
@@ -73,6 +79,7 @@ export default function AdminEntities() {
                   </div>
                   <div className="text-right"><div className="mono text-[12.5px] text-[var(--color-mute)]">{eur(e.value_eur)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{e.n_assets} asset{e.n_assets === 1 ? '' : 's'}</div></div>
                   <div className="text-right w-40">
+                    <div className="mono text-[11px] text-[var(--color-ink)]" title={e.currency_inherited_from ? 'inherited — solo figures are presented in this currency' : 'this entity\'s functional currency'}>{e.effective_currency ?? '—'}{e.currency_inherited_from ? <span className="text-[var(--color-faint)]"> · inherited</span> : ''}</div>
                     {e.parent_entity_id
                       ? <span className="mono text-[11px]" style={{ color: e.consolidation_method === 'full' ? 'var(--color-mute)' : 'var(--color-warn)' }}>{e.consolidation_method}{e.consolidation_method !== 'full' ? ` · ${Math.round(e.ownership_pct)}%` : ''}</span>
                       : <span className="mono text-[10px] text-[var(--color-faint)]">top level</span>}
@@ -93,8 +100,9 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
   const [f, setF] = useState<Form>({
     name: edit?.name ?? '', kind: edit?.kind ?? 'legal_entity',
     parent_entity_id: edit?.parent_entity_id ?? '', ownership_pct: edit?.ownership_pct ?? 100,
-    consolidation_method: edit?.consolidation_method ?? 'full',
+    consolidation_method: edit?.consolidation_method ?? 'full', functional_currency: edit?.functional_currency ?? '',
   })
+  const currencies = useCurrencies()
   const [busy, setBusy] = useState(false)
   // a node can't be its own parent or (on edit) parented under a descendant — the backend enforces it too;
   // here we just drop self from the options for a cleaner list
@@ -106,8 +114,8 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
     if (!f.name.trim()) { onError('Name is required.'); return }
     setBusy(true); onError('')
     try {
-      const body = { name: f.name.trim(), kind: f.kind, ownership_pct: Number(f.ownership_pct), consolidation_method: f.consolidation_method }
-      if (edit) await api.patch(`/v1/filings/entities/${edit.entity_id}`, { ...body, set_parent: true, parent_entity_id: f.parent_entity_id || null })
+      const body = { name: f.name.trim(), kind: f.kind, ownership_pct: Number(f.ownership_pct), consolidation_method: f.consolidation_method, functional_currency: f.functional_currency || null }
+      if (edit) await api.patch(`/v1/filings/entities/${edit.entity_id}`, { ...body, set_parent: true, parent_entity_id: f.parent_entity_id || null, set_functional_currency: true })
       else await api.post('/v1/filings/entities', { ...body, parent_entity_id: f.parent_entity_id || null })
       onSaved()
     } catch (ex) { onError(err(ex, 'Could not save the entity.')) }
@@ -131,6 +139,9 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
         <label className="flex flex-col gap-1"><span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Ownership %</span>
           <input type="number" min={0} max={100} value={f.ownership_pct} onChange={e => set('ownership_pct', e.target.value)} className={`${box} w-24`} /></label>
       )}
+      <label className="flex flex-col gap-1"><span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Functional currency</span>
+        <select value={f.functional_currency} onChange={e => set('functional_currency', e.target.value)} className={`${box} mono`} title="The currency this entity keeps its books and files solo in. Inherit = its parent's (at the top: the organisation's presentation currency).">
+          <option value="">— inherit —</option>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select></label>
       <Button variant="primary" onClick={save} disabled={busy}><Check size={14} /> {edit ? 'Save' : 'Add'}</Button>
       <Button variant="ghost" onClick={onCancel}><X size={14} /> Cancel</Button>
     </div>

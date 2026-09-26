@@ -47,7 +47,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
         try:
             rec = sector.build(ctx, n)
             if rn - 2 in natives:
-                rec["_native"] = natives[rn - 2]               # the amounts as sent, with their currency (kept for audit)
+                rec["_money"] = natives[rn - 2]                # each amount as sent + the rate that converted it
             records.append(rec)
         except RowIssue as e:
             records.append(None)
@@ -101,7 +101,7 @@ def persist(session: Session, batch_id: str, st: dict) -> None:
         """), rows)
 
 
-def land(session: Session, org_id: str, sector: Sector, st: dict) -> dict:
+def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Optional[str] = None) -> dict:
     """Write the staged records: new assets inserted, existing assets updated with the values the file gives (a blank
     never clears a value), unchanged assets left alone. Then read the book back and reconcile what landed."""
     new, updates, unchanged_ids = [], [], []
@@ -117,6 +117,7 @@ def land(session: Session, org_id: str, sector: Sector, st: dict) -> dict:
         else:
             unchanged_ids.append(m["entity_id"])
     out = si.write(session, sector, org_id, st["ctx"], new, updates)
+    _record_money_source(session, sector, new, out["entity_ids"], updates, batch_id)
     ids = set(out["entity_ids"]) | {u["entity_id"] for u in updates} | set(unchanged_ids)
     after = {e["entity_id"]: e for e in sector.existing(session, org_id) if e["entity_id"] in ids}
     value_landed = float(sum(e.get(sector.value_field) or 0 for e in after.values()))
@@ -128,3 +129,17 @@ def land(session: Session, org_id: str, sector: Sector, st: dict) -> dict:
         notes["reporting_entity_gap"] = (f"{len(new)} new asset(s) have no reporting entity (this organisation has more "
                                          "than one), so they are not in any per-entity filing until assigned.")
     return {"n_landed": len(after), "value_landed": value_landed, "cell_coords": out["cell_coords"], "notes": notes}
+
+
+def _record_money_source(session: Session, sector: Sector, new: list[dict], new_ids: list[str], updates: list[dict],
+                         batch_id: Optional[str]) -> None:
+    """Keep, on each written asset, where every amount came from: as sent, the rate, and this batch. Fields this batch
+    did not send keep their earlier entries (merge). New assets get their ids during the write (new_ids, same order)."""
+    from services.intake.money import money_source_merge_sql
+    origin = f"batch:{batch_id}" if batch_id else None
+    pairs = list(zip(new_ids, new)) + [(u["entity_id"], u) for u in updates]
+    rows = [{"id": eid, "ms": json.dumps({"fields": {f: {**e, "origin": origin} for f, e in rec["_money"].items()}}, default=str)}
+            for eid, rec in pairs if rec.get("_money")]
+    if rows:
+        session.execute(text(f"UPDATE {sector.table} SET money_source = {money_source_merge_sql()} "
+                             f"WHERE {sector.id_column} = CAST(:id AS uuid)"), rows)

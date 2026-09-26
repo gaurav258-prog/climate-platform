@@ -37,7 +37,7 @@ def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
         ccy = (str(r.get("currency") or "").strip() or currency or "").upper()
         asof = str(r.get("as_of_date") or "").strip() or book_date
         try:
-            c = convert_amount(session, r.get("balance", r.get("balance_eur")), ccy, asof, label="balance")
+            c = convert_amount(session, r.get("balance", r.get("balance_eur")), ccy, asof, label="balance", org_id=org_id)
         except MoneyError as e:
             skipped.append({"row": i, "reason": str(e)})
             continue
@@ -49,7 +49,7 @@ def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
         """), {"g": str(uuid.uuid4()), "o": org_id, "b": bid, "code": code[:60],
                "name": str(r.get("account_name") or "")[:200], "bal": c["eur"],
                "cf": (str(r.get("control_for")).strip() or "book") if r.get("control_for") else "book",
-               "asof": asof, "u": user_id, "ms": json.dumps(source_record(ccy, asof, {"balance": c}), default=str)})
+               "asof": asof, "u": user_id, "ms": json.dumps(source_record(ccy, asof, {"balance_eur": c}, origin=f"gl_batch:{bid}"), default=str)})
         n += 1
     session.commit()
     return {"batch_id": bid, "rows": n, "skipped": skipped[:50], "n_skipped": len(skipped)}

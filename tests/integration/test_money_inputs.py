@@ -54,7 +54,8 @@ def test_gl_balances_declare_their_currency_and_date():
             got = {r[0]: (float(r[1]), r[2]) for r in s.execute(text(
                 "SELECT account_code, balance_eur, money_source FROM gl_balance WHERE batch_id = CAST(:b AS uuid)"), {"b": res["batch_id"]})}
             assert got["T-1"][0] == pytest.approx(round(1e6 * rate_for(s, "USD", BOOK)["rate"], 2))
-            assert got["T-2"][1]["currency"] == "GBP" and got["T-2"][1]["native"] == {"balance": 500000.0}
+            e = got["T-2"][1]["fields"]["balance_eur"]
+            assert (e["currency"], e["amount"], e["policy"]) == ("GBP", 500000.0, "closing") and e["origin"].startswith("gl_batch:")
         with get_session() as s:
             none = G.ingest(s, BANK_ORG, [{"account_code": "T-9", "balance": "5"}], None)          # nothing declared
         assert none["rows"] == 0 and "currency" in none["skipped"][0]["reason"]
@@ -86,7 +87,7 @@ def test_site_value_is_a_balance_and_throughput_a_flow():
         v, tp, ms = site_amounts(s, "2000000", "5000000", "USD", "2026-06-30")
         assert v == pytest.approx(round(2e6 * rate_for(s, "USD", BOOK)["rate"], 2))
         assert tp == pytest.approx(round(5e6 * average_rate(s, "USD", BOOK - timedelta(days=364), BOOK)["rate"], 2))
-        assert [r["policy"] for r in ms["rates"]] == ["closing", "average"]
+        assert [ms["fields"][f]["policy"] for f in ("annual_value_eur", "annual_throughput_eur")] == ["closing", "average"]
         with pytest.raises(MoneyError):
             site_amounts(s, "2000000", None, None, "2026-06-30")
         assert site_amounts(s, None, None, None, None) == (None, None, None)       # no amounts: nothing to declare
@@ -102,7 +103,7 @@ def test_fund_issuer_financials_in_their_own_currency():
         d = date(2025, 12, 31)
         assert f["revenue_eur"] == pytest.approx(round(5e9 * average_rate(s, "USD", d - timedelta(days=364), d)["rate"], 2))
         assert f["evic_eur"] == pytest.approx(round(2e10 * rate_for(s, "USD", d)["rate"], 2))
-        assert f["money_source"]["native"] == {"revenue": 5e9, "evic": 2e10}
+        assert {k: v["amount"] for k, v in f["money_source"]["fields"].items()} == {"revenue_eur": 5e9, "evic_eur": 2e10}
     eur = Holding(isin="US0000000001", market_value_eur=1e6, revenue_eur=7e8)
     with get_session() as s:
         assert _issuer_financials_eur(s, eur)["revenue_eur"] == 7e8
@@ -136,3 +137,18 @@ def test_per_loan_attributes_match_by_id_refuse_ambiguous_names_and_convert_evic
             s.execute(text("DELETE FROM ext_banking WHERE entity_id = ANY(:i)"), {"i": ids})
             s.execute(text("DELETE FROM portfolio_entities WHERE entity_id = ANY(:i)"), {"i": ids})
             s.commit()
+
+
+def test_the_flow_rate_policy_is_the_organisations_governed_choice():
+    from services.calc_settings import upsert_calc_settings
+    from services.intake.money import rate_policy
+    with get_session() as s:
+        try:
+            assert rate_policy(s, BANK_ORG)["flow"] == "period_average"
+            avg = convert_amount(s, 1000, "USD", BOOK, flow=True, org_id=BANK_ORG)
+            assert avg["rate"]["policy"] == "average"
+            upsert_calc_settings(s, BANK_ORG, {"fx_flow_rate": "closing"}, None)
+            clo = convert_amount(s, 1000, "USD", BOOK, flow=True, org_id=BANK_ORG)
+            assert clo["rate"]["policy"] == "closing" and clo["eur"] == pytest.approx(round(1000 * rate_for(s, "USD", BOOK)["rate"], 2))
+        finally:
+            s.rollback()

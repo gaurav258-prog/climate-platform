@@ -22,6 +22,17 @@ from services.intake.values import is_blank
 from services.reference.fx import FxError, average_rate, rate_for
 
 FLOW_PERIOD_DAYS = 365
+
+
+def rate_policy(session: Session, org_id: Optional[str]) -> dict:
+    """The organisation's FX rate policy (governed interpretation switches, calc_settings): how FLOWS convert, and the
+    tolerance for its own rates. Balances always convert at the closing rate."""
+    if not org_id:
+        return {"flow": "period_average", "client_tolerance_pct": 1.0}
+    from services.calc_settings import get_calc_settings
+    st = get_calc_settings(session, org_id)
+    return {"flow": st.get("fx_flow_rate", "period_average"),
+            "client_tolerance_pct": float(st.get("fx_client_rate_tolerance_pct", 1.0))}
 _HIDDEN = "__ccy__"            # a mapping's per-field currency column travels in the frame under this prefix
 
 
@@ -44,7 +55,7 @@ def parse_book_date(v) -> Optional[date]:
 
 def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) -> tuple[pd.DataFrame, dict, dict, dict]:
     """ctx: {currency: declared batch currency or None, book_date: date or None, field_currency: {field: 'USD'}}.
-    Returns (frame with EUR amounts, report, problems {row index: [msg]}, natives {row index: {field: [amount, ccy]}})."""
+    Returns (frame with EUR amounts, report, problems {row index: [msg]}, natives {row index: {field: field_entry}})."""
     out = df.copy()
     money = [s for s in specs if s.get("kind") == "money" and s["name"] in out.columns]
     for s in money:                                    # a whole-number column must be able to take a converted amount
@@ -57,10 +68,10 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
     n_conv = 0
 
     def rate(ccy: str, d: date, flow: bool) -> dict:
+        flow = flow and ctx.get("flow_policy", "period_average") == "period_average"
         key = (ccy, d, flow)
         if key not in rates:
-            rates[key] = (average_rate(session, ccy, d - timedelta(days=FLOW_PERIOD_DAYS - 1), d) if flow
-                          else rate_for(session, ccy, d))
+            rates[key] = _choose(session, ctx.get("org_id"), ccy, d, flow, None)
         return rates[key]
 
     row_ccy = out["currency"] if "currency" in out.columns else None
@@ -83,8 +94,8 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
                 problems.setdefault(idx, []).append(f"{s.get('label', f)}: no currency — declare the file's currency or add a currency column")
                 continue
             ccy = ccy.upper()
-            natives.setdefault(idx, {})[f] = [amt, ccy]
             if ccy == "EUR":
+                natives.setdefault(idx, {})[f] = field_entry(amt, "EUR", d, amt, None)
                 continue
             if d is None:
                 problems.setdefault(idx, []).append(f"{s.get('label', f)}: no book date to convert {ccy} — declare it or add a book_date column")
@@ -95,6 +106,8 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
                 problems.setdefault(idx, []).append(f"{s.get('label', f)}: no exchange rate for {ccy}")
                 continue
             out.at[idx, f] = round(amt * r["rate"], 2)
+            is_avg = bool(s.get("flow")) and ctx.get("flow_policy", "period_average") == "period_average"
+            natives.setdefault(idx, {})[f] = field_entry(amt, ccy, d, out.at[idx, f], {**r, "policy": "average" if is_avg else "closing"})
             n_conv += 1
     out = out[[c for c in out.columns if not c.startswith(_HIDDEN)]]
 
@@ -102,19 +115,41 @@ def convert(session: Session, df: pd.DataFrame, specs: list[dict], ctx: dict) ->
     for (ccy, d, flow), r in sorted(rates.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2])):
         used.append({"currency": ccy, "book_date": d.isoformat(), "policy": "average" if flow else "closing",
                      **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "age_days", "stale", "note",
-                                              "period_start", "period_end")}})
-    currencies = sorted({v[1] for n in natives.values() for v in n.values()})
+                                              "period_start", "period_end", "official", "difference_pct",
+                                              "outside_tolerance")}})
+    currencies = sorted({v["currency"] for n in natives.values() for v in n.values()})
     report = {"declared_currency": declared, "book_date": bdate.isoformat() if bdate else None, "currencies": currencies,
+              "flow_policy": ctx.get("flow_policy", "period_average"),
               "n_converted": n_conv, "rates": used, "n_rows_refused": len(problems),
-              "warnings": [f"{u['currency']} {u['policy']} rate for {u['book_date']}: {u['note']}" for u in used if u["stale"]]}
+              "warnings": [f"{u['currency']} {u['policy']} rate for {u['book_date']}: {u['note']}" for u in used
+                           if u["stale"] or u.get("outside_tolerance")]}
     return out, report, problems, natives
+
+
+def _choose(session: Session, org_id: Optional[str], ccy: str, d: date, flow: bool,
+            period: Optional[tuple[date, date]]) -> dict:
+    """The rate for one conversion: the official one (closing on d, or the period average), then — if the
+    organisation supplied its own for that day / period — its own, compared with the official (client_fx)."""
+    from services.reference import client_fx
+    start, end = (period or (d - timedelta(days=FLOW_PERIOD_DAYS - 1), d)) if flow else (None, d)
+    try:
+        official = average_rate(session, ccy, start, end) if flow else rate_for(session, ccy, d)
+    except FxError:
+        official = None
+    own = client_fx.resolve(session, org_id, ccy, end, average=flow, start=start, official=official,
+                            tolerance_pct=rate_policy(session, org_id)["client_tolerance_pct"]) if org_id else None
+    if own:
+        return own
+    if official is None:
+        raise FxError(f"No FX rate for currency {ccy!r}")
+    return official
 
 
 def gate_reason(report: Optional[dict]) -> Optional[str]:
     if not report or not report.get("warnings"):
         return None
     w = report["warnings"]
-    return f"Currency: {len(w)} stale rate(s) — {'; '.join(w[:3])}{'; …' if len(w) > 3 else ''}."
+    return f"Currency: {len(w)} rate(s) need a second look — {'; '.join(w[:3])}{'; …' if len(w) > 3 else ''}."
 
 
 def validate_declaration(session: Session, currency: Optional[str], book_date: Optional[str]) -> tuple[Optional[str], Optional[date]]:
@@ -134,7 +169,7 @@ def validate_declaration(session: Session, currency: Optional[str], book_date: O
 
 
 def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping_report: Optional[dict],
-                  currency: Optional[str], book_date) -> dict:
+                  currency: Optional[str], book_date, org_id: Optional[str] = None) -> dict:
     """The batch's money context, checked up front: a currency must be declared unless every money field has its own
     (a mapping's per-field currency) or the file has a currency column; a book date must be declared unless the file
     has a book_date column. Raises MoneyError with what to do."""
@@ -147,13 +182,14 @@ def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping
     if d is None and "book_date" not in df.columns:
         raise MoneyError("Say which date the figures describe (the book date) — enter it for the file, or add a "
                          "book_date column. Amounts are converted at that date's rates.")
-    return {"currency": ccy, "book_date": d, "field_currency": field_ccy}
+    return {"currency": ccy, "book_date": d, "field_currency": field_ccy,
+            "flow_policy": rate_policy(session, org_id)["flow"], "org_id": org_id}
 
 
 # ── single amounts: every money input outside the intake pipeline (GL, arrears, sites, plots, losses, funds) ──
 
 def convert_amount(session: Session, amount, currency: Optional[str], book_date, *, flow: bool = False,
-                   period: Optional[tuple[date, date]] = None, label: str = "amount") -> dict:
+                   period: Optional[tuple[date, date]] = None, label: str = "amount", org_id: Optional[str] = None) -> dict:
     """One amount in any currency → {eur, native, currency, rate}. Same rules as a batch: the currency must be given
     (never assumed); a balance converts at the closing rate on the book date; a flow at the average over `period`
     (default: the 12 months to the book date). Raises MoneyError with what to do."""
@@ -170,24 +206,45 @@ def convert_amount(session: Session, amount, currency: Optional[str], book_date,
         raise MoneyError(f"{label}: the book date {d} is in the future")
     if ccy == "EUR":
         return {"eur": round(amt, 2), "native": amt, "currency": "EUR", "rate": None}
+    if flow and rate_policy(session, org_id)["flow"] == "closing":
+        flow = False                  # the organisation converts flows at the closing rate (of the book date / period end)
     try:
-        if flow:
-            start, end = period or (d - timedelta(days=FLOW_PERIOD_DAYS - 1), d)
-            r = average_rate(session, ccy, start, end)
-        else:
-            r = rate_for(session, ccy, d)
+        r = _choose(session, org_id, ccy, d or (period[1] if period else None), flow, period)
     except FxError:
         raise MoneyError(f"{label}: no exchange rate for {ccy}")
+    if r.get("outside_tolerance"):   # no approval step on a direct input: refuse, with the numbers
+        raise MoneyError(f"{label}: {r['note']} — correct your rate, or have your tolerance reviewed")
     rate = {"currency": ccy, "policy": "average" if flow else "closing",
-            **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "stale", "note", "period_start", "period_end")}}
+            **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "stale", "note", "period_start",
+                                     "period_end", "difference_pct")}}
     return {"eur": round(amt * r["rate"], 2), "native": amt, "currency": ccy, "rate": rate}
 
 
-def source_record(currency: str, book_date, converted: dict[str, dict]) -> dict:
-    """The money_source JSON stored beside the converted amounts: what was sent, and the rates used."""
-    return {"currency": currency, "book_date": book_date.isoformat() if isinstance(book_date, date) else book_date,
-            "native": {f: c["native"] for f, c in converted.items()},
-            "rates": [c["rate"] for c in converted.values() if c.get("rate")]}
+def field_entry(amount: float, currency: str, book_date, eur, rate: Optional[dict], origin: Optional[str] = None) -> dict:
+    """Where one stored amount came from: as sent (amount + currency), the date it describes, its EUR value, and the
+    rate that converted it (policy closing/average/identity, source, kind, rate date, stale). The ONE shape of every
+    money_source entry, whichever input it came through."""
+    r = rate or {}
+    return {"amount": amount, "currency": currency,
+            "book_date": book_date.isoformat() if isinstance(book_date, date) else book_date,
+            "eur": float(eur) if eur is not None else None,
+            "policy": r.get("policy") or ("identity" if currency == "EUR" else None),
+            **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "stale", "period_start", "period_end",
+                                     "difference_pct")},
+            "origin": origin}
+
+
+def source_record(currency: str, book_date, converted: dict[str, dict], origin: Optional[str] = None) -> dict:
+    """The money_source JSON stored beside converted amounts: {"fields": {field: field_entry}}. Fields merge on update
+    (money_source_merge_sql) — a later input replaces only the fields it sent."""
+    return {"fields": {f: field_entry(c["native"], c["currency"], book_date, c["eur"], c.get("rate"), origin)
+                       for f, c in converted.items()}}
+
+
+def money_source_merge_sql(col: str = "money_source", param: str = "ms") -> str:
+    """SQL expression merging new field entries into a stored money_source (fields not sent this time are kept)."""
+    return (f"jsonb_build_object('fields', COALESCE({col}->'fields', '{{}}'::jsonb) || "
+            f"COALESCE(CAST(:{param} AS jsonb)->'fields', '{{}}'::jsonb))")
 
 
 def values_to_eur(session: Session, rows: list[dict], as_of: date, value_key: str = "asset_value",

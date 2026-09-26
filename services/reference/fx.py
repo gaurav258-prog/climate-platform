@@ -196,3 +196,19 @@ def average_rate(session, currency: Optional[str], start: date, end: date) -> di
     return {**closing, **period, "stale": True,
             "note": "no average rate covers the period; the closing rate was used" +
                     (f" ({closing['note']})" if closing.get("note") else "")}
+
+
+def rate_changes_since(session, since, keys: list[tuple]) -> list[dict]:
+    """Rates a source corrected (or removed) after `since` — for keys (ccy, rate_date, source, basis) a figure used.
+    Phase 3 stamps every frozen filing with the rates it used; any hit here means that filing may need restating."""
+    if not keys:
+        return []
+    rows = session.execute(text("""
+        SELECT ccy, rate_date, source, basis, CAST(units_per_eur AS FLOAT) AS was, CAST(new_units_per_eur AS FLOAT) AS now,
+               change, replaced_at
+        FROM fx_rate_history WHERE replaced_at > :t AND (ccy, rate_date, source, basis) IN (
+            SELECT * FROM unnest(CAST(:c AS varchar[]), CAST(:d AS date[]), CAST(:s AS text[]), CAST(:b AS text[])))
+        ORDER BY replaced_at
+    """), {"t": since, "c": [k[0] for k in keys], "d": [k[1] for k in keys], "s": [k[2] for k in keys],
+           "b": [k[3] for k in keys]}).mappings().all()
+    return [{**dict(r), "rate_date": r["rate_date"].isoformat(), "replaced_at": r["replaced_at"].isoformat()} for r in rows]

@@ -72,19 +72,20 @@ def resolve_location(address: Optional[str], lat: Optional[float], lon: Optional
     raise SiteLocationError("could not locate the site — provide coordinates or a geocodable address")
 
 
-def site_amounts(session: Session, value, throughput, currency: Optional[str], book_date) -> tuple[Optional[float], Optional[float], Optional[dict]]:
+def site_amounts(session: Session, value, throughput, currency: Optional[str], book_date,
+                 org_id: Optional[str] = None) -> tuple[Optional[float], Optional[float], Optional[dict]]:
     """A site's amounts in any currency → EUR: asset value is a BALANCE (closing rate on the book date); throughput is a
     yearly FLOW (average of the 12 months to it). Returns (value_eur, throughput_eur, money_source). Raises MoneyError."""
     from services.intake.money import convert_amount, source_record
     conv = {}
     if value not in (None, ""):
-        conv["annual_value"] = convert_amount(session, value, currency, book_date, label="asset value")
+        conv["annual_value_eur"] = convert_amount(session, value, currency, book_date, label="asset value", org_id=org_id)
     if throughput not in (None, ""):
-        conv["annual_throughput"] = convert_amount(session, throughput, currency, book_date, flow=True, label="throughput")
+        conv["annual_throughput_eur"] = convert_amount(session, throughput, currency, book_date, flow=True, label="throughput", org_id=org_id)
     if not conv:
         return None, None, None
-    return (conv["annual_value"]["eur"] if "annual_value" in conv else None,
-            conv["annual_throughput"]["eur"] if "annual_throughput" in conv else None,
+    return (conv["annual_value_eur"]["eur"] if "annual_value_eur" in conv else None,
+            conv["annual_throughput_eur"]["eur"] if "annual_throughput_eur" in conv else None,
             source_record((currency or "").upper(), book_date, conv))
 
 

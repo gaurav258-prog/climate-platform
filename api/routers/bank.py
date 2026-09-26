@@ -465,7 +465,12 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             by_ref[str(ref).strip()] = eid
         by_name.setdefault((nm or "").strip().lower(), []).append(eid)
 
-    from services.intake.money import MoneyError, convert_amount, source_record
+    from services.intake.money import (
+        MoneyError,
+        convert_amount,
+        money_source_merge_sql,
+        source_record,
+    )
     matched, unmatched, updated, ambiguous, refused = 0, [], 0, [], []
     for row in rep["valid_rows"]:
         name = str(row.get("asset_name") or "").strip()
@@ -497,13 +502,13 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
             bdate = str(row.get("book_date") or "").strip() or book_date
             try:
-                c = convert_amount(session, evic, ccy, bdate, label="counterparty EVIC")
+                c = convert_amount(session, evic, ccy, bdate, label="counterparty EVIC", org_id=org_id)
             except MoneyError as e:
                 refused.append({"asset": ref or name, "reason": str(e)})
                 continue
             sets.append("counterparty_evic_eur = :evic"); params["evic"] = c["eur"]
-            sets.append("money_source = CAST(:ms AS jsonb)")
-            params["ms"] = json.dumps(source_record(ccy, bdate, {"counterparty_evic": c}), default=str)
+            sets.append(f"money_source = {money_source_merge_sql()}")   # other fields' origins are kept
+            params["ms"] = json.dumps(source_record(ccy, bdate, {"counterparty_evic_eur": c}, origin="attributes_upload"), default=str)
         gl = row.get("counterparty_govt_level")
         if gl not in (None, ""):
             sets.append("counterparty_govt_level = :gl"); params["gl"] = str(gl).strip().lower()

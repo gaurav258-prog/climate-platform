@@ -76,6 +76,24 @@ INTERPRETATION_SCHEMA: dict = {
                        "reference (EU Climate-ADAPT / IPCC AR6 WGII central) / optimistic.",
         "sectors": ["reit"],
     },
+    # FX rate policy (multi-currency phase 2). BALANCES always convert at the closing rate of the book date (IAS 21
+    # — not a switch); how yearly FLOWS convert is the institution's choice, stamped on every filing.
+    "fx_flow_rate": {
+        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
+                       "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
+        "default": "period_average", "kind": "enum", "allowed": ["period_average", "closing"],
+        "label": "Exchange rate for yearly figures (income, spend, revenue, premiums)",
+        "description": "'period_average' = the average rate of the 12 months to the book date (IAS 21 practice — a "
+                       "year's income at the year's rates); 'closing' = the book date's rate, like balances.",
+    },
+    "fx_client_rate_tolerance_pct": {
+        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
+                       "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
+        "default": 1.0, "kind": "float", "min": 0.1, "max": 10.0,
+        "label": "Own exchange rates: allowed difference from the official rate (%)",
+        "description": "Your own (treasury) rates are used when you supply them; one further than this from the ECB / "
+                       "IMF rate for the same day needs a second person to accept it.",
+    },
     "equity_consolidation": {
         "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "reit_tcfd", "insurer_climate"],
         "default": "economic_share", "kind": "enum", "allowed": ["economic_share", "excluded", "full"],

@@ -113,9 +113,11 @@ def _prior_import(session: Session, org_id: str, template: str, sha: str, exclud
     return {"batch_id": r["batch_id"], "imported_at": str(r["state_changed_at"])[:19]} if r else None
 
 
-def _money_ctx(session: Session, tpl: Template, df: pd.DataFrame, mrep: Optional[dict], currency, book_date) -> dict:
+def _money_ctx(session: Session, tpl: Template, df: pd.DataFrame, mrep: Optional[dict], currency, book_date,
+               org_id: Optional[str] = None, flow_policy: Optional[str] = None) -> dict:
     try:
-        return money.batch_context(session, df, enrich_specs(tpl.specs(df)), mrep, currency, book_date)
+        ctx = money.batch_context(session, df, enrich_specs(tpl.specs(df)), mrep, currency, book_date, org_id)
+        return {**ctx, "flow_policy": flow_policy} if flow_policy else ctx   # a replay keeps the policy it was checked under
     except money.MoneyError as e:
         raise IntakeError(400, {"error": "currency_declaration", "message": str(e)})
 
@@ -237,7 +239,7 @@ def _dispatch_scoring(cell_coords: dict) -> dict:
 
 def _land(session: Session, org_id: str, tpl: Template, batch_id: str, ctl: dict, *, actor_user: Optional[str],
           actor_token: Optional[str], from_state: str, detail: Optional[dict] = None) -> dict:
-    res = staging.land(session, org_id, tpl.sector, ctl["staged"])
+    res = staging.land(session, org_id, tpl.sector, ctl["staged"], batch_id)
     landing = bc.landing_check(n_valid=ctl["report"]["n_valid"], n_landed=res["n_landed"],
                                value_valid=ctl["value_valid"], value_landed=res["value_landed"])
     if res["n_landed"] == 0:
@@ -279,7 +281,7 @@ def preview(session: Session, org_id: str, template: str, raw: bytes, filename: 
     if err:
         raise IntakeError(400, {**err, "security": sec})
     ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared,
-                        money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date))
+                        money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date, org_id))
     ctl["mapping"] = mrep
     gate = ctl["controls"]["gate"]
     if sec["status"] == "warned":
@@ -336,7 +338,7 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     if err:
         raise IntakeError(400, err)
     sha = storage_sha(raw)
-    mctx = _money_ctx(session, tpl, df, mrep, currency, book_date)
+    mctx = _money_ctx(session, tpl, df, mrep, currency, book_date, org_id)
     ctl = _run_controls(session, org_id, tpl, sha, df, declared, money_ctx=mctx) if decision == "proceed" else None
     if ctl:
         ctl["mapping"] = mrep
@@ -415,7 +417,7 @@ def _load_batch(session: Session, org_id: str, batch_id: str) -> dict:
     b = session.execute(text("""
         SELECT b.batch_id::text, b.template, b.via, b.filename, b.state, b.declared, b.gate_reasons, b.received_by::text,
                b.token_id::text, b.mapping_profile_id::text, b.received_at::date AS received_on, b.match_summary,
-               b.currency, b.book_date,
+               b.currency, b.book_date, b.money_report->>'flow_policy' AS flow_policy,
                f.sha256, f.detected_type, f.security_findings, f.security_status
         FROM ingest_batches b JOIN intake_files f ON f.file_id = b.file_id
         WHERE b.org_id = CAST(:o AS uuid) AND b.batch_id = CAST(:b AS uuid)
@@ -430,7 +432,8 @@ def _recheck(session: Session, org_id: str, tpl: Template, b: dict) -> dict:
     raw = storage.get(b["sha256"])   # verified byte-identical to what was received
     df, mrep = _canonical(session, org_id, tpl, _parse(raw, b["detected_type"], b["via"]), b["mapping_profile_id"], b["received_on"])
     ctl = _run_controls(session, org_id, tpl, b["sha256"], df, b["declared"] or None, exclude_batch=b["batch_id"],
-                        money_ctx=_money_ctx(session, tpl, df, mrep, b["currency"], b["book_date"]))
+                        money_ctx=_money_ctx(session, tpl, df, mrep, b["currency"], b["book_date"], org_id,
+                                             b["flow_policy"]))
     ctl["mapping"] = mrep
     return ctl
 

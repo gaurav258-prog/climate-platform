@@ -185,7 +185,7 @@ class HoldingsUpload(BaseModel):
     holdings: list[Holding]
 
 
-def _issuer_financials_eur(session, h: "Holding") -> dict:
+def _issuer_financials_eur(session, h: "Holding", org_id: str | None = None) -> dict:
     """The issuer's revenue and EVIC in EUR: as given in EUR, or converted from financials_currency at the financials
     date — revenue (a yearly flow) at the average of the 12 months to it, EVIC (a balance) at its closing rate. The
     amounts as sent and the rates are kept (money_source). Raises MoneyError."""
@@ -196,12 +196,12 @@ def _issuer_financials_eur(session, h: "Holding") -> dict:
     ccy = h.financials_currency.strip().upper()
     conv = {}
     if h.revenue is not None:
-        conv["revenue"] = convert_amount(session, h.revenue, ccy, d, flow=True, label="issuer revenue")
+        conv["revenue_eur"] = convert_amount(session, h.revenue, ccy, d, flow=True, label="issuer revenue", org_id=org_id)
     if h.evic is not None:
-        conv["evic"] = convert_amount(session, h.evic, ccy, d, label="issuer EVIC")
-    return {"revenue_eur": conv["revenue"]["eur"] if "revenue" in conv else h.revenue_eur,
-            "evic_eur": conv["evic"]["eur"] if "evic" in conv else h.evic_eur,
-            "money_source": source_record(ccy, d, conv)}
+        conv["evic_eur"] = convert_amount(session, h.evic, ccy, d, label="issuer EVIC", org_id=org_id)
+    return {"revenue_eur": conv["revenue_eur"]["eur"] if "revenue_eur" in conv else h.revenue_eur,
+            "evic_eur": conv["evic_eur"]["eur"] if "evic_eur" in conv else h.evic_eur,
+            "money_source": source_record(ccy, d, conv, origin="fund_holdings")}
 
 
 def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding") -> dict:
@@ -223,7 +223,7 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
 
     from services.intake.money import MoneyError
     try:
-        fin = _issuer_financials_eur(session, h)
+        fin = _issuer_financials_eur(session, h, org_id)
     except MoneyError as e:
         wrote["financials_error"] = str(e)
         fin = {"revenue_eur": None, "evic_eur": None, "money_source": None}
@@ -243,7 +243,9 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
                           revenue_eur  = COALESCE(EXCLUDED.revenue_eur, issuer_emissions.revenue_eur),
                           evic_eur     = COALESCE(EXCLUDED.evic_eur, issuer_emissions.evic_eur),
                           data_vintage = EXCLUDED.data_vintage,
-                          money_source = COALESCE(EXCLUDED.money_source, issuer_emissions.money_source)
+                          money_source = jsonb_build_object('fields',
+                              COALESCE(issuer_emissions.money_source->'fields', '{}'::jsonb) ||
+                              COALESCE(EXCLUDED.money_source->'fields', '{}'::jsonb))
         """), {"i": issuer_id, "org": org_id, "yr": h.reporting_year or date.today().year,
                "s1": h.scope1_tco2e, "s2": h.scope2_tco2e, "s3": h.scope3_tco2e,
                "rev": rev_eur, "evic": evic_eur, "ms": json.dumps(fin["money_source"], default=str) if fin["money_source"] else None})

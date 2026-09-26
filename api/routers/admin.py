@@ -489,6 +489,8 @@ class ReportingSettingsPatch(BaseModel):
     scenario:              Optional[str] = Field(None, max_length=40)
     horizon:               Optional[str] = Field(None, max_length=40)
     materiality_threshold: Optional[int] = Field(None, ge=0, le=100)
+    presentation_currency: Optional[str] = Field(None, min_length=3, max_length=3,
+                                                 description="ISO 4217 — the currency the organisation presents in")
 
 
 @router.get("/reporting-settings", summary="The org's reporting basis (period, scenario, horizon, materiality)")
@@ -504,6 +506,12 @@ def set_reporting_settings(body: ReportingSettingsPatch, session: DbSession,
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     if not changes:
         raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    if "presentation_currency" in changes:   # checked before it can go to an approver
+        from services.intake.money import MoneyError, validate_declaration
+        try:
+            changes["presentation_currency"], _ = validate_declaration(session, changes["presentation_currency"], None)
+        except MoneyError as e:
+            raise HTTPException(400, {"error": "bad_currency", "message": str(e)}) from e
     # the r²≥0.40 publish gate is intentionally NOT settable here — it's an honesty constant, not a knob.
     # Governed through the same audit + 4-eyes machinery as location edits (audit T6). Direct-apply by
     # default; needs a second approver only if the org toggles 'config.reporting_settings' in the matrix.
@@ -563,6 +571,12 @@ def patch_organization(body: OrgPatch, session: DbSession,
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     if not changes:
         raise HTTPException(400, {"error": "no_changes", "message": "No fields to update."})
+    if "presentation_currency" in changes:   # checked before it can go to an approver
+        from services.intake.money import MoneyError, validate_declaration
+        try:
+            changes["presentation_currency"], _ = validate_declaration(session, changes["presentation_currency"], None)
+        except MoneyError as e:
+            raise HTTPException(400, {"error": "bad_currency", "message": str(e)}) from e
     cols = {"legal_name", "lei", "eori", "filing_contact_email", "operator_address"}
     sets, params = [], {"o": org_id}
     for k, v in changes.items():

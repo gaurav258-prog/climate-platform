@@ -151,11 +151,11 @@ def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[st
         if raw_exp not in (None, ""):
             ccy = (str(r.get("currency") or "").strip() or currency or "").upper()
             try:
-                c = convert_amount(session, raw_exp, ccy, asof, label="exposure")
+                c = convert_amount(session, raw_exp, ccy, asof, label="exposure", org_id=org_id)
             except MoneyError as e:
                 skipped.append({"row": i, "reason": str(e)})
                 continue
-            exp, ms = c["eur"], json.dumps(source_record(ccy, asof, {"exposure": c}), default=str)
+            exp, ms = c["eur"], json.dumps(source_record(ccy, asof, {"exposure_eur": c}, origin=f"arrears_batch:{bid}"), default=str)
         country = str(r.get("country") or "").strip().upper()[:3] or None
         session.execute(text("""
             INSERT INTO loan_arrears (arrears_id, org_id, batch_id, loan_ref, borrower_name, crop, region, country, exposure_eur,

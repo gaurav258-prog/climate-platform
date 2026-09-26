@@ -316,7 +316,7 @@ def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
     from services.intake.money import MoneyError
     from services.intelligence.company_sites import site_amounts
     try:
-        v, tp, ms = site_amounts(session, body.annual_value_eur, body.annual_throughput_eur, body.currency, body.book_date)
+        v, tp, ms = site_amounts(session, body.annual_value_eur, body.annual_throughput_eur, body.currency, body.book_date, org_id)
     except MoneyError as e:
         raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
     try:
@@ -397,7 +397,7 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
         raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
     from services.intake.money import MoneyError, convert_amount, source_record
     try:
-        spend = convert_amount(session, body.annual_spend_eur, body.currency, body.book_date, flow=True, label="annual spend")
+        spend = convert_amount(session, body.annual_spend_eur, body.currency, body.book_date, flow=True, label="annual spend", org_id=org_id)
     except MoneyError as e:
         raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
     # the country: given (any spelling), else the geocoder's country name — both through the country reference
@@ -420,7 +420,7 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "region": body.region,
            "country": country, "spend": spend["eur"], "area": body.plot_area_ha,
            "conf": loc["confidence"], "prec": loc["precision"], "irr": _norm_irrigation(body.irrigation_status),
-           "ms": json.dumps(source_record(body.currency.upper(), body.book_date, {"annual_spend": spend}), default=str)})
+           "ms": json.dumps(source_record(body.currency.upper(), body.book_date, {"annual_spend_eur": spend}, origin="manual_entry"), default=str)})
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,
@@ -555,7 +555,7 @@ async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = 
         from services.intelligence.company_sites import site_amounts
         try:   # a row's own currency / book_date columns override the ones declared for the upload
             v, tp, ms = site_amounts(session, _txt(r.get("annual_value_eur")), _txt(r.get("annual_throughput_eur")),
-                                     _txt(r.get("currency")) or currency, _txt(r.get("book_date")) or book_date)
+                                     _txt(r.get("currency")) or currency, _txt(r.get("book_date")) or book_date, org_id)
         except MoneyError as e:
             skipped.append({"name": name, "reason": str(e)})
             continue

@@ -8,9 +8,11 @@ from services.intelligence.third_parties import CRITICALITY, KINDS, register_csv
 
 def test_links_are_declared_not_inferred():
     L = links_for("insurer_climate", "insurer")
-    assert {s["key"] for s in L["switches"]} == {"pml_return_period", "equity_consolidation"}
+    fx = {"fx_flow_rate", "fx_client_rate_tolerance_pct"}          # every money figure in the filing (multi-currency)
+    assert {s["key"] for s in L["switches"]} == {"pml_return_period", "equity_consolidation"} | fx
     assert L["kris"] and L["template"] and L["template"]["official_form"] and L["n"] >= 5
-    assert links_for("insurer_climate", "bank")["switches"] == [{"key": "equity_consolidation", "label": "Equity-method consolidation treatment", "sectors": None}]
+    bank = links_for("insurer_climate", "bank")["switches"]
+    assert {s["key"] for s in bank} == {"equity_consolidation"} | fx and all(s["sectors"] is None for s in bank)
     assert links_for("no_such_framework")["n"] == 0
     assert summary_text("bank_tcfd", "bank").startswith("Touches — ") and summary_text("no_such_framework", None).startswith("Touches nothing")
 

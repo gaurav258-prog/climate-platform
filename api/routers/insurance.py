@@ -417,27 +417,27 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
     from services.intake.money import MoneyError, convert_amount, source_record
     period = (body.period_start, body.period_end)
     try:
-        conv = {"gross_incurred_loss": convert_amount(session, body.gross_incurred_loss_eur, body.currency, body.period_end,
+        conv = {"gross_incurred_loss_eur": convert_amount(session, body.gross_incurred_loss_eur, body.currency, body.period_end, org_id=org_id,
                                                       flow=True, period=period, label="gross incurred loss")}
         if body.net_incurred_loss_eur is not None:
-            conv["net_incurred_loss"] = convert_amount(session, body.net_incurred_loss_eur, body.currency, body.period_end,
+            conv["net_incurred_loss_eur"] = convert_amount(session, body.net_incurred_loss_eur, body.currency, body.period_end, org_id=org_id,
                                                        flow=True, period=period, label="net incurred loss")
     except MoneyError as e:
         raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
     res = submit_incurred_loss(session, org_id, body.period_start, body.period_end, body.peril,
-                               conv["gross_incurred_loss"]["eur"],
-                               conv["net_incurred_loss"]["eur"] if "net_incurred_loss" in conv else None, body.source,
+                               conv["gross_incurred_loss_eur"]["eur"],
+                               conv["net_incurred_loss_eur"]["eur"] if "net_incurred_loss_eur" in conv else None, body.source,
                                created_by=ctx["user"]["id"], region=body.region, modelled=body.modelled,
-                               money_source=source_record(body.currency.upper(), body.period_end, conv))
+                               money_source=source_record(body.currency.upper(), body.period_end, conv, origin="manual_entry"))
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="incurred_loss.submit",
                 target_type="insurer_incurred_losses", target_id=res["loss_id"],
                 detail={"period_start": str(body.period_start), "period_end": str(body.period_end),
                         "peril": body.peril, "gross_incurred_loss": body.gross_incurred_loss_eur,
                         "net_incurred_loss": body.net_incurred_loss_eur, "currency": body.currency.upper(),
-                        "gross_incurred_loss_eur": conv["gross_incurred_loss"]["eur"], "source": body.source})
+                        "gross_incurred_loss_eur": conv["gross_incurred_loss_eur"]["eur"], "source": body.source})
     return {"loss_id": res["loss_id"], "reported_at": res["reported_at"].isoformat(), **body.model_dump(mode="json"),
-            "gross_incurred_loss_eur": conv["gross_incurred_loss"]["eur"],
-            "net_incurred_loss_eur": conv["net_incurred_loss"]["eur"] if "net_incurred_loss" in conv else None,
+            "gross_incurred_loss_eur": conv["gross_incurred_loss_eur"]["eur"],
+            "net_incurred_loss_eur": conv["net_incurred_loss_eur"]["eur"] if "net_incurred_loss_eur" in conv else None,
             "fx": [c["rate"] for c in conv.values() if c.get("rate")]}
 
 
