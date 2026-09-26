@@ -1,5 +1,7 @@
 .env
 .venv/
+.venv
+.venv-retired-py39/
 __pycache__/
 *.pyc
 *.pyo
