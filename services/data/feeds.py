@@ -114,6 +114,13 @@ FEEDS: list[dict] = [
      "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
      "note": "Emissions are sector-average intensity × revenue, not a facility-level emissions feed; values are "
              "labelled as estimated throughout."},
+    {"key": "fx_ecb", "name": "ECB euro foreign exchange reference rates", "category": "reference",
+     "cadence_days": 1, "invalidates_basis": False, "maturity": "live",
+     "attribution": "Source: European Central Bank (ECB) — euro foreign exchange reference rates",
+     "note": "Daily reference rates for ~30 currencies, direct from the ECB (full history since 1999, then the last "
+             "90 days each day, which heals missed days). Converts customer values given in other currencies to EUR "
+             "at the rate for the book date; the ECB's own figure is kept beside the one we calculate with. A "
+             "refresh whose newest rate is more than 5 days old is recorded as failed."},
     {"key": "commodity_prices_wb", "name": "World Bank Pink Sheet (commodity prices)", "category": "reference",
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
      "attribution": "© World Bank — Commodity Markets 'Pink Sheet' (CC BY 4.0)",
@@ -265,6 +272,12 @@ def _hook_volcanic_gvp(session: Session) -> None:
     refresh()
 
 
+def _hook_fx_ecb(session: Session) -> None:
+    from services.reference.ecb_fx import refresh
+    refresh(session)
+
+
+register_refresh_hook("fx_ecb", _hook_fx_ecb)
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

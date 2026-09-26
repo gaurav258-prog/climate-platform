@@ -8,8 +8,8 @@ Design, in plain English:
   * Rates live in the `fx_rates` table as EUR-per-one-unit-of-currency, dated.
     We pick the most recent rate on-or-before the position's as-of date — the
     rate that was true when the book was struck, not today's rate.
-  * Source of truth is the ECB reference rate (free, no licence); the loader
-    script `scripts/load_fx_rates.py` pulls it. The table is seeded at migration
+  * Source of truth is the ECB reference rate, pulled directly from the ECB by the
+    daily `fx_ecb` feed (services/reference/ecb_fx.py). The table is seeded at migration
     time with a labelled fallback set so tests and offline runs are deterministic
     and EUR is never silently assumed for a non-EUR line.
   * EUR is always 1.0. An unknown currency is a hard, surfaced error — we never
@@ -63,14 +63,14 @@ def to_eur(session, amount: float, currency: Optional[str],
                 "currency": "EUR", "source": "identity"}
 
     row = session.execute(text("""
-        SELECT eur_per_unit, rate_date FROM fx_rates
+        SELECT eur_per_unit, rate_date, source FROM fx_rates
          WHERE ccy = :c AND rate_date <= :d
          ORDER BY rate_date DESC LIMIT 1
     """), {"c": ccy, "d": on_date}).mappings().first()
     if row is None:
         # No rate on-or-before the date; fall back to the earliest available.
         row = session.execute(text("""
-            SELECT eur_per_unit, rate_date FROM fx_rates
+            SELECT eur_per_unit, rate_date, source FROM fx_rates
              WHERE ccy = :c ORDER BY rate_date ASC LIMIT 1
         """), {"c": ccy}).mappings().first()
 
@@ -78,7 +78,7 @@ def to_eur(session, amount: float, currency: Optional[str],
         rate = float(row["eur_per_unit"])
         return {"eur": round(float(amount) * rate, 2), "rate": rate,
                 "rate_date": row["rate_date"].isoformat() if row["rate_date"] else None,
-                "currency": ccy, "source": "ecb"}
+                "currency": ccy, "source": row["source"]}   # the row's real origin ('ecb' or 'seed'), never assumed
 
     if ccy in FALLBACK_EUR_PER_UNIT:
         rate = FALLBACK_EUR_PER_UNIT[ccy]

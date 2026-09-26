@@ -18,11 +18,19 @@ from services.reference.fx import FxError, to_eur
 DEMO_ORG = "44444444-4444-4444-8444-444444444444"
 
 
+def _usd_rate(s, on):
+    r = s.execute(text("SELECT eur_per_unit, rate_date, source FROM fx_rates WHERE ccy = 'USD' AND rate_date <= :d "
+                       "ORDER BY rate_date DESC LIMIT 1"), {"d": on}).one()
+    return float(r[0]), r[1].isoformat(), r[2]
+
+
 @pytest.mark.integration
 def test_to_eur_arithmetic_and_unknown_currency():
     with get_session() as s:
-        # ECB 2023-12-29 seed: EUR per USD = 0.90580
-        assert to_eur(s, 1_000_000, "USD", date(2024, 3, 1))["eur"] == 905_800.0
+        # the ECB rate for the book date (or the last working day before it), as stored — never today's rate
+        rate, rdate, src = _usd_rate(s, date(2024, 3, 1))
+        r = to_eur(s, 1_000_000, "USD", date(2024, 3, 1))
+        assert r["eur"] == round(1_000_000 * rate, 2) and r["rate_date"] == rdate and r["source"] == src
         assert to_eur(s, 1_000_000, "EUR", date(2024, 3, 1))["eur"] == 1_000_000.0
         # a date before any rate falls back to the earliest available, never guesses
         assert to_eur(s, 100, "GBP", date(1990, 1, 1))["source"] in ("ecb", "fallback")
@@ -66,14 +74,16 @@ def test_onboarding_converts_native_currency_and_stores_base():
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["positions_created"] == 1
-        assert body["fx"]["converted_currencies"]["USD"]["rate"] == 0.9058
+        with get_session() as s:
+            rate, _, _ = _usd_rate(s, date(2024, 3, 1))
+        assert body["fx"]["converted_currencies"]["USD"]["rate"] == rate
         assert not body["fx"]["errors"]
 
         with get_session() as s:
             row = s.execute(text(
                 "SELECT market_value_eur, market_value_base, currency FROM fund_positions "
                 "WHERE fund_id=:f"), {"f": created["fid"]}).mappings().first()
-        assert float(row["market_value_eur"]) == 905_800.0   # converted
+        assert float(row["market_value_eur"]) == round(1_000_000 * rate, 2)   # converted at the book-date rate
         assert float(row["market_value_base"]) == 1_000_000.0  # native preserved
         assert row["currency"] == "USD"
     finally:
