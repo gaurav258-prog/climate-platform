@@ -161,6 +161,7 @@ def _fetch_location_scores(
                CAST(cs.score_velocity_24h AS FLOAT)    AS velocity_24h,
                cs.compound_flag,
                cs.regulatory_fingerprint,
+               cs.model_version,
                cs.scored_at
         FROM   customer_locations cl
         JOIN   canonical_scores   cs ON cs.h3_cell = cl.h3_cell_r8
@@ -372,15 +373,24 @@ def _e1_9f_double_materiality(rows: list[dict], nace_codes: list[str]) -> dict:
 
 
 def _methodology(rows: list[dict], nace_codes: list[str]) -> dict:
+    """Methodology attestation — every model/source/coverage claim is derived from the platform's registries
+    for the hazards in this package (see ml.regulatory.methodology), never hand-typed."""
+    from ml.regulatory import methodology
     fingerprints = [r["regulatory_fingerprint"] for r in rows if r["regulatory_fingerprint"]]
+    m = methodology.build(rows)
     return {
-        "scoring_model":        "3-model ensemble (XGBoost + LightGBM + Logistic Regression)",
+        "scoring_model":        m["scoring_model"],
+        "model_versions":       m["model_versions"],
         "spatial_framework":    "Uber H3 resolution 8 (~0.7 km² hexagonal grid)",
         "temporal_coverage":    f"{min(str(r['scored_at']) for r in rows)} to {max(str(r['scored_at']) for r in rows)}" if rows else None,
-        "climate_scenarios":    "NGFS Phase 4 (baseline, orderly, disorderly, hot_house_world)",
-        "data_sources":         ["ERA5-Land (ECMWF Copernicus)", "GloFAS River Discharge",
-                                 "Sentinel-1 SAR (Copernicus EMS)", "NASA FIRMS Active Fire"],
-        "hazard_coverage":      "Acute: flooding, wildfire, extreme heat. Chronic: planned for 2025.",
+        "climate_scenarios":    ("Scenario archetypes in this package: " + ", ".join(m["scenarios"])
+                                 + "; each hazard's forward-projection mechanism is in projection_by_hazard"),
+        "scenarios":            m["scenarios"],
+        "projection_by_hazard": m["projection_by_hazard"],
+        "data_sources":         [s["name"] for s in m["data_sources"]["sources"]],
+        "data_source_detail":   m["data_sources"],
+        "hazard_coverage":      m["hazard_coverage_text"],
+        "hazard_coverage_detail": m["hazard_coverage"],
         "esrs_standard":        "ESRS E1 — Climate Change (CSRD delegated regulation 2023/2772)",
         "esrs_disclosure":      "E1-9 Physical risks and opportunities",
         "double_materiality":   "EFRAG IG 1 Materiality Assessment Implementation Guidance",

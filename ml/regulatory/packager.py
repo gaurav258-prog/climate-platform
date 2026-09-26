@@ -298,8 +298,18 @@ def _extract_score_ids(package_data: dict) -> list[str]:
 
 
 def _infer_model_version(package_data: dict) -> str:
+    """Compact stamp (column is 50 chars) of the model versions that produced the package's scores: the version
+    itself when there is one, else a digest of the per-hazard map — the full map is in the stored methodology."""
+    import hashlib
+    import json
     meth = package_data.get("t5_methodology") or package_data.get("methodology") or {}
-    return meth.get("scoring_model", "ensemble-v1")
+    versions = sorted({v for vs in (meth.get("model_versions") or {}).values() for v in vs})
+    if not versions:
+        return "no-scores"
+    if len(versions) == 1 and len(versions[0]) <= 50:
+        return versions[0]
+    digest = hashlib.sha256(json.dumps(meth["model_versions"], sort_keys=True).encode()).hexdigest()[:12]
+    return f"per-hazard-{len(versions)}-models-{digest}"
 
 
 def _methodology_uri(framework: str) -> str:

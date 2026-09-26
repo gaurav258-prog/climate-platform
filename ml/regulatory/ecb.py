@@ -150,6 +150,7 @@ def _fetch_location_scores(
                cs.compound_flag,
                CAST(cs.score_ci_lower AS FLOAT)       AS ci_lower,
                CAST(cs.score_ci_upper AS FLOAT)       AS ci_upper,
+               cs.model_version,
                cs.scored_at
         FROM   customer_locations cl
         JOIN   canonical_scores   cs ON cs.h3_cell = cl.h3_cell_r8
@@ -298,16 +299,25 @@ def _table4_high_risk_concentration(rows: list[dict]) -> list[dict]:
 
 
 def _table5_methodology(rows: list[dict]) -> dict:
-    """T5: Model attestation — model versions, score count, fingerprint summary."""
+    """T5: Model attestation — model versions, score count, fingerprint summary. Every model/source claim is
+    derived from the platform's registries for the hazards in this package (ml.regulatory.methodology)."""
+    from ml.regulatory import methodology
+    m = methodology.build(rows)
     fingerprints = [r["regulatory_fingerprint"] for r in rows if r["regulatory_fingerprint"]]
     scored_ats = [str(r["scored_at"]) for r in rows]
 
     return {
-        "scoring_methodology":   "3-model ensemble (XGBoost + LightGBM + Logistic Regression)",
-        "scenario_framework":    "NGFS Phase 4",
+        "scoring_methodology":   m["scoring_model"],
+        "model_versions":        m["model_versions"],
+        "scenario_framework":    ("Scenario archetypes in this package: " + ", ".join(m["scenarios"])
+                                  + "; each hazard's forward-projection mechanism is in projection_by_hazard"),
+        "scenarios":             m["scenarios"],
+        "projection_by_hazard":  m["projection_by_hazard"],
         "spatial_resolution":    "H3 resolution 8 (~0.7 km² cells)",
-        "data_sources":          ["ERA5-Land (ECMWF)", "GloFAS discharge proxy",
-                                  "Sentinel-1 SAR (where available)", "NASA FIRMS (where available)"],
+        "data_sources":          [s["name"] for s in m["data_sources"]["sources"]],
+        "data_source_detail":    m["data_sources"],
+        "hazard_coverage":       m["hazard_coverage_text"],
+        "hazard_coverage_detail": m["hazard_coverage"],
         "n_scores_in_package":   len(rows),
         "n_fingerprints":        len(fingerprints),
         "earliest_score":        min(scored_ats) if scored_ats else None,
