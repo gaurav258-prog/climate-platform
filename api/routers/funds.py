@@ -358,7 +358,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             eur = conv["eur"]
             base = h.market_value
             if ccy != "EUR":
-                fx_applied[ccy] = {"rate": conv["rate"], "rate_date": conv["rate_date"], "source": conv["source"]}
+                fx_applied[ccy] = {k: conv[k] for k in ("rate", "rate_date", "source", "basis", "age_days", "stale", "note")}
         if key in by_isin:
             by_isin[key].market_value_eur += eur
             n = native[key]

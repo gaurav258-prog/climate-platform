@@ -24,8 +24,6 @@ from services.ingest.batch_controls import parse_money
 from services.ingest.fields import norm_token
 from services.intake.values import is_blank
 
-STALE_RATE_DAYS = 7   # an FX rate older than this, relative to the book date, needs a person to accept it
-
 
 class MappingError(ValueError):
     pass
@@ -164,16 +162,13 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
                 except FxError:
                     conv.append(f"unknown currency {c}")   # becomes a clear row error, never a guessed rate
                     continue
-                rates[r["currency"]] = {"rate": r["rate"], "rate_date": r["rate_date"], "source": r["source"]}
+                rates[r["currency"]] = {k: r[k] for k in ("rate", "units_per_eur", "rate_date", "source", "basis",
+                                                         "age_days", "stale", "note")}
                 conv.append(r["eur"])
             out[t] = conv
             report["conversions"].append({"field": t, "kind": "currency", "rates": rates})
             for ccy, r in rates.items():
-                if not r.get("rate_date"):
-                    continue
-                age = (as_of - date.fromisoformat(str(r["rate_date"])[:10])).days
-                if age > STALE_RATE_DAYS:
-                    report.setdefault("warnings", []).append(
-                        f"{t}: the latest {ccy}→EUR rate we hold is from {r['rate_date']}, {age} days before the book date")
+                if r["stale"]:   # judged against the source's own limit (fx_sources): ECB 7 days, IMF month-end 62
+                    report.setdefault("warnings", []).append(f"{t}: {ccy}→EUR — {r['note']}")
     return out, report
 

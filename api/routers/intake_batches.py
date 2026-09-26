@@ -177,3 +177,17 @@ def revoke_sftp_key(key_id: str, session: DbSession, ctx: dict = Depends(require
         raise HTTPException(404, {"error": "not_found", "message": "Active key not found."})
     session.commit()
     return {"key_id": key_id, "revoked": True}
+
+
+# ── currency coverage (the FX foundation: which official source serves each currency, how fresh, how well sources agree) ──
+
+@router.get("/fx/coverage", summary="Every currency: which source converts it today, how fresh, and source agreement")
+def fx_coverage(session: DbSession, ctx: CurrentUser, on: Optional[str] = Query(None, description="Book date YYYY-MM-DD (default today)")):
+    from datetime import date as _date
+
+    from services.reference.fx import coverage
+    try:
+        d = _date.fromisoformat(on) if on else None
+    except ValueError as e:
+        raise HTTPException(400, {"error": "bad_date", "message": "Use YYYY-MM-DD."}) from e
+    return coverage(session, d)

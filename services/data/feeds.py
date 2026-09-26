@@ -120,7 +120,15 @@ FEEDS: list[dict] = [
      "note": "ISO 3166 codes (alpha-2, alpha-3, numeric), country names in the EU's official languages plus Norwegian "
              "and Turkish, and each country's current currency — so a customer's 'Deutschland', 'DEU' or 'UK' is "
              "matched to the right country. Pinned CLDR release; a name that could mean two countries is never matched."},
-    {"key": "fx_ecb", "name": "ECB euro foreign exchange reference rates", "category": "reference",
+    {"key": "fx_imf", "name": "IMF Exchange Rates (ER) — monthly, currencies the ECB does not quote", "category": "reference",
+     "cadence_days": 7, "invalidates_basis": False, "maturity": "live",
+     "attribution": "Source: International Monetary Fund, Exchange Rates (ER) dataset",
+     "note": "Month-end and monthly-average national currency per euro for ~180 countries (from 2010), direct from the "
+             "IMF data API — the second official source after the ECB, for currencies such as the Ghanaian cedi, "
+             "Vietnamese dong or Colombian peso. Published with a 1-2 month lag, so a month-end rate is used for up "
+             "to 62 days; older is marked stale. Future-dated periods and periods before a currency's introduction "
+             "are refused."},
+    {"key": "fx_ecb", "name": "ECB euro foreign exchange reference rates (first source)", "category": "reference",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "live",
      "attribution": "Source: European Central Bank (ECB) — euro foreign exchange reference rates",
      "note": "Daily reference rates for ~30 currencies, direct from the ECB (full history since 1999, then the last "
@@ -284,6 +292,14 @@ def _hook_fx_ecb(session: Session) -> None:
 
 
 register_refresh_hook("fx_ecb", _hook_fx_ecb)
+
+
+def _hook_fx_imf(session: Session) -> None:
+    from services.reference.imf_fx import refresh
+    refresh(session)
+
+
+register_refresh_hook("fx_imf", _hook_fx_imf)
 
 
 def _hook_reference_countries(session: Session) -> None:

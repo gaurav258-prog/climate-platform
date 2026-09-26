@@ -13,8 +13,12 @@ type Transform = { multiply?: number; currency?: string; currency_column?: strin
 export interface SavedMapping { profile_id: string; name: string; version: number; column_map: Record<string, string>; transforms: Record<string, Transform> }
 export interface MappingReport {
   profile: string; auto?: boolean; unmapped_source_columns: string[]; warnings?: string[]
-  conversions: { field: string; kind: string; factor?: number; rates?: Record<string, { rate: number; rate_date: string | null }> }[]
+  conversions: { field: string; kind: string; factor?: number; rates?: Record<string, FxUsed> }[]
 }
+interface FxUsed { rate: number; units_per_eur?: number | null; rate_date: string | null; source: string; basis: string; stale?: boolean; note?: string | null }
+const FX_SOURCE: Record<string, string> = { ecb: 'ECB daily', imf: 'IMF month-end', peg: 'fixed by law', seed: 'setup rate', fallback: 'offline fallback' }
+const fxText = (ccy: string, r: FxUsed) => `${ccy} ${r.units_per_eur ?? (r.rate ? +(1 / r.rate).toPrecision(6) : '?')} per EUR (${FX_SOURCE[r.source] ?? r.source}${r.rate_date ? `, ${r.rate_date}` : ''})`
+
 interface Proposal { column: string; confidence: 'high' | 'medium' | 'low'; reasons: string[]; transform?: Transform }
 interface Inspect {
   columns: string[]; n_rows: number; fields: Field[]
@@ -155,7 +159,7 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
         <button onClick={onCancel} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">cancel</button>
         {ins && missing.length > 0 && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>Still to map: {missing.map(f => f.label).join(', ')}</span>}
         {err && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>{err}</span>}
-        <span className="w-full mono text-[9.5px] text-[var(--color-faint)]">Other currencies are converted to EUR at the ECB rate for the book date; if our latest rate is older than a week, a second person must accept it.</span>
+        <span className="w-full mono text-[9.5px] text-[var(--color-faint)]">Other currencies are converted to EUR at the official rate for the book date — ECB daily, a rate fixed by law, or the IMF month-end for currencies the ECB doesn’t quote. A rate too old for its source goes to a second person.</span>
       </div>
     </div>
   )
@@ -192,7 +196,7 @@ function ValueMap({ field, matches, chosen, onChange }: {
 
 export function MappingNote({ report }: { report: MappingReport }) {
   const conv = report.conversions.map(c => c.kind === 'scale' ? `${c.field} × ${c.factor?.toLocaleString()}`
-    : c.kind === 'currency' ? `${c.field}: ${Object.entries(c.rates ?? {}).map(([k, r]) => `${k}→EUR ${r.rate} (${r.rate_date})`).join(', ')}` : `${c.field}: your values → ours`)
+    : c.kind === 'currency' ? `${c.field}: ${Object.entries(c.rates ?? {}).map(([k, r]) => fxText(k, r)).join(', ')}` : `${c.field}: your values → ours`)
   return (
     <div className="flex items-start gap-2 px-4 py-2 border-b border-[var(--color-line-2)] text-[12px]">
       <Columns3 size={14} className="mt-0.5 shrink-0 text-[var(--color-faint)]" />

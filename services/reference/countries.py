@@ -41,16 +41,22 @@ def _get(path: str) -> dict:
         return json.loads(r.read().decode("utf-8"))
 
 
-def _current_currency(entries: list[dict]) -> tuple[Optional[str], Optional[str]]:
-    """CLDR lists every currency a region has had; the current one has no end date and is legal tender."""
-    best = (None, None)
+def _current_currency(entries: list[dict], iso2: str = "") -> tuple[Optional[str], Optional[str]]:
+    """CLDR lists every currency a region has had; the current ones have no end date and are legal tender. Where a
+    country has several (Haiti: gourde and US dollar), its OWN national currency — the code starting with the country
+    code (HT → HTG) — is the one; otherwise the most recently introduced."""
+    current = []
     for e in entries:
         (ccy, meta), = e.items()
         if "_to" in meta or meta.get("_tender") == "false":
             continue
-        if best[1] is None or (meta.get("_from") or "") > best[1]:
-            best = (ccy, meta.get("_from"))
-    return best
+        current.append((ccy, meta.get("_from")))
+    if not current:
+        return None, None
+    national = [c for c in current if iso2 and c[0].startswith(iso2)]
+    if national:
+        return national[0]
+    return max(current, key=lambda c: c[1] or "")
 
 
 def build(names_by_locale: dict[str, dict], code_mappings: dict, currency_data: dict) -> tuple[list[dict], list[dict]]:
@@ -59,7 +65,7 @@ def build(names_by_locale: dict[str, dict], code_mappings: dict, currency_data: 
     countries = []
     for iso2 in sorted(k for k in en if len(k) == 2 and k.isalpha() and k in ISO_ALPHA2):
         m = code_mappings.get(iso2, {})
-        ccy, since = _current_currency(currency_data.get(iso2, []))
+        ccy, since = _current_currency(currency_data.get(iso2, []), iso2)
         countries.append({"iso2": iso2, "iso3": m.get("_alpha3"), "numeric_code": m.get("_numeric"), "name_en": en[iso2],
                           "currency": ccy, "currency_from": since, "source_version": f"CLDR {CLDR_VERSION}"})
     known = {c["iso2"] for c in countries}

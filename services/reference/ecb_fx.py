@@ -64,10 +64,10 @@ def upsert(session: Session, rows: Iterable[tuple[str, str, float]]) -> dict:
     batch = [{"c": ccy, "d": d, "u": round(u, 6), "e": round(1.0 / u, 8), "f": now} for d, ccy, u in rows if u > 0]
     for i in range(0, len(batch), 5000):
         session.execute(text("""
-            INSERT INTO fx_rates (ccy, rate_date, eur_per_unit, units_per_eur, source, fetched_at)
-            VALUES (:c, CAST(:d AS date), :e, :u, 'ecb', :f)
-            ON CONFLICT (ccy, rate_date) DO UPDATE SET eur_per_unit = EXCLUDED.eur_per_unit,
-                   units_per_eur = EXCLUDED.units_per_eur, source = 'ecb', fetched_at = EXCLUDED.fetched_at
+            INSERT INTO fx_rates (ccy, rate_date, eur_per_unit, units_per_eur, source, basis, fetched_at)
+            VALUES (:c, CAST(:d AS date), :e, :u, 'ecb', 'reference_daily', :f)
+            ON CONFLICT (ccy, rate_date, source, basis) DO UPDATE SET eur_per_unit = EXCLUDED.eur_per_unit,
+                   units_per_eur = EXCLUDED.units_per_eur, fetched_at = EXCLUDED.fetched_at
         """), batch[i:i + 5000])
     dates = sorted({b["d"] for b in batch})
     return {"n_rows": len(batch), "n_days": len(dates), "from": dates[0] if dates else None, "to": dates[-1] if dates else None,

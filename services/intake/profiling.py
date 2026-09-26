@@ -17,6 +17,7 @@ import re
 from typing import Optional
 
 import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.ingest.batch_controls import parse_money
@@ -59,11 +60,12 @@ def _is_geojson(x: str) -> bool:
         return False
 
 
-def _header_forms(col: str) -> set[str]:
-    """The ways a column name can be read: as written; without unit words ('Value (k USD)' → 'value'); with a
+def _header_forms(col: str, codes: frozenset = frozenset()) -> set[str]:
+    """The ways a column name can be read: as written; without unit words ('Value (k VND)' → 'value'); with a
     trailing No / Nr / Number read as an ID ('Facility No' → 'facility_id')."""
-    toks = [x for x in re.split(r"[^a-z0-9]+", str(col).lower()) if x]
-    bare = [x for x in toks if x not in _SCALE_TOKENS and x not in _CURRENCIES] or toks
+    orig = [x for x in re.split(r"[^A-Za-z0-9]+", str(col)) if x]
+    toks = [x.lower() for x in orig]
+    bare = [x.lower() for i, x in enumerate(orig) if not (i and _unit_token(x, codes))] or toks
     forms = {"_".join(toks), "_".join(bare)}
     for f in list(forms):
         parts = f.split("_")
@@ -72,8 +74,8 @@ def _header_forms(col: str) -> set[str]:
     return forms
 
 
-def _header_fit(spec: dict, col: str) -> float:
-    forms = _header_forms(col)
+def _header_fit(spec: dict, col: str, codes: frozenset = frozenset()) -> float:
+    forms = _header_forms(col, codes)
     names = {spec["name"], spec["name"].removesuffix("_eur"), norm_token(spec.get("label", ""))}
     if forms & names:
         return 1.0
@@ -139,11 +141,12 @@ def suggest(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -> 
         p["_all_distinct"] = list(dict.fromkeys(str(v).strip() for v in df[c].tolist() if not V.is_blank(v)))[:200]
         profiles[c] = p
     lookups = {s["vocab"]: V.lookup(session, s["vocab"]) for s in specs if s.get("vocab")}
+    codes = currency_codes(session)
 
     cands = []
     for s in specs:
         for c in cols:
-            h = _header_fit(s, c)
+            h = _header_fit(s, c, codes)
             fit, why = _content_fit(s, profiles[c], lookups.get(s.get("vocab")))
             kind = s.get("field_kind", s.get("kind"))
             if h >= 0.9:
@@ -175,7 +178,7 @@ def suggest(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -> 
                 m["reasons"].append("latitude and longitude can't be told apart from these values — check which is which")
 
     hints: dict[str, list[str]] = {}
-    units = {c: header_units(c) for c in cols}
+    units = {c: header_units(c, codes) for c in cols}
     ccy_cols = [c for c in cols if profiles[c].get("ccy_share", 0) > 0.9 and c not in used]
     for s in specs:
         m = fields.get(s["name"])
@@ -190,7 +193,11 @@ def suggest(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -> 
         if med is not None and 0 < med < 1000 and "multiply" not in u:
             hints.setdefault(s["name"], []).append(f"values are small (typical {med:,.0f}) — are they in thousands or millions?")
         if ccy_cols:
-            hints.setdefault(s["name"], []).append(f"column “{ccy_cols[0]}” looks like a currency code per row")
+            seen = profiles[ccy_cols[0]]["samples"]
+            clash = " — it differs from the currency in this column's name, so check which applies" if (
+                u.get("currency") and any(x.upper() != u["currency"] for x in seen)) else ""
+            hints.setdefault(s["name"], []).append(
+                f"column “{ccy_cols[0]}” gives a currency per row ({', '.join(seen[:5])}){clash}")
 
     # for every value-list field and every column with few distinct values: their value → ours (None = not recognised),
     # so whichever column the customer picks, the editor can show which values match and which need mapping
@@ -206,19 +213,46 @@ def suggest(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -> 
 
 _SCALE_TOKENS = {"k": 1e3, "000": 1e3, "000s": 1e3, "thousand": 1e3, "thousands": 1e3, "ks": 1e3, "tsd": 1e3,
                  "m": 1e6, "mn": 1e6, "mm": 1e6, "mio": 1e6, "million": 1e6, "millions": 1e6, "bn": 1e9, "billion": 1e9}
-_CURRENCIES = {"eur", "usd", "gbp", "chf", "jpy", "sek", "nok", "dkk", "pln", "czk", "huf", "cad", "aud", "cny", "brl", "inr", "zar", "sgd", "hkd"}
+# Major currencies are recognised however they are written ('value usd'); any other ISO code only when written in
+# capitals ('(k VND)') — several codes are ordinary words (ALL, TOP, TRY, PEN, CUP, MAD, GEL).
+_MAJOR = {"eur", "usd", "gbp", "chf", "jpy", "sek", "nok", "dkk", "pln", "czk", "huf", "cad", "aud", "cny", "brl", "inr", "zar",
+          "sgd", "hkd"}
 
 
-def header_units(col: str) -> dict:
-    """Units stated in a column name: 'Value (k USD)' → {multiply: 1000, currency: 'USD'}; 'TIV EUR m' → ×1e6.
-    Only explicit tokens count; a bare 'Value' says nothing."""
-    toks = [t for t in re.split(r"[^a-z0-9]+", str(col).lower()) if t]
+def currency_codes(session: Optional[Session]) -> frozenset:
+    """Every currency code any FX source, fixed rate or country uses (the FX reference), upper-case."""
+    codes = {c.upper() for c in _MAJOR}
+    if session is not None:
+        try:
+            codes |= {r[0].strip() for r in session.execute(text(
+                "SELECT DISTINCT currency FROM ref_countries WHERE currency IS NOT NULL "
+                "UNION SELECT DISTINCT ccy FROM fx_rates UNION SELECT ccy FROM fx_pegs")).all()}
+        except Exception:   # reference not available: majors only
+            session.rollback()
+    return frozenset(codes)
+
+
+def _unit_token(tok: str, codes: frozenset) -> Optional[tuple[str, object]]:
+    """('scale', factor) | ('currency', code) | None, for one token of a column name (case as written)."""
+    lo = tok.lower()
+    if lo in _SCALE_TOKENS:
+        return "scale", _SCALE_TOKENS[lo]
+    if tok.upper() in codes and (lo in _MAJOR or tok.isupper()) and len(tok) == 3:
+        return "currency", tok.upper()
+    return None
+
+
+def header_units(col: str, codes: frozenset = frozenset(c.upper() for c in _MAJOR)) -> dict:
+    """Units stated in a column name: 'Value (k VND)' → {multiply: 1000, currency: 'VND'}; 'TIV EUR m' → ×1e6.
+    Only explicit tokens count; a bare 'Value' says nothing, and the first word is the field's own name."""
+    toks = [x for x in re.split(r"[^A-Za-z0-9]+", str(col)) if x]
     out: dict = {}
-    for tok in toks[1:] if len(toks) > 1 else []:     # the first token is the field's own name, never a unit
-        if tok in _SCALE_TOKENS and "multiply" not in out:
-            out["multiply"] = _SCALE_TOKENS[tok]
-        elif tok in _CURRENCIES and "currency" not in out:
-            out["currency"] = tok.upper()
+    for tok in toks[1:]:
+        u = _unit_token(tok, codes)
+        if u and u[0] == "scale" and "multiply" not in out:
+            out["multiply"] = u[1]
+        elif u and u[0] == "currency" and "currency" not in out:
+            out["currency"] = u[1]
     if out.get("currency") == "EUR":
         out.pop("currency")
     return out
