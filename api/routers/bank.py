@@ -11,6 +11,7 @@ defensible. No auth (aggregate read), mirroring platform.py.
 """
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from typing import Annotated, Optional
 
@@ -398,13 +399,16 @@ async def upload_assets(session: DbSession, ctx: CurrentUser, file: UploadFile =
 # ── Per-loan regulatory attributes the engine can't derive from location — provided in bulk by Excel, matched to
 #    the book by asset name, and written to the loan's record (feeds Pillar 3 maturity/EPC/staging + expected loss).
 ATTR_TEMPLATE_FIELDS = [
-    {"name": "asset_name", "required": True, "label": "Asset name", "kind": "text", "description": "Must match an asset already in your book.", "example": "Frankfurt Tower 1"},
-    {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "money", "description": "Remaining life of the loan, in years.", "example": "7"},
+    {"name": "external_ref", "required": False, "label": "Your asset ID", "kind": "text", "description": "Your own loan id, as sent with the loan tape — matched first.", "example": "REF-000123"},
+    {"name": "asset_name", "required": False, "label": "Asset name", "kind": "text", "description": "Used when there is no asset ID; must match exactly ONE asset in your book (an ambiguous name is refused).", "example": "Frankfurt Tower 1"},
+    {"name": "residual_maturity_years", "required": False, "label": "Residual maturity (years)", "kind": "number", "range": [0, 100], "description": "Remaining life of the loan, in years.", "example": "7"},
     {"name": "epc_label", "required": False, "label": "EPC label", "kind": "enum", "allowed": ["A", "B", "C", "D", "E", "F", "G"], "description": "Energy Performance Certificate grade of the collateral.", "example": "C"},
     {"name": "ifrs9_stage", "required": False, "label": "IFRS-9 stage", "kind": "enum", "allowed": ["1", "2", "3"], "description": "IFRS-9 credit-risk stage.", "example": "1"},
     {"name": "emission_intensity", "required": False, "label": "Emission intensity (IEA unit)", "kind": "money", "description": "Counterparty PHYSICAL carbon intensity in the IEA sector metric's own unit (gCO₂/kWh power, tCO₂/t steel/cement, …) — feeds the Pillar 3 Template 3 / EU CRFR4 (pending adoption) IEA-alignment distance. NOT the financial tCO₂e/€M intensity.", "example": "310"},
-    {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC (EUR)", "kind": "money",
-     "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape.", "example": "185000000"},
+    {"name": "counterparty_evic_eur", "required": False, "label": "Counterparty EVIC", "kind": "money",
+     "description": "Backfill EVIC on a loan already in your book, so it counts toward PCAF-attributed financed emissions without re-uploading the whole tape. In the currency you declare (or the row's currency).", "example": "185000000"},
+    {"name": "currency", "required": False, "label": "Currency", "kind": "text", "description": "ISO 4217 code of this row's EVIC; overrides the currency declared for the upload.", "example": "USD"},
+    {"name": "book_date", "required": False, "label": "Book date", "kind": "date", "description": "YYYY-MM-DD the EVIC describes (converted at that day's rate); overrides the declared book date.", "example": "2026-06-30"},
     {"name": "counterparty_govt_level", "required": False, "label": "Counterparty government level", "kind": "enum", "allowed": ["central", "regional", "local"],
      "description": "Required to correctly scope EU Taxonomy Art. 7(1)'s central-government exclusion — leave blank for non-government counterparties.", "example": "central"},
     {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
@@ -435,10 +439,13 @@ async def validate_attributes(ctx: CurrentUser, file: UploadFile = File(...)):
             "n_error": rep["n_error"], "errors": rep["errors"][:200]}
 
 
-@router.post("/assets/attributes/upload", summary="Save per-loan attributes, matched to your book by asset name")
-async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
-    """Matches each row to an existing asset by name (case-insensitive) and writes the provided attributes to the
-    loan's record — the fields that pass validation only. Unmatched rows are reported, never guessed."""
+@router.post("/assets/attributes/upload", summary="Save per-loan attributes, matched to your book by asset ID (or a unique name)")
+async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                            currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
+    """Matches each row to an existing loan — by your asset ID first, else by a name that identifies exactly one
+    loan (names are not unique in real books, so an ambiguous name is refused, never guessed) — and writes the
+    provided attributes. EVIC is converted to EUR at the closing rate of the row's book date, in the row's currency
+    or the one declared for the upload (never assumed); what was sent and the rate are kept (money_source)."""
     from services.ingest.upload_validation import parse_and_validate
     try:
         rep = parse_and_validate(await file.read(), file.filename, ATTR_TEMPLATE_FIELDS)
@@ -450,18 +457,27 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         raise HTTPException(status_code=400, detail="None of the rows are ready yet — please fix the flagged rows and try again.")
 
     org_id = ctx["org"]["org_id"]
-    # name → entity_id for this org's loan book (lower-cased for a forgiving match)
-    idx = {r[0].strip().lower(): r[1] for r in session.execute(text(
-        "SELECT entity_name, entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) AND vertical = 'banking'"
-    ), {"o": org_id}).fetchall()}
+    by_ref, by_name = {}, {}
+    for nm, ref, eid in session.execute(text(
+            "SELECT entity_name, external_ref, entity_id FROM portfolio_entities WHERE org_id = CAST(:o AS uuid) "
+            "AND vertical = 'banking' AND source = 'own'"), {"o": org_id}).fetchall():
+        if ref:
+            by_ref[str(ref).strip()] = eid
+        by_name.setdefault((nm or "").strip().lower(), []).append(eid)
 
-    matched, unmatched, updated = 0, [], 0
+    from services.intake.money import MoneyError, convert_amount, source_record
+    matched, unmatched, updated, ambiguous, refused = 0, [], 0, [], []
     for row in rep["valid_rows"]:
         name = str(row.get("asset_name") or "").strip()
-        eid = idx.get(name.lower())
-        if not eid:
-            unmatched.append(name)
+        ref = str(row.get("external_ref") or "").strip()
+        cands = [by_ref[ref]] if ref and ref in by_ref else ([] if ref else by_name.get(name.lower(), []))
+        if len(cands) > 1:
+            ambiguous.append(name)
             continue
+        if not cands:
+            unmatched.append(ref or name)
+            continue
+        eid = cands[0]
         matched += 1
         sets, params = [], {"e": eid}
         mat = row.get("residual_maturity_years")
@@ -478,7 +494,16 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
             sets.append("emission_intensity = :ei"); params["ei"] = float(str(ei).replace(",", ""))
         evic = row.get("counterparty_evic_eur")
         if evic not in (None, ""):
-            sets.append("counterparty_evic_eur = :evic"); params["evic"] = float(str(evic).replace(",", ""))
+            ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
+            bdate = str(row.get("book_date") or "").strip() or book_date
+            try:
+                c = convert_amount(session, evic, ccy, bdate, label="counterparty EVIC")
+            except MoneyError as e:
+                refused.append({"asset": ref or name, "reason": str(e)})
+                continue
+            sets.append("counterparty_evic_eur = :evic"); params["evic"] = c["eur"]
+            sets.append("money_source = CAST(:ms AS jsonb)")
+            params["ms"] = json.dumps(source_record(ccy, bdate, {"counterparty_evic": c}), default=str)
         gl = row.get("counterparty_govt_level")
         if gl not in (None, ""):
             sets.append("counterparty_govt_level = :gl"); params["gl"] = str(gl).strip().lower()
@@ -492,9 +517,11 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="assets.attributes.upload",
                 target_type="ext_banking", target_id=None,
-                detail={"matched": matched, "updated": updated, "unmatched": len(unmatched), "filename": file.filename})
-    return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched),
-            "unmatched": unmatched[:50], "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
+                detail={"matched": matched, "updated": updated, "unmatched": len(unmatched), "ambiguous": len(ambiguous),
+                        "refused": len(refused), "filename": file.filename})
+    return {"n_matched": matched, "n_updated": updated, "n_unmatched": len(unmatched), "unmatched": unmatched[:50],
+            "n_ambiguous": len(ambiguous), "ambiguous": ambiguous[:50], "n_refused": len(refused), "refused": refused[:50],
+            "n_invalid": rep["n_error"], "errors": rep["errors"][:200]}
 
 
 @router.get("/disclosure.xlsx", summary="TCFD / EU-Taxonomy disclosure pack (Excel)")

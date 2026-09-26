@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Factory, Warehouse, Boxes, Building, MapPin, Upload, Plus, AlertTriangle, Coins, Activity } from 'lucide-react'
 import { api } from '../lib/api'
+import MoneyDeclaration from '../components/MoneyDeclaration'
 import { useAuth } from '../lib/auth'
 import { Card, Button, ExportButton, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { downloadCsv } from '../lib/export'
@@ -32,6 +33,8 @@ export default function Operations() {
   const { profile } = useAuth()
   const q = useQuery({ queryKey: ['sites'], queryFn: () => api.get<SitesResp>('/v1/supply/sites') })
   const [form, setForm] = useState({ name: '', site_type: 'factory', address: '', latitude: '', longitude: '', annual_value_eur: '', annual_throughput_eur: '' })
+  const [ccy, setCcy] = useState('')
+  const [bookDate, setBookDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
   const [sel, setSel] = useState<string | null>(null)   // the site ringed on the map
@@ -45,6 +48,7 @@ export default function Operations() {
     const useChosen = chosen && !hasCoords
     if (!hasCoords && !chosen && form.address.trim()) { setMsg({ text: 'Pick the matching place from the list, or enter coordinates.', tone: 'err' }); return }
     if (!hasCoords && !chosen && !form.address.trim()) { setMsg({ text: 'Search an address and pick a place, or enter coordinates.', tone: 'err' }); return }
+    if ((form.annual_value_eur || form.annual_throughput_eur) && (!ccy || !bookDate)) { setMsg({ text: 'Choose the currency of the amounts and the date they describe.', tone: 'err' }); return }
     setBusy(true); setMsg(null)
     try {
       const r = await api.post<{ ok: boolean; site: { lat: number; lon: number; geocode_precision: string } }>('/v1/supply/sites', {
@@ -55,6 +59,7 @@ export default function Operations() {
         longitude: useChosen ? chosen!.lon : (form.longitude ? Number(form.longitude) : null),
         annual_value_eur: form.annual_value_eur ? Number(form.annual_value_eur) : null,
         annual_throughput_eur: form.annual_throughput_eur ? Number(form.annual_throughput_eur) : null,
+        currency: ccy || null, book_date: bookDate || null,
       })
       const where = useChosen ? chosen!.display_name : `${r.site.lat.toFixed(3)}, ${r.site.lon.toFixed(3)}`
       setMsg({ text: `✓ Added "${form.name.trim()}" at ${where}. Scoring on the live hazard grid — it'll appear in the table shortly (a new region may take a moment).`, tone: 'ok' })
@@ -62,7 +67,7 @@ export default function Operations() {
       setChosen(null)
       await q.refetch()
     } catch (e) {
-      setMsg({ text: (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message
+      setMsg({ text: (e as { body?: { detail?: { message?: string }; error?: { message?: string } } })?.body?.error?.message || (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message
         || 'Could not add — pick a place or enter coordinates.', tone: 'err' })
     } finally { setBusy(false) }
   }
@@ -71,8 +76,10 @@ export default function Operations() {
     setBusy(true); setMsg(null)
     try {
       const fd = new FormData(); fd.append('file', file)
-      const r = await api.post<{ added: number; skipped: { name: string }[] }>('/v1/supply/sites/upload', fd)
-      setMsg({ text: `Added ${r.added} site${r.added === 1 ? '' : 's'}${r.skipped.length ? `, ${r.skipped.length} skipped (couldn't locate)` : ''}.`, tone: 'ok' })
+      if (ccy) fd.append('currency', ccy)
+      if (bookDate) fd.append('book_date', bookDate)
+      const r = await api.post<{ added: number; skipped: { name: string; reason: string }[] }>('/v1/supply/sites/upload', fd)
+      setMsg({ text: `Added ${r.added} site${r.added === 1 ? '' : 's'}${r.skipped.length ? `, ${r.skipped.length} not added (e.g. ${r.skipped[0].name}: ${r.skipped[0].reason})` : ''}.`, tone: r.skipped.length ? 'err' : 'ok' })
       await q.refetch()
     } catch { setMsg({ text: 'Upload failed — check the CSV columns against the template.', tone: 'err' }) }
     finally { setBusy(false) }
@@ -133,8 +140,10 @@ export default function Operations() {
               onSelect={p => { setChosen(p); setForm(f => ({ ...f, address: p.display_name })) }} />
             {hasCoords && form.address.trim() && <div className="mt-1.5 text-[11px] text-[var(--color-faint)]">using the coordinates below (address ignored)</div>}
           </Field>
-          <Field label="Asset value € (PP&E + stock)"><input className={inp} value={form.annual_value_eur} onChange={e => setForm({ ...form, annual_value_eur: e.target.value })} placeholder="85000000" inputMode="numeric" /></Field>
-          <Field label="Annual throughput € (revenue)"><input className={inp} value={form.annual_throughput_eur} onChange={e => setForm({ ...form, annual_throughput_eur: e.target.value })} placeholder="210000000" inputMode="numeric" /></Field>
+          <div className="col-span-full"><MoneyDeclaration currency={ccy} setCurrency={setCcy} bookDate={bookDate} setBookDate={setBookDate}
+            note="Needed when you give an asset value or throughput (here or in the CSV — a row's currency / book_date columns override these). Asset value converts at the book date's rate; throughput (a yearly figure) at the average of the 12 months to it." /></div>
+          <Field label="Asset value (PP&E + stock)"><input className={inp} value={form.annual_value_eur} onChange={e => setForm({ ...form, annual_value_eur: e.target.value })} placeholder="85000000" inputMode="numeric" /></Field>
+          <Field label="Annual throughput (revenue)"><input className={inp} value={form.annual_throughput_eur} onChange={e => setForm({ ...form, annual_throughput_eur: e.target.value })} placeholder="210000000" inputMode="numeric" /></Field>
           <Field label="Latitude"><input className={inp} value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} placeholder="37.39" inputMode="decimal" /></Field>
           <Field label="Longitude"><input className={inp} value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="-5.98" inputMode="decimal" /></Field>
           <div className="flex items-end"><Button onClick={add} disabled={busy}>{busy ? 'Adding…' : 'Add & score'}</Button></div>

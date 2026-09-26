@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sprout, Upload, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
+import MoneyDeclaration from './MoneyDeclaration'
 import { toast } from '../lib/toast'
 import { Card, StatGrid, type StatItem } from './ui'
 
@@ -27,18 +28,25 @@ const BADGE: Record<string, { color: string; bg: string }> = {
 export default function SeasonalArrears() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [ccy, setCcy] = useState('')
+  const [bookDate, setBookDate] = useState('')
   const q = useQuery({ queryKey: ['seasonal-arrears'], queryFn: () => api.get<Resp>('/v1/arrears/assessment') })
   const d = q.data
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
-    try { await uploadFile('/v1/arrears/upload', f); qc.invalidateQueries({ queryKey: ['seasonal-arrears'] }); toast.success('Arrears uploaded and assessed.') }
-    catch { toast.error('Upload failed — check the template columns.') }
+    try {
+      const r = await uploadFile<{ rows: number; n_skipped: number; skipped: { row: number; reason: string }[] }>('/v1/arrears/upload', f, 'file', { currency: ccy, book_date: bookDate })
+      qc.invalidateQueries({ queryKey: ['seasonal-arrears'] })
+      if (r.n_skipped) toast.error(`${r.rows} loans saved; ${r.n_skipped} row(s) not used — e.g. row ${r.skipped[0].row}: ${r.skipped[0].reason}`)
+      else toast.success('Arrears uploaded and assessed.')
+    }
+    catch (e: unknown) { toast.error((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'Upload failed — check the template columns.') }
     finally { if (fileRef.current) fileRef.current.value = '' }
   }
   const s = d?.summary
   const FORMAT_HINT = "CSV file. Required columns: loan_ref, days_past_due. Optional: borrower_name, crop, "
-    + "region, country (ISO-2 — enables climate-attributed yield-shock checking), exposure_eur, as_of_date. "
+    + "region, country (ISO-2 — enables climate-attributed yield-shock checking), exposure, currency (per row), as_of_date (per row). "
     + "One upload = one dated batch; the latest one is assessed."
 
   return (
@@ -50,14 +58,16 @@ export default function SeasonalArrears() {
         <span className="ml-auto flex items-center gap-2">
           <button onClick={() => download('/v1/arrears/template.csv', 'tellumen_arrears_template.csv').catch(() => {})} className="text-[var(--color-faint)] hover:text-[var(--color-sky)]" title={"Download a blank CSV with the right columns. " + FORMAT_HINT}><Download size={13} /></button>
           <input ref={fileRef} type="file" accept=".csv" onChange={onFile} className="hidden" />
-          <button onClick={() => fileRef.current?.click()} title={FORMAT_HINT} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload arrears</button>
+          <button onClick={() => fileRef.current?.click()} disabled={!ccy || !bookDate} title={!ccy || !bookDate ? 'Choose the currency and book date first' : FORMAT_HINT} className="disabled:opacity-45 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-2.5 py-1.5 mono text-[11px] text-[var(--color-mute)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition"><Upload size={13} /> Upload arrears</button>
         </span>
       </div>
       <div className="text-[11px] text-[var(--color-faint)] -mt-2 mb-3">
+        <div className="mb-2"><MoneyDeclaration currency={ccy} setCurrency={setCcy} bookDate={bookDate} setBookDate={setBookDate}
+          note="Exposures convert to EUR at the book date's official rate; a row's own currency / as_of_date columns override these." /></div>
         CSV · <span className="mono">loan_ref</span>, <span className="mono">days_past_due</span> required ·{' '}
         <span className="mono">borrower_name</span>, <span className="mono">crop</span>,{' '}
         <span className="mono">region</span>, <span className="mono">country</span> (enables climate-shock check),{' '}
-        <span className="mono">exposure_eur</span>, <span className="mono">as_of_date</span> optional · one upload = one dated batch, latest one used
+        <span className="mono">exposure</span>, <span className="mono">currency</span>, <span className="mono">as_of_date</span> optional · one upload = one dated batch, latest one used
       </div>
 
       {!d ? <div className="text-[12.5px] text-[var(--color-faint)] py-4">Loading…</div>

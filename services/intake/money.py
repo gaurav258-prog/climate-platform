@@ -148,3 +148,43 @@ def batch_context(session: Session, df: pd.DataFrame, specs: list[dict], mapping
         raise MoneyError("Say which date the figures describe (the book date) — enter it for the file, or add a "
                          "book_date column. Amounts are converted at that date's rates.")
     return {"currency": ccy, "book_date": d, "field_currency": field_ccy}
+
+
+# ── single amounts: every money input outside the intake pipeline (GL, arrears, sites, plots, losses, funds) ──
+
+def convert_amount(session: Session, amount, currency: Optional[str], book_date, *, flow: bool = False,
+                   period: Optional[tuple[date, date]] = None, label: str = "amount") -> dict:
+    """One amount in any currency → {eur, native, currency, rate}. Same rules as a batch: the currency must be given
+    (never assumed); a balance converts at the closing rate on the book date; a flow at the average over `period`
+    (default: the 12 months to the book date). Raises MoneyError with what to do."""
+    amt = parse_money(amount) if not isinstance(amount, (int, float)) else float(amount)
+    if amt is None:
+        raise MoneyError(f"{label} is not a number")
+    ccy = (currency or "").strip().upper()
+    if not ccy:
+        raise MoneyError(f"{label}: say which currency it is in")
+    d = book_date if isinstance(book_date, date) else parse_book_date(book_date)
+    if d is None and period is None:
+        raise MoneyError(f"{label}: say which date it describes (the book date)")
+    if d is not None and d > date.today():
+        raise MoneyError(f"{label}: the book date {d} is in the future")
+    if ccy == "EUR":
+        return {"eur": round(amt, 2), "native": amt, "currency": "EUR", "rate": None}
+    try:
+        if flow:
+            start, end = period or (d - timedelta(days=FLOW_PERIOD_DAYS - 1), d)
+            r = average_rate(session, ccy, start, end)
+        else:
+            r = rate_for(session, ccy, d)
+    except FxError:
+        raise MoneyError(f"{label}: no exchange rate for {ccy}")
+    rate = {"currency": ccy, "policy": "average" if flow else "closing",
+            **{k: r.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "stale", "note", "period_start", "period_end")}}
+    return {"eur": round(amt * r["rate"], 2), "native": amt, "currency": ccy, "rate": rate}
+
+
+def source_record(currency: str, book_date, converted: dict[str, dict]) -> dict:
+    """The money_source JSON stored beside the converted amounts: what was sent, and the rates used."""
+    return {"currency": currency, "book_date": book_date.isoformat() if isinstance(book_date, date) else book_date,
+            "native": {f: c["native"] for f, c in converted.items()},
+            "rates": [c["rate"] for c in converted.values() if c.get("rate")]}

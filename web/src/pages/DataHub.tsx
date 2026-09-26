@@ -102,11 +102,11 @@ export default function DataHub() {
           <div className="px-5 pt-2 pb-5 border-t border-[var(--color-line)] mt-2">
             <div className="text-[13px] text-[var(--color-ink)] font-medium mb-0.5">Per-loan data by Excel</div>
             <ValidatedUpload
-              intro={<>Bulk-provide the per-loan figures the engine can&rsquo;t derive from location — <b className="text-[var(--color-ink)]">EPC label, IFRS-9 stage, residual maturity</b> — in one file, matched to your book by asset name. Reconciled and audited like any provided figure.</>}
-              dropLabel="per-loan attributes file"
+              intro={<>Bulk-provide the per-loan figures the engine can&rsquo;t derive from location — <b className="text-[var(--color-ink)]">EPC label, IFRS-9 stage, residual maturity</b> — in one file, matched to your book by your asset ID (or a name that identifies exactly one loan). EVIC converts to EUR at the book date’s rate. Reconciled and audited like any provided figure.</>}
+              dropLabel="per-loan attributes file" declareMoney
               endpoints={{ validate: '/v1/bank/assets/attributes/validate', upload: '/v1/bank/assets/attributes/upload', template: '/v1/bank/assets/attributes/template.xlsx', templateFile: 'tellumen_loan_attributes_template.xlsx' }}
               onDone={refresh}
-              renderDone={res => <>Matched <b>{Number(res.n_matched) || 0}</b> {Number(res.n_matched) === 1 ? 'loan' : 'loans'}{Number(res.n_unmatched) ? <> · <span style={{ color: 'var(--color-warn)' }}>{Number(res.n_unmatched)} not found in your book</span></> : ''} — saved.</>}
+              renderDone={res => <>Matched <b>{Number(res.n_matched) || 0}</b> {Number(res.n_matched) === 1 ? 'loan' : 'loans'}{Number(res.n_unmatched) ? <> · <span style={{ color: 'var(--color-warn)' }}>{Number(res.n_unmatched)} not found in your book</span></> : ''}{Number(res.n_ambiguous) ? <> · <span style={{ color: 'var(--color-warn)' }}>{Number(res.n_ambiguous)} name(s) match several loans — add your asset ID</span></> : ''}{Number(res.n_refused) ? <> · <span style={{ color: 'var(--color-warn)' }}>{Number(res.n_refused)} refused (currency / date)</span></> : ''} — saved.</>}
             />
           </div>
         )}

@@ -8,6 +8,7 @@ honestly, '—' where no GL has been provided.
 """
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Optional
 
@@ -18,28 +19,40 @@ VERTICAL = {"bank": "banking", "asset_manager": "assetmgmt", "insurer": "insuran
 TOLERANCE_PCT = 0.5   # within 0.5% of the GL counts as reconciled
 
 
-def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[str]) -> dict:
-    """One upload = one dated batch. rows: {account_code, account_name, balance_eur, control_for?, as_of_date?}."""
+def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[str], currency: Optional[str] = None,
+           book_date: Optional[str] = None) -> dict:
+    """One upload = one dated batch. rows: {account_code, account_name, balance (or balance_eur), currency?, control_for?,
+    as_of_date?}. A balance's currency is the row's `currency`, else the one declared for the upload — never assumed;
+    its date is the row's as_of_date, else the declared book date. Converted to EUR at the closing rate of that date
+    (services/intake/money.py); the amount as sent and the rate are kept (money_source). A row that can't be used is
+    reported with the reason, never silently skipped."""
+    from services.intake.money import MoneyError, convert_amount, source_record
     bid = str(uuid.uuid4())
-    n = 0
-    for r in rows:
+    n, skipped = 0, []
+    for i, r in enumerate(rows, start=2):
         code = str(r.get("account_code") or "").strip()
-        try:
-            bal = float(str(r.get("balance_eur")).replace(",", "").replace("€", "").strip())
-        except (TypeError, ValueError, AttributeError):
-            continue
         if not code:
+            skipped.append({"row": i, "reason": "account_code is missing"})
+            continue
+        ccy = (str(r.get("currency") or "").strip() or currency or "").upper()
+        asof = str(r.get("as_of_date") or "").strip() or book_date
+        try:
+            c = convert_amount(session, r.get("balance", r.get("balance_eur")), ccy, asof, label="balance")
+        except MoneyError as e:
+            skipped.append({"row": i, "reason": str(e)})
             continue
         session.execute(text("""
-            INSERT INTO gl_balance (gl_id, org_id, batch_id, account_code, account_name, balance_eur, control_for, as_of_date, uploaded_by)
-            VALUES (CAST(:g AS uuid), CAST(:o AS uuid), CAST(:b AS uuid), :code, :name, :bal, :cf, CAST(:asof AS date), CAST(:u AS uuid))
+            INSERT INTO gl_balance (gl_id, org_id, batch_id, account_code, account_name, balance_eur, control_for, as_of_date,
+                                    uploaded_by, money_source)
+            VALUES (CAST(:g AS uuid), CAST(:o AS uuid), CAST(:b AS uuid), :code, :name, :bal, :cf, CAST(:asof AS date),
+                    CAST(:u AS uuid), CAST(:ms AS jsonb))
         """), {"g": str(uuid.uuid4()), "o": org_id, "b": bid, "code": code[:60],
-               "name": str(r.get("account_name") or "")[:200], "bal": bal,
+               "name": str(r.get("account_name") or "")[:200], "bal": c["eur"],
                "cf": (str(r.get("control_for")).strip() or "book") if r.get("control_for") else "book",
-               "asof": (str(r.get("as_of_date")).strip() or None) if r.get("as_of_date") else None, "u": user_id})
+               "asof": asof, "u": user_id, "ms": json.dumps(source_record(ccy, asof, {"balance": c}), default=str)})
         n += 1
     session.commit()
-    return {"batch_id": bid, "rows": n}
+    return {"batch_id": bid, "rows": n, "skipped": skipped[:50], "n_skipped": len(skipped)}
 
 
 def _latest_batch(session: Session, org_id: str):

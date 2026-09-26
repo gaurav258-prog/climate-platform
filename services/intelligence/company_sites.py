@@ -11,6 +11,7 @@ fabricated location. A site in a cell the golden source hasn't reached yet comes
 """
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -71,12 +72,29 @@ def resolve_location(address: Optional[str], lat: Optional[float], lon: Optional
     raise SiteLocationError("could not locate the site — provide coordinates or a geocodable address")
 
 
+def site_amounts(session: Session, value, throughput, currency: Optional[str], book_date) -> tuple[Optional[float], Optional[float], Optional[dict]]:
+    """A site's amounts in any currency → EUR: asset value is a BALANCE (closing rate on the book date); throughput is a
+    yearly FLOW (average of the 12 months to it). Returns (value_eur, throughput_eur, money_source). Raises MoneyError."""
+    from services.intake.money import convert_amount, source_record
+    conv = {}
+    if value not in (None, ""):
+        conv["annual_value"] = convert_amount(session, value, currency, book_date, label="asset value")
+    if throughput not in (None, ""):
+        conv["annual_throughput"] = convert_amount(session, throughput, currency, book_date, flow=True, label="throughput")
+    if not conv:
+        return None, None, None
+    return (conv["annual_value"]["eur"] if "annual_value" in conv else None,
+            conv["annual_throughput"]["eur"] if "annual_throughput" in conv else None,
+            source_record((currency or "").upper(), book_date, conv))
+
+
 def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
              address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None,
              country: Optional[str] = None, region: Optional[str] = None,
              annual_value_eur: Optional[float] = None, annual_throughput_eur: Optional[float] = None,
-             source: str = "user_entry") -> dict:
-    """Locate → snap to H3 → persist → score. Returns the created site row (with its H3 cell)."""
+             source: str = "user_entry", money_source: Optional[dict] = None) -> dict:
+    """Locate → snap to H3 → persist → score. Returns the created site row (with its H3 cell). Amounts arrive
+    already in EUR; `money_source` records what was sent and the rates used (see site_amounts)."""
     site_type = site_type if site_type in SITE_TYPES else "other"
     loc = resolve_location(address, lat, lon, session=session)
     cell = h3.latlng_to_cell(loc["lat"], loc["lon"], H3_RESOLUTION)
@@ -84,14 +102,15 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
     row = session.execute(text("""
         INSERT INTO sc_company_sites
             (org_id, name, site_type, address, latitude, longitude, h3_cell, country, region,
-             annual_value_eur, annual_throughput_eur, confidence, geocode_precision, source)
+             annual_value_eur, annual_throughput_eur, confidence, geocode_precision, source, money_source)
         VALUES (:org, :name, :type, :addr, :lat, :lon, :cell, :country, :region,
-                :value, :throughput, :conf, :prec, :source)
+                :value, :throughput, :conf, :prec, :source, CAST(:ms AS jsonb))
         RETURNING site_id::text
     """), {"org": org_id, "name": name, "type": site_type, "addr": address,
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "country": country, "region": region,
            "value": annual_value_eur, "throughput": annual_throughput_eur,
-           "conf": loc["confidence"], "prec": loc["precision"], "source": source}).first()
+           "conf": loc["confidence"], "prec": loc["precision"], "source": source,
+           "ms": json.dumps(money_source, default=str) if money_source else None}).first()
     session.commit()
 
     # score the cell in the background if the golden source hasn't reached it — a fresh cell means

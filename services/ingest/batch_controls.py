@@ -204,7 +204,7 @@ def transformation_check(df: pd.DataFrame, specs: list[dict], report: dict, norm
     n_total = int(report.get("n_total", len(df)))
     n_error = int(report.get("n_error", 0))
     rejected_idx = {int(e["row"]) - 2 for e in report.get("errors", [])}
-    records = df.where(pd.notnull(df), None).to_dict("records")
+    records = df.astype(object).where(pd.notnull(df), None).to_dict("records")   # blanks → None, not NaN
 
     tie_outs: list[dict] = []
     for s in specs:

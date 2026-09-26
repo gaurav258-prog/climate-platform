@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, ShieldCheck, Clock } from 'lucide-react'
-import { api, upload as uploadFile, download } from '../lib/api'
+import { upload as uploadFile, download } from '../lib/api'
 import { ControlsPanel, LandingNote, type Controls } from './IntakeControls'
+import MoneyDeclaration from './MoneyDeclaration'
 import MappingEditor, { MappingNote, useTemplateMappings, type MappingReport } from './MappingEditor'
 
 // The one customer-data upload control, used by every sector's book (loan tape, SoV, properties, holdings, plots).
@@ -21,10 +22,11 @@ interface MissingCols { missing_columns?: string[]; source_columns?: string[]; s
 interface Endpoints { validate: string; upload: string; template: string; templateFile: string }
 type Outcome = { state: string; message?: string; batch_id?: string; approval_request_id?: string; n_uploaded?: number; controls?: Controls; notes?: Record<string, unknown> } & Record<string, unknown>
 
-export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone, accept = '.csv,.xlsx', template }: {
+export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, renderDone, accept = '.csv,.xlsx', template, declareMoney }: {
   intro: React.ReactNode; dropLabel: string; endpoints: Endpoints; onDone: () => void
   renderDone: (res: Outcome) => React.ReactNode; accept?: string
   template?: string   // intake template key — enables column mapping for files in the customer's own layout
+  declareMoney?: boolean   // a non-template upload that carries amounts: ask for their currency + book date too
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -42,10 +44,9 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
   // every batch declares the currency of its amounts and the date its figures describe — never assumed
   const [ccy, setCcy] = useState('')
   const [bookDate, setBookDate] = useState('')
-  const [ccyList, setCcyList] = useState<string[]>([])
-  useEffect(() => { if (template) api.get<{ currencies: string[] }>('/v1/intake/fx/currencies').then(r => setCcyList(r.currencies)).catch(() => setCcyList([])) }, [template])
-  const needsDecl = !!template && (!ccy || !bookDate)
-  const money = (): Record<string, string | undefined> => template ? { currency: ccy || undefined, book_date: bookDate || undefined } : {}
+  const declares = !!template || !!declareMoney
+  const needsDecl = declares && (!ccy || !bookDate)
+  const money = (): Record<string, string | undefined> => declares ? { currency: ccy || undefined, book_date: bookDate || undefined } : {}
 
   const errOf = (e: unknown) => (e as { body?: { error?: { error?: string; message?: string; controls?: Controls; security?: Security } & MissingCols } })?.body?.error
   const declared = (): Record<string, string | undefined> => {
@@ -75,7 +76,7 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
     check(f, profileId)
   }
   // declaring (or changing) the currency / book date re-checks the chosen file at the new rates
-  useEffect(() => { if (file && template && ccy && bookDate && phase !== 'done' && phase !== 'importing') check(file, profileId) }, [ccy, bookDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (file && declares && ccy && bookDate && phase !== 'done' && phase !== 'importing') check(file, profileId) }, [ccy, bookDate]) // eslint-disable-line react-hooks/exhaustive-deps
   const recheck = async () => {
     if (!file) return
     setRechecking(true); setMsg(null)
@@ -122,18 +123,9 @@ export default function ValidatedUpload({ intro, dropLabel, endpoints, onDone, r
             {saved.map(s => <option key={s.profile_id} value={s.profile_id}>{s.name} (v{s.version})</option>)}
           </select></label>
       )}
-      {template && phase !== 'done' && (
-        <div className="flex items-end gap-3 flex-wrap mb-2 text-[11.5px] text-[var(--color-mute)]">
-          <label>Amounts are in
-            <select value={ccy} onChange={e => setCcy(e.target.value)} className="block mt-0.5 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 mono text-[12px] text-[var(--color-ink)]">
-              <option value="">— currency —</option>
-              {ccyList.map(c => <option key={c} value={c}>{c}</option>)}
-            </select></label>
-          <label>Book date (the date the figures describe)
-            <input type="date" value={bookDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setBookDate(e.target.value)}
-              className="block mt-0.5 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 mono text-[12px] text-[var(--color-ink)]" /></label>
-          <span className="text-[10.5px] text-[var(--color-faint)] basis-full">A currency or book_date column in the file overrides these per row. Values convert at the book date’s rate; yearly figures (income, spend) at the average of the 12 months to it.</span>
-        </div>
+      {declares && phase !== 'done' && (
+        <div className="mb-2"><MoneyDeclaration currency={ccy} setCurrency={setCcy} bookDate={bookDate} setBookDate={setBookDate}
+          note="A currency or book_date column in the file overrides these per row. Values convert at the book date’s rate; yearly figures (income, spend) at the average of the 12 months to it." /></div>
       )}
       {phase === 'idle' && msg && <div className="mb-2 text-[12px]" style={{ color: 'var(--color-warn)' }}>{msg}</div>}
       {phase !== 'done' && !mapping && (

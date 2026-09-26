@@ -150,7 +150,9 @@ def validate_table(df: pd.DataFrame, specs: list[dict]) -> dict:
         return {"ok": False, "missing_columns": missing_columns, "n_total": int(len(df)),
                 "n_valid": 0, "n_error": 0, "errors": [], "valid_rows": [], "valid_row_numbers": []}
 
-    records = df.where(pd.notnull(df), None).to_dict("records")
+    # blanks become None: cast to object FIRST — on a numeric or mixed column, where(…, None) keeps NaN, and a NaN
+    # read as text is the string "nan" (a blank ID would then look like the ID "nan")
+    records = df.astype(object).where(pd.notnull(df), None).to_dict("records")
     valid_rows: list[dict] = []
     valid_row_numbers: list[int] = []
     errors: list[dict] = []

@@ -10,6 +10,7 @@ Governance: unscored commodities (e.g. cocoa) return status='pending', € withh
 from __future__ import annotations
 
 import io
+import json
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Optional
@@ -260,12 +261,15 @@ class SiteCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     country: Optional[str] = None
-    annual_value_eur: Optional[float] = None          # asset value (PP&E + inventory) → value-at-risk
-    annual_throughput_eur: Optional[float] = None      # revenue/goods through the site → business-interruption
+    annual_value_eur: Optional[float] = None          # asset value (PP&E + inventory) → value-at-risk — in `currency`
+    annual_throughput_eur: Optional[float] = None      # revenue/goods through the site → business-interruption — in `currency`
+    currency: Optional[str] = Field(None, description="ISO 4217 code of the amounts — required when an amount is given; never assumed.")
+    book_date: Optional[str] = Field(None, description="YYYY-MM-DD the amounts describe: value at that day's rate, "
+                                                       "throughput at the average of the 12 months to it.")
 
 
 SITE_TEMPLATE_FIELDS = ["name", "site_type", "address", "latitude", "longitude", "country",
-                        "annual_value_eur", "annual_throughput_eur"]
+                        "annual_value_eur", "annual_throughput_eur", "currency", "book_date"]
 
 
 @router.get("/sites", summary="The company's own operational sites + each site's worst climate hazard")
@@ -309,11 +313,16 @@ def site_detail(site_id: str, session: DbSession):
 @router.post("/sites", summary="Add one operational site (by address or coordinates) → geocode + score")
 def create_site(body: SiteCreate, session: DbSession, ctx: CurrentUser):
     org_id = ctx["org"]["org_id"]
+    from services.intake.money import MoneyError
+    from services.intelligence.company_sites import site_amounts
+    try:
+        v, tp, ms = site_amounts(session, body.annual_value_eur, body.annual_throughput_eur, body.currency, body.book_date)
+    except MoneyError as e:
+        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
     try:
         site = add_site(session, org_id, body.name, body.site_type, address=body.address,
                         lat=body.latitude, lon=body.longitude, country=body.country,
-                        annual_value_eur=body.annual_value_eur, annual_throughput_eur=body.annual_throughput_eur,
-                        source="user_entry")
+                        annual_value_eur=v, annual_throughput_eur=tp, source="user_entry", money_source=ms)
     except SiteLocationError as e:
         raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="supply.site.add",
@@ -366,7 +375,9 @@ class PlotCreate(BaseModel):
     longitude: Optional[float] = None
     region: Optional[str] = None
     country: Optional[str] = None
-    annual_spend_eur: float = Field(..., gt=0)
+    annual_spend_eur: float = Field(..., gt=0)       # yearly spend in `currency`
+    currency: str = Field(..., min_length=3, max_length=3, description="ISO 4217 code of the spend — never assumed.")
+    book_date: str = Field(..., description="YYYY-MM-DD: the spend is converted at the average rate of the 12 months to it.")
     plot_area_ha: Optional[float] = None
     irrigation_status: Optional[str] = None        # 'irrigated' | 'rain_fed' | 'mixed' | None (undeclared)
 
@@ -384,6 +395,17 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
         loc = resolve_location(body.address, body.latitude, body.longitude, session=session)
     except LocErr as e:
         raise HTTPException(status_code=422, detail={"error": "unlocatable", "message": str(e)})
+    from services.intake.money import MoneyError, convert_amount, source_record
+    try:
+        spend = convert_amount(session, body.annual_spend_eur, body.currency, body.book_date, flow=True, label="annual spend")
+    except MoneyError as e:
+        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
+    # the country: given (any spelling), else the geocoder's country name — both through the country reference
+    from services.ingest.fields import norm_token
+    from services.intake.values import lookup as vocab_lookup
+    countries = vocab_lookup(session, "country")
+    country_in = body.country or (loc.get("resolved_name") or "").split(", ")[-1] or None
+    country = countries.get(norm_token(country_in)) if country_in else None
     # a >4ha plot given only as a point is EUDR-insufficient — flag it honestly (don't block the add)
     needs_polygon = bool(body.plot_area_ha and body.plot_area_ha > 4.0)
     cell = h3.latlng_to_cell(loc["lat"], loc["lon"], 8)
@@ -391,14 +413,14 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
     session.execute(text("""
         INSERT INTO sc_sourcing_plots (plot_id, org_id, commodity_id, plot_name, latitude, longitude,
                                         h3_cell, region, country, annual_spend_eur, plot_area_ha,
-                                        confidence, geocode_precision, irrigation_status)
+                                        confidence, geocode_precision, irrigation_status, money_source)
         VALUES (:plot_id, :org_id, :commodity_id, :plot_name, :lat, :lon, :cell, :region, :country, :spend, :area,
-                :conf, :prec, :irr)
+                :conf, :prec, :irr, CAST(:ms AS jsonb))
     """), {"plot_id": plot_id, "org_id": org_id, "commodity_id": commodity_id, "plot_name": body.plot_name,
            "lat": loc["lat"], "lon": loc["lon"], "cell": cell, "region": body.region,
-           "country": body.country or (loc.get("resolved_name") or "").split(", ")[-1] or None,
-           "spend": body.annual_spend_eur, "area": body.plot_area_ha,
-           "conf": loc["confidence"], "prec": loc["precision"], "irr": _norm_irrigation(body.irrigation_status)})
+           "country": country, "spend": spend["eur"], "area": body.plot_area_ha,
+           "conf": loc["confidence"], "prec": loc["precision"], "irr": _norm_irrigation(body.irrigation_status),
+           "ms": json.dumps(source_record(body.currency.upper(), body.book_date, {"annual_spend": spend}), default=str)})
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,
@@ -506,7 +528,8 @@ def sites_template_xlsx():
 
 
 @router.post("/sites/upload", summary="Bulk-upload operational sites from a CSV")
-async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...)):
+async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = File(...),
+                       currency: Optional[str] = Form(None), book_date: Optional[str] = Form(None)):
     org_id = ctx["org"]["org_id"]
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files are accepted")
@@ -526,13 +549,22 @@ async def upload_sites(session: DbSession, ctx: CurrentUser, file: UploadFile = 
         def _num(v):
             try: return float(v)
             except Exception: return None
+        def _txt(v):
+            return None if v is None or str(v) == "nan" or not str(v).strip() else str(v).strip()
+        from services.intake.money import MoneyError
+        from services.intelligence.company_sites import site_amounts
+        try:   # a row's own currency / book_date columns override the ones declared for the upload
+            v, tp, ms = site_amounts(session, _txt(r.get("annual_value_eur")), _txt(r.get("annual_throughput_eur")),
+                                     _txt(r.get("currency")) or currency, _txt(r.get("book_date")) or book_date)
+        except MoneyError as e:
+            skipped.append({"name": name, "reason": str(e)})
+            continue
         try:
             site = add_site(session, org_id, name, str(r.get("site_type") or "other"),
                             address=(str(r["address"]).strip() if r.get("address") is not None and str(r.get("address")) != "nan" else None),
                             lat=_num(r.get("latitude")), lon=_num(r.get("longitude")),
                             country=(str(r["country"]) if r.get("country") is not None and str(r.get("country")) != "nan" else None),
-                            annual_value_eur=_num(r.get("annual_value_eur")),
-                            annual_throughput_eur=_num(r.get("annual_throughput_eur")), source="user_upload")
+                            annual_value_eur=v, annual_throughput_eur=tp, source="user_upload", money_source=ms)
             added.append(site["name"])
         except SiteLocationError:
             skipped.append({"name": name, "reason": "unlocatable — no coordinates or geocodable address"})

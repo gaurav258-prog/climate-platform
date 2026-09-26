@@ -28,6 +28,7 @@ customer-supplied, same honesty discipline as everything else here — never inf
 """
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 
 from sqlalchemy import text
@@ -38,7 +39,7 @@ REGULATION = "IFRS S2 Climate-related Disclosures, paragraph 16(a) — current-p
 def submit_incurred_loss(session, org_id: str, period_start, period_end, peril: str,
                           gross_incurred_loss_eur: float, net_incurred_loss_eur: float | None = None,
                           source: str = "client", created_by: str | None = None,
-                          region: str | None = None, modelled: bool | None = None) -> dict:
+                          region: str | None = None, modelled: bool | None = None, money_source: dict | None = None) -> dict:
     """Record one actual incurred NatCat loss for a (org, reporting period, peril). Additive: a second
     submission for the same period+peril is a SEPARATE record (e.g. a claims-development update), never an
     overwrite — the summary rolls them up, so restating history stays visible in the raw list.
@@ -47,12 +48,14 @@ def submit_incurred_loss(session, org_id: str, period_start, period_end, peril: 
     row = session.execute(text("""
         INSERT INTO insurer_incurred_losses
             (org_id, period_start, period_end, peril, gross_incurred_loss_eur, net_incurred_loss_eur,
-             source, created_by, region, modelled)
-        VALUES (CAST(:org AS uuid), :ps, :pe, :peril, :gross, :net, :source, CAST(:by AS uuid), :region, :modelled)
+             source, created_by, region, modelled, money_source)
+        VALUES (CAST(:org AS uuid), :ps, :pe, :peril, :gross, :net, :source, CAST(:by AS uuid), :region, :modelled,
+                CAST(:ms AS jsonb))
         RETURNING loss_id::text AS loss_id, reported_at
     """), {"org": org_id, "ps": period_start, "pe": period_end, "peril": peril,
            "gross": gross_incurred_loss_eur, "net": net_incurred_loss_eur,
-           "source": source, "by": created_by, "region": region, "modelled": modelled}).mappings().first()
+           "source": source, "by": created_by, "region": region, "modelled": modelled,
+           "ms": json.dumps(money_source, default=str) if money_source else None}).mappings().first()
     return dict(row)
 
 

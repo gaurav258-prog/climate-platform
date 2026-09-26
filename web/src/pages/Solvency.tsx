@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, ShieldCheck, Layers, ChevronRight, FileClock } from 'lucide-react'
+import MoneyDeclaration from '../components/MoneyDeclaration'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button, SectionHead, PageHeader, HeroBanner, StatGrid } from '../components/ui'
@@ -326,8 +327,10 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
 function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
   const perils = Object.keys(HAZARD_LABEL)
   const [peril, setPeril] = useState(perils[0] ?? 'flood')
-  const [periodStart, setPeriodStart] = useState(`${new Date().getFullYear()}-01-01`)
-  const [periodEnd, setPeriodEnd] = useState(`${new Date().getFullYear()}-12-31`)
+  // default: the last FULL calendar year — a period must have ended to have incurred losses (and a rate)
+  const [periodStart, setPeriodStart] = useState(`${new Date().getFullYear() - 1}-01-01`)
+  const [periodEnd, setPeriodEnd] = useState(`${new Date().getFullYear() - 1}-12-31`)
+  const [ccy, setCcy] = useState('')
   const [gross, setGross] = useState('')
   const [net, setNet] = useState('')
   const [region, setRegion] = useState('')
@@ -337,14 +340,15 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
 
   const submit = async () => {
     setErr(null)
-    if (!gross || Number(gross) < 0) { setErr('Enter the gross incurred loss (EUR).'); return }
+    if (!gross || Number(gross) < 0) { setErr('Enter the gross incurred loss.'); return }
+    if (!ccy) { setErr('Choose the currency of the losses.'); return }
     if (periodEnd < periodStart) { setErr('The period end cannot be before the period start.'); return }
     setBusy(true)
     try {
       await api.post('/v1/insurance/incurred-losses', {
         period_start: periodStart, period_end: periodEnd, peril,
         gross_incurred_loss_eur: Number(gross),
-        net_incurred_loss_eur: net ? Number(net) : undefined,
+        net_incurred_loss_eur: net ? Number(net) : undefined, currency: ccy,
         source: 'client',
         region: region || undefined,
         modelled: modelled === '' ? undefined : modelled === 'true',
@@ -357,6 +361,8 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
     <div className="mt-3 pt-3 border-t border-[var(--color-line)] space-y-2">
       <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Submit an incurred loss</div>
       {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
+      <MoneyDeclaration currency={ccy} setCurrency={setCcy} withDate={false}
+        note="Losses are a flow over the period: converted to EUR at the average rate from the period start to its end." />
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         <select value={peril} onChange={e => setPeril(e.target.value)}
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]">
@@ -366,9 +372,9 @@ function IncurredLossForm({ onSaved }: { onSaved: () => void }) {
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
         <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
-        <input type="number" min={0} placeholder="Gross EUR" value={gross} onChange={e => setGross(e.target.value)}
+        <input type="number" min={0} placeholder="Gross loss" value={gross} onChange={e => setGross(e.target.value)}
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
-        <input type="number" min={0} placeholder="Net EUR (optional)" value={net} onChange={e => setNet(e.target.value)}
+        <input type="number" min={0} placeholder="Net loss (optional)" value={net} onChange={e => setNet(e.target.value)}
           className="bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]" />
         <input type="text" placeholder="Region (optional)" value={region} onChange={e => setRegion(e.target.value)}
           title="SASB FN-IN-450a.2 geographic-segment disaggregation, e.g. 'Germany'"

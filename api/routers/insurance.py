@@ -351,8 +351,10 @@ class IncurredLossRequest(BaseModel):
     period_start: date
     period_end: date
     peril: str
-    gross_incurred_loss_eur: float = Field(..., ge=0)
-    net_incurred_loss_eur: Optional[float] = Field(None, ge=0)
+    gross_incurred_loss_eur: float = Field(..., ge=0, description="In `currency`.")
+    net_incurred_loss_eur: Optional[float] = Field(None, ge=0, description="In `currency`.")
+    currency: str = Field(..., min_length=3, max_length=3, description="ISO 4217 code of the losses — never assumed. Losses "
+                          "are a flow over the period: converted at the average rate from period_start to period_end.")
     source: str = Field("client", description="Where this figure came from, e.g. 'client', 'audited_accounts'.")
     region: Optional[str] = Field(None, description="Geographic segment (SASB FN-IN-450a.2 disaggregation) — "
                                   "optional, e.g. 'Germany' or 'Western Europe'.")
@@ -412,15 +414,31 @@ def post_incurred_loss(body: IncurredLossRequest, session: DbSession, ctx: Curre
         raise HTTPException(status_code=400, detail="net_incurred_loss_eur cannot exceed gross_incurred_loss_eur")
 
     org_id = ctx["org"]["org_id"]
+    from services.intake.money import MoneyError, convert_amount, source_record
+    period = (body.period_start, body.period_end)
+    try:
+        conv = {"gross_incurred_loss": convert_amount(session, body.gross_incurred_loss_eur, body.currency, body.period_end,
+                                                      flow=True, period=period, label="gross incurred loss")}
+        if body.net_incurred_loss_eur is not None:
+            conv["net_incurred_loss"] = convert_amount(session, body.net_incurred_loss_eur, body.currency, body.period_end,
+                                                       flow=True, period=period, label="net incurred loss")
+    except MoneyError as e:
+        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
     res = submit_incurred_loss(session, org_id, body.period_start, body.period_end, body.peril,
-                               body.gross_incurred_loss_eur, body.net_incurred_loss_eur, body.source,
-                               created_by=ctx["user"]["id"], region=body.region, modelled=body.modelled)
+                               conv["gross_incurred_loss"]["eur"],
+                               conv["net_incurred_loss"]["eur"] if "net_incurred_loss" in conv else None, body.source,
+                               created_by=ctx["user"]["id"], region=body.region, modelled=body.modelled,
+                               money_source=source_record(body.currency.upper(), body.period_end, conv))
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="incurred_loss.submit",
                 target_type="insurer_incurred_losses", target_id=res["loss_id"],
                 detail={"period_start": str(body.period_start), "period_end": str(body.period_end),
-                        "peril": body.peril, "gross_incurred_loss_eur": body.gross_incurred_loss_eur,
-                        "net_incurred_loss_eur": body.net_incurred_loss_eur, "source": body.source})
-    return {"loss_id": res["loss_id"], "reported_at": res["reported_at"].isoformat(), **body.model_dump(mode="json")}
+                        "peril": body.peril, "gross_incurred_loss": body.gross_incurred_loss_eur,
+                        "net_incurred_loss": body.net_incurred_loss_eur, "currency": body.currency.upper(),
+                        "gross_incurred_loss_eur": conv["gross_incurred_loss"]["eur"], "source": body.source})
+    return {"loss_id": res["loss_id"], "reported_at": res["reported_at"].isoformat(), **body.model_dump(mode="json"),
+            "gross_incurred_loss_eur": conv["gross_incurred_loss"]["eur"],
+            "net_incurred_loss_eur": conv["net_incurred_loss"]["eur"] if "net_incurred_loss" in conv else None,
+            "fx": [c["rate"] for c in conv.values() if c.get("rate")]}
 
 
 @router.get("/forward-risk", summary="Forward-change decision signal — scenario risk migration + runway")

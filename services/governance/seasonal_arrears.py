@@ -23,6 +23,7 @@ separately as "not checked", not silently folded into "genuine".
 """
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import date
 from typing import Optional
@@ -124,37 +125,50 @@ def _yield_shock_map(session: Session, keys: set[tuple[str, str]]) -> dict[tuple
     return out
 
 
-def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[str]) -> dict:
-    """One upload = one dated batch. rows: {loan_ref, borrower_name?, crop?, region?, country?, exposure_eur?,
-    days_past_due, as_of_date?}. `country` is an optional ISO-2 the uploader provides directly — never inferred
-    from `region`, which stays free text."""
+def ingest(session: Session, org_id: str, rows: list[dict], user_id: Optional[str], currency: Optional[str] = None,
+           book_date: Optional[str] = None) -> dict:
+    """One upload = one dated batch. rows: {loan_ref, borrower_name?, crop?, region?, country?, exposure (or
+    exposure_eur)?, currency?, days_past_due, as_of_date?}. `country` is an optional ISO-2 the uploader provides
+    directly — never inferred from `region`. An exposure's currency is the row's `currency`, else the declared one —
+    never assumed; converted to EUR at the closing rate of the row's as_of_date (else the declared book date), the
+    amount as sent and the rate kept (money_source). A row that can't be used is reported with the reason."""
+    from services.intake.money import MoneyError, convert_amount, source_record
     bid = str(uuid.uuid4())
-    n = 0
-    for r in rows:
+    n, skipped = 0, []
+    for i, r in enumerate(rows, start=2):
         ref = str(r.get("loan_ref") or "").strip()
         try:
             dpd = int(float(str(r.get("days_past_due")).strip()))
         except (TypeError, ValueError, AttributeError):
+            skipped.append({"row": i, "reason": "days_past_due is not a whole number"})
             continue
         if not ref:
+            skipped.append({"row": i, "reason": "loan_ref is missing"})
             continue
-        try:
-            exp = float(str(r.get("exposure_eur")).replace(",", "").replace("€", "").strip()) if r.get("exposure_eur") not in (None, "") else None
-        except (TypeError, ValueError, AttributeError):
-            exp = None
+        raw_exp = r.get("exposure", r.get("exposure_eur"))
+        asof = str(r.get("as_of_date") or "").strip() or book_date
+        exp, ms = None, None
+        if raw_exp not in (None, ""):
+            ccy = (str(r.get("currency") or "").strip() or currency or "").upper()
+            try:
+                c = convert_amount(session, raw_exp, ccy, asof, label="exposure")
+            except MoneyError as e:
+                skipped.append({"row": i, "reason": str(e)})
+                continue
+            exp, ms = c["eur"], json.dumps(source_record(ccy, asof, {"exposure": c}), default=str)
         country = str(r.get("country") or "").strip().upper()[:3] or None
         session.execute(text("""
-            INSERT INTO loan_arrears (arrears_id, org_id, batch_id, loan_ref, borrower_name, crop, region, country, exposure_eur, days_past_due, as_of_date, uploaded_by)
-            VALUES (CAST(:a AS uuid), CAST(:o AS uuid), CAST(:b AS uuid), :ref, :bn, :crop, :reg, :country, :exp, :dpd, CAST(:asof AS date), CAST(:u AS uuid))
+            INSERT INTO loan_arrears (arrears_id, org_id, batch_id, loan_ref, borrower_name, crop, region, country, exposure_eur,
+                                      days_past_due, as_of_date, uploaded_by, money_source)
+            VALUES (CAST(:a AS uuid), CAST(:o AS uuid), CAST(:b AS uuid), :ref, :bn, :crop, :reg, :country, :exp, :dpd,
+                    CAST(:asof AS date), CAST(:u AS uuid), CAST(:ms AS jsonb))
         """), {"a": str(uuid.uuid4()), "o": org_id, "b": bid, "ref": ref[:80], "bn": str(r.get("borrower_name") or "")[:200],
                "crop": (str(r.get("crop")).strip() or None) if r.get("crop") else None,
                "reg": (str(r.get("region")).strip() or None) if r.get("region") else None,
-               "country": country,
-               "exp": exp, "dpd": dpd,
-               "asof": (str(r.get("as_of_date")).strip() or None) if r.get("as_of_date") else None, "u": user_id})
+               "country": country, "exp": exp, "dpd": dpd, "asof": asof, "u": user_id, "ms": ms})
         n += 1
     session.commit()
-    return {"batch_id": bid, "rows": n}
+    return {"batch_id": bid, "rows": n, "skipped": skipped[:50], "n_skipped": len(skipped)}
 
 
 def _latest_batch(session: Session, org_id: str):

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Sprout, Coins, TreePine } from 'lucide-react'
 import { api } from '../lib/api'
+import MoneyDeclaration from '../components/MoneyDeclaration'
 import ValidatedUpload from '../components/ValidatedUpload'
 import { useAuth } from '../lib/auth'
 import { Card, StatusPill, Button, ExportButton, PageHeader, HeroBanner, SectionHead, PlainLead } from '../components/ui'
@@ -29,6 +30,8 @@ export default function Sourcing() {
   const cq = useQuery({ queryKey: ['commodities'], queryFn: () => api.get<{ commodities: Commodity[] }>('/v1/supply/commodities') })
 
   const [form, setForm] = useState({ plot_name: '', commodity: '', address: '', latitude: '', longitude: '', annual_spend_eur: '', plot_area_ha: '' })
+  const [ccy, setCcy] = useState('')
+  const [bookDate, setBookDate] = useState('')
   const [chosen, setChosen] = useState<Place | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'err' } | null>(null)
@@ -38,7 +41,8 @@ export default function Sourcing() {
   const add = async () => {
     if (!form.plot_name.trim()) { setMsg({ text: 'Give the plot a name.', tone: 'err' }); return }
     if (!form.commodity) { setMsg({ text: 'Pick the commodity sourced from this plot.', tone: 'err' }); return }
-    if (!form.annual_spend_eur || Number(form.annual_spend_eur) <= 0) { setMsg({ text: 'Enter the annual spend (€) on this plot.', tone: 'err' }); return }
+    if (!form.annual_spend_eur || Number(form.annual_spend_eur) <= 0) { setMsg({ text: 'Enter the annual spend on this plot.', tone: 'err' }); return }
+    if (!ccy || !bookDate) { setMsg({ text: 'Choose the currency of the spend and the date it runs to.', tone: 'err' }); return }
     const useChosen = chosen && !hasCoords
     if (!hasCoords && !chosen) { setMsg({ text: 'Search an address and pick a place, or enter coordinates.', tone: 'err' }); return }
     setBusy(true); setMsg(null)
@@ -48,7 +52,7 @@ export default function Sourcing() {
         address: useChosen ? chosen!.display_name : (form.address.trim() || null),
         latitude: useChosen ? chosen!.lat : (form.latitude ? Number(form.latitude) : null),
         longitude: useChosen ? chosen!.lon : (form.longitude ? Number(form.longitude) : null),
-        annual_spend_eur: Number(form.annual_spend_eur),
+        annual_spend_eur: Number(form.annual_spend_eur), currency: ccy, book_date: bookDate,
         plot_area_ha: form.plot_area_ha ? Number(form.plot_area_ha) : null,
       })
       const where = useChosen ? chosen!.display_name : `${r.plot.lat.toFixed(3)}, ${r.plot.lon.toFixed(3)}`
@@ -58,7 +62,8 @@ export default function Sourcing() {
       setChosen(null)
       await q.refetch()
     } catch (e) {
-      setMsg({ text: (e as { body?: { detail?: { message?: string } } })?.body?.detail?.message || 'Could not add — pick a place or enter coordinates.', tone: 'err' })
+      const b = (e as { body?: { error?: { message?: string }; detail?: { message?: string } } })?.body
+      setMsg({ text: b?.error?.message || b?.detail?.message || 'Could not add — pick a place or enter coordinates.', tone: 'err' })
     } finally { setBusy(false) }
   }
 
@@ -143,7 +148,9 @@ export default function Sourcing() {
               onSelect={p => { setChosen(p); setForm(f => ({ ...f, address: p.display_name })) }} />
             {hasCoords && form.address.trim() && <div className="mt-1.5 text-[11px] text-[var(--color-faint)]">using the coordinates below (address ignored)</div>}
           </Field>
-          <Field label="Annual spend € *"><input className={inp} value={form.annual_spend_eur} onChange={e => setForm({ ...form, annual_spend_eur: e.target.value })} placeholder="2500000" inputMode="numeric" /></Field>
+          <div className="col-span-full"><MoneyDeclaration currency={ccy} setCurrency={setCcy} bookDate={bookDate} setBookDate={setBookDate}
+            dateLabel="Spend runs to (book date)" note="The spend is a yearly figure: converted to EUR at the average rate of the 12 months to that date." /></div>
+          <Field label="Annual spend *"><input className={inp} value={form.annual_spend_eur} onChange={e => setForm({ ...form, annual_spend_eur: e.target.value })} placeholder="2500000" inputMode="numeric" /></Field>
           <Field label="Plot area (ha)"><input className={inp} value={form.plot_area_ha} onChange={e => setForm({ ...form, plot_area_ha: e.target.value })} placeholder="optional · >4 ha needs a polygon" inputMode="decimal" /></Field>
           <Field label="Latitude"><input className={inp} value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} placeholder="7.54" inputMode="decimal" /></Field>
           <Field label="Longitude"><input className={inp} value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} placeholder="-5.55" inputMode="decimal" /></Field>
