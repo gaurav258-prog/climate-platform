@@ -10,8 +10,9 @@ built-in retry/observability. What this does NOT fix: the external Copernicus
 CDS/ADS and NASA FIRMS queue times themselves — those are the other side's
 latency, not something any internal task-queue choice changes.
 
-Run the worker separately from the API process:
+Run the worker AND the scheduler separately from the API process (Procfile: worker, scheduler):
     .venv/bin/celery -A services.tasks.celery_app worker --loglevel=info
+    .venv/bin/celery -A services.tasks.celery_app beat --loglevel=info
 """
 from __future__ import annotations
 
@@ -41,6 +42,21 @@ from services.tasks.heartbeat import on_worker_ready, on_worker_shutdown  # noqa
 
 worker_ready.connect(on_worker_ready)
 worker_shutdown.connect(on_worker_shutdown)
+
+# Run record + scheduler liveness (services/tasks/schedule_health.py): a stopped scheduler or failing job shows up.
+from celery.signals import beat_init, task_failure, task_postrun, task_prerun  # noqa: E402
+
+from services.tasks.schedule_health import (  # noqa: E402
+    on_beat_init,
+    on_task_failure,
+    on_task_postrun,
+    on_task_prerun,
+)
+
+task_prerun.connect(on_task_prerun)
+task_postrun.connect(on_task_postrun)
+task_failure.connect(on_task_failure)
+beat_init.connect(on_beat_init)
 
 celery_app.conf.update(
     task_serializer="json",

@@ -70,7 +70,10 @@ def clear_heartbeat(worker: str) -> None:
 
 
 def read_heartbeats(session) -> list[dict]:
-    rows = session.execute(text("SELECT worker, queue, hostname, last_seen, version FROM worker_heartbeat")).mappings().all()
+    """Job EXECUTORS only. The scheduler beats into the same table under queue 'beat' and is read separately
+    (services/tasks/schedule_health.py) — it runs no jobs, so it must never make a stopped worker look alive."""
+    rows = session.execute(text("SELECT worker, queue, hostname, last_seen, version FROM worker_heartbeat "
+                                "WHERE queue <> 'beat'")).mappings().all()
     return [dict(r) for r in rows]
 
 

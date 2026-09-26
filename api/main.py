@@ -405,6 +405,14 @@ async def general_exception_handler(request, exc):
 
 # ── Utility endpoints ─────────────────────────────────────────────────
 
+@app.get("/health/schedules", tags=["Health"])
+def health_schedules() -> dict:
+    """Every scheduled job against its own period: ok | overdue | failed | never_run, plus scheduler liveness.
+    No tenant data — the platform's own timed work (feed refreshes, drop-folder sweep, daily sweeps)."""
+    from services.tasks.schedule_health import schedule_status
+    return schedule_status()
+
+
 @app.get("/health", tags=["Health"])
 def health() -> dict:
     """Liveness + a real DB probe + the job executor's heartbeat. 'ok' when the database answers, 'degraded'
@@ -422,7 +430,11 @@ def health() -> dict:
         return {"status": "degraded", "version": app.version, "database": "unavailable"}
     # Executor liveness (Celery worker or fallback child): {alive, last_seen, stale_after_s, executor, workers}.
     from services.tasks.jobs import worker_status
-    return {"status": "ok", "version": app.version, "database": db_state, "worker": worker_status()}
+    from services.tasks.schedule_health import schedule_status
+    sched = schedule_status()
+    return {"status": "ok", "version": app.version, "database": db_state, "worker": worker_status(),
+            "scheduler": {**sched["scheduler"], "n_problems": sched["n_problems"],
+                          "problems": [j["name"] for j in sched["jobs"] if j["status"] in ("overdue", "failed")]}}
 
 
 @app.get("/v1/meta/hazards", tags=["Meta"])
