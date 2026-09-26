@@ -138,3 +138,42 @@ def sweep_channel(channel_id: str, session: DbSession, ctx: dict = Depends(requi
         raise HTTPException(404, {"error": "not_found", "message": "Channel not found."})
     session.rollback()   # the sweep uses its own transaction per file
     return {"channel_id": channel_id, "files": _sweep(ch, ctx["org"]["org_id"])}
+
+
+# ── SFTP access keys for the drop folders (one login per organisation, keys only) ──
+
+class SftpKeyIn(BaseModel):
+    label: str = Field(..., min_length=1, max_length=80, description="Which system uses this key.")
+    public_key: str = Field(..., min_length=20, max_length=4000, description="The OpenSSH public key line (never the private key).")
+
+
+@router.get("/sftp-keys", summary="Public keys allowed to log in to your drop folders")
+def list_sftp_keys(session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.sftp_keys import list_keys
+    return {"keys": list_keys(session, ctx["org"]["org_id"])}
+
+
+@router.post("/sftp-keys", status_code=201, summary="Register a public key for SFTP access")
+def add_sftp_key(body: SftpKeyIn, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.sftp_keys import SftpKeyError, add
+    if "PRIVATE KEY" in body.public_key:
+        raise HTTPException(400, {"error": "private_key", "message": "That is a PRIVATE key — never share it. Paste the .pub file's line."})
+    try:
+        out = add(session, ctx["org"]["org_id"], body.label, body.public_key, ctx["user"]["id"])
+    except SftpKeyError as e:
+        raise HTTPException(400, {"error": "bad_key", "message": str(e)}) from e
+    session.commit()
+    return out
+
+
+@router.delete("/sftp-keys/{key_id}", summary="Revoke an SFTP key (it stops working at the next login)")
+def revoke_sftp_key(key_id: str, session: DbSession, ctx: dict = Depends(require_permission("admin.users.manage"))):
+    from services.intake.sftp_keys import revoke
+    try:
+        ok = revoke(session, ctx["org"]["org_id"], key_id, ctx["user"]["id"])
+    except Exception:   # a malformed id
+        ok = False
+    if not ok:
+        raise HTTPException(404, {"error": "not_found", "message": "Active key not found."})
+    session.commit()
+    return {"key_id": key_id, "revoked": True}

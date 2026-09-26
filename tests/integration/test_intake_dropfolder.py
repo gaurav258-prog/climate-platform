@@ -95,3 +95,51 @@ def test_channel_only_for_the_organisations_own_sector():
         with pytest.raises(dropfolder.ChannelError, match="for 'insurer'"):
             dropfolder.create_channel(s, BANK_ORG, "insurance_policies", _user("admin@meridian.demo"), _user("admin@meridian.demo"))
         s.rollback()
+
+
+def test_two_pickups_at_once_never_take_the_same_file(channel):
+    tag = channel["tag"]
+    _drop(channel, f"{tag}-book.csv", _csv(_rows(tag, n=2)))
+    with get_session() as other:   # another sweep (another server, or 'pick up now') holds this folder
+        other.execute(text("SELECT pg_advisory_lock(hashtext(:k))"), {"k": f"dropfolder:{channel['channel_id']}"})
+        try:
+            assert dropfolder.sweep_channel(channel, BANK_ORG)[0]["state"] == "busy"
+            assert _landed(tag) == 0 and len(list(channel["dirs"]["incoming"].iterdir())) == 1
+        finally:
+            other.execute(text("SELECT pg_advisory_unlock(hashtext(:k))"), {"k": f"dropfolder:{channel['channel_id']}"})
+    assert [r["state"] for r in dropfolder.sweep_channel(channel, BANK_ORG)] == ["imported"]
+
+
+def test_an_unavailable_inbox_backend_fails_loudly(monkeypatch):
+    from services.intake import inbox
+    monkeypatch.setattr(settings, "INTAKE_DROP_BACKEND", "s3")
+    with pytest.raises(inbox.InboxError, match="not available"):
+        inbox.backend()
+
+
+def test_sftp_keys_register_refuse_and_revoke(intake_client):
+    from services.intake.sftp_keys import authorized_keys
+    from tests.unit.test_sftp_keys import ED, RSA2048
+    c, h = intake_client, intake_client.maker
+    with get_session() as s:
+        s.execute(text("DELETE FROM intake_sftp_keys WHERE fingerprint = 'SHA256:k8X8j55gMeYOp1yLjdkxwALAla+pSfqsYMDb0ayZoW8'"))
+        s.commit()
+    try:
+        r = c.post("/v1/intake/sftp-keys", headers=h, json={"label": "Core banking", "public_key": ED})
+        assert r.status_code == 201, r.text
+        kid = r.json()["key_id"]
+        assert c.post("/v1/intake/sftp-keys", headers=h, json={"label": "again", "public_key": ED}).status_code == 400
+        assert "2048 bits" in c.post("/v1/intake/sftp-keys", headers=h, json={"label": "old", "public_key": RSA2048}).text
+        bad = c.post("/v1/intake/sftp-keys", headers=h, json={"label": "oops", "public_key": "-----BEGIN OPENSSH PRIVATE KEY----- abc"})
+        assert bad.status_code == 400 and "PRIVATE key" in bad.text
+        assert [k["label"] for k in c.get("/v1/intake/sftp-keys", headers=h).json()["keys"]][:1] == ["Core banking"]
+        with get_session() as s:
+            assert f"tellumen-key:{kid}" in authorized_keys(s, BANK_ORG)
+        assert c.delete(f"/v1/intake/sftp-keys/{kid}", headers=h).status_code == 200
+        with get_session() as s:
+            assert f"tellumen-key:{kid}" not in authorized_keys(s, BANK_ORG)
+        assert c.get("/v1/intake/sftp-keys", headers=c.checker).status_code == 403     # admins only
+    finally:
+        with get_session() as s:
+            s.execute(text("DELETE FROM intake_sftp_keys WHERE fingerprint = 'SHA256:k8X8j55gMeYOp1yLjdkxwALAla+pSfqsYMDb0ayZoW8'"))
+            s.commit()

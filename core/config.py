@@ -104,6 +104,7 @@ class Settings(BaseSettings):
     INTAKE_STORAGE_BACKEND: str = "local"
     INTAKE_STORAGE_DIR: str = "data/storage/intake"
     INTAKE_MAX_BYTES: int = 50 * 1024 * 1024          # a single file above this is refused before parsing
+    INTAKE_DROP_BACKEND: str = "local"                 # drop-folder inbox; object storage = go-live #12/#13
     INTAKE_DROP_DIR: str = "data/intake_drop"            # drop-folder channels: <dir>/<org>/<template>/incoming
     INTAKE_DROP_MIN_AGE_SECONDS: int = 60              # a file untouched this long is complete (still-arriving files wait)
     INTAKE_RETENTION_DAYS: int = 2555                 # ~7 years: kept as evidence behind filings

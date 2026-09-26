@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FolderInput, RefreshCw } from 'lucide-react'
+import { FolderInput, KeyRound, RefreshCw, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, Button } from './ui'
@@ -84,7 +84,55 @@ export default function DropFolders({ sector }: { sector: string }) {
           <Button onClick={create} disabled={busy}>{busy ? 'Opening…' : `Open a drop folder for your ${open[0].label}`}</Button>
         </div>
       )}
-      <div className="text-[11px] text-[var(--color-faint)] mt-3">SFTP access to these folders is set up with our team (one login per organisation, keys only).</div>
+      <SftpKeys />
     </Card>
+  )
+}
+
+interface SftpKey { key_id: string; label: string; key_type: string; fingerprint: string; bits: number | null; created_by: string | null; created_at: string; revoked_at: string | null }
+
+// Public keys your systems use to log in to these folders by SFTP (one login per organisation, keys only — no
+// passwords). Each key is checked (type, strength), fingerprinted, and added / revoked on the audit trail.
+function SftpKeys() {
+  const q = useQuery({ queryKey: ['sftp-keys'], queryFn: () => api.get<{ keys: SftpKey[] }>('/v1/intake/sftp-keys') })
+  const [label, setLabel] = useState('')
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const keys = q.data?.keys ?? []
+  const add = async () => {
+    setBusy(true)
+    try { await api.post('/v1/intake/sftp-keys', { label: label.trim(), public_key: key.trim() }); setLabel(''); setKey(''); q.refetch(); toast.success('Key added.') }
+    catch (e: unknown) { toast.error((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'Could not add the key.') }
+    finally { setBusy(false) }
+  }
+  const revoke = async (id: string) => {
+    if (!confirm('Revoke this key? The system using it can no longer log in.')) return
+    try { await api.del(`/v1/intake/sftp-keys/${id}`); q.refetch() } catch { toast.error('Could not revoke.') }
+  }
+  return (
+    <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+      <div className="flex items-center gap-2"><KeyRound size={14} className="text-[var(--color-sky)]" /><span className="text-[13px] font-semibold text-[var(--color-ink)]">SFTP access keys</span></div>
+      <p className="text-[12px] text-[var(--color-mute)] mt-1 max-w-2xl">Paste the <b>public</b> key (the <code className="mono">.pub</code> file) of each system that sends files. ssh-ed25519 is preferred; RSA must be at least 3072 bits. Never paste a private key.</p>
+      {keys.length > 0 && (
+        <div className="mt-2 divide-y divide-[var(--color-line)] border border-[var(--color-line)] rounded-lg">
+          {keys.map(k => (
+            <div key={k.key_id} className="flex items-center gap-3 flex-wrap px-3.5 py-2 text-[12.5px]" style={k.revoked_at ? { opacity: 0.55 } : undefined}>
+              <span className="text-[var(--color-ink)]">{k.label}</span>
+              <code className="mono text-[10.5px] text-[var(--color-mute)] break-all">{k.fingerprint}</code>
+              <span className="text-[11px] text-[var(--color-faint)]">{k.key_type}{k.bits ? ` · ${k.bits} bits` : ''} · added {k.created_at.slice(0, 10)}{k.created_by ? ` by ${k.created_by}` : ''}</span>
+              {k.revoked_at ? <span className="ml-auto mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">revoked {k.revoked_at.slice(0, 10)}</span>
+                : <button onClick={() => revoke(k.key_id)} className="ml-auto inline-flex items-center gap-1 text-[12px] text-[var(--color-mute)] hover:text-[var(--color-bad)]"><Trash2 size={12} /> Revoke</button>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap items-end gap-3">
+        <label className="min-w-[180px]"><span className="text-[11.5px] text-[var(--color-mute)]">Label</span>
+          <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Core banking nightly" maxLength={80} className={inp + ' mt-1'} /></label>
+        <label className="flex-1 min-w-[260px]"><span className="text-[11.5px] text-[var(--color-mute)]">Public key</span>
+          <input value={key} onChange={e => setKey(e.target.value)} placeholder="ssh-ed25519 AAAAC3Nza… name@host" className={inp + ' mt-1 mono text-[11.5px]'} /></label>
+        <Button onClick={add} disabled={busy || !label.trim() || !key.trim()}>{busy ? 'Adding…' : 'Add key'}</Button>
+      </div>
+    </div>
   )
 }
