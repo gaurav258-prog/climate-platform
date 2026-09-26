@@ -21,7 +21,7 @@ from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 from sqlalchemy.orm import Session
 
-from ml.scoring.flood_jrc import TileReader, flood_score, tile_name
+from ml.scoring.flood_jrc import TileSet, flood_score
 from services.validation.engine import ValidationResult, register
 
 PANEL = Path("data/multievent_flood.parquet")
@@ -38,7 +38,7 @@ def _run(session: Session) -> ValidationResult:
                                 notes=f"{PANEL} not present — run scripts/build_multievent_flood.py and scripts/fetch_ems_flood_footprints.py")
     data = pd.read_parquet(PANEL)
     pred, obs, labels, per_event = [], [], [], {}
-    readers: dict = {}
+    tiles = TileSet()
     for ev in EVENTS:
         ext, fc = ems_extent(ev)
         m = data.event == ev["name"]
@@ -54,11 +54,7 @@ def _run(session: Session) -> ValidationResult:
             b = box(lo - GRID_HALF, la - GRID_HALF, lo + GRID_HALF, la + GRID_HALF)
             if not hull.intersects(b):
                 continue
-            name = tile_name(la, lo)
-            if name not in readers:
-                readers[name] = TileReader(name) if name else None
-            r = readers[name]
-            st = r.polygon_stats(b) if r and r.complete() else None
+            st = tiles.stats(b)                     # read from every tile the node touches
             if st is None:
                 continue
             p.append(flood_score(*st[100][:2])); o.append(float(ext.intersection(b).area / b.area)); labels.append(f"{ev['name']} {c}")
@@ -67,9 +63,7 @@ def _run(session: Session) -> ValidationResult:
             per_event[ev["name"]] = {"n": len(p), "rho": round(float(spearmanr(p, o)[0]), 3),
                                      "auc_share_gt_2pct": round(float(roc_auc_score(y, p)), 3) if 0 < y.sum() < len(y) else None}
         pred += p; obs += o
-    for r in readers.values():
-        if r:
-            r.close()
+    tiles.close()
     y = np.asarray(obs) > 0.02
     return ValidationResult(hazard_type="flood", kind="rank", predicted=pred, observed=obs, labels=labels,
                             target_source="Copernicus EMS rapid-mapping observed flood extents (official), six events 2019–2024: share of each 0.1° node flooded",

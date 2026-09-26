@@ -52,12 +52,57 @@ def _tiles() -> dict:
     return {v: int(k) for k, v in json.load(open(TILE_INDEX)).items()}
 
 
-def tile_name(lat: float, lon: float) -> Optional[str]:
-    """Tile names are the top-left corner: N50_W100 spans 40–50 °N, 100–90 °W; the 0–10 °E column is named W0."""
+# The published tiles are NOT on the nominal 10° grid: each is 11,999 px of 1/1200° (one pixel short of 10°) and its
+# corner is shifted per tile — measured over all 271 tiles, left edge 0.0004–0.0296° west and top edge 0.0004–0.0121°
+# north of the nominal corner. Neighbours still meet exactly (no gap, no overlap, one pixel grid), so a location is
+# assigned by the tiles' REAL bounds, and a cell that straddles an edge is read from every tile it touches.
+_MAX_TILE_OFFSET_DEG = 0.05
+
+
+def nominal_tile_name(lat: float, lon: float) -> str:
+    """The published name for the nominal 10° square: the top-left corner — N50_W100 spans 40–50 °N, 100–90 °W; the
+    0–10 °E column is named W0. Only a naming rule — the tile's real extent is `tile_bounds`."""
     top = int(math.floor(lat / 10.0)) * 10 + 10
     left = int(math.floor(lon / 10.0)) * 10
-    name = f"{'N' if top >= 0 else 'S'}{abs(top)}_{'E' if left > 0 else 'W'}{abs(left)}"
-    return name if name in _tiles() else None
+    return f"{'N' if top >= 0 else 'S'}{abs(top)}_{'E' if left > 0 else 'W'}{abs(left)}"
+
+
+@lru_cache(maxsize=None)
+def tile_bounds(name: str) -> Optional[tuple[float, float, float, float]]:
+    """(left, bottom, right, top) of a tile as published, read from its raster header; None if not on disk."""
+    import rasterio
+    p = next((tile_path(name, rp) for rp in RETURN_PERIODS if tile_path(name, rp)), None)
+    if p is None:
+        return None
+    with rasterio.open(p) as ds:
+        b = ds.bounds
+    return (b.left, b.bottom, b.right, b.top)
+
+
+def tiles_for_bounds(minx: float, miny: float, maxx: float, maxy: float) -> list[str]:
+    """Every on-disk tile whose real extent overlaps the box (lon/lat)."""
+    m = _MAX_TILE_OFFSET_DEG
+    names = set()
+    for la in range(int(math.floor((miny - m) / 10.0)), int(math.floor((maxy + m) / 10.0)) + 1):
+        for lo in range(int(math.floor((minx - m) / 10.0)), int(math.floor((maxx + m) / 10.0)) + 1):
+            n = nominal_tile_name(la * 10 + 5, lo * 10 + 5)
+            if n in _tiles():
+                names.add(n)
+    out = []
+    for n in sorted(names):
+        b = tile_bounds(n)
+        if b and b[0] < maxx and minx < b[2] and b[1] < maxy and miny < b[3]:
+            out.append(n)
+    return out
+
+
+def tile_name(lat: float, lon: float) -> Optional[str]:
+    """The on-disk tile whose real extent contains the point (None off every tile)."""
+    for n in tiles_for_bounds(lon, lat, lon, lat):
+        left, bottom, right, top = tile_bounds(n)
+        if left <= lon < right and bottom < lat <= top:
+            return n
+    return None
 
 
 def tile_path(name: str, rp: int) -> Optional[str]:
@@ -89,38 +134,79 @@ class TileReader:
         if self.water:
             self.water.close()
 
-    def polygon_stats(self, polygon) -> Optional[dict]:
-        """{rp: (fraction_wet, mean_depth_wet, max_depth)} over the polygon (lon/lat).
-        Encoding of the maps: dry land and sea are NODATA (−9999), a value is a flooded pixel's depth. Land pixels of
-        the polygon are the denominator; permanent water bodies (river channels, lakes) are excluded from both the
-        denominator and the numerator when the mask tile is on disk — a river channel is water, not flooded land."""
+    def polygon_counts(self, polygon) -> Optional[dict]:
+        """{rp: (land_px, wet_px, depth_sum, depth_max)} for the part of the polygon (lon/lat) on THIS tile; None when the
+        polygon does not reach it. Counts, not ratios, so a cell straddling tiles is summed exactly (`TileSet.stats`).
+        Encoding of the maps: dry land and sea are NODATA (−9999), a value is a flooded pixel's depth. Permanent water
+        bodies (river channels, lakes) are excluded from both the land count and the wet count — a river channel is
+        water, not flooded land. The window is clipped to the tile BEFORE reading, so the mask and the pixels share one
+        transform (a window past a tile edge is otherwise trimmed on read and the mask shifts off the data)."""
+        from rasterio.errors import WindowError
         from rasterio.features import geometry_mask
-        from rasterio.windows import from_bounds
+        from rasterio.windows import Window, from_bounds
+        ref = self.ds[100]
+        try:
+            win = (from_bounds(*polygon.bounds, ref.transform).round_offsets().round_lengths()
+                   .intersection(Window(0, 0, ref.width, ref.height)))
+        except WindowError:
+            return None
+        if win.width < 1 or win.height < 1:
+            return None
+        inside = ~geometry_mask([polygon], out_shape=(int(win.height), int(win.width)),
+                                transform=ref.window_transform(win), invert=False)
+        if self.water is not None:                            # same pixel grid as the depth rasters (all 271 tiles)
+            inside &= ~(self.water.read(1, window=win) == 1)  # 1 = permanent water, 255 = nodata (land)
+        land = int(inside.sum())
         out = {}
-        minx, miny, maxx, maxy = polygon.bounds
-        pw = None
-        if self.water is not None:
-            wwin = from_bounds(minx, miny, maxx, maxy, self.water.transform).round_offsets().round_lengths()
-            if wwin.width >= 1 and wwin.height >= 1:
-                pw = self.water.read(1, window=wwin) == 1        # 1 = permanent water, 255 = nodata (land)
         for rp, ds in self.ds.items():
-            win = from_bounds(minx, miny, maxx, maxy, ds.transform).round_offsets().round_lengths()
-            if win.width < 1 or win.height < 1:
-                return None
             arr = ds.read(1, window=win).astype("float32")
-            if arr.size == 0:                                # window clipped to nothing at a tile edge
-                return None
-            tr = ds.window_transform(win)
-            inside = ~geometry_mask([polygon], out_shape=arr.shape, transform=tr, invert=False)
-            if pw is not None and pw.shape == arr.shape:
-                inside &= ~pw
-            if inside.sum() == 0:
-                return None
             nod = ds.nodata
             wet = inside & np.isfinite(arr) & (arr > DEPTH_MIN_M) & ((arr != nod) if nod is not None else True)
-            out[rp] = (float(wet.sum() / inside.sum()), float(arr[wet].mean()) if wet.any() else 0.0,
-                       float(arr[wet].max()) if wet.any() else 0.0)
+            out[rp] = (land, int(wet.sum()), float(arr[wet].sum(dtype="float64")), float(arr[wet].max()) if wet.any() else 0.0)
         return out
+
+
+class TileSet:
+    """Readers for every tile a polygon touches, opened on demand and kept for reuse (least-recently-used closed)."""
+
+    def __init__(self, max_open: int = 8):
+        from collections import OrderedDict
+        self._open: "OrderedDict[str, TileReader]" = OrderedDict()
+        self.max_open = max_open
+
+    def _reader(self, name: str) -> TileReader:
+        if name in self._open:
+            self._open.move_to_end(name)
+            return self._open[name]
+        r = self._open[name] = TileReader(name)
+        while len(self._open) > self.max_open:
+            self._open.popitem(last=False)[1].close()
+        return r
+
+    def readable(self, polygon) -> bool:
+        """Every tile the polygon touches is on disk with all return periods (so a result is never partial)."""
+        names = tiles_for_bounds(*polygon.bounds)
+        return bool(names) and all(self._reader(n).complete() for n in names)
+
+    def stats(self, polygon) -> Optional[dict]:
+        """{rp: (fraction_wet, mean_depth_wet, max_depth)} over the polygon, summed across every tile it touches.
+        None when it has no land pixels (sea / permanent water) or is not fully readable (see `readable`)."""
+        if not self.readable(polygon):
+            return None
+        tot = {rp: [0, 0, 0.0, 0.0] for rp in RETURN_PERIODS}
+        for n in tiles_for_bounds(*polygon.bounds):
+            c = self._reader(n).polygon_counts(polygon)
+            for rp, (land, wet, dsum, dmax) in (c or {}).items():
+                t = tot[rp]
+                t[0] += land; t[1] += wet; t[2] += dsum; t[3] = max(t[3], dmax)
+        if tot[100][0] == 0:
+            return None
+        return {rp: (wet / land, dsum / wet if wet else 0.0, dmax) for rp, (land, wet, dsum, dmax) in tot.items()}
+
+    def close(self):
+        for r in self._open.values():
+            r.close()
+        self._open.clear()
 
 
 def cell_polygon(h3_cell: str):
@@ -158,14 +244,14 @@ def score_flood_point(lat: float, lon: float, scenario: str = "baseline", horizo
         return {"status": "cached_hit", "h3_cell": cell, "risk_score": ex["rs"], "risk_bucket": ex["risk_bucket"]}
     if scenario != "baseline" or horizon != "current":
         return {"status": "insufficient_data", "h3_cell": cell, "reason": "flood projections are derived from the baseline by the projection job"}
-    name = tile_name(lat, lon)
-    if name is None or not tile_path(name, 100):
-        return {"status": "insufficient_data", "h3_cell": cell, "reason": "no JRC river-flood tile on disk for this location"}
-    r = TileReader(name)
+    poly = cell_polygon(cell)
+    ts = TileSet()
     try:
-        st = r.polygon_stats(cell_polygon(cell)) if r.complete() else None
+        if not ts.readable(poly):
+            return {"status": "insufficient_data", "h3_cell": cell, "reason": "no JRC river-flood tile on disk for this location"}
+        st = ts.stats(poly)
     finally:
-        r.close()
+        ts.close()
     if st is None:
         return {"status": "insufficient_data", "h3_cell": cell, "reason": "no valid flood-map pixels in this cell (sea or nodata)"}
     row = stats_to_row(st); now = datetime.now(timezone.utc)

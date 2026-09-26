@@ -47,10 +47,12 @@ def _asset_cells(s) -> list:
     return list(cells)
 
 
-def project_cells(s, cells: list, now=None) -> dict:
-    """Project flood/storm/wildfire for THESE cells only (retire their prior projections, insert fresh). Used by the
-    global batch below and, cell-scoped, by a supervisor's shadow book right after it is built."""
+def project_cells(s, cells: list, now=None, hazards: list | None = None) -> dict:
+    """Project flood/storm/wildfire (or just `hazards`) for THESE cells only (retire their prior projections, insert
+    fresh). Used by the global batch below, cell-scoped by a supervisor's shadow book right after it is built, and by a
+    hazard's re-score for the cells whose baseline changed."""
     now = now or datetime.now(timezone.utc)
+    hazards = hazards or HAZARDS
     if not cells:
         return {"rows": 0, "base": 0, "cells": 0, "banded": 0}
     base = s.execute(text("""
@@ -60,7 +62,7 @@ def project_cells(s, cells: list, now=None) -> dict:
         WHERE  scenario='baseline' AND time_horizon='current' AND valid_to IS NULL
           AND  COALESCE(score_lane,'standing')='standing'
           AND  hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
-    """), {"hz": HAZARDS, "cells": list(cells)}).mappings().all()
+    """), {"hz": hazards, "cells": list(cells)}).mappings().all()
 
     # retire previous projections (everything that isn't the real baseline/current) for these cells + hazards
     s.execute(text("""
@@ -68,7 +70,7 @@ def project_cells(s, cells: list, now=None) -> dict:
         WHERE  valid_to IS NULL AND hazard_type = ANY(:hz) AND h3_cell = ANY(:cells)
           AND  COALESCE(score_lane,'standing')='standing'
           AND  NOT (scenario='baseline' AND time_horizon='current')
-    """), {"now": now, "hz": HAZARDS, "cells": list(cells)})
+    """), {"now": now, "hz": hazards, "cells": list(cells)})
 
     rows, banded = [], 0
     for b in base:

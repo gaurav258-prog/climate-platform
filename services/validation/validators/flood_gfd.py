@@ -12,7 +12,8 @@ PRE-REGISTERED DESIGN (fixed before any result was computed; no tuning afterward
     (the worst observed 2000–2018 flood, the quantity a 1-in-100-year floodplain map is a proxy for; summing would reward
     cells merely covered by more event maps).
   • Predicted: the production flood score (ml.scoring.flood_jrc: share of the cell in the JRC RP100 floodplain × Huizinga depth–damage)
-    on the same 0.25° box, read with the production TileReader (permanent water excluded). Cells with no complete JRC tile drop.
+    on the same 0.25° box, read with the production TileSet (every tile the box touches; permanent water excluded). Boxes
+    not fully covered by complete JRC tiles drop.
   • Strata: ml.validation.regional.macro_region of the cell centre (open ocean / Antarctica unassigned and dropped).
     At most PER_REGION_CAP cells per macro-region, fixed SEED, drawn before scoring (so drops from missing tiles are not selected on).
   • Test: `rank`, pooled Spearman ≥ 0.35 + monotone bands; per region judged by ml.validation.regional.stratified_report
@@ -127,7 +128,7 @@ def _run(session: Session) -> ValidationResult:
     from shapely.geometry import box
     from sklearn.metrics import roc_auc_score
     from scipy.stats import spearmanr
-    from ml.scoring.flood_jrc import TileReader, flood_score, tile_name
+    from ml.scoring.flood_jrc import TileSet, flood_score
     from ml.validation.regional import macro_region
 
     if not ZIPS.exists() or not any(ZIPS.glob("*.zip")):
@@ -138,22 +139,15 @@ def _run(session: Session) -> ValidationResult:
     df["region"] = [macro_region(la, lo) for la, lo in zip(df.lat, df.lon)]
     df = cap_per_region(df.dropna(subset=["region"]), PER_REGION_CAP, SEED)
     pred, obs, strata, labels = [], [], [], []
-    readers: dict = {}
+    tiles = TileSet()
     h = CELL_DEG / 2
     for r in df.itertuples():
-        name = tile_name(r.lat, r.lon)
-        if name is None:
-            continue
-        if name not in readers:
-            readers[name] = TileReader(name)
-        rd = readers[name]
-        st = rd.polygon_stats(box(r.lon - h, r.lat - h, r.lon + h, r.lat + h)) if rd.complete() else None
+        st = tiles.stats(box(r.lon - h, r.lat - h, r.lon + h, r.lat + h))   # a box on a tile edge reads both tiles
         if st is None:
             continue
         pred.append(flood_score(*st[100][:2])); obs.append(float(r.share)); strata.append(r.region)
         labels.append(f"{r.region} {r.lat:.3f},{r.lon:.3f} ev{r.n_events}")
-    for rd in readers.values():
-        rd.close()
+    tiles.close()
     p, o, s = np.asarray(pred), np.asarray(obs), np.asarray(strata, dtype=object)
     per = {}
     for reg in sorted(set(s)):
