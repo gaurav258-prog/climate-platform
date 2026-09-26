@@ -29,6 +29,8 @@ from sqlalchemy.orm import Session
 #   partial     — real but limited coverage (named in `note`)
 #   estimated   — derived (e.g. sector-average), not a measured feed
 #   planned     — adapter is stub / not yet in production
+#   release     — a pinned, versioned dataset release landed to our store; it changes only when the publisher
+#                 issues a new release (then re-landed and re-scored), so there is nothing to refresh on a clock
 # `name` is the source we ACTUALLY ingest; any gap between that and the ideal source is stated in `note`.
 FEEDS: list[dict] = [
     {"key": "climate_reanalysis", "name": "Copernicus / ECMWF — ERA5 / ERA5-Land", "category": "hazard",
@@ -36,9 +38,15 @@ FEEDS: list[dict] = [
      "note": "Global climate reanalysis — heat, drought, frost, soil-water and wind. Global baselines are in place "
              "(temperature, precipitation, soil-moisture and frost climatologies), so scoring is worldwide."},
     {"key": "flood", "name": "ERA5-Land runoff (flood proxy)", "category": "hazard",
-     "cadence_days": 1, "invalidates_basis": True, "maturity": "proxy",
-     "note": "GloFAS was withdrawn from the CDS in 2025; flood is currently derived from ERA5-Land total "
-             "runoff. River-gauge and terrain-elevation inputs are not yet integrated."},
+     "cadence_days": 1, "invalidates_basis": False, "maturity": "proxy",
+     "note": "GloFAS discharge was withdrawn from the CDS in 2025; ERA5-Land total runoff stands in for it. This "
+             "was the input of the earlier flood event model. It no longer drives the published flood score, "
+             "which reads the JRC river-flood hazard maps (flood v3) — so a refresh does not change a filing."},
+    {"key": "jrc_flood_maps", "name": "Copernicus EMS / JRC global river-flood hazard maps v2.1.2", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "LISFLOOD-FP inundation depth at ~90 m for the 1-in-10, 1-in-100 and 1-in-500-year floods, plus the "
+             "permanent-water mask. Drives the flood score (v3). River flooding only: pluvial/flash and groundwater "
+             "flooding are disclosed gaps, and the maps carry no flood defences (hazard, not residual risk)."},
     {"key": "fire_thermal", "name": "NASA FIRMS (VIIRS active fire)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Active fire real. Sentinel-3 SLSTR heat integration is now LIVE via the CDSE Sentinel Hub "
@@ -59,10 +67,11 @@ FEEDS: list[dict] = [
     {"key": "storms_ocean", "name": "NOAA IBTrACS (cyclone tracks)", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": True, "maturity": "live",
      "note": "Tropical-cyclone tracks are in production; Copernicus Marine sea-state is not yet integrated."},
-    {"key": "nasa_power", "name": "NASA POWER (MERRA-2) daily minimum temperature", "category": "hazard",
+    {"key": "nasa_power", "name": "NASA POWER (MERRA-2) daily minimum and maximum temperature", "category": "hazard",
      "cadence_days": 365, "invalidates_basis": False, "maturity": "live",
-     "note": "Cold-wave channel: 30 years (1991-2020) of daily 2 m minimum temperature at the location, read on demand from "
-             "NASA POWER; the 1-in-10 coldest night and the location's 99.6 % design temperature are derived from it."},
+     "note": "30 years (1991-2020) of daily 2 m temperature at the location, read on demand from NASA POWER. Cold wave: "
+             "the 1-in-10 coldest night and the location's 99.6 % design temperature, from the daily minima. Chronic "
+             "heat: the count of days at or above 30 °C, from the daily maxima."},
     {"key": "geophysical", "name": "USGS seismic (global) · Smithsonian GVP", "category": "hazard",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "partial",
      "note": "Seismic scores from the global USGS M>=5.0 catalogue plus physics; the "
@@ -77,6 +86,55 @@ FEEDS: list[dict] = [
      "cadence_days": 30, "invalidates_basis": False, "maturity": "live",
      "note": "All ~1,200 Holocene volcanoes + ~11,000 catalogued eruptions (confirmed-eruption VEI history) drives the "
              "any-address volcanic screening score. Geophysical, therefore out of CSRD/EUDR filing scope."},
+    {"key": "cmip6_ensemble", "name": "CMIP6 multi-model ensemble (4 models, Pangeo archive)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "Projected change in temperature, precipitation and near-surface wind versus 1995-2014, per SSP and "
+             "period, as an ensemble mean and across-model spread on a 2° grid. Drives the changing-temperature, "
+             "-precipitation and -wind channels and the forward horizons of flood, cyclone and wildfire."},
+    {"key": "gesla_tide_gauges", "name": "GESLA-3 tide-gauge records (extreme still-water levels)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "The observed 1-in-10-year extreme still-water level at the nearest gauge (1,864 gauges with 10+ years, "
+             "1979-2020) sets coastal freeboard; IPCC AR6 sea-level rise is added for forward horizons. Sites with no "
+             "gauge within 250 km are not scored."},
+    {"key": "elevation_dem", "name": "Copernicus GLO-90 DEM (elevation) · Natural Earth coastline", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
+     "note": "Elevation at the site and a five-point slope stencil, read per location and cached per H3 cell, plus "
+             "distance to the coastline. Feeds coastal flooding and saline intrusion (elevation and distance to the "
+             "coast) and avalanche and solifluction (slope)."},
+    {"key": "landslide_lhasa", "name": "NASA Global Landslide Susceptibility Map (LHASA)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "~1 km susceptibility classes from slope, geology, roads, fault zones and forest loss. Terrain "
+             "predisposition, not a rainfall-triggered event forecast; does not vary by scenario."},
+    {"key": "subsidence_egms", "name": "Copernicus European Ground Motion Service (EGMS) Ortho L3, 2020-2024", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "Observed InSAR vertical ground velocity (100 m, GNSS-calibrated). Drives subsidence v2 across the EEA; "
+             "cells outside EGMS coverage fall back to the global susceptibility layer."},
+    {"key": "subsidence_gss", "name": "Global Subsidence Susceptibility (Herrera-García et al. 2021)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "~1 km susceptibility classes from aquifer compaction, lithology, groundwater depletion and urban load. "
+             "The subsidence score outside EGMS coverage."},
+    {"key": "permafrost_obu", "name": "Northern Hemisphere permafrost probability (Obu et al. 2019, ESA)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "~1 km permafrost probability fraction, Northern Hemisphere north of 25°N. Drives permafrost thaw and, "
+             "with slope, solifluction."},
+    {"key": "soil_erosion_glosem", "name": "ESDAC GloSEM global soil erosion (Borrelli/Panagos)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "RUSLE-based soil loss by water erosion, t/ha/yr at ~100 m."},
+    {"key": "soil_degradation_sdg", "name": "Trends.Earth SDG 15.3.1 degraded land (Conservation International)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
+     "note": "UNCCD degraded / stable / improved land status, read per location from the published global raster "
+             "(not landed)."},
+    {"key": "coastal_erosion_liscoast", "name": "JRC LISCoAsT shoreline-change projections (Vousdoukas et al. 2020)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "Projected long-term shoreline retreat for sandy coasts under RCP4.5 / RCP8.5 at 2050 and 2100, landed "
+             "to an H3 lookup. Forward-looking only: no present-day value."},
+    {"key": "ocean_ph_oceansoda", "name": "OceanSODA-ETHZ surface-ocean pH (NOAA NCEI OCADS)", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "Recent-years mean surface-ocean pH on a global grid; applies only to coastal and marine assets."},
+    {"key": "glacial_lakes_giglak", "name": "GIGLak global glacial-lake inventory", "category": "hazard",
+     "cadence_days": 365, "invalidates_basis": True, "maturity": "release",
+     "note": "117k mapped glacial lakes with area, landed to an H3 exposure layer. A proximity screen, not a "
+             "flow-routed outburst model."},
     {"key": "deforestation", "name": "Hansen Global Forest Change", "category": "nature",
      "cadence_days": 365, "invalidates_basis": True, "maturity": "on_demand",
      "note": "Annual forest-loss, read at EUDR determination time (not landed); re-run determinations on each release."},
@@ -160,16 +218,35 @@ for _f in FEEDS:
 # by construction (a hazard is scored from these feeds), so this registry IS the score→source provenance a
 # lineage trace needs. Kept honest: a hazard maps only to feeds that genuinely drive it. Ordered primary-first.
 HAZARD_FEEDS: dict[str, list[str]] = {
-    "flood":         ["flood", "climate_reanalysis"],       # ERA5-Land runoff proxy + reanalysis
-    "coastal_flood": ["climate_reanalysis"],                # ERA5 surge context + AR6 SLR (model, not a feed)
+    "flood":         ["jrc_flood_maps", "cmip6_ensemble"],  # JRC maps (v3 score); CMIP6 for forward horizons
+    "coastal_flood": ["gesla_tide_gauges", "elevation_dem"],# gauge extreme water level + site elevation; AR6 SLR is a model constant
     "heat_acute":    ["climate_reanalysis"],
-    "heat_chronic":  ["climate_reanalysis"],
+    "heat_chronic":  ["nasa_power"],                        # NASA POWER daily Tmax 1991-2020 (v2)
     "drought":       ["climate_reanalysis"],                # ERA5-Land SPEI/soil-moisture
     "soil_water":    ["climate_reanalysis"],
     "frost":         ["climate_reanalysis"],                # ERA5 min-temperature
     "cold_wave":     ["nasa_power"],                        # NASA POWER daily Tmin 1991-2020
-    "wildfire":      ["fire_climatology", "climate_reanalysis"],  # standing FWI/burn climatology; ERA5 nowcast signal
-    "storm":         ["storms_ocean", "climate_reanalysis"],# IBTrACS + reanalysis
+    "wildfire":      ["fire_climatology", "climate_reanalysis", "cmip6_ensemble"],  # FWI/burn climatology; ERA5 nowcast; CMIP6 forward
+    "storm":         ["storms_ocean", "cmip6_ensemble"],    # IBTrACS tracks; CMIP6 for forward horizons
+    "windstorm":     ["climate_reanalysis"],                # ERA5 10 m gust climatology
+    "severe_convective": ["climate_reanalysis"],            # ERA5 CAPE × 0-6 km shear (anchored to NOAA SPC reports)
+    "heavy_precip":  ["climate_reanalysis"],                # ERA5 monthly precipitation climatology
+    "temp_variability":   ["climate_reanalysis"],           # ERA5 monthly temperature climatology
+    "precip_variability": ["climate_reanalysis"],           # ERA5 monthly precipitation climatology
+    "changing_temp":   ["cmip6_ensemble"],
+    "changing_precip": ["cmip6_ensemble"],
+    "changing_wind":   ["cmip6_ensemble"],
+    "landslide":     ["landslide_lhasa"],
+    "subsidence":    ["subsidence_egms", "subsidence_gss"], # observed InSAR (EEA) else susceptibility class
+    "permafrost":    ["permafrost_obu"],
+    "solifluction":  ["permafrost_obu", "elevation_dem"],
+    "avalanche":     ["elevation_dem"],                     # DEM slope × elevation/latitude snow proxy
+    "saline_intrusion": ["elevation_dem"],                  # low-elevation coastal zone × AR6 SLR
+    "soil_erosion":  ["soil_erosion_glosem"],
+    "soil_degradation": ["soil_degradation_sdg"],
+    "coastal_erosion":  ["coastal_erosion_liscoast"],
+    "ocean_acidification": ["ocean_ph_oceansoda"],
+    "glacial_lake_outburst": ["glacial_lakes_giglak"],
     "seismic":       ["geophysical"],                       # USGS
     "volcanic":      ["volcanic_gvp", "geophysical"],       # GVP global catalogue (+ curated zones)
     "pollution":     ["atmosphere"],                        # Copernicus CAMS

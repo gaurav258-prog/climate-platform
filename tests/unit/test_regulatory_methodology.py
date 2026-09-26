@@ -30,10 +30,11 @@ def _both():
 def test_methodology_names_no_withdrawn_or_unused_source_or_model(name):
     m = _both()[name]
     model = m.get("scoring_model") or m["scoring_methodology"]
-    for banned in ("GloFAS", "XGBoost", "LightGBM", "Logistic", "ensemble", "NGFS Phase 4", "planned for 2025"):
+    for banned in ("GloFAS", "XGBoost", "LightGBM", "Logistic", "3-model", "NGFS Phase 4", "planned for 2025"):
         assert banned.lower() not in model.lower()
         assert all(banned.lower() not in src.lower() for src in m["data_sources"])
         assert banned.lower() not in m["hazard_coverage"].lower()
+    assert "ensemble" not in model.lower()   # no score is produced by an ensemble (CMIP6 is a source, not the scorer)
     # planned (not-in-production) feeds are never presented as a source
     planned = {f["name"] for f in FEEDS if f["maturity"] == "planned"}
     assert not planned & set(m["data_sources"])
@@ -53,9 +54,11 @@ def test_sources_come_from_feed_registry_for_package_hazards(name):
     assert m["data_sources"] == [s["name"] for s in detail["sources"]]
     # a hazard with no registered feed is disclosed, not given an invented source
     assert set(detail["hazards_without_registered_feed"]) == {hz for hz in hazards if not HAZARD_FEEDS.get(hz)}
-    # the flood feed is the ERA5-Land proxy, and its caveat travels with it
-    flood = next(s for s in detail["sources"] if s["key"] == "flood")
-    assert flood["maturity"] == "proxy" and flood["caveat"] == by_key["flood"]["note"]
+    # flood is scored from the JRC maps (a pinned release), not the retired ERA5-Land runoff proxy
+    keys = {s["key"] for s in detail["sources"]}
+    assert "jrc_flood_maps" in keys and "flood" not in keys
+    jrc = next(s for s in detail["sources"] if s["key"] == "jrc_flood_maps")
+    assert jrc["maturity"] == "release" and jrc["caveat"] == by_key["jrc_flood_maps"]["note"]
 
 
 @pytest.mark.parametrize("name", ["csrd", "ecb"])

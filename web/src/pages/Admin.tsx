@@ -625,6 +625,7 @@ const MATURITY: Record<string, { label: string; tone: string }> = {
   partial: { label: 'partial', tone: 'var(--color-warn)' },
   estimated: { label: 'estimated', tone: 'var(--color-faint)' },
   planned: { label: 'planned', tone: 'var(--color-faint)' },
+  release: { label: 'pinned release', tone: 'var(--color-good)' },
 }
 
 interface RegHit { lei: string; legal_name: string; country?: string; jurisdiction?: string; status?: string; address?: string }
@@ -730,7 +731,7 @@ function GoldenSourceFeeds() {
                       const auto = !!f.auto_refresh
                       const subline = auto
                         ? `auto · every ${f.cadence_days}d${f.last_refresh ? ` · refreshed ${f.days_since}d ago${f.next_due_days != null ? ` · next in ${f.next_due_days}d` : ''}` : ' · awaiting first auto-refresh'}`
-                        : (f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'integration not yet available' : 'derived — not a live feed')
+                        : (f.maturity === 'on_demand' ? 'fetched per query — nothing to schedule' : f.maturity === 'planned' ? 'integration not yet available' : f.maturity === 'release' ? 'pinned dataset release — changes only when the publisher issues a new version' : 'derived — not a live feed')
                       const statusLabel = auto ? f.status.replace('_', ' ') : (MATURITY[f.maturity ?? '']?.label ?? '—')
                       const statusTone = auto ? (FEED_TONE[f.status] ?? 'var(--color-faint)') : (MATURITY[f.maturity ?? '']?.tone ?? 'var(--color-faint)')
                       return (

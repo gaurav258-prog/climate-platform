@@ -46,8 +46,8 @@ def test_lineage_html_renders_chain_and_feed_provenance():
     # the five-stage source→filing chain
     assert html.count("border-left:4px") == 5
     # feeds mapped to their authoritative source name + maturity/freshness
-    assert "Copernicus / ECMWF ERA5" in html
-    assert "JRC GloFAS" in html or "GloFAS" in html
+    assert "Copernicus / ECMWF — ERA5 / ERA5-Land" in html   # the feed registry's own name
+    assert "ERA5-Land runoff (flood proxy)" in html
     assert "planned" in html and "overdue" in html
     # engine + snapshot identity threaded through
     assert "sc-impact-v0.5" in html and "bank_p3esg v4" in html

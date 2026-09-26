@@ -54,15 +54,8 @@ entity's other tools and combined into the wider CSRD statement. See the disclos
 
 
 # ── Data-lineage graph (self-contained HTML) ────────────────────────────────────────────────────────────────
-_FEED_SOURCE = {
-    "climate_reanalysis": "Copernicus / ECMWF ERA5", "fire_thermal": "NASA FIRMS", "storms_ocean": "NOAA / IBTrACS",
-    "deforestation": "Hansen Global Forest Change", "flood": "JRC GloFAS / ERA5 runoff", "geophysical": "USGS",
-    "natura2000": "EEA Natura 2000", "wdpa": "WDPA (IBAT)", "osm_protected": "OpenStreetMap", "kba": "KBA",
-    "reference_lei": "GLEIF", "reference_assets": "Asset register", "imagery": "Sentinel-2", "atmosphere": "CAMS",
-    "wdoecm": "WD-OECM",
-}
 _MATURITY_TONE = {"live": "#137a4b", "on_demand": "#1f6fb0", "proxy": "#b5731a", "partial": "#b5731a",
-                  "estimated": "#b5731a", "planned": "#8896a8", "untracked": "#8896a8", "overdue": "#c2410c",
+                  "estimated": "#b5731a", "planned": "#8896a8", "release": "#137a4b", "untracked": "#8896a8", "overdue": "#c2410c",
                   "fresh": "#137a4b"}
 
 
@@ -74,11 +67,13 @@ def _pill(text: str, tone: str) -> str:
 def _lineage_html(entity: str, snap: dict, basis: dict, ev: dict) -> str:
     """A self-contained data-lineage graph: authoritative feeds → golden source → engine → frozen snapshot →
     filing. Built entirely from the snapshot's own engine_versions/basis — no external assets, no dependency."""
+    from services.data.feeds import FEEDS
+    feed_names = {f["key"]: f["name"] for f in FEEDS}   # the registry names the source; never a second hand-typed map
     maturity = (ev.get("feed_maturity") or {})
     freshness = (ev.get("feed_freshness_at_freeze") or {})
     feed_rows = ""
     for feed in sorted(maturity):
-        src = _FEED_SOURCE.get(feed, feed)
+        src = feed_names.get(feed, feed)
         m = maturity.get(feed, "—")
         fr = freshness.get(feed)
         feed_rows += (f"<tr><td>{src}</td><td style='color:#5a6b80'>{feed}</td>"
@@ -112,7 +107,7 @@ th{{color:#6a7a90;font-weight:600;font-size:10.5px;text-transform:uppercase;lett
 <h3 style="font-size:14px;margin:0 0 4px">Feed provenance &amp; freshness at freeze</h3>
 <table><thead><tr><th>Authoritative source</th><th>Feed</th><th>Maturity</th><th>Freshness at freeze</th></tr></thead>
 <tbody>{feed_rows or '<tr><td colspan=4 style="color:#8896a8">No feed maturity recorded on this snapshot.</td></tr>'}</tbody></table>
-<p class="foot">Every stage is recorded on the frozen snapshot itself (engine_versions); this graph reads that record, it does not re-derive it. Maturity: live &lt; on-demand &lt; proxy/partial/estimated &lt; planned.</p>
+<p class="foot">Every stage is recorded on the frozen snapshot itself (engine_versions); this graph reads that record, it does not re-derive it. Maturity: live/pinned release &lt; on-demand &lt; proxy/partial/estimated &lt; planned.</p>
 </body></html>"""
 
 

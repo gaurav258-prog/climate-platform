@@ -17,36 +17,36 @@ def test_overdue_basis_feed_is_detected_then_clears_on_refresh():
     # pick a basis-driving feed with a short cadence to make it easy to age past
     with get_session() as s:
         {f["key"] for f in overdue_basis_feeds(s)}
-        # clean slate: a pre-existing FRESH flood refresh (real op or a prior run) would mask the
+        # clean slate: a pre-existing FRESH fire_thermal refresh (real op or a prior run) would mask the
         # staleness we're about to simulate, since overdue is judged on the MOST RECENT refresh.
-        # feed_refresh_log is an operational log (not WORM), so clearing recent flood rows is safe.
-        s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='flood' "
+        # feed_refresh_log is an operational log (not WORM), so clearing recent fire_thermal rows is safe.
+        s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='fire_thermal' "
                        "AND created_at > now() - interval '5 days'"))
         # simulate a refresh older than the feed's cadence → overdue
         s.execute(text("INSERT INTO feed_refresh_log (feed_key, status, created_at) "
-                       "VALUES ('flood', 'refreshed', now() - interval '5 days')"))
+                       "VALUES ('fire_thermal', 'refreshed', now() - interval '5 days')"))
         s.commit()
     try:
         with get_session() as s:
             keys = {f["key"] for f in overdue_basis_feeds(s)}
-            assert "flood" in keys, "an overdue basis feed was not surfaced as a pre-filing control"
+            assert "fire_thermal" in keys, "an overdue basis feed was not surfaced as a pre-filing control"
             # and it must be recorded in the freshness stamp that goes into a frozen filing
-            assert basis_freshness_at(s).get("flood") == "overdue"
+            assert basis_freshness_at(s).get("fire_thermal") == "overdue"
     finally:
         with get_session() as s:
-            s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='flood' "
+            s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='fire_thermal' "
                            "AND created_at < now() - interval '4 days'"))
             s.commit()
     # a fresh refresh clears it
     with get_session() as s:
-        s.execute(text("INSERT INTO feed_refresh_log (feed_key, status) VALUES ('flood','refreshed')"))
+        s.execute(text("INSERT INTO feed_refresh_log (feed_key, status) VALUES ('fire_thermal','refreshed')"))
         s.commit()
     try:
         with get_session() as s:
-            assert "flood" not in {f["key"] for f in overdue_basis_feeds(s)}
+            assert "fire_thermal" not in {f["key"] for f in overdue_basis_feeds(s)}
     finally:
         with get_session() as s:
-            s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='flood' "
+            s.execute(text("DELETE FROM feed_refresh_log WHERE feed_key='fire_thermal' "
                            "AND created_at > now() - interval '1 minute'"))
             s.commit()
 
