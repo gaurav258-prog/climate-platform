@@ -120,3 +120,24 @@ def test_ingest_discloses_the_gap_when_ambiguous():
             "AND entity_name = :n"), {"o": BANK_ORG, "n": test_asset_name}).scalar()
         assert rid is None
         s.rollback()
+
+
+@pytest.mark.integration
+def test_ownership_weights_multiply_along_the_chain_and_the_root_counts_in_full():
+    """A 60% joint operation held through a 50% joint operation consolidates at 30% into the top; a consolidated
+    filing AT the 50% sub-group takes its own book in full and the 60% line at 60%. (Both were wrong before
+    2026-09-26: each entity carried only its own direct factor, and the filing root was scaled by its stake.)"""
+    import uuid as _u
+    with get_session() as s:
+        org = s.execute(text("SELECT org_id::text FROM organizations WHERE type = 'bank' LIMIT 1")).scalar()
+        top, mid, leaf = str(_u.uuid4()), str(_u.uuid4()), str(_u.uuid4())
+        for eid, par, pct, meth in ((top, None, 100, "full"), (mid, top, 50, "proportional"), (leaf, mid, 60, "proportional")):
+            s.execute(text("""INSERT INTO reporting_entities (entity_id, org_id, parent_entity_id, ownership_pct, name, kind,
+                                                              consolidation_method)
+                              VALUES (CAST(:e AS uuid), CAST(:o AS uuid), CAST(:p AS uuid), :pct, :n, 'legal_entity', :m)"""),
+                      {"e": eid, "o": org, "p": par, "pct": pct, "n": f"TEST-CHAIN-{eid[:6]}", "m": meth})
+        w_top = E.ownership_weights(s, org)
+        assert w_top[top] == 1.0 and w_top[mid] == pytest.approx(0.5) and w_top[leaf] == pytest.approx(0.3)
+        w_mid = E.ownership_weights(s, org, root_entity_id=_u.UUID(mid))       # a UUID, as it comes from the DB
+        assert w_mid[mid] == 1.0 and w_mid[leaf] == pytest.approx(0.6)
+        s.rollback()

@@ -188,3 +188,39 @@ def source_record(currency: str, book_date, converted: dict[str, dict]) -> dict:
     return {"currency": currency, "book_date": book_date.isoformat() if isinstance(book_date, date) else book_date,
             "native": {f: c["native"] for f, c in converted.items()},
             "rates": [c["rate"] for c in converted.values() if c.get("rate")]}
+
+
+def values_to_eur(session: Session, rows: list[dict], as_of: date, value_key: str = "asset_value",
+                  ccy_key: str = "currency") -> dict:
+    """Stored values in their own currencies → EUR in place, at the CLOSING rate on `as_of` (a report's period end).
+    A value whose currency has no rate is set to None — left out of every total, never summed unconverted — and
+    reported. Each row keeps `<value_key>_native` and `<value_key>_currency`. Returns the basis for the methodology."""
+    rates: dict[str, dict] = {}
+    excluded: dict[str, int] = {}
+    for r in rows:
+        v, ccy = r.get(value_key), (r.get(ccy_key) or "").strip().upper()
+        r[f"{value_key}_native"], r[f"{value_key}_currency"] = v, ccy or None
+        if v is None:
+            continue
+        if not ccy:
+            excluded["(none)"] = excluded.get("(none)", 0) + 1
+            r[value_key] = None
+            continue
+        if ccy == "EUR":
+            continue
+        if ccy not in rates:
+            try:
+                rates[ccy] = rate_for(session, ccy, as_of)
+            except FxError:
+                rates[ccy] = None
+        if rates[ccy] is None:
+            excluded[ccy] = excluded.get(ccy, 0) + 1
+            r[value_key] = None
+            continue
+        r[value_key] = round(float(v) * rates[ccy]["rate"], 2)
+    return {"reporting_currency": "EUR", "basis": f"closing rate on {as_of.isoformat()} (balances)",
+            "rates": [{"currency": c, **{k: x.get(k) for k in ("units_per_eur", "source", "basis", "rate_date", "stale", "note")}}
+                      for c, x in sorted(rates.items()) if x],
+            "excluded_values": excluded,
+            "note": ("values in " + ", ".join(sorted(excluded)) + " have no exchange rate and are left out of the totals")
+                    if excluded else None}

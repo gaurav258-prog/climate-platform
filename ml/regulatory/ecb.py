@@ -75,6 +75,10 @@ def build(
         logger.warning(f"[ECB] No scores found for customer {customer_id} in period")
         return _empty_package(customer_id, period_start, period_end)
 
+    # every location's value in EUR at the period-end closing rate — never summed across currencies unconverted
+    from services.intake.money import values_to_eur
+    fx = values_to_eur(session, location_scores, period_end)
+
     # ── T1: Physical risk exposure by geography ────────────────
     t1 = _table1_geographic(location_scores)
 
@@ -89,6 +93,7 @@ def build(
 
     # ── T5: Methodology attestation ───────────────────────────
     t5 = _table5_methodology(location_scores)
+    t5["currency"] = fx
 
     # ── Summary statistics ─────────────────────────────────────
     all_scores = [r["risk_score"] for r in location_scores]
@@ -100,6 +105,7 @@ def build(
         "customer_id":        customer_id,
         "period_start":       str(period_start),
         "period_end":         str(period_end),
+        "reporting_currency": "EUR",
         "scenarios_covered":  scenarios,
         "horizons_covered":   time_horizons,
         "n_locations":        n_locations,
@@ -179,7 +185,9 @@ def _table1_geographic(rows: list[dict]) -> list[dict]:
                 "h3_cell":        r["h3_cell"],
                 "asset_type":     r["asset_type"],
                 "asset_value":    r["asset_value"],
-                "currency":       r["currency"],
+                "currency":       "EUR",   # asset_value is converted; the amount as held is beside it
+                "native_value":   r.get("asset_value_native"),
+                "native_currency": r.get("asset_value_currency"),
                 "hazard_type":    r["hazard_type"],
                 "hazard_label":   ECB_HAZARD_LABELS.get(r["hazard_type"], r["hazard_type"]),
                 "risk_score":     r["risk_score"],
@@ -278,7 +286,9 @@ def _table4_high_risk_concentration(rows: list[dict]) -> list[dict]:
         "h3_cell":       r["h3_cell"],
         "asset_type":    r["asset_type"],
         "asset_value":   r["asset_value"],
-        "currency":      r["currency"],
+        "currency":       "EUR",   # asset_value is converted; the amount as held is beside it
+        "native_value":   r.get("asset_value_native"),
+        "native_currency": r.get("asset_value_currency"),
         "hazard_type":   r["hazard_type"],
         "risk_score":    r["risk_score"],
         "risk_bucket":   r["risk_bucket"],

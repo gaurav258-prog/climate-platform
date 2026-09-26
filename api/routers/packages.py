@@ -155,8 +155,16 @@ def get(package_id: str, include_data: bool = Query(default=True)):
 def export_xbrl(
     package_id: str,
     lei:        str   = Query(...,       description="20-char Legal Entity Identifier (ISO 17442)"),
-    currency:   str   = Query("EUR",     description="Reporting currency (ISO 4217)"),
+    currency:   str   = Query("EUR",     description="Reporting currency (ISO 4217) — EUR only until per-entity reporting currency"),
 ):
+    if currency.strip().upper() != "EUR":
+        # the package's figures are in EUR (converted at the period-end rate); tagging them with another currency
+        # would file euro amounts as that currency. Filing in an entity's own currency comes with the per-entity
+        # reporting currency (multi-currency phase 3) — until then, refuse rather than relabel.
+        raise HTTPException(status_code=422, detail={"error": "currency_not_supported",
+                            "message": "This package's figures are in EUR, so it can only be exported in EUR. Filing in "
+                                       "another currency needs that entity's reporting currency (coming with per-entity "
+                                       "currency)."})
     pkg = get_package(package_id)
     if not pkg:
         raise HTTPException(status_code=404, detail=f"Package {package_id} not found")

@@ -652,7 +652,7 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
             raise FilingError("reporting entity not found")
         entity_ids = _E.subtree_ids(session, org_id, entity_id)
         if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
-            value_weights = _E.ownership_weights(session, org_id)
+            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id)
 
     period_end = date(date.today().year - 1, 12, 31)
     existing = session.execute(text("""
@@ -702,7 +702,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
         from services.governance import entities as _E
         entity_ids = _E.subtree_ids(session, org_id, r["entity_id"])
         if len(entity_ids) > 1:
-            value_weights = _E.ownership_weights(session, org_id)
+            value_weights = _E.ownership_weights(session, org_id, root_entity_id=r["entity_id"])
 
     snap = create_snapshot(session, org_id, r["framework"], actor_user_id,
                            note="draft data refreshed", entity_ids=entity_ids, value_weights=value_weights)

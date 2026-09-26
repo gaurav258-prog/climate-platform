@@ -7,6 +7,8 @@ Ownership weighting (for proportional/equity consolidation) is applied downstrea
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -238,29 +240,40 @@ def delete_entity(session: Session, org_id: str, entity_id: str) -> dict:
     return {"ok": True}
 
 
-def ownership_weights(session: Session, org_id: str) -> dict[str, float]:
-    """entity_id -> the fraction of its book that consolidates upward, from the ownership path to the root.
+def ownership_weights(session: Session, org_id: str, root_entity_id: Optional[str] = None) -> dict[str, float]:
+    """entity_id -> the fraction of its book that consolidates into `root_entity_id` (default: the top of the tree).
 
-    - full consolidation (a controlled subsidiary): weight 1.0 — the whole book flows up.
-    - proportional consolidation (a joint operation): weight ownership_pct/100.
+    Each entity's own link to its parent carries a factor by its consolidation method:
+    - full consolidation (a controlled subsidiary): 1.0 — the whole book flows up.
+    - proportional consolidation (a joint operation): ownership_pct/100.
     - equity method (an associate): governed by the `equity_consolidation` interpretation switch —
-      'economic_share' (default) = ownership_pct/100 (the parent's economic climate exposure); 'excluded'
-      = 0.0 (strict IFRS — an associate's assets are not line-by-line consolidated); 'full' = 1.0.
-
-    Previously equity-method lines were treated as full (1.0), which overstates a partly-owned associate."""
+      'economic_share' (default) = ownership_pct/100; 'excluded' = 0.0 (strict IFRS); 'full' = 1.0.
+    The weight is the PRODUCT of those factors along the path from the entity up to the root — a 60% stake held
+    through a 50%-owned joint operation counts 30%, not 60% — and the root itself is 1.0: a sub-group's own
+    consolidated filing takes its own book in full, whatever its parent holds of it. (Fixed 2026-09-26: each entity
+    used to carry only its own direct factor, and the filing root was scaled by its stake in its parent.)"""
     from services.calc_settings import get_calc_settings
     equity_mode = get_calc_settings(session, org_id).get("equity_consolidation", "economic_share")
     rows = session.execute(text("""
-        SELECT entity_id::text, ownership_pct::float, consolidation_method
+        SELECT entity_id::text, parent_entity_id::text, ownership_pct::float, consolidation_method
         FROM reporting_entities WHERE org_id = :o
     """), {"o": org_id}).all()
-    out: dict[str, float] = {}
-    for eid, pct, method in rows:
+    parent, factor = {}, {}
+    for eid, par, pct, method in rows:
         share = (pct or 0.0) / 100.0
+        parent[eid] = par
         if method == "proportional":
-            out[eid] = share
+            factor[eid] = share
         elif method == "equity":
-            out[eid] = {"economic_share": share, "excluded": 0.0, "full": 1.0}.get(equity_mode, share)
+            factor[eid] = {"economic_share": share, "excluded": 0.0, "full": 1.0}.get(equity_mode, share)
         else:  # full consolidation (or unset) — the whole book
-            out[eid] = 1.0
+            factor[eid] = 1.0
+    root = str(root_entity_id) if root_entity_id is not None else None   # a UUID from the DB must match string ids
+    out: dict[str, float] = {}
+    for eid in parent:
+        w, cur, hops = 1.0, eid, 0
+        while cur != root and parent.get(cur) is not None and hops < 64:   # 64: a guard against a cycle
+            w *= factor[cur]
+            cur, hops = parent[cur], hops + 1
+        out[eid] = w
     return out

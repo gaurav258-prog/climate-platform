@@ -91,6 +91,10 @@ def build(
         logger.warning(f"[CSRD] No scores found for customer {customer_id}")
         return _empty_package(customer_id, period_start, period_end)
 
+    # every location's value in EUR at the period-end closing rate — never summed across currencies unconverted
+    from services.intake.money import values_to_eur
+    fx = values_to_eur(session, location_scores, period_end)
+
     # ── Build ESRS E1-9 tables ─────────────────────────────────
     e1_9a = _e1_9a_material_risks(location_scores)
     e1_9b = _e1_9b_exposure_by_class(location_scores)
@@ -99,6 +103,7 @@ def build(
     e1_9e = _e1_9e_time_horizon_materiality(location_scores, time_horizons)
     e1_9f = _e1_9f_double_materiality(location_scores, nace_codes or [])
     meth  = _methodology(location_scores, nace_codes or [])
+    meth["currency"] = fx
 
     # Summary
     material = [r for r in location_scores
@@ -112,6 +117,7 @@ def build(
         "company_name":       company_name or customer_id,
         "period_start":       str(period_start),
         "period_end":         str(period_end),
+        "reporting_currency": "EUR",
         "nace_codes":         nace_codes or [],
         "horizons_covered":   time_horizons,
         "n_locations":        n_total,
