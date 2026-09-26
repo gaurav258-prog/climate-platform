@@ -114,6 +114,12 @@ FEEDS: list[dict] = [
      "cadence_days": 90, "invalidates_basis": False, "maturity": "estimated",
      "note": "Emissions are sector-average intensity × revenue, not a facility-level emissions feed; values are "
              "labelled as estimated throughout."},
+    {"key": "reference_countries", "name": "Unicode CLDR — countries, codes and currencies", "category": "reference",
+     "cadence_days": 180, "invalidates_basis": False, "maturity": "live",
+     "attribution": "Unicode CLDR (Unicode licence)",
+     "note": "ISO 3166 codes (alpha-2, alpha-3, numeric), country names in the EU's official languages plus Norwegian "
+             "and Turkish, and each country's current currency — so a customer's 'Deutschland', 'DEU' or 'UK' is "
+             "matched to the right country. Pinned CLDR release; a name that could mean two countries is never matched."},
     {"key": "fx_ecb", "name": "ECB euro foreign exchange reference rates", "category": "reference",
      "cadence_days": 1, "invalidates_basis": False, "maturity": "live",
      "attribution": "Source: European Central Bank (ECB) — euro foreign exchange reference rates",
@@ -278,6 +284,14 @@ def _hook_fx_ecb(session: Session) -> None:
 
 
 register_refresh_hook("fx_ecb", _hook_fx_ecb)
+
+
+def _hook_reference_countries(session: Session) -> None:
+    from services.reference.countries import refresh
+    refresh(session)
+
+
+register_refresh_hook("reference_countries", _hook_reference_countries)
 register_refresh_hook("volcanic_gvp", _hook_volcanic_gvp)
 register_refresh_hook("commodity_prices_wb", _hook_commodity_prices_wb)
 register_refresh_hook("commodity_prices_eu", _hook_commodity_prices_eu)

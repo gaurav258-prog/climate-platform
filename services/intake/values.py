@@ -38,6 +38,12 @@ def lookup(session: Optional[Session], vocab: str) -> dict[str, str]:
         return v.lookup()
     if vocab == "commodity" and session is not None:
         return {norm_token(r[0]): r[0] for r in session.execute(text("SELECT name FROM sc_commodities")).all()}
+    if vocab == "country":
+        # ISO alpha-2 codes are always recognised (as before the country reference existed); names, alpha-3 and
+        # numeric codes come from the CLDR reference once loaded (feed `reference_countries`)
+        from services.reference.countries import lookup as country_lookup
+        from services.reference.iso_country import ISO_ALPHA2
+        return {**{c.lower(): c for c in ISO_ALPHA2}, **(country_lookup(session) if session is not None else {})}
     return {}
 
 

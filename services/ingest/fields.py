@@ -16,8 +16,9 @@ from typing import Optional
 
 
 def norm_token(v) -> str:
-    """Case, spacing and separator-insensitive form: 'Joisted Masonry' / 'joisted-masonry' → 'joisted_masonry'."""
-    return re.sub(r"[\s\-/.]+", "_", str(v).strip().lower()).strip("_")
+    """Case, spacing and punctuation-insensitive form: 'Joisted Masonry' / 'joisted-masonry' → 'joisted_masonry';
+    'Congo (DRC)' → 'congo_drc'; 'Österreich' stays 'österreich'."""
+    return re.sub(r"[\W_]+", "_", str(v).strip().lower()).strip("_")   # any punctuation/space; letters of any script kept
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ VOCABS: dict[str, Vocab] = {
     "govt_level": Vocab(("central", "regional", "local")),
     "irrigation": Vocab(("irrigated", "rain_fed", "mixed"), {"rainfed": "rain_fed"}),
     "commodity": Vocab((), dynamic=True),            # the commodities on this platform (sc_commodities)
+    "country": Vocab((), dynamic=True),              # ISO alpha-2 via every accepted written form (ref_country_names)
     "boolean": Vocab(("true", "false"), {"yes": "true", "y": "true", "1": "true", "no": "false", "n": "false", "0": "false"}),
 }
 
@@ -80,7 +82,8 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("latitude", "Latitude", "lat", "Decimal degrees.", "50.1109", aliases=("lat", "y", "latitude_dd", "gps_lat", "gps_n", "north", "n", "lat_dd", "breitengrad")),
     _f("longitude", "Longitude", "lon", "Decimal degrees.", "8.6821", aliases=("lon", "lng", "long", "x", "longitude_dd", "gps_lon", "gps_long", "gps_e", "east", "e", "lon_dd", "laengengrad")),
     _f("region", "Region", "text", "Free-text region / city.", "Frankfurt", aliases=("city", "state", "province", "area", "location")),
-    _f("country", "Country", "iso2", "ISO-2 country code.", "DE", aliases=("country_code", "iso2", "ctry", "cntry")),
+    _f("country", "Country", "vocab", "Country — ISO-2 code preferred (DE); a code (DEU, 276) or a name in any EU language "
+       "(Deutschland, Germany) is matched.", "DE", vocab="country", aliases=("country_code", "iso2", "ctry", "cntry", "land", "pays")),
     # names
     _f("asset_name", "Asset name", "name", "Free-text asset / collateral name.", "Frankfurt Tower 1",
        aliases=("name", "asset", "collateral", "collateral_name", "borrower", "borrower_name", "property")),

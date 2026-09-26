@@ -112,3 +112,16 @@ def test_mapping_validate():
 def test_layout_fingerprint_ignores_case_spacing_and_order():
     assert mapping.fingerprint(["Loan ID", "Lat", "Lng"]) == mapping.fingerprint(["lng", "loan-id", " LAT "])
     assert mapping.fingerprint(["Loan ID", "Lat"]) != mapping.fingerprint(["Loan ID", "Lat", "Lng"])
+
+
+def test_country_reference_build_drops_ambiguous_names():
+    from services.reference.countries import build
+    names = {"en": {"DE": "Germany", "AT": "Austria", "CD": "Congo - Kinshasa", "CD-alt-variant": "Congo (DRC)", "CG": "Congo"},
+             "de": {"DE": "Deutschland", "AT": "Österreich", "CD": "Kongo", "CG": "Kongo"}}
+    codes = {"DE": {"_alpha3": "DEU", "_numeric": "276"}, "AT": {"_alpha3": "AUT", "_numeric": "040"}}
+    cur = {"DE": [{"DEM": {"_from": "1948-06-20", "_to": "2002-02-28"}}, {"EUR": {"_from": "1999-01-01"}}]}
+    countries, rows = build(names, codes, cur)
+    lk = {r["name_norm"]: r["iso2"] for r in rows}
+    assert lk["deutschland"] == "DE" and lk["deu"] == "DE" and lk["276"] == "DE" and lk["congo_drc"] == "CD"
+    assert "kongo" not in lk                                   # means CD in one place and CG in another → never matched
+    assert next(c for c in countries if c["iso2"] == "DE")["currency"] == "EUR"

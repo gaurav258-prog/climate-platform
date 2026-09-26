@@ -148,3 +148,19 @@ def test_our_own_template_workbook_uploads_as_is():
     """The downloadable template marks required columns 'name *'; a filled-in template must be read as-is."""
     df = pipeline._parse(b"asset_name *,latitude *, region\nA,1,x\n", "csv", "upload")
     assert list(df.columns) == ["asset_name", "latitude", "region"]
+
+
+def test_country_written_any_way_is_matched_and_unknown_is_reported(session_rolled_back):
+    s = session_rolled_back
+    if not s.execute(text("SELECT 1 FROM ref_country_names LIMIT 1")).first():
+        pytest.skip("country reference not loaded (feed reference_countries)")
+    tpl, tag = TEMPLATES["bank_assets"], uuid.uuid4().hex[:8]
+    org_id, user_id = _org_and_admin(s, "bank")
+    df = pd.DataFrame([{"asset_name": f"TEST-EVERY-{tag}-{i}", "asset_type": "cre", "latitude": 48 + i / 50, "longitude": 2.0,
+                        "appraised_value_eur": 1e6, "sector": "RE", "counterparty_evic_eur": 1e8, "external_ref": f"{tag}-{i}",
+                        "country": c} for i, c in enumerate(["Deutschland", "DEU", "fr", "Royaume-Uni", "Atlantis"] * 8)])
+    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, df, None)
+    v = ctl["controls"]["values"]["country"]
+    assert v["unknown"] == {"Atlantis": 8} and ctl["report"]["n_valid"] == 40     # reported, row kept, never rejected
+    got = {n["asset_name"].rsplit("-", 1)[1]: n["country"] for n in ctl["normalised"][:5]}
+    assert got == {"0": "DE", "1": "DE", "2": "FR", "3": "GB", "4": None}
