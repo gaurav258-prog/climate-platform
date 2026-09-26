@@ -60,6 +60,33 @@ WILDFIRE_MODEL_PKL = "models/wildfire_firms/scorer.pkl"
 POINT_BBOX_DEG = 0.5  # small ad-hoc box around the query point, not a named region
 
 
+
+def _write_active_scores(s, hazard: str, records: list[dict], model_version: str, now) -> None:
+    """Retire the active standing score of each cell and insert the new one, safely under concurrency.
+
+    Two jobs can score overlapping cells at the same moment (two lookups near each other, or a re-queued job). With
+    retire-then-insert in separate transactions, the second job's retire cannot see the first job's uncommitted row,
+    so its insert collides with ux_canonical_active_key. A transaction-scoped advisory lock per (hazard, cell) —
+    taken in sorted order, so two writers can never deadlock — makes the second writer wait, then retire the first
+    writer's row like any other."""
+    cells = sorted({r["h3_cell"] for r in records})
+    for c in cells:
+        s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"canonical:{hazard}:{c}"})
+    s.execute(text("""
+        UPDATE canonical_scores SET valid_to=:now
+        WHERE hazard_type=:hz AND scenario='baseline' AND time_horizon='current'
+          AND valid_to IS NULL AND h3_cell = ANY(:cells)
+    """), {"now": now, "cells": cells, "hz": hazard})
+    s.execute(text("""
+        INSERT INTO canonical_scores
+            (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
+             risk_score, risk_bucket, model_version, data_vintage, shap_factors,
+             scored_at, valid_from, valid_to)
+        VALUES
+            (gen_random_uuid(), :h3_cell, 8, :hz, 'baseline', 'current',
+             :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
+    """), [{**r, "mv": model_version, "now": now, "hz": hazard} for r in records])
+
 def _active_model_version(hazard: str) -> str:
     with get_session() as s:
         row = s.execute(text(
@@ -108,21 +135,7 @@ def run_flood_lookup(lookup_id: str, lat: float, lon: float) -> None:
             })
 
         with get_session() as s:
-            cells = [r["h3_cell"] for r in records]
-            s.execute(text("""
-                UPDATE canonical_scores SET valid_to=:now
-                WHERE hazard_type='flood' AND scenario='baseline' AND time_horizon='current'
-                  AND valid_to IS NULL AND h3_cell = ANY(:cells)
-            """), {"now": now, "cells": cells})
-            s.execute(text("""
-                INSERT INTO canonical_scores
-                    (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, model_version, data_vintage, shap_factors,
-                     scored_at, valid_from, valid_to)
-                VALUES
-                    (gen_random_uuid(), :h3_cell, 8, 'flood', 'baseline', 'current',
-                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
-            """), [{**r, "mv": version, "now": now} for r in records])
+            _write_active_scores(s, "flood", records, version, now)
             s.execute(text("""
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
@@ -183,21 +196,7 @@ def run_pollution_lookup(lookup_id: str, lat: float, lon: float) -> None:
                              "risk_bucket": nearest["risk_bucket"], "shap_factors": json.dumps(shap)})
 
         with get_session() as s:
-            cells = [r["h3_cell"] for r in records]
-            s.execute(text("""
-                UPDATE canonical_scores SET valid_to=:now
-                WHERE hazard_type='pollution' AND scenario='baseline' AND time_horizon='current'
-                  AND valid_to IS NULL AND h3_cell = ANY(:cells)
-            """), {"now": now, "cells": cells})
-            s.execute(text("""
-                INSERT INTO canonical_scores
-                    (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, model_version, data_vintage, shap_factors,
-                     scored_at, valid_from, valid_to)
-                VALUES
-                    (gen_random_uuid(), :h3_cell, 8, 'pollution', 'baseline', 'current',
-                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
-            """), [{**r, "mv": POLLUTION_MODEL_VERSION, "now": now} for r in records])
+            _write_active_scores(s, "pollution", records, POLLUTION_MODEL_VERSION, now)
             s.execute(text("""
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
@@ -261,21 +260,7 @@ def run_wildfire_lookup(lookup_id: str, lat: float, lon: float) -> None:
                              "risk_bucket": nearest["risk_bucket"], "shap_factors": json.dumps(shap)})
 
         with get_session() as s:
-            cells = [r["h3_cell"] for r in records]
-            s.execute(text("""
-                UPDATE canonical_scores SET valid_to=:now
-                WHERE hazard_type='wildfire' AND scenario='baseline' AND time_horizon='current'
-                  AND valid_to IS NULL AND h3_cell = ANY(:cells)
-            """), {"now": now, "cells": cells})
-            s.execute(text("""
-                INSERT INTO canonical_scores
-                    (score_id, h3_cell, h3_resolution, hazard_type, scenario, time_horizon,
-                     risk_score, risk_bucket, model_version, data_vintage, shap_factors,
-                     scored_at, valid_from, valid_to)
-                VALUES
-                    (gen_random_uuid(), :h3_cell, 8, 'wildfire', 'baseline', 'current',
-                     :risk_score, :risk_bucket, :mv, :now, CAST(:shap_factors AS jsonb), :now, :now, NULL)
-            """), [{**r, "mv": version, "now": now} for r in records])
+            _write_active_scores(s, "wildfire", records, version, now)
             s.execute(text("""
                 UPDATE public_lookups SET status='done', completed_at=:now WHERE lookup_id=:id
             """), {"now": now, "id": lookup_id})
