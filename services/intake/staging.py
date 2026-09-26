@@ -22,12 +22,17 @@ from services.ingest import batch_controls as bc
 from services.ingest import sector_ingest as si
 from services.ingest.sector_contract import RowIssue, Sector
 from services.ingest.upload_validation import validate_table
-from services.intake import matching, values
+from services.intake import matching, money, values
 
 
-def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs: list[dict]) -> dict:
+def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs: list[dict],
+          money_ctx: Optional[dict] = None) -> dict:
+    df = df.reset_index(drop=True)                             # row i is spreadsheet row i + 2 throughout
     df, value_report = values.normalise(session, df, specs)   # our values for every fixed-list field, unknowns reported
+    df, money_report, money_problems, natives = money.convert(session, df, specs, money_ctx or {})
     report = validate_table(df, specs)
+    for e in report["errors"]:                                 # a row already refused also says why its money failed
+        e["problems"] += money_problems.get(e["row"] - 2, [])
     normalised = bc.normalise_rows(report["valid_rows"], specs)
     ctx = sector.prepare(session, org_id)
     row_nos = list(report["valid_row_numbers"])
@@ -35,12 +40,19 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
     records: list[Optional[dict]] = []
     rejected: dict[int, str] = {}
     for rn, n in zip(row_nos, normalised):
+        if rn - 2 in money_problems:
+            records.append(None)
+            rejected[rn] = "; ".join(money_problems[rn - 2])
+            continue
         try:
-            records.append(sector.build(ctx, n))
+            rec = sector.build(ctx, n)
+            if rn - 2 in natives:
+                rec["_native"] = natives[rn - 2]               # the amounts as sent, with their currency (kept for audit)
+            records.append(rec)
         except RowIssue as e:
             records.append(None)
             rejected[rn] = f"Not usable by the engine: {e}"
-    n_not_ready = len(rejected)
+    n_not_ready = sum(1 for rn in rejected if rn - 2 not in money_problems)
 
     existing = sector.existing(session, org_id)
     results = matching.match(records, existing, name_field=sector.name_field, value_field=sector.value_field,
@@ -57,7 +69,8 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
     summary = matching.summarize(results, names)
     summary["n_not_ready"] = n_not_ready
     summary["ambiguous_rows"] = [rn for rn, res in zip(row_nos, results) if res.get("status") == "ambiguous"][:50]
-    return {"report": report, "normalised": [normalised[i] for i in keep], "values": value_report,
+    return {"report": report, "normalised": [normalised[i] for i in keep], "values": value_report, "money": money_report,
+            "df": df,
             "staged": [{"row_no": row_nos[i], "record": records[i], "match": results[i]} for i in keep],
             "rejected": rejected, "match_statuses": {rn: res.get("status") for rn, res in zip(row_nos, results)},
             "matching": summary, "ctx": ctx, "existing": {e["entity_id"]: e for e in existing},

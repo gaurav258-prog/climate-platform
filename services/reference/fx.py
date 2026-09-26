@@ -149,3 +149,50 @@ def coverage(session, on_date: Optional[date] = None) -> dict:
         k = "none" if r["source"] is None else ("stale" if r["stale"] else r["source"])
         by[k] = by.get(k, 0) + 1
     return {"on_date": on_date.isoformat(), "summary": by, "currencies": rows}
+
+
+def average_rate(session, currency: Optional[str], start: date, end: date) -> dict:
+    """The EUR rate for a FLOW over a period (IAS 21: income, spend, premiums, revenue at the period average).
+
+    Same result shape as rate_for, with basis 'period_average' and the period. In source order: a rate fixed by law
+    for the whole period (exact); the mean of the ECB daily rates in the period (they must cover it: first within 10
+    days of the start, last within 7 days of the end); the mean of the IMF monthly averages (the months may lag the
+    end by up to 62 days). Otherwise the closing rate at the end is returned and marked stale — never a silent swap."""
+    ccy = _norm_ccy(currency)
+    if ccy == "EUR":
+        return {"currency": "EUR", "rate": 1.0, "units_per_eur": 1.0, "rate_date": None, "source": "identity",
+                "basis": "identity", "age_days": 0, "stale": False, "note": None}
+    period = {"period_start": start.isoformat(), "period_end": end.isoformat()}
+    p = session.execute(text("""
+        SELECT units_per_eur, valid_from, legal_basis FROM fx_pegs
+        WHERE ccy = :c AND valid_from <= :s AND (valid_to IS NULL OR valid_to >= :e) ORDER BY valid_from DESC LIMIT 1
+    """), {"c": ccy, "s": start, "e": end}).mappings().first()
+    if p:
+        u = float(p["units_per_eur"])
+        return {"currency": ccy, "rate": round(1.0 / u, 12), "units_per_eur": u, "rate_date": None, "source": "peg",
+                "basis": "fixed_peg", "age_days": 0, "stale": False, "note": f"fixed — {p['legal_basis']}", **period}
+    e = session.execute(text("""
+        SELECT COUNT(*) AS n, AVG(units_per_eur) AS avg_u, MIN(rate_date) AS first, MAX(rate_date) AS last FROM fx_rates
+        WHERE ccy = :c AND source = 'ecb' AND basis = 'reference_daily' AND rate_date BETWEEN :s AND :e
+          AND units_per_eur IS NOT NULL
+    """), {"c": ccy, "s": start, "e": end}).mappings().first()
+    if e["n"] and (e["first"] - start).days <= 10 and (end - e["last"]).days <= 7:
+        u = float(e["avg_u"])
+        return {"currency": ccy, "rate": 1.0 / u, "units_per_eur": round(u, 6), "rate_date": e["last"].isoformat(),
+                "source": "ecb", "basis": "period_average", "age_days": (end - e["last"]).days, "stale": False,
+                "note": f"mean of {e['n']} ECB daily rates", **period}
+    i = session.execute(text("""
+        SELECT COUNT(*) AS n, AVG(units_per_eur) AS avg_u, MIN(rate_date) AS first, MAX(rate_date) AS last FROM fx_rates
+        WHERE ccy = :c AND source = 'imf' AND basis = 'period_average' AND rate_date BETWEEN :s AND :e2
+          AND units_per_eur IS NOT NULL
+    """), {"c": ccy, "s": start, "e2": end}).mappings().first()
+    months = (end.year - start.year) * 12 + end.month - start.month + 1
+    if i["n"] and (i["first"] - start).days <= 31 and (end - i["last"]).days <= 62 and i["n"] >= months - 2:
+        u = float(i["avg_u"])
+        return {"currency": ccy, "rate": 1.0 / u, "units_per_eur": round(u, 6), "rate_date": i["last"].isoformat(),
+                "source": "imf", "basis": "period_average", "age_days": (end - i["last"]).days, "stale": False,
+                "note": f"mean of {i['n']} IMF monthly averages", **period}
+    closing = rate_for(session, ccy, end)
+    return {**closing, **period, "stale": True,
+            "note": "no average rate covers the period; the closing rate was used" +
+                    (f" ({closing['note']})" if closing.get("note") else "")}

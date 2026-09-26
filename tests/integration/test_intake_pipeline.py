@@ -21,6 +21,7 @@ from core.db.session import get_session
 from services.intake import storage
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
+DECL = {"currency": "EUR", "book_date": "2026-06-30"}   # every batch declares its currency and book date (never assumed)
 EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
@@ -93,7 +94,7 @@ def tag():
 def test_clean_file_imports_automatically_and_is_stored_write_once(intake_client, tag):
     raw = _csv(_rows(tag))
     r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
-                    data={"declared_row_count": "4", "declared_totals": json.dumps({"appraised_value_eur": 4_000_000})})
+                    data={**DECL, "declared_row_count": "4", "declared_totals": json.dumps({"appraised_value_eur": 4_000_000})})
     assert r.status_code == 200, r.text
     b = r.json()
     assert b["state"] == "imported" and b["n_uploaded"] == 4 and b["controls"]["landing"]["status"] == "pass"
@@ -107,13 +108,13 @@ def test_clean_file_imports_automatically_and_is_stored_write_once(intake_client
 @pytest.mark.integration
 def test_failed_check_needs_a_reason_then_a_second_person(intake_client, tag):
     raw = _csv(_rows(tag, n=4, bad=1))       # 1 of 5 rows invalid → 20% rejected → a check fails
-    r0 = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)})
+    r0 = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data=DECL)
     assert r0.status_code == 409 and r0.json()["error"]["error"] == "approval_reason_required"
     with get_session() as s:                 # nothing persisted for a request that was simply incomplete
         assert s.execute(text("SELECT count(*) FROM ingest_batches WHERE filename = :f"), {"f": f"{tag}.csv"}).scalar() == 0
 
     r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
-                    data={"approval_reason": "The invalid row is a closed loan; the rest are current exposures"})
+                    data={**DECL, "approval_reason": "The invalid row is a closed loan; the rest are current exposures"})
     assert r.status_code == 202, r.text
     b = r.json()
     assert b["state"] == "awaiting_approval" and _landed(tag) == 0    # nothing lands before approval
@@ -134,7 +135,7 @@ def test_failed_check_needs_a_reason_then_a_second_person(intake_client, tag):
 def test_rejected_approval_lands_nothing(intake_client, tag):
     raw = _csv(_rows(tag, n=4, bad=1))
     b = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
-                    data={"approval_reason": "Please review the one invalid row"}).json()
+                    data={**DECL, "approval_reason": "Please review the one invalid row"}).json()
     d = intake_client.post(f"/v1/approvals/{b['approval_request_id']}/decide", headers=intake_client.checker,
                     json={"decision": "rejected", "reason": "Invalid row must be fixed at source"})
     assert d.status_code == 200 and d.json()["applied"]["state"] == "rejected"
@@ -144,8 +145,8 @@ def test_rejected_approval_lands_nothing(intake_client, tag):
 @pytest.mark.integration
 def test_the_same_file_twice_needs_approval(intake_client, tag):
     raw = _csv(_rows(tag))
-    assert intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}).status_code == 200
-    again = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)})
+    assert intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data=DECL).status_code == 200
+    again = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data=DECL)
     assert again.status_code == 409
     assert any("identical file was imported" in x for x in again.json()["error"]["controls"]["gate"]["reasons"])
     assert _landed(tag) == 4
@@ -153,7 +154,7 @@ def test_the_same_file_twice_needs_approval(intake_client, tag):
 
 @pytest.mark.integration
 def test_security_refusal_is_recorded_but_the_file_is_not_kept(intake_client, tag):
-    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.xlsm", b"PK\x03\x04junk")})
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.xlsm", b"PK\x03\x04junk")}, data=DECL)
     assert r.status_code == 422 and r.json()["error"]["error"] == "security_blocked"
     led = intake_client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=intake_client.maker).json()
     assert led["state"] == "rejected" and led["storage_uri"] == "not-retained:security"
@@ -163,7 +164,7 @@ def test_security_refusal_is_recorded_but_the_file_is_not_kept(intake_client, ta
 def test_infected_file_is_refused_and_not_kept(intake_client, tag, monkeypatch):
     from services.intake import malware
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "infected", "signature": "Eicar-Test-Signature", "engine": "ClamAV test"})
-    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)) + EICAR)})
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)) + EICAR)}, data=DECL)
     assert r.status_code == 422 and r.json()["error"]["error"] == "malware_detected"
     led = intake_client.get(f"/v1/intake/batches/{r.json()['error']['batch_id']}", headers=intake_client.maker).json()
     assert led["malware_status"] == "infected" and led["storage_uri"] == "not-retained:security" and _landed(tag) == 0
@@ -174,7 +175,7 @@ def test_held_when_a_required_scan_is_unavailable_then_resumed(intake_client, ta
     from services.intake import malware
     monkeypatch.setattr(malware.settings, "INTAKE_REQUIRE_MALWARE_SCAN", True)
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "not_configured", "signature": None, "engine": None})
-    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))})
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))}, data=DECL)
     assert r.status_code == 202 and r.json()["state"] == "held" and _landed(tag) == 0
 
     monkeypatch.setattr(malware, "scan", lambda raw, timeout=60.0: {"status": "clean", "signature": None, "engine": "ClamAV test"})
@@ -191,9 +192,9 @@ def test_api_push_goes_through_the_same_pipeline(intake_client, tag):
     h = {"Authorization": f"Bearer {raw_token}"}
     try:
         rows = _rows(tag)
-        bad = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": rows, "declared_totals": {"appraised_value_eur": 9_999_999}})
+        bad = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": rows, "declared_totals": {"appraised_value_eur": 9_999_999}, **DECL})
         assert bad.status_code == 202 and bad.json()["state"] == "awaiting_approval"   # token owner is the maker
-        ok = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": _rows(tag + "b")})
+        ok = intake_client.post("/v1/ingest/bank/assets", headers=h, json={"rows": _rows(tag + "b"), **DECL})
         assert ok.status_code == 200 and ok.json()["n_uploaded"] == 4
     finally:
         intake_client.delete(f"/v1/ingest/tokens/{tok['token_id']}", headers=intake_client.maker)
@@ -204,7 +205,7 @@ def test_api_push_goes_through_the_same_pipeline(intake_client, tag):
 
 @pytest.mark.integration
 def test_history_and_file_identity_cannot_be_rewritten(intake_client, tag):
-    b = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))}).json()
+    b = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(_rows(tag)))}, data=DECL).json()
     with get_session() as s:
         with pytest.raises(Exception, match="append-only"):
             s.execute(text("UPDATE ingest_batch_events SET to_state = 'x' WHERE batch_id = CAST(:b AS uuid)"), {"b": b["batch_id"]})
@@ -237,7 +238,7 @@ SECTOR_FILES = {
 @pytest.mark.parametrize("path", sorted(SECTOR_FILES))
 def test_every_sector_previews_the_same_checks(intake_client, tag, path):
     rows = [SECTOR_FILES[path](tag, i, bad=(i == 0)) for i in range(4)]
-    r = intake_client.post(path, headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(rows))})
+    r = intake_client.post(path, headers=intake_client.maker, files={"file": (f"{tag}.csv", _csv(rows))}, data=DECL)
     assert r.status_code == 200, r.text
     b = r.json()
     assert b["n_error"] == 1 and b["n_valid"] == 3 and b["security"]["status"] == "passed"

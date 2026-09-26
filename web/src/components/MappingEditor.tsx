@@ -76,7 +76,7 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
   const setT = (f: string, patch: Transform) => setTr(t => {
     const next: Transform = { ...(t[f] ?? {}), ...patch }
     if (next.multiply === 1) delete next.multiply
-    if (!next.currency || next.currency.toUpperCase() === 'EUR') delete next.currency
+    if (!next.currency) delete next.currency   // blank = as the file; an explicit EUR is kept (the field differs from the file)
     if (!next.currency_column) delete next.currency_column
     return { ...t, [f]: next }
   })
@@ -134,10 +134,10 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
                       <span className="mono text-[10px] text-[var(--color-faint)]">currency</span>
                       <select value={tr[f.name]?.currency_column ? `col:${tr[f.name]?.currency_column}` : 'fixed'}
                         onChange={e => setT(f.name, e.target.value.startsWith('col:') ? { currency_column: e.target.value.slice(4), currency: undefined } : { currency_column: undefined })} className={inputCls}>
-                        <option value="fixed">one currency</option>
+                        <option value="fixed">{tr[f.name]?.currency ? 'this currency' : 'as the file'}</option>
                         {ins.columns.filter(c => c !== col).map(c => <option key={c} value={`col:${c}`}>per row, from “{c}”</option>)}
                       </select>
-                      {!tr[f.name]?.currency_column && <input value={tr[f.name]?.currency ?? 'EUR'} onChange={e => setT(f.name, { currency: e.target.value.slice(0, 3) })}
+                      {!tr[f.name]?.currency_column && <input value={tr[f.name]?.currency ?? ''} placeholder="file" onChange={e => setT(f.name, { currency: e.target.value.slice(0, 3) })}
                         aria-label={`${f.label} currency`} className={inputCls + ' w-14 mono uppercase'} />}
                       {(ins.suggestion.hints[f.name] ?? []).map((h, i) => <span key={i} className="w-full text-[11px] text-[var(--color-mute)]">{h}</span>)}
                     </span>
@@ -159,7 +159,7 @@ export default function MappingEditor({ template, file, base, onSaved, onCancel 
         <button onClick={onCancel} className="mono text-[10.5px] text-[var(--color-faint)] hover:text-[var(--color-ink)]">cancel</button>
         {ins && missing.length > 0 && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>Still to map: {missing.map(f => f.label).join(', ')}</span>}
         {err && <span className="w-full text-[11.5px]" style={{ color: 'var(--color-warn)' }}>{err}</span>}
-        <span className="w-full mono text-[9.5px] text-[var(--color-faint)]">Other currencies are converted to EUR at the official rate for the book date — ECB daily, a rate fixed by law, or the IMF month-end for currencies the ECB doesn’t quote. A rate too old for its source goes to a second person.</span>
+        <span className="w-full mono text-[9.5px] text-[var(--color-faint)]">A field’s amounts are in the file’s currency unless you set one here. Everything converts to EUR at the book date: balances at that day’s official rate, yearly figures at the average of the 12 months to it (ECB, rates fixed by law, or IMF). A rate too old for its source goes to a second person.</span>
       </div>
     </div>
   )

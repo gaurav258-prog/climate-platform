@@ -40,6 +40,12 @@ class BookRowsIn(BaseModel):
                           "if the rows do not add up to what you declared.")
     mapping_profile_id: str | None = Field(None, description="Optional: a saved column mapping, when your rows use your "
                                                              "own field names, units or currency.")
+    currency: str | None = Field(None, min_length=3, max_length=3,
+                                 description="ISO 4217 code of the amounts (e.g. EUR, USD). Required unless every row has a "
+                                             "'currency' field. Never assumed.")
+    book_date: str | None = Field(None, description="YYYY-MM-DD — the date the figures describe. Required unless every row "
+                                                    "has a 'book_date' field. Balances convert at that day's rate; annual "
+                                                    "flows at the average of the 12 months to it.")
 
 
 def _push(template: str, body: BookRowsIn, session, ctx: dict):
@@ -66,7 +72,8 @@ def _push(template: str, body: BookRowsIn, session, ctx: dict):
         declared["control_totals"] = body.declared_totals
     raw = _json.dumps(body.rows, sort_keys=True, default=str).encode()
     return submit(session, ctx["org_id"], template, raw, f"api:{ctx['token_id']}", token_id=ctx["token_id"],
-                  via="api", declared=declared or None, mapping_profile_id=body.mapping_profile_id)
+                  via="api", declared=declared or None, mapping_profile_id=body.mapping_profile_id,
+                  currency=body.currency, book_date=body.book_date)
 
 
 @router.post("/books/{template}", summary="Push rows of your book (any sector) directly into your tenant")

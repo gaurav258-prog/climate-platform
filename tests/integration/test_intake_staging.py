@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import text
 
 from core.db.session import get_session
-from tests.integration.test_intake_pipeline import _csv, _landed, _purge, _rows
+from tests.integration.test_intake_pipeline import DECL, _csv, _landed, _purge, _rows
 
 pytestmark = pytest.mark.integration
 
@@ -34,7 +34,7 @@ def _with_refs(tag, rows):
 
 
 def _up(c, tag, rows, name="f", **data):
-    return c.post("/v1/bank/assets/upload", headers=c.maker, files={"file": (f"{tag}-{name}.csv", _csv(rows))}, data=data)
+    return c.post("/v1/bank/assets/upload", headers=c.maker, files={"file": (f"{tag}-{name}.csv", _csv(rows))}, data={**DECL, **data})
 
 
 def _book(tag):
@@ -98,7 +98,7 @@ def test_ambiguous_and_duplicate_rows_are_refused_not_guessed(intake_client, tag
     others = [{**r, "external_ref": f"{tag}-X{i}"} for i, r in enumerate(_rows(tag + "o", n=30))]
     dup = {**others[0]}                                                   # same id twice in one file
     r = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker,
-                    files={"file": (f"{tag}-amb.csv", _csv([base] + others + [dup]))})   # preview: shows why, lands nothing
+                    files={"file": (f"{tag}-amb.csv", _csv([base] + others + [dup]))}, data=DECL)   # preview: shows why, lands nothing
     assert r.status_code == 200, r.text
     assert r.json()["controls"]["matching"]["ambiguous"] == 1
     probs = " | ".join(p for e in r.json()["errors"] for p in e["problems"])
@@ -135,7 +135,7 @@ def test_mapping_profile_renames_scales_and_converts(intake_client, tag):
     src = [{"Loan ID": f"{tag}-M{i}", "Borrower": f"TEST-PIPE-{tag}-M{i}", "Kind": "commercial_real_estate", "Lat": 48.85 + i / 100,
             "Lng": 2.35, "Value (k USD)": 1000, "Sector": "Commercial real estate", "EVIC": 100_000_000} for i in range(3)]
     raw = _csv(src)
-    miss = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)})
+    miss = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data=DECL)
     assert miss.status_code == 400
     sug = miss.json()["error"]["suggested_mapping"]
     assert sug["latitude"] == "Lat" and sug["longitude"] == "Lng" and sug["external_ref"] == "Loan ID"
@@ -150,23 +150,25 @@ def test_mapping_profile_renames_scales_and_converts(intake_client, tag):
     assert p.json()["version"] == 1
 
     pv = intake_client.post("/v1/bank/assets/validate", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)},
-                     data={"mapping_profile_id": pid})
+                     data={**DECL, "mapping_profile_id": pid})
     assert pv.status_code == 200, pv.text
-    conv = pv.json()["mapping"]["conversions"]
-    rate = next(c for c in conv if c["kind"] == "currency")["rates"]["USD"]["rate"]
-    stale = pv.json()["mapping"].get("warnings")
+    assert {"field": "appraised_value_eur", "kind": "currency", "currency": "USD"} in pv.json()["mapping"]["conversions"]
+    cur = pv.json()["controls"]["currency"]
+    used = next(u for u in cur["rates"] if u["currency"] == "USD")
+    assert used["policy"] == "closing" and used["book_date"] == DECL["book_date"]    # a balance, at the book date
+    rate = 1 / used["units_per_eur"]
     data = {"mapping_profile_id": pid}
-    if stale:   # the held FX rate is older than the book date: a person must accept it (never silently used)
-        assert any(r.startswith("Mapping:") for r in pv.json()["controls"]["gate"]["reasons"])
+    if used["stale"]:   # the held FX rate is too old for the book date: a person must accept it (never silently used)
+        assert any(r.startswith("Currency:") for r in pv.json()["controls"]["gate"]["reasons"])
         data["approval_reason"] = "Accepting the latest held USD rate for this test book."
-    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data=data)
+    r = intake_client.post("/v1/bank/assets/upload", headers=intake_client.maker, files={"file": (f"{tag}.csv", raw)}, data={**DECL, **data})
     assert r.status_code in (200, 202), r.text
     if r.status_code == 202:
         d = intake_client.post(f"/v1/approvals/{r.json()['approval_request_id']}/decide", headers=intake_client.checker,
                         json={"decision": "approved", "reason": "rate accepted"})
         assert d.status_code == 200, d.text
     assert _landed(tag) == 3
-    assert _book(tag)[f"{tag}-M0"]["v"] == pytest.approx(round(1_000_000 * rate, 2))
+    assert _book(tag)[f"{tag}-M0"]["v"] == pytest.approx(round(1_000_000 * rate, 2), abs=0.02)
     with get_session() as s:
         assert s.execute(text("SELECT mapping_profile_id::text FROM ingest_batches WHERE filename = :f AND state = 'imported'"),
                          {"f": f"{tag}.csv"}).scalar() == pid

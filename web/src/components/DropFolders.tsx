@@ -16,7 +16,7 @@ export const SECTOR_TEMPLATES: Record<string, { key: string; label: string }[]> 
   manufacturer: [{ key: 'supply_plots', label: 'sourcing plots' }],
 }
 
-interface Channel { channel_id: string; template: string; label: string; sftp_path: string; owner_email: string; n_waiting: number; last_swept_at: string | null; enabled: boolean }
+interface Channel { channel_id: string; template: string; label: string; currency: string | null; sftp_path: string; owner_email: string; n_waiting: number; last_swept_at: string | null; enabled: boolean }
 interface SweepResult { file: string; state: string; reason?: string; moved_to?: string }
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
 const STATE_TONE: Record<string, string> = { imported: 'var(--color-good)', awaiting_approval: 'var(--color-warn)', held: 'var(--color-warn)', refused: 'var(--color-bad, #e0574a)', error: 'var(--color-bad, #e0574a)' }
@@ -29,14 +29,15 @@ export default function DropFolders({ sector }: { sector: string }) {
   const open = templates.filter(t => !channels.some(c => c.template === t.key))
   const [tpl, setTpl] = useState('')
   const [owner, setOwner] = useState('')
+  const [ccy, setCcy] = useState('')
   const [busy, setBusy] = useState(false)
   const [results, setResults] = useState<Record<string, SweepResult[]>>({})
 
   const create = async () => {
     const template = tpl || open[0]?.key
-    if (!template || !owner) { toast.error('Choose who stands as the sender.'); return }
+    if (!template || !owner || ccy.trim().length !== 3) { toast.error('Choose the sender and the currency of the files.'); return }
     setBusy(true)
-    try { await api.post('/v1/intake/channels', { template, owner_user_id: owner }); q.refetch() }
+    try { await api.post('/v1/intake/channels', { template, owner_user_id: owner, currency: ccy.trim().toUpperCase() }); q.refetch() }
     catch (e: unknown) { toast.error((e as { body?: { error?: { message?: string } } })?.body?.error?.message ?? 'Could not open the folder.') }
     finally { setBusy(false) }
   }
@@ -51,7 +52,7 @@ export default function DropFolders({ sector }: { sector: string }) {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2"><FolderInput size={15} className="text-[var(--color-sky)]" /><h3 className="text-[14px] font-semibold text-[var(--color-ink)]">Drop folders (SFTP)</h3></div>
-      <p className="text-[12.5px] text-[var(--color-mute)] mt-1 max-w-2xl">Your system sends files to a folder instead of calling the API. Every file that has finished arriving is picked up every 5 minutes and checked exactly like an upload — your saved column mapping is used automatically. A file that fails a check goes to a second person; a refused file is moved aside with the reason next to it.</p>
+      <p className="text-[12.5px] text-[var(--color-mute)] mt-1 max-w-2xl">Your system sends files to a folder instead of calling the API. Every file that has finished arriving is picked up every 5 minutes and checked exactly like an upload — your saved column mapping is used automatically. Each file must carry a book_date column (the date its figures describe). A file that fails a check goes to a second person; a refused file is moved aside with the reason next to it.</p>
 
       {channels.length > 0 && (
         <div className="mt-3 divide-y divide-[var(--color-line)] border border-[var(--color-line)] rounded-lg">
@@ -60,7 +61,7 @@ export default function DropFolders({ sector }: { sector: string }) {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-[var(--color-ink)] capitalize">{c.label}</span>
                 <code className="mono text-[11px] text-[var(--color-mute)]">{c.sftp_path}</code>
-                <span className="text-[11.5px] text-[var(--color-faint)]">sender: {c.owner_email}</span>
+                <span className="text-[11.5px] text-[var(--color-faint)]">sender: {c.owner_email} · amounts in {c.currency ?? '—'}</span>
                 <span className="text-[11.5px] text-[var(--color-faint)]">{c.n_waiting} waiting · last picked up {c.last_swept_at ? c.last_swept_at.replace('T', ' ') : 'never'}</span>
                 <button onClick={() => sweep(c.channel_id)} className="ml-auto inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)] hover:underline"><RefreshCw size={12} /> Pick up now</button>
               </div>
@@ -81,6 +82,8 @@ export default function DropFolders({ sector }: { sector: string }) {
               <option value="">— choose a person —</option>
               {(uq.data ?? []).filter(u => u.status === 'active').map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
             </select></label>
+          <label className="w-28"><span className="text-[11.5px] text-[var(--color-mute)]">Currency</span>
+            <input value={ccy} onChange={e => setCcy(e.target.value.slice(0, 3))} placeholder="e.g. EUR" className={inp + ' mt-1 mono uppercase'} /></label>
           <Button onClick={create} disabled={busy}>{busy ? 'Opening…' : `Open a drop folder for your ${open[0].label}`}</Button>
         </div>
       )}

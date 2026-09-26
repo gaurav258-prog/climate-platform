@@ -121,10 +121,13 @@ def latest(session: Session, org_id: str, template: Optional[str] = None) -> lis
 
 
 def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[date] = None) -> tuple[pd.DataFrame, dict]:
-    """Rename and transform source columns into template columns. Returns (canonical dataframe, report)."""
-    from services.reference.fx import FxError, to_eur
+    """Rename and transform source columns into template columns. Returns (canonical dataframe, report).
+    A currency transform does NOT convert here: it says which currency a field's amounts are in — a fixed code
+    (report['field_currency']) or a per-row column (carried as a hidden column) — and services/intake/money.py
+    converts every amount in one place, at the book date and by the rate policy. (`as_of` is unused, kept for callers.)"""
+    from services.intake.money import hidden_column
     cmap, tr = profile["column_map"], profile.get("transforms") or {}
-    missing_src = [s for s in cmap.values() if s and s not in df.columns]
+    missing_src = [s for s in list(cmap.values()) + [x.get("currency_column") for x in tr.values()] if s and s not in df.columns]
     if missing_src:
         raise MappingError(f"The file has no column(s) {', '.join(missing_src)} that this mapping expects.")
     out = pd.DataFrame({t: df[s] for t, s in cmap.items() if s})
@@ -132,8 +135,7 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
                     "mapped": {t: s for t, s in cmap.items() if s},
                     "unmapped_source_columns": [c for c in df.columns if c not in set(cmap.values()) and
                                                 c not in {x.get("currency_column") for x in tr.values()}],
-                    "conversions": []}
-    as_of = as_of or date.today()
+                    "conversions": [], "field_currency": {}}
     for t, spec in tr.items():
         if t not in out.columns:
             continue
@@ -147,28 +149,10 @@ def apply(session: Session, df: pd.DataFrame, profile: dict, as_of: Optional[dat
             m = float(spec["multiply"])
             out[t] = [(parse_money(v) * m if parse_money(v) is not None else v) for v in col]
             report["conversions"].append({"field": t, "kind": "scale", "factor": m})
-            col = out[t]
-        if "currency" in spec or "currency_column" in spec:
-            ccys = ([spec["currency"]] * len(col) if "currency" in spec else list(df[spec["currency_column"]]))
-            rates: dict = {}
-            conv = []
-            for v, c in zip(col, ccys):
-                amt = parse_money(v)
-                if amt is None or c is None or (isinstance(c, float) and pd.isna(c)):
-                    conv.append(v)   # left as-is: validation reports it
-                    continue
-                try:
-                    r = to_eur(session, amt, str(c), as_of)
-                except FxError:
-                    conv.append(f"unknown currency {c}")   # becomes a clear row error, never a guessed rate
-                    continue
-                rates[r["currency"]] = {k: r[k] for k in ("rate", "units_per_eur", "rate_date", "source", "basis",
-                                                         "age_days", "stale", "note")}
-                conv.append(r["eur"])
-            out[t] = conv
-            report["conversions"].append({"field": t, "kind": "currency", "rates": rates})
-            for ccy, r in rates.items():
-                if r["stale"]:   # judged against the source's own limit (fx_sources): ECB 7 days, IMF month-end 62
-                    report.setdefault("warnings", []).append(f"{t}: {ccy}→EUR — {r['note']}")
+        if "currency" in spec:
+            report["field_currency"][t] = str(spec["currency"]).upper()
+            report["conversions"].append({"field": t, "kind": "currency", "currency": report["field_currency"][t]})
+        elif "currency_column" in spec:
+            out[hidden_column(t)] = df[spec["currency_column"]].values
+            report["conversions"].append({"field": t, "kind": "currency", "currency_column": spec["currency_column"]})
     return out, report
-

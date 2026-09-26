@@ -38,6 +38,10 @@ def lookup(session: Optional[Session], vocab: str) -> dict[str, str]:
         return v.lookup()
     if vocab == "commodity" and session is not None:
         return {norm_token(r[0]): r[0] for r in session.execute(text("SELECT name FROM sc_commodities")).all()}
+    if vocab == "currency":
+        from services.reference.fx import supported_currencies
+        codes = supported_currencies(session) if session is not None else ["EUR"]
+        return {c.lower(): c for c in codes}
     if vocab == "country":
         # ISO alpha-2 codes are always recognised (as before the country reference existed); names, alpha-3 and
         # numeric codes come from the CLDR reference once loaded (feed `reference_countries`)
@@ -74,7 +78,9 @@ def normalise(session: Optional[Session], df: pd.DataFrame, specs: list[dict]) -
                 continue
             key = str(v).strip()
             unknown[key] = unknown.get(key, 0) + 1
-            vals.append(key if s.get("required") else None)   # required: the row is refused with the reason
+            # required — or a row's currency, which must never fall back to the file's — keeps the raw value, so the
+            # row is refused with the reason downstream; anything else is left blank (and reported)
+            vals.append(key if (s.get("required") or vocab == "currency") else None)
         out[name] = pd.Series(vals, index=out.index, dtype=object)
         top = dict(sorted(unknown.items(), key=lambda kv: -kv[1])[:25])
         report[name] = {"label": s.get("label", name), "required": bool(s.get("required")), "n_recognised": n_recognised,
@@ -86,7 +92,7 @@ def gate_reason(report: dict) -> Optional[str]:
     """Optional fields whose values we could not recognise — they were left blank, so a person must accept it."""
     parts = []
     for name, r in report.items():
-        if r["n_unknown"] and not r["required"]:
+        if r["n_unknown"] and not r["required"] and name != "currency":   # unknown currencies refuse their rows
             eg = ", ".join(f"“{k}” ×{c}" for k, c in list(r["unknown"].items())[:3])
             parts.append(f"{r['label']}: {r['n_unknown_values']} value(s) not recognised ({eg}{', …' if r['n_unknown_values'] > 3 else ''})")
     if not parts:

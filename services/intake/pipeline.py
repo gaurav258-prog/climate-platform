@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from services.ingest import batch_controls as bc
 from services.ingest.upload_validation import enrich_specs
-from services.intake import malware, mapping, profiling, security, staging, storage, values
+from services.intake import malware, mapping, money, profiling, security, staging, storage, values
 from services.intake.catalog import TEMPLATES, Template
 
 MIN_REASON = 10
@@ -102,15 +102,6 @@ def _canonical(session: Session, org_id: str, tpl: Template, df: pd.DataFrame, p
         raise IntakeError(400, {"error": "mapping_failed", "message": str(e)})
 
 
-def _mapping_gate(ctl: dict, mrep: Optional[dict]) -> None:
-    """A mapping warning (e.g. a stale FX rate) is a failed check: a second person must accept it."""
-    ctl["mapping"] = mrep
-    warns = (mrep or {}).get("warnings") or []
-    g = ctl["controls"]["gate"]
-    if warns and g["status"] != "blocked":
-        ctl["controls"]["gate"] = {**g, "status": "needs_signoff", "reasons": g["reasons"] + [f"Mapping: {w}" for w in warns]}
-
-
 def _prior_import(session: Session, org_id: str, template: str, sha: str, exclude_batch: Optional[str] = None) -> Optional[dict]:
     r = session.execute(text("""
         SELECT b.batch_id::text AS batch_id, b.state_changed_at FROM ingest_batches b
@@ -122,23 +113,33 @@ def _prior_import(session: Session, org_id: str, template: str, sha: str, exclud
     return {"batch_id": r["batch_id"], "imported_at": str(r["state_changed_at"])[:19]} if r else None
 
 
+def _money_ctx(session: Session, tpl: Template, df: pd.DataFrame, mrep: Optional[dict], currency, book_date) -> dict:
+    try:
+        return money.batch_context(session, df, enrich_specs(tpl.specs(df)), mrep, currency, book_date)
+    except money.MoneyError as e:
+        raise IntakeError(400, {"error": "currency_declaration", "message": str(e)})
+
+
 def _run_controls(session: Session, org_id: str, tpl: Template, sha: str, df: pd.DataFrame,
-                  declared: Optional[dict], exclude_batch: Optional[str] = None) -> dict:
+                  declared: Optional[dict], exclude_batch: Optional[str] = None, money_ctx: Optional[dict] = None) -> dict:
     specs = enrich_specs(tpl.specs(df))
-    st = staging.stage(session, org_id, tpl.sector, df, specs)
+    st = staging.stage(session, org_id, tpl.sector, df, specs, money_ctx)
     report, normalised = st["report"], st["normalised"]
     vf = tpl.value_field(df)
     vf = vf if vf in df.columns else None
+    # receipt: the file as sent (declared control totals are in the file's own currency); transformation: the
+    # amounts after conversion, tied to what the engine will read
     receipt = bc.receipt_check(df, declared=declared, duplicate_of=_prior_import(session, org_id, tpl.key, sha, exclude_batch))
-    transform = bc.transformation_check(df, specs, report, normalised, value_field=vf)
+    transform = bc.transformation_check(st["df"], specs, report, normalised, value_field=vf)
     gate = bc.evaluate_gate(receipt, transform, report["n_valid"])
-    for extra in (values.gate_reason(st["values"]), staging.large_change_reason(st["matching"])):
+    for extra in (money.gate_reason(st["money"]), values.gate_reason(st["values"]), staging.large_change_reason(st["matching"])):
         if extra and gate["status"] != "blocked":
             gate = {**gate, "status": "needs_signoff", "reasons": gate["reasons"] + [extra]}
     readiness = {"status": "pass" if not st["matching"]["n_not_ready"] else "attention",
                  "n_not_ready": st["matching"]["n_not_ready"], "value_staged": st["value_staged"]}
     return {"report": report, "normalised": normalised, "value_field": vf, "value_valid": st["value_staged"], "staged": st,
-            "controls": {"receipt": receipt, "transformation": transform, "values": st["values"], "readiness": readiness,
+            "controls": {"receipt": receipt, "transformation": transform, "currency": st["money"], "values": st["values"],
+                         "readiness": readiness,
                          "matching": {k: v for k, v in st["matching"].items()}, "gate": gate}}
 
 
@@ -193,15 +194,16 @@ def _record_file(session: Session, org_id: str, raw: bytes, filename: Optional[s
 
 def _new_batch(session: Session, org_id: str, tpl: Template, file: dict, filename: Optional[str], *, via: str,
                user_id: Optional[str], token_id: Optional[str], declared: Optional[dict], reason: Optional[str],
-               profile_id: Optional[str] = None) -> str:
+               profile_id: Optional[str] = None, money_ctx: Optional[dict] = None) -> str:
     bid = session.execute(text("""
         INSERT INTO ingest_batches (org_id, template, via, filename, sha256, received_by, token_id, file_id, declared, maker_reason,
-                                    mapping_profile_id, state)
+                                    mapping_profile_id, currency, book_date, state)
         VALUES (CAST(:o AS uuid), :t, :via, :f, :s, CAST(:u AS uuid), CAST(:k AS uuid), CAST(:fid AS uuid), CAST(:d AS jsonb), :r,
-                CAST(:mp AS uuid), 'received')
+                CAST(:mp AS uuid), :ccy, :bd, 'received')
         RETURNING batch_id::text
     """), {"o": org_id, "t": tpl.key, "via": via, "f": filename, "s": file["sha256"], "u": user_id, "k": token_id,
-           "fid": file["file_id"], "d": json.dumps(declared or {}), "r": reason, "mp": profile_id}).scalar()
+           "fid": file["file_id"], "d": json.dumps(declared or {}), "r": reason, "mp": profile_id,
+           "ccy": (money_ctx or {}).get("currency"), "bd": (money_ctx or {}).get("book_date")}).scalar()
     session.execute(text("""
         INSERT INTO ingest_batch_events (batch_id, org_id, from_state, to_state, actor_user_id, actor_token_id, detail)
         VALUES (CAST(:b AS uuid), CAST(:o AS uuid), NULL, 'received', CAST(:u AS uuid), CAST(:k AS uuid), CAST(:d AS jsonb))
@@ -215,9 +217,9 @@ def _store_controls(session: Session, batch_id: str, ctl: dict) -> None:
     session.execute(text("""
         UPDATE ingest_batches SET n_total = :nt, n_valid = :nv, n_rejected = :ne, value_field = :vf, value_valid = :vv,
                receipt = CAST(:rc AS jsonb), transform = CAST(:tr AS jsonb), gate_status = :g, gate_reasons = CAST(:gr AS jsonb),
-               match_summary = CAST(:ms AS jsonb), mapping_report = CAST(:mr AS jsonb)
+               match_summary = CAST(:ms AS jsonb), mapping_report = CAST(:mr AS jsonb), money_report = CAST(:mo AS jsonb)
         WHERE batch_id = CAST(:b AS uuid)
-    """), {"ms": json.dumps(ctl["controls"]["matching"], default=str), "mr": json.dumps(ctl.get("mapping"), default=str),"nt": r["n_total"], "nv": r["n_valid"], "ne": r["n_error"], "vf": ctl["value_field"], "vv": ctl["value_valid"],
+    """), {"mo": json.dumps(ctl["controls"].get("currency"), default=str), "ms": json.dumps(ctl["controls"]["matching"], default=str), "mr": json.dumps(ctl.get("mapping"), default=str),"nt": r["n_total"], "nv": r["n_valid"], "ne": r["n_error"], "vf": ctl["value_field"], "vv": ctl["value_valid"],
            "rc": json.dumps(ctl["controls"]["receipt"], default=str), "tr": json.dumps(ctl["controls"]["transformation"], default=str),
            "g": ctl["controls"]["gate"]["status"], "gr": json.dumps(ctl["controls"]["gate"]["reasons"]), "b": batch_id})
     staging.persist(session, batch_id, ctl["staged"])
@@ -264,7 +266,8 @@ def _owner_of_token(session: Session, token_id: str) -> Optional[str]:
 # ───────────────────────────── public API ─────────────────────────────
 
 def preview(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str],
-            declared: Optional[dict] = None, via: str = "upload", mapping_profile_id: Optional[str] = None) -> dict:
+            declared: Optional[dict] = None, via: str = "upload", mapping_profile_id: Optional[str] = None,
+            currency: Optional[str] = None, book_date: Optional[str] = None) -> dict:
     """Everything the import will check, run on the file now — nothing stored, nothing written.
     (The malware scan runs on submission; the preview says whether a scanner is available.)"""
     tpl = TEMPLATES[template]
@@ -275,8 +278,9 @@ def preview(session: Session, org_id: str, template: str, raw: bytes, filename: 
     err = _required_missing(session, org_id, tpl, df)
     if err:
         raise IntakeError(400, {**err, "security": sec})
-    ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared)
-    _mapping_gate(ctl, mrep)
+    ctl = _run_controls(session, org_id, tpl, storage_sha(raw), df, declared,
+                        money_ctx=_money_ctx(session, tpl, df, mrep, currency, book_date))
+    ctl["mapping"] = mrep
     gate = ctl["controls"]["gate"]
     if sec["status"] == "warned":
         gate = {**gate, "status": "needs_signoff" if gate["status"] == "pass" else gate["status"],
@@ -296,7 +300,8 @@ def storage_sha(raw: bytes) -> str:
 
 def submit(session: Session, org_id: str, template: str, raw: bytes, filename: Optional[str], *, via: str = "upload",
            user_id: Optional[str] = None, token_id: Optional[str] = None, declared: Optional[dict] = None,
-           reason: Optional[str] = None, mapping_profile_id: Optional[str] = None, channel_id: Optional[str] = None) -> dict:
+           reason: Optional[str] = None, mapping_profile_id: Optional[str] = None, channel_id: Optional[str] = None,
+           currency: Optional[str] = None, book_date: Optional[str] = None) -> dict:
     """Receive a batch and take it as far as the principles allow. Returns {"http_status", ...body}."""
     tpl = TEMPLATES[template]
     reason = (reason or "").strip() or None
@@ -331,9 +336,10 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     if err:
         raise IntakeError(400, err)
     sha = storage_sha(raw)
-    ctl = _run_controls(session, org_id, tpl, sha, df, declared) if decision == "proceed" else None
+    mctx = _money_ctx(session, tpl, df, mrep, currency, book_date)
+    ctl = _run_controls(session, org_id, tpl, sha, df, declared, money_ctx=mctx) if decision == "proceed" else None
     if ctl:
-        _mapping_gate(ctl, mrep)
+        ctl["mapping"] = mrep
     if ctl and sec["status"] == "warned":
         g = ctl["controls"]["gate"]
         ctl["controls"]["gate"] = {**g, "status": "needs_signoff" if g["status"] == "pass" else g["status"],
@@ -351,7 +357,7 @@ def submit(session: Session, org_id: str, template: str, raw: bytes, filename: O
     # 4. persist the file and the batch
     f = _record_file(session, org_id, raw, filename, sec, scan, via=via, user_id=user_id, token_id=token_id, keep_bytes=True)
     bid = _new_batch(session, org_id, tpl, f, filename, via=via, user_id=user_id, token_id=token_id, declared=declared, reason=reason,
-                     profile_id=mapping_profile_id)
+                     profile_id=mapping_profile_id, money_ctx=mctx)
     if channel_id:
         session.execute(text("UPDATE ingest_batches SET channel_id = CAST(:c AS uuid) WHERE batch_id = CAST(:b AS uuid)"),
                         {"c": channel_id, "b": bid})
@@ -409,6 +415,7 @@ def _load_batch(session: Session, org_id: str, batch_id: str) -> dict:
     b = session.execute(text("""
         SELECT b.batch_id::text, b.template, b.via, b.filename, b.state, b.declared, b.gate_reasons, b.received_by::text,
                b.token_id::text, b.mapping_profile_id::text, b.received_at::date AS received_on, b.match_summary,
+               b.currency, b.book_date,
                f.sha256, f.detected_type, f.security_findings, f.security_status
         FROM ingest_batches b JOIN intake_files f ON f.file_id = b.file_id
         WHERE b.org_id = CAST(:o AS uuid) AND b.batch_id = CAST(:b AS uuid)
@@ -422,8 +429,9 @@ def _recheck(session: Session, org_id: str, tpl: Template, b: dict) -> dict:
     """Re-run every check on the stored bytes, through the SAME pinned mapping at the SAME FX date."""
     raw = storage.get(b["sha256"])   # verified byte-identical to what was received
     df, mrep = _canonical(session, org_id, tpl, _parse(raw, b["detected_type"], b["via"]), b["mapping_profile_id"], b["received_on"])
-    ctl = _run_controls(session, org_id, tpl, b["sha256"], df, b["declared"] or None, exclude_batch=b["batch_id"])
-    _mapping_gate(ctl, mrep)
+    ctl = _run_controls(session, org_id, tpl, b["sha256"], df, b["declared"] or None, exclude_batch=b["batch_id"],
+                        money_ctx=_money_ctx(session, tpl, df, mrep, b["currency"], b["book_date"]))
+    ctl["mapping"] = mrep
     return ctl
 
 

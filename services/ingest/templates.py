@@ -25,6 +25,10 @@ def _template(*entries: tuple) -> list[dict]:
                 d["allowed"] = list(VOCABS[f.vocab].values)
         if f.range:
             d["range"] = list(f.range)
+        if f.kind == "money":
+            d["flow"] = f.flow
+            d["description"] = f.description + (" A yearly figure: converted at the average rate of the 12 months to the "
+                                                "book date." if f.flow else "") + " In the file's currency (or its currency column)."
         d.update(over)
         out.append(d)
     return out
@@ -43,6 +47,7 @@ ASSET_TEMPLATE_FIELDS = _template(
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
     ("no_stated_maturity", False), ("external_ref", False, _ref("loan / facility")),
+    ("currency", False), ("book_date", False),
 )
 
 POLICY_TEMPLATE_FIELDS = _template(
@@ -52,6 +57,7 @@ POLICY_TEMPLATE_FIELDS = _template(
     ("construction_type", False), ("year_built", False), ("number_of_stories", False), ("deductible_pct", False),
     ("region", False, {"example": "Valencia"}), ("country", False, {"example": "ES"}), ("cresta_zone", False),
     ("motor_sum_insured_eur", False), ("policy_type", False), ("external_ref", False, _ref("policy or location")),
+    ("currency", False), ("book_date", False),
 )
 
 PROPERTY_TEMPLATE_FIELDS = _template(
@@ -61,6 +67,7 @@ PROPERTY_TEMPLATE_FIELDS = _template(
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
     ("country", False, {"example": "NL"}), ("epc_rating", False), ("borrower_entity_id", False),
     ("minimum_safeguards_status", False), ("external_ref", False, _ref("property")),
+    ("currency", False), ("book_date", False),
 )
 
 HOLDING_TEMPLATE_FIELDS = _template(
@@ -68,6 +75,7 @@ HOLDING_TEMPLATE_FIELDS = _template(
     ("longitude", True, {"example": "18.0686"}), ("position_value_eur", True), ("sector", True), ("nace_code", False),
     ("region", False, {"example": "Stockholm"}), ("country", False, {"example": "SE"}), ("borrower_entity_id", False),
     ("minimum_safeguards_status", False), ("external_ref", False, _ref("holding / position")),
+    ("currency", False), ("book_date", False),
 )
 
 PLOT_TEMPLATE_FIELDS = _template(
@@ -77,6 +85,7 @@ PLOT_TEMPLATE_FIELDS = _template(
     ("commodity", True), ("annual_spend_eur", True), ("plot_geojson", False), ("plot_area_ha", False),
     ("region", False, {"example": "Ashanti"}), ("country", False, {"example": "GH"}), ("irrigation_status", False),
     ("external_ref", False, _ref("plot or farm")),
+    ("currency", False), ("book_date", False),
 )
 
 # value sets used by the sector rules — the same vocabularies the checks use

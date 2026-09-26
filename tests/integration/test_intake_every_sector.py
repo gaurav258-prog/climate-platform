@@ -5,19 +5,19 @@ back; stored test files are removed afterwards.
 """
 from __future__ import annotations
 
-import os
 import uuid
+from datetime import date
 
 import pandas as pd
 import pytest
 from sqlalchemy import text
 
-from core.db.session import get_session
 from services.ingest.upload_validation import enrich_specs
-from services.intake import mapping, pipeline, profiling, storage
+from services.intake import mapping, pipeline, profiling
 from services.intake.catalog import TEMPLATES
 
 pytestmark = pytest.mark.integration
+EUR_BOOK = {"currency": "EUR", "book_date": date(2026, 6, 30)}
 
 _VOCAB_FIELD = {"bank_assets": ("minimum_safeguards_status", "Non-Compliant"), "insurance_policies": ("construction_type", "ISO 2"),
                 "realestate_properties": ("epc_rating", "b"), "assetmgmt_holdings": ("minimum_safeguards_status", "compliant"),
@@ -65,34 +65,6 @@ def _csv(df):
     return df.to_csv(index=False).encode()
 
 
-@pytest.fixture()
-def session_rolled_back():
-    shas = []
-    real_put = storage.put
-
-    def tracking_put(raw):
-        out = real_put(raw)
-        shas.append(out[0])
-        return out
-    storage.put = tracking_put
-    import services.tasks.jobs as jobs
-    real_submit = jobs.submit
-    jobs.submit = lambda *a, **k: {"job": "stubbed-in-test"}
-    with get_session() as s:
-        try:
-            yield s
-        finally:
-            s.rollback()
-            storage.put, jobs.submit = real_put, real_submit
-    for sha in set(shas):
-        with get_session() as s:
-            if not s.execute(text("SELECT 1 FROM intake_files WHERE sha256 = :h"), {"h": sha}).first():
-                try:
-                    os.remove(storage._path_for(sha))
-                except OSError:
-                    pass
-
-
 @pytest.mark.parametrize("key", sorted(TEMPLATES))
 def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, session_rolled_back):
     s, tpl, tag = session_rolled_back, TEMPLATES[key], uuid.uuid4().hex[:8]
@@ -113,14 +85,15 @@ def test_customer_layout_is_proposed_confirmed_then_reused_automatically(key, se
     # 2. the customer confirms it (saved with the layout), and the file imports through it — value spelling matched
     prof = mapping.save(s, org_id, key, f"Every-sector {tag}", cmap, {}, user_id, enrich_specs(tpl.specs(pd.DataFrame())),
                         source_columns=list(df.columns))
-    out = pipeline.submit(s, org_id, key, _csv(df), f"{tag}-1.csv", user_id=user_id, mapping_profile_id=prof["profile_id"])
+    out = pipeline.submit(s, org_id, key, _csv(df), f"{tag}-1.csv", user_id=user_id, mapping_profile_id=prof["profile_id"],
+                          currency="EUR", book_date="2026-06-30")
     assert out["state"] == "imported", out.get("controls", {}).get("gate")
     assert out["controls"]["matching"]["new"] == 4 and out["controls"]["values"][vf]["n_unknown"] == 0
     assert out["mapping"]["auto"] is False
 
     # 3. next month's file, same layout, no mapping chosen: used automatically; one value changed → one update
     df2 = _customer_file(key, tag, value_bump=0.1)
-    out2 = pipeline.submit(s, org_id, key, _csv(df2), f"{tag}-2.csv", user_id=user_id)
+    out2 = pipeline.submit(s, org_id, key, _csv(df2), f"{tag}-2.csv", user_id=user_id, currency="EUR", book_date="2026-06-30")
     assert out2["state"] == "imported", out2.get("controls", {}).get("gate")
     assert out2["mapping"]["auto"] is True and out2["mapping"]["profile_id"] == prof["profile_id"]
     m = out2["controls"]["matching"]
@@ -137,7 +110,7 @@ def test_unrecognised_values_are_reported_never_silently_blanked(key, session_ro
     cmap = {**profiling.column_map(profiling.suggest(s, df, enrich_specs(tpl.specs(df)))), vf: "Their " + vf}
     prof = {"profile_id": "p", "name": "t", "version": 1, "column_map": cmap, "transforms": {}}
     canon, _ = mapping.apply(s, df, prof)
-    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, canon, None)
+    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, canon, None, money_ctx=EUR_BOOK)
     v = ctl["controls"]["values"][vf]
     assert v["n_unknown"] == 1 and v["unknown"] == {"Something else": 1}
     assert ctl["controls"]["gate"]["status"] == "needs_signoff"
@@ -159,7 +132,7 @@ def test_country_written_any_way_is_matched_and_unknown_is_reported(session_roll
     df = pd.DataFrame([{"asset_name": f"TEST-EVERY-{tag}-{i}", "asset_type": "cre", "latitude": 48 + i / 50, "longitude": 2.0,
                         "appraised_value_eur": 1e6, "sector": "RE", "counterparty_evic_eur": 1e8, "external_ref": f"{tag}-{i}",
                         "country": c} for i, c in enumerate(["Deutschland", "DEU", "fr", "Royaume-Uni", "Atlantis"] * 8)])
-    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, df, None)
+    ctl = pipeline._run_controls(s, org_id, tpl, uuid.uuid4().hex, df, None, money_ctx=EUR_BOOK)
     v = ctl["controls"]["values"]["country"]
     assert v["unknown"] == {"Atlantis": 8} and ctl["report"]["n_valid"] == 40     # reported, row kept, never rejected
     got = {n["asset_name"].rsplit("-", 1)[1]: n["country"] for n in ctl["normalised"][:5]}

@@ -31,7 +31,8 @@ def channel(tmp_path, monkeypatch):
     tag = uuid.uuid4().hex[:8]
     with get_session() as s:
         s.execute(text("DELETE FROM intake_channels WHERE org_id = CAST(:o AS uuid) AND template = 'bank_assets'"), {"o": BANK_ORG})
-        ch = dropfolder.create_channel(s, BANK_ORG, "bank_assets", _user("admin@meridian.demo"), _user("admin@meridian.demo"))
+        ch = dropfolder.create_channel(s, BANK_ORG, "bank_assets", _user("admin@meridian.demo"), _user("admin@meridian.demo"),
+                                       currency="EUR")
         s.commit()
     ch["tag"], ch["dirs"] = tag, {k: tmp_path / ch["folder"] / k for k in ("incoming", "processed", "refused")}
     yield ch
@@ -40,6 +41,11 @@ def channel(tmp_path, monkeypatch):
         s.execute(text("UPDATE ingest_batches SET channel_id = NULL WHERE channel_id = CAST(:c AS uuid)"), {"c": ch["channel_id"]})
         s.execute(text("DELETE FROM intake_channels WHERE channel_id = CAST(:c AS uuid)"), {"c": ch["channel_id"]})
         s.commit()
+
+
+def _dated(rows, book_date="2026-06-30"):
+    """Drop-folder files carry the date their figures describe."""
+    return [{**r, "book_date": book_date} for r in rows]
 
 
 def _drop(ch, name, raw, age_s=120):
@@ -52,7 +58,7 @@ def _drop(ch, name, raw, age_s=120):
 
 def test_finished_file_is_imported_and_filed(channel):
     tag = channel["tag"]
-    _drop(channel, f"{tag}-book.csv", _csv(_rows(tag, n=3)))
+    _drop(channel, f"{tag}-book.csv", _csv(_dated(_rows(tag, n=3))))
     res = dropfolder.sweep_channel(channel, BANK_ORG)
     assert [r["state"] for r in res] == ["imported"] and _landed(tag) == 3
     assert not list(channel["dirs"]["incoming"].iterdir()) and len(list(channel["dirs"]["processed"].iterdir())) == 1
@@ -64,7 +70,7 @@ def test_finished_file_is_imported_and_filed(channel):
 
 def test_file_still_arriving_or_partial_is_left_for_the_next_sweep(channel):
     tag = channel["tag"]
-    _drop(channel, f"{tag}-new.csv", _csv(_rows(tag, n=2)), age_s=0)
+    _drop(channel, f"{tag}-new.csv", _csv(_dated(_rows(tag, n=2))), age_s=0)
     _drop(channel, f"{tag}-upload.csv.part", b"asset_name\n")
     assert dropfolder.sweep_channel(channel, BANK_ORG) == []
     assert sorted(p.name for p in channel["dirs"]["incoming"].iterdir()) == sorted([f"{tag}-new.csv", f"{tag}-upload.csv.part"])
@@ -72,7 +78,7 @@ def test_file_still_arriving_or_partial_is_left_for_the_next_sweep(channel):
 
 def test_failed_check_goes_to_a_second_person_with_the_owner_as_sender(channel):
     tag = channel["tag"]
-    _drop(channel, f"{tag}-bad.csv", _csv(_rows(tag, n=4, bad=2)))
+    _drop(channel, f"{tag}-bad.csv", _csv(_dated(_rows(tag, n=4, bad=2))))
     res = dropfolder.sweep_channel(channel, BANK_ORG)
     assert res[0]["state"] == "awaiting_approval" and _landed(tag) == 0
     with get_session() as s:
@@ -93,13 +99,14 @@ def test_unusable_file_is_refused_with_the_reason_beside_it(channel):
 def test_channel_only_for_the_organisations_own_sector():
     with get_session() as s:
         with pytest.raises(dropfolder.ChannelError, match="for 'insurer'"):
-            dropfolder.create_channel(s, BANK_ORG, "insurance_policies", _user("admin@meridian.demo"), _user("admin@meridian.demo"))
+            dropfolder.create_channel(s, BANK_ORG, "insurance_policies", _user("admin@meridian.demo"), _user("admin@meridian.demo"),
+                                      currency="EUR")
         s.rollback()
 
 
 def test_two_pickups_at_once_never_take_the_same_file(channel):
     tag = channel["tag"]
-    _drop(channel, f"{tag}-book.csv", _csv(_rows(tag, n=2)))
+    _drop(channel, f"{tag}-book.csv", _csv(_dated(_rows(tag, n=2))))
     with get_session() as other:   # another sweep (another server, or 'pick up now') holds this folder
         other.execute(text("SELECT pg_advisory_lock(hashtext(:k))"), {"k": f"dropfolder:{channel['channel_id']}"})
         try:
@@ -143,3 +150,12 @@ def test_sftp_keys_register_refuse_and_revoke(intake_client):
         with get_session() as s:
             s.execute(text("DELETE FROM intake_sftp_keys WHERE fingerprint = 'SHA256:k8X8j55gMeYOp1yLjdkxwALAla+pSfqsYMDb0ayZoW8'"))
             s.commit()
+
+
+def test_a_file_without_a_book_date_is_refused_with_the_reason(channel):
+    tag = channel["tag"]
+    _drop(channel, f"{tag}-undated.csv", _csv(_rows(tag, n=2)))            # no book_date column
+    res = dropfolder.sweep_channel(channel, BANK_ORG)
+    assert res[0]["state"] == "refused" and "book date" in res[0]["reason"]
+    reason = next(p for p in channel["dirs"]["refused"].iterdir() if p.name.endswith(".reason.txt")).read_text()
+    assert "book_date" in reason

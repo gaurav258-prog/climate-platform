@@ -106,6 +106,8 @@ class ChannelIn(BaseModel):
     template: str
     owner_user_id: str = Field(..., description="Stands as the sender: a batch with a failed check goes to a DIFFERENT person.")
     mapping_profile_id: Optional[str] = Field(None, description="Optional pinned mapping; otherwise your confirmed layout is used.")
+    currency: str = Field(..., min_length=3, max_length=3, description="ISO 4217 code of the files' amounts (a file's "
+                                                                      "currency column overrides it).")
 
 
 @router.get("/channels", summary="Your drop-folder channels (where your SFTP feed lands)")
@@ -119,7 +121,8 @@ def create_channel(body: ChannelIn, session: DbSession, ctx: dict = Depends(requ
     from services.intake.dropfolder import ChannelError
     from services.intake.dropfolder import create_channel as _create
     try:
-        out = _create(session, ctx["org"]["org_id"], body.template, body.owner_user_id, ctx["user"]["id"], body.mapping_profile_id)
+        out = _create(session, ctx["org"]["org_id"], body.template, body.owner_user_id, ctx["user"]["id"], body.mapping_profile_id,
+                      body.currency)
     except ChannelError as e:
         raise HTTPException(400, {"error": "bad_channel", "message": str(e)}) from e
     session.commit()
@@ -180,6 +183,12 @@ def revoke_sftp_key(key_id: str, session: DbSession, ctx: dict = Depends(require
 
 
 # ── currency coverage (the FX foundation: which official source serves each currency, how fresh, how well sources agree) ──
+
+@router.get("/fx/currencies", summary="Currencies we can convert (ISO 4217 codes)")
+def fx_currencies(session: DbSession, ctx: CurrentUser):
+    from services.reference.fx import supported_currencies
+    return {"currencies": [c for c in supported_currencies(session) if len(c.strip()) == 3]}
+
 
 @router.get("/fx/coverage", summary="Every currency: which source converts it today, how fresh, and source agreement")
 def fx_coverage(session: DbSession, ctx: CurrentUser, on: Optional[str] = Query(None, description="Book date YYYY-MM-DD (default today)")):

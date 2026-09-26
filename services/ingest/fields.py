@@ -51,7 +51,8 @@ VOCABS: dict[str, Vocab] = {
     "govt_level": Vocab(("central", "regional", "local")),
     "irrigation": Vocab(("irrigated", "rain_fed", "mixed"), {"rainfed": "rain_fed"}),
     "commodity": Vocab((), dynamic=True),            # the commodities on this platform (sc_commodities)
-    "country": Vocab((), dynamic=True),              # ISO alpha-2 via every accepted written form (ref_country_names)
+    "country": Vocab((), dynamic=True),
+    "currency": Vocab((), dynamic=True),             # ISO 4217 codes any FX source or fixed rate covers, plus EUR              # ISO alpha-2 via every accepted written form (ref_country_names)
     "boolean": Vocab(("true", "false"), {"yes": "true", "y": "true", "1": "true", "no": "false", "n": "false", "0": "false"}),
 }
 
@@ -66,10 +67,12 @@ class FieldDef:
     vocab: Optional[str] = None
     aliases: tuple[str, ...] = ()
     range: Optional[tuple[float, float]] = None
+    flow: bool = False               # money over a period (annual income, spend, revenue): converted at the period
+                                     # AVERAGE rate; any other money field is a balance, converted at the CLOSING rate
 
 
-def _f(name, label, kind, description, example, vocab=None, aliases=(), range=None) -> FieldDef:  # noqa: A002
-    return FieldDef(name, label, kind, description, example, vocab, tuple(aliases), range)
+def _f(name, label, kind, description, example, vocab=None, aliases=(), range=None, flow=False) -> FieldDef:  # noqa: A002
+    return FieldDef(name, label, kind, description, example, vocab, tuple(aliases), range, flow)
 
 
 _REF = "Your own {what} id. When you send the book again, rows with the same ID update that asset instead of adding a new one."
@@ -117,27 +120,27 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("no_stated_maturity", "No stated maturity", "vocab", "True for an exposure with no stated maturity by its nature "
        "(equity, perpetual) — EBA Q&A 2022_6515.", "true", vocab="boolean"),
     # values
-    _f("appraised_value_eur", "Appraised value (EUR)", "money", "Current appraised / collateral value.", "12000000",
+    _f("appraised_value_eur", "Appraised value", "money", "Current appraised / collateral value.", "12000000",
        aliases=("value", "appraised_value", "collateral_value", "market_value", "valuation")),
-    _f("counterparty_evic_eur", "Counterparty EVIC (EUR)", "money", "Enterprise value including cash of the counterparty.", "185000000",
+    _f("counterparty_evic_eur", "Counterparty EVIC", "money", "Enterprise value including cash of the counterparty.", "185000000",
        aliases=("evic", "enterprise_value")),
-    _f("outstanding_loan_balance_eur", "Outstanding balance (EUR)", "money", "Current outstanding principal — enables LTV.", "8400000",
+    _f("outstanding_loan_balance_eur", "Outstanding balance", "money", "Current outstanding principal — enables LTV.", "8400000",
        aliases=("outstanding", "balance", "outstanding_balance", "principal", "exposure", "ead")),
-    _f("sum_insured_eur", "Sum insured (EUR)", "money", "Total insured value, if not broken into components.", "3700000",
+    _f("sum_insured_eur", "Sum insured", "money", "Total insured value, if not broken into components.", "3700000",
        aliases=("tiv", "total_insured_value", "sum_insured", "insured_value")),
-    _f("building_value_eur", "Building value (EUR)", "money", "TIV component: buildings.", "3000000", aliases=("building_value", "buildings")),
-    _f("contents_value_eur", "Contents value (EUR)", "money", "TIV component: contents.", "500000", aliases=("contents_value", "contents", "bpp")),
-    _f("business_interruption_value_eur", "Business interruption (EUR)", "money", "TIV component: business income.", "200000",
+    _f("building_value_eur", "Building value", "money", "TIV component: buildings.", "3000000", aliases=("building_value", "buildings")),
+    _f("contents_value_eur", "Contents value", "money", "TIV component: contents.", "500000", aliases=("contents_value", "contents", "bpp")),
+    _f("business_interruption_value_eur", "Business interruption", "money", "TIV component: business income.", "200000",
        aliases=("bi_value", "business_interruption", "bi", "business_income")),
-    _f("motor_sum_insured_eur", "Motor sum insured (EUR)", "money", "Motor-vehicle sum insured at this location.", "150000", aliases=("motor", "motor_value")),
-    _f("property_value_eur", "Property value (EUR)", "money", "Current market / appraised value.", "42000000",
+    _f("motor_sum_insured_eur", "Motor sum insured", "money", "Motor-vehicle sum insured at this location.", "150000", aliases=("motor", "motor_value")),
+    _f("property_value_eur", "Property value", "money", "Current market / appraised value.", "42000000",
        aliases=("value", "market_value", "property_value", "valuation", "gav")),
-    _f("annual_noi_eur", "Annual NOI (EUR)", "money", "Annual net operating income.", "2400000", aliases=("noi", "net_operating_income")),
-    _f("annual_gross_rental_revenue_eur", "Gross rental revenue (EUR)", "money", "Annual gross rental revenue before operating expenses.",
-       "3600000", aliases=("gross_rent", "rental_revenue", "gross_rental_income")),
-    _f("position_value_eur", "Position value (EUR)", "money", "Market value of the position.", "18500000",
+    _f("annual_noi_eur", "Annual NOI", "money", "Annual net operating income.", "2400000", aliases=("noi", "net_operating_income"), flow=True),
+    _f("annual_gross_rental_revenue_eur", "Gross rental revenue", "money", "Annual gross rental revenue before operating expenses.",
+       "3600000", aliases=("gross_rent", "rental_revenue", "gross_rental_income"), flow=True),
+    _f("position_value_eur", "Position value", "money", "Market value of the position.", "18500000",
        aliases=("value", "market_value", "position_value", "exposure", "mv")),
-    _f("annual_spend_eur", "Annual spend (EUR)", "money", "Annual procurement spend from this plot.", "150000", aliases=("spend", "annual_spend", "purchases")),
+    _f("annual_spend_eur", "Annual spend", "money", "Annual procurement spend from this plot.", "150000", aliases=("spend", "annual_spend", "purchases"), flow=True),
     # other attributes
     _f("deductible_pct", "Deductible (fraction)", "fraction", "Policy deductible as a fraction (0.02 = 2%).", "0.02",
        aliases=("deductible",), range=(0, 1)),
@@ -149,6 +152,12 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("plot_geojson", "Plot boundary (GeoJSON)", "geojson", "EUDR plot boundary as a GeoJSON Polygon — required over 4 ha.",
        '{"type":"Polygon","coordinates":[[[-1.606,6.694],[-1.604,6.694],[-1.604,6.696],[-1.606,6.696],[-1.606,6.694]]]}',
        aliases=("geojson", "geometry", "boundary", "polygon")),
+    _f("currency", "Currency", "vocab", "ISO 4217 code of this row's amounts (e.g. USD). Overrides the currency declared for "
+       "the file; leave out when every row is in that currency.", "USD", vocab="currency",
+       aliases=("ccy", "currency_code", "cur", "curr", "iso_currency", "waehrung", "devise")),
+    _f("book_date", "Book date", "date", "The date this row's figures describe (YYYY-MM-DD). Overrides the book date declared "
+       "for the file. Balances convert at that day's rate; annual flows at the average of the 12 months to it.",
+       "2026-06-30", aliases=("as_of", "as_of_date", "asof", "valuation_date", "reporting_date", "stichtag", "date")),
     _f("plot_area_ha", "Plot area (ha)", "fraction", "Hectares; computed from the boundary when given.", "2.3", aliases=("area_ha", "area", "hectares"),
        range=(0, 1_000_000)),
 )}
