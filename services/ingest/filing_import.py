@@ -20,6 +20,7 @@ import xml.etree.ElementTree as ET
 from typing import Optional
 
 from services.governance.datapoint_catalog import catalog
+from services.ingest import units
 
 MAX_LINES = 600  # a filed disclosure is at most a few hundred lines; guard against a pathological upload
 
@@ -82,23 +83,27 @@ def match_datapoint(framework: str, label: str) -> Optional[str]:
 _NUM = re.compile(r"-?\d[\d\s.,]*")
 
 
-def parse_number(raw) -> tuple[Optional[float], Optional[str]]:
-    """Return (value, unit). Handles €/EUR, %, and both , and . as thousands separators."""
+def parse_number(raw, apply_scale: bool = True) -> tuple[Optional[float], Optional[str]]:
+    """Return (value, unit). The unit is normalised (services.ingest.units: ISO code for money — € $ £ ¥ or a code —
+    '%', 'tCO2e', …; None when the value says nothing) and a magnitude word ('€12.3m', 'USD 4 bn') scales the value
+    unless apply_scale=False (plain XBRL facts are already in units). Both , and . work as thousands separators."""
+    v, unit, scale = read_value(raw)
+    return (v * scale if (v is not None and apply_scale) else v), unit
+
+
+def read_value(raw) -> tuple[Optional[float], Optional[str], float]:
+    """(number as written, unit, scale stated) for one cell."""
     if raw is None:
-        return None, None
+        return None, None, 1.0
     if isinstance(raw, (int, float)):
-        return float(raw), None
+        return float(raw), None, 1.0
     s = str(raw).strip()
     if not s:
-        return None, None
-    unit = None
-    if "%" in s:
-        unit = "%"
-    elif "€" in s or "eur" in s.lower():
-        unit = "EUR"
+        return None, None, 1.0
+    unit, scale = units.from_text(s)
     m = _NUM.search(s.replace(" ", " "))
     if not m:
-        return None, unit
+        return None, unit, scale
     token = m.group(0).strip().replace(" ", "")
     # decide decimal separator: the last of , or . that is followed by 1-2 digits is the decimal point
     dec = None
@@ -111,9 +116,19 @@ def parse_number(raw) -> tuple[Optional[float], Optional[str]]:
     else:
         token = token.replace(",", "")
     try:
-        return float(token), unit
+        return float(token), unit, scale
     except ValueError:
-        return None, unit
+        return None, unit, scale
+
+
+def _with_label(value: Optional[float], unit: Optional[str], scale: float, label: str) -> tuple[Optional[float], Optional[str]]:
+    """A value cell that states no unit / magnitude takes them from its row label ('Total assets (EUR m)')."""
+    lu, ls = units.from_text(label)
+    if unit is None:
+        unit = lu
+    if scale == 1.0 and unit != "%":
+        scale = ls
+    return (value * scale if value is not None else None), unit
 
 
 def detect_format(filename: str, data: bytes) -> str:
@@ -154,6 +169,15 @@ def _read_xbrl(framework: str, data: bytes) -> list[dict]:
     except ET.ParseError:
         # iXBRL is XHTML and may carry undeclared entities; retry on a lenient byte clean
         root = ET.fromstring(re.sub(rb"&(?!amp;|lt;|gt;|quot;|apos;|#)", b"&amp;", data))
+    # the document's own unit definitions: id → our unit (iso4217:USD → 'USD'; a divide → 'EUR/shares')
+    unit_of: dict[str, str] = {}
+    for u in root.iter():
+        if _local(u.tag) != "unit" or not u.get("id"):
+            continue
+        measures = [units.from_measure((m.text or "").strip()) for m in u.iter() if _local(m.tag) == "measure"]
+        measures = [m for m in measures if m]
+        if measures:
+            unit_of[u.get("id")] = "/".join(measures)
     cells: list[dict] = []
     for el in root.iter():
         lname = _local(el.tag)
@@ -165,9 +189,11 @@ def _read_xbrl(framework: str, data: bytes) -> list[dict]:
         concept = concept or _local(el.tag)
         label = _human(concept)
         text = (el.text or "").strip()
-        val, unit = parse_number(text)
-        if unit is None and el.get("unitRef"):
-            unit = el.get("unitRef")
+        # a fact's unitRef is authoritative; the displayed text only when there is none. Plain XBRL values are in
+        # units already (no magnitude words); iXBRL states its magnitude in @scale (below).
+        val, text_unit = parse_number(text, apply_scale=False)
+        ref = el.get("unitRef")
+        unit = unit_of.get(ref) or text_unit or (units.from_measure(ref) if ref else None)
         # iXBRL numeric transforms: sign and scale (×10^scale)
         if is_ix_fact and val is not None:
             try:
@@ -203,16 +229,17 @@ def _read_excel(framework: str, data: bytes) -> list[dict]:
             if not label:
                 continue
             # the reported value = the last numeric-looking cell on the row
-            value, unit, vtext = None, None, None
+            value, unit, scale, vtext = None, None, 1.0, None
             for c in reversed(row):
                 if isinstance(c, (int, float)):
                     value = float(c); break
                 if isinstance(c, str) and c.strip() and c.strip() != label:
-                    v, u = parse_number(c)
+                    v, u, k = read_value(c)
                     if v is not None:
-                        value, unit = v, u; break
+                        value, unit, scale = v, u, k; break
                     if vtext is None and c.strip() != label:
                         vtext = c.strip()
+            value, unit = _with_label(value, unit, scale, label)
             if value is None and vtext is None:
                 continue
             cells.append({
@@ -241,14 +268,15 @@ def _read_pdf(framework: str, data: bytes) -> list[dict]:
                     label = next((v for v in vals if v and parse_number(v)[0] is None), None)
                     if not label:
                         continue
-                    value, unit = None, None
+                    value, unit, scale = None, None, 1.0
                     for v in reversed(vals):
                         if v and v != label:
-                            pv, pu = parse_number(v)
+                            pv, pu, pk = read_value(v)
                             if pv is not None:
-                                value, unit = pv, pu; break
+                                value, unit, scale = pv, pu, pk; break
                     if value is None:
                         continue
+                    value, unit = _with_label(value, unit, scale, label)
                     cells.append({
                         "template_ref": f"p.{pno}",
                         "label": label,

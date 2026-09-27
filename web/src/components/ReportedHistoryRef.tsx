@@ -7,10 +7,11 @@ import { api } from '../lib/api'
 // most recent confirmed filed figure (financed emissions where present) and links to Prior filings, where
 // the projection continues from that value. Renders nothing when no prior filings are on file.
 
-interface P { period: string; value: number; unit: string | null }
+interface P { period: string; value: number | null; unit: string | null }
 interface S { datapoint_key: string; label: string; points: P[] }
 
-const fmt = (n: number, u: string | null) => {
+const fmt = (n: number | null, u: string | null) => {
+  if (n == null) return 'mixed units'
   const a = Math.abs(n)
   const s = a >= 1e9 ? `${(n / 1e9).toFixed(2)}bn` : a >= 1e6 ? `${(n / 1e6).toFixed(2)}m`
     : a >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : (a > 0 && a < 10 ? n.toFixed(3).replace(/\.?0+$/, '') : n.toLocaleString())

@@ -69,17 +69,17 @@ MANDATORY_PAI_INDICATORS = [
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
 
 # ── Sovereign PAI (RTS Annex I, Table 1, indicators 15-16) ──
-# GHG intensity of investee COUNTRIES: tCO2e per €M GDP. Loaded from the
-# provenanced data file data/reference/country_ghg_intensity.csv (computed from
-# OWID / Global Carbon Project CO2 ÷ GDP by scripts/build_country_intensities.py);
-# the embedded dict is the offline fallback.
+# GHG intensity of investee COUNTRIES: tCO2e per €M GDP — the RTS basis: total GHG (CO2e, excl. LULUCF) ÷ GDP at
+# current market prices in EUR, same year. Loaded from data/reference/country_ghg_intensity.csv (built by
+# scripts/build_country_intensities.py, every input kept per row); the embedded dict is the offline fallback.
+# Until 2026-09-27 the file divided CO2 only by PPP GDP (constant international $) — not the RTS basis.
 _EMBEDDED_COUNTRY_INTENSITY: dict[str, float] = {
     "SE": 50, "CH": 59, "NO": 70, "FR": 90, "GB": 110, "IT": 120, "DK": 95,
     "ES": 130, "AT": 154, "PT": 130, "FI": 110, "NL": 140, "IE": 90, "BE": 182,
     "DE": 172, "GR": 150, "US": 200, "JP": 160, "PL": 350, "CZ": 277, "IN": 600,
     "CN": 421, "ZA": 700, "RU": 550, "AU": 286, "BR": 152, "CA": 313,
 }
-DEFAULT_COUNTRY_INTENSITY = 200.0
+DEFAULT_COUNTRY_INTENSITY = 200.0     # kept for reference only — a country with no figure is NOT given it (see below)
 
 
 def _load_country_intensity() -> dict[str, float]:
@@ -98,6 +98,19 @@ def _load_country_intensity() -> dict[str, float]:
 
 
 COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR = _load_country_intensity()
+
+
+def _country_vintage() -> str:
+    """The GDP/GHG year(s) of the country table, as read from the file (never a hard-coded year)."""
+    import csv as _csv
+    from pathlib import Path as _Path
+    path = _Path(__file__).resolve().parent.parent.parent / "data" / "reference" / "country_ghg_intensity.csv"
+    try:
+        with open(path, newline="", encoding="utf-8") as fh:
+            years = sorted({r["gdp_year"] for r in _csv.DictReader(fh) if r.get("gdp_year")})
+    except (OSError, KeyError):
+        return "n/a"
+    return years[-1] if len(years) == 1 else (f"{years[0]}–{years[-1]}" if years else "n/a")
 
 SOVEREIGN_ASSET_CLASSES = ("sovereign_bond",)
 REAL_ESTATE_ASSET_CLASSES = ("real_estate",)  # not in the securities model today
@@ -236,22 +249,29 @@ def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=N
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
     """), {"fids": fund_ids}).mappings().all()
     by_class: dict[str, float] = {}
-    sov_mv = 0.0
+    sov_mv = covered_mv = 0.0
     sov_weighted_intensity = 0.0
     sov_countries: set = set()
+    uncovered: set = set()
     for r in rows:
         by_class[r["asset_class"]] = by_class.get(r["asset_class"], 0.0) + r["mv"]
         if r["asset_class"] in SOVEREIGN_ASSET_CLASSES:
             sov_mv += r["mv"]
             ctry = (r["country"] or "").upper()
-            intensity = COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR.get(ctry, DEFAULT_COUNTRY_INTENSITY)
-            sov_weighted_intensity += r["mv"] * intensity
+            intensity = COUNTRY_GHG_INTENSITY_TCO2E_PER_MEUR.get(ctry)
+            if intensity is None:                 # no figure for this country: left out and reported, never a default
+                uncovered.add(ctry or "unknown")
+            else:
+                covered_mv += r["mv"]
+                sov_weighted_intensity += r["mv"] * intensity
             if ctry:
                 sov_countries.add(ctry)
     return {
         "by_asset_class": {k: round(v) for k, v in by_class.items()},
         "sovereign_value_eur": round(sov_mv),
-        "sovereign_ghg_intensity": round(sov_weighted_intensity / sov_mv, 1) if sov_mv else None,
+        "sovereign_ghg_intensity": round(sov_weighted_intensity / covered_mv, 1) if covered_mv else None,
+        "sovereign_coverage_pct": round(100 * covered_mv / sov_mv, 1) if sov_mv else None,
+        "sovereign_uncovered_countries": sorted(uncovered),
         "sovereign_countries": sorted(sov_countries),
         "has_real_estate": any(c in REAL_ESTATE_ASSET_CLASSES for c in by_class),
     }
@@ -260,12 +280,16 @@ def _composition_and_sovereign(session, fund_id: str, *, fund_ids=None, org_id=N
 def _sovereign_indicators(comp: dict) -> list[dict]:
     """RTS Annex I Table 1 indicators 15-16 (sovereign & supranational)."""
     si = comp["sovereign_ghg_intensity"]
+    cov = comp.get("sovereign_coverage_pct", 100.0 if si is not None else None)
+    missing = comp.get("sovereign_uncovered_countries") or []
     return [
         _row(15, "Sovereign", "GHG intensity of investee countries", "tCO₂e/€M GDP",
-             value=si, coverage=100.0 if si is not None else None,
-             source="country territorial emissions ÷ GDP (public averages)" if si is not None else None,
-             method="computed" if si is not None else "not_available",
-             input_required=None if si is not None else "sovereign-bond holdings with issuer country"),
+             value=si, coverage=cov,
+             source=("country total GHG excl. LULUCF ÷ GDP at current prices in EUR, same year (OWID/PRIMAP-hist, "
+                     "World Bank WDI, ECB)") if si is not None else None,
+             method=("partial" if missing else "computed") if si is not None else "not_available",
+             input_required=(f"GHG intensity for {', '.join(missing)} (no public figure — excluded from the average)"
+                             if missing else None) if si is not None else "sovereign-bond holdings with issuer country"),
         _row(16, "Sovereign", "Investee countries subject to social violations", "count",
              method="not_available",
              input_required="country social-violation list (UN/OECD sanctions & breaches)"),
@@ -593,7 +617,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                 {"item": "Physical hazard scores", "source": "Tellumen golden source (canonical_scores, append-only)", "vintage": "model-stamped"},
                 {"item": "Issuer emissions / revenue / EVIC", "source": "client disclosure where supplied; else estimated", "vintage": f"FY{ref_year}" if ref_year else "n/a"},
                 {"item": "Estimated emissions", "source": "NACE sector intensity × revenue — EXIOBASE 3 IOT_2022_ixi (EU output-weighted GHG), interim fallback where EXIOBASE folds sectors", "vintage": "2022"},
-                {"item": "Sovereign country GHG intensity", "source": "OWID / Global Carbon Project CO2 ÷ GDP (data/reference/country_ghg_intensity.csv)", "vintage": "2022"},
+                {"item": "Sovereign country GHG intensity", "source": "total GHG excl. LULUCF (OWID/PRIMAP-hist) ÷ GDP at current prices in EUR (World Bank WDI × ECB annual average), same year (data/reference/country_ghg_intensity.csv)", "vintage": _country_vintage()},
             ],
             "model_versions": {
                 "emissions_estimation": "emissions-est-v1-sector-intensity",

@@ -14,8 +14,8 @@ from api.deps import DbSession, require_permission
 
 router = APIRouter(prefix="/v1/prices", tags=["Commodity price indices"])
 
-_TEMPLATE = ("source,commodity,period_ym,index_value,unit\n"
-             "FAO_FPI,coffee,2026-06,128.4,index 2014-16=100\n")
+_TEMPLATE = ("source,commodity,period_ym,index_value,unit,currency\n"
+             "FAO_FPI,coffee,2026-06,128.4,index 2014-16=100,USD\n")
 
 
 class RowsBody(BaseModel):
@@ -43,8 +43,10 @@ async def upload(session: DbSession, file: UploadFile = File(...),
         raise HTTPException(422, {"error": "bad_csv", "message": "Could not parse the CSV."})
     res = P.ingest(session, rows)
     if res["rows"] == 0:
+        why = "; ".join(f"row {r['row']}: {r['reason']}" for r in res["refused"][:3])
         raise HTTPException(422, {"error": "no_valid_rows",
-                                  "message": "No valid rows — each needs commodity, period_ym (YYYY-MM) and index_value."})
+                                  "message": "No valid rows — each needs commodity, period_ym (YYYY-MM), index_value and the "
+                                             f"currency it is quoted in. {why}".strip()})
     return res
 
 
@@ -52,5 +54,6 @@ async def upload(session: DbSession, file: UploadFile = File(...),
 def upload_rows(body: RowsBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
     res = P.ingest(session, body.rows)
     if res["rows"] == 0:
-        raise HTTPException(422, {"error": "no_valid_rows", "message": "No valid rows."})
+        why = "; ".join(f"row {r['row']}: {r['reason']}" for r in res["refused"][:3])
+        raise HTTPException(422, {"error": "no_valid_rows", "message": f"No valid rows. {why}".strip()})
     return res

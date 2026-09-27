@@ -319,11 +319,27 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     }
 
 
+def fund_base_view(session, base_currency: str | None, as_of, amounts_eur: dict) -> dict:
+    """A fund's values in its own base currency (multi-currency phase 4, 2026-09-27) — the figures a fund reports in —
+    at the closing rate on the holdings date. Holdings are stored in EUR (converted from what was sent); SFDR PAI
+    metrics stay in EUR as RTS (EU) 2022/1288 defines them (tCO2e per €M), so this is only the fund-value view."""
+    from services.reference.fx import FxError, rate_for
+    ccy = (base_currency or "EUR").strip().upper()
+    if ccy == "EUR":
+        return {"currency": "EUR", "as_of": str(as_of), **{k: round(v) for k, v in amounts_eur.items()}}
+    try:
+        r = rate_for(session, ccy, as_of)
+    except FxError as e:
+        return {"currency": ccy, "as_of": str(as_of), "available": False, "reason": str(e)}
+    return {"currency": ccy, "as_of": str(as_of), "rate": {k: r.get(k) for k in ("units_per_eur", "rate_date", "source", "stale")},
+            **{k: round(v * r["units_per_eur"]) for k, v in amounts_eur.items()}}
+
+
 def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> dict:
     """Value-weighted physical + transition exposure for a fund, plus the PAI
     block — the one call a fund's climate report is built from."""
     fund = session.execute(text("""
-        SELECT f.fund_id::text AS fund_id, f.name, f.fund_type, f.sfdr_classification,
+        SELECT f.fund_id::text AS fund_id, f.name, f.fund_type, f.sfdr_classification, f.base_currency,
                o.name AS org_name
         FROM funds f JOIN organizations o ON o.org_id = f.org_id
         WHERE f.fund_id = :f
@@ -333,7 +349,7 @@ def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> 
 
     fund_ids = fund_descendant_ids(session, fund_id)
     positions = session.execute(text("""
-        SELECT p.security_id::text AS security_id, CAST(p.market_value_eur AS FLOAT) AS mv,
+        SELECT p.security_id::text AS security_id, CAST(p.market_value_eur AS FLOAT) AS mv, p.as_of_date,
                i.issuer_id::text AS issuer_id, i.name AS issuer_name, i.nace_code
         FROM fund_positions p
         JOIN securities s ON s.security_id = p.security_id
@@ -362,9 +378,12 @@ def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> 
     trans_was = (sum(p["mv"] * t["transition_risk_score"] for p, t in trans_scored) / trans_cov_mv) if trans_cov_mv else None
     trans_high_mv = sum(p["mv"] for p, t in trans_scored if t["risk_bucket"] in ("H", "VH"))
 
+    base = fund_base_view(session, fund["base_currency"], max(p["as_of_date"] for p in positions),
+                          {"total_value": total_mv, "physical_value_at_high_plus": phys_high_mv,
+                           "transition_value_at_high_plus": trans_high_mv})
     return {
         "fund": dict(fund), "scenario": scenario, "horizon": horizon,
-        "total_value_eur": round(total_mv), "positions": len(positions),
+        "total_value_eur": round(total_mv), "positions": len(positions), "base": base,
         "physical": {
             "value_weighted_score": round(phys_was, 1) if phys_was is not None else None,
             "coverage_pct": round(100 * phys_cov_mv / total_mv, 1),

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { money } from '../lib/money'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Pencil, BadgeCheck, AlertTriangle } from 'lucide-react'
@@ -11,7 +12,7 @@ import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 
 interface Fund {
   fund_id: string; name: string; fund_type: string; sfdr_classification: string | null; parent_fund_id: string | null
-  total_value_eur: number; positions: number; physical_score: number | null; transition_score: number | null; waci: number | null
+  total_value_eur: number; base?: Base | null; positions: number; physical_score: number | null; transition_score: number | null; waci: number | null
 }
 interface Narratives { policies?: string; actions?: string; engagement?: string; standards?: string }
 interface Profile { name?: string; legal_name?: string; lei?: string; filing_contact_email?: string; country?: string; sfdr_narratives?: Narratives | null; error?: string }
@@ -22,7 +23,11 @@ const NARR: { key: keyof Narratives; label: string; hint: string }[] = [
   { key: 'standards', label: 'Standards', hint: 'Adherence to responsible-business conduct codes (UNGC / OECD)' },
 ]
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+interface Base { currency: string; as_of: string; available?: boolean; reason?: string; total_value?: number; physical_value_at_high_plus?: number; transition_value_at_high_plus?: number }
+const eur = (n?: number | null) => money(n, 'EUR')
+// a fund's value in its own base currency (holdings are held in EUR; converted at the holdings date)
+const fundValue = (eurValue: number, b?: Base | null) =>
+  b && b.currency !== 'EUR' && b.available !== false && b.total_value != null ? `${money(b.total_value, b.currency)} (${eur(eurValue)})` : eur(eurValue)
 const scoreCol = (s?: number | null) => s == null ? 'var(--color-faint)' : s < 28 ? '#34d399' : s < 50 ? '#e8b24c' : s < 75 ? '#f0a860' : '#fb7185'
 
 const SFDR: Record<string, { label: string; c: string }> = {
@@ -59,7 +64,7 @@ export default function Funds() {
                       <span className="text-[14px] text-[var(--color-ink)] truncate">{f.name}</span>
                       <SfdrBadge c={f.sfdr_classification} />
                     </div>
-                    <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{eur(f.total_value_eur)} · {f.positions} position{f.positions === 1 ? '' : 's'}{f.parent_fund_id ? ' · look-through vehicle' : ''}</div>
+                    <div className="mono text-[11px] text-[var(--color-faint)] mt-0.5">{fundValue(f.total_value_eur, f.base)} · {f.positions} position{f.positions === 1 ? '' : 's'}{f.parent_fund_id ? ' · look-through vehicle' : ''}</div>
                   </div>
                   <ScorePill label="physical" v={f.physical_score} />
                   <ScorePill label="transition" v={f.transition_score} />

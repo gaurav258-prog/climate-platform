@@ -23,16 +23,17 @@ interface Filing {
   basis_note?: string | null; file_sha256?: string | null; figures?: Figure[]
 }
 interface Framework { key: string; label: string }
-interface TrendPoint { period: string; value: number; unit: string | null; basis_note: string | null; basis_break: boolean }
+interface TrendPoint { period: string; value: number | null; unit: string | null; basis_note: string | null; basis_break: boolean; unit_break?: boolean; mixed_units?: string[]; note?: string; converted_from?: Record<string, number> }
 interface ProjPoint { period: string; value: number; projected: boolean }
 interface Series {
-  framework: string; datapoint_key: string; label: string; points: TrendPoint[]; basis_changed: boolean
+  framework: string; datapoint_key: string; label: string; points: TrendPoint[]; basis_changed: boolean; unit_changed?: boolean; mixed_units?: boolean
   projection: ProjPoint[]; proj_method: string | null; proj_reliable: boolean
 }
 
 const FMT: Record<string, string> = { xbrl: 'XBRL', ixbrl: 'iXBRL', excel: 'Excel', pdf: 'PDF' }
 // compact axis/label formatter — handles EUR/tCO2e magnitudes and sub-1 ratios alike
-const compact = (n: number) => {
+const compact = (n: number | null) => {
+  if (n == null) return '—'
   const a = Math.abs(n)
   if (a >= 1e9) return `${(n / 1e9).toFixed(2)}bn`
   if (a >= 1e6) return `${(n / 1e6).toFixed(2)}m`
@@ -49,7 +50,7 @@ export default function PriorFilings() {
   const [entity, setEntity] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Filing | null>(null)          // the report just read, awaiting confirm
-  const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean; datapoint_key?: string }>>({})
+  const [edits, setEdits] = useState<Record<string, { value_num?: number; drop?: boolean; datapoint_key?: string; unit?: string }>>({})
   const [basis, setBasis] = useState('')
 
   const [seriesKey, setSeriesKey] = useState('')
@@ -198,7 +199,10 @@ export default function PriorFilings() {
                             onChange={e => setEdits(p => ({ ...p, [fig.figure_id]: { ...p[fig.figure_id], value_num: e.target.value === '' ? undefined : Number(e.target.value) } }))}
                             className="w-32 bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-md px-2 py-1 mono text-[12.5px] tabular-nums text-right outline-none focus:border-[var(--color-sky)]" />
                         ) : <span className="mono text-[12px] text-[var(--color-mute)]">{fig.value_text ?? '—'}</span>}
-                        {fig.unit && <span className="mono text-[11px] text-[var(--color-faint)] ml-1.5">{fig.unit}</span>}
+                        <input defaultValue={fig.unit ?? ''} disabled={dropped} placeholder="unit" aria-label="Unit"
+                          title="The unit the reader found — an ISO code for money (EUR, USD…), %, tCO2e, MWh. Correct it if it is wrong; figures in different units are never added together."
+                          onChange={e => setEdits(p => ({ ...p, [fig.figure_id]: { ...p[fig.figure_id], unit: e.target.value } }))}
+                          className="mono text-[11px] ml-1.5 w-14 bg-transparent border-b border-[var(--color-line-2)] text-[var(--color-faint)] outline-none focus:border-[var(--color-sky)]" />
                       </td>
                       <td className="px-4 py-2.5"><span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[color-mix(in_oklab,var(--color-sky)_12%,transparent)] text-[var(--color-sky)]">auto</span></td>
                       <td className="px-4 py-2.5 text-right">
@@ -335,10 +339,11 @@ export default function PriorFilings() {
                 One year on file — <span className="mono text-[var(--color-ink)]">{selected.points[0].period}: {compact(selected.points[0].value)}{selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''}</span>. Import earlier years to see the trend.
               </div>
             ) : (() => {
-              const unit = selected.points[0].unit && selected.points[0].unit !== 'pure' ? ` ${selected.points[0].unit}` : ''
+              const lu = selected.points[selected.points.length - 1].unit
+              const unit = lu && lu !== 'pure' ? ` ${lu}` : ''
               // one dataset: reported points carry `value`, projected years carry `proj`; the last reported
               // point also carries `proj` so the dashed line starts exactly where the solid line ends.
-              const data: Record<string, number | string | boolean>[] = [
+              const data: Record<string, number | string | boolean | null>[] = [
                 ...selected.points.map(p => ({ period: p.period, value: p.value, basis_break: p.basis_break })),
                 ...selected.projection.map(p => ({ period: p.period, proj: p.value })),
               ]
@@ -371,7 +376,7 @@ export default function PriorFilings() {
                       <Line type="monotone" dataKey="value" name="value" stroke="var(--color-sky)" strokeWidth={2.25} dot={{ r: 3, fill: 'var(--color-sky)' }} isAnimationActive={false} />
                       <Line type="monotone" dataKey="proj" name="proj" stroke="var(--color-mute)" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2.5, fill: 'var(--color-mute)' }} connectNulls isAnimationActive={false} />
                       {selected.points.map((p, i) => p.basis_break && (
-                        <ReferenceDot key={i} x={p.period} y={p.value} r={5} fill="var(--color-warn)" stroke="var(--color-bg-2)" strokeWidth={2} />
+                        <ReferenceDot key={i} x={p.period} y={p.value ?? undefined} r={5} fill="var(--color-warn)" stroke="var(--color-bg-2)" strokeWidth={2} />
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
@@ -380,6 +385,17 @@ export default function PriorFilings() {
                   <div className="mt-2 text-[11.5px] text-[var(--color-faint)]">
                     <span className="inline-block w-4 border-t-2 border-dashed border-[var(--color-mute)] align-middle mr-1.5" />
                     Dashed = projected from your last filed value{selected.proj_method ? ` — ${selected.proj_method}` : ''}.
+                  </div>
+                )}
+                {(selected.unit_changed || selected.mixed_units) && (
+                  <div className="mt-3 flex items-start gap-2 text-[12px] text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] border border-[color-mix(in_oklab,var(--color-warn)_35%,transparent)] rounded-lg px-3 py-2">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                    <div>
+                      The units differ {selected.mixed_units ? 'within a year' : 'between years'} — the figures are not added together or projected. Correct the unit or datapoint when confirming the filing.
+                      <div className="mt-1 text-[var(--color-mute)]">
+                        {selected.points.map(p => `${p.period}: ${p.mixed_units ? p.mixed_units.join(' + ') : (p.unit ?? 'unit not stated')}`).join(' · ')}
+                      </div>
+                    </div>
                   </div>
                 )}
                 {selected.basis_changed && (

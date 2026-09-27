@@ -37,6 +37,7 @@ from services.portfolio_engine import (
     get_entity_org,
     get_entity_with_risk,
 )
+from services.reference.carbon_price import basis as carbon_basis
 from services.scoring.loan_transition import collateral_stranding_overlay, loan_transition_overlay
 from services.templates.workbook import build_export_workbook, build_template_workbook
 
@@ -172,7 +173,7 @@ def portfolio(session: DbSession, org_id: OrgId,
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model)
     return {"org_id": org_id, "scenario": scenario, "horizon": horizon,
             "rollup": _rollup(assets), "assets": assets,
-            "transition": loan_transition_overlay(assets, scenario, horizon),
+            "transition": loan_transition_overlay(assets, scenario, horizon, carbon_basis(session, "EUR")),
             "collateral_stranding": collateral_stranding_overlay(assets)}
 
 
@@ -251,6 +252,11 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     # under a forward scenario. Whole-org only for now (EL is not yet entity-scoped) — omitted on scoped filings.
     # It is computed from the stored EUR book, so it is also omitted when the filing presents another currency or
     # removed group-internal exposures (it would no longer describe the same book).
+    ccy = translation.presentation if translation is not None else "EUR"
+    units_per_eur = 1.0
+    if ccy != "EUR":
+        from services.governance.translation import from_eur
+        units_per_eur = from_eur(session, translation, 1.0)
     el = None
     if entity_ids is None and (translation is None or (translation.identity() and not translation.eliminations)):
         from services.intelligence.expected_loss import bank_expected_loss
@@ -259,7 +265,8 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     return {
         "rollup": _rollup(assets),
         "assets": assets,
-        "transition": loan_transition_overlay(assets, scenario, horizon),
+        "transition": loan_transition_overlay(assets, scenario, horizon, carbon_basis(session, ccy),
+                                              eur_per_unit=1.0 / units_per_eur),
         "collateral_stranding": collateral_stranding_overlay(assets),
         "expected_loss": el,
         **_hazard_rollup(assets),

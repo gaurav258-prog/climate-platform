@@ -4,14 +4,14 @@ import { TrendingUp, Upload, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import { toast } from '../lib/toast'
 import { Card, StatGrid, type StatItem } from './ui'
+import { money } from '../lib/money'
 
 // Commodity price pressure — observed authoritative price indices (FAO / World Bank / USDA) weighted by the
 // book's spend. Tellumen never forecasts a price; this is the observed move on commodities the buyer sources,
 // turned into input-cost pressure on the bill of materials. A commodity with no index is shown as uncovered.
 
-interface Item { commodity: string; spend_eur: number; covered: boolean; shock_pct: number | null; latest_period?: string; source?: string; pressure_eur: number }
-interface Resp { available: boolean; reason?: string; summary?: { total_spend_eur: number; covered_spend_eur: number; coverage_pct: number; input_cost_pressure_eur: number; pressure_pct_of_spend: number }; commodities?: Item[] }
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+interface Item { commodity: string; spend_eur: number; covered: boolean; shock_pct: number | null; price_move_pct?: number; currency_effect_pct?: number; quote_currency?: string; reason?: string; latest_period?: string; source?: string; pressure_eur: number }
+interface Resp { available: boolean; reason?: string; summary?: { total_spend_eur: number; covered_spend_eur: number; coverage_pct: number; input_cost_pressure_eur: number; pressure_pct_of_spend: number }; commodities?: Item[]; currency?: string }
 
 export default function PricePressure() {
   const qc = useQueryClient()
@@ -27,6 +27,8 @@ export default function PricePressure() {
     finally { if (fileRef.current) fileRef.current.value = '' }
   }
   const s = d?.summary
+  const ccy = d?.currency ?? 'EUR'
+  const eur = (n?: number | null) => money(n, ccy)
 
   return (
     <Card className="p-4">
@@ -44,7 +46,7 @@ export default function PricePressure() {
       {!d ? <div className="text-[12.5px] text-[var(--color-faint)] py-4">Loading…</div>
         : !s ? (
           <div className="text-[12.5px] text-[var(--color-mute)] py-3">
-            Load observed commodity price indices (FAO / World Bank / USDA — columns: <span className="mono text-[11px]">source, commodity, period_ym, index_value, unit</span>) and Tellumen shows the input-cost pressure they put on your sourcing spend.
+            Load observed commodity price indices (FAO / World Bank / USDA — columns: <span className="mono text-[11px]">source, commodity, period_ym, index_value, unit, currency</span>) and Tellumen shows the input-cost pressure they put on your sourcing spend.
           </div>
         ) : (
           <>
@@ -58,16 +60,20 @@ export default function PricePressure() {
               {d.commodities!.map(c => (
                 <div key={c.commodity} className="flex items-center gap-3 py-1.5 text-[12px]">
                   <span className="text-[var(--color-ink)] shrink-0 w-24 truncate">{c.commodity}</span>
-                  <span className="mono text-[11px] shrink-0 w-16" style={{ color: c.shock_pct == null ? 'var(--color-faint)' : c.shock_pct > 0 ? 'var(--color-bad)' : 'var(--color-good)' }}>
+                  <span className="mono text-[11px] shrink-0 w-16" title={c.reason} style={{ color: c.shock_pct == null ? 'var(--color-faint)' : c.shock_pct > 0 ? 'var(--color-bad)' : 'var(--color-good)' }}>
                     {c.shock_pct == null ? 'no index' : `${c.shock_pct > 0 ? '+' : ''}${c.shock_pct}%`}
                   </span>
-                  <span className="flex-1 min-w-0" />
+                  <span className="flex-1 min-w-0 mono text-[10px] text-[var(--color-faint)] truncate">
+                    {c.quote_currency && c.quote_currency !== ccy && c.price_move_pct != null
+                      ? `price ${c.price_move_pct > 0 ? '+' : ''}${c.price_move_pct}% in ${c.quote_currency} · currency ${c.currency_effect_pct! > 0 ? '+' : ''}${c.currency_effect_pct}%`
+                      : c.reason && !c.covered ? c.reason : ''}
+                  </span>
                   <span className="mono text-[11px] text-[var(--color-faint)] shrink-0">{eur(c.spend_eur)} spend</span>
                   <span className="mono tabular-nums shrink-0 w-16 text-right" style={{ color: c.pressure_eur > 0 ? 'var(--color-warn)' : 'var(--color-faint)' }}>{c.pressure_eur > 0 ? eur(c.pressure_eur) : '—'}</span>
                 </div>
               ))}
             </div>
-            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2.5">Observed agency indices — not a Tellumen forecast · pressure = spend × positive move vs a 12-month baseline · uncovered commodities shown as 'no index'</div>
+            <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2.5">Observed agency indices — not a Tellumen forecast · pressure = spend × positive move vs a 12-month baseline, measured in {ccy} (a dollar-quoted price includes the dollar's own move) · uncovered commodities shown as 'no index'</div>
           </>
         )}
     </Card>

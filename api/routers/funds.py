@@ -87,6 +87,7 @@ def list_funds(session: DbSession, org_id: OrgId,
         out.append({
             **dict(f),
             "total_value_eur": summ.get("total_value_eur", 0),
+            "base": summ.get("base"),
             "positions": summ.get("positions", 0),
             "physical_score": summ.get("physical", {}).get("value_weighted_score"),
             "transition_score": summ.get("transition", {}).get("value_weighted_score"),
@@ -469,11 +470,11 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         pos_ccy = "EUR" if n["mixed"] else n["ccy"]
         pos_base = None if n["mixed"] else n["base"]
         session.execute(text("""
-            INSERT INTO fund_positions (fund_id, security_id, market_value_eur, market_value_base, currency, weight_pct, as_of_date)
+            INSERT INTO fund_positions (fund_id, security_id, market_value_eur, market_value_native, currency, weight_pct, as_of_date)
             VALUES (:f, :s, :mv, :mvb, :ccy, :w, :d)
             ON CONFLICT (fund_id, security_id, as_of_date)
             DO UPDATE SET market_value_eur = EXCLUDED.market_value_eur,
-                          market_value_base = EXCLUDED.market_value_base,
+                          market_value_native = EXCLUDED.market_value_native,
                           currency = EXCLUDED.currency, weight_pct = EXCLUDED.weight_pct
         """), {"f": fund_id, "s": res.security_id, "mv": h.market_value_eur,
                "mvb": pos_base, "ccy": pos_ccy, "w": weight, "d": as_of})

@@ -10,7 +10,7 @@ Two channels, combined by taking the DOMINANT one (no double-counting):
 
   1. Carbon-cost intensity — the earnings-at-risk channel.
        carbon_intensity = (scope1 + scope2 tCO2e) / revenue_€m           [standard WACI building block]
-       annual_carbon_cost = (scope1 + scope2) × scenario_carbon_price     [€ at the scenario's price]
+       annual_carbon_cost = (scope1 + scope2) × scenario_carbon_price     [in the revenue's currency]
        carbon_cost_ratio  = annual_carbon_cost / revenue                  [fraction of revenue consumed]
      Carbon prices come from the NGFS scenario carbon-price trajectories
      (Network for Greening the Financial System, Phase IV, global average,
@@ -20,8 +20,13 @@ Two channels, combined by taking the DOMINANT one (no double-counting):
        - Delayed / Disorderly ('disorderly_2c'): low to 2030 then sharp
        - Current Policies ('hot_house_3_5c'): stays low — transition risk is
          small precisely because little transition happens (the risk is physical)
-       - baseline / 'current': today's limited global carbon pricing (~€5),
+       - baseline / 'current': today's limited global carbon pricing (~US$5),
          with a note that EU-ETS-covered emissions face a much higher real price.
+     NGFS states these in constant 2010 US dollars per tonne (US$2010/tCO2). They are
+     held that way here and converted, per run, to the currency the revenue is in at
+     a recent year's prices (services/reference/carbon_price.basis: US GDP deflator ×
+     that year's average rate). Until 2026-09-27 (v1) the US$2010 figures were used
+     as euros directly — a ~27% understatement of the carbon cost against 2025 revenue.
 
   2. Stranded-asset exposure — the obsolescence channel, by sector.
        sector_base_stranded × scenario_ambition_factor
@@ -40,12 +45,12 @@ from typing import Optional
 
 from core.types import score_to_bucket
 
-MODEL_VERSION = "transition-v1-ngfs"
+MODEL_VERSION = "transition-v2-ngfs-usd2010"
 
-# NGFS-anchored carbon price by scenario and horizon, in EUR per tonne CO2e.
-# Representative global-average values from the NGFS Phase IV scenarios —
-# disclosed illustrative anchors, not fitted. See module docstring.
-CARBON_PRICE_EUR = {
+# NGFS-anchored carbon price by scenario and horizon, in constant 2010 US DOLLARS per tonne CO2e (NGFS's own basis).
+# Representative global-average values from the NGFS Phase IV scenarios — disclosed illustrative anchors, not
+# fitted. Converted to the revenue's money by a price basis (see transition_score). See module docstring.
+CARBON_PRICE_USD2010 = {
     "baseline":        {"current": 5,   "2030": 10,  "2050": 15,  "2100": 20},
     "orderly_1_5c":    {"current": 5,   "2030": 130, "2050": 250, "2100": 600},   # Net Zero 2050: steep, early
     "disorderly_2c":   {"current": 5,   "2030": 40,  "2050": 340, "2100": 600},   # Delayed: low then sharp
@@ -87,12 +92,16 @@ def _nace_division(nace_code: Optional[str]) -> Optional[str]:
 def transition_score(
     scope1_tco2e: Optional[float], scope2_tco2e: Optional[float], scope3_tco2e: Optional[float],
     revenue_eur: Optional[float], nace_code: Optional[str], scenario: str, horizon: str,
+    price_basis: Optional[dict] = None,
 ) -> Optional[dict]:
     """One issuer × scenario × horizon → transition-risk block, or None if the
     inputs to say anything honest are absent (no emissions AND no sector signal).
-    Never fabricates a zero for a missing input."""
-    price = CARBON_PRICE_EUR.get(scenario, {}).get(horizon)
-    if price is None:
+    Never fabricates a zero for a missing input.
+
+    price_basis (services.reference.carbon_price.basis) converts the US$2010 price into the currency `revenue_eur` is
+    held in; it is required whenever emissions are given (the carbon-cost channel), never assumed."""
+    usd2010 = CARBON_PRICE_USD2010.get(scenario, {}).get(horizon)
+    if usd2010 is None:
         return None
 
     s1 = scope1_tco2e or 0.0
@@ -104,6 +113,11 @@ def transition_score(
     carbon_cost_eur = None
     carbon_cost_ratio = None
     carbon_score = 0.0
+    price = None
+    if have_emissions:
+        if not price_basis:
+            raise ValueError("a carbon price basis is required to price emissions (NGFS prices are US$2010)")
+        price = usd2010 * price_basis["factor"]
     if have_emissions and revenue_eur:
         revenue_meur = revenue_eur / 1e6
         carbon_intensity = round((s1 + s2) / revenue_meur, 2) if revenue_meur else None
@@ -128,7 +142,9 @@ def transition_score(
         "carbon_intensity_tco2e_per_meur": carbon_intensity,
         "stranded_asset_pct": round(stranded_pct * 100, 2),
         "carbon_price_impact_eur": round(carbon_cost_eur, 2) if carbon_cost_eur is not None else None,
-        "carbon_price_eur_per_tonne": price,
+        "carbon_price_per_tonne": round(price, 2) if price is not None else None,
+        "carbon_price_usd2010_per_tonne": usd2010,
+        "carbon_price_basis": (price_basis or {}).get("label") if price is not None else None,
         "carbon_cost_pct_of_revenue": round(carbon_cost_ratio * 100, 2) if carbon_cost_ratio is not None else None,
         "dominant_channel": "carbon_cost" if carbon_score >= stranded_score else "stranded_asset",
         "model_version": MODEL_VERSION,

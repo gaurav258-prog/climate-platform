@@ -72,10 +72,13 @@ def _section(nace_code: str | None) -> str:
     return (nace_code or "").strip()[:2] or "—"
 
 
-def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str) -> dict:
+def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str, price_basis: dict | None = None,
+                            eur_per_unit: float = 1.0) -> dict:
     """assets: the bank loan book (each with nace_code, revenue_eur, ghg1/2/3, outstanding_loan_balance_eur,
     value_eur). Returns the per-book transition rollup: financed emissions (reported + estimated-fill),
-    transition expected-loss (Σ outstanding × stranded fraction), coverage, and the by-sector concentration."""
+    transition expected-loss (Σ outstanding × stranded fraction), coverage, and the by-sector concentration.
+    Amounts may be in a filing's presentation currency (multi-currency phase 3): price_basis puts the NGFS carbon
+    price in that currency, and eur_per_unit brings revenue back to EUR for the sector-intensity estimate (tCO2e/€M)."""
     total_outstanding = total_financed = total_transition_el = 0.0
     n_scored = n_estimated = 0
     scored_score_x_exposure = 0.0
@@ -89,11 +92,11 @@ def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str) -> 
         emissions_source = "reported"
         # fill missing reported scope 1+2 with a NACE sector-intensity estimate (flagged)
         if s1 is None and s2 is None and nace and revenue:
-            est = estimate_emissions(nace, revenue)
+            est = estimate_emissions(nace, revenue * eur_per_unit)
             if est:
                 s1, s2, emissions_source = est["scope1_2_tco2e"], 0.0, "estimated"
 
-        blk = transition_score(s1, s2, s3, revenue, nace, scenario, horizon)
+        blk = transition_score(s1, s2, s3, revenue, nace, scenario, horizon, price_basis)
         if not blk:
             continue
         outstanding = a.get("outstanding_loan_balance_eur") or a.get("value_eur") or 0
@@ -139,6 +142,7 @@ def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str) -> 
     return {
         "available": True,
         "scenario": scenario, "horizon": horizon,
+        "carbon_price_basis": (price_basis or {}).get("label"),
         "n_scored": n_scored,
         "financed_emissions_tco2e": round(total_financed),
         "n_emissions_estimated": n_estimated,

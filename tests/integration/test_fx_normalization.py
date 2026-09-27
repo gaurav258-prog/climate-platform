@@ -81,10 +81,10 @@ def test_onboarding_converts_native_currency_and_stores_base():
 
         with get_session() as s:
             row = s.execute(text(
-                "SELECT market_value_eur, market_value_base, currency FROM fund_positions "
+                "SELECT market_value_eur, market_value_native, currency FROM fund_positions "
                 "WHERE fund_id=:f"), {"f": created["fid"]}).mappings().first()
         assert float(row["market_value_eur"]) == round(1_000_000 * rate, 2)   # converted at the book-date rate
-        assert float(row["market_value_base"]) == 1_000_000.0  # native preserved
+        assert float(row["market_value_native"]) == 1_000_000.0  # native preserved
         assert row["currency"] == "USD"
     finally:
         with get_session() as s:

@@ -161,6 +161,9 @@ def confirm(session, filing_id: str, org_id: str, user_id: Optional[str], *,
             sets.append("value_text = :vt"); params["vt"] = e["value_text"]
         if "datapoint_key" in e:
             sets.append("datapoint_key = :dk"); params["dk"] = e["datapoint_key"] or None
+        if "unit" in e:                                  # the preparer can correct what the reader took the unit to be
+            from services.ingest.units import normalise
+            sets.append("unit = :u"); params["u"] = normalise(e["unit"])
         if sets:
             sets.append("read_method = 'confirmed'")
             session.execute(text(f"UPDATE reported_figure SET {', '.join(sets)} "
@@ -226,51 +229,106 @@ def trends(session, org_id: str, framework: Optional[str] = None, horizon_years:
     drawn as continuous across a methodology or boundary change). Each series also carries a forward
     projection continuing from its last confirmed value."""
     horizon_years = max(1, min(10, horizon_years))
-    rows = session.execute(text("""
-        SELECT g.framework, g.datapoint_key, rf.period_label,
-               sum(g.value_num) AS value, max(g.unit) AS unit, max(rf.basis_note) AS basis_note
-        FROM reported_figure g JOIN reported_filing rf ON rf.filing_id = g.filing_id
-        WHERE g.org_id = :org AND rf.status = 'confirmed' AND g.datapoint_key IS NOT NULL
-              AND g.value_num IS NOT NULL AND (CAST(:fw AS text) IS NULL OR g.framework = :fw)
-        GROUP BY g.framework, g.datapoint_key, rf.period_label
-        ORDER BY g.framework, g.datapoint_key, rf.period_label
-    """), {"org": org_id, "fw": framework}).mappings().all()
-
+    ccy = _presentation(session, org_id)
+    rows = _figures(session, org_id, framework, None)
     series: dict[tuple, dict] = {}
-    for r in rows:
-        key = (r["framework"], r["datapoint_key"])
-        s = series.setdefault(key, {
-            "framework": r["framework"], "framework_label": _LABEL.get(r["framework"], r["framework"]),
-            "datapoint_key": r["datapoint_key"], "label": _dp_label(r["framework"], r["datapoint_key"]),
-            "points": [],
+    for (fw, dk, period), figs in _grouped(rows).items():
+        s = series.setdefault((fw, dk), {
+            "framework": fw, "framework_label": _LABEL.get(fw, fw),
+            "datapoint_key": dk, "label": _dp_label(fw, dk), "points": [],
         })
-        s["points"].append({"period": r["period_label"], "value": r["value"],
-                            "unit": r["unit"], "basis_note": r["basis_note"]})
+        s["points"].append({**_combine(session, figs, ccy), "period": period, "basis_note": figs[0]["basis_note"]})
 
     out = []
     for s in series.values():
         bases = [p["basis_note"] or "" for p in s["points"]]
-        # mark each point where its basis differs from the prior period's (a discontinuity)
+        # mark each point where its basis — or its unit — differs from the prior period's (a discontinuity)
         for i, p in enumerate(s["points"]):
             p["basis_break"] = i > 0 and bases[i] != bases[i - 1]
+            p["unit_break"] = i > 0 and p["unit"] != s["points"][i - 1]["unit"]
         s["basis_changed"] = len({b for b in bases if b}) > 1 or any(p["basis_break"] for p in s["points"])
-        pr = _project(s["points"], horizon_years)
+        s["unit_changed"] = any(p["unit_break"] for p in s["points"])
+        s["mixed_units"] = any(p.get("mixed_units") for p in s["points"])
+        comparable = not (s["unit_changed"] or s["mixed_units"])
+        pr = _project(s["points"], horizon_years) if comparable else {"projection": [], "method": None}
         s["projection"] = pr["projection"]
         s["proj_method"] = pr["method"]
         s["proj_reliable"] = bool(pr["projection"]) and not s["basis_changed"]
         out.append(s)
     out.sort(key=lambda s: (-len(s["points"]), s["label"]))
-    return {"series": out}
+    return {"series": out, "currency": ccy}
+
+
+# ── units (multi-currency phase 4, 2026-09-27) ──────────────────────────────────────────────────────────────────
+# A datapoint's figures in one period used to be summed whatever their units (€ with $ with tCO2e) and labelled with
+# the alphabetically largest unit. Now: money in different currencies is converted to the organisation's presentation
+# currency at the closing rate of the period end before it is added; figures in different non-money units — or money
+# with figures whose unit is unknown — are NOT added: the point is shown as mixed, with each unit's own total.
+
+def _presentation(session, org_id: str) -> str:
+    from services.governance.reporting_settings import get_settings
+    return get_settings(session, org_id)["presentation_currency"]
+
+
+def _figures(session, org_id: str, framework: Optional[str], datapoint_key: Optional[str]) -> list[dict]:
+    return [dict(r) for r in session.execute(text("""
+        SELECT g.framework, g.datapoint_key, rf.period_label, rf.period_end, rf.basis_note, g.value_num, g.unit
+        FROM reported_figure g JOIN reported_filing rf ON rf.filing_id = g.filing_id
+        WHERE g.org_id = :org AND rf.status = 'confirmed' AND g.datapoint_key IS NOT NULL AND g.value_num IS NOT NULL
+              AND (CAST(:fw AS text) IS NULL OR g.framework = :fw) AND (CAST(:dk AS text) IS NULL OR g.datapoint_key = :dk)
+        ORDER BY g.framework, g.datapoint_key, rf.period_label
+    """), {"org": org_id, "fw": framework, "dk": datapoint_key}).mappings()]
+
+
+def _grouped(rows: list[dict]) -> dict:
+    out: dict[tuple, list] = {}
+    for r in rows:
+        out.setdefault((r["framework"], r["datapoint_key"], r["period_label"]), []).append(r)
+    return out
+
+
+def _period_end(fig: dict):
+    from datetime import date as _date
+    if fig.get("period_end"):
+        return fig["period_end"]
+    m = _re.search(r"(19|20)\d{2}", fig.get("period_label") or "")
+    return _date(int(m.group(0)), 12, 31) if m else None
+
+
+def _combine(session, figs: list[dict], ccy: str) -> dict:
+    """One period's figures for one datapoint → {value, unit, …}. Money is converted to `ccy` (closing rate on the
+    period end); anything else is only added to figures in the same unit."""
+    from services.ingest.units import is_currency
+    from services.reference.fx import FxError, rate_for
+    by_unit: dict = {}
+    for f in figs:
+        by_unit[f["unit"]] = by_unit.get(f["unit"], 0.0) + float(f["value_num"])
+    money = {u: v for u, v in by_unit.items() if is_currency(u)}
+    if money and len(money) == len(by_unit):
+        if set(money) == {ccy}:
+            return {"value": money[ccy], "unit": ccy}
+        d = _period_end(figs[0])
+        if d is None:
+            return {"value": None, "unit": None, "mixed_units": sorted(money),
+                    "note": "amounts in " + ", ".join(sorted(money)) + " — no period end to convert them at"}
+        try:
+            total = sum(v * rate_for(session, ccy, d)["units_per_eur"] / rate_for(session, u, d)["units_per_eur"]
+                        for u, v in money.items())
+        except FxError as e:
+            return {"value": None, "unit": None, "mixed_units": sorted(money), "note": f"not converted: {e}"}
+        return {"value": total, "unit": ccy, "converted_from": {u: round(v, 2) for u, v in money.items()},
+                "rate_date": d.isoformat()}
+    if len(by_unit) == 1:
+        (u, v), = by_unit.items()
+        return {"value": v, "unit": u}
+    return {"value": None, "unit": None, "mixed_units": sorted(str(u) for u in by_unit),
+            "by_unit": {str(u): round(v, 4) for u, v in by_unit.items()},
+            "note": "figures in different units — not added together; correct the units or datapoints on confirm"}
 
 
 def trend(session, org_id: str, framework: str, datapoint_key: str) -> dict:
     """Reported values for one datapoint across confirmed filings — the customer's own filed history."""
-    rows = session.execute(text("""
-        SELECT rf.period_label, sum(g.value_num) AS value, max(g.unit) AS unit
-        FROM reported_figure g JOIN reported_filing rf ON rf.filing_id = g.filing_id
-        WHERE g.org_id = :org AND g.framework = :fw AND g.datapoint_key = :dk
-              AND rf.status = 'confirmed' AND g.value_num IS NOT NULL
-        GROUP BY rf.period_label ORDER BY rf.period_label
-    """), {"org": org_id, "fw": framework, "dk": datapoint_key}).mappings().all()
-    return {"framework": framework, "datapoint_key": datapoint_key,
-            "points": [{"period": r["period_label"], "value": r["value"], "unit": r["unit"]} for r in rows]}
+    ccy = _presentation(session, org_id)
+    groups = _grouped(_figures(session, org_id, framework, datapoint_key))
+    return {"framework": framework, "datapoint_key": datapoint_key, "currency": ccy,
+            "points": [{**_combine(session, figs, ccy), "period": period} for (_, _, period), figs in groups.items()]}

@@ -12,10 +12,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text
 
-from ml.scoring.transition_risk import CARBON_PRICE_EUR, MODEL_VERSION, transition_score
+from ml.scoring.transition_risk import CARBON_PRICE_USD2010, MODEL_VERSION, transition_score
 
 # Same scenario × horizon grid the physical side uses.
-SCENARIOS = list(CARBON_PRICE_EUR.keys())
+SCENARIOS = list(CARBON_PRICE_USD2010.keys())
 HORIZONS = ["current", "2030", "2050", "2100"]
 
 
@@ -35,6 +35,8 @@ def score_all_issuers(session, issuer_ids: list[str] | None = None) -> dict:
         {where}
     """), ({"ids": issuer_ids} if issuer_ids else {})).mappings().all()
 
+    from services.reference.carbon_price import basis
+    price_basis = basis(session, "EUR")        # issuer revenue is held in EUR
     now = datetime.now(timezone.utc)
     written = 0
     scored_issuers = set()
@@ -47,7 +49,7 @@ def score_all_issuers(session, issuer_ids: list[str] | None = None) -> dict:
                     iss["scope2_tco2e"] and float(iss["scope2_tco2e"]),
                     iss["scope3_tco2e"] and float(iss["scope3_tco2e"]),
                     iss["revenue_eur"] and float(iss["revenue_eur"]),
-                    iss["nace_code"], scenario, horizon,
+                    iss["nace_code"], scenario, horizon, price_basis,
                 )
                 if blk:
                     rows.append((scenario, horizon, blk))
@@ -74,5 +76,5 @@ def score_all_issuers(session, issuer_ids: list[str] | None = None) -> dict:
                 "vintage": now,
             })
             written += 1
-    return {"model_version": MODEL_VERSION, "issuers_scored": len(scored_issuers),
+    return {"model_version": MODEL_VERSION, "carbon_price_basis": price_basis["label"], "issuers_scored": len(scored_issuers),
             "issuers_seen": len(issuers), "rows_written": written}
