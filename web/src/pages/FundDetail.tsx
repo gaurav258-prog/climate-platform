@@ -8,6 +8,7 @@ import { toast } from '../lib/toast'
 import { Card, Button, SectionHead, PageHeader } from '../components/ui'
 import { SfdrBadge } from './Funds'
 import FundPositions from '../components/FundPositions'
+import ShareClasses from '../components/ShareClasses'
 import { OnboardHoldings, VoluntaryPai, PrecontractualDisclosure } from '../components/FundOnboard'
 
 // One fund's full picture: the physical + transition climate report, and the SFDR PAI statement (the 14
@@ -211,6 +212,9 @@ export default function FundDetail() {
       {(s.fund.sfdr_classification === 'article_8' || s.fund.sfdr_classification === 'article_9') && s.positions > 0 && (
         <PrecontractualDisclosure fundId={id} onDone={refreshAll} />
       )}
+
+      {/* share classes — one European ESG Template row each (the EET itself is on the Funds page) */}
+      <ShareClasses fundId={id} />
 
       {/* holdings with issuer drill */}
       <FundPositions fundId={id} />

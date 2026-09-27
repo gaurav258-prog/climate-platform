@@ -481,6 +481,10 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
         positions_created += 1
 
     matched = sum(1 for r in resolutions if r["status"] in ("resolved", "cached"))
+    # a held ISIN that is one of this manager's OWN share classes is a fund held by a fund: say which, so it can be
+    # looked through (POST /funds/{id}/look-through) rather than treated as one opaque security
+    from services.eet.share_classes import resolve_isin as own_share_class
+    own_classes = [{"isin": i, **sc} for i in by_isin if (sc := own_share_class(session, org_id, i))]
     sector_gaps = [r["isin"] for r in resolutions if r["status"] in ("resolved", "cached") and not r["sector_known"]]
     return {
         "fund_id": fund_id, "as_of_date": as_of.isoformat(),
@@ -494,6 +498,7 @@ def onboard_holdings(fund_id: str, body: HoldingsUpload, session: DbSession, org
             "footprints": footprints,
             "sector_gap_isins": sector_gaps,   # matched but NACE unknown → needed for EU Taxonomy
             "client_enriched": enriched,        # issuer data the client supplied on this upload
+            "own_share_classes": own_classes,   # held ISINs that are your own funds' share classes → look through
         },
         "fx": {
             "converted_currencies": fx_applied,  # ccy -> {rate (EUR per unit), rate_date, source}

@@ -17,6 +17,8 @@ const LABELS: Record<string, string> = {
   'filing.submit': 'Submit disclosure', 'filing.submit_for_review': 'Submit disclosure for review',
   'filing.release': 'Release disclosure', 'filing.refresh': 'Refresh disclosure', 'filing.restate': 'Restate disclosure',
   'filing.generate': 'Generate disclosure', 'filing.frozen': 'Freeze disclosure',
+  'eet.publish': 'Publish European ESG Template', 'eet.version.prepare': 'Prepare EET version', 'eet.version.export': 'Download EET',
+  'eet.answers.save': 'Save EET answers', 'eet.share_class.create': 'Add share class', 'eet.share_class.update': 'Edit share class',
   'filing.cell_override': 'Override a reported figure', 'filing.cell_override.propose': 'Propose a figure override',
   'pricing.approve': 'Approve valuation override', 'pricing.view': 'View pricing',
   'entity.create': 'Add counterparty', 'entity.update': 'Edit counterparty', 'entity.delete': 'Delete counterparty',

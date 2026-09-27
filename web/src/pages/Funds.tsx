@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import EetPanel from '../components/EetPanel'
 import { money } from '../lib/money'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -77,6 +78,8 @@ export default function Funds() {
               ))}
             </div>}
       </Card>
+
+      <EetPanel />
     </div>
   )
 }

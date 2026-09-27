@@ -221,6 +221,14 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
                                       "message": f"Decision recorded, but could not update the filing: {e}"})
     # Cell-level manual override on the final form: on approval it takes effect over the frozen snapshot;
     # 4-eyes (checker ≠ maker) is enforced above, so an approved override carries a second person's sign-off.
+    # European ESG Template version: approved → published (the file distributors receive); otherwise rejected.
+    elif row["request_type"] == "eet.publish":
+        from services.eet.publication import EETError
+        from services.eet.publication import apply_decision as apply_eet
+        try:
+            applied = apply_eet(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"], body.reason)
+        except EETError as e:
+            raise HTTPException(409, {"error": "apply_failed", "message": f"Decision recorded, but: {e}"})
     elif row["request_type"] == "filing.cell_override":
         from services.governance.filing_overrides import apply_decision
         applied = apply_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])

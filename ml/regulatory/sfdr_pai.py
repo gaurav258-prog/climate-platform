@@ -418,6 +418,7 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
                      method="computed" if p["pai_3_waci_tco2e_per_meur"] is not None else "not_available",
                      input_required=None if p["pai_3_waci_tco2e_per_meur"] is not None
                      else "issuer Scope 1/2 emissions + revenue")
+    filled[3]["value_scope_1_2"] = p.get("pai_3_waci_s12_tco2e_per_meur")   # EET 30300 asks Scope 1+2 separately
     filled[4] = _row(4, "Climate & environment",
                      "Exposure to companies active in the fossil fuel sector", "% of value",
                      value=p["pai_4_fossil_fuel_exposure_pct"], coverage=p.get("pai_4_coverage_pct", 100.0),

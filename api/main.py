@@ -64,6 +64,7 @@ try:
     from api.routers import contracts as contracts_router
     from api.routers import controls as controls_router
     from api.routers import decisions as decisions_router
+    from api.routers import eet as eet_router
     from api.routers import entity_structure as entity_structure_router
     from api.routers import export_api as export_api_router
     from api.routers import filings as filings_router
@@ -300,6 +301,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(intake_batches_router.router)
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
+    app.include_router(eet_router.router)
     app.include_router(ops_console_router.router)
     app.include_router(supervisor_router.router)
     app.include_router(supervisor_sla_router.router)

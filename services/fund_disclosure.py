@@ -227,10 +227,13 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     # matched PAI 2/8/9's OLD bug before those were fixed, but was never corrected here for PAI 3 — found by
     # adversarial review, re-verified against the primary text, and fixed to match every other indicator in
     # this function. numerator sums all three GHG scopes per Annex I Table 1; total_mv is the whole fund.
-    waci = None
+    waci = waci_s12 = None
     if total_mv:
         waci = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0) + (r["s3"] or 0)) / (r["revenue_eur"] / 1e6))
                    for r in with_emissions) / total_mv
+        # the same on Scope 1+2 only — the European ESG Template asks for both (EET 30300 / 30340)
+        waci_s12 = sum(r["mv"] * ((r["s1"] + (r["s2"] or 0)) / (r["revenue_eur"] / 1e6))
+                       for r in with_emissions) / total_mv
 
     # PAI 1 — financed emissions (PCAF): attribution factor = investment ÷ EVIC.
     # We now attribute for every holding that has EVIC, and disclose the coverage;
@@ -292,6 +295,7 @@ def fund_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         "financed_emissions_coverage_pct": round(100 * financed_mv / total_mv, 1) if total_mv else 0.0,
         "pai": {
             "pai_3_waci_tco2e_per_meur": round(waci, 1) if waci is not None else None,
+            "pai_3_waci_s12_tco2e_per_meur": round(waci_s12, 1) if waci_s12 is not None else None,
             "pai_4_fossil_fuel_exposure_pct": round(100 * fossil_mv / total_mv, 2),
             "pai_4_coverage_pct": pai4_coverage,   # share of value whose NACE is known
             # PAI 1 — financed emissions, attributed via EVIC where available.
