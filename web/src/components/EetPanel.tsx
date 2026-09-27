@@ -16,10 +16,11 @@ const USES: { k: string; label: string }[] = [
   { k: 'precontractual', label: 'SFDR pre-contractual' }, { k: 'mifid', label: 'MiFID' }, { k: 'idd', label: 'IDD' },
 ]
 interface Gap { field: string; section: string; definition: string; codification: string; answerable: boolean; isins: string[] }
+interface Check { issuer_id: string; issuer: string; field: string; label: string; reported: number; estimate: number; basis: string; why: string; fund_name: string }
 interface Draft {
-  uses: string[]; notes: string[]; funds: Record<string, { statement: string; reference_year: number | null; fund_name: string }>
+  uses: string[]; notes: string[]; data_checks: Check[]; funds: Record<string, { statement: string; reference_year: number | null; fund_name: string }>
   rows: { fund_id: string; isin: string; n_filled: number }[]
-  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; ready: boolean }
+  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; n_data_checks: number; ready: boolean }
 }
 interface Field { name: string; kind: string; choices: string[]; multi: boolean; scope: 'organisation' | 'fund'; codification: string }
 interface Version { publication_id: string; version: number; status: string; uses: string[]; reference_date: string; prepared_by: string | null; prepared_at: string; decided_by: string | null; n_share_classes: number; decision_reason: string | null }
@@ -38,6 +39,7 @@ export default function EetPanel() {
   const changes = useQuery({ queryKey: ['eet-changes'], queryFn: () => api.get<Changes>('/v1/eet/changes') })
   const [vals, setVals] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [why, setWhy] = useState<Record<string, string>>({})
   const d = draft.data
   const fmeta = Object.fromEntries((fields.data?.fields ?? []).map(f => [f.name, f]))
   const fundOf = Object.fromEntries((d?.rows ?? []).map(r => [r.isin, r.fund_id]))
@@ -72,6 +74,13 @@ export default function EetPanel() {
       toast.success(`EET v${v.version} prepared — a second person approves it in Approvals.`); refresh()
     } catch (e) { toast.error(apiMessage(e, 'Could not prepare the EET.')) } finally { setBusy(false) }
   }
+  const confirmFigure = async (k: Check) => {
+    const key = `${k.issuer_id}|${k.field}`
+    try {
+      await api.post('/v1/eet/data-checks/confirm', { issuer_id: k.issuer_id, field: k.field, value: k.reported, reason: why[key] ?? '' })
+      toast.success(`${k.issuer}: ${k.label} confirmed.`); setWhy({ ...why, [key]: '' }); refresh()
+    } catch (e) { toast.error(apiMessage(e, 'Could not confirm the figure.')) }
+  }
   const c = d?.completeness
   const ch = changes.data
 
@@ -101,6 +110,18 @@ export default function EetPanel() {
               <span className="text-[var(--color-mute)]">{d.rows.length} share class(es) · {c?.n_blocking ? <span style={{ color: 'var(--color-warn)' }}>{c.n_blocking} still to answer</span> : <span style={{ color: 'var(--color-good)' }}>ready to prepare</span>}{c?.n_to_review ? ` · ${c.n_to_review} conditional to review` : ''}</span>
               {Object.values(d.funds).map(f => <span key={f.fund_name} className="mono text-[10.5px] text-[var(--color-faint)]">{f.fund_name}: PAI from the {f.statement === 'filed' ? `filed FY${f.reference_year} statement` : 'live draft statement'}</span>)}
             </div>
+            {(d.data_checks?.length ?? 0) > 0 && (
+              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: 'color-mix(in oklab, var(--color-warn) 45%, transparent)' }}>
+                <div className="text-[12.5px]" style={{ color: 'var(--color-warn)' }}>
+                  <AlertTriangle size={13} className="inline -mt-0.5 mr-1" />{d.data_checks.length} company figure(s) look like a unit slip. Correct the figure in your holdings upload or data feed — or confirm it is right, with the reason.
+                </div>
+                {d.data_checks.map(k => { const key = `${k.issuer_id}|${k.field}`; return (
+                  <div key={key} className="flex flex-wrap items-center gap-2 text-[12px]">
+                    <div className="flex-1 min-w-[260px]"><span className="text-[var(--color-ink)]">{k.issuer}</span> · {k.label}: <span className="mono">{k.reported}</span> <span className="text-[var(--color-faint)]">— {k.why} ({k.basis})</span></div>
+                    <input value={why[key] ?? ''} onChange={e => setWhy({ ...why, [key]: e.target.value })} placeholder="why it is right (source, page)" className={`${box} w-56`} />
+                    <Button onClick={() => confirmFigure(k)} disabled={!(why[key] ?? '').trim()}>Confirm as right</Button>
+                  </div>) })}
+              </div>)}
             {inputs.length > 0 && (
               <div className="rounded-xl border border-[var(--color-line-2)] divide-y divide-[var(--color-line)]">
                 {inputs.map(({ g, m, fid, key }) => (
@@ -121,7 +142,7 @@ export default function EetPanel() {
               {inputs.length > 0 && <Button onClick={save} disabled={busy || !Object.values(vals).some(v => v.trim())}>Save answers</Button>}
               <Button variant="primary" onClick={prepare} disabled={busy || !c?.ready}><Send size={13} /> Prepare version for approval</Button>
             </div>
-            {!c?.ready && <div className="text-[11px] text-[var(--color-faint)]">Answer the mandatory fields above to prepare a version; a second person then approves it in Approvals before it is published.</div>}
+            {!c?.ready && <div className="text-[11px] text-[var(--color-faint)]">Answer the mandatory fields{c?.n_data_checks ? ' and resolve the flagged figures' : ''} above to prepare a version; a second person then approves it in Approvals before it is published.</div>}
           </>}
 
         {(versions.data?.versions.length ?? 0) > 0 && (

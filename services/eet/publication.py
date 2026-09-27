@@ -107,6 +107,10 @@ def prepare(session: Session, org_id: str, user_id: Optional[str], uses: list[st
     comp = out["completeness"]
     if not out["rows"]:
         raise EETError("no active share classes — register the share classes the EET is for first")
+    if comp.get("n_data_checks"):
+        dc = out["data_checks"][0]
+        raise EETError(f"{comp['n_data_checks']} company figure(s) look like a unit slip (e.g. {dc['issuer']}: {dc['label']} "
+                       f"{dc['reported']:g} — {dc['why']}). Correct them, or confirm each as right, before preparing a version")
     if not comp["ready"]:
         eg = ", ".join(b["field"] for b in comp["blocking"][:5])
         raise EETError(f"{comp['n_blocking']} mandatory field(s) are still empty ({eg}{', …' if comp['n_blocking'] > 5 else ''}) — "

@@ -27,6 +27,9 @@ PROFILES: dict[str, dict[str, str]] = {
         "scope1_tco2e": "CARBON_EMISSIONS_SCOPE_1", "scope2_tco2e": "CARBON_EMISSIONS_SCOPE_2",
         "scope3_tco2e": "CARBON_EMISSIONS_SCOPE_3", "revenue_eur": "SALES_EUR", "evic_eur": "EVIC_EUR",
         "non_renewable_energy_pct": "PCT_NONRENEW_ENERGY", "gender_pay_gap_pct": "GENDER_PAY_GAP",
+        "energy_consumption_gwh": "ENERGY_CONSUMPTION_GWH", "energy_intensity_gwh_per_meur": "ENERGY_INTENSITY_GWH_PER_EUR_M",
+        "non_renewable_consumption_pct": "PCT_NONRENEW_ENERGY_CONSUMPTION",
+        "non_renewable_production_pct": "PCT_NONRENEW_ENERGY_PRODUCTION",
         "board_female_pct": "FEMALE_DIRECTORS_PCT", "controversial_weapons": "CONTROVERSIAL_WEAPONS_FLAG",
         "ungc_oecd_violation": "GLOBAL_COMPACT_VIOLATION",
         "taxonomy_eligible_pct": "EU_TAXONOMY_ELIGIBLE_PCT", "taxonomy_aligned_pct": "EU_TAXONOMY_ALIGNED_PCT",
@@ -36,6 +39,9 @@ PROFILES: dict[str, dict[str, str]] = {
         "scope1_tco2e": "Scope1", "scope2_tco2e": "Scope2", "scope3_tco2e": "Scope3",
         "revenue_eur": "Revenue_EUR", "evic_eur": "EVIC_EUR",
         "gender_pay_gap_pct": "GenderPayGap", "board_female_pct": "BoardFemalePct",
+        "energy_consumption_gwh": "EnergyConsumptionGWh", "energy_intensity_gwh_per_meur": "EnergyIntensity",
+        "non_renewable_consumption_pct": "NonRenewableConsumptionShare",
+        "non_renewable_production_pct": "NonRenewableProductionShare",
         "controversial_weapons": "ControversialWeapons", "ungc_oecd_violation": "UNGCViolation",
         "taxonomy_eligible_pct": "TaxonomyEligible", "taxonomy_aligned_pct": "TaxonomyAligned",
     },
@@ -44,11 +50,21 @@ PROFILES: dict[str, dict[str, str]] = {
 _EMISSION_FIELDS = {"scope1_tco2e", "scope2_tco2e", "scope3_tco2e", "revenue_eur", "evic_eur"}
 _ESG_FIELDS = {
     "non_renewable_energy_pct", "energy_intensity_gwh_per_meur", "biodiversity_sensitive_ops",
+    "energy_consumption_gwh", "non_renewable_consumption_pct", "non_renewable_production_pct",
     "emissions_to_water_tonnes", "hazardous_waste_tonnes", "ungc_oecd_violation",
     "ungc_oecd_no_monitoring", "gender_pay_gap_pct", "board_female_pct", "controversial_weapons",
     "taxonomy_eligible_pct", "taxonomy_aligned_pct",
 }
 _BOOL_FIELDS = {"biodiversity_sensitive_ops", "ungc_oecd_violation", "ungc_oecd_no_monitoring", "controversial_weapons"}
+
+
+def _same(a, b) -> bool:
+    if isinstance(a, bool) or isinstance(b, bool):
+        return bool(a) == bool(b)
+    try:
+        return abs(float(a) - float(b)) <= 1e-6 * max(abs(float(a)), abs(float(b)), 1.0)
+    except (TypeError, ValueError):
+        return a == b
 
 
 def _coerce(field: str, raw):
@@ -136,7 +152,18 @@ def ingest_vendor_extract(session, org_id: str, rows: list[dict], *, profile: st
         if any(v is not None for v in esg.values()):
             cols = ", ".join(esg)
             placeholders = ", ".join(f":{k}" for k in esg)
-            updates = ", ".join(f"{k} = COALESCE(EXCLUDED.{k}, issuer_esg_metrics.{k})" for k in esg)
+            # Fixed 2026-09-28: client and vendor share one row per (issuer, year, org), and a vendor upload used to
+            # overwrite the manager's OWN figures while the row still said source='client'. Now the manager's value
+            # stands and the vendor only fills what the manager left blank; a differing vendor value is counted.
+            mine = session.execute(text(f"""
+                SELECT {cols} FROM issuer_esg_metrics WHERE issuer_id = CAST(:i AS uuid) AND org_id = CAST(:o AS uuid)
+                       AND reporting_year = :y AND source = 'client'
+            """), {"i": issuer_id, "o": org_id, "y": year}).mappings().first()
+            if mine and any(esg[k] is not None and mine[k] is not None and not _same(esg[k], mine[k]) for k in esg):
+                client_conflicts += 1
+            updates = ", ".join(f"{k} = CASE WHEN issuer_esg_metrics.source = 'client' "
+                                f"THEN COALESCE(issuer_esg_metrics.{k}, EXCLUDED.{k}) "
+                                f"ELSE COALESCE(EXCLUDED.{k}, issuer_esg_metrics.{k}) END" for k in esg)
             session.execute(text(f"""
                 INSERT INTO issuer_esg_metrics (issuer_id, org_id, reporting_year, {cols}, source, data_vintage)
                 VALUES (:i, :o, :y, {placeholders}, 'vendor', now())

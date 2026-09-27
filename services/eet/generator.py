@@ -37,7 +37,6 @@ _PAI = {
     "GHG_Intensity_Of_Investee_Companies_Scope12_Value": (3, lambda v, i: i.get("value_scope_1_2"), "companies"),
     "GHG_Intensity_Of_Investee_Companies_Scope123_Value": (3, lambda v, i: v, "companies"),
     "Exposure_To_Companies_Active_In_The_Fossil_Fuel_Sector_Value": (4, lambda v, i: _pct(v), "companies"),
-    "Share_Energy_Consumption_From_Non-Renewable_Sources_Value": (5, lambda v, i: _pct(v), "companies"),
     "Activities_Negatively_Affecting_Biodiversity-sensitive_Areas_Value": (7, lambda v, i: _pct(v), "companies"),
     "Water_Emissions_Value": (8, lambda v, i: v, "companies"),
     "Hazardous_Waste_Ratio_Value": (9, lambda v, i: v, "companies"),
@@ -57,9 +56,6 @@ NACE_SECTIONS = {"A": range(1, 4), "B": range(5, 10), "C": range(10, 34), "D": r
                  "F": range(41, 44), "G": range(45, 48), "H": range(49, 54), "L": range(68, 69), "M": range(69, 76)}
 _NACE_STEM = "Energy_Consumption_Intensity_Per_High_Impact_Climate_Sector_NACE_{}"
 NOTES = {
-    "Share_Energy_Consumption_From_Non-Renewable_Sources_Value":
-        "PAI 5 is one combined figure (consumption and production); it is reported as the consumption share — the "
-        "production share (30460) is left for the manager.",
     "Carbon_Footprint_Scope12_Value": "Scope 1+2 footprint = the Scope 1+2+3 footprint × (Scope 1+2 ÷ total) financed emissions.",
 }
 
@@ -176,7 +172,25 @@ def _pai_fields(st: dict, nace: Optional[dict] = None) -> tuple[dict, list[str]]
             footprint_parts = ind["value"]
         if stem in NOTES:
             notes.append(NOTES[stem])
-    for sec, share in (nace or {}).items():
+    # PAI 5 split and PAI 6 per section, as the statement carries them (reported → vendor → estimated per company)
+    split = {"Share_Energy_Consumption_From_Non-Renewable_Sources": ((inds.get(5) or {}).get("consumption"), True),
+             "Share_Energy_Production_From_Non-Renewable_Sources": ((inds.get(5) or {}).get("production"), True)}
+    by_sec = (inds.get(6) or {}).get("by_section") or {}
+    split.update({_NACE_STEM.format(s): (cell, False) for s, cell in by_sec.items()})
+    for base, (cell, is_pct) in split.items():
+        if not cell or base + "_Value" not in stems:
+            continue
+        if not cell.get("eligible_pct"):
+            _na(stems, out, base)
+            continue
+        if cell.get("value") is not None:
+            out[stems[base + "_Value"]] = cell["value"] / 100.0 if is_pct else cell["value"]
+            out[stems[base + "_Coverage"]] = cell["coverage_pct"] / 100.0
+        out[stems[base + "_Eligible_Assets"]] = cell["eligible_pct"] / 100.0
+        if cell.get("estimated_pct"):
+            notes.append(f"{base.replace('_', ' ')}: {cell['estimated_pct']}% of fund value rests on estimates "
+                         f"({'; '.join(cell.get('bases') or [])}).")
+    for sec, share in ({} if by_sec else (nace or {})).items():   # statements frozen before per-section figures
         base = _NACE_STEM.format(sec)
         if base + "_Value" not in stems:
             continue
@@ -214,6 +228,7 @@ def _conditional_applies(name: str, sfdr: str, fund_type: Optional[str] = None) 
 
 def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Optional[list[str]] = None) -> dict:
     from ml.regulatory.sfdr_pai import frozen_or_live_statement
+    from services.fund_disclosure import fund_esg_pai  # company figures that look like unit slips
     uses = tuple(u for u in F.USES if u in uses) or ("entity",)
     now = datetime.now(timezone.utc)
     classes = session.execute(text("""
@@ -225,7 +240,7 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
     """), {"o": org_id, "f": fund_ids}).mappings().all()
     header = {"00010_EET_Version": F.version(), "00050_EET_File_Generation_Date_And_Time": now.strftime("%Y-%m-%d %H:%M:%S"),
               **{flag: ("Y" if u in uses else "N") for u, flag in F.USE_FLAG.items()}}
-    rows, per_fund, notes = [], {}, set()
+    rows, per_fund, notes, checks = [], {}, set(), []
     for c in classes:
         if c["fund_id"] not in per_fund:
             st, frozen = frozen_or_live_statement(session, c["fund_id"])
@@ -244,6 +259,8 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
                 "70010_Financial_Instrument_Total_Fund_NAV_Or_Notional": ent.get("total_value_eur"),
                 **pai,
             }
+            checks += [{**o, "fund_id": c["fund_id"], "fund_name": ent.get("fund_name")}
+                       for o in (fund_esg_pai(session, c["fund_id"]) or {}).get("energy_outliers", [])]
             per_fund[c["fund_id"]] = {"values": fund_vals, "answers": _answers(session, org_id, c["fund_id"]),
                                       "statement": "filed" if frozen else "live draft",
                                       "reference_year": ref_year, "fund_name": ent.get("fund_name")}
@@ -259,7 +276,7 @@ def build(session: Session, org_id: str, uses: tuple[str, ...], fund_ids: Option
     return {"eet_version": F.version(), "uses": list(uses), "generated_at": now.isoformat(),
             "field_names": [f["name"] for f in F.fields()], "rows": rows,
             "funds": {k: {kk: v[kk] for kk in ("statement", "reference_year", "fund_name")} for k, v in per_fund.items()},
-            "notes": sorted(notes), "completeness": completeness(rows, uses)}
+            "notes": sorted(notes), "data_checks": checks, "completeness": completeness(rows, uses, checks)}
 
 
 def _not_applicable(values: dict, name: str) -> bool:
@@ -272,7 +289,7 @@ def _not_applicable(values: dict, name: str) -> bool:
     return bool(el) and values.get(el) == "0"
 
 
-def completeness(rows: list[dict], uses: tuple[str, ...]) -> dict:
+def completeness(rows: list[dict], uses: tuple[str, ...], data_checks: Optional[list] = None) -> dict:
     blocking: dict[str, dict] = {}
     review: dict[str, int] = {}
     n_req = n_filled = 0
@@ -303,4 +320,5 @@ def completeness(rows: list[dict], uses: tuple[str, ...]) -> dict:
             "filled_pct": round(100 * n_filled / n_req, 1) if n_req else None,
             "n_blocking": len(blocking), "blocking": sorted(blocking.values(), key=lambda b: b["field"]),
             "n_to_review": len(review), "to_review": sorted(review)[:200],
-            "ready": bool(rows) and not blocking}
+            "n_data_checks": len(data_checks or []),
+            "ready": bool(rows) and not blocking and not data_checks}

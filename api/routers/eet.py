@@ -136,9 +136,30 @@ def put_answers(body: AnswersBody, session: DbSession, ctx: dict = Depends(requi
 @router.get("/eet/draft", summary="What an EET would hold now, and what is still missing")
 def draft(session: DbSession, uses: str = Query("entity"), ctx: dict = Depends(require_permission("reports.view"))):
     out = build(session, ctx["org"]["org_id"], _uses(uses))
-    return {**{k: out[k] for k in ("eet_version", "uses", "funds", "notes", "completeness")},
+    return {**{k: out[k] for k in ("eet_version", "uses", "funds", "notes", "data_checks", "completeness")},
             "rows": [{"fund_id": r["fund_id"], "isin": r["isin"], "n_filled": len(r["values"]), "values": r["values"]}
                      for r in out["rows"]]}
+
+
+class ConfirmBody(BaseModel):
+    issuer_id: str
+    field: str
+    value: float
+    reason: str
+
+
+@router.post("/eet/data-checks/confirm", status_code=201, summary="Confirm a flagged company figure as right (with a reason)")
+def confirm_figure(body: ConfirmBody, session: DbSession, ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.fund_energy import confirm
+    try:
+        out = confirm(session, ctx["org"]["org_id"], body.issuer_id, body.field, body.value, body.reason, ctx["user"]["id"])
+    except ValueError as e:
+        _err(e, "bad_confirmation")
+    write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="eet.data_check.confirm",
+                target_type="issuer", target_id=body.issuer_id,
+                detail={"field": body.field, "value": body.value, "reason": body.reason})
+    session.commit()
+    return out
 
 
 @router.get("/eet/changes", summary="A fresh EET vs the latest published version")

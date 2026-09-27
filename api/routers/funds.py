@@ -156,8 +156,11 @@ class Holding(BaseModel):
                                                         # revenue at the average of the 12 months to it, EVIC at its rate
     reporting_year: Optional[int] = None
     # ── Non-carbon ESG facts (SFDR PAI 5-14), from the manager's ESG feed ──
-    non_renewable_energy_pct: Optional[float] = None    # PAI 5
-    energy_intensity_gwh_per_meur: Optional[float] = None  # PAI 6
+    non_renewable_energy_pct: Optional[float] = Field(None, ge=0, le=100)       # PAI 5 as one combined share
+    non_renewable_consumption_pct: Optional[float] = Field(None, ge=0, le=100)  # PAI 5 — consumption share (EET 30420)
+    non_renewable_production_pct: Optional[float] = Field(None, ge=0, le=100)   # PAI 5 — production share, producers (EET 30460)
+    energy_consumption_gwh: Optional[float] = Field(None, ge=0)                 # company energy use — PAI 6 with revenue
+    energy_intensity_gwh_per_meur: Optional[float] = Field(None, ge=0)          # PAI 6 as reported (GWh per €M revenue)
     biodiversity_sensitive_ops: Optional[bool] = None   # PAI 7
     emissions_to_water_tonnes: Optional[float] = None    # PAI 8
     hazardous_waste_tonnes: Optional[float] = None       # PAI 9
@@ -275,6 +278,9 @@ def _apply_issuer_enrichment(session, issuer_id: str, org_id: str, h: "Holding")
     # Non-carbon ESG facts (PAI 5-14) — org-scoped private disclosure.
     esg_fields = {
         "non_renewable_energy_pct": h.non_renewable_energy_pct,
+        "non_renewable_consumption_pct": h.non_renewable_consumption_pct,
+        "non_renewable_production_pct": h.non_renewable_production_pct,
+        "energy_consumption_gwh": h.energy_consumption_gwh,
         "energy_intensity_gwh_per_meur": h.energy_intensity_gwh_per_meur,
         "biodiversity_sensitive_ops": h.biodiversity_sensitive_ops,
         "emissions_to_water_tonnes": h.emissions_to_water_tonnes,
@@ -329,14 +335,16 @@ _HOLDINGS_TEMPLATE = (
     "# Optional (fill what you already hold — it fills the SFDR statement):\n"
     "#   nace_code (EU industry code), revenue_eur, scope1_tco2e, scope2_tco2e, scope3_tco2e,\n"
     "#   evic_eur (enterprise value incl. cash — unlocks financed emissions, PAI 1/2), asset_class, reporting_year.\n"
+    "#   Company energy (PAI 5/6 — else Tellumen estimates from EU sector / country averages, flagged): energy_consumption_gwh,\n"
+    "#   non_renewable_consumption_pct, non_renewable_production_pct (energy producers), energy_intensity_gwh_per_meur.\n"
     "#   Issuer financials in another currency: revenue / evic + financials_currency (+ financials_date, else 31 Dec\n"
     "#   of reporting_year) — revenue converts at the 12-month average, EVIC at that date's rate.\n"
     "# Leave any optional cell blank; blanks are surfaced as gaps, never guessed. Delete these comment rows before use.\n"
-    "isin,market_value_eur,market_value,currency,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year,revenue,evic,financials_currency,financials_date\n"
-    "US0378331005,5000000,,,26.20,,55000,0,16200000,,equity,2023,383000000000,2900000000000,USD,2023-09-30\n"
-    "DE0007164600,4000000,,,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023,,,,\n"
-    "US5949181045,,6000000,USD,62.01,,290000,110000,13800000,,equity,2023,211900000000,2700000000000,USD,2023-06-30\n"
-    "CH0038863350,3500000,,,,,,,,,equity,,,,,\n"
+    "isin,market_value_eur,market_value,currency,nace_code,revenue_eur,scope1_tco2e,scope2_tco2e,scope3_tco2e,evic_eur,asset_class,reporting_year,revenue,evic,financials_currency,financials_date,energy_consumption_gwh,non_renewable_consumption_pct,non_renewable_production_pct\n"
+    "US0378331005,5000000,,,26.20,,55000,0,16200000,,equity,2023,383000000000,2900000000000,USD,2023-09-30,3200,,\n"
+    "DE0007164600,4000000,,,62.01,31200000000,30000,45000,4300000,210000000000,equity,2023,,,,,410,62,\n"
+    "US5949181045,,6000000,USD,62.01,,290000,110000,13800000,,equity,2023,211900000000,2700000000000,USD,2023-06-30,,,\n"
+    "CH0038863350,3500000,,,,,,,,,equity,,,,,,,,\n"
 )
 
 

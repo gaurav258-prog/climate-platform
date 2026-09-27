@@ -30,7 +30,6 @@ from services.asset_manager_engine import (
     issuer_physical_scores,
     issuer_transition_scores,
 )
-from services.governance.pillar3_templates import HIGH_CLIMATE_NACE, _section
 
 # NACE codes whose revenue is fossil-fuel-derived (SFDR PAI 4). Scoped to Art. 2(62)
 # of Regulation (EU) 2018/1999: exploration, mining, extraction, production,
@@ -84,9 +83,12 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         return {}
     rows = session.execute(text("""
         SELECT CAST(p.market_value_eur AS FLOAT) AS mv, CAST(em.evic_eur AS FLOAT) AS evic,
-               i.nace_code,
+               i.issuer_id::text AS issuer_id, i.name AS issuer_name, i.nace_code, i.country, CAST(rv.revenue_eur AS FLOAT) AS revenue_eur,
                CAST(e.non_renewable_energy_pct AS FLOAT) AS non_renew,
+               CAST(e.non_renewable_consumption_pct AS FLOAT) AS nr_cons,
+               CAST(e.non_renewable_production_pct AS FLOAT) AS nr_prod,
                CAST(e.energy_intensity_gwh_per_meur AS FLOAT) AS energy_int,
+               CAST(e.energy_consumption_gwh AS FLOAT) AS energy_gwh,
                e.biodiversity_sensitive_ops AS biodiv,
                CAST(e.emissions_to_water_tonnes AS FLOAT) AS water,
                CAST(e.hazardous_waste_tonnes AS FLOAT) AS waste,
@@ -106,6 +108,11 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
             WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND evic_eur IS NOT NULL
             ORDER BY (org_id IS NULL), (source = 'vendor'), reporting_year DESC LIMIT 1
         ) em ON TRUE
+        LEFT   JOIN LATERAL (
+            SELECT revenue_eur FROM issuer_emissions
+            WHERE issuer_id = s.issuer_id AND (org_id = :org OR org_id IS NULL) AND revenue_eur IS NOT NULL
+            ORDER BY (org_id IS NULL), (source = 'estimated'), reporting_year DESC LIMIT 1
+        ) rv ON TRUE
         WHERE  p.fund_id = ANY(:fids)
           AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
     """), {"fids": fund_ids, "org": org_id}).mappings().all()
@@ -113,6 +120,9 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
     total_mv = sum(r["mv"] for r in rows) or 0.0
     if total_mv == 0:
         return {}
+    rows = [dict(r) for r in rows]
+    from services.fund_energy import energy_facts, energy_pais, outliers
+    energy = energy_facts(rows)
 
     def wavg(field):
         cov = [(r["mv"], r[field]) for r in rows if r[field] is not None]
@@ -136,18 +146,9 @@ def fund_esg_pai(session, fund_id: str, *, fund_ids=None, org_id=None) -> dict:
         attributed = sum(min(mv / evic, 1.0) * v for mv, evic, v in cov)  # attribution capped at 100%
         return round(attributed / (total_mv / 1e6), 3), round(100 * inv / total_mv, 1)
 
-    def wavg_high_climate(field):
-        # PAI 6 (energy intensity) is scoped to "high climate impact sectors" (NACE
-        # sections A-H, L) per the RTS — reuse the same registry as Pillar 3 Template 1/5
-        # rather than redefine it, and exclude holdings outside that scope from the average.
-        cov = [(r["mv"], r[field]) for r in rows
-               if r[field] is not None and _section(r["nace_code"]) in HIGH_CLIMATE_NACE]
-        w = sum(mv for mv, _ in cov)
-        return (round(sum(mv * v for mv, v in cov) / w, 2), round(100 * w / total_mv, 1)) if w else (None, 0.0)
-
     return {
-        "pai_5": dict(zip(("value", "coverage_pct"), wavg("non_renew"))),
-        "pai_6": dict(zip(("value", "coverage_pct"), wavg_high_climate("energy_int"))),
+        **energy_pais(rows, total_mv, energy),
+        "energy_outliers": outliers(session, org_id, rows, energy),
         "pai_7": dict(zip(("value", "coverage_pct"), share("biodiv"))),
         "pai_8": dict(zip(("value", "coverage_pct"), attributed_per_meur("water"))),
         "pai_9": dict(zip(("value", "coverage_pct"), attributed_per_meur("waste"))),
@@ -402,3 +403,5 @@ def fund_climate_summary(session, fund_id: str, scenario: str, horizon: str) -> 
         },
         "pai": fund_pai(session, fund_id),
     }
+
+

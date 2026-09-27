@@ -443,13 +443,19 @@ def _mandatory_indicator_rows(pai: dict, esg: dict):
     for num in range(5, 15):
         cell = esg.get(f"pai_{num}") if esg else None
         if cell and cell.get("value") is not None:
+            est = cell.get("estimated_pct") or 0.0          # PAI 5/6: the part of the fund resting on sector/country estimates
+            src = _ESG_SRC + (f" · {est}% of fund value estimated (EU sector / country averages — see provenance)" if est else "")
             filled[num] = _row(num, next(a for n, a, _, __ in MANDATORY_PAI_INDICATORS if n == num),
                                next(m for n, _, m, __ in MANDATORY_PAI_INDICATORS if n == num),
                                next(u for n, _, __, u in MANDATORY_PAI_INDICATORS if n == num),
-                               value=cell["value"], coverage=cell["coverage_pct"], source=_ESG_SRC,
-                               method="computed" if cell["coverage_pct"] >= 99.9 else "partial",
-                               input_required=None if cell["coverage_pct"] >= 99.9
-                               else f"{remaining_inputs[num]} on the remaining {round(100 - cell['coverage_pct'], 1)}% by value")
+                               value=cell["value"], coverage=cell["coverage_pct"], source=src,
+                               method="estimated" if est else ("computed" if cell["coverage_pct"] >= 99.9 else "partial"),
+                               input_required=None if cell["coverage_pct"] >= 99.9 and not est
+                               else f"{remaining_inputs[num]} on the {round(100 - cell['coverage_pct'] + est, 1)}% by value not reported")
+    if esg and 5 in filled:           # the European ESG Template asks PAI 5 split, and PAI 6 per high-impact section
+        filled[5]["consumption"], filled[5]["production"] = esg.get("pai_5_consumption"), esg.get("pai_5_production")
+    if esg and 6 in filled:
+        filled[6]["by_section"] = esg.get("pai_6_by_section")
 
     indicators = []
     for num, area, metric, unit in MANDATORY_PAI_INDICATORS:
@@ -618,6 +624,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                 {"item": "Physical hazard scores", "source": "Tellumen golden source (canonical_scores, append-only)", "vintage": "model-stamped"},
                 {"item": "Issuer emissions / revenue / EVIC", "source": "client disclosure where supplied; else estimated", "vintage": f"FY{ref_year}" if ref_year else "n/a"},
                 {"item": "Estimated emissions", "source": "NACE sector intensity × revenue — EXIOBASE 3 IOT_2022_ixi (EU output-weighted GHG), interim fallback where EXIOBASE folds sectors", "vintage": "2022"},
+                {"item": "Estimated energy intensity (PAI 6)", "source": "EU-27 energy consumed per €M turnover by NACE activity — Eurostat energy accounts (PEFA) ÷ structural business statistics (data/reference/nace_energy_intensity.csv); only where no company or vendor figure", "vintage": "2022"},
+                {"item": "Estimated energy mix (PAI 5)", "source": "country renewable share of primary energy (consumption) / of electricity (producers) — Our World in Data (data/reference/country_renewable_shares.csv); only where no company or vendor figure", "vintage": "2024"},
                 {"item": "Sovereign country GHG intensity", "source": "total GHG excl. LULUCF (OWID/PRIMAP-hist) ÷ GDP at current prices in EUR (World Bank WDI × ECB annual average), same year (data/reference/country_ghg_intensity.csv)", "vintage": _country_vintage()},
             ],
             "model_versions": {
