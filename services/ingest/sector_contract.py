@@ -98,6 +98,26 @@ def _plausible_building(rec: dict) -> None:
         raise RowIssue(f"number_of_stories {ns} is not plausible")
 
 
+def _group_entity(ctx: dict, row: dict, k: str) -> Optional[str]:
+    """One of the organisation's own legal entities, named in the file by its name or ID (ctx["group_entities"]:
+    norm_token(name or id) → id). A name we do not have refuses the row — never guessed, never left unassigned."""
+    v = _s(row, k)
+    if v is None:
+        return None
+    hit = (ctx.get("group_entities") or {}).get(norm_token(v))
+    if hit is None:
+        raise RowIssue(f"{k.replace('_', ' ')} '{v}' is not one of your legal entities (Admin → Entities)")
+    return hit
+
+
+def group_entity_fields(ctx: dict, row: dict) -> dict:
+    """Which entity holds the asset, and — for a group-internal exposure — which group company is on the other side."""
+    holder, other = _group_entity(ctx, row, "reporting_entity"), _group_entity(ctx, row, "intragroup_counterparty")
+    if other is not None and other == (holder or ctx.get("default_entity")):
+        raise RowIssue("intragroup counterparty is the same entity that holds the asset")
+    return {"reporting_entity_id": holder, "intragroup_entity_id": other}
+
+
 # ───────────────────────────── the sector contract ─────────────────────────────
 
 @dataclass
@@ -113,4 +133,5 @@ class Sector:
     update: Callable[[Session, str, dict, list[dict]], None]
     table: str = "portfolio_entities"       # where the sector's assets live, and their id column — used to record
     id_column: str = "entity_id"            # where each stored amount came from (money_source)
+    group_entities: bool = False            # rows may name the holding legal entity and an intragroup counterparty
     notes: dict = field(default_factory=dict)

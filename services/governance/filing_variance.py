@@ -11,6 +11,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from services.governance.filings import get_filing, prior_filing_id
+from services.governance.money_format import presentation_of
 
 _AT_RISK = ("H", "VH")
 
@@ -50,6 +51,12 @@ def variance(session: Session, org_id: str, filing_id: str, vs_filing_id: str | 
 
     cp = (cur.get("snapshot") or {}).get("payload") or {}
     pp = (prior.get("snapshot") or {}).get("payload") or {}
+    # multi-currency phase 3: a movement between filings in different currencies would mix exchange rates with risk
+    cc, pc = presentation_of(cp), presentation_of(pp)
+    if cc != pc:
+        return {"supported": False, "framework": cur["framework"], "prior_filing_id": prior_id,
+                "message": f"This filing presents in {cc} and the one before it in {pc} — their figures can't be "
+                           f"subtracted. Compare against a filing in {cc}."}
     return {
         "supported": True, "filing_id": filing_id, "prior_filing_id": prior_id, "framework": cur["framework"],
         "basis": {"current": {"period": cur["period_label"], **(cur.get("snapshot") or {}).get("reporting_basis", {})},

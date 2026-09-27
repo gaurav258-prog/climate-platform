@@ -31,6 +31,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.governance import money_format
 from services.governance.filings import get_filing
 
 
@@ -40,10 +41,11 @@ def _f(rule: str, category: str, severity: str, passed: bool, message: str, ref:
 
 
 def _eur(n) -> str:
+    """A figure in the filing's own currency (money_format.current, set by validate_filing from the snapshot)."""
     try:
-        return f"€{float(n):,.0f}"
+        return money_format.money(float(n), compact=False)
     except (TypeError, ValueError):
-        return "€—"
+        return f"{money_format.symbol(money_format.current.get())}—"
 
 
 # ── framework rule sets ─────────────────────────────────────────────────
@@ -349,6 +351,23 @@ def _org_type(session: Session, org_id: str) -> str | None:
 
 # ── entry point ─────────────────────────────────────────────────────────
 
+def _fx_findings(payload: dict, revisions: list[dict]) -> list[dict]:
+    """Multi-currency phase 3: the rates a filing froze — none revised since, none stale. Warnings: a person decides
+    whether the change matters (a revision may be immaterial); restating is one click away."""
+    fx = payload.get("_fx") or {}
+    if not fx.get("rates_used"):
+        return []
+    out = [_f("fx_rates_current", "currency", "warning", not revisions,
+              "Every exchange rate this filing used is unchanged since it was frozen" if not revisions else
+              f"{len(revisions)} exchange rate(s) used have changed since the freeze ("
+              + "; ".join(f"{r['currency']} {r['basis']} {r['as_of']}" for r in revisions[:3]) + ") — consider restating")]
+    n = fx.get("n_stale_rates") or 0
+    out.append(_f("fx_rates_fresh", "currency", "warning", n == 0,
+                  "Every exchange rate was current for its date" if n == 0 else
+                  f"{n} exchange rate(s) were older than their source normally publishes — check before submitting"))
+    return out
+
+
 def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
     """Run the checklist over a filing's frozen snapshot. Returns findings + counts; `passed` is True
     only when no blocking rule fails."""
@@ -367,8 +386,14 @@ def validate_filing(session: Session, org_id: str, filing_id: str) -> dict:
                            "Frozen payload matches its content hash" if snap.get("hash_verified")
                            else "Frozen payload does NOT match its content hash — tampered or drifted"))
         ruleset = _RULESETS.get(filing["framework"])
-        if ruleset:
-            findings.extend(ruleset(snap.get("payload") or {}))
+        payload = snap.get("payload") or {}
+        token = money_format.current.set(money_format.presentation_of(payload))
+        try:
+            if ruleset:
+                findings.extend(ruleset(payload))
+        finally:
+            money_format.current.reset(token)
+        findings.extend(_fx_findings(payload, filing.get("fx_revisions") or []))
         # cross-report reconciliation vs sibling filings (warning/info only — never blocks a real change)
         from services.governance.filing_crosscheck import cross_report_findings
         findings.extend(cross_report_findings(session, org_id, filing))

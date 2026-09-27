@@ -20,6 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from services.governance.filings import EXPORT_FORMATS, get_filing
+from services.governance.money_format import presentation_of
 
 
 class ExportError(ValueError):
@@ -53,6 +54,8 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
             "filing_id": filing_id, "framework": filing["framework"],
             "period_label": filing["period_label"], "status": filing["status"],
             "snapshot_version": version, "payload_sha256": snap.get("payload_sha256"),
+            "presentation_currency": presentation_of(payload),
+            "amounts_note": "Amount fields keep their *_eur names; they are in presentation_currency (see payload._fx).",
             "hash_verified": snap.get("hash_verified"), "reporting_basis": basis,
             "engine_versions": snap.get("engine_versions"), "payload": payload,
         }
@@ -101,6 +104,12 @@ def _summary_blocks(framework: str, payload: dict) -> list[dict]:
     return blocks
 
 
+def _cur(headers: list[str], payload: dict) -> list[str]:
+    """Column names say the currency the figures are in: value_eur → value_usd for a filing presented in USD."""
+    c = presentation_of(payload).lower()
+    return headers if c == "eur" else [h[:-4] + "_" + c if h.endswith("_eur") else (c if h == "eur" else h) for h in headers]
+
+
 def _xlsx(framework: str, payload: dict) -> io.BytesIO:
     from services.templates.workbook import build_disclosure_workbook, build_export_workbook
     if framework in ("bank_tcfd", "bank_p3esg"):
@@ -109,7 +118,7 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         rows = [[a.get("asset_name"), a.get("sector"), a.get("country"), a.get("value_eur"),
                  a.get("headline_score"), a.get("headline_bucket") or "unscored",
                  a.get("taxonomy_status"), a.get("h3_cell")] for a in payload.get("assets", [])]
-        return build_disclosure_workbook(headers, rows, "Physical risk disclosure", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "Physical risk disclosure", _summary_blocks(framework, payload))
     if framework == "sfdr_pai":
         # build straight from the frozen entity-level indicator rows (fund-level renderer expects a
         # different shape, so we serialize the entity statement's own mandatory-indicator table)
@@ -121,26 +130,26 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                 v = v.get("total", v)
             rows.append([i.get("number"), i.get("area"), i.get("metric"), v,
                          i.get("unit"), i.get("coverage_pct"), i.get("input_required")])
-        return build_export_workbook(headers, rows, sheet_name="SFDR PAI · Annex I Table 1")
+        return build_export_workbook(_cur(headers, payload), rows, sheet_name="SFDR PAI · Annex I Table 1")
     if framework == "reit_tcfd":
         headers = ["property_name", "property_type", "country", "property_value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[p.get("property_name"), p.get("property_type"), p.get("country"), p.get("property_value_eur"),
                  p.get("headline_score"), p.get("headline_bucket") or "unscored",
                  p.get("taxonomy_status"), p.get("h3_cell")] for p in payload.get("properties", [])]
-        return build_disclosure_workbook(headers, rows, "Property physical risk", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "Property physical risk", _summary_blocks(framework, payload))
     if framework == "insurer_climate":
         headers = ["policy_name", "region", "sum_insured_eur", "headline_score", "risk_bucket", "h3_cell"]
         rows = [[p.get("policy_name"), p.get("region"), p.get("sum_insured_eur"), p.get("headline_score"),
                  p.get("headline_bucket") or "unscored", p.get("h3_cell")] for p in payload.get("policies", [])]
-        return build_disclosure_workbook(headers, rows, "NatCat exposure disclosure", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "NatCat exposure disclosure", _summary_blocks(framework, payload))
     if framework == "assetmgmt_tcfd":
         headers = ["holding_name", "sector", "country", "position_value_eur", "headline_score",
                    "risk_bucket", "taxonomy_status", "h3_cell"]
         rows = [[h.get("holding_name"), h.get("sector"), h.get("country"), h.get("position_value_eur"),
                  h.get("headline_score"), h.get("headline_bucket") or "unscored",
                  h.get("taxonomy_status"), h.get("h3_cell")] for h in payload.get("holdings", [])]
-        return build_disclosure_workbook(headers, rows, "Holdings physical risk", _summary_blocks(framework, payload))
+        return build_disclosure_workbook(_cur(headers, payload), rows, "Holdings physical risk", _summary_blocks(framework, payload))
     if framework == "reit_taxonomy":
         # NOTE / assumption: unlike the located FIN books above, this framework's frozen payload is a KPI
         # SUMMARY, not a per-property book — {"rollup": {...}, "art8": art8_kpis(...)} (see
@@ -162,7 +171,7 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                          ev.get("minimum_safeguards_verified_pct"), ev.get("note") or ""])
         for kpi_name, block in (("CapEx", art8.get("capex_kpi") or {}), ("OpEx", art8.get("opex_kpi") or {})):
             rows.append([kpi_name, block.get("status", "declared_customer_data"), None, None, block.get("note") or ""])
-        return build_export_workbook(headers, rows, sheet_name="REIT · Art.8 Taxonomy KPIs")
+        return build_export_workbook(_cur(headers, payload), rows, sheet_name="REIT · Art.8 Taxonomy KPIs")
     if framework == "insurer_solvency":
         # NOTE / assumption: this framework's frozen payload is also a KPI summary, not a per-policy book —
         # {"rollup": {...}, "s2601": s2601_natcat(...)} (see report_snapshots._insurer_solvency and
@@ -195,7 +204,7 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
                 rows.append(["Declared / external", "; ".join(declared.get("items", [])), None, declared.get("note") or ""])
         else:
             rows.append(["Unavailable", s2601.get("reason", "no scored policies"), None, ""])
-        return build_export_workbook(headers, rows, sheet_name="Solvency II · S.26.01 SCR")
+        return build_export_workbook(_cur(headers, payload), rows, sheet_name="Solvency II · S.26.01 SCR")
     raise ExportError(f"no workbook renderer for '{framework}'")
 
 
@@ -241,6 +250,15 @@ _TB_NS = "https://taxonomy.tellumen.eu/tcfd/physical/2024"
 _LEI_SCHEME = "http://standards.iso.org/iso/17442"
 
 
+def _at(value, dec: str):
+    """A fact's value written to the precision its `decimals` attribute states (decimals="0" → whole units), so the
+    stated accuracy and the value agree (XBRL 2.1 §4.6.5)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    d = int(dec)
+    return int(round(value)) if d <= 0 else round(float(value), d)
+
+
 def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
     from xml.sax.saxutils import escape
     org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),
@@ -253,23 +271,26 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -
 
     facts: list[str] = []
 
+    ccy = presentation_of(payload)
+
     def fact(name, unit, value, dec="2"):
         if value is None:
             return
-        facts.append(f'  <tb:{name} contextRef="d0" unitRef="{unit}" decimals="{dec}">{value}</tb:{name}>')
+        unit = f"u{ccy}" if unit == "uMONEY" else unit
+        facts.append(f'  <tb:{name} contextRef="d0" unitRef="{unit}" decimals="{dec}">{_at(value, dec)}</tb:{name}>')
 
-    fact("TotalBookValue", "uEUR", rollup.get("total_value_eur"), dec="0")
-    fact("ValueAtRiskHighPlus", "uEUR", rollup.get("value_at_risk_eur"), dec="0")
+    fact("TotalBookValue", "uMONEY", rollup.get("total_value_eur"), dec="0")
+    fact("ValueAtRiskHighPlus", "uMONEY", rollup.get("value_at_risk_eur"), dec="0")
     fact("ShareOfBookAtRiskPct", "uPure", rollup.get("pct_value_at_risk"))
     fact("AssetsScored", "uPure", rollup.get("n_scored"), dec="0")
     fact("AssetsInScope", "uPure", rollup.get("n_assets"), dec="0")
     # per-hazard value exposed at High+ (dimension folded into the element name — honest & self-describing)
     for hz, b in (payload.get("by_hazard") or {}).items():
         safe = "".join(ch for ch in hz.title() if ch.isalnum())
-        fact(f"ExposedValue{safe}", "uEUR", b.get("exposed_value_eur"), dec="0")
+        fact(f"ExposedValue{safe}", "uMONEY", b.get("exposed_value_eur"), dec="0")
     for k, elem in (("eligible", "TaxonomyEligibleValue"), ("not_eligible", "TaxonomyNotEligibleValue")):
         if isinstance(tax.get(k), dict):
-            fact(elem, "uEUR", tax[k].get("value_eur"), dec="0")
+            fact(elem, "uMONEY", tax[k].get("value_eur"), dec="0")
     for scope in ("scope1", "scope2", "scope3"):
         fact(f"FinancedEmissions{scope.title()}", "uCO2e", em.get(scope), dec="0")
 
@@ -288,7 +309,7 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -
         f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
         '    </xbrli:period>',
         '  </xbrli:context>',
-        '  <xbrli:unit id="uEUR"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>',
+        f'  <xbrli:unit id="u{ccy}"><xbrli:measure>iso4217:{ccy}</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uCO2e"><xbrli:measure>tb:tCO2e</xbrli:measure></xbrli:unit>',
         *facts,
@@ -369,22 +390,25 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) 
 
     facts: list[str] = []
 
+    ccy = presentation_of(payload)
+
     def fact(name, unit, value, dec="2"):
         if value is None:
             return
         el = emap.get(name, name)  # official EBA element when bound, else our provisional local-name
-        facts.append(f'  <p3:{el} contextRef="d0" unitRef="{unit}" decimals="{dec}">{value}</p3:{el}>')
+        unit = f"u{ccy}" if unit == "uMONEY" else unit
+        facts.append(f'  <p3:{el} contextRef="d0" unitRef="{unit}" decimals="{dec}">{_at(value, dec)}</p3:{el}>')
 
     # rollup + Template 5 physical risk
-    fact("TotalBookValue", "uEUR", rollup.get("total_value_eur"), dec="0")
-    fact("PhysicalRiskSensitiveExposure", "uEUR", t5.get("sensitive"), dec="0")
-    fact("PhysicalRiskChronicExposure", "uEUR", t5.get("chronic"), dec="0")
-    fact("PhysicalRiskAcuteExposure", "uEUR", t5.get("acute"), dec="0")
+    fact("TotalBookValue", "uMONEY", rollup.get("total_value_eur"), dec="0")
+    fact("PhysicalRiskSensitiveExposure", "uMONEY", t5.get("sensitive"), dec="0")
+    fact("PhysicalRiskChronicExposure", "uMONEY", t5.get("chronic"), dec="0")
+    fact("PhysicalRiskAcuteExposure", "uMONEY", t5.get("acute"), dec="0")
     # Templates 6–8 Green Asset Ratio
-    fact("GARTotalAssets", "uEUR", gar.get("total_assets"), dec="0")
-    fact("GARCoveredAssets", "uEUR", gar.get("covered_assets"), dec="0")
-    fact("GAREligibleExposure", "uEUR", gar.get("eligible"), dec="0")
-    fact("GARAlignedExposure", "uEUR", gar.get("aligned"), dec="0")
+    fact("GARTotalAssets", "uMONEY", gar.get("total_assets"), dec="0")
+    fact("GARCoveredAssets", "uMONEY", gar.get("covered_assets"), dec="0")
+    fact("GAREligibleExposure", "uMONEY", gar.get("eligible"), dec="0")
+    fact("GARAlignedExposure", "uMONEY", gar.get("aligned"), dec="0")
     fact("GreenAssetRatioStockPct", "uPure", gar.get("gar_stock_pct"))
     # Template 1 financed emissions (Scope 1–3)
     fact("FinancedEmissionsScope1", "uCO2e", s1 or None, dec="0")
@@ -409,7 +433,7 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) 
         f'      <xbrli:endDate>{period}-12-31</xbrli:endDate>',
         '    </xbrli:period>',
         '  </xbrli:context>',
-        '  <xbrli:unit id="uEUR"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>',
+        f'  <xbrli:unit id="u{ccy}"><xbrli:measure>iso4217:{ccy}</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uPure"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>',
         '  <xbrli:unit id="uCO2e"><xbrli:measure>p3:tCO2e</xbrli:measure></xbrli:unit>',
         *facts,

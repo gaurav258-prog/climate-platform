@@ -37,8 +37,8 @@ from services.ingest.sector_contract import (  # noqa: F401 — RowIssue/Sector 
 
 
 def _default_entity(session: Session, org_id: str) -> dict:
-    from services.governance.entities import default_reporting_entity
-    return {"default_entity": default_reporting_entity(session, org_id)}
+    from services.governance.entities import default_reporting_entity, name_lookup
+    return {"default_entity": default_reporting_entity(session, org_id), "group_entities": name_lookup(session, org_id)}
 
 
 def _pe_existing(vertical: str, extra_select: str = "", extra_join: str = "") -> Callable[[Session, str], list[dict]]:
@@ -46,7 +46,8 @@ def _pe_existing(vertical: str, extra_select: str = "", extra_join: str = "") ->
         rows = session.execute(text(f"""
             SELECT e.entity_id::text AS entity_id, e.external_ref, e.entity_name, e.entity_type, e.latitude, e.longitude, e.h3_cell,
                    e.region, e.country, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur, e.sector, e.nace_code,
-                   e.construction_type, e.year_built, e.number_of_stories, e.borrower_entity_id, e.minimum_safeguards_status
+                   e.construction_type, e.year_built, e.number_of_stories, e.borrower_entity_id, e.minimum_safeguards_status,
+                   e.reporting_entity_id::text AS reporting_entity_id, e.intragroup_entity_id::text AS intragroup_entity_id
                    {extra_select}
             FROM portfolio_entities e {extra_join}
             WHERE e.org_id = CAST(:o AS uuid) AND e.vertical = :v AND e.source = 'own'
@@ -89,7 +90,7 @@ def _bank_build(ctx: dict, row: dict) -> dict:
 def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r.setdefault("entity_id", str(uuid.uuid4()))
-        r["org_id"], r["reporting_entity_id"] = org_id, ctx.get("default_entity")
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, sector, borrower_entity_id, minimum_safeguards_status,
@@ -128,7 +129,7 @@ BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
                            CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level,
                            x.no_stated_maturity""",
                            "LEFT JOIN ext_banking x ON x.entity_id = e.entity_id"),
-              _bank_insert, _bank_update)
+              _bank_insert, _bank_update, group_entities=True)
 
 
 # ── insurance: Statement of Values → portfolio_entities (insurance) + ext_insurance ──
@@ -166,7 +167,7 @@ def _ins_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
         r.setdefault("entity_id", str(uuid.uuid4()))
         r["entity_type"] = r.get("entity_type") or "property"
         r["deductible_pct"] = 0.02 if r.get("deductible_pct") is None else r["deductible_pct"]   # new asset only
-        r["org_id"], r["reporting_entity_id"] = org_id, ctx.get("default_entity")
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, construction_type, year_built, number_of_stories,
@@ -205,7 +206,7 @@ INSURANCE = Sector("insurance_policies", "entity_name", "primary_value_eur",
                                 CAST(x.business_interruption_value_eur AS FLOAT) AS business_interruption_value_eur, x.cresta_zone,
                                 CAST(x.motor_sum_insured_eur AS FLOAT) AS motor_sum_insured_eur""",
                                 "LEFT JOIN ext_insurance x ON x.entity_id = e.entity_id"),
-                   _ins_insert, _ins_update)
+                   _ins_insert, _ins_update, group_entities=True)
 
 
 # ── real estate: property schedule → portfolio_entities (realestate) + ext_realestate ──
@@ -234,7 +235,7 @@ def _rei_build(ctx: dict, row: dict) -> dict:
 def _rei_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r.setdefault("entity_id", str(uuid.uuid4()))
-        r["org_id"], r["reporting_entity_id"] = org_id, ctx.get("default_entity")
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, entity_type, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, construction_type, year_built, number_of_stories,
@@ -268,7 +269,7 @@ REALESTATE = Sector("realestate_properties", "entity_name", "primary_value_eur",
                     _pe_existing("realestate", """, CAST(x.annual_noi_eur AS FLOAT) AS annual_noi_eur, x.epc_rating,
                                  CAST(x.annual_gross_rental_revenue_eur AS FLOAT) AS annual_gross_rental_revenue_eur""",
                                  "LEFT JOIN ext_realestate x ON x.entity_id = e.entity_id"),
-                    _rei_insert, _rei_update)
+                    _rei_insert, _rei_update, group_entities=True)
 
 
 # ── asset management: holdings book → portfolio_entities (assetmgmt) ──
@@ -289,7 +290,7 @@ def _hol_build(ctx: dict, row: dict) -> dict:
 def _hol_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
     for r in recs:
         r.setdefault("entity_id", str(uuid.uuid4()))
-        r["org_id"], r["reporting_entity_id"] = org_id, ctx.get("default_entity")
+        r["org_id"], r["reporting_entity_id"] = org_id, r.get("reporting_entity_id") or ctx.get("default_entity")
     session.execute(text("""
         INSERT INTO portfolio_entities (entity_id, org_id, vertical, entity_name, sector, nace_code, latitude, longitude, h3_cell,
                                         region, country, primary_value_eur, borrower_entity_id, minimum_safeguards_status,
@@ -308,7 +309,7 @@ def _hol_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> N
 
 HOLDINGS = Sector("assetmgmt_holdings", "entity_name", "primary_value_eur",
                   _PE_COMMON + ("sector", "nace_code", "borrower_entity_id", "minimum_safeguards_status"),
-                  _default_entity, _hol_build, _pe_existing("assetmgmt"), _hol_insert, _hol_update)
+                  _default_entity, _hol_build, _pe_existing("assetmgmt"), _hol_insert, _hol_update, group_entities=True)
 
 
 # ── agriculture: sourcing plots → sc_sourcing_plots ──
@@ -422,7 +423,22 @@ def write(session: Session, sector: Sector, org_id: str, ctx: dict, new: list[di
         sector.insert(session, org_id, ctx, new_c)
     if upd_c:
         sector.update(session, org_id, ctx, upd_c)
+    if sector.group_entities:
+        _assign_group_entities(session, org_id, new_c + upd_c)
     cells: dict[str, Any] = {}
     for r in new + [u for u in updates if u.get("_moved")]:
         cells[r["h3_cell"]] = (r["latitude"], r["longitude"])
     return {"cell_coords": cells, "entity_ids": [r["entity_id"] for r in new_c]}
+
+
+def _assign_group_entities(session: Session, org_id: str, recs: list[dict]) -> None:
+    """The holding legal entity and intragroup counterparty a row names (already resolved at check time). Only
+    what the file gives changes; a blank keeps the entity already recorded (and a new asset keeps the default)."""
+    rows = [{"id": r["entity_id"], "o": org_id, "re": r.get("reporting_entity_id"), "ig": r.get("intragroup_entity_id")}
+            for r in recs if r.get("reporting_entity_id") or r.get("intragroup_entity_id")]
+    if rows:
+        session.execute(text("""
+            UPDATE portfolio_entities SET reporting_entity_id = COALESCE(CAST(:re AS uuid), reporting_entity_id),
+                   intragroup_entity_id = COALESCE(CAST(:ig AS uuid), intragroup_entity_id), updated_at = now()
+            WHERE entity_id = CAST(:id AS uuid) AND org_id = CAST(:o AS uuid)
+        """), rows)

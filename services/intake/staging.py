@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from services.ingest import batch_controls as bc
 from services.ingest import sector_ingest as si
-from services.ingest.sector_contract import RowIssue, Sector
+from services.ingest.sector_contract import RowIssue, Sector, group_entity_fields
 from services.ingest.upload_validation import validate_table
 from services.intake import matching, money, values
 
@@ -46,6 +46,8 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
             continue
         try:
             rec = sector.build(ctx, n)
+            if sector.group_entities:
+                rec.update(group_entity_fields(ctx, n))
             if rn - 2 in natives:
                 rec["_money"] = natives[rn - 2]                # each amount as sent + the rate that converted it
             records.append(rec)
@@ -56,7 +58,7 @@ def stage(session: Session, org_id: str, sector: Sector, df: pd.DataFrame, specs
 
     existing = sector.existing(session, org_id)
     results = matching.match(records, existing, name_field=sector.name_field, value_field=sector.value_field,
-                             compare=sector.compare)
+                             compare=sector.compare + (("reporting_entity_id", "intragroup_entity_id") if sector.group_entities else ()))
     for rn, res in zip(row_nos, results):
         if res.get("status") in ("ambiguous", "duplicate"):
             rejected[rn] = res["problem"] + (" — add your asset ID to say which one" if res["status"] == "ambiguous" else "")
@@ -125,9 +127,11 @@ def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Opti
     needs_polygon = sum(1 for s in st["staged"] if s["record"].get("_needs_polygon"))
     if needs_polygon:
         notes["needs_polygon"] = needs_polygon
-    if new and sector.key != "supply_plots" and not st["ctx"].get("default_entity"):
-        notes["reporting_entity_gap"] = (f"{len(new)} new asset(s) have no reporting entity (this organisation has more "
-                                         "than one), so they are not in any per-entity filing until assigned.")
+    unassigned = [r for r in new if not r.get("reporting_entity_id")]
+    if unassigned and sector.group_entities and not st["ctx"].get("default_entity"):
+        notes["reporting_entity_gap"] = (f"{len(unassigned)} new asset(s) have no reporting entity (this organisation has more "
+                                         "than one, and the file has no reporting_entity column for them), so they are "
+                                         "not in any per-entity filing until assigned.")
     return {"n_landed": len(after), "value_landed": value_landed, "cell_coords": out["cell_coords"], "notes": notes}
 
 

@@ -117,13 +117,13 @@ OrgId = Annotated[str, Depends(resolve_org)]
 
 
 def _properties_with_risk(session, org_id, scenario, horizon, severity_model="universal",
-                          entity_ids=None, value_weights=None):
+                          entity_ids=None, value_weights=None, translation=None):
     """All of an org's properties (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)."""
     rows = fetch_entities_with_risk(session, org_id, "realestate", scenario, horizon, severity_model,
                                      ext_table="ext_realestate", ext_columns=EXT_REALESTATE_COLUMNS,
                                      extra_calc=_realestate_extra,
-                                     entity_ids=entity_ids, value_weights=value_weights)
+                                     entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_property_row(r) for r in rows]
 
 
@@ -184,14 +184,14 @@ def summary(session: DbSession, org_id: OrgId,
     return {"org_id": org_id, "org": dict(org) if org else None, "rollup": _rollup(properties, _st["adaptation_scenario"])}
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
     """The single source of truth for a REIT TCFD / EU-Taxonomy physical-risk disclosure — live callers
     (GET /disclosure) and frozen callers (filing snapshots) both go through this so the numbers can't drift.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
     _st = get_calc_settings(session, org_id)
     severity_model = _st["severity_model"]
     properties = _properties_with_risk(session, org_id, scenario, horizon, severity_model,
-                                       entity_ids=entity_ids, value_weights=value_weights)
+                                       entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     hazards: dict = {}
     for p in properties:
         for hz in p["hazards"]:

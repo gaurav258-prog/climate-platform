@@ -158,6 +158,13 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
     _f("book_date", "Book date", "date", "The date this row's figures describe (YYYY-MM-DD). Overrides the book date declared "
        "for the file. Balances convert at that day's rate; annual flows at the average of the 12 months to it.",
        "2026-06-30", aliases=("as_of", "as_of_date", "asof", "valuation_date", "reporting_date", "stichtag", "date")),
+    _f("reporting_entity", "Reporting entity", "text", "Which of your legal entities holds this asset — its name or ID as set "
+       "up under Admin → Entities. Leave out when the whole file belongs to one entity.", "Meridian Bank AG",
+       aliases=("legal_entity", "booking_entity", "entity", "holding_entity", "subsidiary", "company_code")),
+    _f("intragroup_counterparty", "Intragroup counterparty", "text", "Only when the other side is a company of your own group "
+       "(an intragroup loan, a property let to a sister company): that entity's name or ID. Kept in its solo filing, "
+       "removed from a consolidated filing that contains both.", "Meridian Leasing GmbH",
+       aliases=("intragroup", "intercompany", "intercompany_counterparty", "group_counterparty", "ic_partner", "trading_partner")),
     _f("plot_area_ha", "Plot area (ha)", "fraction", "Hectares; computed from the boundary when given.", "2.3", aliases=("area_ha", "area", "hectares"),
        range=(0, 1_000_000)),
 )}

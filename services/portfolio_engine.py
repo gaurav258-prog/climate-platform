@@ -63,6 +63,9 @@ def _relevant(hazard: str, model_version, exclude_headline_hazards: tuple) -> bo
     return _eligible(hazard, "buildings", model_version)
 
 
+_EXT_WITH_MONEY_SOURCE = {"ext_banking"}          # extension tables whose amounts record where they came from
+
+
 def fetch_entities_with_risk(
     session, org_id: str, vertical: str, scenario: str, horizon: str,
     severity_model: str = "universal",
@@ -74,6 +77,7 @@ def fetch_entities_with_risk(
     value_weights: Optional[dict] = None,
     source: str = "own",
     subject_org_id: Optional[str] = None,
+    translation=None,
 ) -> list:
     """All of an org's entities for one vertical (metadata + extension fields)
     + their per-hazard projected risk + shared valuation block. exclude_headline_hazards
@@ -81,8 +85,12 @@ def fetch_entities_with_risk(
     calc everywhere except where a caller explicitly needs the full hazard list
     (e.g. insurance's parametric triggers, which read `hazards` directly, not headline).
     valuation_kwargs(row) -> dict lets one vertical (banking) pass extra valuation_block
-    kwargs (outstanding_balance_eur, for LTV) without every vertical needing that concept."""
+    kwargs (outstanding_balance_eur, for LTV) without every vertical needing that concept.
+    translation (services.governance.translation.Translation, filings only) presents every amount in the filing's
+    currency and removes group-internal exposures; None = the stored EUR figures (live views)."""
     ext_select = (", " + ", ".join(ext_columns)) if ext_columns else ""
+    if ext_table in _EXT_WITH_MONEY_SOURCE:
+        ext_select += ", x.money_source AS ext_money_source"
     ext_join = f"LEFT JOIN {ext_table} x ON x.entity_id = e.entity_id" if ext_table else ""
     # entity_ids scopes the book to a set of reporting entities (a legal entity, or a group's whole subtree)
     # for per-entity / consolidated reporting; None = the whole org (the implicit top scope).
@@ -102,7 +110,8 @@ def fetch_entities_with_risk(
                e.country, e.region, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
                e.construction_type, e.year_built, e.number_of_stories,
                e.borrower_entity_id, e.minimum_safeguards_status,
-               e.reporting_entity_id::text AS reporting_entity_id, e.location_precision, e.external_ref
+               e.reporting_entity_id::text AS reporting_entity_id, e.location_precision, e.external_ref,
+               e.intragroup_entity_id::text AS intragroup_entity_id, e.money_source
                {ext_select}
         FROM portfolio_entities e
         {ext_join}
@@ -196,6 +205,12 @@ def fetch_entities_with_risk(
     """), {"o": org_id, "v": vertical}).mappings().all()
     val_by_entity = {v["entity_id"]: dict(v) for v in valuations}
 
+    from services.governance.translation import (
+        OWN_STAKE,
+        elimination_share,
+        record_elimination,
+        translate_row,
+    )
     out = []
     for e in entities:
         hz = sorted(by_entity.get(e["entity_id"], []), key=lambda x: -x["score"])
@@ -219,12 +234,29 @@ def fetch_entities_with_risk(
         # share — internally inconsistent numbers in one frozen filing. counterparty_evic_eur is NEVER
         # weighted: EVIC is the counterparty's own total enterprise value, not ours to scale by our stake —
         # it's the PCAF attribution factor's denominator, and scaling it would understate the attribution.
+        #
+        # Multi-currency phase 3 (2026-09-26): in a filing, every amount is first presented in the filing's currency
+        # (translation.translate_row), then group-internal exposures are removed (elimination), then the stake weight
+        # applies — to EVERY own-stake amount (translation.OWN_STAKE: values, balances, sums insured, rent, NOI; NOI and
+        # rent used to stay unweighted), never to the counterparty's own figures (EVIC, its revenue).
         ev = dict(e)
+        ms, ext_ms = ev.pop("money_source", None), ev.pop("ext_money_source", None)
+        if translation is not None:
+            merged = {"fields": {**((ext_ms or {}).get("fields") or {}), **((ms or {}).get("fields") or {})}}
+            translate_row(session, translation, ev, merged)
+            share = elimination_share(translation, ev)
+            if share > 0:
+                record_elimination(translation, ev, share, ev.get("primary_value_eur"))
+                if share >= 1.0:
+                    continue                           # wholly group-internal: not part of the consolidated book
+                for c in OWN_STAKE:
+                    if ev.get(c) is not None:
+                        ev[c] = float(ev[c]) * (1.0 - share)
         w = value_weights.get(e["reporting_entity_id"], 1.0) if value_weights else 1.0
-        if w != 1.0 and ev["primary_value_eur"] is not None:
-            ev["primary_value_eur"] = ev["primary_value_eur"] * w
-        if w != 1.0 and ev.get("outstanding_loan_balance_eur") is not None:
-            ev["outstanding_loan_balance_eur"] = ev["outstanding_loan_balance_eur"] * w
+        if w != 1.0:
+            for c in OWN_STAKE:
+                if ev.get(c) is not None:
+                    ev[c] = float(ev[c]) * w
 
         extra_val_kwargs = valuation_kwargs(ev) if valuation_kwargs else {}
         attrs = {"construction_type": ev["construction_type"], "year_built": ev["year_built"],

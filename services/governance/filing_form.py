@@ -6,6 +6,8 @@ The frozen snapshot is immutable; overrides live in a separate audited layer and
 """
 from __future__ import annotations
 
+from services.governance.money_format import money, presentation_of
+
 
 def _dp(key, label, value, fmt="num", unit=None, source="calculated", note=None):
     return {"key": key, "label": label, "value": value, "fmt": fmt, "unit": unit, "source": source, "note": note}
@@ -136,7 +138,7 @@ def _assetmgmt_tcfd_form(payload: dict) -> list[dict]:
     r = payload.get("rollup") or {}
     c = payload.get("concentration") or {}
     by_hz = payload.get("by_hazard") or {}
-    e = lambda v: (f"€{round(v):,}" if isinstance(v, (int, float)) else "—")  # noqa: E731
+    e = lambda v: money(v, presentation_of(payload), compact=False)  # noqa: E731
     pct = lambda v: (f"{v}%" if isinstance(v, (int, float)) else "—")          # noqa: E731
 
     sections: list[dict] = [{
@@ -191,7 +193,7 @@ def _insurer_solvency_form(payload: dict) -> list[dict]:
         return [{"section": "Solvency II — Nat-Cat SCR (S.26.01.01)",
                  "rows": [{"label": "Status", "value": s.get("reason", "not available")}]}]
     scr = s.get("natcat_scr") or {}
-    e = lambda v: (f"€{v:,}" if isinstance(v, (int, float)) else "—")  # noqa: E731
+    e = lambda v: money(v, presentation_of(payload), compact=False)  # noqa: E731
     return [{
         "section": "Nat-Cat SCR (S.26.01.01) — internal-model basis",
         "note": s.get("note"),

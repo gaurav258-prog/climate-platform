@@ -77,6 +77,19 @@ def default_reporting_entity(session: Session, org_id: str) -> str | None:
     return rows[0] if len(rows) == 1 else None
 
 
+def name_lookup(session: Session, org_id: str) -> dict[str, str]:
+    """How a customer file may name one of the organisation's legal entities: its name (case, spacing and punctuation
+    ignored) or its ID → entity_id. A name two entities share is left out, so it can never pick the wrong one."""
+    from services.ingest.fields import norm_token
+    rows = session.execute(text("SELECT entity_id::text, name FROM reporting_entities WHERE org_id = :o"), {"o": org_id}).all()
+    by_name: dict[str, set] = {}
+    for eid, name in rows:
+        by_name.setdefault(norm_token(name), set()).add(eid)
+    out = {k: next(iter(v)) for k, v in by_name.items() if len(v) == 1}
+    out.update({norm_token(eid): eid for eid, _ in rows})
+    return out
+
+
 def subtree_ids(session: Session, org_id: str, entity_id: str) -> list[str]:
     """The entity + all its descendants (recursive) — the set of reporting entities a consolidated filing
     at `entity_id` covers. Tenant-scoped."""

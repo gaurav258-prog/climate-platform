@@ -10,6 +10,7 @@ invented — a datapoint the snapshot doesn't carry renders as "—".
 """
 from __future__ import annotations
 
+from services.governance import money_format
 from services.governance.reg_reference import reference
 
 
@@ -678,19 +679,9 @@ def _insurer_annex(dps: dict, payload: dict) -> list[dict]:
 
 
 def _eur(v):
-    """Readable euro for a computed annex cell (values are already in EUR)."""
-    if not isinstance(v, (int, float)):
-        return "—"
-    n = float(v)
-    if n == 0:
-        return "€0"
-    if abs(n) >= 1e9:
-        return f"€{n / 1e9:.2f}bn"
-    if abs(n) >= 1e6:
-        return f"€{n / 1e6:.1f}m"
-    if abs(n) >= 1e3:
-        return f"€{round(n / 1e3):,}k"
-    return f"€{round(n):,}"
+    """Readable money for a computed annex cell, in the currency the filing presents in (money_format.current, set by
+    build_annex from the frozen snapshot — '€' only for a EUR filing)."""
+    return money_format.money(v)
 
 
 # ── EBA Pillar 3 ESG (ITS 2022/2453): Template 5 physical risk + GAR summary + Scope-3 for transition ─────
@@ -889,7 +880,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             t5_rows.append({"type": "row", "cells": [_txt(_pretty_hazard(dps[key].get("label") or key.split(".", 1)[1])), _cell(dps, key)]})
         if t5_rows:
             sections.append({"title": "Template 5 — Banking book · climate-change physical risk",
-                             "columns": ["Exposure metric", "Amount (€)"], "rows": t5_rows,
+                             "columns": ["Exposure metric", f"Amount ({money_format.current.get()})"], "rows": t5_rows,
                              "note": "Physical-risk exposure per ITS (EU) 2022/2453 (per-asset book unavailable for the sector grid)."})
 
     # GAR (Templates 6–8) — Green Asset Ratio by counterparty class, built to the ITS grid: gross carrying
@@ -1048,7 +1039,16 @@ def _assetmgmt_annex(dps: dict, payload: dict) -> list[dict]:
 def build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | None = None) -> dict | None:
     """Assemble the official-form layout for a framework from its merged datapoints. `dps` is key -> merged
     datapoint; `groups` is the datapoint-list grouping (used for the generic/ESRS fallback); `payload` is the
-    raw frozen snapshot, used where an official template is a computed GRID (Pillar 3 Template 5) not flat cells."""
+    raw frozen snapshot, used where an official template is a computed GRID (Pillar 3 Template 5) not flat cells.
+    Money is written in the currency the snapshot presents in (multi-currency phase 3)."""
+    token = money_format.current.set(money_format.presentation_of(payload))
+    try:
+        return _build_annex(framework, dps, groups, payload)
+    finally:
+        money_format.current.reset(token)
+
+
+def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | None) -> dict | None:
     if framework == "sfdr_pai":
         sections = _sfdr_annex(dps)
     elif framework == "bank_p3esg":

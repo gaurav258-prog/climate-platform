@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { useState, Fragment, createContext, useContext } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink, FileSpreadsheet, Pencil, Check, X, Clock } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -6,6 +6,8 @@ import { useAuth } from '../lib/auth'
 import { Card } from './ui'
 import { hazardLabel } from '../lib/hazards'
 import { toast } from '../lib/toast'
+import { money } from '../lib/money'
+import FilingFx, { type Fx } from './FilingFx'
 
 // The final form — the frozen disclosure, shown two ways over ONE set of figures:
 //   • Official form — the regulator's actual Annex / template layout (SFDR RTS Annex I Table 1, EU-Taxonomy
@@ -26,14 +28,15 @@ interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string }
 interface AnnexRow { type: 'row' | 'subheader'; label?: string; cells?: AnnexCell[] }
 interface AnnexSection { title: string; note: string | null; columns: string[]; col_sources?: string[]; rows: AnnexRow[]; key?: string }
 interface Annex { official_name: string; authority: string | null; official_form: string | null; legal_basis: string | null; form_url: string | null; sections: AnnexSection[] }
-interface Form { framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null }
+interface Form { framework: string; label: string; period_label: string; status: string; snapshot_version: number | null; official_form_url: string | null; n_manual: number; n_pending: number; groups: Group[]; annex: Annex | null; currency?: string; fx?: Fx | null }
 
-const eur = (n: number) => n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
-function fmt(v: number | string | null, f: string): string {
+// the currency the frozen filing presents in (fmt 'eur' = a money figure, whatever its currency)
+const CurrencyCtx = createContext('EUR')
+function fmt(v: number | string | null, f: string, ccy = 'EUR'): string {
   if (v == null) return '—'
   if (typeof v === 'string') return v
   switch (f) {
-    case 'eur': return eur(v)
+    case 'eur': return money(v, ccy)
     case 'pct': return `${v}%`
     case 'tco2e': return Math.round(v).toLocaleString('en-GB')
     default: return Number.isInteger(v) ? v.toLocaleString('en-GB') : v.toLocaleString('en-GB', { maximumFractionDigits: 2 })
@@ -61,7 +64,9 @@ export default function FilingForm({ filingId }: { filingId: string }) {
   const hasAnnex = !!d.annex && d.annex.sections.length > 0
 
   return (
+    <CurrencyCtx.Provider value={d.currency ?? 'EUR'}>
     <div>
+      {d.fx && <FilingFx fx={d.fx} />}
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Final form · as it will be submitted
           {d.n_manual > 0 && <span className="ml-2" style={{ color: 'var(--color-warn)' }}>· {d.n_manual} manual</span>}
@@ -89,6 +94,7 @@ export default function FilingForm({ filingId }: { filingId: string }) {
 
       <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2"><span className="text-[var(--color-sky)]">book</span> = uploaded book · <span className="text-[var(--color-mute)]">calc</span> = golden source · <span style={{ color: 'var(--color-warn)' }}>manual</span> = analyst override (4-eyes, audited)</div>
     </div>
+    </CurrencyCtx.Provider>
   )
 }
 
@@ -300,15 +306,16 @@ function AnnexView({ annex, cells: cellVals, pending: pendingVals, onCells, hide
 // a value cell — the merged datapoint with its source/manual badge, a pending marker, and (when editable) the
 // override pencil. Shared by the official form and the datapoint list.
 function CellValue({ dp, canEdit, edit, setEdit }: { dp: Dp } & EditProps) {
+  const ccy = useContext(CurrencyCtx)
   const editable = canEdit && dp.fmt !== 'text' && typeof dp.value === 'number'
   return (
     <span className="inline-flex items-center gap-1.5 justify-end">
-      {dp.pending && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: 'var(--color-sky)', background: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' }}><Clock size={9} /> pending → {fmt(dp.pending.value, dp.fmt)}</span>}
+      {dp.pending && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ color: 'var(--color-sky)', background: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' }}><Clock size={9} /> pending → {fmt(dp.pending.value, dp.fmt, ccy)}</span>}
       {dp.manual
-        ? <span title={`Manual override · was ${fmt(dp.original_value ?? null, dp.fmt)} · ${dp.override?.reason} · by ${dp.override?.by}, approved by ${dp.override?.approved_by}`}
+        ? <span title={`Manual override · was ${fmt(dp.original_value ?? null, dp.fmt, ccy)} · ${dp.override?.reason} · by ${dp.override?.by}, approved by ${dp.override?.approved_by}`}
             className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 16%, transparent)' }}>manual ⓘ</span>
         : dp.value != null && <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ color: dp.source === 'book' ? 'var(--color-sky)' : 'var(--color-mute)', background: 'color-mix(in oklab, var(--color-line) 60%, transparent)' }}>{dp.source === 'book' ? 'book' : 'calc'}</span>}
-      <span className="mono text-[12.5px] tabular-nums" style={{ color: dp.manual ? 'var(--color-warn)' : 'var(--color-ink)' }}>{fmt(dp.value, dp.fmt)}</span>
+      <span className="mono text-[12.5px] tabular-nums" style={{ color: dp.manual ? 'var(--color-warn)' : 'var(--color-ink)' }}>{fmt(dp.value, dp.fmt, ccy)}</span>
       {dp.unit && <span className="mono text-[9px] text-[var(--color-faint)]">{dp.unit}</span>}
       {editable && edit !== dp.key && <button onClick={() => setEdit(dp.key)} title="Propose a manual override (4-eyes)" className="text-[var(--color-faint)] hover:text-[var(--color-sky)]"><Pencil size={11} /></button>}
     </span>
@@ -317,6 +324,7 @@ function CellValue({ dp, canEdit, edit, setEdit }: { dp: Dp } & EditProps) {
 
 // ── the flat labelled datapoint list ──────────────────────────────────────────────────────────────────────
 function DatapointList({ groups, ...ep }: { groups: Group[] } & EditProps) {
+  const ccy = useContext(CurrencyCtx)
   return (
     <Card className="p-0 overflow-hidden">
       {groups.map((g, gi) => (
@@ -336,7 +344,7 @@ function DatapointList({ groups, ...ep }: { groups: Group[] } & EditProps) {
                   </div>
                   {isEditing && <OverrideEditor filingId={ep.filingId} dp={dp} onClose={() => ep.setEdit(null)} onDone={ep.onDone} />}
                   {dp.manual && dp.override && (
-                    <div className="mono text-[10px] text-[var(--color-faint)] mt-1">was {fmt(dp.original_value ?? null, dp.fmt)} · “{dp.override.reason}” · {dp.override.by} → approved {dp.override.approved_by}</div>
+                    <div className="mono text-[10px] text-[var(--color-faint)] mt-1">was {fmt(dp.original_value ?? null, dp.fmt, ccy)} · “{dp.override.reason}” · {dp.override.by} → approved {dp.override.approved_by}</div>
                   )}
                 </div>
               )

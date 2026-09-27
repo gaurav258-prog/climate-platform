@@ -123,7 +123,7 @@ OrgId = Annotated[str, Depends(resolve_org)]
 
 
 def _assets_with_risk(session, org_id, scenario, horizon, severity_model="universal",
-                      entity_ids=None, value_weights=None):
+                      entity_ids=None, value_weights=None, translation=None):
     """All of an org's assets (metadata) + their per-hazard projected risk.
     severity_model: org_calc_settings' choice ('universal' default, or
     'peril_specific' -- see ml/scoring/valuation_discount.py). Thin wrapper
@@ -134,7 +134,7 @@ def _assets_with_risk(session, org_id, scenario, horizon, severity_model="univer
     rows = fetch_entities_with_risk(session, org_id, "banking", scenario, horizon, severity_model,
                                      ext_table="ext_banking", ext_columns=EXT_BANKING_COLUMNS,
                                      valuation_kwargs=_ltv_kwargs,
-                                     entity_ids=entity_ids, value_weights=value_weights)
+                                     entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_asset_list_row(r) for r in rows]
 
 
@@ -237,7 +237,7 @@ def _hazard_rollup(assets):
     }
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
     """The single source of truth for a TCFD/EU-Taxonomy disclosure: live callers
     (GET /disclosure) and frozen callers (submission snapshots) both go through
     this, so a submission's numbers can never drift from what the live view shows
@@ -245,12 +245,14 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     the book for a per-entity or consolidated-group filing (None = whole org)."""
     severity_model = get_calc_settings(session, org_id)["severity_model"]
     assets = _assets_with_risk(session, org_id, scenario, horizon, severity_model,
-                               entity_ids=entity_ids, value_weights=value_weights)
+                               entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     # Climate expected loss (€ annual + lifetime, maturity-matched) — the IFRS-9/ECL-relevant number. Physical
     # EL is scenario-driven; under 'baseline' it uses the warming pathway the calc-settings default, so freeze it
     # under a forward scenario. Whole-org only for now (EL is not yet entity-scoped) — omitted on scoped filings.
+    # It is computed from the stored EUR book, so it is also omitted when the filing presents another currency or
+    # removed group-internal exposures (it would no longer describe the same book).
     el = None
-    if entity_ids is None:
+    if entity_ids is None and (translation is None or (translation.identity() and not translation.eliminations)):
         from services.intelligence.expected_loss import bank_expected_loss
         el_scenario = scenario if scenario and scenario != "baseline" else "disorderly_2c"
         el = bank_expected_loss(session, org_id, el_scenario)

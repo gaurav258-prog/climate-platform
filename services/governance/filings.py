@@ -27,6 +27,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.governance.money_format import presentation_of
 from services.governance.report_snapshots import _BUILDERS, create_snapshot, get_snapshot
 
 # framework (== report_snapshots report_type) -> filing metadata.
@@ -214,7 +215,17 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     return {"framework": r["framework"], "label": FRAMEWORKS.get(r["framework"], {}).get("label", r["framework"]),
             "period_label": r["period_label"], "status": r["status"], "snapshot_version": r["version"],
             "official_form_url": (reference(r["framework"]) or {}).get("form_url"),
-            "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex}
+            "n_manual": n_manual, "n_pending": n_pending, "groups": groups, "annex": annex,
+            "currency": presentation_of(r["payload"]), "fx": _fx_view((r["payload"] or {}).get("_fx"))}
+
+
+def _fx_view(fx: dict | None) -> dict | None:
+    """The currency record a reviewer needs beside the form: basis, rates, per-entity translation, eliminations."""
+    if not fx or not fx.get("rates_used") and not fx.get("translation"):
+        return None
+    return {k: fx.get(k) for k in ("presentation_currency", "period_end", "basis", "rates_used", "n_stale_rates", "translation",
+                                   "translation_difference_total", "n_eliminations", "value_eliminated_total",
+                                   "unexplained_as_eur")} | {"eliminations": (fx.get("eliminations") or [])[:50]}
 
 
 def reporting_requirements(session: Session, org_id: str, org_type: str) -> list[dict]:
@@ -383,6 +394,7 @@ def _row_to_summary(r) -> dict:
         # caller reading the old inferred field, derived the same way it always was (entity_kind == 'group'
         # is a weaker signal than filing_role's actual has-children check, so prefer filing_role going forward).
         "filing_role": r.get("filing_role"),
+        "presentation_currency": (r.get("presentation_currency") or "EUR").strip(),   # NULL = frozen before phase 3: EUR
         "scope": ("consolidated" if r.get("entity_kind") == "group" else "entity") if r.get("entity_id") else "organisation",
     }
 
@@ -392,7 +404,7 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
                rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at, rf.filing_role,
-               rs.version AS snapshot_version, u.full_name AS created_by_name,
+               rf.presentation_currency, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
         LEFT JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
@@ -408,7 +420,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     """One filing with its full lifecycle history and (optionally) the frozen report payload."""
     r = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
-               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role,
+               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role, rf.presentation_currency,
                rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
@@ -445,7 +457,18 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
                                "payload": snap["payload"], "payload_sha256": snap["payload_sha256"],
                                "hash_verified": snap["hash_verified"], "engine_versions": snap["engine_versions"],
                                "created_at": snap["created_at"]}
+    if r["snapshot_id"] and r["status"] != "superseded":
+        out["fx_revisions"] = fx_revisions(session, org_id, str(r["snapshot_id"]))
     return out
+
+
+def fx_revisions(session: Session, org_id: str, snapshot_id: str) -> list[dict]:
+    """Exchange rates this filing froze that have changed since (multi-currency phase 3): each one a reason the money
+    may need restating. Empty for a filing presented in EUR throughout, or one frozen before rates were recorded."""
+    from services.governance.translation import revisions_since
+    s = session.execute(text("SELECT payload->'_fx' AS fx, created_at FROM report_snapshots WHERE snapshot_id = :s AND org_id = :o"),
+                        {"s": snapshot_id, "o": org_id}).mappings().first()
+    return revisions_since(session, org_id, s["fx"], s["created_at"]) if s and s["fx"] else []
 
 
 def _log_event(session: Session, filing_id: str, from_status: str | None, to_status: str,
@@ -593,6 +616,35 @@ def org_data_coverage_pct(session: Session, org_id: str, org_type: str, framewor
     return cov.get("pct") if cov else None
 
 
+def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | None, period_end: date):
+    """What a filing's book is: the reporting entities it covers, their consolidation weights, and how its money is
+    presented (multi-currency phase 3: solo in the entity's functional currency, consolidated in the group's
+    presentation currency, group-internal exposures eliminated). Shared by generate, refresh and restate so a
+    re-freeze can never change the scope or currency of the filing it replaces."""
+    entity_ids = value_weights = translation = None
+    if entity_id is not None:
+        from services.governance import entities as _E
+        entity_ids = _E.subtree_ids(session, org_id, entity_id)
+        if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
+            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id)
+    if framework in _ENTITY_SCOPED:
+        from services.governance.translation import plan
+        translation = plan(session, org_id, entity_id, period_end, scope=entity_ids, weights=value_weights)
+    return entity_ids, value_weights, translation
+
+
+def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
+            entity_id: str | None, period_end: date) -> tuple[dict, str]:
+    from services.governance.translation import TranslationError
+    entity_ids, value_weights, translation = _book_basis(session, org_id, framework, entity_id, period_end)
+    try:
+        snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
+                               value_weights=value_weights, translation=translation)
+    except TranslationError as e:
+        raise FilingError(str(e)) from e
+    return snap, (translation.presentation if translation is not None else "EUR")
+
+
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
                     actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
                     entity_id: str | None = None) -> dict:
@@ -644,15 +696,10 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError(f"{FRAMEWORKS[framework]['label']} files at whole-organisation level — a per-entity or "
                           f"consolidated scope isn't available for it (SFDR consolidates by fund in the Funds "
                           f"workspace).")
-    entity_ids = value_weights = None
     if entity_id is not None:
         from services.governance import entities as _E
-        ent = _E.get_entity(session, org_id, entity_id)
-        if not ent:
+        if not _E.get_entity(session, org_id, entity_id):
             raise FilingError("reporting entity not found")
-        entity_ids = _E.subtree_ids(session, org_id, entity_id)
-        if len(entity_ids) > 1:   # a parent/group — consolidate the subtree, ownership-weighted
-            value_weights = _E.ownership_weights(session, org_id, root_entity_id=entity_id)
 
     period_end = date(date.today().year - 1, 12, 31)
     existing = session.execute(text("""
@@ -664,22 +711,22 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError(f"a live {framework} filing for {_period_label(period_end)} already exists "
                           f"(status {existing['status']}); supersede it to restate.")
 
-    snap = create_snapshot(session, org_id, framework, actor_user_id, note=note,
-                           entity_ids=entity_ids, value_weights=value_weights)
+    snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end)
     from services.governance.entities import filing_role_for
     role = filing_role_for(session, org_id, entity_id)
     row = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by, entity_id, filing_role)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
+                                       entity_id, filing_role, presentation_currency)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy)
         RETURNING filing_id
     """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
            "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id,
-           "role": role}).mappings().first()
+           "role": role, "ccy": ccy}).mappings().first()
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
                 "payload_sha256": snap["payload_sha256"], "data_confirmed": True,
-                "confirm_token": confirm_token, "filing_role": role})
+                "confirm_token": confirm_token, "filing_role": role, "presentation_currency": ccy})
     return get_filing(session, org_id, fid, with_payload=False)
 
 
@@ -688,7 +735,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     EPC / IFRS-9 / maturity attributes) flow into the form. Only drafts can refresh; a submitted or accepted
     filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
     r = session.execute(text("""
-        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id
+        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
@@ -697,17 +744,10 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
         raise FilingError(f"only a draft filing can be refreshed — this one is '{r['status']}'. "
                           f"Restate it as a new version to bring in updated data.")
 
-    entity_ids = value_weights = None
-    if r["entity_id"] is not None:
-        from services.governance import entities as _E
-        entity_ids = _E.subtree_ids(session, org_id, r["entity_id"])
-        if len(entity_ids) > 1:
-            value_weights = _E.ownership_weights(session, org_id, root_entity_id=r["entity_id"])
-
-    snap = create_snapshot(session, org_id, r["framework"], actor_user_id,
-                           note="draft data refreshed", entity_ids=entity_ids, value_weights=value_weights)
-    session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap WHERE filing_id = :f AND org_id = :o"),
-                    {"snap": snap["snapshot_id"], "f": filing_id, "o": org_id})
+    snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"])
+    session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap, presentation_currency = :ccy "
+                         "WHERE filing_id = :f AND org_id = :o"),
+                    {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
     _log_event(session, filing_id, "draft", "draft", "refresh", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
                 "payload_sha256": snap["payload_sha256"], "prev_snapshot_id": r["snapshot_id"]})
@@ -819,20 +859,25 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
         raise FilingError(f"only a filed (submitted/accepted) filing can be restated — this is '{cur['status']}'")
 
     # period_end of the filing being restated (restatement keeps the same reference period)
+    #
+    # Fixed 2026-09-26 (multi-currency phase 3): a restatement used to freeze the WHOLE organisation's book and file it
+    # without the entity — a restated solo or consolidated filing silently became a whole-org one. It now keeps the
+    # filing's entity, role and scope (and presents in the same currency rule) via the same _book_basis as generate.
     period = session.execute(text(
-        "SELECT period_end, period_label FROM regulatory_filing WHERE filing_id = :f"),
+        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role FROM regulatory_filing WHERE filing_id = :f"),
         {"f": filing_id}).mappings().first()
-    snap = create_snapshot(session, org_id, cur["framework"], actor_user_id,
-                           note=f"Restatement of {period['period_label']}: {reason}")
+    snap, ccy = _freeze(session, org_id, cur["framework"], actor_user_id,
+                        f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"])
     # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
     _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
     new_fid = session.execute(text("""
-        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u)
+        INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
+                                       entity_id, filing_role, presentation_currency)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy)
         RETURNING filing_id
     """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"],
            "snap": snap["snapshot_id"], "note": f"Restates {period['period_label']}: {reason}",
-           "u": actor_user_id}).scalar()
+           "u": actor_user_id, "ent": period["entity_id"], "role": period["filing_role"], "ccy": ccy}).scalar()
     _log_event(session, str(new_fid), None, "draft", "generate", actor_user_id,
                {"restates": filing_id, "reason": reason, "snapshot_id": snap["snapshot_id"]})
     # link the superseded old → the restatement (allowed: a superseded row is no longer guard-frozen)
@@ -849,12 +894,15 @@ def prior_filing_id(session: Session, org_id: str, filing_id: str) -> str | None
     if r:
         return r
     # else: the most recent accepted/submitted filing for the same framework with an EARLIER period
+    # ... for the SAME reporting entity (fixed 2026-09-26: a solo filing used to be compared with whatever filing of the
+    # framework came before — often the whole organisation's)
     cur = session.execute(text(
-        "SELECT framework, period_end FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).mappings().first()
+        "SELECT framework, period_end, entity_id FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).mappings().first()
     if not cur:
         return None
     return session.execute(text("""
         SELECT filing_id::text FROM regulatory_filing
         WHERE org_id = :o AND framework = :fk AND period_end < :pe AND status IN ('submitted','accepted','superseded')
+              AND entity_id IS NOT DISTINCT FROM :ent
         ORDER BY period_end DESC, created_at DESC LIMIT 1
-    """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"]}).scalar()
+    """), {"o": org_id, "fk": cur["framework"], "pe": cur["period_end"], "ent": cur["entity_id"]}).scalar()

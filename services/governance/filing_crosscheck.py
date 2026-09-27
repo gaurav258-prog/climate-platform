@@ -16,6 +16,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from services.governance.money_format import presentation_of
 from services.governance.report_snapshots import get_snapshot
 
 _SAME_PERIOD_TOL = 0.02   # a restatement should keep the headline within 2%
@@ -67,8 +68,11 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
                rf.snapshot_id::text AS snapshot_id, rs.version
         FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         WHERE rf.org_id = :o AND rf.framework = :fw AND rf.filing_id <> :f AND rf.snapshot_id IS NOT NULL
+              AND rf.entity_id IS NOT DISTINCT FROM CAST(:ent AS uuid)
         ORDER BY rf.period_end DESC, rf.created_at DESC
-    """), {"o": org_id, "fw": framework, "f": filing["filing_id"]}).mappings().all()
+    """), {"o": org_id, "fw": framework, "f": filing["filing_id"], "ent": filing.get("entity_id")}).mappings().all()
+    # siblings are the same reporting entity's filings (fixed 2026-09-26: a solo filing was reconciled against the
+    # whole organisation's, raising false "unusually large swing" warnings)
 
     same_period = next((r for r in rows if r["period_end"].isoformat() == period_end), None)
     prior_period = next((r for r in rows if r["period_end"].isoformat() < period_end), None)
@@ -82,6 +86,11 @@ def cross_report_findings(session: Session, org_id: str, filing: dict) -> list[d
     def compare(sib, kind, tol, verb):
         sib_snap = get_snapshot(session, org_id, sib["snapshot_id"])
         if not sib_snap:
+            return
+        cc, sc = presentation_of(snap.get("payload")), presentation_of(sib_snap.get("payload"))
+        if cc != sc:                       # figures in different currencies can't be compared (multi-currency phase 3)
+            out.append(_f(f"cross_report:{kind}:currency", "info", True,
+                          f"{sib['period_label']} v{sib['version']} presents in {sc}, this filing in {cc} — not compared"))
             return
         sib_figs = _shared_figures(framework, sib_snap.get("payload") or {})
         for name, cur_v in cur.items():

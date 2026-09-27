@@ -26,6 +26,8 @@ source genuinely supports; declare the rest; never fabricate):
 """
 from __future__ import annotations
 
+from services.governance.money_format import money
+
 _ELIGIBLE = "eligible"
 _SC_EPC = frozenset({"A"})               # Annex I §7.7 point 1: EPC class A is the substantial-contribution bar
                                           # (B does NOT qualify; the top-15%-of-stock alternative is unevaluated)
@@ -48,7 +50,7 @@ def _turnover_base(p: dict) -> tuple[float, bool]:
     return float(p.get("annual_noi_eur") or 0), True
 
 
-def art8_kpis(properties: list[dict]) -> dict:
+def art8_kpis(properties: list[dict], currency: str = "EUR") -> dict:
     """Article 8 KPI block for the REIT property book. `properties` = the realestate disclosure snapshot rows."""
     bases = [_turnover_base(p) for p in properties]
     total_to = sum(v for v, _ in bases)
@@ -70,7 +72,7 @@ def art8_kpis(properties: list[dict]) -> dict:
                   "(EU) 2021/2139 Annex I §7.7 — Acquisition and ownership of buildings.")
     if n_proxy:
         basis_note += (f" {n_proxy} of {len(properties)} propert{'y' if n_proxy == 1 else 'ies'} "
-                       f"(€{round(proxy_to):,} of turnover) had no gross-revenue figure on file and fall back to "
+                       f"({money(proxy_to, currency, compact=False)} of turnover) had no gross-revenue figure on file and fall back to "
                        f"annual_noi_eur (net operating income) as a proxy — this UNDERSTATES true turnover, since "
                        f"NOI is revenue net of operating expenses, not gross revenue.")
 

@@ -30,6 +30,8 @@ interface FilingEvent { from: string | null; to: string; action: string; detail:
 interface FilingDetail extends FilingSummary {
   approval_request_id: string | null; regulator?: string; basis?: string; events: FilingEvent[]
   export_formats?: string[]; superseded_by?: string | null
+  presentation_currency?: string
+  fx_revisions?: { currency: string; basis: string; as_of: string; change: string }[]
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
 interface CaseLink { case_id: string; regulator: string; reference: string | null; stage: string; n_messages: number }
@@ -431,6 +433,12 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                   ))}
                 </div>
                 <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2 break-all">sha256 {f.snapshot.payload_sha256.slice(0, 32)}…</div>
+                {(f.fx_revisions?.length ?? 0) > 0 && (
+                  <div className="mt-3 rounded-lg p-2.5 text-[11.5px]" style={{ color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 10%, transparent)' }}>
+                    <div className="flex items-center gap-1.5 font-medium"><AlertTriangle size={12} /> {f.fx_revisions!.length} exchange rate(s) this filing used have changed since it was frozen — its money may need restating.</div>
+                    <ul className="mt-1 space-y-0.5 text-[var(--color-mute)]">{f.fx_revisions!.slice(0, 5).map((r, i) => <li key={i}>{r.currency} · {r.basis} · {r.as_of}: {r.change}</li>)}</ul>
+                  </div>
+                )}
                 {(f.export_formats?.length ?? 0) > 0 && (
                   <div className="mt-3 pt-3 border-t border-[var(--color-line)]">
                     <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Download · rendered from these frozen bytes</div>

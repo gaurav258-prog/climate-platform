@@ -130,7 +130,7 @@ def _map_policy_row(row):
 
 
 def _policies_with_risk(session, org_id, scenario, horizon, return_period_model="fixed",
-                        entity_ids=None, value_weights=None, expense_ratio=None, profit_margin=None):
+                        entity_ids=None, value_weights=None, expense_ratio=None, profit_margin=None, translation=None):
     """All of an org's policies (metadata) + their per-hazard projected risk.
     Thin wrapper over the shared portfolio engine (services/portfolio_engine.py)
     -- the fetch/join/headline logic itself lives there, shared with banking,
@@ -149,7 +149,7 @@ def _policies_with_risk(session, org_id, scenario, horizon, return_period_model=
                                      ext_table="ext_insurance", ext_columns=EXT_INSURANCE_COLUMNS,
                                      extra_calc=_insurance_extra(trigger_by_policy, return_period_model,
                                                                  expense_ratio, profit_margin),
-                                     entity_ids=entity_ids, value_weights=value_weights)
+                                     entity_ids=entity_ids, value_weights=value_weights, translation=translation)
     return [_map_policy_row(r) for r in rows]
 
 
@@ -197,11 +197,12 @@ def _reinsurance_from_cat(cat: dict, program: dict, scenario: str, horizon: str)
     }
 
 
-def _investments_block(session, org_id, scenario, horizon, _st) -> dict:
+def _investments_block(session, org_id, scenario, horizon, _st, translation=None) -> dict:
     """Investment-side (asset) climate VaR — the other regulatory half (EIOPA/IFRS S2). Shared by the
     /investments endpoint and the disclosure snapshot. Returns available:False where no investment book exists."""
     dependence = ((_st.get("interpretation") or {}).get("climate_var_dependence")) or "independent"
-    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"])
+    rows = fetch_entities_with_risk(session, org_id, "insurer_investments", scenario, horizon, _st["severity_model"],
+                                    translation=translation)
     if not rows:
         return {"available": False, "reason": "No investment portfolio has been uploaded."}
     holdings = [{**r, "position_value_eur": r.get("primary_value_eur")} for r in rows]
@@ -253,7 +254,7 @@ def _rollup(policies, org_id=None, scenario=None, horizon=None, pml_return_perio
     }
 
 
-def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None):
+def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=None, value_weights=None, translation=None):
     """The insurer's climate / NatCat exposure disclosure — sum-insured exposed at High+ by hazard, plus the
     loss-curve rollup. Live and frozen callers share this so a filing can't drift from the live view.
     entity_ids / value_weights scope + consolidation-weight the book (None = whole org)."""
@@ -261,7 +262,8 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     return_period_model = _st["insurance_return_period_model"]
     policies = _policies_with_risk(session, org_id, scenario, horizon, return_period_model,
                                    entity_ids=entity_ids, value_weights=value_weights,
-                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"])
+                                   expense_ratio=_st["insurance_expense_ratio"], profit_margin=_st["insurance_profit_margin"],
+                                   translation=translation)
     hazards: dict = {}
     for p in policies:
         for hz in p["hazards"]:
@@ -279,13 +281,16 @@ def build_disclosure_snapshot(session, org_id, scenario, horizon, entity_ids=Non
     # the 1-in-200 for the SCR, and the net-of-reinsurance retention — so the SCR / reinsurance / cat blocks are
     # all derived from the SAME frozen distribution rather than re-simulated three times.
     prog = _DEFAULT_REINSURANCE_PROGRAM
+    if translation is not None and translation.presentation != "EUR":      # the illustrative layers are set in EUR
+        from services.governance.translation import from_eur
+        prog = {**prog, **{k: from_eur(session, translation, v) for k, v in prog.items() if k.endswith("_eur")}}
     rollup = _rollup(policies, org_id, scenario, horizon, pml_return_period=_st["pml_return_period"], reinsurance=prog)
     cat = rollup.get("catastrophe") or {}
     return {
         "rollup": rollup, "policies": policies, "by_hazard": hazards,
         "solvency_scr": _scr_from_cat(cat, policies, scenario, horizon),
         "reinsurance": {**_reinsurance_from_cat(cat, prog, scenario, horizon), "program_basis": "illustrative_standard"},
-        "investments": _investments_block(session, org_id, scenario, horizon, _st),
+        "investments": _investments_block(session, org_id, scenario, horizon, _st, translation=translation),
     }
 
 

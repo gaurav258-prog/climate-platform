@@ -47,7 +47,7 @@ ASSET_TEMPLATE_FIELDS = _template(
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
     ("no_stated_maturity", False), ("external_ref", False, _ref("loan / facility")),
-    ("currency", False), ("book_date", False),
+    ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 
 POLICY_TEMPLATE_FIELDS = _template(
@@ -57,7 +57,7 @@ POLICY_TEMPLATE_FIELDS = _template(
     ("construction_type", False), ("year_built", False), ("number_of_stories", False), ("deductible_pct", False),
     ("region", False, {"example": "Valencia"}), ("country", False, {"example": "ES"}), ("cresta_zone", False),
     ("motor_sum_insured_eur", False), ("policy_type", False), ("external_ref", False, _ref("policy or location")),
-    ("currency", False), ("book_date", False),
+    ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 
 PROPERTY_TEMPLATE_FIELDS = _template(
@@ -67,7 +67,7 @@ PROPERTY_TEMPLATE_FIELDS = _template(
     ("number_of_stories", False, {"example": "1"}), ("region", False, {"example": "South Holland"}),
     ("country", False, {"example": "NL"}), ("epc_rating", False), ("borrower_entity_id", False),
     ("minimum_safeguards_status", False), ("external_ref", False, _ref("property")),
-    ("currency", False), ("book_date", False),
+    ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 
 HOLDING_TEMPLATE_FIELDS = _template(
@@ -75,7 +75,7 @@ HOLDING_TEMPLATE_FIELDS = _template(
     ("longitude", True, {"example": "18.0686"}), ("position_value_eur", True), ("sector", True), ("nace_code", False),
     ("region", False, {"example": "Stockholm"}), ("country", False, {"example": "SE"}), ("borrower_entity_id", False),
     ("minimum_safeguards_status", False), ("external_ref", False, _ref("holding / position")),
-    ("currency", False), ("book_date", False),
+    ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 
 PLOT_TEMPLATE_FIELDS = _template(
