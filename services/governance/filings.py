@@ -136,6 +136,10 @@ def form_view(session: Session, org_id: str, filing_id: str) -> dict | None:
     if not r:
         return None
     groups = build_form(r["framework"], r["payload"] or {})
+    # per reported figure (phase 5): where the client's attested number and ours both exist, the form reports the one
+    # the filing chose at freeze, with the other beside it — before manual overrides, which still apply on top
+    from services.governance.figure_views import apply_to_form
+    apply_to_form(groups, (r["payload"] or {}).get("_figures") or [])
     # merge the audited manual-override layer over the immutable snapshot: an APPROVED override replaces the
     # cell (flagged manual, original preserved); a PENDING one is surfaced awaiting 4-eyes.
     #
@@ -396,6 +400,7 @@ def _row_to_summary(r) -> dict:
         "filing_role": r.get("filing_role"),
         "presentation_currency": (r.get("presentation_currency") or "EUR").strip(),   # NULL = frozen before phase 3: EUR
         "scope": ("consolidated" if r.get("entity_kind") == "group" else "entity") if r.get("entity_id") else "organisation",
+        "view": r.get("view") or "joint",                       # which values of the asset facts it was computed on
     }
 
 
@@ -404,7 +409,7 @@ def list_filings(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
                rf.submission_ref, rf.superseded_by, rf.note, rf.created_at, rf.updated_at, rf.filing_role,
-               rf.presentation_currency, rs.version AS snapshot_version, u.full_name AS created_by_name,
+               rf.presentation_currency, rf.view, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
         LEFT JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
@@ -420,7 +425,7 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
     """One filing with its full lifecycle history and (optionally) the frozen report payload."""
     r = session.execute(text("""
         SELECT rf.filing_id, rf.framework, rf.period_end, rf.period_label, rf.status, rf.snapshot_id,
-               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role, rf.presentation_currency,
+               rf.approval_request_id, rf.submission_ref, rf.superseded_by, rf.note, rf.filing_role, rf.presentation_currency, rf.view,
                rf.created_at, rf.updated_at, rs.version AS snapshot_version, u.full_name AS created_by_name,
                rf.entity_id, re.name AS entity_name, re.kind AS entity_kind
         FROM regulatory_filing rf
@@ -547,10 +552,19 @@ def preflight(session: Session, org_id: str, org_type: str, framework: str) -> d
     basis = get_settings(session, org_id)
     summary = _preflight_summary(session, org_id, framework, basis)
     token = _confirm_token(org_id, framework, basis, summary)
+    from services.governance.figure_views import figures_for
+    from services.governance.provided_data import attested_values
+    from services.intake.views import preview as views_preview
+    attested = {p["key"].removeprefix("provided."): p for p in attested_values(session, org_id, framework)}
+    figures = [{"datapoint": dp, "label": attested[dp]["label"], "unit": attested[dp].get("unit"),
+                "client_value": attested[dp]["value"], "tellumen_value": attested[dp].get("tellumen_value"),
+                "delta_pct": attested[dp].get("delta_pct"), "provider": attested[dp].get("provider")}
+               for dp in figures_for(framework) if dp in attested]
     return {"framework": framework, "label": FRAMEWORKS[framework]["label"],
             "period_label": _period_label(period_end), "basis": basis,
             "can_generate": existing is None, "existing_status": existing,
-            "entity_scoped": framework in _ENTITY_SCOPED, "confirm_token": token, **summary}
+            "entity_scoped": framework in _ENTITY_SCOPED, "confirm_token": token, **summary,
+            "views": views_preview(session, org_id), "figures": figures}
 
 
 def _preflight_summary(session: Session, org_id: str, framework: str, basis: dict) -> dict:
@@ -645,21 +659,24 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
 
 
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
-            entity_id: str | None, period_end: date) -> tuple[dict, str]:
+            entity_id: str | None, period_end: date, view: str = "joint",
+            figure_sources: dict | None = None) -> tuple[dict, str]:
     from services.governance.engine_runs import RunCheckError
     from services.governance.translation import TranslationError
+    from services.intake.views import ViewError
     entity_ids, value_weights, translation = _book_basis(session, org_id, framework, entity_id, period_end)
     try:
         snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
-                               value_weights=value_weights, translation=translation)
-    except (TranslationError, RunCheckError) as e:
+                               value_weights=value_weights, translation=translation, view=view,
+                               figure_sources=figure_sources)
+    except (TranslationError, RunCheckError, ViewError) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")
 
 
 def generate_filing(session: Session, org_id: str, org_type: str, framework: str,
                     actor_user_id: str, note: str | None = None, confirm_token: str | None = None,
-                    entity_id: str | None = None) -> dict:
+                    entity_id: str | None = None, view: str = "joint", figure_sources: dict | None = None) -> dict:
     """Freeze the report at the org's current basis and open a DRAFT filing over it. One live filing per
     (framework, period, entity) — regenerating while one is live is refused (supersede it first).
     entity_id scopes the book: NULL = the whole org; a leaf entity = its own book (100%); a parent/group =
@@ -723,22 +740,23 @@ def generate_filing(session: Session, org_id: str, org_type: str, framework: str
         raise FilingError(f"a live {framework} filing for {_period_label(period_end)} already exists "
                           f"(status {existing['status']}); supersede it to restate.")
 
-    snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end)
+    snap, ccy = _freeze(session, org_id, framework, actor_user_id, note, entity_id, period_end, view, figure_sources)
     from services.governance.entities import filing_role_for
     role = filing_role_for(session, org_id, entity_id)
     row = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy)
+                                       entity_id, filing_role, presentation_currency, view, figure_sources)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb))
         RETURNING filing_id
     """), {"o": org_id, "fk": framework, "pe": period_end, "pl": _period_label(period_end),
            "snap": snap["snapshot_id"], "note": note, "u": actor_user_id, "ent": entity_id,
-           "role": role, "ccy": ccy}).mappings().first()
+           "role": role, "ccy": ccy, "view": view, "figs": json.dumps(figure_sources or {})}).mappings().first()
     fid = str(row["filing_id"])
     _log_event(session, fid, None, "draft", "generate", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
                 "payload_sha256": snap["payload_sha256"], "data_confirmed": True,
-                "confirm_token": confirm_token, "filing_role": role, "presentation_currency": ccy})
+                "confirm_token": confirm_token, "filing_role": role, "presentation_currency": ccy,
+                "view": view, "figure_sources": figure_sources or {}, "run_id": snap.get("run_id")})
     return get_filing(session, org_id, fid, with_payload=False)
 
 
@@ -747,7 +765,8 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     EPC / IFRS-9 / maturity attributes) flow into the form. Only drafts can refresh; a submitted or accepted
     filing keeps its frozen snapshot (immutable — restate via a new version instead)."""
     r = session.execute(text("""
-        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end
+        SELECT framework, status, entity_id::text AS entity_id, snapshot_id::text AS snapshot_id, period_end, view,
+               figure_sources
         FROM regulatory_filing WHERE filing_id = :f AND org_id = :o
     """), {"f": filing_id, "o": org_id}).mappings().first()
     if not r:
@@ -756,7 +775,8 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
         raise FilingError(f"only a draft filing can be refreshed — this one is '{r['status']}'. "
                           f"Restate it as a new version to bring in updated data.")
 
-    snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"])
+    snap, ccy = _freeze(session, org_id, r["framework"], actor_user_id, "draft data refreshed", r["entity_id"], r["period_end"],
+                        r["view"], r["figure_sources"])
     session.execute(text("UPDATE regulatory_filing SET snapshot_id = :snap, presentation_currency = :ccy "
                          "WHERE filing_id = :f AND org_id = :o"),
                     {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
@@ -876,20 +896,22 @@ def restate_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
     # without the entity — a restated solo or consolidated filing silently became a whole-org one. It now keeps the
     # filing's entity, role and scope (and presents in the same currency rule) via the same _book_basis as generate.
     period = session.execute(text(
-        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role FROM regulatory_filing WHERE filing_id = :f"),
+        "SELECT period_end, period_label, entity_id::text AS entity_id, filing_role, view, figure_sources FROM regulatory_filing WHERE filing_id = :f"),
         {"f": filing_id}).mappings().first()
     snap, ccy = _freeze(session, org_id, cur["framework"], actor_user_id,
-                        f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"])
+                        f"Restatement of {period['period_label']}: {reason}", period["entity_id"], period["period_end"],
+                        period["view"], period["figure_sources"])
     # supersede the old FIRST so the single-live-slot frees up before the restatement is inserted
     _apply_transition(session, org_id, filing_id, "supersede", actor_user_id, detail={"reason": reason})
     new_fid = session.execute(text("""
         INSERT INTO regulatory_filing (org_id, framework, period_end, period_label, status, snapshot_id, note, created_by,
-                                       entity_id, filing_role, presentation_currency)
-        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy)
+                                       entity_id, filing_role, presentation_currency, view, figure_sources)
+        VALUES (:o, :fk, :pe, :pl, 'draft', :snap, :note, :u, :ent, :role, :ccy, :view, CAST(:figs AS jsonb))
         RETURNING filing_id
     """), {"o": org_id, "fk": cur["framework"], "pe": period["period_end"], "pl": period["period_label"],
            "snap": snap["snapshot_id"], "note": f"Restates {period['period_label']}: {reason}",
-           "u": actor_user_id, "ent": period["entity_id"], "role": period["filing_role"], "ccy": ccy}).scalar()
+           "u": actor_user_id, "ent": period["entity_id"], "role": period["filing_role"], "ccy": ccy,
+           "view": period["view"], "figs": json.dumps(period["figure_sources"] or {})}).scalar()
     _log_event(session, str(new_fid), None, "draft", "generate", actor_user_id,
                {"restates": filing_id, "reason": reason, "snapshot_id": snap["snapshot_id"]})
     # link the superseded old → the restatement (allowed: a superseded row is no longer guard-frozen)

@@ -18,7 +18,14 @@ interface Preflight {
   // Binds this exact preflight result — generate must echo it back, and the backend re-verifies it's still
   // fresh (the book hasn't changed since). Never a bare "I confirm" boolean; see filings._confirm_token.
   confirm_token: string
+  // intake phase 5: how far each view of the asset facts is from the book; and the figures where both the client's
+  // attested number and ours exist
+  views?: Record<'joint' | 'client' | 'tellumen', { label: string; facts_changed: number; by_field: Record<string, number> }>
+  figures?: { datapoint: string; label: string; unit: string | null; client_value: number | string; tellumen_value: number | null; delta_pct: number | null; provider: string | null }[]
 }
+type View = 'joint' | 'client' | 'tellumen'
+const VIEW_ORDER: View[] = ['joint', 'client', 'tellumen']
+const num = (v: unknown) => typeof v === 'number' ? v.toLocaleString('en-GB', { maximumFractionDigits: 1 }) : v == null ? '—' : String(v)
 interface Ent { entity_id: string; name: string; kind: string; parent_entity_id: string | null; n_assets: number }
 
 const eur = (n?: number | null) => balance(n)   // the live book, before freezing: the organisation's currency
@@ -30,6 +37,8 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
   const [entityId, setEntityId] = useState<string>('')   // '' = whole organisation
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [view, setView] = useState<View>('joint')
+  const [figs, setFigs] = useState<Record<string, 'client' | 'tellumen'>>({})
   const d = q.data
   const entities = ents.data?.entities ?? []
 
@@ -38,7 +47,7 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
     setBusy(true); setErr(null)
     try {
       const f = await api.post<{ filing_id: string }>('/v1/filings',
-        { framework, confirm_token: d.confirm_token, entity_id: entityId || null })
+        { framework, confirm_token: d.confirm_token, entity_id: entityId || null, view, figure_sources: figs })
       onGenerated(f.filing_id)
     } catch (e) {
       // A stale token (the book changed since this preflight loaded) surfaces here — refetch so the
@@ -60,7 +69,7 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
           <SectionHead>Confirm the data before filing</SectionHead>
           <button onClick={onClose} className="text-[var(--color-faint)] hover:text-[var(--color-ink)]"><X size={17} /></button>
         </div>
-        <div className="p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="p-5 space-y-4 max-h-[78vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           {!d ? <div className="text-[13px] text-[var(--color-faint)]">checking the book…</div> : (<>
             <div>
               <h3 className="display text-lg font-semibold">{d.label}</h3>
@@ -81,6 +90,42 @@ export default function FilingPreflight({ framework, onClose, onGenerated }: { f
             )}
             {entities.length > 0 && !d.entity_scoped && (
               <div className="mono text-[10px] text-[var(--color-faint)]">Files at whole-organisation level{d.framework === 'sfdr_pai' ? ' — per-fund SFDR statements are in the Funds workspace.' : '.'}</div>
+            )}
+
+            {d.views && (
+              <fieldset>
+                <legend className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Which values of your assets' facts</legend>
+                <div className="space-y-1">
+                  {VIEW_ORDER.map(v => (
+                    <label key={v} className="flex items-start gap-2 text-[12.5px] cursor-pointer">
+                      <input type="radio" name="view" checked={view === v} onChange={() => setView(v)} className="mt-0.5 accent-[var(--color-sky)]" />
+                      <span><span className="text-[var(--color-ink)]">{d.views![v].label}</span>
+                        {v !== 'joint' && <span className="text-[var(--color-faint)]"> · {d.views![v].facts_changed === 0 ? 'same as the book' : `${d.views![v].facts_changed} fact(s) differ from the book`}</span>}</span>
+                    </label>))}
+                </div>
+                <div className="mono text-[10px] text-[var(--color-faint)] mt-1">The views differ only in facts we derive independently (today: country from the coordinates).</div>
+              </fieldset>
+            )}
+
+            {(d.figures?.length ?? 0) > 0 && (
+              <div>
+                <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Figures both you and we produce — which to report</div>
+                <div className="space-y-2">
+                  {d.figures!.map(f => (
+                    <div key={f.datapoint} className="rounded-lg border border-[var(--color-line)] p-2.5 text-[12px]">
+                      <div className="text-[var(--color-ink)] mb-1">{f.label}</div>
+                      {(['client', 'tellumen'] as const).map(src => (
+                        <label key={src} className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name={`fig-${f.datapoint}`} checked={(figs[f.datapoint] ?? 'client') === src} disabled={src === 'tellumen' && f.tellumen_value == null}
+                            onChange={() => setFigs({ ...figs, [f.datapoint]: src })} className="accent-[var(--color-sky)]" />
+                          <span className="text-[var(--color-mute)]">{src === 'client' ? `Yours${f.provider ? ` (${f.provider})` : ''}` : 'Ours'}:</span>
+                          <span className="mono text-[var(--color-ink)]">{num(src === 'client' ? f.client_value : f.tellumen_value)} {f.unit ?? ''}</span>
+                          {src === 'tellumen' && f.delta_pct != null && <span className="text-[var(--color-faint)]">· yours differs by {f.delta_pct > 0 ? '+' : ''}{f.delta_pct}%</span>}
+                        </label>))}
+                    </div>))}
+                </div>
+                <div className="mono text-[10px] text-[var(--color-faint)] mt-1">The filing reports the one you choose and keeps the other beside it. Ours is recomputed when the filing is frozen.</div>
+              </div>
             )}
 
             {blockedByExisting && (

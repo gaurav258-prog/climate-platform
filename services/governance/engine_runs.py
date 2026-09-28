@@ -203,9 +203,10 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
 
 def record(session: Session, org_id: str, report_type: str, actor_user_id: Optional[str], *, basis: dict, payload: dict,
            entity_ids: Optional[list] = None, value_weights: Optional[dict] = None, translation=None,
-           purpose: str = "filing_freeze", view: str = "joint") -> dict:
-    """Check the output against its input; refuse (RunCheckError) on an integrity failure, else record the run."""
-    manifest, rows = inputs(session, org_id, report_type, entity_ids)
+           purpose: str = "filing_freeze", view: str = "joint", observed: Optional[tuple] = None) -> dict:
+    """Check the output against its input; refuse (RunCheckError) on an integrity failure, else record the run.
+    observed = (manifest, rows) read in the same view as the output (views.in_view) — else read now, from the book."""
+    manifest, rows = observed or inputs(session, org_id, report_type, entity_ids)
     cks, figures = checks(session, report_type, payload, manifest, rows, translation, value_weights)
     if any(c["status"] == "fail" for c in cks):
         raise RunCheckError(cks)

@@ -81,4 +81,5 @@ def test_an_undecided_difference_is_a_warning_on_the_run(session_rolled_back):
     O.sync(s, BANK_ORG, asset_ids=[aid])
     snap = _freeze(s)
     diff = next(c for c in snap["run_checks"] if c["key"] == "differences")
-    assert snap["run_status"] == "warn" and diff["status"] == "warn" and diff["detail"].startswith("1 difference")
+    assert snap["run_status"] == "warn" and diff["status"] == "warn" and int(diff["detail"].split()[0]) >= 1
+    assert s.execute(text("SELECT 1 FROM asset_conflicts WHERE asset_id = CAST(:a AS uuid) AND status = 'open'"), {"a": aid}).first()

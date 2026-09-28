@@ -22,6 +22,8 @@ interface Pending { value: number; reason: string; by: string }
 interface Dp {
   key: string; label: string; value: number | string | null; fmt: string; unit: string | null; source: string; note: string | null
   manual?: boolean; original_value?: number | null; override?: Override; pending?: Pending
+  // intake phase 5: a figure both you and we produce — which one this filing reports, and the other
+  figure?: { reported: 'client' | 'tellumen'; client_value: number | string | null; tellumen_value: number | null; delta_pct: number | null; client_provider: string | null }
 }
 interface Group { group: string; datapoints: Dp[] }
 interface AnnexCell { text?: string; dp?: Dp; num?: boolean; source?: string }
@@ -345,6 +347,13 @@ function DatapointList({ groups, ...ep }: { groups: Group[] } & EditProps) {
                   {isEditing && <OverrideEditor filingId={ep.filingId} dp={dp} onClose={() => ep.setEdit(null)} onDone={ep.onDone} />}
                   {dp.manual && dp.override && (
                     <div className="mono text-[10px] text-[var(--color-faint)] mt-1">was {fmt(dp.original_value ?? null, dp.fmt, ccy)} · “{dp.override.reason}” · {dp.override.by} → approved {dp.override.approved_by}</div>
+                  )}
+                  {dp.figure && (
+                    <div className="mono text-[10px] text-[var(--color-faint)] mt-1">
+                      reports {dp.figure.reported === 'client' ? `your figure${dp.figure.client_provider ? ` (${dp.figure.client_provider})` : ''}` : 'our figure'} ·
+                      {' '}yours {fmt(typeof dp.figure.client_value === 'number' ? dp.figure.client_value : null, dp.fmt, ccy)} · ours {fmt(dp.figure.tellumen_value, dp.fmt, ccy)}
+                      {dp.figure.delta_pct != null ? ` · ${dp.figure.delta_pct > 0 ? '+' : ''}${dp.figure.delta_pct}%` : ''}
+                    </div>
                   )}
                 </div>
               )

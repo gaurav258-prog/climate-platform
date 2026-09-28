@@ -192,7 +192,8 @@ def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dic
 
 def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_id: str,
                     note: str | None = None, entity_ids: list | None = None,
-                    value_weights: dict | None = None, translation=None) -> dict:
+                    value_weights: dict | None = None, translation=None, view: str = "joint",
+                    figure_sources: dict | None = None) -> dict:
     """Compute the report at the org's current basis and freeze it as the next version. Immutable once written.
     entity_ids scopes the located book to a reporting entity or a group's whole subtree (None = whole org);
     value_weights applies proportional/equity consolidation weighting. Only the located FIN books honour them.
@@ -204,10 +205,20 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     s = get_settings(session, org_id)
     basis = {"scenario": s["scenario"], "horizon": s["horizon"],
              "materiality_threshold": s["materiality_threshold"], "reporting_period_end": s["reporting_period_end"]}
-    payload = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
+    # intake phase 5: the engine reads the chosen view of the book (joint / client / tellumen), and the run's input
+    # manifest is read in the same view, so the output checks compare like with like
+    from services.governance import engine_runs
+    from services.intake.views import in_view
+
+    def compute():
+        out = _BUILDERS[report_type][1](session, org_id, s["scenario"], s["horizon"], s["materiality_threshold"],
                                         entity_ids, value_weights, translation)
+        return out, engine_runs.inputs(session, org_id, report_type, entity_ids)
+    (payload, observed), view_record = in_view(session, org_id, view, compute)
+    payload["_view"] = view_record
     payload["_fx"] = _fx_record(session, org_id, translation)
     basis["presentation_currency"] = payload["_fx"]["presentation_currency"]
+    basis["view"] = view
     # Lane 2 (customer/vendor provided values, attested under 4-eyes) is baked into the frozen payload here,
     # not joined live at read time — fixed 2026-09-24 (platform E2E audit finding #6). This used to be
     # computed live inside filings.form_view()/get_filing() on EVERY read, so the "Provided & attested"
@@ -217,12 +228,15 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # genuinely frozen like the rest of the snapshot.
     from services.governance.provided_data import attested_values
     payload["_provided_attested"] = attested_values(session, org_id, report_type)
+    # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
+    from services.governance.figure_views import resolve as resolve_figures
+    payload["_figures"] = resolve_figures(report_type, payload, figure_sources)
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
     # intake phase 4: what this run read and whether its output holds — an integrity failure refuses the freeze
-    from services.governance.engine_runs import record as record_run
-    run = record_run(session, org_id, report_type, actor_user_id, basis=basis, payload=payload, entity_ids=entity_ids,
-                     value_weights=value_weights, translation=translation)
+    run = engine_runs.record(session, org_id, report_type, actor_user_id, basis=basis, payload=payload,
+                             entity_ids=entity_ids, value_weights=value_weights, translation=translation, view=view,
+                             observed=observed)
 
     version = (session.execute(text(
         "SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots WHERE org_id = :o AND report_type = :t"),
