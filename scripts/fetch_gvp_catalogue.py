@@ -112,22 +112,36 @@ def build_catalogue(volcanoes: list[dict], eruptions: list[dict]) -> dict:
     }
 
 
+def _data(cat: dict) -> dict:
+    """The catalogue without its fetch time — what decides whether anything actually changed."""
+    return {k: v for k, v in cat.items() if k != "fetched_at"}
+
+
 def refresh(out_path: Path = OUT_PATH) -> dict:
-    """Fetch both layers and (re)write the catalogue. Raises on any source failure — the feed monitor must
-    show 'failed', never overwrite a good catalogue with a partial one."""
+    """Fetch both layers and write the catalogue — ONLY when its data changed. Raises on any source failure: the feed
+    monitor must show 'failed', never overwrite a good catalogue with a partial one.
+
+    `fetched_at` is when THIS VERSION of the data was first fetched (volcanic scores cite it as their catalogue
+    version). A check that finds the same data leaves the file untouched: when the feed was last checked lives in the
+    feed monitor's own log (feed_refresh_log), not in a committed file. (Fixed 2026-09-28 — every scheduled check
+    rewrote the file with a new timestamp and nothing else, leaving the repository dirty; see commit 80dbcc7.)"""
     cat = build_catalogue(_wfs_all(LAYER_VOLCANOES), _wfs_all(LAYER_ERUPTIONS))
     if cat["n_volcanoes"] < 1000:  # GVP lists ~1,200 Holocene volcanoes; far fewer means a truncated response
         raise RuntimeError(f"GVP catalogue looks truncated: {cat['n_volcanoes']} volcanoes")
+    if out_path.exists():
+        current = json.loads(out_path.read_text())
+        if _data(current) == _data(cat):
+            return {**current, "changed": False}
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(cat, separators=(",", ":")))
     tmp.replace(out_path)
-    return cat
+    return {**cat, "changed": True}
 
 
 def main() -> int:
     cat = refresh()
-    print(f"wrote {OUT_PATH}: {cat['n_volcanoes']} volcanoes, {cat['n_eruptions_confirmed']} confirmed eruptions "
+    print(f"{'wrote' if cat['changed'] else 'unchanged (not rewritten)'} {OUT_PATH}: {cat['n_volcanoes']} volcanoes, {cat['n_eruptions_confirmed']} confirmed eruptions "
           f"(of {cat['n_eruptions_total']} catalogued)")
     with_vei = sum(1 for v in cat["volcanoes"] if v["max_vei"] is not None)
     print(f"  {with_vei} volcanoes carry a confirmed-eruption VEI; {cat['n_volcanoes'] - with_vei} do not")

@@ -1,16 +1,14 @@
 """How a filing writes money: in the currency its frozen snapshot says it presents in (multi-currency phase 3).
 
 A snapshot records its currency in payload["_fx"]["presentation_currency"]; one frozen before that existed was in
-EUR. Amount keys keep their `_eur` names (the engine's contract) — every renderer reads the currency from here, so a
-USD filing never shows "€".
+EUR. Symbols come from the ISO 4217 / CLDR reference (services/reference/iso4217.py), never a local table. Amount
+keys keep their `_eur` names (the engine's contract) — every renderer reads the currency from here, so a USD filing
+never shows "€".
 """
 from __future__ import annotations
 
 from contextvars import ContextVar
 from typing import Optional
-
-SYMBOL = {"EUR": "€", "USD": "US$", "GBP": "£", "JPY": "¥", "CHF": "CHF ", "SEK": "SEK ", "NOK": "NOK ", "DKK": "DKK ",
-          "PLN": "PLN ", "CZK": "CZK ", "HUF": "HUF ", "RON": "RON ", "CAD": "C$", "AUD": "A$", "BRL": "R$", "INR": "₹"}
 
 # the currency of the filing being rendered — set by the renderer entry point (filing_annex.build_annex) for its
 # nested cell formatters, reset when it returns
@@ -22,7 +20,11 @@ def presentation_of(payload: Optional[dict]) -> str:
 
 
 def symbol(ccy: str) -> str:
-    return SYMBOL.get(ccy, f"{ccy} ")
+    """The currency's written symbol from the ISO 4217 / CLDR reference ('€', 'US$', 'CA$'); a code-like symbol
+    ('SEK', 'CHF') is followed by a space."""
+    from services.reference.iso4217 import display_symbol
+    s = display_symbol(ccy)
+    return f"{s} " if s[-1:].isalpha() else s
 
 
 def money(v, ccy: Optional[str] = None, compact: bool = True) -> str:

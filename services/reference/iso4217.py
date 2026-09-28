@@ -31,6 +31,13 @@ def minor_units(code: str) -> Optional[int]:
     return int(r["minor_units"]) if r and r["minor_units"] else None
 
 
+def display_symbol(code: str) -> str:
+    """How a figure in this currency is written: the international-English CLDR symbol ('€', 'US$', 'CA$', 'JP¥'),
+    which never mistakes one currency for another; the code itself where CLDR gives no symbol ('SEK', 'CHF')."""
+    r = _rows().get((code or "").upper())
+    return (r["symbol_intl"] or r["symbol"] or r["code"]) if r else (code or "").upper()
+
+
 def name(code: str) -> Optional[str]:
     r = _rows().get((code or "").upper())
     return r["name"] if r else None

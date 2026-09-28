@@ -1,11 +1,23 @@
-// Money in a stated currency (multi-currency phase 3). A figure's currency always comes from the data — a filing's
-// presentation currency, an entity's functional currency — never assumed. EUR stays '€'; others use their symbol
-// or ISO code, so a USD filing can't read as euros.
-const SYMBOL: Record<string, string> = {
-  EUR: '€', USD: 'US$', GBP: '£', JPY: '¥', CHF: 'CHF ', SEK: 'SEK ', NOK: 'NOK ', DKK: 'DKK ', PLN: 'PLN ', CZK: 'CZK ',
-  HUF: 'HUF ', RON: 'RON ', CAD: 'C$', AUD: 'A$', BRL: 'R$', INR: '₹',
+// Money in a stated currency. A figure's currency always comes from the data — a filing's presentation currency, an
+// entity's functional currency, a fund's base currency — never assumed. The written symbol comes from the browser's
+// own CLDR data in international English ('en-001'): '€', 'US$', 'CA$', 'JP¥' — the same reference the server uses
+// (data/reference/iso4217.csv), so a dollar is never mistaken for another; a currency without a symbol is written by
+// its code ('SEK 950k').
+const cache = new Map<string, string>()
+
+export function currencySymbol(ccy = 'EUR'): string {
+  const code = (ccy || 'EUR').toUpperCase()
+  let s = cache.get(code)
+  if (s === undefined) {
+    try {
+      s = new Intl.NumberFormat('en-001', { style: 'currency', currency: code }).formatToParts(0)
+        .find(p => p.type === 'currency')?.value ?? code
+    } catch { s = code }                                 // not an ISO 4217 code the browser knows: show it as written
+    if (/[A-Za-z]$/.test(s)) s = `${s} `
+    cache.set(code, s)
+  }
+  return s
 }
-export const currencySymbol = (ccy = 'EUR') => SYMBOL[ccy] ?? `${ccy} `
 
 /** '€12.3m' · 'US$1.20bn' · 'CHF 950k' */
 export function money(n: number | null | undefined, ccy = 'EUR'): string {
