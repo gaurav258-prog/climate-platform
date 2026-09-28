@@ -231,6 +231,14 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     # per reported figure: the client's attested number or ours, where both exist (phase 5) — frozen with the rest
     from services.governance.figure_views import resolve as resolve_figures
     payload["_figures"] = resolve_figures(report_type, payload, figure_sources)
+    # CRCS version pinning: the regulation version this filing is prepared under, and whether it still governs the
+    # period — live from the EU register, frozen with the rest (hash-verified)
+    from datetime import date as _date
+
+    from services.governance.reg_versions import version_for
+    payload["_regulation"] = version_for(session, report_type,
+                                         s["reporting_period_end"] or _date(_date.today().year - 1, 12, 31))
+    basis["regulation_status"] = (payload["_regulation"] or {}).get("status")
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
     # intake phase 4: what this run read and whether its output holds — an integrity failure refuses the freeze

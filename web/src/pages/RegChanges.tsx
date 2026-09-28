@@ -17,7 +17,8 @@ interface Impact { deadline?: { date: string; days: number; band: string }; scop
 interface Coming { framework: string | null; title: string; date: string | null; date_fixed: boolean; when: string; whats_changing: string; prepare: string | null; citation: string; url: string | null; source: string; status?: string; verified_date?: string; verified_at?: string; date_moved?: boolean; detected_at?: string; data_fields?: DataField[]; data_tbc?: string | null; data_summary?: DataSummary; impact?: Impact }
 interface Outlook { in_force: InForce[]; coming: Coming[]; checked_at: string | null; summary: { n_in_force: number; n_coming: number; n_prepare: number; n_dated: number; n_detected: number; n_verified: number } }
 
-interface Act { celex: string; title: string; role: string; in_force: boolean; in_force_since: string | null; next_effective: string | null; future: string[]; url: string; live: boolean }
+interface RelAct { celex: string; title: string; since: string | null; relation?: string }
+interface Act { celex: string; title: string; role: string; in_force: boolean; in_force_since: string | null; next_effective: string | null; future: string[]; url: string; live: boolean; ends: string | null; replaced_by: RelAct[]; amendments: RelAct[] }
 interface FwVersion { framework: string; name: string; authority: string; current_since: string | null; amended_by: number; upcoming_effective: string | null; acts: Act[]; checked_at: string | null }
 interface Versions { frameworks: FwVersion[]; checked_at: string | null; summary: { n: number; n_upcoming: number } }
 interface RegAlert { alert_key: string; kind: string; title: string; effective_date: string | null; task_id: string | null; raised_at: string }
@@ -205,7 +206,7 @@ function VersionRegister({ data, loading }: { data?: Versions; loading: boolean 
     <>
       <HeroBanner eyebrow="Version register (CRCS)"
         title={`${data.summary.n} regulation${data.summary.n === 1 ? '' : 's'} tracked · ${data.summary.n_upcoming} with a new version coming`}
-        lead="Each regulation's version lineage — the base act and the amendments that changed it — with what's in force now and the next effective date. Dates are live from the EU register."
+        lead="Each regulation's version lineage — the act your filings are prepared under, the acts that amend or replace it, and the dates they apply. Every filing records the version it was prepared under. Dates and relations are live from the EU register."
         stat={[
           { label: 'Regulations tracked', value: data.summary.n, icon: GitBranch, tone: 'var(--color-sky)' },
           { label: 'New version coming', value: data.summary.n_upcoming, icon: CalendarClock, tone: data.summary.n_upcoming > 0 ? '#E8B24C' : '#4FA46E' },
@@ -227,7 +228,19 @@ function VersionRegister({ data, loading }: { data?: Versions; loading: boolean 
                   <span className="mono text-[8.5px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 mt-0.5" style={a.role === 'amendment' ? { color: '#a78bfa', background: 'color-mix(in oklab, #a78bfa 14%, transparent)' } : { color: 'var(--color-mute)', background: 'var(--color-bg-2)' }}>{a.role}</span>
                   <div className="min-w-0 flex-1">
                     <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-[var(--color-ink)] hover:text-[var(--color-sky)] inline-flex items-center gap-1">{a.title} <ExternalLink size={10} className="text-[var(--color-faint)]" /></a>
-                    <span className="mono text-[10px] text-[var(--color-faint)] ml-2">in force {a.in_force_since ?? '—'}{a.next_effective ? ` · next milestone ${a.next_effective}` : ''}</span>
+                    <span className="mono text-[10px] text-[var(--color-faint)] ml-2">in force {a.in_force_since ?? '—'}{a.next_effective ? ` · next milestone ${a.next_effective}` : ''}{a.ends ? ` · ends ${a.ends}` : ''}</span>
+                    {a.replaced_by.map(r => (
+                      <div key={r.celex} className="mt-1 text-[11.5px]" style={{ color: 'var(--color-warn)' }}>
+                        {r.relation === 'repeals' ? 'Replaced by' : 'Repealed in whole or in part by'}{' '}
+                        <a href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${r.celex}`} target="_blank" rel="noopener noreferrer" className="underline">{r.title}</a>
+                        {r.since ? ` — in force ${r.since}` : ''}. Filings for periods it governs are flagged for review.
+                      </div>))}
+                    {a.amendments.length > 0 && (
+                      <div className="mt-1 text-[11px] text-[var(--color-faint)]">
+                        amended by {a.amendments.length} act{a.amendments.length === 1 ? '' : 's'} · latest{' '}
+                        <a href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:${a.amendments[0].celex}`} target="_blank" rel="noopener noreferrer" className="underline">{a.amendments[0].title}</a>
+                        {a.amendments[0].since ? ` (${a.amendments[0].since})` : ''}
+                      </div>)}
                   </div>
                 </div>
               ))}

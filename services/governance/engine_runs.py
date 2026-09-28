@@ -188,6 +188,17 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
         out.append(_check("scored", "Every asset is scored", scored >= n, f"{scored} of {n} scored", "warn"))
         figures = {"n_assets": n, "n_scored": scored, "total": total,
                    "currency": (payload.get("_fx") or {}).get("presentation_currency", "EUR")}
+    reg = payload.get("_regulation")
+    if reg:
+        if reg["status"] == "current":
+            out.append(_check("regulation", "Prepared under the version in force", True, f"{reg['label']}"
+                              + (f", as amended ({len(reg['amended_by'])} amending act(s))" if reg["amended_by"] else "")))
+        else:
+            rep = "; ".join(f"{r['title']} ({r['celex']}, in force {r['since']})" for r in reg["replaced_by"][:2])
+            detail = (f"the act ended before this period; a later version governs it — {rep or 'see the register'}"
+                      if reg["status"] == "superseded" else
+                      f"an act that repeals it in whole or in part is in force for this period — {rep}; review which provisions apply")
+            out.append(_check("regulation", "Prepared under the version in force", False, detail, "warn"))
     nd = manifest.get("open_differences") or 0
     out.append(_check("differences", "Your values and ours agree, or were decided", nd == 0,
                       f"{nd} difference(s) between your values and ours not yet decided (Your data → Your value vs ours)"

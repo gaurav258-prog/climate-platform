@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 @celery_app.task(name="reg.scan_eurlex")
 def scan_eurlex() -> dict:
     from core.db.session import get_session
-    from services.regulatory_monitoring.eurlex_detector import scan
+    from services.regulatory_monitoring.eurlex_detector import scan, scan_relations
     with get_session() as s:
         res = scan(s)
+        res["relations"] = scan_relations(s)       # which acts amend or replace them (CRCS version pinning)
     if res["changed"]:
         logger.warning("EUR-Lex scan: detected changes in %s", res["changed"])
     if res["errors"]:

@@ -31,6 +31,8 @@ FRAMEWORK_CELEX: dict[str, list[str]] = {
     "csrd_e1": ["32023R2772", "32022L2464"],     # ESRS Delegated Act + CSRD Directive
     "esrs_pack": ["32023R2772", "32022L2464"],
     "insurer_climate": ["32009L0138"],
+    "insurer_solvency": ["32009L0138"],          # S.26.01 NatCat SCR — Solvency II
+    "reit_taxonomy": ["32021R2178"],             # Art. 8 KPIs — Taxonomy Disclosures DA
     "eudr_dds": ["32023R1115", "32024R3234"],    # EUDR + the application-date amendment
 }
 
@@ -66,6 +68,89 @@ def _query_cellar(celex: str, timeout: float = 20.0) -> dict | None:
     doc = next((b["doc"]["value"] for b in rows if "doc" in b), None)
     return {"celex": celex, "entry_into_force": eif, "end_of_validity": eov,
             "in_force": inforce in ("true", "1", "yes"), "doc_date": doc}
+
+
+_RELATIONS = """PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+SELECT DISTINCT ?celex ?rel ?eif ?inforce ?title WHERE {
+  ?target cdm:resource_legal_id_celex "%s"^^<http://www.w3.org/2001/XMLSchema#string> .
+  { ?w cdm:resource_legal_repeals_resource_legal ?target . BIND("repeals" AS ?rel) }
+  UNION { ?w cdm:resource_legal_implicitly_repeals_resource_legal ?target . BIND("implicitly_repeals" AS ?rel) }
+  UNION { ?w cdm:resource_legal_amends_resource_legal ?target . BIND("amends" AS ?rel) }
+  ?w cdm:resource_legal_id_celex ?celex .
+  OPTIONAL { ?w cdm:resource_legal_date_entry-into-force ?eif }
+  OPTIONAL { ?w cdm:resource_legal_in-force ?inforce }
+  OPTIONAL { ?e cdm:expression_belongs_to_work ?w ; cdm:expression_title ?title ;
+             cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/ENG> }
+}"""
+
+
+def _query_relations(celex: str, timeout: float = 40.0) -> list[dict] | None:
+    """The acts that amend or repeal `celex`, as the register states them — None if the source can't be reached."""
+    try:
+        import requests
+        r = requests.get(_ENDPOINT, params={"query": _RELATIONS % celex, "format": "application/sparql-results+json"},
+                         timeout=timeout, headers={"Accept": "application/sparql-results+json"})
+        if r.status_code != 200:
+            return None
+        rows = (r.json().get("results") or {}).get("bindings") or []
+    except Exception:
+        return None
+    acts: dict[tuple, dict] = {}
+    for b in rows:
+        key = (b["celex"]["value"], b["rel"]["value"])
+        a = acts.setdefault(key, {"related_celex": key[0], "relation": key[1], "entry_into_force": set(),
+                                  "in_force": None, "title": None})
+        if "eif" in b:
+            a["entry_into_force"].add(b["eif"]["value"])
+        if "inforce" in b:
+            a["in_force"] = b["inforce"]["value"] in ("true", "1", "yes")
+        if "title" in b and not a["title"]:
+            a["title"] = " ".join(b["title"]["value"].split())
+    return [{**a, "entry_into_force": sorted(a["entry_into_force"])} for a in acts.values()]
+
+
+def scan_relations(session: Session) -> dict:
+    """Refresh which acts amend or replace every tracked act. A relation seen for the first time is a detected change
+    (pending review) against each framework filed under the act. The first scan of an act records its existing
+    amendments as the baseline, quietly; an act that replaces it is raised even then — a successor is never silent."""
+    from services.governance.reg_reference import REFERENCE
+    celex_fw: dict[str, list[str]] = {}
+    for fw, acts in FRAMEWORK_CELEX.items():
+        for cx in acts:
+            celex_fw.setdefault(cx, []).append(fw)
+    new, errors = [], []
+    for cx, fws in celex_fw.items():
+        rels = _query_relations(cx)
+        if rels is None:
+            errors.append(cx)
+            continue
+        baseline = session.execute(text("SELECT 1 FROM reg_act_relation WHERE celex=:c LIMIT 1"), {"c": cx}).first() is None
+        for rel in rels:
+            seen = session.execute(text("""SELECT 1 FROM reg_act_relation WHERE celex=:c AND related_celex=:r AND relation=:k"""),
+                                   {"c": cx, "r": rel["related_celex"], "k": rel["relation"]}).first()
+            session.execute(text("""
+                INSERT INTO reg_act_relation (celex, related_celex, relation, title, entry_into_force, in_force)
+                VALUES (:c, :r, :k, :t, CAST(:e AS jsonb), :i)
+                ON CONFLICT (celex, related_celex, relation) DO UPDATE SET title = COALESCE(EXCLUDED.title, reg_act_relation.title),
+                    entry_into_force = EXCLUDED.entry_into_force, in_force = EXCLUDED.in_force, last_seen_at = now()
+            """), {"c": cx, "r": rel["related_celex"], "k": rel["relation"], "t": rel["title"],
+                   "e": json.dumps(rel["entry_into_force"]), "i": rel["in_force"]})
+            if seen or (baseline and rel["relation"] == "amends"):
+                continue
+            new.append((cx, rel["related_celex"], rel["relation"]))
+            verb = "replaces" if rel["relation"] != "amends" else "amends"
+            for fw in fws:
+                label = (REFERENCE.get(fw) or {}).get("official_name") or fw
+                session.execute(text("""INSERT INTO reg_detected_change (framework, celex, title, summary, effective_date, url)
+                                        VALUES (:f, :c, :t, :s, :d, :u)"""),
+                                {"f": fw, "c": rel["related_celex"],
+                                 "t": f"{label} — a new act {verb} {cx}",
+                                 "s": f"{rel['title'] or rel['related_celex']} {verb} the act this framework is filed under "
+                                      f"(entry into force {', '.join(rel['entry_into_force']) or 'not stated'}).",
+                                 "d": min(rel["entry_into_force"]) if rel["entry_into_force"] else None,
+                                 "u": f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{rel['related_celex']}"})
+    session.commit()
+    return {"checked": len(celex_fw), "new_relations": new, "errors": errors}
 
 
 def _fingerprint(sig: dict) -> str:

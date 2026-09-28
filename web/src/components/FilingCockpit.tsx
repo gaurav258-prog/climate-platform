@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import FilingRun, { type EngineRun } from './FilingRun'
+const BASIS_VALUE: Record<string, string> = { 'regulation_status:current': 'in force for the period', 'regulation_status:successor_in_force': 'replacing act in force — review',
+  'regulation_status:superseded': 'superseded for the period', 'view:joint': 'joint', 'view:client': 'your values only', 'view:tellumen': 'Tellumen where derived' }
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
@@ -430,7 +432,8 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                   {Object.entries(f.snapshot.reporting_basis).map(([k, v]) => (
                     <div key={k} className="flex justify-between border-b border-[var(--color-line)] pb-1">
-                      <span className="text-[var(--color-mute)]">{k.replace(/_/g, ' ')}</span><span className="text-[var(--color-ink)] mono">{String(v)}</span>
+                      <span className="text-[var(--color-mute)]">{k === 'regulation_status' ? 'regulation version' : k.replace(/_/g, ' ')}</span>
+                      <span className="text-[var(--color-ink)] mono" style={k === 'regulation_status' && v !== 'current' ? { color: 'var(--color-warn)' } : undefined}>{BASIS_VALUE[`${k}:${String(v)}`] ?? String(v)}</span>
                     </div>
                   ))}
                 </div>

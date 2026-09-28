@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.db.config import SessionLocal  # noqa: E402
-from services.regulatory_monitoring.eurlex_detector import scan  # noqa: E402
+from services.regulatory_monitoring.eurlex_detector import scan, scan_relations  # noqa: E402
 
 
 def main() -> None:
@@ -21,6 +21,9 @@ def main() -> None:
     print(f"  changed   : {res['changed']}")
     print(f"  unchanged : {res['unchanged']}")
     print(f"  errors    : {res['errors']}")
+    with SessionLocal() as session:
+        rel = scan_relations(session)
+    print(f"  new amending / replacing acts: {rel['new_relations']}  (unreachable: {rel['errors']})")
 
 
 if __name__ == "__main__":
