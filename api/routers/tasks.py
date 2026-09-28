@@ -519,6 +519,18 @@ def my_tasks(session: DbSession, ctx: CurrentUser,
                 "A located site scores from the golden source shortly — check if any are stuck.",
                 "info", "Open Operations", "/operations", "modules.view"))
 
+    try:   # intake phase 6: new data on assets a frozen filing rests on — the filing is never touched, only flagged
+        from services.governance.data_revisions import flagged_filings
+        flagged = flagged_filings(session, org_id)
+        if flagged:
+            tasks.append(_task(
+                "filings_new_data", f"{len(flagged)} frozen filing(s) may need restating",
+                "New data since they were frozen: " + "; ".join(f"{f['framework']} {f['period_label']}" for f in flagged[:3])
+                + ". The filings are unchanged — open one to see what changed, then restate it.",
+                "warning", "Open filings", "/filings", "reports.view"))
+    except Exception:
+        pass
+
     try:
         from services.intelligence.input_quality import input_quality_status
         iq = input_quality_status(session, org_id)

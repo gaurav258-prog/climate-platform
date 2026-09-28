@@ -782,7 +782,7 @@ def refresh_filing(session: Session, org_id: str, filing_id: str, actor_user_id:
                     {"snap": snap["snapshot_id"], "ccy": ccy, "f": filing_id, "o": org_id})
     _log_event(session, filing_id, "draft", "draft", "refresh", actor_user_id,
                {"snapshot_id": snap["snapshot_id"], "version": snap["version"],
-                "payload_sha256": snap["payload_sha256"], "prev_snapshot_id": r["snapshot_id"]})
+                "payload_sha256": snap["payload_sha256"], "prev_snapshot_id": r["snapshot_id"], "run_id": snap.get("run_id")})
     session.commit()
     return get_filing(session, org_id, filing_id, with_payload=False)
 

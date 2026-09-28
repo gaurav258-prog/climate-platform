@@ -468,7 +468,8 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 )}
               </Card>
             )}
-            {f.run && <FilingRun run={f.run} />}
+            {f.run ? <FilingRun run={f.run} filingId={f.filing_id} />
+              : f.snapshot && <div className="mono text-[10.5px] text-[var(--color-faint)] px-1">Frozen before engine runs were recorded — no fingerprint to compare new data with. Refresh (draft) or restate to pin it to a run.</div>}
 
             {/* the final form — the frozen disclosure as the submittable datapoint form */}
             <FilingForm filingId={filingId} />

@@ -437,6 +437,15 @@ def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_p
     return cell_upstream(session, ctx["org"]["org_id"], h3_cell)
 
 
+@router.get("/filings/{filing_id}/data-revisions", summary="New data since this filing was frozen (it may need restating)")
+def data_revisions(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.data_revisions import revisions
+    try:
+        return revisions(session, ctx["org"]["org_id"], filing_id)
+    except ValueError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
 @router.get("/filings/{filing_id}/variance", summary="Decompose how the numbers moved vs the prior filing")
 def variance(filing_id: str, session: DbSession, vs: Optional[str] = None,
              ctx: dict = Depends(require_permission("reports.view"))):
