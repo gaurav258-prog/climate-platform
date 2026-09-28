@@ -192,7 +192,7 @@ def _spec_record(session: Session, report_type: str, period_end) -> dict | None:
     st = signoff_status(session, report_type, spec["version"])
     return {"framework": report_type, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
             "act": spec["act"].get("short") or spec["act"]["title"], "basis": spec["applies"]["basis"],
-            "approved": st["approved"], "needs": st["needs"]}
+            "approved": st["approved"], "one_person": st["one_person"], "needs": st["needs"]}
 
 
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:

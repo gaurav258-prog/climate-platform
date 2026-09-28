@@ -80,3 +80,16 @@ def test_the_2024_act_replacing_2022_is_lineage_not_an_alarm(s):
     assert r["status"] == "current" and "32024R3172" in r["label"] and "32022R2453" not in r["label"]
     assert r["lineage"] and r["lineage"][0]["replaced"] == "32022R2453"
     assert "32022R2453" in version_for(s, "bank_p3esg", "2024-06-30")["label"]
+
+
+def test_a_sole_reviewer_signs_both_roles_only_by_declaring_it(s):
+    spec = R.load("bank_p3esg", "its_2024_3172")
+    a = _uid(s, "admin@meridian.demo")
+    with pytest.raises(S.SignoffError, match="after signing the first yourself"):
+        S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, spec["_sha256"], sole_reviewer=True)
+    S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, spec["_sha256"])
+    with pytest.raises(S.SignoffError, match="declare it"):
+        S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", a, spec["_sha256"])
+    st = S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", a, spec["_sha256"], sole_reviewer=True)
+    assert st["approved"] and st["one_person"]
+    assert "not a four-eyes review" in next(g["note"] for g in st["signed"] if g["role"] == "engineering")

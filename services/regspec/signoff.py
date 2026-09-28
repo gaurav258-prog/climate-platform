@@ -22,7 +22,7 @@ class SignoffError(ValueError):
 def status(session: Session, framework: str, version: str) -> dict:
     spec = R.load(framework, version)
     rows = session.execute(text("""
-        SELECT s.role, s.sha256, s.signed_at, s.note, u.email
+        SELECT s.role, s.sha256, s.signed_at, s.note, s.sole_reviewer, u.email, u.full_name, s.user_id::text AS user_id
         FROM regspec_signoff s JOIN users u ON u.user_id = s.user_id
         WHERE s.framework = :f AND s.version = :v ORDER BY s.signed_at"""), {"f": framework, "v": version}).mappings().all()
     current = [dict(r) | {"signed_at": r["signed_at"].isoformat()} for r in rows if r["sha256"] == spec["_sha256"]]
@@ -30,11 +30,18 @@ def status(session: Session, framework: str, version: str) -> dict:
     roles = {r["role"] for r in current}
     return {"framework": framework, "version": version, "sha256": spec["_sha256"], "status": spec["status"],
             "signed": current, "voided_by_edit": voided, "needs": [r for r in ROLES if r not in roles],
-            "approved": roles == set(ROLES)}
+            "approved": roles == set(ROLES),
+            # a team of one may sign both roles only by declaring it; the record never passes that off as four eyes
+            "one_person": roles == set(ROLES) and len({r["user_id"] for r in current}) == 1}
 
 
-def sign(session: Session, framework: str, version: str, role: str, user_id: str, sha256: str, note: str | None = None) -> dict:
-    """Sign the file as `role`. `sha256` is the hash the signer reviewed — refused if the file has changed since."""
+SOLE_NOTE = "Sole reviewer: the same person signed both roles; this is not a four-eyes review."
+
+
+def sign(session: Session, framework: str, version: str, role: str, user_id: str, sha256: str, note: str | None = None,
+         sole_reviewer: bool = False) -> dict:
+    """Sign the file as `role`. `sha256` is the hash the signer reviewed — refused if the file has changed since.
+    `sole_reviewer` declares that the person who signed the other role is signing this one too (a team of one)."""
     if role not in ROLES:
         raise SignoffError(f"role must be one of {ROLES}")
     spec = R.load(framework, version)
@@ -50,15 +57,20 @@ def sign(session: Session, framework: str, version: str, role: str, user_id: str
     st = status(session, framework, version)
     if any(s["role"] == role for s in st["signed"]):
         raise SignoffError(f"already signed as {role}")
+    if sole_reviewer and not any(s["user_id"] == user_id for s in st["signed"]):
+        raise SignoffError("a sole-reviewer declaration is for signing the second role after signing the first yourself")
+    if sole_reviewer:
+        note = f"{SOLE_NOTE} {note or ''}".strip()
     try:
         with session.begin_nested():
             session.execute(text("""
-                INSERT INTO regspec_signoff (framework, version, sha256, role, user_id, note)
-                VALUES (:f, :v, :h, :r, CAST(:u AS uuid), :n)"""),
-                {"f": framework, "v": version, "h": sha256, "r": role, "u": user_id, "n": (note or None)})
+                INSERT INTO regspec_signoff (framework, version, sha256, role, user_id, note, sole_reviewer)
+                VALUES (:f, :v, :h, :r, CAST(:u AS uuid), :n, :sole)"""),
+                {"f": framework, "v": version, "h": sha256, "r": role, "u": user_id, "n": (note or None), "sole": sole_reviewer})
     except Exception as e:  # noqa: BLE001 — the unique index is the four-eyes rule
         if "ux_regspec_signoff_person" in str(e):
-            raise SignoffError("the second sign-off must be by a different person") from e
+            raise SignoffError("the second sign-off must be by a different person — or, if you are the only reviewer, "
+                               "declare it (sole reviewer)") from e
         raise
     return status(session, framework, version)
 

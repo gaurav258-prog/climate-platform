@@ -9,13 +9,13 @@ import { Card, Button } from './ui'
 // official text. Shows what changed from the version before, whether the implementation covers every row and column,
 // and the four-eyes sign-off — a regulatory reviewer and an engineer, two different people, on the file's exact bytes.
 
-interface Signed { role: string; email: string; signed_at: string; sha256: string }
+interface Signed { role: string; email: string; full_name: string | null; user_id: string; signed_at: string; sha256: string; sole_reviewer: boolean; note: string | null }
 interface Axis { added: string[]; removed: string[]; relabelled: { id: string; from: string; to: string }[] }
 interface Changed { id: string; title?: { from: string; to: string }; ref?: { from: string; to: string }; rows?: Axis; columns?: Axis; z_axis?: { from: string; to: string } }
 interface Diff { from: string; kind: string; templates_added: string[]; templates_removed: string[]; changed: Changed[]; unchanged: string[]; legal_basis: Record<string, { from: string; to: string }> }
 interface Spec {
   framework: string; name: string; version: string; sha256: string; status: 'adopted' | 'draft'; approved: boolean; needs: string[]
-  signed: Signed[]; voided_by_edit: Signed[]
+  signed: Signed[]; voided_by_edit: Signed[]; one_person: boolean
   act: { celex: string | null; title: string; url: string; short?: string }
   applies: { from: string; until: string | null; basis: string }
   templates: { id: string; code: string; title: string; structure: string }[]
@@ -55,13 +55,14 @@ function DiffView({ d }: { d: Diff }) {
   )
 }
 
-export default function SpecRegister({ canSign }: { canSign: boolean }) {
+export default function SpecRegister({ canSign, userId }: { canSign: boolean; userId?: string }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['regspec'], queryFn: () => api.get<{ specs: Spec[] }>('/v1/regspec') })
   const [open, setOpen] = useState<string | null>(null)
-  const sign = async (s: Spec, role: string) => {
+  const [sole, setSole] = useState<Record<string, boolean>>({})
+  const sign = async (s: Spec, role: string, soleReviewer = false) => {
     try {
-      await api.post(`/v1/regspec/${s.framework}/${s.version}/sign`, { role, sha256: s.sha256 })
+      await api.post(`/v1/regspec/${s.framework}/${s.version}/sign`, { role, sha256: s.sha256, sole_reviewer: soleReviewer })
       toast.success(`Signed as ${role}`); qc.invalidateQueries({ queryKey: ['regspec'] })
     } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not sign.') }
   }
@@ -91,7 +92,7 @@ export default function SpecRegister({ canSign }: { canSign: boolean }) {
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={pill(s.status === 'draft' ? '#a78bfa' : 'var(--color-sky)')}>{s.status}</span>
                 {s.coverage && <span className="mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={pill(s.coverage.complete ? 'var(--color-good)' : 'var(--color-warn)')}>{s.coverage.complete ? 'fully covered' : `${s.coverage.missing.length + s.coverage.stale.length} to map`}</span>}
-                <span className="mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={pill(s.approved ? 'var(--color-good)' : 'var(--color-warn)')}>{s.approved ? 'signed off' : `needs ${s.needs.join(' + ')}`}</span>
+                <span className="mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full" style={pill(s.approved && !s.one_person ? 'var(--color-good)' : 'var(--color-warn)')}>{s.approved ? (s.one_person ? 'signed off by one person' : 'signed off') : `needs ${s.needs.join(' + ')}`}</span>
               </div>
             </div>
             {s.diff_from_previous && <DiffView d={s.diff_from_previous} />}
@@ -110,12 +111,23 @@ export default function SpecRegister({ canSign }: { canSign: boolean }) {
                     <div className="text-[11.5px] text-[var(--color-mute)] mt-1">Why: {i.basis}</div>
                   </div>))}
                 {s.coverage && !s.coverage.complete && <div className="mono text-[10.5px] text-[var(--color-warn)]">Not covered: {[...s.coverage.missing, ...s.coverage.stale, ...s.coverage.invalid].slice(0, 12).join(', ')}</div>}
-                {s.signed.map(g => <div key={g.role} className="mono text-[10.5px] text-[var(--color-good)]">Signed as {g.role} by {g.email} · {g.signed_at.slice(0, 16).replace('T', ' ')}</div>)}
+                {s.signed.map(g => <div key={g.role} className="mono text-[10.5px]" style={{ color: g.sole_reviewer ? 'var(--color-warn)' : 'var(--color-good)' }}>Signed as {g.role} by {g.full_name ?? g.email} · {g.signed_at.slice(0, 16).replace('T', ' ')}{g.sole_reviewer ? ' · declared sole reviewer — not a four-eyes review' : ''}</div>)}
                 {s.voided_by_edit.length > 0 && <div className="mono text-[10.5px] text-[var(--color-faint)]">{s.voided_by_edit.length} earlier sign-off(s) no longer count — the file changed after them.</div>}
-                {canSign && s.needs.length > 0 && (
-                  <div className="flex gap-2 pt-1">
-                    {s.needs.map(r => <Button key={r} variant="ghost" onClick={() => sign(s, r)}>Sign as {r}</Button>)}
-                  </div>)}
+                {canSign && s.needs.length > 0 && (() => {
+                  const signedOther = s.signed.some(g => g.user_id === userId)   // this person already signed the other role
+                  return (
+                    <div className="pt-1 space-y-2">
+                      {signedOther && (
+                        <label className="flex items-start gap-2 text-[12px] text-[var(--color-mute)] max-w-[62ch]">
+                          <input type="checkbox" className="mt-0.5" checked={!!sole[key]} onChange={e => setSole({ ...sole, [key]: e.target.checked })} />
+                          <span>I am the only reviewer. Record this as a one-person sign-off — the record will say it is not a four-eyes review.</span>
+                        </label>)}
+                      <div className="flex gap-2">
+                        {s.needs.map(r => <Button key={r} variant="ghost" disabled={signedOther && !sole[key]}
+                          onClick={() => sign(s, r, signedOther)}>Sign as {r}</Button>)}
+                      </div>
+                    </div>)
+                })()}
               </div>)}
           </Card>)
       })}

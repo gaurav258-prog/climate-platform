@@ -207,6 +207,9 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
             who = " and ".join(spec.get("needs") or [])
             out.append(_check("specification", "Built to a signed-off template specification", bool(spec.get("approved")),
                               f"{spec['act']} — specification {spec['version']}"
+                              + ("" if not spec.get("approved") else
+                                 "; signed off by one person (declared sole reviewer), not a four-eyes review"
+                                 if spec.get("one_person") else "; signed off by two people")
                               + ("" if spec.get("approved") else f"; still needs the {who} sign-off"), "warn"))
     nd = manifest.get("open_differences") or 0
     out.append(_check("differences", "Your values and ours agree, or were decided", nd == 0,

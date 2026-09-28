@@ -17,6 +17,7 @@ class Sign(BaseModel):
     role: str
     sha256: str = Field(..., min_length=64, max_length=64)
     note: Optional[str] = Field(None, max_length=1000)
+    sole_reviewer: bool = False            # the same person signs both roles, and says so
 
 
 @router.get("", summary="Every template specification: act, dates, sign-off, coverage and what changed from the version before")
@@ -37,7 +38,8 @@ def one(framework: str, version: str, session: DbSession, ctx: dict = Depends(re
 @router.post("/{framework}/{version}/sign", summary="Sign a specification as regulatory reviewer or engineer (platform operator; two different people)")
 def sign(framework: str, version: str, body: Sign, session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
     try:
-        out = S.sign(session, framework, version, body.role, ctx["user"]["id"], body.sha256, body.note)
+        out = S.sign(session, framework, version, body.role, ctx["user"]["id"], body.sha256, body.note,
+                     sole_reviewer=body.sole_reviewer)
     except (R.SpecError, S.SignoffError) as e:
         raise HTTPException(409, {"error": "not_signed", "message": str(e)}) from e
     session.commit()

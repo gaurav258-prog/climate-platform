@@ -97,7 +97,7 @@ export default function RegPipeline() {
         </div>
       </div>
 
-      <SpecRegister canSign={(profile?.permissions ?? []).includes('platform.admin')} />
+      <SpecRegister canSign={(profile?.permissions ?? []).includes('platform.admin')} userId={profile?.user.id} />
 
       {sel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSel(null)}>
