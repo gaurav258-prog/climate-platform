@@ -161,7 +161,10 @@ def apply_location_change(session: Session, request_type: str, payload: dict,
         if cid:
             sets.append("commodity_id = :cid"); params["cid"] = cid
     if sets:
+        from services.intake.observations import sync
+        sync(session, org_id, asset_ids=[target_id], tables=[table])            # the book before this edit
         session.execute(text(f"UPDATE {table} SET {', '.join(sets)} WHERE {id_col}=:i AND org_id=:o"), params)
+        sync(session, org_id, asset_ids=[target_id], tables=[table], method="manual_edit", origin=f"user:{actor_user_id}")
         session.commit()
     if "latitude" in changes or "longitude" in changes:
         _rescore(session, table, id_col, target_id, org_id)

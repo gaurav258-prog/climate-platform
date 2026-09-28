@@ -19,6 +19,7 @@ from sqlalchemy import text
 
 from core.db.session import get_session
 from services.intake import storage
+from tests.integration.conftest import purge_observations
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
 DECL = {"currency": "EUR", "book_date": "2026-06-30"}   # every batch declares its currency and book date (never assumed)
@@ -46,6 +47,7 @@ def _purge(tag):
         s.execute(text("ALTER TABLE intake_files DISABLE TRIGGER trg_intake_file_protect"))
         ids = [r[0] for r in s.execute(text("SELECT entity_id FROM portfolio_entities WHERE entity_name LIKE :p"), {"p": f"TEST-PIPE-{tag}%"}).all()]
         if ids:
+            purge_observations(s, ids)
             s.execute(text("DELETE FROM ext_banking WHERE entity_id = ANY(:i)"), {"i": ids})
             s.execute(text("DELETE FROM portfolio_entities WHERE entity_id = ANY(:i)"), {"i": ids})
         batches = s.execute(text("SELECT batch_id, file_id, approval_request_id FROM ingest_batches WHERE filename LIKE :f"),

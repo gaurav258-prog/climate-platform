@@ -118,8 +118,13 @@ def land(session: Session, org_id: str, sector: Sector, st: dict, batch_id: Opti
             updates.append(merged)
         else:
             unchanged_ids.append(m["entity_id"])
+    from services.intake import observations
+    if updates:   # what the book held before this file, stated by the book (so this batch is credited only with its changes)
+        observations.sync(session, org_id, asset_ids=[u["entity_id"] for u in updates], tables=[sector.table])
     out = si.write(session, sector, org_id, st["ctx"], new, updates)
     _record_money_source(session, sector, new, out["entity_ids"], updates, batch_id)
+    observations.sync(session, org_id, asset_ids=list(out["entity_ids"]) + [u["entity_id"] for u in updates],
+                      tables=[sector.table], method="intake_batch", origin=f"batch:{batch_id}" if batch_id else None)
     ids = set(out["entity_ids"]) | {u["entity_id"] for u in updates} | set(unchanged_ids)
     after = {e["entity_id"]: e for e in sector.existing(session, org_id) if e["entity_id"] in ids}
     value_landed = float(sum(e.get(sector.value_field) or 0 for e in after.values()))

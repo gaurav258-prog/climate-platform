@@ -112,6 +112,9 @@ def add_site(session: Session, org_id: str, name: str, site_type: str = "other",
            "value": annual_value_eur, "throughput": annual_throughput_eur,
            "conf": loc["confidence"], "prec": loc["precision"], "source": source,
            "ms": json.dumps(money_source, default=str) if money_source else None}).first()
+    from services.intake.observations import sync
+    sync(session, org_id, asset_ids=[row[0]], tables=["sc_company_sites"],
+         method="manual_entry" if source == "user_entry" else source)
     session.commit()
 
     # score the cell in the background if the golden source hasn't reached it — a fresh cell means

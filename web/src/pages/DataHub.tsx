@@ -8,6 +8,7 @@ import ProvidedData from '../components/ProvidedData'
 import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
+import FactConflicts from '../components/FactConflicts'
 import ValidatedUpload from '../components/ValidatedUpload'
 import { balance } from '../lib/money'
 
@@ -51,6 +52,7 @@ export default function DataHub() {
           <div className="mt-3 inline-flex items-center gap-1 text-[12px] text-[var(--color-sky)]">Open <ArrowRight size={13} className="group-hover:translate-x-0.5 transition" /></div>
         </Link>
       </div>
+      <FactConflicts />
       <div className="mono text-[10px] text-[var(--color-faint)]">Bringing a figure calculated on your side (a certified footprint, an audited number)? Provide it under “Provided &amp; reconciled data” inside your reports.</div>
     </div>
   )
@@ -77,6 +79,8 @@ export default function DataHub() {
           renderDone={res => <>Imported <b>{Number(res.n_uploaded) || 0}</b> {cfg.rowNoun}{Number(res.n_uploaded) === 1 ? '' : 's'} — scored and ready below.</>}
         />
       </Step>
+
+      <FactConflicts />
 
       <Flow>the engine scores every {cfg.rowNoun} against verified EU &amp; US climate data</Flow>
 

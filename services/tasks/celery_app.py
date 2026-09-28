@@ -137,4 +137,9 @@ celery_app.conf.beat_schedule = {
         "task": "intake.sweep_drop_folders",
         "schedule": 300.0,   # seconds
     },
+    # Every asset fact per source (client / Tellumen), our own values derived, differences queued for a person.
+    "intake-observe-books": {
+        "task": "intake.observe_books",
+        "schedule": crontab(minute=20),   # hourly
+    },
 }

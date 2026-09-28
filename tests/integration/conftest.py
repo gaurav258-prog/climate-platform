@@ -35,6 +35,18 @@ def intake_client(monkeypatch):
 
 
 
+def purge_observations(s, asset_ids) -> None:
+    """Remove the asset facts a committed test recorded (intake phase 3). The history is append-only in production;
+    only this cleanup transaction lifts its trigger, and re-arms it before the caller commits."""
+    ids = [str(i) for i in asset_ids]
+    if not ids:
+        return
+    s.execute(text("ALTER TABLE asset_observations DISABLE TRIGGER trg_asset_obs_worm"))
+    s.execute(text("DELETE FROM asset_conflicts WHERE asset_id = ANY(CAST(:i AS uuid[]))"), {"i": ids})
+    s.execute(text("DELETE FROM asset_observations WHERE asset_id = ANY(CAST(:i AS uuid[]))"), {"i": ids})
+    s.execute(text("ALTER TABLE asset_observations ENABLE TRIGGER trg_asset_obs_worm"))
+
+
 @pytest.fixture()
 def session_rolled_back():
     shas = []

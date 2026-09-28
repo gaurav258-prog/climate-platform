@@ -421,6 +421,9 @@ def create_plot(body: PlotCreate, session: DbSession, ctx: CurrentUser):
            "country": country, "spend": spend["eur"], "area": body.plot_area_ha,
            "conf": loc["confidence"], "prec": loc["precision"], "irr": _norm_irrigation(body.irrigation_status),
            "ms": json.dumps(source_record(body.currency.upper(), body.book_date, {"annual_spend_eur": spend}, origin="manual_entry"), default=str)})
+    from services.intake.observations import sync
+    sync(session, org_id, asset_ids=[plot_id], tables=["sc_sourcing_plots"], method="manual_entry",
+         origin=f"user:{ctx['user']['id']}")
     session.commit()
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="plots.add",
                 target_type="sc_sourcing_plots", target_id=plot_id,

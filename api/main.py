@@ -73,6 +73,7 @@ try:
     from api.routers import growth as growth_router
     from api.routers import ingest as ingest_router
     from api.routers import intake_batches as intake_batches_router
+    from api.routers import intake_facts as intake_facts_router
     from api.routers import meta as meta_router
     from api.routers import model_risk as model_risk_router
     from api.routers import notifications as notifications_router
@@ -299,6 +300,7 @@ if ADMIN_ROUTERS_AVAILABLE:
     app.include_router(portal_router.router)
     app.include_router(ingest_router.router)
     app.include_router(intake_batches_router.router)
+    app.include_router(intake_facts_router.router)
     app.include_router(webhooks_router.router)
     app.include_router(prior_filings_router.router)
     app.include_router(eet_router.router)

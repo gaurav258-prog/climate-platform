@@ -12,7 +12,11 @@ from sqlalchemy import text
 
 from services.governance import display_currency as DC
 from services.governance.billing import PRICE_CURRENCY, get_billing
-from services.governance.location_governance import LocationMoneyError, apply_location_change, convert_money_changes
+from services.governance.location_governance import (
+    LocationMoneyError,
+    apply_location_change,
+    convert_money_changes,
+)
 from services.governance.reporting_settings import upsert_reporting_settings
 from services.reference.fx import average_rate, rate_for
 from tests.integration.test_intake_pipeline import BANK_ORG
@@ -70,8 +74,12 @@ def test_a_location_edit_in_usd_converts_on_the_book_date_and_records_what_was_s
     assert changes["annual_value_eur"] == pytest.approx(2_000_000.0 * u["rate"], abs=0.01)     # a balance: closing rate
     f = ms["fields"]["annual_value_eur"]
     assert (f["amount"], f["currency"], f["book_date"], f["policy"], f["origin"]) == (2_000_000.0, "USD", bd.isoformat(), "closing", "manual_edit")
-    apply_location_change(s, "supply.site.update", {"target_id": site["id"], "changes": changes, "money_source": ms},
-                          actor_user_id=None, org_id=site["org"])
+    s.commit = s.flush          # apply_location_change commits; keep this test's change inside the rolled-back transaction
+    try:
+        apply_location_change(s, "supply.site.update", {"target_id": site["id"], "changes": changes, "money_source": ms},
+                              actor_user_id=None, org_id=site["org"])
+    finally:
+        del s.commit
     row = s.execute(text("SELECT CAST(annual_value_eur AS FLOAT) v, money_source FROM sc_company_sites WHERE site_id = CAST(:i AS uuid)"),
                     {"i": site["id"]}).mappings().first()
     assert row["v"] == pytest.approx(changes["annual_value_eur"], abs=0.01)

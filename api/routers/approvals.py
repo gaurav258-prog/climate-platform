@@ -239,6 +239,10 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
         applied = apply_risk_decision(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
     # Provided datapoint (Lane 2): on attestation the customer/vendor value is signed off and may land in a
     # filing; 4-eyes (checker ≠ maker) is enforced above.
+    # Use Tellumen's value for an asset fact instead of the client's (intake phase 3): the live value changes only now.
+    elif row["request_type"] == "intake.conflict":
+        from services.intake.conflicts import apply_decision as apply_conflict
+        applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
     elif row["request_type"] == "provided.datapoint":
         from services.governance.provided_data import attest as attest_provided
         applied = attest_provided(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])

@@ -113,6 +113,28 @@ def land_available() -> bool:
     return _land() is not None
 
 
+@lru_cache(maxsize=1)
+def _iso3_by_code() -> dict[str, str]:
+    """The land layer's own country code → its ISO 3166 alpha-3 code, from the same file (GISCO writes EL for Greece and
+    UK for the United Kingdom; ISO says GRC / GBR). Disputed areas (sovereignty unsettled) carry no ISO code."""
+    if not COUNTRIES_PATH.exists():
+        return {}
+    with gzip.open(COUNTRIES_PATH, "rt") as f:
+        feats = json.load(f)["features"]
+    out = {}
+    for x in feats:
+        p = x["properties"]
+        if p.get("SVRG_UN") != "Sovereignty unsettled" and len(p.get("ISO3_CODE") or "") == 3:
+            out[p["CNTR_ID"]] = p["ISO3_CODE"]
+    return out
+
+
+def iso3_of(lat: float, lon: float) -> Optional[str]:
+    """ISO 3166 alpha-3 of the country under a point (None at sea, in a disputed area, or without land data)."""
+    code = country_of(lat, lon)
+    return _iso3_by_code().get(code) if code else None
+
+
 def country_of(lat: float, lon: float) -> Optional[str]:
     """Country code under a point, from the same land layer (None at sea / without land data)."""
     land = _land()

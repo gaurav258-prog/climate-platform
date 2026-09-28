@@ -27,6 +27,9 @@ const LABELS: Record<string, string> = {
   'kri_appetite.update': 'Change risk appetite', 'decision_playbook.update': 'Edit decision playbook',
   'task.complete': 'Complete task (4-eyes)',
   'intake.batch': 'Import customer data (4-eyes)',
+  'intake.conflict': 'Use Tellumen’s value for an asset fact (4-eyes)',
+  'intake.conflict.client': 'Kept the client’s value for an asset fact',
+  'intake.conflict.explained': 'Explained a difference in an asset fact',
 
   // ---- audit-trail actions ----
   'approval.create': 'Requested approval', 'approval.request': 'Requested approval',

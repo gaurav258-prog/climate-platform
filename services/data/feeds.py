@@ -402,7 +402,16 @@ def refresh_one(session: Session, feed_key: str, actor_user_id: str | None = Non
         who = "manual override" if actor_user_id else "scheduled ingestion"
         return record_refresh(session, feed_key, actor_user_id, note=f"auto-refresh ({who})", status="refreshed")
     except Exception as e:  # a real adapter failure must surface, not silently pass
-        return record_refresh(session, feed_key, actor_user_id, note=f"refresh failed: {e}"[:400], status="failed")
+        return record_refresh(session, feed_key, actor_user_id, note=f"refresh failed: {_failure(e)}"[:400], status="failed")
+
+
+def _failure(e: Exception) -> str:
+    """A failure as the monitor states it: the source being out of reach (a dropped connection, a timeout) is said so,
+    so it is never mistaken for a fault in our adapter — and an adapter fault is never hidden as an outage."""
+    import requests
+    if isinstance(e, (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout)):
+        return f"source unreachable ({type(e).__name__}): {e}"
+    return str(e)
 
 
 def run_scheduled_refreshes(session: Session, force: bool = False) -> list[dict]:
