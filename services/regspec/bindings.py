@@ -10,4 +10,7 @@ def binding_for(framework: str) -> dict | None:
     if framework == "bank_p3esg":
         from services.governance.pillar3_grids import BINDING
         return BINDING
+    if framework == "sfdr_pai":
+        from services.governance.sfdr_binding import BINDING
+        return BINDING
     return None

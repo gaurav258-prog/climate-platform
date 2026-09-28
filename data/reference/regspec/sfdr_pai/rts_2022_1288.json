@@ -1,0 +1,561 @@
+{
+ "framework": "sfdr_pai",
+ "version": "rts_2022_1288",
+ "act": {
+  "celex": "32022R1288",
+  "title": "Commission Delegated Regulation (EU) 2022/1288 of 6 April 2022 supplementing Regulation (EU) 2019/2088 of the European Parliament and of the Council with regard to regulatory technical standards specifying the details of the content and presentation of the information in relation to the principle of ‘do no significant harm’, specifying the content, methodologies and presentation of information in relation to sustainability indicators and adverse sustainability impacts, and the content and presentation of the information in relation to the promotion of environmental or social characteristics and sustainable investment objectives in pre-contractual documents, on websites and in periodic reports",
+  "url": "http://publications.europa.eu/resource/celex/32022R1288",
+  "short": "Delegated Regulation (EU) 2022/1288"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 4 of Delegated Regulation (EU) 2022/1288 (content: Articles 5 to 10)",
+  "templates_in": "Annex I, Tables 1, 2 and 3, OJ L 196, 25.7.2022, pp. 41-51 (the whole act republished by Corrigendum OJ L 332, 27.12.2022, Annex I at pp. 41-50, with footnotes renumbered and Table 3 row 14 re-laid)",
+  "instructions_in": "Annex I, definitions (1)-(29) and formulas (1)-(5) with definitions for the formulas, OJ L 196, pp. 38-41; Articles 4-10, pp. 11-13",
+  "quote": "Financial market participants shall publish the statement referred to in paragraph 1 in the format of the template set out in Table 1 of Annex I."
+ },
+ "applies": {
+  "from": "2023-01-01",
+  "until": null,
+  "basis": "disclosure_date",
+  "quote": "This Regulation shall apply from 1 January 2023."
+ },
+ "templates": [
+  {
+   "id": "T1",
+   "code": "Table 1",
+   "title": "Statement on principal adverse impacts of investment decisions on sustainability factors",
+   "ref": "Annex I, Table 1, OJ L 196, 25.7.2022, pp. 41-45",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1.1",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 1. GHG emissions > Scope 1 GHG emissions"
+    },
+    {
+     "id": "1.2",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 1. GHG emissions > Scope 2 GHG emissions"
+    },
+    {
+     "id": "1.3",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 1. GHG emissions > Scope 3 GHG emissions"
+    },
+    {
+     "id": "1.4",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 1. GHG emissions > Total GHG emissions"
+    },
+    {
+     "id": "2",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 2. Carbon footprint > Carbon footprint"
+    },
+    {
+     "id": "3",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 3. GHG intensity of investee companies > GHG intensity of investee companies"
+    },
+    {
+     "id": "4",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 4. Exposure to companies active in the fossil fuel sector > Share of investments in companies active in the fossil fuel sector"
+    },
+    {
+     "id": "5",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 5. Share of non-renewable energy consumption and production > Share of non-renewable energy consumption and non-renewable energy production of investee companies from non-renewable energy sources compared to renewable energy sources, expressed as a percentage of total energy sources"
+    },
+    {
+     "id": "6",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Greenhouse gas emissions > 6. Energy consumption intensity per high impact climate sector > Energy consumption in GWh per million EUR of revenue of investee companies, per high impact climate sector"
+    },
+    {
+     "id": "7",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Biodiversity > 7. Activities negatively affecting biodiversity-sensitive areas > Share of investments in investee companies with sites/operations located in or near to biodiversity-sensitive areas where activities of those investee companies negatively affect those areas"
+    },
+    {
+     "id": "8",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water > 8. Emissions to water > Tonnes of emissions to water generated by investee companies per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "9",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Waste > 9. Hazardous waste and radioactive waste ratio > Tonnes of hazardous waste and radioactive waste generated by investee companies per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "10",
+     "label": "Indicators applicable to investments in investee companies > INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Social and employee matters > 10. Violations of UN Global Compact principles and Organisation for Economic Cooperation and Development (OECD) Guidelines for Multinational Enterprises > Share of investments in investee companies that have been involved in violations of the UNGC principles or OECD Guidelines for Multinational Enterprises"
+    },
+    {
+     "id": "11",
+     "label": "Indicators applicable to investments in investee companies > INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Social and employee matters > 11. Lack of processes and compliance mechanisms to monitor compliance with UN Global Compact principles and OECD Guidelines for Multinational Enterprises > Share of investments in investee companies without policies to monitor compliance with the UNGC principles or OECD Guidelines for Multinational Enterprises or grievance/complaints handling mechanisms to address violations of the UNGC principles or OECD Guidelines for Multinational Enterprises"
+    },
+    {
+     "id": "12",
+     "label": "Indicators applicable to investments in investee companies > INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Social and employee matters > 12. Unadjusted gender pay gap > Average unadjusted gender pay gap of investee companies"
+    },
+    {
+     "id": "13",
+     "label": "Indicators applicable to investments in investee companies > INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Social and employee matters > 13. Board gender diversity > Average ratio of female to male board members in investee companies, expressed as a percentage of all board members"
+    },
+    {
+     "id": "14",
+     "label": "Indicators applicable to investments in investee companies > INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Social and employee matters > 14. Exposure to controversial weapons (anti-personnel mines, cluster munitions, chemical weapons and biological weapons) > Share of investments in investee companies involved in the manufacture or selling of controversial weapons"
+    },
+    {
+     "id": "15",
+     "label": "Indicators applicable to investments in sovereigns and supranationals > Environmental > 15. GHG intensity > GHG intensity of investee countries"
+    },
+    {
+     "id": "16",
+     "label": "Indicators applicable to investments in sovereigns and supranationals > Social > 16. Investee countries subject to social violations > Number of investee countries subject to social violations (absolute number and relative number divided by all investee countries), as referred to in international treaties and conventions, United Nations principles and, where applicable, national law"
+    },
+    {
+     "id": "17",
+     "label": "Indicators applicable to investments in real estate assets > Fossil fuels > 17. Exposure to fossil fuels through real estate assets > Share of investments in real estate assets involved in the extraction, storage, transport or manufacture of fossil fuels"
+    },
+    {
+     "id": "18",
+     "label": "Indicators applicable to investments in real estate assets > Energy efficiency > 18. Exposure to energy-inefficient real estate assets > Share of investments in energy-inefficient real estate assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Adverse sustainability indicator"
+    },
+    {
+     "id": "b",
+     "label": "Metric"
+    },
+    {
+     "id": "c",
+     "label": "Impact [year n]"
+    },
+    {
+     "id": "d",
+     "label": "Impact [year n-1]"
+    },
+    {
+     "id": "e",
+     "label": "Explanation"
+    },
+    {
+     "id": "f",
+     "label": "Actions taken, and actions planned and targets set for the next reference period"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Article 4(1) of Delegated Regulation (EU) 2022/1288, OJ L 196, 25.7.2022, p. 11",
+     "quote": "By 30 June each year, the financial market participants referred to in Article 4(1), point (a), of Regulation (EU) 2019/2088, or Article 4(3) or Article 4(4) of that Regulation, shall publish on their website"
+    },
+    {
+     "ref": "Article 4(1), second sentence, OJ L 196, 25.7.2022, p. 11",
+     "quote": "That information shall cover the period of 1 January until 31 December of the preceding year"
+    },
+    {
+     "ref": "Article 6(3), OJ L 196, 25.7.2022, p. 12",
+     "quote": "a figure on impact as the average of impacts on 31 March, 30 June, 30 September and 31 December of each period from 1 January to 31 December."
+    },
+    {
+     "ref": "Article 10, OJ L 196, 25.7.2022, p. 13",
+     "quote": "a historical comparison of the period reported on with the previous period reported on and, subsequently, with every previous period reported on up to the last five previous periods."
+    },
+    {
+     "ref": "Annex I, formula (1), OJ L 196, 25.7.2022, p. 40 (formula itself printed as an image in the OJ; not machine-checkable; visual transcription: sum over i (current value of investment_i / investee company's enterprise value_i x investee company's Scope(x) GHG emissions_i))",
+     "quote": "‘GHG emissions’ shall be calculated in accordance with the following formula:"
+    },
+    {
+     "ref": "Annex I, formula (2), OJ L 196, 25.7.2022, p. 40 (formula itself printed as an image in the OJ; not machine-checkable; visual transcription: [sum over i (current value of investment_i / investee company's enterprise value_i x investee company's Scope 1, 2 and 3 GHG emissions_i)] / current value of all investments (EUR M))",
+     "quote": "‘carbon footprint’ shall be calculated in accordance with the following formula:"
+    },
+    {
+     "ref": "Annex I, formula (3), OJ L 196, 25.7.2022, p. 40 (formula itself printed as an image in the OJ; not machine-checkable; visual transcription: sum over i (current value of investment_i / current value of all investments (EUR M) x investee company's Scope 1, 2 and 3 GHG emissions_i / investee company's EUR M revenue_i))",
+     "quote": "‘GHG intensity of investee companies’ shall be calculated in accordance with the following formula:"
+    },
+    {
+     "ref": "Annex I, formula (4), OJ L 196, 25.7.2022, p. 41 (formula itself printed as an image in the OJ; not machine-checkable; visual transcription: sum over i (current value of investment_i / current value of all investments (EUR M) x the country's Scope 1, 2 and 3 GHG emissions_i / Gross Domestic Product_i (EUR M)))",
+     "quote": "‘GHG intensity of sovereigns’ shall be calculated in accordance with the following formula:"
+    },
+    {
+     "ref": "Annex I, formula (5), OJ L 196, 25.7.2022, p. 41 (formula itself printed as an image in the OJ; not machine-checkable; visual transcription: ((value of real estate assets built before 31/12/2020 with EPC of C or below) + (value of real estate assets built after 31/12/2020 with PED below NZEB in Directive 2010/31/EU)) / value of real estate assets required to abide by EPC and NZEB rules)",
+     "quote": "‘inefficient real estate assets’ shall be calculated in accordance with the following formula:"
+    },
+    {
+     "ref": "Annex I, definitions for the formulas, point (1), OJ L 196, 25.7.2022, p. 41",
+     "quote": "‘current value of investment’ means the value in EUR of the investment by the financial market participant in the investee company;"
+    },
+    {
+     "ref": "Annex I, definitions for the formulas, point (2), OJ L 196, 25.7.2022, p. 41 (identical to Annex I definition (4), p. 38)",
+     "quote": "‘enterprise value’ means the sum, at fiscal year-end, of the market capitalisation of ordinary shares, the market capitalisation of preferred shares, and the book value of total debt and non-controlling interests, without the deduction of cash or cash equivalents;"
+    },
+    {
+     "ref": "Annex I, definitions for the formulas, point (3), OJ L 196, 25.7.2022, p. 41",
+     "quote": "‘current value of all investments’ means the value in EUR of all investments by the financial market participant;"
+    },
+    {
+     "ref": "Annex I, definition (3), OJ L 196, 25.7.2022, p. 38",
+     "quote": "‘weighted average’ means a ratio of the weight of the investment by the financial market participant in an investee company in relation to the enterprise value of the investee company;"
+    },
+    {
+     "ref": "Annex I, definition (1), OJ L 196, 25.7.2022, p. 38",
+     "quote": "‘scope 1, 2 and 3 GHG emissions’ means the scope of greenhouse gas emissions referred to in points (1)(e)(i) to (iii) of Annex III to Regulation (EU) 2016/1011"
+    }
+   ]
+  },
+  {
+   "id": "T2",
+   "code": "Table 2",
+   "title": "Additional climate and other environment-related indicators",
+   "ref": "Annex I, Table 2, OJ L 196, 25.7.2022, pp. 45-48",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Emissions > 1. Emissions of inorganic pollutants > Tonnes of inorganic pollutants equivalent per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "2",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Emissions > 2. Emissions of air pollutants > Tonnes of air pollutants equivalent per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "3",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Emissions > 3. Emissions of ozone-depleting substances > Tonnes of ozone-depleting substances equivalent per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "4",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Emissions > 4. Investments in companies without carbon emission reduction initiatives > Share of investments in investee companies without carbon emission reduction initiatives aimed at aligning with the Paris Agreement"
+    },
+    {
+     "id": "5",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Energy performance > 5. Breakdown of energy consumption by type of non-renewable sources of energy > Share of energy from non-renewable sources used by investee companies broken down by each non-renewable energy source"
+    },
+    {
+     "id": "6.1",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 6. Water usage and recycling > 1. Average amount of water consumed by the investee companies (in cubic meters) per million EUR of revenue of investee companies"
+    },
+    {
+     "id": "6.2",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 6. Water usage and recycling > 2. Weighted average percentage of water recycled and reused by investee companies"
+    },
+    {
+     "id": "7",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 7. Investments in companies without water management policies > Share of investments in investee companies without water management policies"
+    },
+    {
+     "id": "8",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 8. Exposure to areas of high water stress > Share of investments in investee companies with sites located in areas of high water stress without a water management policy"
+    },
+    {
+     "id": "9",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 9. Investments in companies producing chemicals > Share of investments in investee companies the activities of which fall under Division 20.2 of Annex I to Regulation (EC) No 1893/2006"
+    },
+    {
+     "id": "10",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 10. Land degradation, desertification, soil sealing > Share of investments in investee companies the activities of which cause land degradation, desertification or soil sealing"
+    },
+    {
+     "id": "11",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 11. Investments in companies without sustainable land/agriculture practices > Share of investments in investee companies without sustainable land/agriculture practices or policies"
+    },
+    {
+     "id": "12",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 12. Investments in companies without sustainable oceans/seas practices > Share of investments in investee companies without sustainable oceans/seas practices or policies"
+    },
+    {
+     "id": "13",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 13. Non-recycled waste ratio > Tonnes of non-recycled waste generated by investee companies per million EUR invested, expressed as a weighted average"
+    },
+    {
+     "id": "14.1",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 14. Natural species and protected areas > 1. Share of investments in investee companies whose operations affect threatened species"
+    },
+    {
+     "id": "14.2",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 14. Natural species and protected areas > 2. Share of investments in investee companies without a biodiversity protection policy covering operational sites owned, leased, managed in, or adjacent to, a protected area or an area of high biodiversity value outside protected areas"
+    },
+    {
+     "id": "15",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Water, waste and material emissions > 15. Deforestation > Share of investments in companies without a policy to address deforestation"
+    },
+    {
+     "id": "16",
+     "label": "Indicators applicable to investments in investee companies > CLIMATE AND OTHER ENVIRONMENT-RELATED INDICATORS > Green securities > 16. Share of securities not issued under Union legislation on environmentally sustainable bonds > Share of securities in investments not issued under Union legislation on environmentally sustainable bonds"
+    },
+    {
+     "id": "17",
+     "label": "Indicators applicable to investments in sovereigns and supranationals > Green securities > 17. Share of bonds not issued under Union legislation on environmentally sustainable bonds > Share of bonds not issued under Union legislation on environmentally sustainable bonds"
+    },
+    {
+     "id": "18.1",
+     "label": "Indicators applicable to investments in real estate assets > Greenhouse gas emissions > 18. GHG emissions > Scope 1 GHG emissions generated by real estate assets"
+    },
+    {
+     "id": "18.2",
+     "label": "Indicators applicable to investments in real estate assets > Greenhouse gas emissions > 18. GHG emissions > Scope 2 GHG emissions generated by real estate assets"
+    },
+    {
+     "id": "18.3",
+     "label": "Indicators applicable to investments in real estate assets > Greenhouse gas emissions > 18. GHG emissions > Scope 3 GHG emissions generated by real estate assets"
+    },
+    {
+     "id": "18.4",
+     "label": "Indicators applicable to investments in real estate assets > Greenhouse gas emissions > 18. GHG emissions > Total GHG emissions generated by real estate assets"
+    },
+    {
+     "id": "19",
+     "label": "Indicators applicable to investments in real estate assets > Energy consumption > 19. Energy consumption intensity > Energy consumption in GWh of owned real estate assets per square meter"
+    },
+    {
+     "id": "20",
+     "label": "Indicators applicable to investments in real estate assets > Waste > 20. Waste production in operations > Share of real estate assets not equipped with facilities for waste sorting and not covered by a waste recovery or recycling contract"
+    },
+    {
+     "id": "21",
+     "label": "Indicators applicable to investments in real estate assets > Resource consumption > 21. Raw materials consumption for new construction and major renovations > Share of raw building materials (excluding recovered, recycled and biosourced) compared to the total weight of building materials used in new construction and major renovations"
+    },
+    {
+     "id": "22",
+     "label": "Indicators applicable to investments in real estate assets > Biodiversity > 22. Land artificialisation > Share of non-vegetated surface area (surfaces that have not been vegetated in ground, as well as on roofs, terraces and walls) compared to the total surface area of the plots of all assets"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Adverse sustainability impact"
+    },
+    {
+     "id": "b",
+     "label": "Adverse impact on sustainability factors (qualitative or quantitative)"
+    },
+    {
+     "id": "c",
+     "label": "Metric"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Article 6(1), point (a), OJ L 196, 25.7.2022, p. 12",
+     "quote": "information on one or more additional climate and other environment-related indicators, as set out in Table 2 of Annex I;"
+    }
+   ]
+  },
+  {
+   "id": "T3",
+   "code": "Table 3",
+   "title": "Additional indicators for social and employee, respect for human rights, anti-corruption and anti-bribery matters",
+   "ref": "Annex I, Table 3, OJ L 196, 25.7.2022, pp. 48-51",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 1. Investments in companies without workplace accident prevention policies > Share of investments in investee companies without a workplace accident prevention policy"
+    },
+    {
+     "id": "2",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 2. Rate of accidents > Rate of accidents in investee companies expressed as a weighted average"
+    },
+    {
+     "id": "3",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 3. Number of days lost to injuries, accidents, fatalities or illness > Number of workdays lost to injuries, accidents, fatalities or illness of investee companies expressed as a weighted average"
+    },
+    {
+     "id": "4",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 4. Lack of a supplier code of conduct > Share of investments in investee companies without any supplier code of conduct (against unsafe working conditions, precarious work, child labour and forced labour)"
+    },
+    {
+     "id": "5",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 5. Lack of grievance/complaints handling mechanism related to employee matters > Share of investments in investee companies without any grievance/complaints handling mechanism related to employee matters"
+    },
+    {
+     "id": "6",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 6. Insufficient whistleblower protection > Share of investments in entities without policies on the protection of whistleblowers"
+    },
+    {
+     "id": "7.1",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 7. Incidents of discrimination > 1. Number of incidents of discrimination reported in investee companies expressed as a weighted average"
+    },
+    {
+     "id": "7.2",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 7. Incidents of discrimination > 2. Number of incidents of discrimination leading to sanctions in investee companies expressed as a weighted average"
+    },
+    {
+     "id": "8",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Social and employee matters > 8. Excessive CEO pay ratio > Average ratio within investee companies of the annual total compensation for the highest compensated individual to the median annual total compensation for all employees (excluding the highest-compensated individual)"
+    },
+    {
+     "id": "9",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 9. Lack of a human rights policy > Share of investments in entities without a human rights policy"
+    },
+    {
+     "id": "10",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 10. Lack of due diligence > Share of investments in entities without a due diligence process to identify, prevent, mitigate and address adverse human rights impacts"
+    },
+    {
+     "id": "11",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 11. Lack of processes and measures for preventing trafficking in human beings > Share of investments in investee companies without policies against trafficking in human beings"
+    },
+    {
+     "id": "12",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 12. Operations and suppliers at significant risk of incidents of child labour > Share of investments in investee companies exposed to operations and suppliers at significant risk of incidents of child labour in terms of geographic areas or type of operation"
+    },
+    {
+     "id": "13",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 13. Operations and suppliers at significant risk of incidents of forced or compulsory labour > Share of the investments in investee companies exposed to operations and suppliers at significant risk of incidents of forced or compulsory labour in terms in terms of geographic areas and/or the type of operation"
+    },
+    {
+     "id": "14",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Human Rights > 14. Number of identified cases of severe human rights issues and incidents > Number of cases of severe human rights issues and incidents connected to investee companies on a weighted average basis"
+    },
+    {
+     "id": "15",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Anti-corruption and anti-bribery > 15. Lack of anti-corruption and anti-bribery policies > Share of investments in entities without policies on anti-corruption and anti-bribery consistent with the United Nations Convention against Corruption"
+    },
+    {
+     "id": "16",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Anti-corruption and anti-bribery > 16. Cases of insufficient action taken to address breaches of standards of anti-corruption and anti-bribery > Share of investments in investee companies with identified insufficiencies in actions taken to address breaches in procedures and standards of anti-corruption and anti-bribery"
+    },
+    {
+     "id": "17",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in investee companies > Anti-corruption and anti-bribery > 17. Number of convictions and amount of fines for violation of anti-corruption and anti-bribery laws > Numbers of convictions and amount of fines for violations of anti-corruption and anti-bribery laws by investee companies"
+    },
+    {
+     "id": "18",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Social > 18. Average income inequality score > The distribution of income and economic inequality among the participants in a particular economy including a quantitative indicator explained in the explanation column"
+    },
+    {
+     "id": "19",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Social > 19. Average freedom of expression score > Measuring the extent to which political and civil society organisations can operate freely including a quantitative indicator explained in the explanation column"
+    },
+    {
+     "id": "20",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Human rights > 20. Average human rights performance > Measure of the average human right performance of investee countries using a quantitative indicator explained in the explanation column"
+    },
+    {
+     "id": "21",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Governance > 21. Average corruption score > Measure of the perceived level of public sector corruption using a quantitative indicator explained in the explanation column"
+    },
+    {
+     "id": "22",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Governance > 22. Non-cooperative tax jurisdictions > Investments in jurisdictions on the EU list of non-cooperative jurisdictions for tax purposes"
+    },
+    {
+     "id": "23",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Governance > 23. Average political stability score > Measure of the likelihood that the current regime will be overthrown by the use of force using a quantitative indicator explained in the explanation column"
+    },
+    {
+     "id": "24",
+     "label": "INDICATORS FOR SOCIAL AND EMPLOYEE, RESPECT FOR HUMAN RIGHTS, ANTI-CORRUPTION AND ANTI-BRIBERY MATTERS > Indicators applicable to investments in sovereigns and supranationals > Governance > 24. Average rule of law score > Measure of the level of corruption, lack of fundamental rights, and the deficiencies in civil and criminal justice using a quantitative indicator explained in the explanation column"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Adverse sustainability impact"
+    },
+    {
+     "id": "b",
+     "label": "Adverse impact on sustainability factors (qualitative or quantitative)"
+    },
+    {
+     "id": "c",
+     "label": "Metric"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Article 6(1), point (b), OJ L 196, 25.7.2022, p. 12",
+     "quote": "information on one or more additional indicators for social and employee matters, respect for human rights, anti-corruption and anti-bribery matters, as set out in Table 3 of Annex I;"
+    }
+   ]
+  },
+  {
+   "id": "S1",
+   "code": null,
+   "title": "Summary",
+   "ref": "Annex I, Table 1, OJ L 196, p. 41; content in Article 5",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S2",
+   "code": null,
+   "title": "Description of the principal adverse impacts on sustainability factors",
+   "ref": "Annex I, Table 1, OJ L 196, pp. 41-44; content in Article 6 (template text reads [Information referred to in Article 7 in the format set out below])",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S3",
+   "code": null,
+   "title": "Other indicators for principal adverse impacts on sustainability factors",
+   "ref": "Annex I, Table 1, OJ L 196, p. 44; sub-block of S2 pointing to Tables 2 and 3 (Article 6(1), points (a)-(c))",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S4",
+   "code": null,
+   "title": "Description of policies to identify and prioritise principal adverse impacts on sustainability factors",
+   "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 7",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S5",
+   "code": null,
+   "title": "Engagement policies",
+   "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 8",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S6",
+   "code": null,
+   "title": "References to international standards",
+   "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 9",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "S7",
+   "code": null,
+   "title": "Historical comparison",
+   "ref": "Annex I, Table 1, OJ L 196, p. 45; content in Article 10",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-29",
+  "second_pass": {
+   "by": "independent second-pass agent (no shared working files)",
+   "date": "2026-09-29",
+   "result": "verified after corrections",
+   "checked": "T1-T3 rows, columns and ids and S1-S7 headings against rendered OJ L 196 / L 332 pages; act, dates, legal basis and every instruction quote verbatim; 2023/363 confirmed not to amend Annex I",
+   "corrected": "Table 3 and templates_in page ranges (to p. 51), S2/S3 page references (p. 44), text-basis note for the corrigendum wording"
+  },
+  "text_basis": "Row wording follows the text as republished by Corrigendum OJ L 332, 27.12.2022 (e.g. '1. Share' in Table 2 row 14; OJ L 196 prints '1.Share'); page references are to OJ L 196, 25.7.2022."
+ }
+}

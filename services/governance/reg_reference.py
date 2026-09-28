@@ -67,13 +67,14 @@ REFERENCE: dict[str, dict] = {
     "sfdr_pai": {
         "official_name": "SFDR Statement on Principal Adverse Impacts on sustainability factors",
         "authority": "National competent authority (ESAs — ESMA / EBA / EIOPA)",
-        "legal_basis": "SFDR Regulation (EU) 2019/2088, Art. 4 · RTS Delegated Regulation (EU) 2022/1288, Annex I",
-        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R1288",
+        # the RTS, its template and its link come from the governing specification (reference())
+        "legal_basis": "SFDR Regulation (EU) 2019/2088, Art. 4",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019R2088",
         "summary": "Financial market participants report the 14 mandatory (plus selected additional) Principal "
                    "Adverse Impact indicators of their investments — GHG emissions, carbon footprint, fossil-fuel "
                    "exposure, biodiversity, water, waste and social/governance factors — on the Annex I template.",
-        "official_form": "RTS (EU) 2022/1288 — Annex I PAI statement (Table 1 mandatory · Tables 2–3 additional)",
-        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R1288",
+        "official_form": "PAI statement template of the regulatory technical standards in force",
+        "form_url": None,
         "inputs": "Holdings by ISIN with market value; issuer GHG (Scope 1–3), revenue / EVIC, and the voluntary-PAI "
                   "attributes; fund look-through where a fund is held.",
     },

@@ -19,8 +19,16 @@ from tests.integration.test_intake_pipeline import BANK_ORG
 pytestmark = pytest.mark.integration
 
 
+FW, V = "signoff_test", "its_2024_3172"      # a private copy of a spec: live sign-offs can never affect these tests
+
+
 @pytest.fixture()
-def s(session_rolled_back):
+def s(session_rolled_back, tmp_path, monkeypatch):
+    d = json.loads((R.ROOT / "bank_p3esg" / f"{V}.json").read_text())
+    d.update(framework=FW, status="draft")          # draft: no implementation binding is needed to sign it
+    (tmp_path / FW).mkdir()
+    (tmp_path / FW / f"{V}.json").write_text(json.dumps(d))
+    monkeypatch.setattr(R, "ROOT", tmp_path)
     return session_rolled_back
 
 
@@ -29,34 +37,35 @@ def _uid(s, email):
 
 
 def test_two_different_people_approve_the_exact_file(s):
-    spec = R.load("bank_p3esg", "its_2024_3172")
+    spec = R.load(FW, V)
     a, b = _uid(s, "admin@meridian.demo"), _uid(s, "approver@meridian.demo")
     with pytest.raises(S.SignoffError, match="changed since you reviewed"):
-        S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, "0" * 64)
-    st = S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, spec["_sha256"])
+        S.sign(s, FW, V, "regulatory", a, "0" * 64)
+    st = S.sign(s, FW, V, "regulatory", a, spec["_sha256"])
     assert st["needs"] == ["engineering"] and not st["approved"]
     with pytest.raises(S.SignoffError, match="different person"):
-        S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", a, spec["_sha256"])
-    assert S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", b, spec["_sha256"])["approved"]
+        S.sign(s, FW, V, "engineering", a, spec["_sha256"])
+    assert S.sign(s, FW, V, "engineering", b, spec["_sha256"])["approved"]
 
 
 def test_an_edited_file_voids_earlier_signoffs(s):
     a = _uid(s, "admin@meridian.demo")
     s.execute(text("""INSERT INTO regspec_signoff (framework, version, sha256, role, user_id)
-                      VALUES ('bank_p3esg', 'its_2024_3172', :h, 'regulatory', CAST(:u AS uuid))"""), {"h": "f" * 64, "u": a})
-    st = S.status(s, "bank_p3esg", "its_2024_3172")
+                      VALUES (:fw, :v, :h, 'regulatory', CAST(:u AS uuid))"""), {"fw": FW, "v": V, "h": "f" * 64, "u": a})
+    st = S.status(s, FW, V)
     assert not st["approved"] and len(st["voided_by_edit"]) == 1 and "regulatory" in st["needs"]
 
 
 def test_signoffs_are_append_only(s):
     a = _uid(s, "admin@meridian.demo")
-    S.sign(s, "bank_p3esg", "its_2022_2453", "regulatory", a, R.load("bank_p3esg", "its_2022_2453")["_sha256"])
+    S.sign(s, FW, V, "regulatory", a, R.load(FW, V)["_sha256"])
     with pytest.raises(Exception, match="append-only"):
         with s.begin_nested():
-            s.execute(text("DELETE FROM regspec_signoff WHERE version = 'its_2022_2453'"))
+            s.execute(text("DELETE FROM regspec_signoff WHERE framework = 'signoff_test'"))
 
 
-def test_a_pillar3_filing_freezes_its_spec_and_the_run_checks_the_signoff(s):
+def test_a_pillar3_filing_freezes_its_spec_and_the_run_checks_the_signoff(session_rolled_back):
+    s = session_rolled_back                          # the real specs
     from services.governance import filings as F
     s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg'"),
               {"o": BANK_ORG})
@@ -74,7 +83,8 @@ def test_a_pillar3_filing_freezes_its_spec_and_the_run_checks_the_signoff(s):
     assert chk["status"] == ("pass" if spec["approved"] else "warn")
 
 
-def test_the_2024_act_replacing_2022_is_lineage_not_an_alarm(s):
+def test_the_2024_act_replacing_2022_is_lineage_not_an_alarm(session_rolled_back):
+    s = session_rolled_back                          # the real specs
     from services.governance.reg_versions import version_for
     r = version_for(s, "bank_p3esg", "2025-12-31")
     assert r["status"] == "current" and "32024R3172" in r["label"] and "32022R2453" not in r["label"]
@@ -83,13 +93,13 @@ def test_the_2024_act_replacing_2022_is_lineage_not_an_alarm(s):
 
 
 def test_a_sole_reviewer_signs_both_roles_only_by_declaring_it(s):
-    spec = R.load("bank_p3esg", "its_2024_3172")
+    spec = R.load(FW, V)
     a = _uid(s, "admin@meridian.demo")
     with pytest.raises(S.SignoffError, match="after signing the first yourself"):
-        S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, spec["_sha256"], sole_reviewer=True)
-    S.sign(s, "bank_p3esg", "its_2024_3172", "regulatory", a, spec["_sha256"])
+        S.sign(s, FW, V, "regulatory", a, spec["_sha256"], sole_reviewer=True)
+    S.sign(s, FW, V, "regulatory", a, spec["_sha256"])
     with pytest.raises(S.SignoffError, match="declare it"):
-        S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", a, spec["_sha256"])
-    st = S.sign(s, "bank_p3esg", "its_2024_3172", "engineering", a, spec["_sha256"], sole_reviewer=True)
+        S.sign(s, FW, V, "engineering", a, spec["_sha256"])
+    st = S.sign(s, FW, V, "engineering", a, spec["_sha256"], sole_reviewer=True)
     assert st["approved"] and st["one_person"]
     assert "not a four-eyes review" in next(g["note"] for g in st["signed"] if g["role"] == "engineering")

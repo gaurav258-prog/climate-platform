@@ -49,8 +49,8 @@ def validate(doc: dict) -> list[str]:
     if doc["status"] not in STATUSES:
         errs.append(f"status must be one of {STATUSES}")
     ap = doc["applies"]
-    if _iso(ap.get("from")) in (None, "invalid"):
-        errs.append("applies.from must be a date")
+    if _iso(ap.get("from")) == "invalid" or (ap.get("from") is None and doc["status"] != "draft"):
+        errs.append("applies.from must be a date (a draft may leave it unset until adopted)")
     if _iso(ap.get("until")) == "invalid":
         errs.append("applies.until must be a date or null")
     if ap.get("basis") not in BASES:
@@ -114,7 +114,7 @@ def versions(framework: str) -> list[dict]:
     """Every spec of a framework, oldest application date first."""
     d = ROOT / framework
     out = [load(framework, p.stem) for p in sorted(d.glob("*.json"))] if d.is_dir() else []
-    return sorted(out, key=lambda s: s["applies"]["from"])
+    return sorted(out, key=lambda s: s["applies"]["from"] or "9999-12-31")      # an undated draft sorts last
 
 
 def frameworks() -> list[str]:
@@ -152,10 +152,25 @@ def citation(spec: dict, template_id: str | None = None) -> str:
 
 # ───────────────────────────── diff: the only work a new version creates ─────────────────────────────
 
+def _unnumbered(label: str) -> str:
+    """A label without its printed numbering ('11. Lack of …' / 'a) Scope 1' → 'Lack of …' / 'Scope 1'), case-folded."""
+    import re
+    return " > ".join(re.sub(r"^\s*(\d+\.|[a-z]\))\s*", "", seg).strip().casefold() for seg in label.split(" > "))
+
+
 def _axis_diff(old: list[dict], new: list[dict]) -> dict:
+    """By id, then by wording: an item whose exact wording reappears under another id has moved (renumbered), not
+    been removed, added or relabelled — so a renumbering reads as what it is."""
     o, n = {i["id"]: i["label"] for i in old or []}, {i["id"]: i["label"] for i in new or []}
-    return {"added": [k for k in n if k not in o], "removed": [k for k in o if k not in n],
-            "relabelled": [{"id": k, "from": o[k], "to": n[k]} for k in n if k in o and o[k] != n[k]]}
+    o_by_label, n_by_label = {_unnumbered(v): k for k, v in o.items()}, {_unnumbered(v): k for k, v in n.items()}
+    moved = [{"label": lbl, "from": o_by_label[lbl], "to": n_by_label[lbl]}
+             for lbl in n_by_label if lbl in o_by_label and o_by_label[lbl] != n_by_label[lbl]]
+    moved_from, moved_to = {m["from"] for m in moved}, {m["to"] for m in moved}
+    return {"added": [k for k in n if k not in o and k not in moved_to],
+            "removed": [k for k in o if k not in n and k not in moved_from],
+            "relabelled": [{"id": k, "from": o[k], "to": n[k]} for k in n
+                           if k in o and o[k] != n[k] and k not in moved_to and k not in moved_from],
+            "moved": moved}
 
 
 def diff(old: dict, new: dict) -> dict:
@@ -179,7 +194,7 @@ def diff(old: dict, new: dict) -> dict:
              for f in ("article", "templates_in", "instructions_in") if old["legal_basis"].get(f) != new["legal_basis"].get(f)}
     structural = bool([k for k in nt if k not in ot] or [k for k in ot if k not in nt]
                       or any(set(c) & {"structure", "z_axis"} for c in changed)
-                      or any((c.get(a) or {}).get(k) for c in changed for a in ("rows", "columns") for k in ("added", "removed")))
+                      or any((c.get(a) or {}).get(k) for c in changed for a in ("rows", "columns") for k in ("added", "removed", "moved")))
     wording = any("title" in c or (c.get("rows") or {}).get("relabelled") or (c.get("columns") or {}).get("relabelled")
                   for c in changed)
     return {"from": old["version"], "to": new["version"],

@@ -87,18 +87,33 @@ def _located_book_form(framework: str, payload: dict) -> list[dict]:
 
 
 def _sfdr_form(payload: dict) -> list[dict]:
-    """sfdr_pai — the Annex I indicators are already a clean list; each becomes one datapoint."""
-    def val(v):
-        return v.get("total") if isinstance(v, dict) else v
+    """sfdr_pai — one datapoint per Annex I Table 1 row (GHG emissions as its Scope 1 / 2 / 3 / total rows) and per
+    adopted Table 2 / 3 indicator. Keys: 'indicator.<n>' (the total for no. 1), 'indicator.1.scope_<k>', 'additional.<key>'."""
+    def note(i):
+        return f"{round(i['coverage_pct'])}% coverage" if i.get("coverage_pct") is not None else None
+
     def rows(inds):
-        return [_dp(f"indicator.{i.get('number')}", f"{i.get('number')}. {i.get('metric')}", val(i.get('value')),
-                    "num", unit=i.get("unit"), note=(f"{round(i['coverage_pct'])}% coverage" if i.get("coverage_pct") is not None else None))
-                for i in (inds or [])]
+        out = []
+        for i in inds or []:
+            v, n = i.get("value"), i.get("number")
+            if isinstance(v, dict):
+                for k in ("scope_1", "scope_2", "scope_3"):
+                    out.append(_dp(f"indicator.{n}.{k}", f"{n}. {i.get('metric')} — {k.replace('_', ' ').title()}",
+                                   v.get(k), "num", unit=i.get("unit"), note=note(i)))
+                v = v.get("total")
+            out.append(_dp(f"indicator.{n}", f"{n}. {i.get('metric')}" + (" — Total" if isinstance(i.get("value"), dict) else ""),
+                           v, "num", unit=i.get("unit"), note=note(i)))
+        return out
     groups = [{"group": "Mandatory PAI indicators (Annex I · Table 1)", "datapoints": rows(payload.get("indicators"))}]
     if payload.get("real_estate_indicators"):
         groups.append({"group": "Real-estate indicators", "datapoints": rows(payload.get("real_estate_indicators"))})
     if payload.get("sovereign_indicators"):
         groups.append({"group": "Sovereign indicators", "datapoints": rows(payload.get("sovereign_indicators"))})
+    add = [i for i in ((payload.get("additional_indicators") or {}).get("indicators") or [])]
+    if add:
+        groups.append({"group": "Additional indicators adopted (Annex I · Tables 2 and 3)", "datapoints": [
+            _dp(f"additional.{i['key']}", f"Table {i.get('table')}, {i.get('row') or ''} {i.get('name')}".replace("  ", " "),
+                i.get("value"), "num", unit=i.get("unit"), note=note(i)) for i in add]})
     return groups
 
 

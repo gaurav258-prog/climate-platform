@@ -117,6 +117,13 @@ SOVEREIGN_ASSET_CLASSES = ("sovereign_bond",)
 REAL_ESTATE_ASSET_CLASSES = ("real_estate",)  # not in the securities model today
 
 
+def _pai_basis() -> str:
+    """Where the PAI statement template sits in the regulation that governs today (its specification)."""
+    import services.regspec as R
+    spec = R.governing("sfdr_pai", period_end=datetime.now(timezone.utc).date())
+    return R.citation(spec, "T1") if spec else "SFDR RTS, Annex I, Table 1"
+
+
 def _row(num, area, metric, unit, *, value=None, coverage=None, source=None,
          method="not_available", input_required=None):
     """One indicator line. method ∈ computed / partial / estimated / not_available."""
@@ -592,7 +599,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                     else "Not yet submittable — supply the reporting-entity identity above.",
         },
         "statement": "Principal Adverse Impact (PAI) statement",
-        "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
+        "regulatory_basis": _pai_basis(),
         "comparison": comparison,   # prior-period availability + year (indicators carry prior_value/change)
         "indicators": indicators,
         "holdings_composition": comp["by_asset_class"],
@@ -781,7 +788,7 @@ def entity_pai_statement(session, org_id: str) -> dict:
                     else "Not yet submittable — supply the reporting-entity identity above.",
         },
         "statement": "Entity-level Principal Adverse Impact (PAI) statement",
-        "regulatory_basis": "SFDR RTS — Commission Delegated Regulation (EU) 2022/1288, Annex I, Table 1",
+        "regulatory_basis": _pai_basis(),
         "indicators": indicators,
         "holdings_composition": comp["by_asset_class"],
         "sovereign_indicators": _sovereign_indicators(comp) if comp["sovereign_value_eur"] else [],

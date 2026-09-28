@@ -29,6 +29,7 @@ UNVERIFIED (validation refuses it).
 | Run | Change | What the diff said | What it found | Made faster / safer for next time |
 |---|---|---|---|---|
 | 1 · 2026-09-28 | Pillar 3 ESG: ITS 2022/2453 → ITS 2024/3172; EBA/ITS/2026/02 captured as draft | 2022 → 2024: references only (no row or column changed). 2024 → draft: template change (T1–T9 replaced by CRFR1–4). | Our Template 5 did not match the text (E9); the 2024 instructions sit in the EBA IT solutions, not the Official Journal — fetched and verified. | Spec capture + independent second pass as two parallel agents; machine diff; coverage and golden book reusable for the draft when adopted. |
+| 2 · 2026-09-29 | SFDR PAI statement: RTS 2022/1288 captured (2023/363 confirmed not to touch Annex I); ESAs JC 2023 55 as draft | 2022/1288 → draft: template change — T1 +2 rows, T2 and T3 rows renumbered (read as moves), added and removed | Tables 2 and 3 were never shown on the form (E14); two optional indicators had the wrong metric or wording (E13); GHG emissions showed only its total. Second pass: 4 page-reference slips, fixed. | The diff now recognises renumbered rows (moves), so the next adoption diff reads truly; `_frozen_spec` makes every framework on the route render to the version it was prepared under; undated drafts allowed. Next: pre-contractual / periodic templates (Annexes II–V, replaced by 2023/363). |
 
 ## 2. Before every commit — one command
 
@@ -59,4 +60,6 @@ and the **automatic guard** that makes it impossible (or at least loud) next tim
 | E10 | 2026-09-28 | The XBRL element map cited Template 1 "Scope 1" and "Scope 2" columns that the template does not have. | References written from memory. | A test checks every template column the map cites exists in the governing spec. |
 | E11 | 2026-09-28 | The pre-commit gate carried on after a lint failure. | `a && b || c` runs `c` when `b` fails. | Written as if / else; the gate stops at the first failure. |
 | E12 | 2026-09-28 | A test found a form section by its title and broke when titles began to follow the regulation. | Tests keyed on display text. | Sections carry stable keys; tests find them by key. |
-
+| E13 | 2026-09-29 | Two optional SFDR indicators did not match the regulation: 'non-recycled waste' was a % of total waste (the RTS asks tonnes per € million invested, attributed), and 'threatened species' carried Table 1 no. 7's wording. | A hand-kept catalogue of indicators, named from memory. | The opt-in catalogue is generated from the spec's rows (official number and wording); the aggregation is declared per row in the binding and tested. |
+| E14 | 2026-09-29 | The adopted Table 2 / 3 indicators never appeared on the SFDR form. | The form looked up datapoints under keys nothing produced; no test rendered them. | The form emits a datapoint per adopted indicator; a golden-payload test renders them with their official row numbers. |
+| E15 | 2026-09-29 | Sign-off tests failed once real sign-offs existed. | The tests signed the real spec files, so they depended on live data state. | They sign a private copy of a spec in a temporary folder; only the freeze and lineage tests read the real specs. |

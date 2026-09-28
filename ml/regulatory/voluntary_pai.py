@@ -1,58 +1,36 @@
-"""Voluntary (additional) PAI — RTS Annex I Tables 2 & 3.
+"""Voluntary (additional) PAI — Delegated Regulation (EU) 2022/1288, Annex I, Tables 2 & 3.
 
-SFDR makes 14 investee PAI indicators mandatory, then requires the manager to
-ADOPT at least one more environmental indicator (Table 2) and at least one more
-social indicator (Table 3), of their choosing. This module:
+SFDR requires a manager to ADOPT at least one additional environmental indicator (Table 2) and at least one additional
+social indicator (Table 3) (Article 6(1)). This module:
 
-  * defines a catalog of supported additional indicators (a real, curated subset
-    of Tables 2 & 3), each with its table, unit and how it aggregates;
-  * computes the fund roll-up over the issuer values the manager supplied —
-    value-weighted mean for numeric indicators, share-of-value for yes/no ones —
-    with coverage disclosed;
-  * reports adoption compliance: has the manager picked ≥1 environmental AND
-    ≥1 social indicator?
+  * offers every Table 2 / Table 3 row that can be built from per-issuer values — keyed on its official row number,
+    with its official wording and aggregation, from the governing spec and its binding (services/governance/
+    sfdr_binding.py) — never a hand-kept list;
+  * computes the roll-up over the issuer values the manager supplied, as the metric's wording requires (share of
+    invested value; attributed per € million invested; value-weighted average of an issuer ratio), coverage disclosed;
+  * reports adoption compliance: ≥1 environmental AND ≥1 social indicator adopted?
 
-Numbers come only from supplied data; a selected indicator with no issuer values
-is surfaced as awaiting input, never guessed.
+Numbers come only from supplied data; an adopted indicator with no issuer values is surfaced as awaiting input.
 """
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import text
 
 from services.asset_manager_engine import fund_descendant_ids
 
-# key -> catalog entry. agg: 'weighted_avg' (numeric, value-weighted) or
-# 'share_true' (boolean, % of invested value where the flag is true).
-CATALOG: dict[str, dict] = {
-    # ── Table 2 — additional environmental ──────────────────────────────
-    "water_consumption_m3_per_meur": {
-        "table": 2, "kind": "environmental", "agg": "weighted_avg",
-        "name": "Water consumption intensity", "unit": "m³ per €M revenue"},
-    "non_recycled_waste_ratio_pct": {
-        "table": 2, "kind": "environmental", "agg": "weighted_avg",
-        "name": "Non-recycled waste ratio", "unit": "% of total waste"},
-    "natural_species_negative_impact": {
-        "table": 2, "kind": "environmental", "agg": "share_true",
-        "name": "Investees negatively affecting biodiversity-sensitive areas", "unit": "% of value"},
-    "deforestation_no_policy": {
-        "table": 2, "kind": "environmental", "agg": "share_true",
-        "name": "Investees without a deforestation policy", "unit": "% of value"},
-    # ── Table 3 — additional social ─────────────────────────────────────
-    "no_supplier_code_of_conduct": {
-        "table": 3, "kind": "social", "agg": "share_true",
-        "name": "Investees without a supplier code of conduct", "unit": "% of value"},
-    "no_human_rights_policy": {
-        "table": 3, "kind": "social", "agg": "share_true",
-        "name": "Investees without a human-rights policy", "unit": "% of value"},
-    "no_grievance_mechanism": {
-        "table": 3, "kind": "social", "agg": "share_true",
-        "name": "Investees without a grievance/complaints mechanism", "unit": "% of value"},
-    "ceo_pay_ratio": {
-        "table": 3, "kind": "social", "agg": "weighted_avg",
-        "name": "Excessive CEO pay ratio (CEO / median employee)", "unit": "ratio"},
-}
+
+def _catalog() -> dict[str, dict]:
+    import services.regspec as R
+    from services.governance.sfdr_binding import optional_catalog
+    spec = R.governing("sfdr_pai", period_end=date.today())
+    return optional_catalog(spec) if spec else {}
+
+
+# key → {table, row, kind, agg, unit, name, metric}; key = official table + row ('t2_6_1'), from the governing spec
+CATALOG: dict[str, dict] = _catalog()
 
 
 def catalog() -> list[dict]:
@@ -93,7 +71,10 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
         entry = CATALOG[key]
         rows = session.execute(text("""
             SELECT CAST(p.market_value_eur AS FLOAT) AS mv,
-                   CAST(v.value_num AS FLOAT) AS num, v.value_bool AS flag
+                   CAST(v.value_num AS FLOAT) AS num, v.value_bool AS flag,
+                   (SELECT CAST(e.evic_eur AS FLOAT) FROM issuer_emissions e
+                    WHERE e.issuer_id = s.issuer_id AND (e.org_id = :org OR e.org_id IS NULL) AND e.evic_eur IS NOT NULL
+                    ORDER BY (e.org_id IS NULL) LIMIT 1) AS evic
             FROM   fund_positions p
             JOIN   securities s ON s.security_id = p.security_id
             LEFT   JOIN LATERAL (
@@ -106,20 +87,29 @@ def compute_voluntary_pai(session, fund_id: str, comp: Optional[dict] = None,
               AND  p.as_of_date = (SELECT MAX(as_of_date) FROM fund_positions WHERE fund_id = p.fund_id)
         """), {"fids": fids, "org": org_id, "k": key}).mappings().all()
 
-        if entry["agg"] == "weighted_avg":
-            cov = [(r["mv"], r["num"]) for r in rows if r["num"] is not None]
-        else:  # share_true
-            cov = [(r["mv"], 1.0 if r["flag"] else 0.0) for r in rows if r["flag"] is not None]
-        cov_w = sum(mv for mv, _ in cov)
-        value = round(sum(mv * v for mv, v in cov) / cov_w, 2) if cov_w else None
-        if entry["agg"] == "share_true" and value is not None:
-            value = round(100 * value, 1)   # express as % of covered value
+        if entry["agg"] == "per_meur":
+            # Σ (value / EVIC × issuer amount) ÷ € million invested — attributed like Table 1 no. 8-9 (definition (3));
+            # the denominator is everything invested, coverage says how much of it carries the issuer amount + EVIC
+            cov = [(r["mv"], r["num"], r["evic"]) for r in rows if r["num"] is not None and r["evic"] and r["evic"] > 0]
+            cov_w = sum(mv for mv, _, __ in cov)
+            value = (round(sum(min(mv / ev, 1.0) * v for mv, v, ev in cov) / (total_value / 1e6), 4)
+                     if cov and total_value else None)
+        else:
+            if entry["agg"] == "avg":
+                cov = [(r["mv"], r["num"]) for r in rows if r["num"] is not None]
+            else:  # share
+                cov = [(r["mv"], 1.0 if r["flag"] else 0.0) for r in rows if r["flag"] is not None]
+            cov_w = sum(mv for mv, _ in cov)
+            value = round(sum(mv * v for mv, v in cov) / cov_w, 2) if cov_w else None
+            if entry["agg"] == "share" and value is not None:
+                value = round(100 * value, 1)   # % of covered invested value
         indicators.append({
-            "key": key, "table": entry["table"], "kind": entry["kind"],
-            "name": entry["name"], "unit": entry["unit"], "agg": entry["agg"],
+            "key": key, "table": entry["table"], "row": entry["row"], "kind": entry["kind"],
+            "name": entry["name"], "metric": entry["metric"], "unit": entry["unit"], "agg": entry["agg"],
             "value": value,
             "coverage_pct": round(100 * cov_w / total_value, 1) if total_value else 0.0,
-            "input_required": None if cov_w else "per-issuer values for this indicator",
+            "input_required": (None if cov_w else "per-issuer values for this indicator"
+                               + (" and the issuer's enterprise value (EVIC)" if entry["agg"] == "per_meur" else "")),
         })
 
     kinds = {CATALOG[k]["kind"] for k in selected}

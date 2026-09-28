@@ -41,7 +41,7 @@ FRAMEWORKS = {
                    "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a"},   # the implementing act: reg_reference.reference() from the governing spec
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
-                 "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},
+                 "regulator": "National competent authority (SFDR)", "basis": "SFDR Art. 4"},   # the RTS: reg_reference.reference() from the governing spec
     "assetmgmt_tcfd": {"label": "TCFD · physical-risk & concentration disclosure (holdings book)", "sectors": ("asset_manager",),
                        "frequency": "annual", "due": (6, 30),
                        "regulator": "National competent authority / TCFD", "basis": "TCFD asset-manager guidance"},

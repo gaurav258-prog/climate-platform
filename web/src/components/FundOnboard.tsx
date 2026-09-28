@@ -85,7 +85,7 @@ export function OnboardHoldings({ fundId, onDone }: { fundId: string; onDone: ()
   )
 }
 
-interface Cat { key: string; table: string; kind: string; name: string; unit: string }
+interface Cat { key: string; table: number; row: string; kind: string; name: string; metric: string; unit: string }
 export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; selected: string[]; onDone: () => void }) {
   const qc = useQueryClient()
   const cat = useQuery({ queryKey: ['vpai-catalog'], queryFn: () => api.get<{ indicators: Cat[] }>('/v1/voluntary-pai/catalog') })
@@ -115,7 +115,7 @@ export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; sel
         {list.map(i => (
           <label key={i.key} className="flex items-start gap-2 text-[12px] cursor-pointer">
             <input type="checkbox" checked={sel.includes(i.key)} onChange={() => toggle(i.key)} className="mt-0.5" />
-            <span className="text-[var(--color-mute)]">{i.name} <span className="text-[var(--color-faint)] mono text-[10px]">{i.unit}</span></span>
+            <span className="text-[var(--color-mute)]" title={i.metric}><span className="mono text-[10px] text-[var(--color-faint)]">T{i.table}·{i.row}</span> {i.name} <span className="text-[var(--color-faint)] mono text-[10px]">{i.unit}</span></span>
           </label>
         ))}
       </div>
@@ -130,7 +130,7 @@ export function VoluntaryPai({ fundId, selected, onDone }: { fundId: string; sel
       </div>
       {open && (
         <div className="mt-3 space-y-3">
-          <p className="text-[11.5px] text-[var(--color-mute)]">SFDR requires adopting at least one additional environmental and one additional social indicator (RTS Tables 2 &amp; 3).</p>
+          <p className="text-[11.5px] text-[var(--color-mute)]">SFDR requires adopting at least one additional environmental and one additional social indicator (RTS Annex I, Tables 2 &amp; 3, numbered as in the regulation). Rows for sovereigns, real estate and green bonds need data we do not hold per issuer and are not offered.</p>
           {err && <div className="text-[12px] text-[var(--color-bad)]">{err}</div>}
           {ok && <div className="text-[12px] text-[var(--color-good)] inline-flex items-center gap-1"><Check size={13} /> Saved.</div>}
           <div className="grid sm:grid-cols-2 gap-4">{group('Environmental', env)}{group('Social', soc)}</div>
