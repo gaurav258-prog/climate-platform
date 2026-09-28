@@ -28,13 +28,14 @@ REFERENCE: dict[str, dict] = {
     "bank_p3esg": {
         "official_name": "Pillar 3 disclosures of ESG risks (EBA prudential templates)",
         "authority": "National competent authority / EBA",
-        "legal_basis": "CRR (EU) 575/2013, Art. 449a · Commission Implementing Regulation (EU) 2022/2453 (ITS on ESG risk disclosures)",
-        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2453",
+        # the implementing act, its templates and their location come from the governing specification (reference())
+        "legal_basis": "CRR (EU) 575/2013, Art. 449a",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32013R0575",
         "summary": "Large institutions disclose prudential information on ESG risks — quantitative templates for "
                    "the banking book's exposure to climate-change physical risk (by geography and sector) and "
                    "transition risk, the Green Asset Ratio / BTAR, and mitigating actions.",
-        "official_form": "ITS (EU) 2022/2453 — Annex I templates (Template 5 physical risk · Templates 6–8 GAR/BTAR) + Annex II instructions",
-        "form_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2453",
+        "official_form": "ESG disclosure templates of the implementing act in force",
+        "form_url": None,
         "inputs": "Loan / exposure book: counterparty, NACE sector, collateral location & maturity, outstanding "
                   "balance, EU-Taxonomy eligibility & alignment, and counterparty GHG (Scope 1–3) for transition metrics.",
     },
@@ -127,5 +128,30 @@ REFERENCE: dict[str, dict] = {
 }
 
 
-def reference(framework: str) -> dict | None:
-    return REFERENCE.get(framework)
+def reference(framework: str, on=None) -> dict | None:
+    """The framework's reference entry; where a template specification governs (services/regspec), the implementing act,
+    where its templates and instructions sit, and its link come from that specification — never typed here."""
+    ref = REFERENCE.get(framework)
+    if ref is None:
+        return None
+    import services.regspec as R
+    if framework not in R.frameworks():
+        return ref
+    spec = R.governing(framework, period_end=on or _today(), disclosure_date=on)
+    return with_spec(ref, spec) if spec else ref
+
+
+def with_spec(ref: dict, spec: dict) -> dict:
+    """A reference entry stated for one specification — the act, the templates' location, the instructions and link."""
+    act = spec["act"]
+    url = f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{act['celex']}" if act.get("celex") else act.get("url")
+    return {**ref,
+            "legal_basis": f"{ref['legal_basis']} · {spec['legal_basis']['article']}",
+            "url": url, "form_url": url, "act_celex": act.get("celex"), "spec_version": spec["version"],
+            "official_form": f"{act.get('short') or act['title']} — {spec['legal_basis']['templates_in']}; instructions: "
+                             f"{spec['legal_basis']['instructions_in']}"}
+
+
+def _today():
+    from datetime import date
+    return date.today()

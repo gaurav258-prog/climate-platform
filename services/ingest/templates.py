@@ -46,7 +46,8 @@ ASSET_TEMPLATE_FIELDS = _template(
                                      "total debt + cash). Required for PCAF-attributed financed emissions."}),
     ("outstanding_loan_balance_eur", False), ("loan_origination_date", False), ("region", False), ("country", False),
     ("borrower_entity_id", False), ("minimum_safeguards_status", False), ("counterparty_govt_level", False),
-    ("no_stated_maturity", False), ("external_ref", False, _ref("loan / facility")),
+    ("no_stated_maturity", False), ("counterparty_sector", False), ("immovable_collateral", False),
+    ("external_ref", False, _ref("loan / facility")),
     ("currency", False), ("book_date", False), ("reporting_entity", False), ("intragroup_counterparty", False),
 )
 

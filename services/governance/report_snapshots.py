@@ -180,6 +180,21 @@ def _fx_record(session: Session, org_id: str, translation) -> dict:
     return summary(translation, names)
 
 
+def _spec_record(session: Session, report_type: str, period_end) -> dict | None:
+    """The governing template specification for a filing, or None when the framework has none yet."""
+    import services.regspec as R
+    from services.regspec.signoff import status as signoff_status
+    if report_type not in R.frameworks():
+        return None
+    spec = R.governing(report_type, period_end=period_end)
+    if spec is None:
+        return {"version": None, "note": "no adopted specification applies to this period"}
+    st = signoff_status(session, report_type, spec["version"])
+    return {"framework": report_type, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
+            "act": spec["act"].get("short") or spec["act"]["title"], "basis": spec["applies"]["basis"],
+            "approved": st["approved"], "needs": st["needs"]}
+
+
 def report_types(sectors: tuple[str, ...] | list[str] | None = None) -> list[dict]:
     """Registered report types, optionally filtered to those applicable to the given org-type sectors."""
     out = []
@@ -236,8 +251,12 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     from datetime import date as _date
 
     from services.governance.reg_versions import version_for
-    payload["_regulation"] = version_for(session, report_type,
-                                         s["reporting_period_end"] or _date(_date.today().year - 1, 12, 31))
+    period_end = s["reporting_period_end"] or _date(_date.today().year - 1, 12, 31)
+    # the template specification governing this filing (change route): its version and the file's sha256, and
+    # whether that exact file is signed off — frozen, so the form is always rendered to the spec it was prepared under
+    payload["_spec"] = _spec_record(session, report_type, period_end)
+    on = _date.today() if (payload["_spec"] or {}).get("basis") == "disclosure_date" else None
+    payload["_regulation"] = version_for(session, report_type, period_end, on=on)
     basis["regulation_status"] = (payload["_regulation"] or {}).get("status")
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)

@@ -12,13 +12,23 @@ possible twice.
 | 2 Triage (≤ 1 day) | A person classifies the detected change: no impact · wording only · template change · new module. The decision is recorded on the change. | `reg_detected_change` |
 | 3 Capture as a specification | Each version of a regulation's templates is a **versioned spec file**: templates, rows, columns, the instruction reference and a verbatim quote per element, the act (CELEX), its status (adopted / draft) and the dates it applies. Drafted from the official text by an agent, verified by a second pass. | `data/reference/regspec/<framework>/<version>.json` |
 | 4 Diff | The machine compares the new spec with the one in force and lists what changed: templates, rows, columns added / removed / renamed, references moved. Unchanged cells carry over. | `services/regspec` |
-| 5 Implement the diff only | Every cell of a spec says where its value comes from: computed (a named engine datapoint), client input, or not applicable. Titles and labels are read from the spec, never typed in code. | spec `source` field |
-| 6 Automatic checks | Coverage: every spec cell is mapped or explicitly marked. A golden test book gives known answers per version. Old and new versions run side by side; version pinning decides which one a filing period uses. | `tests/…/test_regspec_*.py` |
-| 7 Sign-off and release | A regulatory reviewer and an engineer approve the spec (four eyes); only an approved, adopted spec can govern a filing. Clients are told through the CRCS alerts. | approval type `regspec.approve` |
+| 5 Implement the diff only | The spec is the regulation only. Beside the code that fills it, a binding says how every row and column is filled: computed, input (a named per-loan fact the client supplies) or n/a. Titles, labels and legal citations are read from the spec, never typed in code. | `BINDING` (e.g. `services/governance/pillar3_grids.py`) |
+| 6 Automatic checks | Coverage: every row and column of every adopted spec is bound, nothing bound is stale. A golden test book gives known answers under every adopted version (dual run). Each filing freezes the spec it was prepared under (version + file sha256) and is always rendered to it. | `tests/unit/test_regspec.py`, `test_pillar3_grids.py` |
+| 7 Sign-off and release | A regulatory reviewer and an engineer — two different people — sign the spec file's exact sha256 (the database refuses the same person twice; editing the file voids earlier sign-offs). A filing built to an unsigned spec carries a warning on its run. Clients are told through the CRCS alerts. | `regspec_signoff`, operator page *Change pipeline* |
 | 8 Retire | The previous version stays supported for restatements for six months after it stops applying, then is retired. | `reg_versions.LEGACY_SUPPORT_DAYS` |
 
 A draft act (e.g. an EBA final draft ITS not yet adopted by the Commission) may be captured as a spec with status
 `draft`: it is diffed and prepared, never used for a filing until adopted.
+
+Where the official text is silent, the spec records a **declared reading** (`interpretations`: the reading, why, who
+declared it) — never an unverified statement presented as the text. An adopted spec may not contain the word
+UNVERIFIED (validation refuses it).
+
+### Runs of the route
+
+| Run | Change | What the diff said | What it found | Made faster / safer for next time |
+|---|---|---|---|---|
+| 1 · 2026-09-28 | Pillar 3 ESG: ITS 2022/2453 → ITS 2024/3172; EBA/ITS/2026/02 captured as draft | 2022 → 2024: references only (no row or column changed). 2024 → draft: template change (T1–T9 replaced by CRFR1–4). | Our Template 5 did not match the text (E9); the 2024 instructions sit in the EBA IT solutions, not the Official Journal — fetched and verified. | Spec capture + independent second pass as two parallel agents; machine diff; coverage and golden book reusable for the draft when adopted. |
 
 ## 2. Before every commit — one command
 
@@ -45,3 +55,8 @@ and the **automatic guard** that makes it impossible (or at least loud) next tim
 | E6 | 2026-09-28 | Two helper agents were launched with unfilled placeholders in their instructions. | A prompt was written as a template and not completed. | Write every agent instruction in full — never with placeholders. |
 | E7 | 2026-09-28 | Pillar 3 filings were prepared under an act the register shows replaced. | Template structure and its legal citation were typed into code; nothing compared them with the register. | Version pinning stamps and checks the act on every freeze; the regulatory-change route (spec files, diff, coverage) replaces hand-typed templates. |
 | E8 | 2026-09-28 | A task-approval test left an approved request (and a finished task) behind on every run — 60 by the time the E2 guard caught it on its first run. | The test relied on a final rollback while the approval step inside it commits; its HTTP part cleaned the task but not the request. | The module's session makes commits flushes; the HTTP test deletes its own request; the E2 guard fails any recurrence. |
+| E9 | 2026-09-28 | Pillar 3 Template 5 did not match the regulation: "chronic" included exposures sensitive to both; maturity and IFRS 9 columns covered all exposures, not the physical-risk-sensitive ones; rows were the sectors present, not the fixed 13; two impairment columns were missing. | The template was typed from a summary, not built from the instruction text. | The template is built from the verified spec (verbatim instructions); a golden book with hand-worked answers runs under every adopted version; coverage fails the build on any unmapped row or column. |
+| E10 | 2026-09-28 | The XBRL element map cited Template 1 "Scope 1" and "Scope 2" columns that the template does not have. | References written from memory. | A test checks every template column the map cites exists in the governing spec. |
+| E11 | 2026-09-28 | The pre-commit gate carried on after a lint failure. | `a && b || c` runs `c` when `b` fails. | Written as if / else; the gate stops at the first failure. |
+| E12 | 2026-09-28 | A test found a form section by its title and broke when titles began to follow the regulation. | Tests keyed on display text. | Sections carry stable keys; tests find them by key. |
+

@@ -344,7 +344,13 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict, e
     return "\n".join(lines)
 
 
-# ── Pillar 3 ESG (ITS 2022/2453) XBRL instance from the frozen bank payload ──────────────────────
+# ── Pillar 3 ESG XBRL instance from the frozen bank payload ──────────────────────
+
+def _p3_act(payload: dict) -> str:
+    """The implementing act the filing was prepared under (its frozen specification)."""
+    from services.governance.filing_annex import _p3_spec
+    spec = _p3_spec(payload)
+    return spec["act"].get("short") or spec["act"]["title"]
 # Same faithful-serialization contract: facts are recomputed deterministically from the FROZEN per-asset
 # book (the annex grids are pure functions of it), never a live re-score. Concept QNames live in Tellumen's
 # namespace; map them to the official EBA DPM taxonomy element IDs when filing to the regulator's collector.
@@ -376,8 +382,8 @@ def p3esg_binding_status() -> dict:
     """Coverage of the EBA element binding — how many of our facts carry an official element id vs provisional."""
     b = _load_p3_binding()
     emap = b.get("elements", {})
-    facts = ["TotalBookValue", "PhysicalRiskSensitiveExposure", "PhysicalRiskChronicExposure",
-             "PhysicalRiskAcuteExposure", "GARTotalAssets", "GARCoveredAssets", "GAREligibleExposure",
+    facts = ["TotalBookValue", "PhysicalRiskSensitiveExposure", "PhysicalRiskChronicOnlyExposure",
+             "PhysicalRiskAcuteOnlyExposure", "PhysicalRiskChronicAndAcuteExposure", "GARTotalAssets", "GARCoveredAssets", "GAREligibleExposure",
              "GARAlignedExposure", "GreenAssetRatioStockPct", "FinancedEmissionsScope1",
              "FinancedEmissionsScope2", "FinancedEmissionsScope3", "FinancedEmissionsTotal"]
     bound = [f for f in facts if f in emap]
@@ -389,13 +395,16 @@ def p3esg_binding_status() -> dict:
                      if bound else
                      "Provisional Tellumen namespace — a real tagged-fact layer, NOT a validated EBA "
                      "submission. Drop config/eba_p3esg_binding.json (EBA taxonomy pending, ITS amended "
-                     "Jun-2026, ref 31 Dec 2026 / 2027 SNCIs) to bind. Template/column refs already verified vs 2022/2453.")}
+                     "Jun-2026, ref 31 Dec 2026 / 2027 SNCIs) to bind. Template/column refs follow the governing template specification.")}
 
 
 def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
     from xml.sax.saxutils import escape
 
-    from services.governance.pillar3_templates import gar_grid, template1_grid, template5_grid
+    from services.governance.filing_annex import _p3_spec
+    from services.governance.pillar3_grids import BINDING
+    from services.governance.pillar3_grids import build as p3_build
+    from services.governance.pillar3_templates import gar_grid
 
     who = _identity(session, org_id, entity_id)
     lei = escape(who["lei"])
@@ -403,8 +412,14 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
     assets = payload.get("assets") or []
     rollup = payload.get("rollup") or {}
     gar = gar_grid(assets) if assets else {}
-    t1 = template1_grid(assets)["total"] if assets else {}
-    t5 = template5_grid(assets)["total"] if assets else {}
+    spec = _p3_spec(payload)
+    t1 = next((r["values"] for r in p3_build(spec, "T1", assets)["rows"] if BINDING["T1"]["rows"][r["id"]] == "computed:total"), {}) if assets else {}
+    # Template 5 has no total row: the sector rows (non-financial corporations) summed — collateral rows are another population
+    t5: dict = {}
+    for r in (p3_build(spec, "T5", assets)["rows"] if assets else []):
+        if not BINDING["T5"]["rows"][r["id"]].startswith("computed:collateral"):
+            for k in ("sensitive", "h", "i", "j"):
+                t5[k] = t5.get(k, 0.0) + (r["values"].get(k) or 0.0)
     s1 = sum((a.get("ghg1") or 0) for a in assets)
     s2 = sum((a.get("ghg2") or 0) for a in assets)
     s3 = sum((a.get("ghg3") or 0) for a in assets)
@@ -427,8 +442,9 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
     # rollup + Template 5 physical risk
     fact("TotalBookValue", "uMONEY", rollup.get("total_value_eur"), dec="0")
     fact("PhysicalRiskSensitiveExposure", "uMONEY", t5.get("sensitive"), dec="0")
-    fact("PhysicalRiskChronicExposure", "uMONEY", t5.get("chronic"), dec="0")
-    fact("PhysicalRiskAcuteExposure", "uMONEY", t5.get("acute"), dec="0")
+    fact("PhysicalRiskChronicOnlyExposure", "uMONEY", t5.get("h"), dec="0")
+    fact("PhysicalRiskAcuteOnlyExposure", "uMONEY", t5.get("i"), dec="0")
+    fact("PhysicalRiskChronicAndAcuteExposure", "uMONEY", t5.get("j"), dec="0")
     # Templates 6–8 Green Asset Ratio
     fact("GARTotalAssets", "uMONEY", gar.get("total_assets"), dec="0")
     fact("GARCoveredAssets", "uMONEY", gar.get("covered_assets"), dec="0")
@@ -439,14 +455,14 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
     fact("FinancedEmissionsScope1", "uCO2e", s1 or None, dec="0")
     fact("FinancedEmissionsScope2", "uCO2e", s2 or None, dec="0")
     fact("FinancedEmissionsScope3", "uCO2e", s3 or None, dec="0")
-    fact("FinancedEmissionsTotal", "uCO2e", t1.get("fin_emissions"), dec="0")
+    fact("FinancedEmissionsTotal", "uCO2e", t1.get("i"), dec="0")
 
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
         '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
         f'            xmlns:p3="{ns}">',
-        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure (ITS 2022/2453) · {escape(who["name"])} · {escape(who["note"])} -->',
+        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure ({escape(_p3_act(payload))}) · {escape(who["name"])} · {escape(who["note"])} -->',
         ('  <!-- Taxonomy binding: OFFICIAL EBA element map -->' if emap else
          '  <!-- Taxonomy binding: provisional namespace (EBA Pillar 3 XBRL taxonomy pending); drop config/eba_p3esg_binding.json to bind -->'),
         '  <xbrli:context id="d0">',

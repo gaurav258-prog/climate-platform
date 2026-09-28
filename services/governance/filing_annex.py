@@ -178,7 +178,7 @@ def _sfdr_annex(dps: dict) -> list[dict]:
 
 # ── EU-Taxonomy Article 8 (GAR summary) + PCAF financed emissions + TCFD physical-risk metrics ─────────────
 def _gar_grid_section(assets: list[dict]) -> dict | None:
-    """The full Green Asset Ratio grid (Templates 6–8, ITS 2022/2453 · Del. Reg. 2021/2178) by counterparty
+    """The full Green Asset Ratio grid (Pillar 3 Templates 6–8 · Del. Reg. 2021/2178) by counterparty
     class — gross carrying amount, Taxonomy-eligible + Taxonomy-aligned, the covered-assets denominator (excl.
     general governments, Art. 7) and the GAR ratio on stock, computed from the per-asset `taxonomy_status`.
     Shared by the bank TCFD and Pillar-3 annexes so both render the same official grid, not a flat summary.
@@ -210,7 +210,8 @@ def _gar_grid_section(assets: list[dict]) -> dict | None:
     if align_pending:
         note += (" This book is classified to Taxonomy ELIGIBILITY; the aligned figure and GAR await the "
                  "technical-screening-criteria + DNSH confirmation, so both are shown as pending, not zero.")
-    return {"title": "Templates 6–8 — Green Asset Ratio by counterparty (ITS 2022/2453 · Del. Reg. 2021/2178)",
+    # the Pillar 3 annex retitles this from its governing specification; elsewhere it is the Taxonomy Art. 8 KPI
+    return {"title": "Green Asset Ratio by counterparty (Delegated Regulation (EU) 2021/2178)", "key": "gar",
             "columns": ["Counterparty class", "Gross carrying amount", "Taxonomy-eligible", "Taxonomy-aligned"],
             "col_sources": ["", "computed", "computed", "integrated"],
             "rows": gar_rows, "note": note}
@@ -228,7 +229,7 @@ def _gar_flat_summary_section(dps: dict, total) -> dict | None:
         gar_rows.append({"type": "row", "cells": [
             _txt(label), _cell(dps, key), _txt(_pct_text((d or {}).get("value"), total))]})
     gar_rows.append({"type": "row", "cells": [_txt("Total covered assets"), _cell(dps, "book.total_value_eur"), _txt("100%")]})
-    return {"title": "EU Taxonomy · Article 8 — Green Asset Ratio (summary)",
+    return {"title": "EU Taxonomy · Article 8 — Green Asset Ratio (summary)", "key": "gar",
             "columns": ["KPI", "Amount", "% of covered assets"], "rows": gar_rows,
             "note": "Eligibility KPI per Disclosures Delegated Act (EU) 2021/2178. Alignment (DNSH + minimum "
                     "safeguards) additionally needs the technical screening criteria (per-asset book unavailable "
@@ -684,28 +685,95 @@ def _eur(v):
     return money_format.money(v)
 
 
-# ── EBA Pillar 3 ESG (ITS 2022/2453): Template 5 physical risk + GAR summary + Scope-3 for transition ─────
+# ── Pillar 3 ESG: spec-driven templates ─────
+_P3_SPEC_BEFORE_SPECS = "its_2022_2453"     # every Pillar 3 filing frozen before specifications was prepared under it
+
+
+def _p3_spec(payload: dict) -> dict:
+    import services.regspec as R
+    return R.load("bank_p3esg", ((payload or {}).get("_spec") or {}).get("version") or _P3_SPEC_BEFORE_SPECS)
+
+
+def _p3_title(spec: dict, tid: str) -> str:
+    import services.regspec as R
+    return f"{R.template(spec, tid)['title']} ({R.citation(spec, tid)})"
+
+
+def _col_head(c: dict) -> str:
+    return f"{c['id']} · {c['label'].split(' > ')[-1]}"
+
+
+def _col_groups(cols: list[dict]) -> str:
+    """'c–o: under “Gross carrying amount > of which …”' — the header levels the flat column list cannot show."""
+    out, run = [], None
+    for c in cols:
+        parent = " > ".join(c["label"].split(" > ")[:-1])
+        if run and run[0] == parent:
+            run[2] = c["id"]
+        else:
+            run = [parent, c["id"], c["id"]]
+            out.append(run)
+    return " · ".join(f"{a if a == b else a + '–' + b} under “{p}”" for p, a, b in out if p)
+
+
+_P3_FMT = {"T1": {"i": "t", "j": "t", "k": "pct", "p": "yrs"}, "T5": {"g": "yrs"}}
+
+
+def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | None = None) -> dict:
+    import services.regspec as R
+    from services.governance.pillar3_grids import BINDING
+    t = R.template(spec, tid)
+    cols = [c for c in t["columns"] if not BINDING[tid]["columns"][c["id"]].startswith("computed:country")]
+    fmt = _P3_FMT.get(tid, {})
+
+    def cell(cid, v):
+        src = "computed" if BINDING[tid]["columns"][cid].startswith("computed") else "integrated"
+        if v is None:
+            return _mnum("—", src)
+        kind = fmt.get(cid)
+        txt = (f"{v:,.0f}" if kind == "t" else f"{v}%" if kind == "pct" else f"{v}y" if kind == "yrs" else _eur(v))
+        return _mnum(txt, src)
+
+    rows = [{"type": "row", "cells": [_txt(f"{r['id']} · {r['label']}")] + [cell(c["id"], r["values"].get(c["id"])) for c in cols]}
+            for r in grid["rows"]]
+    st = grid["stated"]
+    supplied = [f"{lbl} stated for {st[k]:,} of {st['all']:,} exposures" if tid == "T1"
+                else f"{lbl} stated for {st[k]:,} of {st['sens']:,} physical-risk-sensitive exposures" for k, lbl in
+                (("stage", "IFRS 9 stage"), ("mat", "maturity"), ("imp", "impairment"))
+                + ((("pab", "Paris-benchmark exclusion"), ("ccm", "CCM sustainability"), ("rep", "company-reported emissions"))
+                   if tid == "T1" else ())]
+    notes = [_col_groups(t["columns"]),
+             "Blank (—) = no exposure in the row states that fact on the loan tape; " + "; ".join(supplied) + ".",
+             f"Counterparty sector inferred from the NACE code for {grid['inferred_counterparty']:,} exposures and immovable "
+             f"collateral from the asset type for {grid['inferred_collateral']:,} (state them on the loan tape to replace the inference)."]
+    if grid["unallocated_no_nace"]:
+        notes.append(f"{grid['unallocated_no_nace']:,} non-financial-corporate exposures carry no NACE code and sit in no sector row.")
+    if tid == "T5":
+        notes.append("Sensitive = a High or Very high climate hazard at the exposure's location; h, i, j are chronic only, "
+                     "acute only and both. Rows 1–9 and 13 hold non-financial corporations by sector; rows 10–12 hold loans "
+                     "by their immovable-property collateral, whatever the counterparty — separate groups, so there is no total row.")
+    if tid == "T1":
+        notes.append("Financed emissions (i, j) are the counterparties' reported Scope 1–3 totals. k is the share of the "
+                     "row's gross carrying amount whose emissions the company reported itself (EBA Q&A 2024_7225: over all exposures).")
+    title = _p3_title(spec, tid) + (f" — {scope}" if scope else "")
+    return {"title": title, "key": key, "columns": ["Row"] + [_col_head(c) for c in cols],
+            "col_sources": [""] + ["computed" if BINDING[tid]["columns"][c["id"]].startswith("computed") else "integrated" for c in cols],
+            "rows": rows, "note": " ".join(n for n in notes if n),
+            "spec": {"version": spec["version"], "template": tid, "sha256": spec["_sha256"]}}
+
+
+# ── EBA Pillar 3 ESG: the templates, titled and cited from the governing specification ─────
 def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     total = (dps.get("book.total_value_eur") or {}).get("value")
     sections: list[dict] = []
     assets = (payload or {}).get("assets") or []
 
-    # Template 1 — banking-book transition risk by NACE sector (ITS 2022/2453, Annex XXXIX). Computed columns:
-    # gross carrying amount + financed emissions (Scope 1–3) + of-which Scope 3; credit-quality/alignment/maturity
-    # columns are customer-supplied (declared).
+    # Templates 1 and 5 are built to the specification the filing was prepared under (frozen as _spec; a filing
+    # frozen before specifications existed was prepared under ITS 2022/2453). Rows, columns and titles come from it.
+    spec = _p3_spec(payload)
     if assets:
-        from services.governance.pillar3_templates import template1_grid
-        g1 = template1_grid(assets)
-        t1_rows = []
-        for r in g1["rows"] + [g1["total"]]:
-            lbl = "TOTAL" if r["section"] == "TOTAL" else f"{r['section']} · {r['label']}"
-            t1_rows.append({"type": "row", "cells": [
-                _txt(lbl), _num(_eur(r["gross"])), _num(f"{r['fin_emissions']:,}"), _num(f"{r['scope3']:,}")]})
-        sections.append({"title": "Template 1 — Banking book · climate-change transition risk (ITS 2022/2453, Annex XXXIX)",
-                         "columns": ["Sector (NACE)", "Gross carrying amount", "Financed emissions Scope 1–3 (tCO₂e)", "of which Scope 3 (tCO₂e)"],
-                         "col_sources": ["", "computed", "computed", "computed"],
-                         "rows": t1_rows,
-                         "note": g1["basis"] + " Customer-supplied columns not shown: " + " · ".join(g1["customer_columns"]) + "."})
+        from services.governance.pillar3_grids import build as p3_build
+        sections.append(_spec_grid_section(spec, "T1", p3_build(spec, "T1", assets), key="t1"))
 
     # Template 2 — loans collateralised by immovable property · energy efficiency of the collateral (ITS
     # 2022/2453, Annex XXXIX + Annex XL instructions). Built to the EXACT fixed-format grid: columns (a) total +
@@ -766,7 +834,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                      "and kWh/m² EP-score buckets aren't in that attribute set, so they stay '—'." if n_epc else
                      " EPC labels, EP scores, collateral type and location live on the institution's collateral register / "
                      "EPC feed — shown '—' until that feed is connected.")
-        sections.append({"title": "Template 2 — Banking book · loans collateralised by immovable property · energy efficiency of collateral (ITS 2022/2453, Annex XXXIX)",
+        sections.append({"title": _p3_title(spec, "T2"),
                          "key": "t2", "columns": t2_cols, "col_sources": t2_src, "rows": t2_rows,
                          "note": "Fixed format per Annex XL. Gross carrying amount of loans collateralised by commercial / "
                                  "residential immovable property and repossessed real estate, distributed by the collateral's "
@@ -788,7 +856,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                 dist = f'{r["distance_pct"]}%' if r["distance_pct"] is not None else "—"
                 t3_rows.append({"type": "row", "cells": [
                     _txt(f'{r["label"]} · {r["metric"]}'), _num(_eur(r["gross"])), _num(cur), _num(tgt), _num(dist)]})
-            sections.append({"title": "Template 3 / EU CRFR4 (pending adoption) — Banking book · transition risk · alignment metrics (ITS 2022/2453, Annex XL)",
+            sections.append({"title": _p3_title(spec, "T3"),
                              "columns": ["Sector · IEA metric", "Gross carrying amount", "Portfolio intensity", "IEA NZE2050 2030 target", "Distance"],
                              "col_sources": ["", "computed", "integrated", "computed", "computed"],
                              "rows": t3_rows,
@@ -804,71 +872,17 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             t4_rows = [{"type": "row", "cells": [_txt(r["firm"]), _num(_eur(r["gross"]))]} for r in g4["rows"]]
         else:
             t4_rows = [{"type": "row", "cells": [_txt("No counterparty matched the top-20 carbon-majors list"), _num(_eur(0))]}]
-        sections.append({"title": "Template 4 — Banking book · exposures to the top-20 carbon-intensive firms (ITS 2022/2453, Annex XL)",
+        sections.append({"title": _p3_title(spec, "T4"),
                          "columns": ["Counterparty (Carbon Majors)", "Gross carrying amount"],
                          "col_sources": ["", "computed"], "rows": t4_rows,
                          "note": f'Matched {g4["matched_count"]} of the {g4["list_size"]}-firm list · total exposure {_eur(g4["total_exposure"])}. ' + g4["source"]})
 
-    # Template 5 — banking-book physical-risk exposure, built to the ACTUAL ITS 2022/2453 grid:
-    # rows = NACE section; columns = gross carrying amount + of-which physical-risk-sensitive + chronic/acute/both.
     if assets:
-        from services.governance.pillar3_templates import template5_grid
-        grid = template5_grid(assets)
-        # The COMPLETE ITS Template 5 column set. Each column carries its source so the form shows, per cell,
-        # what Tellumen computes vs what the institution integrates from its banking systems.
-        cols = ["Sector (NACE)", "Gross carrying amount", "of which chronic", "of which acute",
-                "of which chronic + acute", "≤ 5y", "> 5 ≤ 10y", "> 10 ≤ 20y", "> 20y", "avg. weighted maturity",
-                "of which Stage 2", "of which non-performing", "accumulated impairment"]
-        # "" = row label · computed = Tellumen engine · integrated = institution banking systems (loan tape / IFRS-9)
-        srcs = ["", "computed", "computed", "computed", "computed", "integrated", "integrated", "integrated",
-                "integrated", "integrated", "integrated", "integrated", "integrated"]
-        _pending = _mnum("—", "integrated")  # a pending integrated cell: shown, sourced, awaiting the institution feed
-
-        def _t5row(label, r):
-            # maturity buckets + avg-weighted come from the provided loan-tape maturity (per sector); IFRS-9
-            # Stage-2 / non-performing from the provided staging. Cells stay '—' where the loan tape lacks them.
-            mat = (lambda v: _mnum(_eur(v), "integrated")) if r.get("has_maturity") else (lambda v: dict(_pending))
-            avg = _mnum(f"{r['avg_maturity']}y", "integrated") if r.get("has_maturity") and r.get("avg_maturity") is not None else dict(_pending)
-            ifr = (lambda v: _mnum(_eur(v), "integrated")) if r.get("has_ifrs9") else (lambda v: dict(_pending))
-            return {"type": "row", "cells": [
-                _txt(label),
-                _mnum(_eur(r["gross"]), "computed"), _mnum(_eur(r["chronic"]), "computed"),
-                _mnum(_eur(r["acute"]), "computed"), _mnum(_eur(r["both"]), "computed"),
-                mat(r.get("le5", 0)), mat(r.get("m5_10", 0)), mat(r.get("m10_20", 0)), mat(r.get("gt20", 0)), avg,
-                ifr(r.get("stage2", 0)), ifr(r.get("npe", 0)), dict(_pending)]}
-        t5_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in grid["rows"]]
-        t5_rows.append(_t5row("TOTAL", grid["total"]))
-        _fed = []
-        if grid.get("maturity_covered"):
-            _fed.append("maturity buckets + average-weighted maturity")
-        if grid.get("ifrs9_covered"):
-            _fed.append("IFRS-9 Stage 2 / non-performing")
-        _feed_note = (" " + "; ".join(_fed).capitalize() + " are filled from the loan-tape attributes you provided."
-                      if _fed else " Maturity, IFRS-9 staging and impairment columns are integrated from the "
-                      "institution's loan tape (shown as '—' until that feed is connected).")
-        sections.append({"title": "Template 5 — Banking book · climate-change physical risk (ITS 2022/2453, Annex XXXIX)",
-                         "key": "t5", "columns": cols, "col_sources": srcs, "rows": t5_rows,
-                         "note": grid["basis"] + _feed_note})
-
-        # EBA Q&A 2022_6600: "breakdown by geography" means a SEPARATE template instance per geographical area,
-        # not one portfolio-wide grid. One section per geography (top-exposure countries + an "Other" rollup),
-        # each the same NACE-section × physical-risk grid as the portfolio-wide one above.
-        for geo in grid.get("geographies", []):
-            geo_rows = [_t5row(f"{r['section']} · {r['label']}", r) for r in geo["rows"]]
-            geo_rows.append(_t5row("TOTAL", geo["total"]))
-            _geo_fed = []
-            if geo.get("maturity_covered"):
-                _geo_fed.append("maturity buckets + average-weighted maturity")
-            if geo.get("ifrs9_covered"):
-                _geo_fed.append("IFRS-9 Stage 2 / non-performing")
-            _geo_feed_note = (" " + "; ".join(_geo_fed).capitalize() + " are filled from the loan-tape attributes "
-                               "you provided." if _geo_fed else " Maturity, IFRS-9 staging and impairment columns "
-                               "are integrated from the institution's loan tape.")
-            sections.append({
-                "title": f"Template 5 — {geo['label']} · climate-change physical risk (ITS 2022/2453, Annex XXXIX, "
-                         f"geography breakdown per EBA Q&A 2022_6600)",
-                "key": f"t5_geo_{geo['country']}", "columns": cols, "col_sources": srcs, "rows": geo_rows,
-                "note": f"Exposure in this geography: {_eur(geo['exposure_eur'])}." + _geo_feed_note})
+        from services.governance.pillar3_grids import template5 as p3_t5
+        g5 = p3_t5(spec, assets)
+        sections.append(_spec_grid_section(spec, "T5", g5, key="t5", scope="All geographies"))
+        for geo in g5["geographies"]:           # column a — one instance per geography (Annex XL, Template 5, column a)
+            sections.append(_spec_grid_section(spec, "T5", geo, key=f"t5_geo_{geo['geography']}", scope=geo["label"]))
     else:
         # fallback for a snapshot without the per-asset book: the earlier by-hazard summary
         haz_keys = sorted([k for k in dps if k.startswith("hazard.")], key=lambda k: -((dps[k].get("value")) or 0))
@@ -881,7 +895,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         if t5_rows:
             sections.append({"title": "Template 5 — Banking book · climate-change physical risk",
                              "columns": ["Exposure metric", f"Amount ({money_format.current.get()})"], "rows": t5_rows,
-                             "note": "Physical-risk exposure per ITS (EU) 2022/2453 (per-asset book unavailable for the sector grid)."})
+                             "note": f"Physical-risk exposure per {_p3_title(spec, 'T5')} (per-asset book unavailable for the sector grid)."})
 
     # GAR (Templates 6–8) — Green Asset Ratio by counterparty class, built to the ITS grid: gross carrying
     # amount, Taxonomy-eligible + Taxonomy-aligned per counterparty, the covered-assets denominator (excl.
@@ -898,6 +912,9 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
     # of running the adopted version, not a still-pending "Final Report".
     gar_section = _gar_grid_section(assets) or _gar_flat_summary_section(dps, total)
     if gar_section:
+        import services.regspec as R
+        gar_section["title"] = (f"{R.template(spec, 'T7')['title']} · {R.template(spec, 'T8')['title']} "
+                                f"({R.citation(spec, 'T7')})")
         sections.append(gar_section)
 
     # Template 9 — BTAR (banking book taxonomy alignment ratio) · ITS 2022/2453, Annex XXXIX (Templates 9.1/9.2/
@@ -929,7 +946,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
                                       dict(_mnum("—", "integrated")), dict(_mnum("—", "integrated")),
                                       dict(_mnum("— % BTAR", "integrated"))]},
         ]
-        sections.append({"title": "Template 9 — BTAR · banking book taxonomy alignment ratio (ITS 2022/2453, Annex XXXIX 9.1–9.3)",
+        sections.append({"title": _p3_title(spec, "T9"),
                          "key": "t9", "columns": t9_cols, "col_sources": t9_src, "rows": t9_rows,
                          "note": "Voluntary extension of the GAR to counterparties outside the NFRD scope — EU SMEs / "
                                  "non-financial corporates and non-EU corporates. Their Taxonomy alignment is not on any "
@@ -1066,6 +1083,9 @@ def _build_annex(framework: str, dps: dict, groups: list[dict], payload: dict | 
     if not sections:
         return None
     ref = reference(framework) or {}
+    if framework == "bank_p3esg":                     # the act the filing was prepared under, from its frozen spec
+        from services.governance.reg_reference import REFERENCE, with_spec
+        ref = with_spec(REFERENCE[framework], _p3_spec(payload or {}))
     return {
         "official_name": ref.get("official_name", framework),
         "authority": ref.get("authority"),

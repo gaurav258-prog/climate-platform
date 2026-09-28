@@ -6,7 +6,7 @@ step() { printf '\n── %s\n' "$1"; }
 
 step "lint (changed Python files)"
 changed=$(git diff --name-only --diff-filter=ACMR HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py')
-[ -n "$changed" ] && venv/bin/ruff check $changed || echo "no Python changes"
+if [ -n "$changed" ]; then venv/bin/ruff check $changed; else echo "no Python changes"; fi   # a lint failure stops the run
 
 step "migration graph"
 venv/bin/python -m scripts.check_migrations

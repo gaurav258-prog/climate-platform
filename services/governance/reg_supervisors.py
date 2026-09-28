@@ -34,7 +34,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · banking prudential supervision",
         "mission": "Ensure banks identify, disclose and prudently manage climate-related and environmental "
                    "(C&E) risks so they do not threaten safety and soundness.",
-        "reference": "ECB Guide on climate-related and environmental risks (Nov 2020) · EBA ITS (EU) 2022/2453 · CRR Art. 449a",
+        "reference": "ECB Guide on climate-related and environmental risks (Nov 2020) · EBA ITS (EU) 2024/3172 (ESG section) · CRR Art. 449a",
         "focus_areas": [
             {"title": "Physical-risk concentration",
              "scrutiny": "Whether the banking book is over-concentrated in geographies and sectors exposed to acute and chronic climate hazards.",

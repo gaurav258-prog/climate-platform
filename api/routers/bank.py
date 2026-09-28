@@ -57,7 +57,15 @@ EXT_BANKING_COLUMNS = [
     "CAST(x.emission_intensity AS FLOAT) AS emission_intensity",   # IEA-unit physical intensity → Template 3 / EU CRFR4 (pending adoption) alignment
     "x.counterparty_govt_level",   # central/regional/local — scopes the GAR Art. 7(1) government exclusion
     "x.no_stated_maturity",   # EBA Q&A 2022_6515 — equity/perpetual instruments route to the >20yr bucket
+    # Pillar 3 Templates 1 and 5 (spec its_2024_3172): row population and the institution-supplied columns
+    "x.counterparty_sector", "x.immovable_collateral",
+    "CAST(x.accumulated_impairment_eur AS FLOAT) AS accumulated_impairment_eur",
+    "x.pab_excluded", "x.ccm_sustainable", "x.emissions_company_reported",
 ]
+
+
+_P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
+             "emissions_company_reported")
 
 
 def _ltv_kwargs(row):
@@ -86,6 +94,7 @@ def _map_asset_list_row(row):
         "emission_intensity": row.get("emission_intensity"),   # feeds transition_alignment Template 3 / EU CRFR4 (pending adoption) (IEA)
         "counterparty_govt_level": row.get("counterparty_govt_level"),   # feeds GAR Art. 7(1) exclusion scoping
         "no_stated_maturity": row.get("no_stated_maturity"),   # EBA Q&A 2022_6515 — routes to the >20yr bucket
+        **{k: row.get(k) for k in _P3_ATTRS},   # Pillar 3 Templates 1 and 5 (row population + supplied columns)
         "hazards": row["hazards"], "headline_score": row["headline_score"],
         "headline_bucket": row["headline_bucket"], "headline_hazard": row["headline_hazard"],
         "valuation": row["valuation"],
@@ -423,9 +432,24 @@ ATTR_TEMPLATE_FIELDS = [
     {"name": "no_stated_maturity", "required": False, "label": "No stated maturity", "kind": "boolean",
      "description": "True for an exposure with no stated maturity BY ITS NATURE (equity, perpetual instrument, "
      "etc.) — per EBA Q&A 2022_6515, routes it to the '>20 years' Pillar 3 maturity bucket.", "example": "true"},
+    {"name": "counterparty_sector", "required": False, "label": "Counterparty sector (FINREP)", "kind": "enum",
+     "allowed": ["central_bank", "general_government", "credit_institution", "other_financial_corporation", "non_financial_corporation", "household"],
+     "description": "The counterparty's FINREP sector (Annex V, Part 1). Pillar 3 Templates 1 and 5 show exposures to non-financial corporations by NACE sector.", "example": "non_financial_corporation"},
+    {"name": "immovable_collateral", "required": False, "label": "Immovable-property collateral", "kind": "enum",
+     "allowed": ["residential", "commercial", "repossessed", "none"],
+     "description": "Collateral by predominant use (FINREP Annex V, Part 1), or 'repossessed' for collateral obtained by taking possession — Pillar 3 Template 5 rows 10–12.", "example": "residential"},
+    {"name": "accumulated_impairment_eur", "required": False, "label": "Accumulated impairment", "kind": "money",
+     "description": "Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions, as a positive amount — Pillar 3 Template 1 (f–h) and Template 5 (m–o). In the currency you declare (or the row's currency).", "example": "125000"},
+    {"name": "pab_excluded", "required": False, "label": "Excluded from EU Paris-aligned Benchmarks", "kind": "boolean",
+     "description": "True if the counterparty is excluded from EU Paris-aligned Benchmarks under Art 12(1)(d)–(g) and 12(2) of Regulation (EU) 2020/1818 — Pillar 3 Template 1 (b).", "example": "false"},
+    {"name": "ccm_sustainable", "required": False, "label": "Environmentally sustainable (CCM)", "kind": "boolean",
+     "description": "True if the exposure is environmentally sustainable for climate change mitigation under the EU Taxonomy — Pillar 3 Template 1 (c).", "example": "false"},
+    {"name": "emissions_company_reported", "required": False, "label": "Emissions reported by the company", "kind": "boolean",
+     "description": "True if the counterparty's emissions figures come from its own reporting (not estimated) — Pillar 3 Template 1 (k).", "example": "true"},
 ]
 _ATTR_COLS = {"residual_maturity_years", "epc_label", "ifrs9_stage", "emission_intensity", "counterparty_evic_eur",
-              "counterparty_govt_level", "no_stated_maturity"}
+              "counterparty_govt_level", "no_stated_maturity", "counterparty_sector", "immovable_collateral",
+              "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable", "emissions_company_reported"}
 
 
 @router.get("/assets/attributes/template.xlsx", summary="Download the per-loan attributes template (Excel)")
@@ -525,6 +549,29 @@ async def upload_attributes(session: DbSession, ctx: CurrentUser, file: UploadFi
         if nsm not in (None, ""):
             sets.append("no_stated_maturity = :nsm")
             params["nsm"] = str(nsm).strip().lower() in ("true", "1", "yes", "y")
+        for k in ("counterparty_sector", "immovable_collateral"):
+            v = row.get(k)
+            if v not in (None, ""):
+                sets.append(f"{k} = :{k}"); params[k] = str(v).strip().lower()
+        for k in ("pab_excluded", "ccm_sustainable", "emissions_company_reported"):
+            v = row.get(k)
+            if v not in (None, ""):
+                sets.append(f"{k} = :{k}"); params[k] = str(v).strip().lower() in ("true", "1", "yes", "y")
+        imp = row.get("accumulated_impairment_eur")
+        if imp not in (None, ""):
+            ccy = (str(row.get("currency") or "").strip() or currency or "").upper()
+            bdate = str(row.get("book_date") or "").strip() or book_date
+            try:
+                c = convert_amount(session, imp, ccy, bdate, label="accumulated impairment", org_id=org_id)
+            except MoneyError as e:
+                refused.append({"asset": ref or name, "reason": str(e)})
+                continue
+            sets.append("accumulated_impairment_eur = :imp"); params["imp"] = c["eur"]
+            rec = source_record(ccy, bdate, {"accumulated_impairment_eur": c}, origin="attributes_upload")
+            if "ms" in params:                                   # EVIC on the same row: one merged record
+                merged = json.loads(params["ms"]); merged["fields"].update(rec["fields"]); params["ms"] = json.dumps(merged, default=str)
+            else:
+                sets.append(f"money_source = {money_source_merge_sql()}"); params["ms"] = json.dumps(rec, default=str)
         if sets:
             session.execute(text(f"UPDATE ext_banking SET {', '.join(sets)} WHERE entity_id = :e"), params)
             updated += 1

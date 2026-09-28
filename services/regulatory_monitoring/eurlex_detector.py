@@ -26,7 +26,7 @@ _ENDPOINT = "https://publications.europa.eu/webapi/rdf/sparql"
 FRAMEWORK_CELEX: dict[str, list[str]] = {
     "bank_tcfd": ["32021R2178"],
     "reit_tcfd": ["32021R2178"],
-    "bank_p3esg": ["32022R2453"],
+    "bank_p3esg": ["32022R2453", "32024R3172"],   # the 2022 ITS and the 2024 ITS that replaced it
     "sfdr_pai": ["32022R1288", "32019R2088"],    # RTS + base SFDR
     "csrd_e1": ["32023R2772", "32022L2464"],     # ESRS Delegated Act + CSRD Directive
     "esrs_pack": ["32023R2772", "32022L2464"],

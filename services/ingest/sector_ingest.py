@@ -84,7 +84,9 @@ def _bank_build(ctx: dict, row: dict) -> dict:
             "loan_origination_date": origination[:10] if origination else None,
             "counterparty_evic_eur": evic,
             "counterparty_govt_level": _vocab(row, "counterparty_govt_level", "govt_level"),
-            "no_stated_maturity": _bool(row, "no_stated_maturity")}
+            "no_stated_maturity": _bool(row, "no_stated_maturity"),
+            "counterparty_sector": _vocab(row, "counterparty_sector", "counterparty_sector"),
+            "immovable_collateral": _vocab(row, "immovable_collateral", "immovable_collateral")}
 
 
 def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> None:
@@ -101,9 +103,10 @@ def _bank_insert(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     """), recs)
     session.execute(text("""
         INSERT INTO ext_banking (entity_id, outstanding_loan_balance_eur, loan_origination_date, taxonomy_status,
-                                 counterparty_evic_eur, counterparty_govt_level, no_stated_maturity)
+                                 counterparty_evic_eur, counterparty_govt_level, no_stated_maturity, counterparty_sector,
+                                 immovable_collateral)
         VALUES (CAST(:entity_id AS uuid), :outstanding_loan_balance_eur, CAST(:loan_origination_date AS date), 'not_assessed',
-                :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity)
+                :counterparty_evic_eur, :counterparty_govt_level, :no_stated_maturity, :counterparty_sector, :immovable_collateral)
     """), recs)
 
 
@@ -114,7 +117,8 @@ def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
     session.execute(text("""
         UPDATE ext_banking SET outstanding_loan_balance_eur = :outstanding_loan_balance_eur,
                loan_origination_date = CAST(:loan_origination_date AS date), counterparty_evic_eur = :counterparty_evic_eur,
-               counterparty_govt_level = :counterparty_govt_level, no_stated_maturity = :no_stated_maturity
+               counterparty_govt_level = :counterparty_govt_level, no_stated_maturity = :no_stated_maturity,
+               counterparty_sector = :counterparty_sector, immovable_collateral = :immovable_collateral
         WHERE entity_id = CAST(:entity_id AS uuid)
     """), recs)
 
@@ -122,12 +126,12 @@ def _bank_update(session: Session, org_id: str, ctx: dict, recs: list[dict]) -> 
 BANK = Sector("bank_assets", "entity_name", "primary_value_eur",
               _PE_COMMON + ("entity_type", "sector", "borrower_entity_id", "minimum_safeguards_status",
                             "outstanding_loan_balance_eur", "loan_origination_date", "counterparty_evic_eur", "counterparty_govt_level",
-                            "no_stated_maturity"),
+                            "no_stated_maturity", "counterparty_sector", "immovable_collateral"),
               _default_entity, _bank_build,
               _pe_existing("banking", """, CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur,
                            to_char(x.loan_origination_date, 'YYYY-MM-DD') AS loan_origination_date,
                            CAST(x.counterparty_evic_eur AS FLOAT) AS counterparty_evic_eur, x.counterparty_govt_level,
-                           x.no_stated_maturity""",
+                           x.no_stated_maturity, x.counterparty_sector, x.immovable_collateral""",
                            "LEFT JOIN ext_banking x ON x.entity_id = e.entity_id"),
               _bank_insert, _bank_update, group_entities=True)
 

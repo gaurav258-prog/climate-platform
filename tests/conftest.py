@@ -23,7 +23,7 @@ _CONTENT = {
 # count-fingerprinted: append-only / governed records a test must not leave behind
 _COUNTED = ("asset_observations", "asset_conflicts", "engine_runs", "report_snapshots", "regulatory_filing",
             "approval_requests", "provided_datapoint", "reg_early_signal", "reg_act_relation", "reg_detected_change",
-            "ingest_batches", "intake_files")
+            "ingest_batches", "intake_files", "regspec_signoff")
 
 
 def _fingerprint() -> dict | None:

@@ -38,7 +38,7 @@ FRAMEWORKS = {
                   "regulator": "National competent authority / EBA", "basis": "CSRD Art. 8 · TCFD"},
     "bank_p3esg": {"label": "Pillar 3 ESG risk disclosures", "sectors": ("bank",),
                    "frequency": "annual", "due": (3, 31),
-                   "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a · ITS (EU) 2022/2453"},
+                   "regulator": "National competent authority / EBA", "basis": "CRR Art. 449a"},   # the implementing act: reg_reference.reference() from the governing spec
     "sfdr_pai": {"label": "SFDR Principal Adverse Impacts statement", "sectors": ("asset_manager",),
                  "frequency": "annual", "due": (6, 30),
                  "regulator": "National competent authority (SFDR)", "basis": "SFDR RTS 2022/1288 Annex I"},

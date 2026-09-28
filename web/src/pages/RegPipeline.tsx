@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { Card, Button, PageHeader, HeroBanner } from '../components/ui'
+import SpecRegister from '../components/SpecRegister'
 
 // INTERNAL delivery pipeline — Tellumen's own "change the bank" board: a rule change tracked from spotted to
 // shipped (identified → analysis → scheduled → in dev → testing → released). This is platform-operator only;
@@ -95,6 +96,8 @@ export default function RegPipeline() {
           ))}
         </div>
       </div>
+
+      <SpecRegister canSign={(profile?.permissions ?? []).includes('platform.admin')} />
 
       {sel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSel(null)}>

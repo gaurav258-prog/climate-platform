@@ -199,6 +199,15 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
                       if reg["status"] == "superseded" else
                       f"an act that repeals it in whole or in part is in force for this period — {rep}; review which provisions apply")
             out.append(_check("regulation", "Prepared under the version in force", False, detail, "warn"))
+    spec = payload.get("_spec")
+    if spec:
+        if not spec.get("version"):
+            out.append(_check("specification", "Built to a signed-off template specification", False, spec.get("note", ""), "warn"))
+        else:
+            who = " and ".join(spec.get("needs") or [])
+            out.append(_check("specification", "Built to a signed-off template specification", bool(spec.get("approved")),
+                              f"{spec['act']} — specification {spec['version']}"
+                              + ("" if spec.get("approved") else f"; still needs the {who} sign-off"), "warn"))
     nd = manifest.get("open_differences") or 0
     out.append(_check("differences", "Your values and ours agree, or were decided", nd == 0,
                       f"{nd} difference(s) between your values and ours not yet decided (Your data → Your value vs ours)"

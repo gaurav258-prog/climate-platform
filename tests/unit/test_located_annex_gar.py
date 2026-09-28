@@ -17,7 +17,7 @@ _ASSETS = [
 
 
 def _gar(sections):
-    return next((s for s in sections if "green asset ratio" in s["title"].lower()), None)
+    return next((s for s in sections if s.get("key") == "gar"), None)       # by key: titles follow the regulation
 
 
 def test_bank_tcfd_renders_full_counterparty_grid_when_assets_present():

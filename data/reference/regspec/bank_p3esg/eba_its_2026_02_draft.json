@@ -1,0 +1,730 @@
+{
+ "framework": "bank_p3esg",
+ "version": "eba_its_2026_02_draft",
+ "act": {
+  "celex": null,
+  "title": "EBA/ITS/2026/02 - Final Report: Draft Implementing Technical Standards amending Commission Implementing Regulation (EU) 2024/3172 as regards the disclosures on ESG risks, equity exposures and the aggregate exposure to shadow banking entities (22 June 2026)",
+  "url": "https://www.eba.europa.eu/sites/default/files/2026-06/96e1c806-c918-460c-bc8b-4e547b0d85e6/Final%20report%20on%20Draft%20ITS%20on%20amended%20disclosure%20requirements%20for%20ESG%20risks,%20equity%20exposures%20and%20aggregate%20exposure%20to%20shadow%20banking%20entities.pdf",
+  "short": "EBA/ITS/2026/02 (final draft, not adopted)"
+ },
+ "status": "draft",
+ "legal_basis": {
+  "article": "Article 22 of Implementing Regulation (EU) 2024/3172, as amended by Article 1(1) of the draft ITS (new paras 1-5)",
+  "templates_in": "Annex II to the draft ITS, replacing Section 21 of Annex I to Implementing Regulation (EU) 2024/3172 (Parts 1-3); published as 'Templates - clean version.zip' > 'Annex XXXIX (Annex I -Section 21- Disclosure of ESG risks)_CV.xlsx' at https://www.eba.europa.eu/sites/default/files/2026-06/68fedd32-cc62-46cd-9587-47a3d1f4cf18/Templates%20-%20clean%20version.zip",
+  "instructions_in": "EBA IT solutions (published on the EBA website): 'IT solutions - clean.zip' > 'IT solutions - Annex XL - Disclosures ESG_cv.docx' at https://www.eba.europa.eu/sites/default/files/2026-06/83fed680-2d05-40d3-b413-7f58489ea4a1/IT%20solutions%20-%20clean.zip",
+  "quote": "institutions subject to Article 433a paragraphs 1 and 2 of Regulation (EU) No 575/2013 shall disclose the information referred to in Article 449a of that Regulation"
+ },
+ "applies": {
+  "from": "2026-12-01",
+  "until": null,
+  "quote": "It shall apply from 1 December 2026.",
+  "basis": "disclosure_date"
+ },
+ "templates": [
+  {
+   "id": "CRFRA",
+   "code": "EU CRFRA",
+   "title": "EU CRFRA: Qualitative information on Environmental risk, including climate-related financial risks",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1 and Part 2; sheet 'EU CRFRA'",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "TAB2",
+   "code": "Table 2",
+   "title": "Table 2: Qualitative information on Social risk",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1 and Part 2; sheet 'Table 2'",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "TAB3",
+   "code": "Table 3",
+   "title": "Table 3: Qualitative information on Governance risk",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1 and Part 2; sheet 'Table 3 '",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "TAB1A",
+   "code": "Table 1A",
+   "title": "Table 1A: Qualitative information on ESG risks (simplified)",
+   "ref": "Annex II to draft ITS, Annex XXXIX Part 3; sheet 'Table 1A '",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "CRFR1",
+   "code": "EU CRFR1",
+   "title": "EU CRFR1: Climate Change transition risk - Credit quality of exposures by sector, emissions and residual maturity",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1 and Part 2; sheet 'EU CRFR1'",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Exposures towards sectors that highly contribute to climate change"
+    },
+    {
+     "id": "2",
+     "label": "A - Agriculture, forestry and fishing"
+    },
+    {
+     "id": "2.1",
+     "label": "A.01 - Crop and animal production, hunting and related service activities"
+    },
+    {
+     "id": "2.2",
+     "label": "A.02 - Forestry and logging"
+    },
+    {
+     "id": "2.3",
+     "label": "A.03 - Fishing and aquaculture"
+    },
+    {
+     "id": "3",
+     "label": "B - Mining and quarrying"
+    },
+    {
+     "id": "4",
+     "label": "B.05 - Mining of coal and lignite"
+    },
+    {
+     "id": "5",
+     "label": "B.06 - Extraction of crude petroleum and natural gas"
+    },
+    {
+     "id": "6",
+     "label": "B.07 - Mining of metal ores"
+    },
+    {
+     "id": "7",
+     "label": "B.08 - Other mining and quarrying"
+    },
+    {
+     "id": "7.1",
+     "label": "Of which: B 08.92 Extraction of peat"
+    },
+    {
+     "id": "8",
+     "label": "B.09 - Mining support service activities"
+    },
+    {
+     "id": "8.1",
+     "label": "Of which: B 09.1 Support activities for petroleum and natural gas extraction"
+    },
+    {
+     "id": "9",
+     "label": "C - Manufacturing"
+    },
+    {
+     "id": "10",
+     "label": "C.10 - Manufacture of food products"
+    },
+    {
+     "id": "11",
+     "label": "C.11 - Manufacture of beverages"
+    },
+    {
+     "id": "12",
+     "label": "C.12 - Manufacture of tobacco products"
+    },
+    {
+     "id": "13",
+     "label": "C.13 - Manufacture of textiles"
+    },
+    {
+     "id": "14",
+     "label": "C.14 - Manufacture of wearing apparel"
+    },
+    {
+     "id": "15",
+     "label": "C.15 - Manufacture of leather and related products of other materials"
+    },
+    {
+     "id": "16",
+     "label": "C.16 - Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials"
+    },
+    {
+     "id": "17",
+     "label": "C.17 - Manufacture of paper and paper products"
+    },
+    {
+     "id": "18",
+     "label": "C.18 - Printing and reproduction of recorded media"
+    },
+    {
+     "id": "19",
+     "label": "C.19 - Manufacture of coke and refined petroleum products"
+    },
+    {
+     "id": "20",
+     "label": "C.20 - Manufacture of chemicals and chemical products"
+    },
+    {
+     "id": "21",
+     "label": "C.21 - Manufacture of basic pharmaceutical products and pharmaceutical preparations"
+    },
+    {
+     "id": "22",
+     "label": "C.22 - Manufacture of rubber and plastic products"
+    },
+    {
+     "id": "23",
+     "label": "C.23 - Manufacture of other non-metallic mineral products"
+    },
+    {
+     "id": "24",
+     "label": "C.24 - Manufacture of basic metals"
+    },
+    {
+     "id": "25",
+     "label": "C.25 - Manufacture of fabricated metal products, except machinery and equipment"
+    },
+    {
+     "id": "26",
+     "label": "C.26 - Manufacture of computer, electronic and optical products"
+    },
+    {
+     "id": "27",
+     "label": "C.27 - Manufacture of electrical equipment"
+    },
+    {
+     "id": "28",
+     "label": "C.28 - Manufacture of machinery and equipment n.e.c."
+    },
+    {
+     "id": "29",
+     "label": "C.29 - Manufacture of motor vehicles, trailers and semi-trailers"
+    },
+    {
+     "id": "30",
+     "label": "C.30 - Manufacture of other transport equipment"
+    },
+    {
+     "id": "31",
+     "label": "C.31 - Manufacture of furniture"
+    },
+    {
+     "id": "32",
+     "label": "C.32 - Other manufacturing"
+    },
+    {
+     "id": "33",
+     "label": "C.33 - Repair, maintenance and installation of machinery and equipment"
+    },
+    {
+     "id": "34",
+     "label": "D - Electricity, gas, steam and air conditioning supply"
+    },
+    {
+     "id": "35",
+     "label": "D 35.1 - Electric power generation, transmission and distribution"
+    },
+    {
+     "id": "36",
+     "label": "Of which: D 35.11 - Production of electricity from non-renewable sources"
+    },
+    {
+     "id": "37",
+     "label": "D 35.2 - Manufacture of gas, and distribution of gaseous fuels through mains"
+    },
+    {
+     "id": "38",
+     "label": "D 35.3 - Steam and air conditioning supply"
+    },
+    {
+     "id": "38.1",
+     "label": "D 35.4 Activities of brokers and agents for electric power and natural gas"
+    },
+    {
+     "id": "39",
+     "label": "E - Water supply; sewerage, waste management and remediation activities"
+    },
+    {
+     "id": "40",
+     "label": "F - Construction"
+    },
+    {
+     "id": "41",
+     "label": "F.41 - Construction of residential and non-residential buildings"
+    },
+    {
+     "id": "42",
+     "label": "F.42 - Civil engineering"
+    },
+    {
+     "id": "43",
+     "label": "F.43 - Specialised construction activities"
+    },
+    {
+     "id": "44",
+     "label": "G - Wholesale and retail trade"
+    },
+    {
+     "id": "44.1",
+     "label": "Of which: G 46.81 Wholesale of solid, liquid and gaseous fuels and related products"
+    },
+    {
+     "id": "44.2",
+     "label": "Of which: G 47.3 Retail sale of automotive fuel"
+    },
+    {
+     "id": "45",
+     "label": "H - Transportation and storage"
+    },
+    {
+     "id": "46",
+     "label": "H.49 - Land transport and transport via pipelines"
+    },
+    {
+     "id": "46.1",
+     "label": "Of which: H.49.5 Transport via pipeline"
+    },
+    {
+     "id": "47",
+     "label": "H.50 - Water transport"
+    },
+    {
+     "id": "48",
+     "label": "H.51 - Air transport"
+    },
+    {
+     "id": "49",
+     "label": "H.52 - Warehousing, storage and support activities for transportation"
+    },
+    {
+     "id": "50",
+     "label": "H.53 - Postal and courier activities"
+    },
+    {
+     "id": "51",
+     "label": "M- Real estate activities"
+    },
+    {
+     "id": "52",
+     "label": "Exposures towards sectors other than those that highly contribute to climate change"
+    },
+    {
+     "id": "53",
+     "label": "L - Financial and insurance activities"
+    },
+    {
+     "id": "54",
+     "label": "Exposures to other sectors (NACE codes I, J, K, N - V )"
+    },
+    {
+     "id": "55",
+     "label": "Of which: K.63 - Computing infrastructure, data processing, hosting and other information service activities"
+    },
+    {
+     "id": "56",
+     "label": "TOTAL"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "On-balance sheet items > Gross carrying amount"
+    },
+    {
+     "id": "c",
+     "label": "On-balance sheet items > Gross carrying amount > Of which: Exposures considering mitigating actions"
+    },
+    {
+     "id": "d",
+     "label": "On-balance sheet items > Gross carrying amount > Of which: Assets with significant increase in credit risk since initial recognition but not credit-impaired (Stage 2)"
+    },
+    {
+     "id": "e",
+     "label": "On-balance sheet items > Gross carrying amount > Of which: Non-performing exposures"
+    },
+    {
+     "id": "f",
+     "label": "On-balance sheet items > Accumulated impairment, accumulated negative changes in fair value due to credit risk"
+    },
+    {
+     "id": "g",
+     "label": "On-balance sheet items > Accumulated impairment, accumulated negative changes in fair value due to credit risk > Of which: Assets with significant increase in credit risk since initial recognition but not credit-impaired (Stage 2)"
+    },
+    {
+     "id": "h",
+     "label": "On-balance sheet items > Accumulated impairment, accumulated negative changes in fair value due to credit risk > Of which: Non-performing exposures"
+    },
+    {
+     "id": "i",
+     "label": "On-balance sheet items > GHG Financed emissions > GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent)"
+    },
+    {
+     "id": "i1",
+     "label": "On-balance sheet items > GHG Financed emissions > GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent) > Of which: Scope 1 financed emissions"
+    },
+    {
+     "id": "i2",
+     "label": "On-balance sheet items > GHG Financed emissions > GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent) > Of which: Scope 2 financed emissions"
+    },
+    {
+     "id": "j",
+     "label": "On-balance sheet items > GHG Financed emissions > GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent) > Of which: Scope 3 financed emissions"
+    },
+    {
+     "id": "k",
+     "label": "On-balance sheet items > GHG Financed emissions > GHG emissions gross carrying amount percentage of the portfolio derived from company-specific reporting"
+    },
+    {
+     "id": "l",
+     "label": "On-balance sheet items > Breakdown by residual maturity buckets > <= 5 years"
+    },
+    {
+     "id": "m",
+     "label": "On-balance sheet items > Breakdown by residual maturity buckets > > 5 years <= 10 years"
+    },
+    {
+     "id": "n",
+     "label": "On-balance sheet items > Breakdown by residual maturity buckets > > 10 years <= 20 years"
+    },
+    {
+     "id": "o",
+     "label": "On-balance sheet items > Breakdown by residual maturity buckets > > 20 years"
+    },
+    {
+     "id": "p",
+     "label": "On-balance sheet items > Breakdown by residual maturity buckets > Weighted average residual maturity"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 11(a)",
+     "quote": "institutions shall disclose information on their exposures towards non-financial corporates operating in carbon-related sectors, and on the quality of those exposures, including IFRS 9 stage 2 and non-performing status classification,"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 13",
+     "quote": "Institutions shall include in the rows of the template the breakdown of the gross carrying amount of loans and advances, debt securities and equity instruments to non-financial corporations, other than those held for trading, by sector of economic activities"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 13",
+     "quote": "the sectors listed in Sections A to H and Section M of Annex to Commission Delegated Regulation (EU) 2023/137, within those Sections B to D and G defined as fossil fuel sectors by Article 4 (153) of CRR,"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 14",
+     "quote": "The counterparty NACE sector allocation shall be based on the nature of the direct counterparty."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 14",
+     "quote": "The classification of the exposures incurred jointly by more than one obligor shall be based on the characteristics of the obligor that was the more relevant, or determinant, for the institution to grant the exposure."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 15, column a",
+     "quote": "Institutions shall disclose the total gross carrying amount, referred to in Part 1 of Annex V – Reporting on Financial Information (FINREP), of those exposures towards non-financial corporates, including loans and advances, debt securities and equity instruments"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 15, column c",
+     "quote": "Institutions shall disclose exposures that are financing activities that contribute to mitigating climate change related transition risks,"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 15, columns i1, i2 and j",
+     "quote": "Where the information is available, institutions shall disclose reported emissions i.e. emissions data directly provided by their counterparties. Where reported emissions are not available, institutions shall disclose estimated emissions."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 15, columns l – p",
+     "quote": "where an exposure has no stated maturity for reasons other than the counterparty having the choice of the repayment date, or in the case of equity holdings, the amount of this exposure shall be disclosed in the largest maturity bucket"
+    }
+   ]
+  },
+  {
+   "id": "CRFR1_1",
+   "code": "EU CRFR1.1",
+   "title": "EU CRFR1.1: Simplified ESG information for SNCI and Other non-listed institutions covering both transition and physical risk",
+   "ref": "Annex II to draft ITS, Annex XXXIX Part 3; sheet 'EU CRFR1.1'",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "CRFR2",
+   "code": "EU CRFR2",
+   "title": "EU CRFR2: Climate related physical risk - Exposures subject to physical risk",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1; sheet 'EU CRFR2'",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "A - Agriculture, forestry and fishing"
+    },
+    {
+     "id": "2",
+     "label": "B - Mining and quarrying"
+    },
+    {
+     "id": "3",
+     "label": "C - Manufacturing"
+    },
+    {
+     "id": "4",
+     "label": "D - Electricity, gas, steam and air conditioning supply"
+    },
+    {
+     "id": "5",
+     "label": "E - Water supply; sewerage, waste management and remediation activities"
+    },
+    {
+     "id": "6",
+     "label": "F - Construction"
+    },
+    {
+     "id": "7",
+     "label": "G - Wholesale and retail trade"
+    },
+    {
+     "id": "8",
+     "label": "H - Transportation and storage"
+    },
+    {
+     "id": "9",
+     "label": "M - Real estate activities"
+    },
+    {
+     "id": "10",
+     "label": "Exposures to other sectors (NACE codes I, J, K, N - V )"
+    },
+    {
+     "id": "11",
+     "label": "Loans collateralised with residential immovable property"
+    },
+    {
+     "id": "12",
+     "label": "Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "13",
+     "label": "Collateral obtained by taking possession: residential and commercial immovable properties"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Gross carrying amount (On-balance sheet items)"
+    },
+    {
+     "id": "b",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks"
+    },
+    {
+     "id": "c",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Exposures subject to temperature-related hazards"
+    },
+    {
+     "id": "d",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Exposures subject to wind-related hazards"
+    },
+    {
+     "id": "e",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Exposures subject to water-related hazards"
+    },
+    {
+     "id": "f",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Exposures subject to solid mass-related hazards"
+    },
+    {
+     "id": "g",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Assets with significant increase in credit risk since initial recognition but not credit-impaired (Stage 2)"
+    },
+    {
+     "id": "h",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Of which: Non-performing exposures"
+    },
+    {
+     "id": "i",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Accumulated impairment, accumulated negative changes in fair value due to credit risk"
+    },
+    {
+     "id": "j",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Accumulated impairment, accumulated negative changes in fair value due to credit risk > Of which: Assets with significant increase in credit risk since initial recognition but not credit-impaired (Stage 2)"
+    },
+    {
+     "id": "k",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Accumulated impairment, accumulated negative changes in fair value due to credit risk > Of which: Non-performing exposures"
+    },
+    {
+     "id": "l",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Breakdown by residual maturity buckets > <= 5 years"
+    },
+    {
+     "id": "m",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Breakdown by residual maturity buckets > > 5 year <= 10 years"
+    },
+    {
+     "id": "n",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Breakdown by residual maturity buckets > > 10 year <= 20 years"
+    },
+    {
+     "id": "o",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Breakdown by residual maturity buckets > > 20 years"
+    },
+    {
+     "id": "p",
+     "label": "Gross carrying amount (On-balance sheet items) > Of which: Total exposures subject to physical risks > Breakdown by residual maturity buckets > Weighted average residual maturity"
+    }
+   ],
+   "z_axis": "Z-axis - Geographical area subject to climate change physical risk: (a) Total exposures, (b) Country by country exposures, (c) Other EU exposures",
+   "instructions": [
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 18",
+     "quote": "Institutions shall include in this template information on exposures in the banking book, including loans and advances, debt securities and equity instruments not held-for-trading and not held-for-sale, towards non-financial corporates,"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 18",
+     "quote": "exposures to households collateralised by immovable property and on collateral obtained by taking possession, exposed to climate-related physical risk events, with a breakdown by:"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 19",
+     "quote": "‘exposures subject to climate-related physical risk events’ refer to exposures where the counterparty, activity, or underlying collateral is subject to climate-related physical hazards, based on the geographical location and nature of the exposure, and hazard intensity,"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 21",
+     "quote": "The classification of the joint exposures towards more than one obligor shall be based on the characteristics of the obligor that was the most relevant for the institution to grant the exposure."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 23",
+     "quote": "the identification and assessment of exposures subject to climate-related physical risk are conducted at the highest possible level of geographical granularity (i.e. using precise geolocalisation of counterparties’ assets and activities) and, at a minimum, at NUTS level 3."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 a)",
+     "quote": "In addition to the Total exposures, institutions shall disclose in the z-axis, the geographical information covering the countries where exposures subject to climate-related physical risk were identified:"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 a) i)",
+     "quote": "Country by country information for those countries where the institution has material exposures subject to climate change physical risk."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 a) ii)",
+     "quote": "Other EU exposures for the rest of exposures subject to physical risk that are not reported on a country-by-country basis."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 b)",
+     "quote": "In the rows, the relevant sectors of the counterparty will be disclosed following the NACE code classification. The following sectors shall be disclosed separately by the institutions in rows 1 - 9:"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 b)",
+     "quote": "Institutions shall disclose in row 10 – Other sectors those exposures subject to climate-related physical risk not covered with the sectoral breakdown by rows 1 – 9."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 b)",
+     "quote": "Institutions shall disclose respectively in rows 11 to 13 exposures collateralised by residential immovable property, exposures collateralised by commercial immovable property and collateral obtained by taking possession. For row 13, only columns a-f should be completed."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 b)",
+     "quote": "Institutions shall classify and report exposures secured by both commercial and residential immovable property based on the predominant use of the collateral as referred to in Part 1 of the Annex V – Reporting on Financial Information (FINREP)"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column a",
+     "quote": "The sum of the amounts to be disclosed in rows 1 to 10 of this template shall be identical to the final sum of the amount disclosed in column a of EU CRFR1"
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column a",
+     "quote": "For exposures collateralised by commercial and residential immovable property, institutions shall disclose the gross carrying amount not limited to non-financial corporates, matching the gross carrying amount of the loans collateralised by immovable property reported in FINREP."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column b",
+     "quote": "exposures should be disclosed as subject to climate-related physical risk if any of the main activities is located in an area likely to be affected by physical risk event."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column b",
+     "quote": "in relation to the location of financed assets, and there are multiple locations of assets financed by the same exposure, they should follow a proportionate allocation similar as for exposures collateralised by residential immovable property."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column b",
+     "quote": "For exposures collateralised by residential immovable property, institutions shall identify exposures subject to climate-related physical risk in relation to the location of collateral."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), columns c - f",
+     "quote": "The disclosure by hazard type shall therefore not be mutually exclusive, and the same exposure may be reported under multiple hazard categories. The sum of exposures reported across individual hazard types may exceed the total exposures subject to physical risk."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column c",
+     "quote": "Institutions shall disclose the exposures subject to temperature-related hazards, as classified by COMMISSION DELEGATED REGULATION (EU) 2023/2486."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column d",
+     "quote": "Institutions shall disclose the exposures sensitive to wind-related hazards, as classified by COMMISSION DELEGATED REGULATION (EU) 2023/2486."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column e",
+     "quote": "Institutions shall disclose the exposures subject to water-related hazards, as classified by COMMISSION DELEGATED REGULATION (EU) 2023/2486."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 25 c), column f",
+     "quote": "Institutions shall disclose the exposures subject to solid mass-related hazards, as classified by COMMISSION DELEGATED REGULATION (EU) 2023/2486."
+    },
+    {
+     "ref": "Annex XL (IT solutions), Part 1, para 35 (EU CRFR3, multi-collateral)",
+     "quote": "For those exposures linked to more than one immovable property collateral, institutions shall disclose the gross carrying amount of the exposure split in proportion to the value of the collateral."
+    }
+   ]
+  },
+  {
+   "id": "CRFR2_1",
+   "code": "EU CRFR2.1",
+   "title": "EU CRFR2.1: Climate related physical risk - Exposures subject to physical risk (simplified)",
+   "ref": "Annex II to draft ITS, Annex XXXIX Part 2; sheet 'EU CRFR2.1'",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "CRFR3",
+   "code": "EU CRFR3",
+   "title": "EU CRFR3: Climate change transition risk - Loans collateralised by immovable property, energy performance of the collateral",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1 and Part 2; sheet 'EU CRFR3 '",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "CRFR4",
+   "code": "EU CRFR4",
+   "title": "EU CRFR4: Indicators of potential climate change transition risk - Emission intensity per physical output and by sector",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1; sheet 'EU CRFR4'",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  },
+  {
+   "id": "T10",
+   "code": "EU Template 10",
+   "title": "EU Template 10: Mitigating actions - Exposures contributing to sustainability objectives",
+   "ref": "Annex II to draft ITS (replacing Section 21 of Annex I to 2024/3172), Annex XXXIX Part 1; sheet 'EU Template 10 '",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": []
+  }
+ ],
+ "interpretations": [],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-28",
+  "second_pass": null
+ }
+}

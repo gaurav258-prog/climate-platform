@@ -49,6 +49,15 @@ VOCABS: dict[str, Vocab] = {
     "safeguards_status": Vocab(("compliant", "non_compliant"),
                                {"noncompliant": "non_compliant", "not_compliant": "non_compliant"}),
     "govt_level": Vocab(("central", "regional", "local")),
+    # FINREP counterparty sectors (Annex V, Part 1) and immovable-property collateral (Pillar 3 Template 5 rows 10-12)
+    "counterparty_sector": Vocab(("central_bank", "general_government", "credit_institution", "other_financial_corporation",
+                                  "non_financial_corporation", "household"),
+                                 {"nfc": "non_financial_corporation", "corporate": "non_financial_corporation",
+                                  "households": "household", "retail": "household", "ofc": "other_financial_corporation",
+                                  "bank": "credit_institution", "government": "general_government"}),
+    "immovable_collateral": Vocab(("residential", "commercial", "repossessed", "none"),
+                                  {"rre": "residential", "cre": "commercial", "residential_immovable_property": "residential",
+                                   "commercial_immovable_property": "commercial", "no": "none", "unsecured": "none"}),
     "irrigation": Vocab(("irrigated", "rain_fed", "mixed"), {"rainfed": "rain_fed"}),
     "commodity": Vocab((), dynamic=True),            # the commodities on this platform (sc_commodities)
     "country": Vocab((), dynamic=True),
@@ -113,6 +122,11 @@ FIELDS: dict[str, FieldDef] = {f.name: f for f in (
        "counterparty screening.", "compliant", vocab="safeguards_status", aliases=("safeguards", "min_safeguards")),
     _f("counterparty_govt_level", "Counterparty government level", "vocab", "central / regional / local — leave blank for "
        "non-government counterparties (EU Taxonomy Art. 7(1) exclusion).", "central", vocab="govt_level", aliases=("govt_level", "government_level")),
+    _f("counterparty_sector", "Counterparty sector (FINREP)", "vocab", "central_bank / general_government / credit_institution / "
+       "other_financial_corporation / non_financial_corporation / household (FINREP Annex V, Part 1).", "non_financial_corporation",
+       vocab="counterparty_sector", aliases=("finrep_sector", "counterparty_type", "institutional_sector")),
+    _f("immovable_collateral", "Immovable-property collateral", "vocab", "residential / commercial (by predominant use) / "
+       "repossessed / none.", "residential", vocab="immovable_collateral", aliases=("re_collateral", "property_collateral")),
     _f("irrigation_status", "Irrigation", "vocab", "irrigated / rain_fed / mixed.", "irrigated", vocab="irrigation", aliases=("irrigation", "irrigated")),
     _f("commodity", "Commodity", "vocab", "Must match a commodity on this platform (e.g. Cocoa, Coffee, Citrus).", "Cocoa",
        vocab="commodity", aliases=("crop", "product", "commodity_name")),

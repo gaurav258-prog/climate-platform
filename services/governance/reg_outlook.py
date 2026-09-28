@@ -8,7 +8,7 @@ proposed but not final, it says so rather than inventing a date.
 from __future__ import annotations
 
 from services.governance.filings import FRAMEWORKS
-from services.governance.reg_reference import REFERENCE
+from services.governance.reg_reference import reference
 
 # Curated, real upcoming regulatory changes — customer-framed. `date` is the exact effective/application date
 # FROM the cited Official-Journal text where the regulation legally fixes one (ISO, the nearest milestone);
@@ -52,11 +52,15 @@ COMING: list[dict] = [
      "whats_changing": "The ‘stop-the-clock’ Directive postpones the next CSRD reporting waves by two years; the substantive scope changes (Omnibus) are still under EU negotiation.",
      "prepare": "No action yet — you'll be told if your own obligations change.",
      "citation": "Directive (EU) 2025/794 · EC Omnibus proposal (Feb 2025)", "url": _EURLEX + "32025L0794"},
-    {"sectors": ["bank"], "framework": "bank_p3esg", "affects": ["bank_p3esg"], "title": "Pillar 3 ESG — template revisions",
-     "date": None, "when": "no fixed date · rolling EBA ITS updates",
-     "whats_changing": "The EBA periodically revises the ESG disclosure templates (physical & transition risk, Green Asset Ratio).",
-     "prepare": None,
-     "citation": "EBA ITS (EU) 2022/2453, as revised", "url": _EURLEX + "32022R2453"},
+    {"sectors": ["bank"], "framework": "bank_p3esg", "affects": ["bank_p3esg"], "title": "Pillar 3 ESG — amended templates (EBA final draft)",
+     "date": None, "when": "EBA final draft of 22 June 2026 · would apply from 1 December 2026 once the Commission adopts it — not yet adopted",
+     "whats_changing": "Templates 1–9 are replaced by EU CRFR1–CRFR4: physical risk (CRFR2) is broken down by hazard type — temperature, "
+                       "wind, water, solid mass — and by country; Template 4 and the Green Asset Ratio / BTAR templates (6–9) are removed "
+                       "from Pillar 3.",
+     "prepare": "Nothing new from you for the hazard breakdown — we classify each exposure's hazards. Keep counterparty sector and "
+                "immovable-property collateral on your loan tape.",
+     "citation": "EBA/ITS/2026/02 (final draft ITS amending Implementing Regulation (EU) 2024/3172)",
+     "url": "https://www.eba.europa.eu/sites/default/files/2026-06/96e1c806-c918-460c-bc8b-4e547b0d85e6/Final%20report%20on%20Draft%20ITS%20on%20amended%20disclosure%20requirements%20for%20ESG%20risks,%20equity%20exposures%20and%20aggregate%20exposure%20to%20shadow%20banking%20entities.pdf"},
     {"sectors": ["asset_manager"], "framework": "sfdr_pai", "affects": ["sfdr_pai"], "title": "SFDR RTS review — revised PAI methodology",
      "date": None, "when": "no adoption date set · ESAs proposal under EC review",
      "whats_changing": "The ESAs have proposed revisions to the SFDR RTS, including the Principal Adverse Impact indicators and disclosures.",
@@ -97,7 +101,7 @@ def changes_affecting(org_type: str | None, framework: str, session=None) -> lis
 
 def _short(fw: str) -> str:
     """A one-line 'what it requires' for a framework the org files today."""
-    r = REFERENCE.get(fw) or {}
+    r = reference(fw) or {}
     return r.get("summary") or (FRAMEWORKS.get(fw, {}).get("label") or "")
 
 
@@ -124,7 +128,7 @@ def outlook(org_type: str | None, session=None, org_id: str | None = None) -> di
     for fw, meta in FRAMEWORKS.items():
         if org_type not in (meta.get("sectors") or ()):
             continue
-        ref = REFERENCE.get(fw) or {}
+        ref = reference(fw) or {}
         in_force.append({
             "framework": fw,
             "name": ref.get("official_name") or meta.get("label"),

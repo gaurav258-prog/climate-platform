@@ -1,0 +1,706 @@
+{
+ "framework": "bank_p3esg",
+ "version": "its_2024_3172",
+ "act": {
+  "celex": "32024R3172",
+  "title": "Commission Implementing Regulation (EU) 2024/3172 of 29 November 2024 laying down implementing technical standards for the application of Regulation (EU) No 575/2013 of the European Parliament and of the Council with regard to public disclosures by institutions of the information referred to in Part Eight, Titles II and III, of that Regulation, and repealing Commission Implementing Regulation (EU) 2021/637",
+  "url": "http://publications.europa.eu/resource/cellar/df45989b-c717-11ef-91ed-01aa75ed71a1.0006.01/DOC_1",
+  "short": "Implementing Regulation (EU) 2024/3172"
+ },
+ "status": "adopted",
+ "legal_basis": {
+  "article": "Article 22 of Implementing Regulation (EU) 2024/3172",
+  "templates_in": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’ (OJ pp. 110-122/125)",
+  "instructions_in": "EBA IT solutions, Annex XL (Article 24 of Implementing Regulation (EU) 2024/3172)",
+  "quote": "Institutions shall disclose the information referred to in Article 449a of Regulation (EU) No 575/2013 as specified in Section 21",
+  "instructions_url": "https://www.eba.europa.eu/sites/default/files/2025-02/5026c718-0651-4339-af89-826ac447ac4f/IT%20solutions%20%28instructions%29%20in%20all%20EU%20languages.zip"
+ },
+ "applies": {
+  "from": "2025-01-01",
+  "until": null,
+  "quote": "It shall apply from 1 January 2025.",
+  "basis": "disclosure_date"
+ },
+ "templates": [
+  {
+   "id": "TAB1",
+   "code": "Table 1",
+   "title": "Table 1 - Qualitative information on Environmental risk",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 110/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "TAB2",
+   "code": "Table 2",
+   "title": "Table 2 - Qualitative information on Social risk",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 111/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "TAB3",
+   "code": "Table 3",
+   "title": "Table 3 - Qualitative information on Governance risk",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 112/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T1",
+   "code": "Template 1",
+   "title": "Template 1: Banking book- Indicators of potential climate Change transition risk: Credit quality of exposures by sector, emissions and residual maturity",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 113/125",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "Exposures towards sectors that highly contribute to climate change*"
+    },
+    {
+     "id": "2",
+     "label": "A - Agriculture, forestry and fishing"
+    },
+    {
+     "id": "3",
+     "label": "B - Mining and quarrying"
+    },
+    {
+     "id": "4",
+     "label": "B.05 - Mining of coal and lignite"
+    },
+    {
+     "id": "5",
+     "label": "B.06 - Extraction of crude petroleum and natural gas"
+    },
+    {
+     "id": "6",
+     "label": "B.07 - Mining of metal ores"
+    },
+    {
+     "id": "7",
+     "label": "B.08 - Other mining and quarrying"
+    },
+    {
+     "id": "8",
+     "label": "B.09 - Mining support service activities"
+    },
+    {
+     "id": "9",
+     "label": "C - Manufacturing"
+    },
+    {
+     "id": "10",
+     "label": "C.10 - Manufacture of food products"
+    },
+    {
+     "id": "11",
+     "label": "C.11 - Manufacture of beverages"
+    },
+    {
+     "id": "12",
+     "label": "C.12 - Manufacture of tobacco products"
+    },
+    {
+     "id": "13",
+     "label": "C.13 - Manufacture of textiles"
+    },
+    {
+     "id": "14",
+     "label": "C.14 - Manufacture of wearing apparel"
+    },
+    {
+     "id": "15",
+     "label": "C.15 - Manufacture of leather and related products"
+    },
+    {
+     "id": "16",
+     "label": "C.16 - Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials"
+    },
+    {
+     "id": "17",
+     "label": "C.17 - Manufacture of paper and paper products"
+    },
+    {
+     "id": "18",
+     "label": "C.18 - Printing and reproduction of recorded media"
+    },
+    {
+     "id": "19",
+     "label": "C.19 - Manufacture of coke and refined petroleum products"
+    },
+    {
+     "id": "20",
+     "label": "C.20 - Manufacture of chemicals and chemical products"
+    },
+    {
+     "id": "21",
+     "label": "C.21 - Manufacture of basic pharmaceutical products and pharmaceutical preparations"
+    },
+    {
+     "id": "22",
+     "label": "C.22 - Manufacture of rubber products"
+    },
+    {
+     "id": "23",
+     "label": "C.23 - Manufacture of other non-metallic mineral products"
+    },
+    {
+     "id": "24",
+     "label": "C.24 - Manufacture of basic metals"
+    },
+    {
+     "id": "25",
+     "label": "C.25 - Manufacture of fabricated metal products, except machinery and equipment"
+    },
+    {
+     "id": "26",
+     "label": "C.26 - Manufacture of computer, electronic and optical products"
+    },
+    {
+     "id": "27",
+     "label": "C.27 - Manufacture of electrical equipment"
+    },
+    {
+     "id": "28",
+     "label": "C.28 - Manufacture of machinery and equipment n.e.c."
+    },
+    {
+     "id": "29",
+     "label": "C.29 - Manufacture of motor vehicles, trailers and semi-trailers"
+    },
+    {
+     "id": "30",
+     "label": "C.30 - Manufacture of other transport equipment"
+    },
+    {
+     "id": "31",
+     "label": "C.31 - Manufacture of furniture"
+    },
+    {
+     "id": "32",
+     "label": "C.32 - Other manufacturing"
+    },
+    {
+     "id": "33",
+     "label": "C.33 - Repair and installation of machinery and equipment"
+    },
+    {
+     "id": "34",
+     "label": "D - Electricity, gas, steam and air conditioning supply"
+    },
+    {
+     "id": "35",
+     "label": "D35.1 - Electric power generation, transmission and distribution"
+    },
+    {
+     "id": "36",
+     "label": "D35.11 - Production of electricity"
+    },
+    {
+     "id": "37",
+     "label": "D35.2 - Manufacture of gas; distribution of gaseous fuels through mains"
+    },
+    {
+     "id": "38",
+     "label": "D35.3 - Steam and air conditioning supply"
+    },
+    {
+     "id": "39",
+     "label": "E - Water supply; sewerage, waste management and remediation activities"
+    },
+    {
+     "id": "40",
+     "label": "F - Construction"
+    },
+    {
+     "id": "41",
+     "label": "F.41 - Construction of buildings"
+    },
+    {
+     "id": "42",
+     "label": "F.42 - Civil engineering"
+    },
+    {
+     "id": "43",
+     "label": "F.43 - Specialised construction activities"
+    },
+    {
+     "id": "44",
+     "label": "G - Wholesale and retail trade; repair of motor vehicles and motorcycles"
+    },
+    {
+     "id": "45",
+     "label": "H - Transportation and storage"
+    },
+    {
+     "id": "46",
+     "label": "H.49 - Land transport and transport via pipelines"
+    },
+    {
+     "id": "47",
+     "label": "H.50 - Water transport"
+    },
+    {
+     "id": "48",
+     "label": "H.51 - Air transport"
+    },
+    {
+     "id": "49",
+     "label": "H.52 - Warehousing and support activities for transportation"
+    },
+    {
+     "id": "50",
+     "label": "H.53 - Postal and courier activities"
+    },
+    {
+     "id": "51",
+     "label": "I - Accommodation and food service activities"
+    },
+    {
+     "id": "52",
+     "label": "L - Real estate activities"
+    },
+    {
+     "id": "53",
+     "label": "Exposures towards sectors other than those that highly contribute to climate change*"
+    },
+    {
+     "id": "54",
+     "label": "K - Financial and insurance activities"
+    },
+    {
+     "id": "55",
+     "label": "Exposures to other sectors (NACE codes J, M - U)"
+    },
+    {
+     "id": "56",
+     "label": "TOTAL"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Gross carrying amount (Mln EUR)"
+    },
+    {
+     "id": "b",
+     "label": "Gross carrying amount (Mln EUR) > Of which exposures towards companies excluded from EU Paris-aligned Benchmarks in accordance with Article 12(1) points (d) to (g) and Article 12(2) of Regulation (EU) 2020/1818"
+    },
+    {
+     "id": "c",
+     "label": "Gross carrying amount (Mln EUR) > Of which environmentally sustainable (CCM)"
+    },
+    {
+     "id": "d",
+     "label": "Gross carrying amount (Mln EUR) > Of which stage 2 exposures"
+    },
+    {
+     "id": "e",
+     "label": "Gross carrying amount (Mln EUR) > Of which non-performing exposures"
+    },
+    {
+     "id": "f",
+     "label": "Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions (Mln EUR)"
+    },
+    {
+     "id": "g",
+     "label": "Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions (Mln EUR) > Of which Stage 2 exposures"
+    },
+    {
+     "id": "h",
+     "label": "Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions (Mln EUR) > Of which non-performing exposures"
+    },
+    {
+     "id": "i",
+     "label": "GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent)"
+    },
+    {
+     "id": "j",
+     "label": "GHG financed emissions (scope 1, scope 2 and scope 3 emissions of the counterparty) (in tons of CO2 equivalent) > Of which Scope 3 financed emissions"
+    },
+    {
+     "id": "k",
+     "label": "GHG emissions (column i): gross carrying amount percentage of the portfolio derived from company-specific reporting"
+    },
+    {
+     "id": "l",
+     "label": "<= 5 years"
+    },
+    {
+     "id": "m",
+     "label": "> 5 year <= 10 years"
+    },
+    {
+     "id": "n",
+     "label": "> 10 year <= 20 years"
+    },
+    {
+     "id": "o",
+     "label": "> 20 years"
+    },
+    {
+     "id": "p",
+     "label": "Average weighted maturity"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 1, point 1(a)",
+     "quote": "institutions shall disclose information on their exposures towards non-financial corporates operating in carbon-related sectors, and on the quality of those exposures, including non-performing status, stage 2 classification, and related provisions as well as maturity buckets;"
+    },
+    {
+     "ref": "Annex XL, Template 1, point 3",
+     "quote": "Institutions shall include in the rows of the template the breakdown of the gross carrying amount of loans and advances, debt securities and equity instruments to non-financial corporations, other than those held for trading, by sector of economic activities using the Nomenclature of Economic Activities (NACE) codes, laid down in Regulation (EC) No 1893/2006 of the European Parliament and of the Council, based on the principal activity of the counterparty."
+    },
+    {
+     "ref": "Annex XL, Template 1, point 3",
+     "quote": "In particular, reference is made to the sectors listed in Sections A to H and Section L of Annex I to Regulation (EC) No 1893/2006, which include the oil, gas, mining and transportation sectors, as sectors that highly contribute to climate change, as specified in Recital 6 of Commission Delegated Regulation (EU) 2020/1818; and a subtotal of exposures towards “other sectors” not mentioned in that Recital."
+    },
+    {
+     "ref": "Annex XL, Template 1, point 4",
+     "quote": "The counterparty NACE sector allocation shall be based on the nature of the direct counterparty."
+    },
+    {
+     "ref": "Annex XL, Template 1, column a",
+     "quote": "Institutions shall disclose the gross carrying amount, referred to in Part 1 of Annex V to Implementing Regulation (EU) 2021/451, of those exposures towards non-financial corporates, including loans and advances, debt securities and equity instruments, classified in the accounting portfolios in the banking book in accordance with that Implementing Regulation, excluding financial assets held for trading or held for sale assets."
+    },
+    {
+     "ref": "Annex XL, Template 1, columns l - p, point (b)",
+     "quote": "where an exposure has no stated maturity for reasons other than the counterparty having the choice of the repayment date, or in the case of equity holdings, the amount of this exposure shall be disclosed in the largest maturity bucket ‘> 20 years’;"
+    }
+   ]
+  },
+  {
+   "id": "T2",
+   "code": "Template 2",
+   "title": "Template 2: Banking book - Indicators of potential climate change transition risk: Loans collateralised by immovable property - Energy efficiency of the collateral",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 114/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T3",
+   "code": "Template 3",
+   "title": "Template 3: Banking book - Indicators of potential climate change transition risk: Alignment metrics",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 115/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T4",
+   "code": "Template 4",
+   "title": "Template 4: Banking book - Indicators of potential climate change transition risk: Exposures to top 20 carbon-intensive firms",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 116/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T5",
+   "code": "Template 5",
+   "title": "Template 5: Banking book - Indicators of potential climate change physical risk: Exposures subject to physical risk",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 117/125",
+   "structure": "full",
+   "rows": [
+    {
+     "id": "1",
+     "label": "A - Agriculture, forestry and fishing"
+    },
+    {
+     "id": "2",
+     "label": "B - Mining and quarrying"
+    },
+    {
+     "id": "3",
+     "label": "C - Manufacturing"
+    },
+    {
+     "id": "4",
+     "label": "D - Electricity, gas, steam and air conditioning supply"
+    },
+    {
+     "id": "5",
+     "label": "E - Water supply; sewerage, waste management and remediation activities"
+    },
+    {
+     "id": "6",
+     "label": "F - Construction"
+    },
+    {
+     "id": "7",
+     "label": "G - Wholesale and retail trade; repair of motor vehicles and motorcycles"
+    },
+    {
+     "id": "8",
+     "label": "H - Transportation and storage"
+    },
+    {
+     "id": "9",
+     "label": "L - Real estate activities"
+    },
+    {
+     "id": "10",
+     "label": "Loans collateralised by residential immovable property"
+    },
+    {
+     "id": "11",
+     "label": "Loans collateralised by commercial immovable property"
+    },
+    {
+     "id": "12",
+     "label": "Repossessed collaterals"
+    },
+    {
+     "id": "13",
+     "label": "Other relevant sectors (breakdown below where relevant)"
+    }
+   ],
+   "columns": [
+    {
+     "id": "a",
+     "label": "Variable: Geographical area subject to climate change physical risk - acute and chronic events"
+    },
+    {
+     "id": "b",
+     "label": "Gross carrying amount (Mln EUR)"
+    },
+    {
+     "id": "c",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Breakdown by maturity bucket > <= 5 years"
+    },
+    {
+     "id": "d",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Breakdown by maturity bucket > > 5 year <= 10 years"
+    },
+    {
+     "id": "e",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Breakdown by maturity bucket > > 10 year <= 20 years"
+    },
+    {
+     "id": "f",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Breakdown by maturity bucket > > 20 years"
+    },
+    {
+     "id": "g",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Breakdown by maturity bucket > Average weighted maturity"
+    },
+    {
+     "id": "h",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > of which exposures sensitive to impact from chronic climate change events"
+    },
+    {
+     "id": "i",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > of which exposures sensitive to impact from acute climate change events"
+    },
+    {
+     "id": "j",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > of which exposures sensitive to impact both from chronic and acute climate change events"
+    },
+    {
+     "id": "k",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Of which Stage 2 exposures"
+    },
+    {
+     "id": "l",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Of which non-performing exposures"
+    },
+    {
+     "id": "m",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions"
+    },
+    {
+     "id": "n",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions > of which Stage 2 exposures"
+    },
+    {
+     "id": "o",
+     "label": "Gross carrying amount (Mln EUR) > of which exposures sensitive to impact from climate change physical events > Accumulated impairment, accumulated negative changes in fair value due to credit risk and provisions > Of which non-performing exposures"
+    }
+   ],
+   "z_axis": null,
+   "instructions": [
+    {
+     "ref": "Annex XL, Template 5, point 2",
+     "quote": "Institutions shall include in this template information on exposures in the banking book, including loans and advances, debt securities and equity instruments not held-for-trading and not held-for-sale, towards non-financial corporates, on loans collateralized with immovable property and on repossessed real estate collaterals, exposed to chronic and acute climate-related hazards, with a breakdown by sector of economic activity (NACE classification) and by geography of location of the activity of the counterparty or of the collateral, for those sectors and geographical areas subject to climate change acute and chronic events."
+    },
+    {
+     "ref": "Annex XL, Template 5, point 4",
+     "quote": "The classification of the joint exposures towards more than one obligor shall be based on the characteristics of the obligor that was the most relevant for the institution to grant the exposure."
+    },
+    {
+     "ref": "Annex XL, Template 5, point 5",
+     "quote": "Institutions shall disclose the information in this template on a best effort basis and explain in the narrative accompanying the template the sources of information and methods that they have used to identify exposures subject to climate-change physical risk."
+    },
+    {
+     "ref": "Annex XL, Template 5, column b",
+     "quote": "Institutions shall disclose the gross carrying amount as defined in Part 1 of Annex V to Implementing Regulation (EU) 2021/451 of those exposures towards non-financial corporates (including loans and advances, debt securities and equity instruments), classified under the accounting portfolios in the banking book in accordance with that Implementing Regulation, excluding financial assets held for trading and held for sale assets."
+    },
+    {
+     "ref": "Annex XL, Template 5, columns c - o",
+     "quote": "The gross carrying amount of exposures prone to impact from climate change physical events may be equal to the full exposure amount disclosed in column (b) of this template or may be a part of that exposure amount."
+    },
+    {
+     "ref": "Annex XL, Template 5, columns c - g, point (b)",
+     "quote": "where an exposure has no stated maturity for reasons other than the counterparty having the choice of the repayment date, the amount of this exposure shall be disclosed in column ‘> 20 years’;"
+    },
+    {
+     "ref": "Annex XL, Template 5, column h",
+     "quote": "Institutions shall disclose the gross carrying amount of exposures sensitive to impact from chronic climate-change events only, including hazards relating to gradual changes in weather and climate and having a possible impact on economic output and productivity."
+    },
+    {
+     "ref": "Annex XL, Template 5, column i",
+     "quote": "Institutions shall disclose the gross carrying amount of exposures sensitive to impact from acute climate change events only, including hazards that may cause sudden damage to properties, disruption of supply chains, and depreciation of assets."
+    },
+    {
+     "ref": "Annex XL, Template 5, column j",
+     "quote": "Institutions shall disclose the gross carrying amount subject to impact from both chronic and acute climate change events, referred to in columns (h) and (i)."
+    }
+   ]
+  },
+  {
+   "id": "T6",
+   "code": "Template 6",
+   "title": "Template 6. Summary of key performance indicators (KPIs) on the Taxonomy-aligned exposures",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 118/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T7",
+   "code": "Template 7",
+   "title": "Template 7 - Mitigating actions: Assets for the calculation of GAR",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 119/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T8",
+   "code": "Template 8",
+   "title": "Template 8 - GAR (%)",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 120/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T9",
+   "code": "Template 9",
+   "title": "Template 9 - Mitigating actions: BTAR",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 121/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T9_1",
+   "code": "Template 9.1",
+   "title": "Template 9.1 - Mitigating actions: Assets for the calculation of BTAR",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 121/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T9_2",
+   "code": "Template 9.2",
+   "title": "Template 9.2 - BTAR %",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 121/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T9_3",
+   "code": "Template 9.3",
+   "title": "Template 9.3 - Summary table - BTAR %",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 121/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  },
+  {
+   "id": "T10",
+   "code": "Template 10",
+   "title": "Template 10 - Other climate change mitigating actions that are not covered in Regulation (EU) 2020/852",
+   "ref": "Annex I, Section 21 - ‘Disclosure of prudential disclosures on ESG risks’, OJ L, 2024/3172, 31.12.2024, p. 122/125",
+   "structure": "listed",
+   "rows": [],
+   "columns": [],
+   "z_axis": null,
+   "instructions": [],
+   "instructions_note": "Instructions are not in the OJ act; per Article 24 they are part of the EBA IT solutions published on the EBA website. Not captured here."
+  }
+ ],
+ "interpretations": [
+  {
+   "subject": "T5 rows",
+   "reading": "Rows 1-9 and 13 hold exposures towards non-financial corporations by the counterparty's NACE section (13 = sections other than A-H and L). Rows 10-12 hold loans collateralised by residential / commercial immovable property and repossessed collateral, whatever the counterparty. They are separate populations, not 'of which' rows: an exposure to a non-financial corporation collateralised by immovable property appears in its sector row and in row 10 or 11. The template has no total row.",
+   "basis": "Annex XL, Template 5, point 2 names three populations: exposures 'towards non-financial corporates', 'loans collateralized with immovable property' and 'repossessed real estate collaterals'; column b limits the gross carrying amount to exposures towards non-financial corporates. EBA/ITS/2026/02 (EU CRFR2, Part 1 para 25 b-c) states the same split explicitly for the successor template.",
+   "declared_by": "Tellumen"
+  },
+  {
+   "subject": "T1 rows 1 and 53",
+   "reading": "Row 1 is the subtotal of the section rows printed under it (A, B, C, D, E, F, G, H, I, L); row 53 is the subtotal of rows 54 (K) and 55 (J, M–U); row 56 (TOTAL) is rows 1 + 53. Division, group and class rows (e.g. B.05, D35.11) are 'of which' rows of their section and are not added again.",
+   "basis": "The printed template places 'I - Accommodation and food service activities' between H and L inside the row-1 group, while Annex XL, Template 1, point 3 names Sections A to H and L as the sectors that highly contribute to climate change. The template's own layout is followed so that its rows add up; the difference is Section I only.",
+   "declared_by": "Tellumen"
+  }
+ ],
+ "capture": {
+  "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
+  "captured": "2026-09-28",
+  "second_pass": {
+   "by": "independent second-pass agent (no shared working files)",
+   "date": "2026-09-28",
+   "result": "verified",
+   "checked": "T1 and T5 rows, columns and titles against the rendered Official Journal pages; act, dates, legal basis and every instruction quote verbatim"
+  }
+ }
+}

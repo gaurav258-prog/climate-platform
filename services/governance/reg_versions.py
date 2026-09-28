@@ -17,7 +17,8 @@ ACT_META: dict[str, dict] = {
     "32023R1115": {"title": "EU Deforestation Regulation (EUDR)", "role": "base"},
     "32024R3234": {"title": "EUDR — application-date amendment", "role": "amendment"},
     "32021R2178": {"title": "Taxonomy Disclosures Delegated Act", "role": "base"},
-    "32022R2453": {"title": "Pillar 3 ESG — ITS", "role": "base"},
+    "32022R2453": {"title": "Pillar 3 ESG — ITS (2022)", "role": "base"},
+    "32024R3172": {"title": "Pillar 3 disclosures — ITS (2024)", "role": "base"},
     "32022R1288": {"title": "SFDR Regulatory Technical Standards", "role": "base"},
     "32019R2088": {"title": "SFDR (base Regulation)", "role": "base"},
     "32023R2772": {"title": "ESRS Delegated Act", "role": "base"},
@@ -126,26 +127,41 @@ def _relations(session: Session, celex_list: list[str]) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def version_for(session: Session, framework: str, period_end: date | str) -> dict | None:
+def version_for(session: Session, framework: str, period_end: date | str, on: date | str | None = None) -> dict | None:
     """The regulation version a filing for `period_end` is prepared under, and whether it still governs that period.
 
     status  current             the act governs the period; nothing replaces it
             successor_in_force  an act that repeals it (in whole or in part) is in force for the period — review which
                                 provisions apply; the register does not say which
             superseded          the register says the act ended before the period did — a later version governs it
-    Amendments in force by the period end are listed ("as amended by"). A register date that contradicts itself (an act
+    `on` is the date that decides (default: the period end); a regulation that governs disclosures by the date they are
+    made passes the disclosure date. When a tracked act is replaced by another act the framework also tracks, that is
+    the lineage moving on: the successor governs and the replaced act is listed under `lineage`, not raised.
+    Amendments in force by that date are listed ("as amended by"). A register date that contradicts itself (an act
     shown in force yet 'ended' in the past) is reported, never acted on."""
     from sqlalchemy import text
 
     from services.regulatory_monitoring.eurlex_detector import FRAMEWORK_CELEX
-    acts = FRAMEWORK_CELEX.get(framework)
-    if not acts:
+    tracked = FRAMEWORK_CELEX.get(framework)
+    if not tracked:
         return None
-    pe = period_end.isoformat() if isinstance(period_end, date) else str(period_end)[:10]
+    period = period_end.isoformat() if isinstance(period_end, date) else str(period_end)[:10]
+    pe = (on.isoformat() if isinstance(on, date) else str(on)[:10]) if on else period
     today = date.today().isoformat()
     snaps = {r["celex"]: r["signal"] or {} for r in session.execute(
-        text("SELECT celex, signal FROM reg_source_snapshot WHERE celex = ANY(:c)"), {"c": acts}).mappings()}
-    rels = _relations(session, acts)
+        text("SELECT celex, signal FROM reg_source_snapshot WHERE celex = ANY(:c)"), {"c": tracked}).mappings()}
+    rels = _relations(session, tracked)
+    lineage = []
+    for r in rels:                                            # tracked act replaced by a tracked successor, by `pe`
+        starts = min(r["entry_into_force"]) if r["entry_into_force"] else None
+        if r["relation"] != "amends" and r["related_celex"] in tracked and starts and starts <= pe:
+            lineage.append({"replaced": r["celex"], "by": r["related_celex"], "since": starts})
+    replaced_in_lineage = {x["replaced"] for x in lineage}
+    not_yet = {cx for cx in tracked if cx not in replaced_in_lineage and (snaps.get(cx, {}).get("entry_into_force") or [None])[0]
+               and min(snaps[cx]["entry_into_force"]) > pe}   # a successor that does not apply yet on `pe`
+    not_yet |= {r["related_celex"] for r in rels if r["relation"] != "amends" and r["related_celex"] in tracked
+                and (not r["entry_into_force"] or min(r["entry_into_force"]) > pe)}
+    acts = [cx for cx in tracked if cx not in replaced_in_lineage and cx not in not_yet] or tracked[:1]
     governing, amended_by, replaced_by, notes = [], [], [], []
     status = "current"
     for cx in acts:
@@ -172,6 +188,8 @@ def version_for(session: Session, framework: str, period_end: date | str) -> dic
                     "url": f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{r['related_celex']}"}
             if r["relation"] == "amends":
                 amended_by.append(item)
+            elif r["related_celex"] in tracked:
+                continue                                      # our own successor — handled as lineage
             else:
                 replaced_by.append({**item, "relation": r["relation"]})
                 if status == "current":
@@ -181,6 +199,6 @@ def version_for(session: Session, framework: str, period_end: date | str) -> dic
     if status == "superseded" and ends:
         supported_until = (date.fromisoformat(min(ends)) + timedelta(days=LEGACY_SUPPORT_DAYS)).isoformat()
     label = " · ".join(f"{g['title']} ({g['celex']})" for g in governing if g["role"] == "base") or acts[0]
-    return {"framework": framework, "period_end": pe, "label": label, "governing": governing,
+    return {"framework": framework, "period_end": period, "decided_on": pe, "label": label, "governing": governing, "lineage": lineage,
             "amended_by": sorted(amended_by, key=lambda a: a["since"]), "replaced_by": replaced_by, "status": status,
             "supported_until": supported_until, "notes": notes}

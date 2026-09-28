@@ -53,14 +53,25 @@ def test_current_with_amendments(s):
 
 def test_a_replacing_act_in_force_flags_review_and_an_ended_act_is_superseded(s):
     _snap(s, "32022R2453", eov="2026-12-30")
-    _rel(s, "32022R2453", "32024R3172", "implicitly_repeals", ["2025-01-01", "2025-01-20"])
+    s.execute(text("DELETE FROM reg_act_relation WHERE related_celex = '32024R3172'"))  # our own successor: see lineage test
+    _rel(s, "32022R2453", "32099R0003", "implicitly_repeals", ["2025-01-01", "2025-01-20"])   # an act we do not track
     fy25 = V.version_for(s, "bank_p3esg", "2025-12-31")
-    assert fy25["status"] == "successor_in_force" and fy25["replaced_by"][0]["celex"] == "32024R3172"
-    assert fy25["replaced_by"][0]["title"] == "Commission Implementing Regulation (EU) 2024/3172"
+    assert fy25["status"] == "successor_in_force" and fy25["replaced_by"][0]["celex"] == "32099R0003"
+    assert fy25["replaced_by"][0]["title"] == "Commission Implementing Regulation (EU) 2099/0003"
     fy26 = V.version_for(s, "bank_p3esg", "2026-12-31")
     assert fy26["status"] == "superseded" and fy26["supported_until"] == "2027-07-01"
     fy24 = V.version_for(s, "bank_p3esg", "2024-12-31")
     assert fy24["status"] == "current"                                              # the successor came later
+
+
+def test_replacement_by_a_tracked_successor_is_the_lineage_moving_on(s):
+    _snap(s, "32022R2453", eov="2026-12-30")
+    _rel(s, "32022R2453", "32024R3172", "implicitly_repeals", ["2025-01-01", "2025-01-20"])
+    fy25 = V.version_for(s, "bank_p3esg", "2025-12-31")
+    assert fy25["status"] == "current" and fy25["replaced_by"] == []
+    assert [g["celex"] for g in fy25["governing"]] == ["32024R3172"]
+    assert fy25["lineage"] == [{"replaced": "32022R2453", "by": "32024R3172", "since": "2025-01-01"}]
+    assert [g["celex"] for g in V.version_for(s, "bank_p3esg", "2024-12-31")["governing"]] == ["32022R2453"]
 
 
 def test_a_dismissed_relation_does_not_count_and_a_contradiction_is_reported(s):
