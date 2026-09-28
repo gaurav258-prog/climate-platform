@@ -459,7 +459,18 @@ def get_filing(session: Session, org_id: str, filing_id: str, with_payload: bool
                                "created_at": snap["created_at"]}
     if r["snapshot_id"] and r["status"] != "superseded":
         out["fx_revisions"] = fx_revisions(session, org_id, str(r["snapshot_id"]))
+    if r["snapshot_id"]:
+        out["run"] = _run_of(session, org_id, str(r["snapshot_id"]))
     return out
+
+
+def _run_of(session: Session, org_id: str, snapshot_id: str) -> dict | None:
+    """The engine run the frozen snapshot came from — its inputs and output checks (intake phase 4). None for a snapshot
+    frozen before runs were recorded."""
+    from services.governance.engine_runs import get_run
+    rid = session.execute(text("SELECT run_id::text FROM report_snapshots WHERE snapshot_id = :s AND org_id = :o"),
+                          {"s": snapshot_id, "o": org_id}).scalar()
+    return get_run(session, org_id, rid) if rid else None
 
 
 def fx_revisions(session: Session, org_id: str, snapshot_id: str) -> list[dict]:
@@ -635,12 +646,13 @@ def _book_basis(session: Session, org_id: str, framework: str, entity_id: str | 
 
 def _freeze(session: Session, org_id: str, framework: str, actor_user_id: str, note: str | None,
             entity_id: str | None, period_end: date) -> tuple[dict, str]:
+    from services.governance.engine_runs import RunCheckError
     from services.governance.translation import TranslationError
     entity_ids, value_weights, translation = _book_basis(session, org_id, framework, entity_id, period_end)
     try:
         snap = create_snapshot(session, org_id, framework, actor_user_id, note=note, entity_ids=entity_ids,
                                value_weights=value_weights, translation=translation)
-    except TranslationError as e:
+    except (TranslationError, RunCheckError) as e:
         raise FilingError(str(e)) from e
     return snap, (translation.presentation if translation is not None else "EUR")
 

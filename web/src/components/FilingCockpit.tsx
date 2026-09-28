@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import FilingRun, { type EngineRun } from './FilingRun'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck, X, CheckCircle2, AlertTriangle, Clock, PenLine, Send, Stamp, XCircle, Info, GitCompareArrows, Download, RadioTower, ChevronLeft, RefreshCw, FileText, ArrowRight, CalendarClock, Flame, ListChecks, Check } from 'lucide-react'
@@ -32,6 +33,7 @@ interface FilingDetail extends FilingSummary {
   export_formats?: string[]; superseded_by?: string | null
   presentation_currency?: string
   fx_revisions?: { currency: string; basis: string; as_of: string; change: string }[]
+  run?: EngineRun | null
   snapshot?: { version: number; reporting_basis: Record<string, unknown>; payload: Record<string, unknown>; payload_sha256: string; hash_verified: boolean; created_at: string }
 }
 interface CaseLink { case_id: string; regulator: string; reference: string | null; stage: string; n_messages: number }
@@ -466,6 +468,7 @@ function FilingDrawer({ filingId, onClose, onChanged, onOpen }: { filingId: stri
                 )}
               </Card>
             )}
+            {f.run && <FilingRun run={f.run} />}
 
             {/* the final form — the frozen disclosure as the submittable datapoint form */}
             <FilingForm filingId={filingId} />

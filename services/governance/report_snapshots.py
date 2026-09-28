@@ -219,22 +219,28 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     payload["_provided_attested"] = attested_values(session, org_id, report_type)
     versions = _engine_versions(session, org_id)
     digest = _sha256(payload)
+    # intake phase 4: what this run read and whether its output holds — an integrity failure refuses the freeze
+    from services.governance.engine_runs import record as record_run
+    run = record_run(session, org_id, report_type, actor_user_id, basis=basis, payload=payload, entity_ids=entity_ids,
+                     value_weights=value_weights, translation=translation)
 
     version = (session.execute(text(
         "SELECT COALESCE(MAX(version), 0) + 1 FROM report_snapshots WHERE org_id = :o AND report_type = :t"),
         {"o": org_id, "t": report_type}).scalar())
     row = session.execute(text("""
         INSERT INTO report_snapshots (org_id, report_type, version, reporting_basis, payload, note, created_by,
-                                      payload_sha256, engine_versions)
-        VALUES (:o, :t, :v, CAST(:b AS jsonb), CAST(:p AS jsonb), :n, :u, :h, CAST(:ev AS jsonb))
+                                      payload_sha256, engine_versions, run_id)
+        VALUES (:o, :t, :v, CAST(:b AS jsonb), CAST(:p AS jsonb), :n, :u, :h, CAST(:ev AS jsonb), CAST(:run AS uuid))
         RETURNING snapshot_id, version, created_at
     """), {"o": org_id, "t": report_type, "v": version,
            "b": json.dumps(basis, default=str), "p": json.dumps(payload, default=str),
-           "n": note, "u": actor_user_id, "h": digest, "ev": json.dumps(versions, default=str)}).mappings().first()
+           "n": note, "u": actor_user_id, "h": digest, "ev": json.dumps(versions, default=str),
+           "run": run["run_id"]}).mappings().first()
     return {"snapshot_id": str(row["snapshot_id"]), "report_type": report_type,
             "label": _BUILDERS[report_type][0], "version": row["version"],
             "reporting_basis": basis, "created_at": row["created_at"].isoformat(), "note": note,
-            "payload_sha256": digest, "engine_versions": versions}
+            "payload_sha256": digest, "engine_versions": versions, "run_id": run["run_id"], "run_status": run["status"],
+            "run_checks": run["checks"]}
 
 
 def list_snapshots(session: Session, org_id: str, report_type: str | None = None) -> list[dict]:

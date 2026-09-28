@@ -976,10 +976,13 @@ def report_types(session: DbSession, ctx: dict = Depends(require_permission("rep
 @router.post("/report-snapshots", summary="Freeze a report at the current basis as an immutable, versioned snapshot")
 def create_report_snapshot(body: SnapshotCreate, session: DbSession,
                            ctx: dict = Depends(require_permission("reports.publish"))):
+    from services.governance.engine_runs import RunCheckError
     from services.governance.report_snapshots import create_snapshot
     org_id = ctx["org"]["org_id"]
     try:
         snap = create_snapshot(session, org_id, body.report_type, ctx["user"]["id"], note=body.note)
+    except RunCheckError as e:
+        raise HTTPException(status_code=409, detail={"error": "output_checks_failed", "message": str(e), "checks": e.checks})
     except ValueError as e:
         raise HTTPException(status_code=422, detail={"error": "bad_report_type", "message": str(e)})
     write_audit(session, org_id=org_id, actor_user_id=ctx["user"]["id"], action="reports.snapshot.create",
