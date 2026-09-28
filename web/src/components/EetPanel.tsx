@@ -20,8 +20,9 @@ interface Check { issuer_id: string; issuer: string; field: string; label: strin
 interface Draft {
   uses: string[]; notes: string[]; data_checks: Check[]; funds: Record<string, { statement: string; reference_year: number | null; fund_name: string }>
   rows: { fund_id: string; isin: string; n_filled: number }[]
-  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; to_review: string[]; n_data_checks: number; ready: boolean }
+  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; to_review: string[]; review_drivers: Driver[]; n_data_checks: number; ready: boolean }
 }
+interface Driver { field: string; definition: string | null; kind: string; codification: string; choices: string[]; scope: 'organisation' | 'fund'; settles: string[] }
 interface Field { name: string; kind: string; choices: string[]; multi: boolean; scope: 'organisation' | 'fund'; codification: string }
 interface Version { publication_id: string; version: number; status: string; uses: string[]; reference_date: string; prepared_by: string | null; prepared_at: string; decided_by: string | null; n_share_classes: number; decision_reason: string | null }
 interface Changes { published: { version: number } | null; up_to_date?: boolean; added_share_classes?: string[]; removed_share_classes?: string[]; n_changed_fields?: number }
@@ -46,18 +47,25 @@ export default function EetPanel() {
   const refresh = () => ['eet-draft', 'eet-versions', 'eet-changes'].forEach(k => qc.invalidateQueries({ queryKey: [k] }))
 
   // one input per (field, scope target): organisation fields once, fund fields once per fund they're missing for
-  const inputs = (d?.completeness.blocking ?? []).flatMap(g => {
+  // questions that settle Conditional fields come first: answering them turns "if it applies" into required / not needed
+  const driverInputs = (d?.completeness.review_drivers ?? []).flatMap(dr => {
+    const g: Gap = { field: dr.field, section: '', definition: dr.definition ?? '', codification: dr.codification, answerable: true, isins: [] }
+    const m: Field = { name: dr.field, kind: dr.kind, choices: dr.choices, multi: false, scope: dr.scope, codification: dr.codification }
+    const funds = dr.scope === 'organisation' ? [null] : [...new Set((d?.rows ?? []).map(r => r.fund_id))]
+    return funds.map(fid => ({ g, m, fid, key: `${dr.field}|${fid ?? ''}`, review: false, driver: dr.settles.length }))
+  })
+  const inputs = driverInputs.concat((d?.completeness.blocking ?? []).flatMap(g => {
     const m = fmeta[g.field]
     if (!g.answerable || !m) return []
     const funds = m.scope === 'organisation' ? [null] : [...new Set(g.isins.map(i => fundOf[i]))]
-    return funds.map(fid => ({ g, m, fid, key: `${g.field}|${fid ?? ''}`, review: false }))
-  }).concat((d?.completeness.to_review ?? []).flatMap(name => {
+    return funds.map(fid => ({ g, m, fid, key: `${g.field}|${fid ?? ''}`, review: false, driver: 0 }))
+  })).concat((d?.completeness.to_review ?? []).flatMap(name => {
     // conditional fields whose condition depends on another answer (e.g. a Taxonomy commitment): answer if they apply
     const m = fmeta[name]
     if (!m || m.kind === undefined) return []
     const g: Gap = { field: name, section: '', definition: '', codification: m.codification, answerable: true, isins: [] }
     const funds = m.scope === 'organisation' ? [null] : [...new Set((d?.rows ?? []).map(r => r.fund_id))]
-    return funds.map(fid => ({ g, m, fid, key: `${name}|${fid ?? ''}`, review: true }))
+    return funds.map(fid => ({ g, m, fid, key: `${name}|${fid ?? ''}`, review: true, driver: 0 }))
   }))
   const save = async () => {
     setBusy(true)
@@ -131,10 +139,10 @@ export default function EetPanel() {
               </div>)}
             {inputs.length > 0 && (
               <div className="rounded-xl border border-[var(--color-line-2)] divide-y divide-[var(--color-line)]">
-                {inputs.map(({ g, m, fid, key, review }) => (
+                {inputs.map(({ g, m, fid, key, review, driver }) => (
                   <div key={key} className="px-3 py-2 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-[260px]">
-                      <div className="text-[12.5px] text-[var(--color-ink)]">{review && <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1.5">if it applies</span>}{label(g.field)}{fid && Object.keys(d.funds).length > 1 ? <span className="text-[var(--color-faint)]"> · {d.funds[fid]?.fund_name}</span> : ''}</div>
+                      <div className="text-[12.5px] text-[var(--color-ink)]">{review && <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1.5">if it applies</span>}{driver > 0 && <span className="mono text-[9.5px] uppercase tracking-wide mr-1.5" style={{ color: 'var(--color-sky)' }}>answer first · settles {driver}</span>}{label(g.field)}{fid && Object.keys(d.funds).length > 1 ? <span className="text-[var(--color-faint)]"> · {d.funds[fid]?.fund_name}</span> : ''}</div>
                       <div className="text-[11px] text-[var(--color-faint)] line-clamp-2" title={g.definition}>{g.definition}</div>
                     </div>
                     {m.kind === 'choice' && !m.multi

@@ -266,6 +266,7 @@ def _not_applicable(values: dict, name: str) -> bool:
 def completeness(rows: list[dict], uses: tuple[str, ...], data_checks: Optional[list] = None) -> dict:
     blocking: dict[str, dict] = {}
     review: dict[str, int] = {}
+    drivers: dict[str, set] = {}
     n_req = n_filled = 0
     for r in rows:
         sfdr = r["values"].get("20040_Financial_Instrument_SFDR_Product_Type", "0")
@@ -283,6 +284,11 @@ def completeness(rows: list[dict], uses: tuple[str, ...], data_checks: Optional[
             if applies is None:
                 if not filled:
                     review[f["name"]] = review.get(f["name"], 0) + 1
+                    for code in R.waiting_on(f["name"], {"sfdr": sfdr, "fund_type": r.get("fund_type"),
+                                                          "values": r["values"], "uses": tuple(uses)}):
+                        drv = next((n for n in F.by_name() if n.startswith(f"{code}_")), None)
+                        if drv and not r["values"].get(drv):
+                            drivers.setdefault(drv, set()).add(f["name"])
                 continue
             n_req += 1
             n_filled += filled
@@ -295,5 +301,11 @@ def completeness(rows: list[dict], uses: tuple[str, ...], data_checks: Optional[
             "filled_pct": round(100 * n_filled / n_req, 1) if n_req else None,
             "n_blocking": len(blocking), "blocking": sorted(blocking.values(), key=lambda b: b["field"]),
             "n_to_review": len(review), "to_review": sorted(review)[:200],
+            # the unanswered questions those Conditional fields wait on — answer these first
+            "review_drivers": [{"field": d, "definition": F.by_name()[d]["definition"], "kind": F.kind(F.by_name()[d]),
+                                "codification": (F.by_name()[d]["codification"] or "").split("\n")[0],
+                                "choices": sorted(F.choices(F.by_name()[d])[0]) if F.kind(F.by_name()[d]) == "choice" else [],
+                                "scope": "organisation" if int(d.split("_", 1)[0]) < 20000 else "fund",
+                                "settles": sorted(s)} for d, s in sorted(drivers.items())],
             "n_data_checks": len(data_checks or []),
             "ready": bool(rows) and not blocking and not data_checks}

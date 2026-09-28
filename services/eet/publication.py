@@ -132,7 +132,8 @@ def prepare(session: Session, org_id: str, user_id: Optional[str], uses: list[st
         INSERT INTO approval_requests (org_id, request_type, title, payload, maker_user_id)
         VALUES (CAST(:o AS uuid), 'eet.publish', :t, CAST(:p AS jsonb), CAST(:m AS uuid)) RETURNING request_id::text
     """), {"o": org_id, "t": f"Publish EET v{version} · {len(out['rows'])} share class(es) · {', '.join(F.USE_LABEL[u] for u in out['uses'])}",
-           "p": json.dumps({"publication_id": pid, "version": version, "payload_sha256": sha, "note": note}), "m": user_id}).scalar()
+           "p": json.dumps({"publication_id": pid, "version": version, "payload_sha256": sha,
+                            **({"note": note} if note else {})}), "m": user_id}).scalar()
     session.execute(text("UPDATE eet_publications SET approval_request_id = CAST(:r AS uuid) WHERE publication_id = CAST(:p AS uuid)"),
                     {"r": rid, "p": pid})
     return get(session, org_id, pid, with_payload=False)

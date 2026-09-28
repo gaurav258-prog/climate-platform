@@ -151,11 +151,11 @@ export default function PriorFilings() {
                 <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} title="The date the reporting period ends — money converts at its rate. Blank: 31 December of the year in the period."
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
               </label>
-              <label className="w-[130px]">
+              <label className="w-[160px]">
                 <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Currency</div>
                 <select value={fileCcy} onChange={e => setFileCcy(e.target.value)} title="The currency the filing reports money in. Needed when it writes amounts with a symbol several currencies share ($, £, ¥)."
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] mono outline-none focus:border-[var(--color-sky)]">
-                  <option value="">— as written —</option>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                  <option value="">as written</option>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>
               </label>
               <label className="flex-1 min-w-[200px]">
                 <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting entity <span className="normal-case tracking-normal">(optional)</span></div>

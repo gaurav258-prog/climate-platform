@@ -125,6 +125,31 @@ def evaluate(expr, ctx: dict) -> Optional[bool]:
     raise RulesError(f"unknown condition operator {op!r}")
 
 
+def _pending(expr, ctx: dict) -> tuple[Optional[bool], set[int]]:
+    """(result, the field codes the result is waiting on) — only the answers that would actually settle it here."""
+    if not isinstance(expr, dict):
+        return expr, set()
+    (op, arg), = expr.items()
+    if op in ("all", "any"):
+        parts = [_pending(e, ctx) for e in arg]
+        vals = [v for v, _ in parts]
+        decisive = False if op == "all" else True
+        if decisive in vals:
+            return decisive, set()
+        waiting = set().union(*(p for v, p in parts if v is None))
+        return (None if None in vals else (not decisive)), waiting
+    v = evaluate(expr, ctx)
+    return v, ({arg[0]} if v is None and op in ("field_eq", "field_gt") else set())
+
+
+def waiting_on(name: str, ctx: dict) -> list[int]:
+    """The field codes a Conditional field is waiting on in this row — the questions to answer first."""
+    for rule in load()["conditions"]:
+        if _matches(rule["match"], name):
+            return sorted(_pending(rule["applies"], ctx)[1])
+    return []
+
+
 def applies(name: str, ctx: dict) -> Optional[bool]:
     """ctx: {sfdr, fund_type, values, uses}. The first rule whose match covers the field decides; no rule → None."""
     for rule in load()["conditions"]:

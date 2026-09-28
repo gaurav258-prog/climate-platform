@@ -23,3 +23,11 @@ def test_taxonomy_minimums_wait_for_the_commitment_answer():
 def test_periodic_fields_need_periodic_data_in_the_file():
     f = "20690_Financial_Instrument_Percentage_Taxonomy_Aligned_Excl_Sovereign_Revenue"
     assert applies(f, "8", uses=("entity",)) is False and applies(f, "8", uses=("periodic",)) is True
+
+
+def test_a_field_waits_only_on_the_answer_that_settles_it_for_this_product():
+    from services.eet.rules import waiting_on
+    ctx = {"sfdr": "8", "fund_type": "fund", "values": {}, "uses": ("entity",)}
+    assert waiting_on(TAX, ctx) == [20190]                                               # Art 8: not the Art 9 question
+    assert waiting_on(TAX, {**ctx, "sfdr": "9"}) == [20230]
+    assert waiting_on(TAX, {**ctx, "values": {"20190_x": "N"}}) == []                    # settled
