@@ -46,10 +46,21 @@ def _intensities() -> tuple[dict, dict]:
             row = {"value": float(r["intensity_gwh_per_meur"]), "code": r["nace_code"], "year": int(r["year"])}
             if r["nace_code"] == r["section"]:
                 by_sec[r["section"]] = row
-            else:
+            elif _solid(r):
                 for d in r["divisions"].split(";"):
                     by_div[d] = row
     return by_div, by_sec
+
+
+MIN_COUNTRIES, MIN_COVERAGE_PCT = 10, 50.0
+
+
+def _solid(r: dict) -> bool:
+    """A division figure built from member states is used only when it rests on enough of the EU (≥ 10 countries or
+    ≥ 50% of EU turnover); otherwise the company's section average is the better estimate."""
+    n = int(r.get("n_countries") or 0)
+    cov = float(r["eu_turnover_covered_pct"]) if r.get("eu_turnover_covered_pct") else None
+    return n >= MIN_COUNTRIES or (cov is not None and cov >= MIN_COVERAGE_PCT)
 
 
 @lru_cache(maxsize=1)

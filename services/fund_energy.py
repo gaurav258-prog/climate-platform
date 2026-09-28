@@ -129,15 +129,19 @@ def energy_pais(rows: list[dict], total_mv: float, energy: list[dict]) -> dict:
     prod = _weighted(rows, energy, "prod", total_mv, keep=lambda f: f["section"] == "D")
     high = _weighted(rows, energy, "intensity", total_mv, keep=lambda f: f["section"] in HIGH_CLIMATE_NACE)
     by_section = {s: _weighted(rows, energy, "intensity", total_mv, keep=lambda f, s=s: f["section"] == s) for s in EET_SECTIONS}
-    # PAI 5 as the RTS states it — one share across consumption and production: consumption for every company, plus
-    # production where the company is a producer, value-weighted together
-    combo = [(r["mv"], x) for r, f in zip(rows, energy) for x in (f["cons"], f["prod"]) if x is not None]
-    w = sum(mv for mv, _ in combo)
-    cov_mv = sum(r["mv"] for r, f in zip(rows, energy) if f["cons"] is not None or f["prod"] is not None)
-    est_mv = sum(r["mv"] for r, f in zip(rows, energy)
-                 if (f["cons"] or f["prod"]) and all(x is None or x[1] == "estimated" for x in (f["cons"], f["prod"])))
-    pai5 = {"value": round(sum(mv * x[0] for mv, x in combo) / w, 2) if w else None,
-            "coverage_pct": round(100 * cov_mv / total_mv, 1), "estimated_pct": round(100 * est_mv / total_mv, 1)}
+    # PAI 5 as the RTS states it — ONE share per company across its energy consumption and production, value-weighted
+    # once: a combined figure the company reports; else, for an energy producer, its production share (production is
+    # by far its larger energy flow); else its consumption share. (Fixed 2026-09-28: producers were counted twice.)
+    one = []
+    for r, f in zip(rows, energy):
+        x = ((r["non_renew"], "reported", "reported combined") if r.get("non_renew") is not None
+             else f["prod"] if f["prod"] is not None else f["cons"])
+        if x is not None:
+            one.append((r["mv"], x))
+    w = sum(mv for mv, _ in one)
+    est_mv = sum(mv for mv, x in one if x[1] == "estimated")
+    pai5 = {"value": round(sum(mv * x[0] for mv, x in one) / w, 2) if w else None,
+            "coverage_pct": round(100 * w / total_mv, 1), "estimated_pct": round(100 * est_mv / total_mv, 1)}
     return {"pai_5": pai5, "pai_5_consumption": cons, "pai_5_production": prod,
             "pai_6": {k: (round(v, 2) if k == "value" and v is not None else v) for k, v in high.items()},
             "pai_6_by_section": by_section}

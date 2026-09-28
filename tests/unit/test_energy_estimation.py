@@ -18,14 +18,19 @@ def _row(**k):
 
 
 def test_reference_tables_recompute_from_their_inputs():
-    for r in csv.DictReader((REF / "nace_energy_intensity.csv").open()):
+    rows = list(csv.DictReader((REF / "nace_energy_intensity.csv").open()))
+    for r in rows:
         assert float(r["intensity_gwh_per_meur"]) == pytest.approx(float(r["energy_tj"]) / 3.6 / float(r["turnover_meur"]), rel=1e-3)
+    by = {r["nace_code"]: float(r["intensity_gwh_per_meur"]) for r in rows}
+    # electricity is in the division figures (it used to be missing below section level): machinery ≈ its section's
+    # electricity-heavy profile, not fuel-only
+    assert by["C28"] > 0.05 and by["C24"] > by["C28"] and by["H51"] > by["H49"]
     rows = {r["country_iso2"]: r for r in csv.DictReader((REF / "country_renewable_shares.csv").open())}
     assert 0 < float(rows["DE"]["renewable_share_energy_pct"]) < 100 and float(rows["NO"]["renewable_share_elec_pct"]) > 90
 
 
 def test_lookups_use_the_finest_level_published():
-    assert EE.intensity("24.10")["code"] == "C24" and EE.intensity("26.11")["code"] == "C"     # C26 not published → section
+    assert EE.intensity("24.10")["code"] == "C24" and EE.intensity("19.20")["code"] == "C"     # C19: 9 countries, 48% → section
     assert EE.intensity("51.10")["value"] > EE.intensity("47.11")["value"]                     # airlines ≫ retail
     assert EE.intensity("62.01") is None and EE.intensity(None) is None                       # not a high-impact sector
     assert EE.non_renewable_production("FR")["value"] > 50                                    # nuclear is non-renewable
@@ -47,3 +52,10 @@ def test_only_likely_unit_slips_are_flagged():
     assert _implausible("energy_intensity", 2.4, 0.79) is None                                # 3× — plausible
     assert _implausible("non_renewable_consumption", 0.6, 76)                                 # fraction for a %
     assert _implausible("non_renewable_consumption", 18, 76) is None                          # buys green power — fine
+
+
+def test_pai5_counts_each_company_once():
+    from services.fund_energy import energy_pais
+    rows = [_row(nace_code="35.11", country="DE", nr_cons=10, nr_prod=90), _row(nace_code="24.10", nr_cons=50)]
+    out = energy_pais(rows, 2.0, energy_facts(rows))["pai_5"]
+    assert out["value"] == pytest.approx((90 + 50) / 2)                                       # producer → production share
