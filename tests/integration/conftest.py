@@ -61,9 +61,13 @@ def session_rolled_back():
     real_submit = jobs.submit
     jobs.submit = lambda *a, **k: {"job": "stubbed-in-test"}
     with get_session() as s:
+        # Guard (error log E1): code under test may commit (e.g. location edits, filing refresh). Inside this fixture a
+        # commit is only a flush, so nothing a test does can reach the real database — the rollback below undoes all.
+        s.commit = s.flush
         try:
             yield s
         finally:
+            s.__dict__.pop("commit", None)
             s.rollback()
             storage.put, jobs.submit = real_put, real_submit
     for sha in set(shas):

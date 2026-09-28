@@ -8,13 +8,28 @@ Requires PostgreSQL. Non-polluting: each test rolls back its session on exit.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import pytest
 from sqlalchemy import text
 
 import services.governance.tasks as T
-from core.db.session import get_session
+from core.db.session import get_session as _real_get_session
 
 BANK_ORG = "11111111-1111-4111-8111-111111111111"
+
+
+@contextmanager
+def get_session():
+    """This module's session: every commit is only a flush and everything rolls back at the end (error log E1 — the
+    approval step inside commits, which once left an approved request and a finished task behind on every run)."""
+    with _real_get_session() as s:
+        s.commit = s.flush
+        try:
+            yield s
+        finally:
+            s.__dict__.pop("commit", None)
+            s.rollback()
 
 
 def _actor(s, email="admin@meridian.demo"):
@@ -97,7 +112,7 @@ def test_complete_via_approval_is_the_only_path_to_done_and_names_the_real_check
         out = T._complete_via_approval(s, BANK_ORG, tid, checker, "Filed and accepted.")
         assert out["status"] == "done"
         moved = [e for e in out["events"] if e["kind"] == "moved" and e["to"] == "done"]
-        assert moved and moved[0]["actor"] != None
+        assert moved and moved[0]["actor"] is not None
         # the event's actor is the CHECKER, not the original mover
         checker_name = s.execute(text("SELECT full_name FROM users WHERE user_id=CAST(:u AS uuid)"),
                                  {"u": checker}).scalar()
@@ -126,14 +141,14 @@ def test_full_http_flow_via_approvals_decide():
     """End-to-end through the real router: request-completion, then a DIFFERENT user decides via
     POST /v1/approvals/{id}/decide — the same endpoint every other 4-eyes action in this codebase uses."""
     from fastapi.testclient import TestClient
+
     from api.main import app
     client = TestClient(app, raise_server_exceptions=False)
 
-    with get_session() as s:
+    with _real_get_session() as s:   # committed on purpose: the HTTP layer uses its own connection — cleaned below
         maker_id = _actor(s, "admin@meridian.demo")
-        checker_id = _actor(s, "approver@meridian.demo")
         tid = _task_in_review(s, maker_id)
-        s.commit()   # the HTTP layer uses its own session/connection
+        s.commit()
 
     try:
         maker_tok = client.post("/v1/auth/login", json={"email": "admin@meridian.demo", "password": "Demo!admin1"}).json()["access_token"]
@@ -162,6 +177,9 @@ def test_full_http_flow_via_approvals_decide():
         # regulatory_task_event is WORM (append-only, DB-trigger-enforced) — its rows are never deleted, same
         # as every other audit trail in this codebase. Cancel the task instead: it drops off the active board
         # (list_tasks excludes 'cancelled') while its real, accurate history stays on the record.
-        with get_session() as s:
+        # The approval request is not an audit trail — it is removed, so the run leaves nothing behind (error log E2).
+        with _real_get_session() as s:
             s.execute(text("UPDATE regulatory_task SET status='cancelled' WHERE task_id = CAST(:t AS uuid)"), {"t": tid})
+            s.execute(text("DELETE FROM approval_requests WHERE request_type = 'task.complete' AND payload->>'task_id' = :t"),
+                      {"t": str(tid)})
             s.commit()

@@ -1,29 +1,4 @@
-fastapi==0.104.0
-uvicorn[standard]==0.24.0
-sqlalchemy==2.0.23
-psycopg[binary]==3.1.12
-pydantic==2.5.0
-pydantic-settings==2.1.0
-python-dotenv==1.0.0
-alembic==1.13.0
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.1
-aiohttp==3.9.1
-beautifulsoup4==4.12.2
-requests==2.31.0
-global-land-mask
-bcrypt==4.1.2
-PyJWT==2.8.0
-celery==5.6.3
-redis==7.0.1
-python-multipart==0.0.20
-openpyxl==3.1.5
-reportlab==5.0.1
-pdfplumber==0.11.8
-qrcode>=8.0  # TOTP MFA enrolment QR (SVG factory, no Pillow needed)
-signxml>=5.0  # SAML 2.0 XML-DSig assertion validation (enterprise SSO)
-lxml>=5.0  # SAML/XML parsing (signxml dep)
-prometheus-client>=0.20  # /metrics observability
-sentry-sdk>=2.0  # optional error tracking (activates when SENTRY_DSN set)
-webauthn>=2.0  # FIDO2 / WebAuthn passkeys
+# The platform's dependencies are declared once, in pyproject.toml (this file used to repeat them with stale pins,
+# and drifted: packages the app imports were missing from one list or the other). Install with:
+#   pip install -e ".[all,dev]"          (add ,seed to run the demo-data seed scripts; ,sentry for error tracking)
+-e .[all,dev]

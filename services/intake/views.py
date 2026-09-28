@@ -74,6 +74,7 @@ def in_view(session: Session, org_id: str, view: str, fn: Callable[[], object]) 
     if not subs:
         return fn(), record
     sp = session.begin_nested()
+    had = session.__dict__.get("commit")                     # a caller's own override (e.g. a test's) is restored after
     session.commit = _refuse_commit                          # instance attribute: this session only
     try:
         for s in subs:                                        # table / column names come from the registry, never input
@@ -81,7 +82,10 @@ def in_view(session: Session, org_id: str, view: str, fn: Callable[[], object]) 
                                  "AND org_id = CAST(:o AS uuid)"), {"v": s["value"], "a": s["asset_id"], "o": org_id})
         result = fn()
     finally:
-        del session.commit
+        if had is not None:
+            session.commit = had
+        else:
+            session.__dict__.pop("commit", None)
         sp.rollback()
     return result, record
 

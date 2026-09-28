@@ -21,9 +21,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture()
 def s(session_rolled_back):
-    session_rolled_back.commit = session_rolled_back.flush
-    yield session_rolled_back
-    del session_rolled_back.commit
+    return session_rolled_back          # generate / refresh commit — flushes here (the fixture's guard)
 
 
 def _filing(s) -> str:

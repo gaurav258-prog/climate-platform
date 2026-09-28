@@ -229,11 +229,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Security headers: always on — never behind an optional import (error log E5) ─────
+from api.security_headers import SecurityHeadersMiddleware  # noqa: E402
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # ── Observability: metrics, structured access logs, optional Sentry ─────
 try:
     from api.observability import (
         ObservabilityMiddleware,
-        SecurityHeadersMiddleware,
         init_sentry,
         init_tracing,
         metrics_response,
@@ -241,13 +245,13 @@ try:
     init_sentry()
     init_tracing(app)   # OpenTelemetry — no-op unless an OTLP endpoint + exporter are configured
     app.add_middleware(ObservabilityMiddleware)
-    app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/metrics", include_in_schema=False)
     def metrics():
         return metrics_response()
-except ImportError:
-    pass
+except ImportError as _obs_err:   # said, not swallowed: metrics / access logs are off until the package is installed
+    import logging as _logging
+    _logging.getLogger("api").warning("observability disabled — %s (install requirements.txt)", _obs_err)
 
 # ── Routers ────────────────────────────────────────────────────────────
 if ROUTERS_AVAILABLE:
@@ -417,6 +421,16 @@ def health_schedules() -> dict:
     return schedule_status()
 
 
+def _loaded_code_version() -> str | None:
+    """The commit this process loaded at start — compared with the checkout to catch a server still running old code
+    after a change (error log E4)."""
+    from services.governance.report_snapshots import _git_sha
+    return _git_sha()
+
+
+_CODE_VERSION = _loaded_code_version()
+
+
 @app.get("/health", tags=["Health"])
 def health() -> dict:
     """Liveness + a real DB probe + the job executor's heartbeat. 'ok' when the database answers, 'degraded'
@@ -436,7 +450,7 @@ def health() -> dict:
     from services.tasks.jobs import worker_status
     from services.tasks.schedule_health import schedule_status
     sched = schedule_status()
-    return {"status": "ok", "version": app.version, "database": db_state, "worker": worker_status(),
+    return {"status": "ok", "version": app.version, "code_version": _CODE_VERSION, "database": db_state, "worker": worker_status(),
             "scheduler": {**sched["scheduler"], "n_problems": sched["n_problems"],
                           "problems": [j["name"] for j in sched["jobs"] if j["status"] in ("overdue", "failed")]}}
 

@@ -34,7 +34,6 @@ def s(session_rolled_back, monkeypatch):
     }
     monkeypatch.setattr(E, "_rss", lambda url: next((v for k, v in feeds.items() if f"{k}." in url or f"/{k}" in url), []))
     monkeypatch.setattr(E, "_gdelt", lambda src: [])
-    monkeypatch.setattr(session_rolled_back, "commit", session_rolled_back.flush)
     return session_rolled_back
 
 

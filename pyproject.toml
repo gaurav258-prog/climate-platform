@@ -53,9 +53,10 @@ api = [
     "reportlab>=4.0",
     # Multipart form parsing — required by FastAPI for the file-upload endpoints
     "python-multipart>=0.0.9",
-    # Regulatory-source scrapers (change-detection subsystem): HTTP + HTML parsing
+    # CRCS: the EU register (Cellar SPARQL) and regulators' RSS feeds — HTTP only, no page scraping
     "requests>=2.31",
-    "beautifulsoup4>=4.12",
+    # Observability — /metrics (security headers do not depend on it; see api/security_headers.py)
+    "prometheus-client>=0.20",
     # Prior-filings PDF parsing (decompose past filings to template cells)
     "pdfplumber>=0.11",
     # Background workers — Celery task queue + Redis broker/result backend
@@ -90,6 +91,14 @@ otel = [
     "opentelemetry-instrumentation-fastapi>=0.55b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.55b0",
     "opentelemetry-instrumentation-httpx>=0.55b0",
+]
+# Error tracking — optional; active only when SENTRY_DSN is set and the SDK is installed.
+sentry = [
+    "sentry-sdk>=2.0",
+]
+# Demo-data seed scripts (scripts/seed_demo_*.py) — not needed to run the platform.
+seed = [
+    "global-land-mask",
 ]
 # KMS-backed secret encryption (production) — optional; env-derived key works without these.
 kms = [

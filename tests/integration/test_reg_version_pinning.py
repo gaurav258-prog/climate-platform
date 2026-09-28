@@ -76,7 +76,6 @@ def test_first_scan_is_a_quiet_baseline_but_a_replacement_is_always_raised(s, mo
     registry = {"32022R2453": [{"related_celex": "32099R0009", "relation": "amends", "entry_into_force": ["2024-01-01"], "in_force": True, "title": "A"},
                                {"related_celex": "32099R0010", "relation": "implicitly_repeals", "entry_into_force": ["2025-01-01"], "in_force": True, "title": "B"}]}
     monkeypatch.setattr(D, "_query_relations", lambda cx, timeout=40.0: registry.get(cx, []))
-    monkeypatch.setattr(s, "commit", s.flush)
     before = s.execute(text("SELECT count(*) FROM reg_detected_change WHERE celex LIKE '32099R%'")).scalar()
     first = D.scan_relations(s)
     raised = {r[0] for r in s.execute(text("SELECT celex FROM reg_detected_change WHERE celex LIKE '32099R%'")).all()}
