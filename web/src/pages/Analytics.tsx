@@ -13,6 +13,7 @@ import { useAuth } from '../lib/auth'
 import { Eyebrow, Card, SectionHead, PageHeader } from '../components/ui'
 import ReviewTabs from '../components/ReviewTabs'
 import { hazardLabel } from '../lib/hazards'
+import { balance } from '../lib/money'
 
 // Analytics — the forward-looking read: how the book's climate exposure moves across the two parameters
 // (scenario × horizon). The centrepiece is the scenario TRAJECTORY (value-at-risk over Now→2100, one line
@@ -40,7 +41,6 @@ const SCEN = [
 ] as const
 const HZ: [string, string][] = [['current', 'Now'], ['2030', '2030'], ['2050', '2050'], ['2100', '2100']]
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(0)}m` : `€${Math.round(n / 1e3)}k`
 const tco2e = (n?: number | null) => n == null ? '—' : Math.round(n).toLocaleString('en-GB')
 const totExposed = (d?: Disc) => d ? Object.values(d.by_hazard).reduce((s, v) => s + (v.exposed_value_eur || 0), 0) : null
 // acute (event-driven) vs chronic (gradual) peril keys — mirror services/governance/pillar3_templates.py
@@ -195,8 +195,8 @@ export default function Analytics() {
           delta vs the same pathway Now, with its trajectory sparkline). Taxonomy-eligible and financed
           emissions are point-in-time BOOK facts — they don't move with the warming pathway, so no delta/spark. */}
       <div className={`grid gap-3 ${hasEm ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-        <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={eur(end)} base={now} end={end} spark={sparkVar} mark={hz} tone={scen.color} worseUp loading={loading} />
-        <Kpi label="Taxonomy-eligible" sub="book · point-in-time" value={eur(taxBook)} tone="var(--scn-baseline)" loading={loading} />
+        <Kpi label="Value at risk" sub={`${scen.label} · ${hzLabel}`} value={balance(end)} base={now} end={end} spark={sparkVar} mark={hz} tone={scen.color} worseUp loading={loading} />
+        <Kpi label="Taxonomy-eligible" sub="book · point-in-time" value={balance(taxBook)} tone="var(--scn-baseline)" loading={loading} />
         {hasEm && <Kpi label="Financed emissions" sub="book · point-in-time · tCO₂e" value={tco2e(emBook)} tone="var(--scn-baseline)" loading={loading} />}
       </div>
 
@@ -224,8 +224,8 @@ export default function Analytics() {
                   <LineChart data={traj} margin={{ top: 8, right: 20, bottom: 4, left: 8 }}>
                     <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="2 5" vertical={false} />
                     <XAxis dataKey="hz" tick={{ fill: 'var(--color-faint)', fontSize: 11.5 }} axisLine={{ stroke: 'var(--color-line)' }} tickLine={false} dy={8} padding={{ left: 12, right: 12 }} />
-                    <YAxis domain={yDomain} tickFormatter={eur} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
-                    <Tooltip content={(p) => <HeroTip {...p} fmt={eur} />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                    <YAxis domain={yDomain} tickFormatter={(v) => balance(Number(v))} tick={{ fill: 'var(--color-faint)', fontSize: 11 }} axisLine={false} tickLine={false} width={58} />
+                    <Tooltip content={(p) => <HeroTip {...p} fmt={balance} />} cursor={{ stroke: 'var(--color-line-2)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                     {/* the selected horizon, marked live */}
                     <ReferenceLine x={hzLabel} stroke="var(--color-line-2)" strokeDasharray="4 4" />
                     {SCEN.map(s => {
@@ -263,7 +263,7 @@ export default function Analytics() {
                         <div className="text-[12.5px] text-[var(--color-ink)] leading-snug capitalize">{hazardLabel(h)}{canDrill && <span className="text-[var(--color-faint)] group-hover:text-[var(--color-sky)]"> →</span>}</div>
                         <Delta base={a} cmp={b} />
                       </div>
-                      <div className="mono text-[17px] tabular-nums text-[var(--color-ink)] mb-1">{eur(b)}<span className="text-[10.5px] text-[var(--color-faint)] ml-1.5">at {hzLabel}</span></div>
+                      <div className="mono text-[17px] tabular-nums text-[var(--color-ink)] mb-1">{balance(b)}<span className="text-[10.5px] text-[var(--color-faint)] ml-1.5">at {hzLabel}</span></div>
                       <div style={{ height: 56 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={d} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
@@ -279,7 +279,7 @@ export default function Analytics() {
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="flex justify-between mono text-[9px] text-[var(--color-faint)] mt-0.5"><span>Now {eur(a)}</span><span>{hzLabel}</span></div>
+                      <div className="flex justify-between mono text-[9px] text-[var(--color-faint)] mt-0.5"><span>Now {balance(a)}</span><span>{hzLabel}</span></div>
                     </Card>
                   )
                 })}
@@ -349,7 +349,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
           : rows.length === 0 ? <div className="p-8 text-[13px] text-[var(--color-faint)]">No exposures at High+ for this hazard under the selected pathway.</div>
           : (
             <div className="p-5">
-              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at High+ · {eur(total)} exposed</div>
+              <div className="mono text-[11px] text-[var(--color-mute)] mb-3">{rows.length} exposure{rows.length === 1 ? '' : 's'} at High+ · {balance(total)} exposed</div>
               <div className="space-y-2">
                 {groups.map(g => {
                   const open = isOpen(g.bk)
@@ -360,7 +360,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
                         <ChevronRight size={14} className={`shrink-0 text-[var(--color-faint)] transition-transform ${open ? 'rotate-90' : ''}`} />
                         <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0" style={{ color: g.color, background: `color-mix(in oklab, ${g.color} 15%, transparent)` }}>{g.label}</span>
                         <span className="mono text-[11px] text-[var(--color-mute)]">{g.items.length} exposure{g.items.length === 1 ? '' : 's'}</span>
-                        <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] ml-auto">{eur(g.sum)}</span>
+                        <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] ml-auto">{balance(g.sum)}</span>
                       </button>
                       {open && (
                         <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
@@ -371,7 +371,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
                                 <div className="mono text-[10px] text-[var(--color-faint)]">{[a.region, a.country].filter(Boolean).join(', ') || '—'}</div>
                               </div>
                               <span className="mono text-[10.5px] tabular-nums shrink-0" style={{ color: g.color }}>{hz!.score != null ? Math.round(hz!.score) : ''}</span>
-                              <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(a.value_eur)}</span>
+                              <span className="mono text-[12px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{balance(a.value_eur)}</span>
                             </div>
                           ))}
                         </div>
@@ -387,7 +387,7 @@ function DrillDrawer({ prefix, items: cfg, hazard, scenario, horizonKey, scenari
   )
 }
 
-function HeroTip({ active, payload, label, fmt = eur }: { active?: boolean; payload?: readonly any[]; label?: any; fmt?: (n?: number | null) => string }) {
+function HeroTip({ active, payload, label, fmt = balance }: { active?: boolean; payload?: readonly any[]; label?: any; fmt?: (n?: number | null) => string }) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl px-3 py-2">
@@ -418,7 +418,7 @@ function FacetTip({ active, payload, label }: { active?: boolean; payload?: read
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg-2)] shadow-xl px-2.5 py-1.5 text-[11.5px]">
-      <span className="mono text-[var(--color-faint)]">{label}</span> <span className="mono tabular-nums text-[var(--color-ink)] ml-1.5">{eur(payload[0].value ?? null)}</span>
+      <span className="mono text-[var(--color-faint)]">{label}</span> <span className="mono tabular-nums text-[var(--color-ink)] ml-1.5">{balance(payload[0].value ?? null)}</span>
     </div>
   )
 }
@@ -487,7 +487,7 @@ function TrajTable({ at }: { at: (scen: string, hIdx: number) => Disc | undefine
           {SCEN.map(s => (
             <tr key={s.key} className="border-b border-[var(--color-line)]">
               <td className="px-4 py-2.5 text-[var(--color-ink)]"><span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />{s.label}</span></td>
-              {HZ.map((_, hi) => <td key={hi} className="px-4 py-2.5 text-right mono tabular-nums text-[var(--color-mute)]">{eur(totExposed(at(s.key, hi)))}</td>)}
+              {HZ.map((_, hi) => <td key={hi} className="px-4 py-2.5 text-right mono tabular-nums text-[var(--color-mute)]">{balance(totExposed(at(s.key, hi)))}</td>)}
             </tr>
           ))}
         </tbody>

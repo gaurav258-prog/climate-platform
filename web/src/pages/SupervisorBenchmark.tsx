@@ -6,7 +6,7 @@ import { LayoutGrid, Rows3 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, PageHeader } from '../components/ui'
-const eurS = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
+import { balance } from '../lib/money'
 // ── Peer benchmark — every sector in the profile, every configured metric, every supervised entity ────────
 interface BenchEntity { org_id: string; name: string; value: number | null; flag: string; percentile: number | null }
 interface BenchMetric { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
@@ -14,9 +14,7 @@ interface BenchMetric { id: string; label: string; unit: string; direction?: str
 interface BenchResp { scenario: string; horizon: string; profile_id: string
   sectors: Record<string, { label: string; book_noun: string; frameworks: string[]; n_entities: number; metrics: BenchMetric[] }> }
 const FLAGC: Record<string, string> = { act: 'var(--color-bad)', watch: 'var(--color-warn)', ok: 'var(--color-good)', na: 'var(--color-faint)' }
-const fmtV = (unit: string, v: number | null | undefined) => v == null ? '—' : unit === 'eur' ? eurS(v) : `${v}%`
-
-const eurAxis = (v: number) => eurS(v)
+const fmtV = (unit: string, v: number | null | undefined) => v == null ? '—' : unit === 'eur' ? balance(v) : `${v}%`
 
 function BenchmarkCard() {
   const nav = useNavigate()
@@ -83,9 +81,9 @@ function BenchmarkCard() {
                 <div style={{ height: 40 + 22 * Math.max(1, m.entities.length) }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag, org_id: e.org_id }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }} style={{ cursor: 'pointer' }}>
-                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? eurAxis(Number(v)) : `${v}%`} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? balance(Number(v)) : `${v}%`} />
                       <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10.5, fill: 'var(--color-mute)' }} />
-                      <Tooltip formatter={(v) => [m.unit === 'eur' ? eurAxis(Number(v)) : `${v}%`, m.label]} />
+                      <Tooltip formatter={(v) => [m.unit === 'eur' ? balance(Number(v)) : `${v}%`, m.label]} />
                       {m.distribution.median != null && <ReferenceLine x={m.distribution.median} stroke="var(--color-sky)" strokeDasharray="4 3" />}
                       {m.watch_above != null && <ReferenceLine x={m.watch_above} stroke="#EF9F27" />}
                       {m.act_above != null && <ReferenceLine x={m.act_above} stroke="#E24B4A" />}

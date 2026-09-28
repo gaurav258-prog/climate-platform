@@ -34,8 +34,9 @@ export function CountUp({ value, format = (n) => `${Math.round(n)}`, duration = 
   return <span className={className}>{format(display)}</span>
 }
 
-// Count-up for an ALREADY-formatted KPI string ("€648.1m", "70%", "1,240"). Parses the single leading number,
-// animates it, and re-assembles with the original prefix/suffix/precision — so any KPI grid gets the count-up
+// Count-up for an ALREADY-formatted KPI string ("€648.1m", "US$1.20bn", "CHF 950k", "−€4.1m", "70%", "1,240").
+// Parses the single leading number — any non-digit prefix (a multi-letter currency symbol, the '−' sign) and the
+// suffix are kept verbatim — animates it, and re-assembles with the original prefix/suffix/precision — so any KPI grid gets the count-up
 // moment with no numeric plumbing. Falls back to the plain string for anything it can't cleanly parse
 // (fractions like "129/145", ranges, status text), so it's always safe to drop in.
 export function CountUpText({ children, className, duration }: { children: string; className?: string; duration?: number }) {
@@ -171,7 +172,7 @@ export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
           <div className={clsx('grid gap-3', cols)}>
             {stat.map((t, i) => (
               <div key={i} onClick={t.onClick}
-                className={clsx('rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5 transition',
+                className={clsx('min-w-0 [container-type:inline-size] rounded-2xl border border-[var(--color-line)] bg-[color-mix(in_oklab,var(--color-panel)_70%,transparent)] backdrop-blur px-3.5 py-3.5 transition',
                   t.onClick && 'cursor-pointer hover:border-[var(--color-line-2)] hover:bg-[color-mix(in_oklab,var(--color-panel)_85%,transparent)]')}>
                 <div className="flex items-center gap-1.5 mb-2">
                   {t.icon && (
@@ -182,7 +183,8 @@ export function HeroBanner({ eyebrow, title, lead, stat = [], className }: {
                   )}
                   <span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] leading-tight">{t.label}</span>
                 </div>
-                <div className="display text-[28px] leading-none font-semibold tabular-nums" style={{ color: t.tone || 'var(--color-ink)' }}>
+                {/* the figure scales to its tile, so a long one ('US$4.74bn', 'CHF 950k') is never clipped */}
+                <div className="display leading-none font-semibold tabular-nums whitespace-nowrap" style={{ color: t.tone || 'var(--color-ink)', fontSize: 'clamp(15px, 16.5cqi, 28px)' }}>
                   {typeof t.value === 'string' ? <CountUpText>{t.value}</CountUpText> : <CountUp value={t.value} />}
                 </div>
               </div>

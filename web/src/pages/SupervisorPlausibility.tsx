@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { hazardLabel, horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
+import { money } from '../lib/money'
 
 // Tier 1: the submitted template judged against what the platform's own hazard layers say about each geography —
 // no granular data needed. A cell is plausible when its sensitive share sits inside the spread of that share across
@@ -19,7 +20,6 @@ interface ExposureMeasure { cell_field: string; label: string; prior: string; pr
 interface Resp { entity_org_id: string; period_label: string | null; source_file: string | null; stated_basis: { scenario: string; horizon: string } | null
   scenario: string; horizon: string; basis_note: string; bases_available: { scenario: string; horizon: string }[]
   rows: Row[]; counts: Record<Row['verdict'], number>; n_cells: number; coverage_value_pct: number | null; rule: string; exposure_measure: ExposureMeasure }
-const eur = (v: number | null | undefined) => v == null ? '—' : v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
 const VC: Record<Row['verdict'], string> = { plausible: 'var(--color-good)', above_band: 'var(--color-warn)', below_band: 'var(--color-warn)', no_reference: 'var(--color-faint)' }
 
 function BandBar({ r }: { r: Row }) {
@@ -72,7 +72,7 @@ export default function SupervisorPlausibility() {
               <tbody>{d.rows.map(r => (<>
                 <tr key={r.key} onClick={() => setOpen(open === r.key ? null : r.key)} className={`border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-bg-2)] ${open === r.key ? 'bg-[var(--color-bg-2)]' : ''}`}>
                   <td className="text-[var(--color-ink)] whitespace-nowrap"><ChevronRight size={12} className={`inline mr-1 text-[var(--color-faint)] transition-transform ${open === r.key ? 'rotate-90' : ''}`} />{r.geography} · {r.sector}</td>
-                  <td className="num mono text-[var(--color-mute)]">{eur(r.gross_carrying_amount_eur)}</td>
+                  <td className="num mono text-[var(--color-mute)]">{money(r.gross_carrying_amount_eur, 'EUR')}</td>
                   <td className="num mono" style={{ color: VC[r.verdict] }}>{r.submitted_share_pct != null ? `${r.submitted_share_pct}%` : '—'}</td>
                   <td><BandBar r={r} /></td>
                   <td><span className="mono text-[10px] uppercase px-1.5 py-0.5 rounded" style={{ color: VC[r.verdict], background: `color-mix(in oklab, ${VC[r.verdict]} 15%, transparent)` }}>{r.verdict_label}</span></td>
@@ -82,7 +82,7 @@ export default function SupervisorPlausibility() {
                   <tr key={r.key + '-d'}><td colSpan={6} className="p-0"><div className="px-6 py-3 bg-[var(--color-bg-2)] text-[12px] text-[var(--color-mute)] grid md:grid-cols-2 gap-4">
                     <div>
                       <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1">As submitted by the entity</div>
-                      {d.exposure_measure.label} <b className="text-[var(--color-ink)]">{eur(r.gross_carrying_amount_eur)}</b> · of which sensitive <b className="text-[var(--color-ink)]">{eur(r.sensitive_physical_eur)}</b>{r.submitted_share_pct != null ? ` · ${r.submitted_share_pct}%` : ''}
+                      {d.exposure_measure.label} <b className="text-[var(--color-ink)]">{money(r.gross_carrying_amount_eur, 'EUR')}</b> · of which sensitive <b className="text-[var(--color-ink)]">{money(r.sensitive_physical_eur, 'EUR')}</b>{r.submitted_share_pct != null ? ` · ${r.submitted_share_pct}%` : ''}
                       <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{d.period_label} · {d.source_file ?? 'submitted template'}</div>
                     </div>
                     <div>
@@ -107,7 +107,7 @@ export default function SupervisorPlausibility() {
               {tr.data.periods.map(p => (
                 <div key={p.period_label} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]">
                   <div className="mono text-[10.5px] text-[var(--color-faint)]">{p.period_label} · received {p.received_at.slice(0, 10)} · {scenarioLabel(p.basis.scenario)} · {horizonLabel(p.basis.horizon)}{p.basis.stated ? '' : ' (no basis stated)'}</div>
-                  <div className="text-[var(--color-ink)]">{eur(p.gross_eur)} gross · sensitive share <b>{p.share_pct != null ? `${p.share_pct}%` : '—'}</b></div>
+                  <div className="text-[var(--color-ink)]">{money(p.gross_eur, 'EUR')} gross · sensitive share <b>{p.share_pct != null ? `${p.share_pct}%` : '—'}</b></div>
                   {p.tier1_counts && <div className="mono text-[10.5px] text-[var(--color-faint)]">Tier 1: {p.tier1_counts.plausible} plausible · {p.tier1_counts.above_band} high · {p.tier1_counts.below_band} low · {p.tier1_counts.no_reference} no reference</div>}
                 </div>))}
               {tr.data.change_pp != null && <div className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-[12px]"><div className="mono text-[10.5px] text-[var(--color-faint)]">change {tr.data.previous} → {tr.data.latest}</div><div className="text-[var(--color-ink)]"><b style={{ color: Math.abs(tr.data.change_pp) > 10 ? 'var(--color-warn)' : 'var(--color-ink)' }}>{tr.data.change_pp > 0 ? '+' : ''}{tr.data.change_pp} pp</b> · {tr.data.n_moved} cells moved more than 10 pp</div></div>}

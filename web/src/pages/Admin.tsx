@@ -15,6 +15,7 @@ import ClientRates from '../components/ClientRates'
 import { useCurrencies } from '../components/MoneyDeclaration'
 import SectionTabs, { ADMIN_TABS } from '../components/SectionTabs'
 import { actionLabel } from '../lib/actionLabels'
+import { balance, money } from '../lib/money'
 
 interface User { id: string; email: string; full_name: string; status: string; roles: string[]; last_login_at: string | null }
 interface Role { id: string; name: string; description: string | null; is_system: boolean; permissions: string[] }
@@ -31,7 +32,6 @@ interface CC {
 }
 
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 
 export default function Admin() {
   const { profile } = useAuth()
@@ -495,7 +495,7 @@ function Overview({ onTab }: { onTab: (t: string) => void }) {
       {/* data health */}
       <div className="grid sm:grid-cols-4 gap-4">
         <Stat big={`${d.data.sites.scored}/${d.data.sites.total}`} label="sites scored" tone={d.data.sites.scored === d.data.sites.total ? 'good' : 'warn'} />
-        <Stat big={eur(d.data.sites.value_eur)} label="asset value on the book" />
+        <Stat big={balance(d.data.sites.value_eur)} label="asset value on the book" />
         <Stat big={`${d.data.plots.eudr_determined}/${d.data.plots.eudr_covered}`} label="EUDR plots determined" tone={d.data.plots.eudr_determined === d.data.plots.eudr_covered ? 'good' : 'warn'} />
         <Stat big={d.data.plots.needs_polygon} label="plots need a polygon" tone={d.data.plots.needs_polygon ? 'warn' : 'good'} />
       </div>
@@ -579,7 +579,12 @@ function ReportingBasis() {
   const start = () => { if (d) setF({ scenario: d.scenario, horizon: d.horizon, materiality_threshold: d.materiality_threshold, reporting_period_end: d.reporting_period_end, presentation_currency: d.presentation_currency }); setEdit(true); setMsg(null) }
   const save = async () => {
     setBusy(true); setMsg(null)
-    try { await api.patch('/v1/admin/reporting-settings', f); setEdit(false); await q.refetch(); setMsg('✓ Saved — every filing now uses this basis.') }
+    try {
+      await api.patch('/v1/admin/reporting-settings', f); setEdit(false)
+      const r = await q.refetch(); setMsg('✓ Saved — every filing now uses this basis.')
+      // the screens' currency is read once at sign-in: reload so every amount is shown in the new one
+      if (r.data && d && r.data.presentation_currency !== d.presentation_currency) window.location.reload()
+    }
     catch (e) { setMsg((e as { body?: { error?: { message?: string } } })?.body?.error?.message || 'Could not save.') }
     finally { setBusy(false) }
   }
@@ -1067,7 +1072,7 @@ function KriAppetite() {
       </div>
       {kpis.map(k => {
         const rag = k.status ? RAG_C[k.status] : null
-        const vfmt = k.value == null ? '—' : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : k.fmt === 'eur' ? (k.value >= 1e6 ? `€${(k.value / 1e6).toFixed(1)}m` : `€${Math.round(k.value / 1e3)}k`) : Math.round(k.value).toLocaleString('en-GB')
+        const vfmt = k.value == null ? '—' : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : k.fmt === 'eur' ? money(k.value, 'EUR') : Math.round(k.value).toLocaleString('en-GB')   // appetite limits are set in EUR, the engine's currency — compare like with like
         return (
           <div key={k.key} className="grid grid-cols-2 sm:grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 px-4 py-3 border-b border-[var(--color-line)] last:border-0 items-center">
             <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Card, PageHeader, StatGrid } from '../components/ui'
+import { money } from '../lib/money'
 
 // Population view of the independent lens: who sits far from the rebuilt figure. Each row is one entity's
 // submitted-vs-rebuilt total; open the row for the cell view. Entities without an ingested submission say so.
@@ -10,7 +11,6 @@ interface Row { org_id: string; name: string; type: string; status: 'ok' | 'no_s
   n_cells?: number; n_flagged?: number; totals?: { submitted: number; rebuilt: number; scope: number; coverage: number; basis: number; scoring: number; unmatched: number }
   total_gap?: number; gap_pct?: number | null; precision?: string; basis_separable?: boolean; coverage_pct?: number | null }
 interface Resp { scenario: string; horizon: string; entities: Row[]; n_with_lens: number }
-const eur = (v: number | null | undefined) => v == null ? '—' : `${v < 0 ? '−' : ''}€${Math.abs(v) >= 1e9 ? (Math.abs(v) / 1e9).toFixed(2) + 'bn' : Math.abs(v) >= 1e6 ? (Math.abs(v) / 1e6).toFixed(1) + 'm' : (Math.abs(v) / 1e3).toFixed(0) + 'k'}`
 const STATUS: Record<Row['status'], string> = { ok: '', no_submission: 'no submitted template ingested', no_shadow_book: 'no granular data ingested', out_of_profile: 'sector outside your profile' }
 
 export default function SupervisorLensPopulation() {
@@ -35,8 +35,8 @@ export default function SupervisorLensPopulation() {
               <tr key={e.org_id} className="border-t border-[var(--color-line)]">
                 <td className="py-2 pr-3"><Link to={`/supervised/${e.org_id}/lens`} className="text-[var(--color-sky)] hover:underline">{e.name}</Link>{e.status !== 'ok' && <span className="mono text-[10.5px] text-[var(--color-faint)] ml-2">{STATUS[e.status]}</span>}</td>
                 <td className="mono text-[11px] text-[var(--color-faint)]">{e.period_label ?? '—'}</td>
-                <td className="num mono text-[var(--color-mute)]">{eur(e.totals?.submitted)}</td>
-                <td className="num mono text-[var(--color-mute)]">{eur(e.totals?.rebuilt)}</td>
+                <td className="num mono text-[var(--color-mute)]">{money(e.totals?.submitted, 'EUR')}</td>
+                <td className="num mono text-[var(--color-mute)]">{money(e.totals?.rebuilt, 'EUR')}</td>
                 <td className="num mono" style={{ color: e.gap_pct != null && Math.abs(e.gap_pct) >= 10 ? 'var(--color-warn)' : 'var(--color-mute)' }}>{e.gap_pct != null ? `${e.gap_pct}%` : '—'}</td>
                 <td className="num mono text-[var(--color-mute)]">{e.n_flagged != null ? `${e.n_flagged} / ${e.n_cells}` : '—'}</td>
                 <td className="num mono text-[var(--color-faint)]">{e.coverage_pct != null ? `${e.coverage_pct}%` : '—'}</td>

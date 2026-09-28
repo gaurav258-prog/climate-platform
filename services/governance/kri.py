@@ -12,6 +12,17 @@ import json
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+# The money KRIs that are amounts PER YEAR (flows): a screen in another currency translates them at the average rate,
+# every other money KRI (values, exposures, capital) at the closing rate — multi-currency decision 3.
+FLOW_KRIS = frozenset({"eal", "business_interruption", "ingredient_spend", "cogs_at_risk", "cogs_withheld",
+                       "water_spend_exposed", "expected_loss"})
+
+
+def _money_text(session: Session, org_id: str, v: float) -> str:
+    """An engine (EUR) amount written into a hint, in the organisation's currency (closing rate)."""
+    from services.governance.display_currency import balance, view
+    return balance(v, view(session, org_id))
+
 
 def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integrated_note=None):
     # `integrated` = a regulator datapoint whose value comes from OUTSIDE this engine (e.g. GHG from the
@@ -23,7 +34,8 @@ def _kpi(key, label, value, fmt, tone=None, hint=None, integrated=False, integra
     # surfaced as a first-class classification so every KRI is labelled ours-vs-brought-in.
     return {"key": key, "label": label, "value": value, "fmt": fmt, "tone": tone, "hint": hint,
             "integrated": integrated, "integrated_note": integrated_note,
-            "kind": "integrated" if integrated else "computed"}
+            "kind": "integrated" if integrated else "computed",
+            **({"flow": key in FLOW_KRIS} if fmt == "eur" else {})}
 
 
 # the frameworks with a KRI builder, and their short picker labels (one org-type can report several)
@@ -320,12 +332,12 @@ def _agri_kri(session: Session, org_id: str, framework: str = "csrd_e1") -> dict
         pa = protected_area_exposure(session, org_id)
         if pa["cells_loaded"] > 0:
             in_pa = pa["sites"]["in_protected"] + pa["plots"]["in_protected"]
-            exposed_m = round((pa["sites"]["value_in_eur"] + pa["plots"]["spend_in_eur"]) / 1e6, 1)
+            exposed = _money_text(session, org_id, pa["sites"]["value_in_eur"] + pa["plots"]["spend_in_eur"])
             _names = {"natura2000": "Natura 2000 (© EEA)", "osm": "OpenStreetMap (ODbL)", "wdpa": "WDPA",
                       "wdoecm": "WD-OECM", "kba": "KBA"}
             src = " · ".join(_names.get(d, d) for d in pa["datasets"]) or "protected areas"
             kpis.append(_kpi("protected_area", "In protected areas", in_pa, "num",
-                             hint=f"Own sites + sourcing plots in/near a protected area · source: {src} · €{exposed_m}m exposed · ESRS E4"))
+                             hint=f"Own sites + sourcing plots in/near a protected area · source: {src} · {exposed} exposed · ESRS E4"))
         label = "ESRS E1·E3·E4 nature KRIs"
 
     # by-hazard drives the drill (which reads _plots_with_hazard), so keep it plot-hazard keyed
@@ -468,7 +480,7 @@ def kri_detail(session: Session, org_id: str, framework: str, kri_key: str) -> d
         "supported": True, "framework": framework, "kpi": kpi,
         "regulator": result.get("regulator"),
         "methodology": _METHODOLOGY.get(kri_key),
-        "trend": {"points": trend, "fmt": kpi.get("fmt")},
+        "trend": {"points": trend, "fmt": kpi.get("fmt"), "flow": bool(kpi.get("flow"))},
         "projection": _kri_projection(session, org_id, framework, kri_key, kpi),
         "composition": _kri_composition(session, org_id, framework, kri_key, result),
         "drivers": _kri_drivers(session, org_id, framework, kri_key),
@@ -760,7 +772,7 @@ def _bank_kri(session: Session, org_id: str) -> dict:
                   f"minimum-to-let floor — the LGD driver on {csr.get('n_below_floor')} of {csr.get('n_re_loans')} "
                   f"RE-collateralised loans ({csr.get('pct_re_loans_below_floor')}% of RE-book exposure below floor). "
                   f"Exposure-weighted LTV migrates {csr.get('exposure_weighted_ltv_pct')}%→{csr.get('stressed_ltv_pct')}% "
-                  f"(+{csr.get('ltv_uplift_pp')}pp); €{round((csr.get('loan_value_at_risk_eur') or 0)/1e6,1)}m exposure "
+                  f"(+{csr.get('ltv_uplift_pp')}pp); {_money_text(session, org_id, csr.get('loan_value_at_risk_eur') or 0)} exposure "
                   f"uncovered (LTV>100%). {csr.get('epc_coverage_pct')}% carry an EPC. Disclosed EPBD-recast scenario, not a market fit.")))
     by_hazard = sorted(
         [{"hazard": h, "value": b.get("exposed_value_eur", 0), "score": b.get("max_score", 0)}

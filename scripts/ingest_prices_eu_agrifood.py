@@ -50,7 +50,18 @@ def _ym(begin: str) -> str | None:
 
 
 def _fetch(ep: str) -> list[dict]:
-    return requests.get(API.format(ep=ep), timeout=30, headers=UA).json()
+    """The portal's rows for one market. A refusal (throttling, maintenance) is the portal being unavailable; a body
+    that is not a list of rows is refused with what came back — never parsed as if it were rows."""
+    r = requests.get(API.format(ep=ep), timeout=30, headers=UA)
+    if r.status_code != 200:
+        raise ConnectionError(f"EU agri-food portal unreachable for '{ep}': HTTP {r.status_code}")
+    try:
+        data = r.json()
+    except ValueError:
+        raise ConnectionError(f"EU agri-food portal unreachable for '{ep}': not a JSON answer ({r.text[:120]!r})")
+    if not isinstance(data, list) or not all(isinstance(x, dict) for x in data):
+        raise ValueError(f"EU agri-food portal returned an unexpected '{ep}' answer: {str(data)[:200]}")
+    return data
 
 
 def _monthly(rows: list[dict], *, keep, commodity_of) -> dict:

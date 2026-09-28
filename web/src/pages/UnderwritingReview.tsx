@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { Eyebrow, Card } from '../components/ui'
 import ReviewTabs from '../components/ReviewTabs'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+import { balance } from '../lib/money'
 
 // the insurer policy detail is the same drawer Portfolio opens (/v1/insurance/policy/{id}) — reused here so a
 // most-exposed policy or an under-priced flag drills straight into the full per-policy record.
@@ -42,7 +43,6 @@ interface Review {
   most_exposed: Policy[]; note?: string
 }
 
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 function Stat({ n, label, tone }: { n: string; label: string; tone?: string }) {
   return (
@@ -86,7 +86,7 @@ export default function UnderwritingReview() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 mt-4">
               <Stat n={`${d.n_policies_hit}`} label="policies already hit" tone="#E8B24C" />
               <Stat n={`${d.n_events_observed}`} label="real crossings" />
-              <Stat n={eur(d.sum_insured_hit_eur)} label="sum insured at hit sites" />
+              <Stat n={balance(d.sum_insured_hit_eur)} label="sum insured at hit sites" />
               <Stat n={`${d.frequency.n_validatable}`} label="frequency-validatable" />
             </div>
           </Card>
@@ -143,7 +143,7 @@ export default function UnderwritingReview() {
                         <span className="mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-panel-2)] text-[var(--color-mute)]">{p.headline_hazard}</span>
                         <span className="flex-1 min-w-0" />
                         <span className="mono text-[11px] text-[var(--color-ink)] tabular-nums">{p.n_observed_events} event{p.n_observed_events === 1 ? '' : 's'}</span>
-                        <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{eur(p.sum_insured_eur)} SI</span>
+                        <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{balance(p.sum_insured_eur)} SI</span>
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 pl-0.5">
                         {p.events.slice(0, 4).map((e, i) => (

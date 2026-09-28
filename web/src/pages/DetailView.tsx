@@ -6,8 +6,8 @@ import { Card, PageHeader, SectionHead } from '../components/ui'
 import MiniMap from '../components/MiniMap'
 import LocationEditor from '../components/LocationEditor'
 import { hazardLabel } from '../lib/hazards'
+import { balance, flow } from '../lib/money'
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const pretty = (h?: string | null) => !h ? '—' : h.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 interface Adapt { hazard: string; label: string; actions: string[] }
@@ -129,9 +129,9 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
       facts: [
         { k: 'Type', v: pretty(s.site_type as string) },
         { k: 'Country', v: (s.country as string) ?? '—' },
-        { k: 'Asset value', v: eur(s.value_eur as number) },
-        { k: 'Annual throughput', v: eur(s.throughput_eur as number) },
-        { k: 'Business-interruption', v: eur(d.bi_at_risk_eur as number) },
+        { k: 'Asset value', v: balance(s.value_eur as number) },
+        { k: 'Annual throughput', v: flow(s.throughput_eur as number) },
+        { k: 'Business-interruption', v: flow(d.bi_at_risk_eur as number) },  // annual throughput × downtime share
         { k: 'Grid cell', v: (s.h3_cell as string) ?? '—' },
       ],
       hazards: (d.hazards as { hazard_type: string; score: number | null }[]).map(h => ({ hazard: h.hazard_type, score: h.score })),
@@ -148,7 +148,7 @@ function normalize(kind: 'site' | 'plot', d: Record<string, unknown>): Norm {
     facts: [
       { k: 'Commodity', v: p.commodity as string },
       { k: 'Country', v: (p.country as string) ?? '—' },
-      { k: 'Annual spend', v: eur(p.spend_eur as number) },
+      { k: 'Annual spend', v: flow(p.spend_eur as number) },
       { k: 'EUDR status', v: pretty((p.eudr_status as string) ?? null) },
       { k: 'EUDR determination', v: pretty((p.eudr_determination as string) ?? null) },
       { k: 'Grid cell', v: (p.h3_cell as string) ?? '—' },

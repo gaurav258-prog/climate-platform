@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import { displayNote } from '../lib/money'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Map as MapIcon, BellRing, ShieldCheck, Database, LogOut, Settings, Globe, ArrowLeft, Landmark, BookOpen, KanbanSquare, AlertOctagon, CalendarDays, Gauge, GitBranch, Layers, Sun, Moon, Crosshair, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FileSignature, Fingerprint, Scale, Network, UserPlus, Telescope, Building2 } from 'lucide-react'
 import clsx from 'clsx'
@@ -274,6 +275,9 @@ export default function Shell({ children }: { children: ReactNode }) {
             <span className="text-[var(--color-ink)]">Viewing <b>{viewing.tenant}</b> as a platform operator <span className="text-[var(--color-mute)]">(signed in as {viewing.as} · recorded in their audit log)</span></span>
             <button onClick={exitViewing} className="shrink-0 rounded-lg px-3 py-1 font-medium bg-[var(--color-warn)] text-[#1a1206] hover:opacity-90">Exit to platform</button>
           </div>
+        )}
+        {!bleed && displayNote() && (
+          <div className="px-8 py-1.5 text-[11px] mono text-[var(--color-faint)] border-b border-[var(--color-line)]" role="note">{displayNote()}</div>
         )}
         {bleed ? (
           <div className="relative h-screen overflow-hidden">{children}</div>

@@ -1,4 +1,5 @@
 import { modelLabel } from '../lib/hazards'
+import { balance } from '../lib/money'
 // Static audit-trail graph — renders a filing cell's lineage as a branching node tree:
 //   Reported figure → contributing assets → the golden source → the source feeds.
 // Deterministic SVG (positions computed in JS, so no fragile measurement), colour-coded by node type.
@@ -7,7 +8,6 @@ interface Source { key: string; name: string; status: string | null }
 interface Contributor { asset_id: string; asset_name: string; value_eur: number | null; granular: { model_version: string | null } | null }
 interface Props { hazardLabel: string; exposed: number | null; contributors: Contributor[]; sources: Source[] }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const feedDot = (s: string | null) => s === 'fresh' || s === 'live' ? '#34d399' : s === 'overdue' || s === 'failed' ? '#fb7185' : s === 'due_soon' ? '#e8b24c' : '#94a3b8'
 
 const NODE_W = 168
@@ -61,9 +61,9 @@ export default function LineageGraph({ hazardLabel, exposed, contributors, sourc
         ))}
 
         {/* reported cell */}
-        <Node x={cx(0)} y={cellY} fill="#0e749022" stroke="#38bec9" label={hazardLabel} sub={eur(exposed)} />
+        <Node x={cx(0)} y={cellY} fill="#0e749022" stroke="#38bec9" label={hazardLabel} sub={balance(exposed)} />
         {/* assets */}
-        {assets.map((a, i) => <Node key={a.asset_id} x={cx(1)} y={aY[i]} fill="var(--color-panel-2)" stroke="var(--color-line-2)" label={a.asset_name} sub={eur(a.value_eur)} />)}
+        {assets.map((a, i) => <Node key={a.asset_id} x={cx(1)} y={aY[i]} fill="var(--color-panel-2)" stroke="var(--color-line-2)" label={a.asset_name} sub={balance(a.value_eur)} />)}
         {moreAssets > 0 && <Node x={cx(1)} y={aY[assets.length]} fill="transparent" stroke="var(--color-line)" label={`+ ${moreAssets} more`} sub="" />}
         {/* golden source */}
         <Node x={cx(2)} y={goldY} fill="#15803d22" stroke="#34d399" label="Scored hazard record" sub={modelLabel(model)} />

@@ -20,10 +20,9 @@ SECTIONS = ["identity", "supervision", "submissions", "plausibility", "lens", "p
 
 
 def _eur(v) -> str:
-    if v is None:
-        return "—"
-    v = float(v)
-    return f"€{v/1e9:.2f}bn" if abs(v) >= 1e9 else f"€{v/1e6:.1f}m" if abs(v) >= 1e6 else f"€{v/1e3:.0f}k"
+    """Supervisory figures are in EUR — the currency the templates and the supervisor's acts are set in."""
+    from services.governance.money_format import money
+    return money(float(v), "EUR") if v is not None else "—"
 
 
 # ── assembly ────────────────────────────────────────────────────────────────────────────────────────────────

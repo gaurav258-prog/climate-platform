@@ -10,6 +10,7 @@ import { severityHex } from '../components/SiteMap'
 import StageStrip, { type Step } from '../components/StageStrip'
 import { frameworkLabel, horizonLabel, scenarioLabel, statusLabel } from '../lib/hazards'
 import { RemitDialog, RemittancesIssued } from '../components/Remittance'
+import { balance } from '../lib/money'
 
 // The entity file — what a line supervisor opens: identity, submissions, exposure (regional), peer position,
 // what the entity lets me see, and my own access trail on it. Every field is computed by the same engine the
@@ -28,8 +29,7 @@ interface FileResp {
   peer_position: Pos[]; peers_in_sector: number | null; site_access: boolean
   my_recent_accesses: { action: string; at: string; detail: Record<string, unknown> }[]
 }
-const eur = (v: number | null | undefined) => v == null ? '—' : v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
-const fmt = (p: Pos, v: number | null | undefined) => v == null ? '—' : p.unit === 'eur' ? eur(v) : `${v}%`
+const fmt = (p: Pos, v: number | null | undefined) => v == null ? '—' : p.unit === 'eur' ? balance(v) : `${v}%`
 const FLAG: Record<string, { label: string; color: string }> = {
   act: { label: 'Act', color: 'var(--color-bad)' }, watch: { label: 'Watch', color: 'var(--color-warn)' },
   ok: { label: 'Within expectation', color: 'var(--color-good)' }, na: { label: 'n/a', color: 'var(--color-faint)' } }
@@ -65,7 +65,7 @@ export default function EntityFile() {
       {!d.in_profile && <Card className="p-4 text-[12.5px] text-[var(--color-warn)]">This entity's sector is outside your supervision profile — exposure is shown, peer benchmarking is not.</Card>}
 
       <StatGrid cols={4} items={[
-        { label: d.sector?.book_noun ?? 'assets', value: d.book.n_assets.toLocaleString(), sub: eur(d.book.value_eur) },
+        { label: d.sector?.book_noun ?? 'assets', value: d.book.n_assets.toLocaleString(), sub: balance(d.book.value_eur) },
         { label: 'Submissions', value: sub ? `${sub.filed}/${sub.expected}` : '—', sub: 'framework-periods filed' },
         { label: 'Regions with exposure', value: String(d.book.n_regions), sub: d.sector?.region_unit === 'nuts3' ? 'NUTS-3 · hexagons outside EU' : '' },
         { label: 'Site-level access', value: d.site_access ? 'Granted' : 'Not granted', accent: d.site_access ? 'var(--color-good)' : 'var(--color-faint)', sub: d.site_access ? 'individual sites visible' : 'regional aggregates only' },
@@ -112,7 +112,7 @@ export default function EntityFile() {
           <div className="divide-y divide-[var(--color-line)]">{d.book.top_regions.map(r => (
             <div key={r.key} className="py-1.5 flex items-center justify-between gap-3 text-[12.5px]">
               <span className="min-w-0 truncate text-[var(--color-ink)]">{r.name}{r.country ? <span className="text-[var(--color-faint)]"> · {r.country}</span> : null}{r.kind === 'h3' ? <span className="mono text-[10px] text-[var(--color-faint)]"> grid cell</span> : null}</span>
-              <span className="mono text-[11.5px] text-[var(--color-mute)] shrink-0">{r.n_sites} · {eur(r.value_eur)}</span>
+              <span className="mono text-[11.5px] text-[var(--color-mute)] shrink-0">{r.n_sites} · {balance(r.value_eur)}</span>
               <span className="mono text-[11.5px] shrink-0 w-24 text-right" style={{ color: severityHex(r.max_score) }}>{r.max_score != null ? `${Math.round(r.max_score)}/100 · ${(r.worst_hazard ?? '').replace(/_/g, ' ')}` : 'unscored'}</span>
             </div>))}</div>
         </Card>
@@ -121,7 +121,7 @@ export default function EntityFile() {
           <div className="divide-y divide-[var(--color-line)]">{d.book.hazards.map(h => (
             <div key={h.hazard} className="py-1.5 flex items-center justify-between text-[12.5px]">
               <span className="text-[var(--color-ink)]">{h.hazard.replace(/_/g, ' ')}</span>
-              <span className="mono text-[11.5px] text-[var(--color-mute)]">{h.n} · {eur(h.value_eur)}</span>
+              <span className="mono text-[11.5px] text-[var(--color-mute)]">{h.n} · {balance(h.value_eur)}</span>
             </div>))}</div>
         </Card>
       </div>

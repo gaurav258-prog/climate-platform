@@ -9,6 +9,7 @@ import { Eyebrow, Card, Button, SectionHead, PageHeader, HeroBanner } from '../c
 import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
+import { balance } from '../lib/money'
 
 // Act — the decision surface. The projection flags exposures that cross from below-High today into High+ by a
 // chosen scenario/horizon; here an officer records what to do about each — reprice, engage, disclose, keep
@@ -56,7 +57,6 @@ interface Decision { action: string; rationale: string | null; status: string; b
 interface Crossing { entity_id: string; entity_name: string; value_eur: number | null; country: string | null; region: string | null; driver: string; current_score: number | null; future_score: number | null; delta: number; decision: Decision | null }
 interface LogRow { entity_name: string | null; scenario: string; horizon: string; action: string; rationale: string | null; status: string; by: string | null; at: string }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const scLabel = (k: string) => SCEN.find(s => s[0] === k)?.[1] ?? k
 
 export default function Decisions() {
@@ -103,7 +103,7 @@ export default function Decisions() {
         {cq.data?.policy && (
           <div className="mono text-[10.5px] text-[var(--color-faint)] mt-2">
             {cq.data.policy.requires_approval
-              ? <>governance · <span className="text-[var(--color-mute)]">4-eyes required{cq.data.policy.threshold_eur ? ` above ${eur(cq.data.policy.threshold_eur)}` : ' on every decision'}</span></>
+              ? <>governance · <span className="text-[var(--color-mute)]">4-eyes required{cq.data.policy.threshold_eur ? ` above ${balance(cq.data.policy.threshold_eur)}` : ' on every decision'}</span></>
               : <>governance · <span className="text-[var(--color-mute)]">decisions apply directly (no 4-eyes)</span> — configurable in Settings → Approval matrix</>}
           </div>
         )}
@@ -124,7 +124,7 @@ export default function Decisions() {
         lead={`${NounP} that cross the High line by ${scLabel(scenario)} by ${horizon} — the projection's act-by list. Decide on each.`}
         stat={[
           { label: `${NounP} crossing`, value: cq.isLoading ? '—' : crossings.length, icon: TrendingUp, tone: 'var(--color-sky)' },
-          { label: 'Value newly at risk', value: cq.isLoading ? '—' : eur(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
+          { label: 'Value newly at risk', value: cq.isLoading ? '—' : balance(exposed), icon: ShieldAlert, tone: '#D23B3B', pulse: !cq.isLoading && exposed > 0 },
           { label: 'Decided', value: cq.isLoading ? '—' : `${approved} / ${crossings.length}`, icon: Check, tone: approved === crossings.length && crossings.length > 0 ? '#4FA46E' : pending > 0 ? '#E8853C' : undefined },
         ]} />
 
@@ -200,7 +200,7 @@ function CrossingRow({ c, scenario, horizon, canAct, actions, discloseTo, focuse
           <span className="text-[var(--color-bad)] font-medium">{c.future_score ?? '—'}</span>
           <span className="text-[var(--color-faint)]">(+{c.delta})</span>
         </div>
-        <div className="mono text-[12.5px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{eur(c.value_eur)}</div>
+        <div className="mono text-[12.5px] tabular-nums text-[var(--color-ink)] w-20 text-right shrink-0">{balance(c.value_eur)}</div>
         <div className="w-32 flex justify-end shrink-0">
           {c.decision
             ? <button onClick={() => canAct && setOpen(o => !o)} title={proposed ? 'Proposed — awaiting a second approval' : `Approved · ${c.decision.by?.split('@')[0]}`}

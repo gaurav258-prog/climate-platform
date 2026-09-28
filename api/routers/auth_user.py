@@ -3,6 +3,7 @@ User authentication endpoints (login sessions, distinct from machine API keys).
 
 POST /v1/auth/login   — email + password → JWT + full profile (roles, permissions, entitlements)
 GET  /v1/auth/me      — current user's profile from a Bearer JWT
+GET  /v1/auth/me/money — the currency the org's screens show money in (presentation currency + rates)
 POST /v1/auth/logout  — stateless no-op (client discards token); logged for audit
 """
 from __future__ import annotations
@@ -122,6 +123,12 @@ def session_revoke(token_id: str, ctx: CurrentUser, session: DbSession):
 @router.get("/me", summary="Current user profile")
 def me(ctx: CurrentUser):
     return _profile(ctx)
+
+
+@router.get("/me/money", summary="The currency this organisation's screens show money in, with the rates used")
+def me_money(ctx: CurrentUser, session: DbSession):
+    from services.governance.display_currency import view
+    return view(session, ctx["org"]["org_id"])
 
 
 @router.post("/logout", status_code=204, summary="Log out (stateless)")

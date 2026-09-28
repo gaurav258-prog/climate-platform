@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, X, Factory } from 'lucide-react'
 import { api } from '../lib/api'
+import { money } from '../lib/money'
 import { Card, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 
@@ -26,7 +27,7 @@ interface Issuer {
   facilities?: Facility[]
 }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+const eur = (n?: number | null) => money(n, 'EUR')   // fund positions are held in EUR, as the SFDR statement reports them
 const BUCKET: Record<string, string> = { VH: 'severe', H: 'high', M: 'elevated', L: 'low' }
 
 export default function FundPositions({ fundId }: { fundId: string }) {

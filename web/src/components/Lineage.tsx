@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ArrowDown, ArrowUp, Satellite } from 'lucide-react'
 import clsx from 'clsx'
 import { api } from '../lib/api'
+import { flow } from '../lib/money'
 
 // ── data shapes ────────────────────────────────────────────────────────────
 interface Commodity { commodity: string; volume_at_risk_eur: number | null; calibration: string | null; top_hazard: string | null; yield_shock_pct: number | null }
@@ -10,7 +11,6 @@ interface Summary { rollup: { volume_at_risk_eur: number }; commodities: Commodi
 interface Plot { plot_id: string; commodity: string; plot_name: string; country: string | null; spend_eur: number; top_hazard: string | null; hazard_score: number | null; eudr_determination: string | null }
 interface Portfolio { plots: Plot[] }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(2)}m` : `€${(n / 1e3).toFixed(0)}k`
 const KIND: Record<string, string> = {
   report: 'var(--color-sky)', commodity: 'var(--color-warn)', plot: 'var(--color-ink)',
   feed: 'var(--color-blue)', score: 'var(--color-good)',
@@ -53,17 +53,17 @@ function buildTopDown(sum: Summary, plots: Plot[]): Node {
   const byCommodity = sum.commodities.filter(c => (c.volume_at_risk_eur ?? 0) > 0)
     .sort((a, b) => (b.volume_at_risk_eur ?? 0) - (a.volume_at_risk_eur ?? 0))
   return {
-    id: 'root', kind: 'report', label: 'Volume-at-risk (physical) — the report figure', value: eur(total),
+    id: 'root', kind: 'report', label: 'Volume-at-risk (physical) — the report figure', value: flow(total),
     note: 'CSRD physical-risk / COGS-at-risk',
     children: byCommodity.map(c => {
       const cv = c.volume_at_risk_eur ?? 0
       const cplots = plots.filter(p => p.commodity === c.commodity)
       const spend = cplots.reduce((s, p) => s + (p.spend_eur ?? 0), 0)
       return {
-        id: `c-${c.commodity}`, kind: 'commodity', label: c.commodity, value: eur(cv),
+        id: `c-${c.commodity}`, kind: 'commodity', label: c.commodity, value: flow(cv),
         share: total ? cv / total : 0, note: `${c.calibration ?? 'tested'} · ${c.top_hazard ?? ''} ${c.yield_shock_pct ?? ''}%`,
         children: cplots.map(p => ({
-          id: `p-${p.plot_id}`, kind: 'plot', label: p.plot_name, value: eur(p.spend_eur),
+          id: `p-${p.plot_id}`, kind: 'plot', label: p.plot_name, value: flow(p.spend_eur),
           share: spend ? (p.spend_eur ?? 0) / spend : 0, note: `${p.country ?? ''}`,
           children: [
             { id: `s-${p.plot_id}`, kind: 'score', label: `Hazard score ${p.hazard_score?.toFixed(0) ?? '—'}`, note: p.top_hazard ?? '', value: p.top_hazard ?? '' },
@@ -83,9 +83,9 @@ function buildBottomUp(plot: Plot, sum: Summary): Node[] {
   return [
     { id: 'b-feed', kind: 'feed', label: 'ERA5 climatology + Hansen forest-loss', note: 'the raw satellite feeds under this plot' },
     { id: 'b-score', kind: 'score', label: `Hazard score ${plot.hazard_score?.toFixed(0) ?? '—'}`, note: plot.top_hazard ?? '' },
-    { id: 'b-plot', kind: 'plot', label: plot.plot_name, value: eur(plot.spend_eur), note: `${plot.country ?? ''} · spend` },
-    { id: 'b-com', kind: 'commodity', label: `${plot.commodity} — volume at risk`, value: eur(cv), note: com?.calibration ?? 'tested' },
-    { id: 'b-report', kind: 'report', label: 'Volume-at-risk (physical) — the report figure', value: eur(sum.rollup.volume_at_risk_eur), note: 'CSRD / COGS-at-risk' },
+    { id: 'b-plot', kind: 'plot', label: plot.plot_name, value: flow(plot.spend_eur), note: `${plot.country ?? ''} · spend` },
+    { id: 'b-com', kind: 'commodity', label: `${plot.commodity} — volume at risk`, value: flow(cv), note: com?.calibration ?? 'tested' },
+    { id: 'b-report', kind: 'report', label: 'Volume-at-risk (physical) — the report figure', value: flow(sum.rollup.volume_at_risk_eur), note: 'CSRD / COGS-at-risk' },
   ]
 }
 

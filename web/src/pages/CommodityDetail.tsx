@@ -5,8 +5,8 @@ import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import MiniMap from '../components/MiniMap'
+import { flow } from '../lib/money'
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 const scen = (s: string) => ({ baseline: 'Baseline', orderly_1_5c: 'Orderly 1.5°C', disorderly_2c: 'Disorderly 2°C', hot_house_3_5c: 'Hot-house 3.5°C' } as Record<string, string>)[s] || s
@@ -26,7 +26,7 @@ export default function CommodityDetail() {
   const d = q.data, s = d.summary
   const published = s.calibration === 'backtested' || s.calibration === 'ranged'
   const varLabel = published
-    ? (s.calibration === 'ranged' ? `${eur(s.volume_at_risk_low_eur)}–${eur(s.volume_at_risk_high_eur)}` : eur(s.volume_at_risk_eur))
+    ? (s.calibration === 'ranged' ? `${flow(s.volume_at_risk_low_eur)}–${flow(s.volume_at_risk_high_eur)}` : flow(s.volume_at_risk_eur))
     : '€ withheld'
   const lats = d.plots.filter(p => p.lat != null)
   const cLat = lats.length ? lats.reduce((a, p) => a + p.lat, 0) / lats.length : null
@@ -60,7 +60,7 @@ export default function CommodityDetail() {
         title={published ? 'Climate drives this crop — the euro is published.' : 'Exposure mapped — the euro is withheld.'}
         lead="Driver hazard, sourcing plots and confidence for this commodity, on live satellite data."
         stat={[
-          { label: 'annual spend', value: eur(s.annual_spend_eur), icon: Coins },
+          { label: 'annual spend', value: flow(s.annual_spend_eur), icon: Coins },
           { label: 'sourcing plots', value: s.n_plots, icon: Sprout, tone: 'var(--color-sky)' },
           { label: 'of yield at risk', value: s.yield_shock_pct != null ? `${s.yield_shock_pct}%` : '—', icon: TrendingDown, tone: published && (s.yield_shock_pct ?? 0) > 0 ? '#E8853C' : undefined },
           { label: 'confidence grade', value: s.confidence_grade ?? '—', icon: BadgeCheck },
@@ -89,7 +89,7 @@ export default function CommodityDetail() {
                     <tr key={p.plot_id} onClick={() => window.open(`/detail/plot/${p.plot_id}`, '_blank')} className="border-t border-[var(--color-line)] cursor-pointer hover:bg-[var(--color-panel)]">
                       <td className="py-2 pr-3 text-[var(--color-ink)] hover:text-[var(--color-sky)]">{p.plot_name}</td>
                       <td className="pr-3 text-[var(--color-mute)] mono text-[11px]">{p.country ?? '—'}</td>
-                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(p.spend_eur)}</td>
+                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{flow(p.spend_eur)}</td>
                       <td><span className="mono text-[12px]" style={{ color: hz(p.hazard_score) }}>{pretty(p.top_hazard)} {p.hazard_score != null ? Math.round(p.hazard_score) : '—'}</span></td>
                     </tr>
                   ))}

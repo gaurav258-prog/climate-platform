@@ -7,6 +7,7 @@ import { downloadCsv } from '../lib/export'
 import { toast } from '../lib/toast'
 import { Card, SectionHead } from './ui'
 import { hazardLabel } from '../lib/hazards'
+import { balance, balanceValue, displaySymbol } from '../lib/money'
 
 // Custom views — bounded self-service analytics. A user picks scope × measure × scenario × horizon × group-by
 // and gets a chart/table, then saves it as a named, shareable view. CRITICAL: a view stores only PARAMETERS —
@@ -35,10 +36,9 @@ const BUCKET: Record<string, { label: string; color: string }> = {
   VH: { label: 'Severe', color: 'var(--color-bad)' }, H: { label: 'High', color: 'var(--scn-disorderly)' },
   M: { label: 'Elevated', color: 'var(--scn-orderly)' }, L: { label: 'Low', color: 'var(--color-faint)' },
 }
-const MEASURES = [{ k: 'value', label: '€ exposed' }, { k: 'pct', label: '% of book' }, { k: 'count', label: '# exposures' }] as const
+const MEASURES = [{ k: 'value', label: 'exposed' }, { k: 'pct', label: '% of book' }, { k: 'count', label: '# exposures' }] as const
 const THRESHOLDS = [{ k: 'highplus', label: 'High +', set: ['H', 'VH'] }, { k: 'severe', label: 'Severe only', set: ['VH'] }] as const
 
-const eur = (n: number) => n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 interface Hz { hazard: string; bucket: string | null; score: number | null }
 interface Item { name: string; value: number; sector: string; region: string; country: string; hazards: Hz[]; bucket: string | null }
@@ -121,8 +121,9 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
   const shown = result.slice(0, 12)
   const hidden = result.length - shown.length
   const totalMeasure = result.reduce((s, r) => s + r.raw, 0)
-  const fmt = (n: number) => cfg.measure === 'count' ? Math.round(n).toLocaleString('en-GB') : cfg.measure === 'pct' ? `${n.toFixed(1)}%` : eur(n)
-  const measureLabel = MEASURES.find(m => m.k === cfg.measure)!.label
+  const fmt = (n: number) => cfg.measure === 'count' ? Math.round(n).toLocaleString('en-GB') : cfg.measure === 'pct' ? `${n.toFixed(1)}%` : balance(n)
+  const measureText = (m: typeof MEASURES[number]) => m.k === 'value' ? `${displaySymbol().trim()} ${m.label}` : m.label
+  const measureLabel = measureText(MEASURES.find(m => m.k === cfg.measure)!)
   const scen = SCEN.find(s => s.key === cfg.scenario)!
 
   // ── saved views (own + shared in the org) ───────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
 
   const exportCsv = () => downloadCsv('tellumen-custom-view',
     [{ key: 'label', label: groupBys.find(g => g.k === cfg.groupBy)!.label }, { key: 'value', label: measureLabel }],
-    result.map(r => ({ label: r.label, value: cfg.measure === 'value' ? Math.round(r.raw) : cfg.measure === 'pct' ? r.raw.toFixed(2) : Math.round(r.raw) })),
+    result.map(r => ({ label: r.label, value: cfg.measure === 'value' ? Math.round(balanceValue(r.raw)) : cfg.measure === 'pct' ? r.raw.toFixed(2) : Math.round(r.raw) })),
     { title: 'Custom view', org: orgName, exploratory: true,
       basis: { pathway: scen.label, horizon: `${cfg.horizon}${interpolated ? ' (interpolated)' : ''}`, view: `${measureLabel} by ${cfg.groupBy}` } })
 
@@ -201,7 +202,7 @@ export default function AnalyticsViews({ prefix, orgName }: { prefix: string; or
         <label className="flex items-center gap-2"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Group by</span>
           <Select value={cfg.groupBy} onChange={v => set('groupBy', v)}>{groupBys.map(g => <option key={g.k} value={g.k}>{g.label}</option>)}</Select></label>
         <label className="flex items-center gap-2"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Measure</span>
-          <Seg value={cfg.measure} opts={MEASURES.map(m => ({ k: m.k, label: m.label }))} onChange={v => set('measure', v)} /></label>
+          <Seg value={cfg.measure} opts={MEASURES.map(m => ({ k: m.k, label: measureText(m) }))} onChange={v => set('measure', v)} /></label>
         <label className="flex items-center gap-2"><span className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)]">Pathway</span>
           <Select value={cfg.scenario} onChange={v => set('scenario', v)}>{SCEN.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></label>
         {/* horizon: any year 2025–2100; the four modelled anchors are quick-picks, everything else is interpolated */}

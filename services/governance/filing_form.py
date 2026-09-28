@@ -260,7 +260,7 @@ def _reit_taxonomy_form(payload: dict) -> list[dict]:
     sections: list[dict] = [{
         "section": "Turnover KPI (Del. Reg. (EU) 2021/2178, Art. 8)",
         "note": to.get("basis"),
-        "rows": [{"label": r["row"], "value": (f"€{r['eur']:,}" if r.get("eur") is not None else "—"),
+        "rows": [{"label": r["row"], "value": money(r.get("eur"), presentation_of(payload), compact=False),
                   "pct": (f"{r['pct']}%" if r.get("pct") is not None else None), "note": r.get("note")}
                  for r in to.get("rows", [])],
     }, {

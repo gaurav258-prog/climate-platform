@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Card, PageHeader } from '../components/ui'
 import ExposureMap, { type Region, type Site } from '../components/ExposureMap'
-const eurS = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
+import { balance } from '../lib/money'
 // ── Where the supervised exposure sits ─────────────────────────────────────────────────────────────────────
 // Regional by default (NUTS-3 / hexagons — what filings carry). Individual sites only for an entity that has
 // granted site-level access; the switch is on the entity's side, the regulator can only ask.
@@ -46,10 +46,10 @@ function ExposureCard() {
         </div>
       </div>
       {focusKey && d && (() => { const r = d.regions.find(x => x.key === focusKey); return r ? (
-        <div className="mb-2 text-[12.5px] text-[var(--color-ink)]">Focused on <b>{r.name}</b>{r.country ? ` · ${r.country}` : ''}: {r.n_sites} sites · {eurS(r.value_eur)} · worst {r.max_score != null ? Math.round(r.max_score) : '—'}/100{r.worst_hazard ? ` (${r.worst_hazard.replace(/_/g, ' ')})` : ''} · {r.entities.join(', ')}</div>) : null })()}
+        <div className="mb-2 text-[12.5px] text-[var(--color-ink)]">Focused on <b>{r.name}</b>{r.country ? ` · ${r.country}` : ''}: {r.n_sites} sites · {balance(r.value_eur)} · worst {r.max_score != null ? Math.round(r.max_score) : '—'}/100{r.worst_hazard ? ` (${r.worst_hazard.replace(/_/g, ' ')})` : ''} · {r.entities.join(', ')}</div>) : null })()}
       {d && (
         <div className="mono text-[11px] text-[var(--color-faint)] mb-2">
-          {d.n_sites.toLocaleString()} sites · {eurS(d.value_eur)} · {d.n_regions} regions · {d.scenario} · {d.horizon}
+          {d.n_sites.toLocaleString()} sites · {balance(d.value_eur)} · {d.n_regions} regions · {d.scenario} · {d.horizon}
           {' · '}{d.entities.filter(e => e.site_access).length} of {d.entities.length} entities grant site access
         </div>
       )}

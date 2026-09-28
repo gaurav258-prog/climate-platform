@@ -4,6 +4,7 @@ import { Landmark, Upload, CheckCircle2, AlertTriangle, Download } from 'lucide-
 import { api, upload as uploadFile, download } from '../lib/api'
 import MoneyDeclaration from './MoneyDeclaration'
 import { toast } from '../lib/toast'
+import { balance } from '../lib/money'
 import { Card, StatGrid, type StatItem } from './ui'
 
 // General-ledger reconciliation — tie the reported book TOTAL back to the customer's GL control accounts
@@ -17,10 +18,9 @@ interface Recon {
   tolerance_pct?: number; reconciled?: boolean; n_accounts?: number; accounts?: Acct[]
 }
 // Reconciliation figures must FOOT visibly (reported − GL = variance, and the account rows sum to GL), so
-// they are shown at a fixed €m precision with thousands separators — never abbreviated to €Xbn, which would
-// round two nearly-equal totals to a fake gap larger than the real variance.
-const eur = (n?: number | null) => n == null ? '—'
-  : `${n < 0 ? '−' : ''}€${(Math.abs(n) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}m`
+// they are shown as full figures with thousands separators — never abbreviated to Xbn, which would round two
+// nearly-equal totals to a fake gap larger than the real variance. GL lines are balances (closing rate).
+const amt = (n?: number | null) => balance(n, { full: true })
 
 export default function GlRecon() {
   const qc = useQueryClient()
@@ -79,9 +79,9 @@ export default function GlRecon() {
         ) : (
           <>
             <StatGrid className="mb-3" cols={4} items={[
-              { label: 'Reported book', value: eur(d.reported_book_eur) },
-              { label: 'GL balance', value: eur(d.gl_book_eur) },
-              { label: `Variance${d.variance_pct != null ? ` · ${d.variance_pct}%` : ''}`, value: eur(d.variance_eur), accent: d.reconciled ? 'var(--color-good)' : 'var(--color-bad)' },
+              { label: 'Reported book', value: amt(d.reported_book_eur) },
+              { label: 'GL balance', value: amt(d.gl_book_eur) },
+              { label: `Variance${d.variance_pct != null ? ` · ${d.variance_pct}%` : ''}`, value: amt(d.variance_eur), accent: d.reconciled ? 'var(--color-good)' : 'var(--color-bad)' },
               { label: 'Status',
                 value: d.reconciled
                   ? <span className="inline-flex items-center gap-1.5 mono text-[11px]" style={{ color: 'var(--color-good)' }}><CheckCircle2 size={14} /> Reconciled</span>
@@ -94,7 +94,7 @@ export default function GlRecon() {
                   <div key={a.account_code} className="flex items-center gap-3 py-1.5 text-[12px]">
                     <span className="mono text-[11px] text-[var(--color-faint)] shrink-0 w-14">{a.account_code}</span>
                     <span className="flex-1 min-w-0 truncate text-[var(--color-mute)]">{a.account_name}</span>
-                    <span className="mono tabular-nums text-[var(--color-ink)] shrink-0">{eur(a.balance_eur)}</span>
+                    <span className="mono tabular-nums text-[var(--color-ink)] shrink-0">{amt(a.balance_eur)}</span>
                   </div>
                 ))}
               </div>

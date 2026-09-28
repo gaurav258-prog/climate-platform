@@ -17,6 +17,7 @@ from xml.dom.minidom import parseString
 
 from sqlalchemy.orm import Session
 
+from services.governance.money_format import money
 from services.intelligence import xbrl_core
 from services.intelligence.esrs_nature import build_esrs_pack
 from services.intelligence.esrs_taxonomy import (
@@ -199,7 +200,7 @@ def build_ixbrl(session: Session, org_id: str, scenario: str = "baseline", horiz
     def _fmt(f):
         c = CONCEPTS[f["concept"]]
         if c["item_type"] == "monetary":
-            return f'€{f["value"]:,.0f}'
+            return money(f["value"], "EUR", compact=False)   # this instance's monetary unit is EUR (the engine's amounts)
         if c["item_type"] == "area":
             return f'{f["value"]:,.2f} ha'
         return f'{f["value"]:,.0f}'

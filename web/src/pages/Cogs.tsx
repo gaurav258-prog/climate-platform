@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner, SectionHead, StatGrid, type StatItem } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
+import { flow } from '../lib/money'
 
 interface Commodity {
   commodity: string; eudr_covered: boolean; annual_spend_eur: number; n_plots: number; status: string
@@ -28,7 +29,6 @@ interface Summary {
   concentration?: Concentration
 }
 
-const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
 const TIER: Record<string, { label: string; cls: string }> = {
   backtested: { label: 'Backtested', cls: 'text-[var(--color-good)] bg-[color-mix(in_oklab,var(--color-good)_13%,transparent)]' },
   ranged: { label: 'Ranged · band', cls: 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_13%,transparent)]' },
@@ -57,8 +57,8 @@ export default function Cogs() {
         title={(d.rollup.volume_at_risk_eur ?? 0) > 0 ? "Some of your volume won't arrive." : 'Your volume is clearing.'}
         lead="Climate hazard on every sourcing plot, rolled into the share of volume that fails — priced at what you already pay."
         stat={[
-          { label: 'ingredient spend', value: eur(d.rollup.ingredient_spend_eur), icon: Coins },
-          { label: 'volume at risk (physical)', value: eur(d.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C' },
+          { label: 'ingredient spend', value: flow(d.rollup.ingredient_spend_eur), icon: Coins },
+          { label: 'volume at risk (physical)', value: flow(d.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C' },
           { label: 'of COGS', value: `${(d.rollup.pct_cogs_at_risk ?? 0).toFixed(2)}%`, icon: Percent },
           { label: 'commodities', value: d.commodities.length, icon: Boxes, tone: 'var(--color-sky)' },
         ]} />
@@ -91,14 +91,14 @@ export default function Cogs() {
                 <div className="ml-auto text-right">
                   {published
                     ? <div className="display text-lg font-semibold text-[var(--color-warn)]">
-                        {c.calibration === 'ranged' ? `${eur(c.volume_at_risk_low_eur)}–${eur(c.volume_at_risk_high_eur)}` : eur(c.volume_at_risk_eur)}
+                        {c.calibration === 'ranged' ? `${flow(c.volume_at_risk_low_eur)}–${flow(c.volume_at_risk_high_eur)}` : flow(c.volume_at_risk_eur)}
                       </div>
                     : <div className="mono text-[12px] text-[var(--color-faint)]">€ withheld</div>}
                   <div className="text-[10px] text-[var(--color-faint)]">{published ? 'volume at risk' : 'exposure mapped'}</div>
                 </div>
               </div>
               <div className="text-[12px] text-[var(--color-mute)] mt-2">
-                spend {eur(c.annual_spend_eur)} · {c.n_plots} plots · {c.top_hazard ?? 'hazard'} {c.avg_hazard ?? '—'}
+                spend {flow(c.annual_spend_eur)} · {c.n_plots} plots · {c.top_hazard ?? 'hazard'} {c.avg_hazard ?? '—'}
                 {c.yield_shock_pct != null && published ? ` · ${c.yield_shock_pct}% of yield at risk` : ''}
                 {!published && c.held_reason ? <span className="text-[var(--color-faint)]"> · {c.held_reason}</span> : ''}
               </div>
@@ -128,7 +128,7 @@ function SupplyConcentrationCard({ c, commodityIds, onHazard }: { c?: Concentrat
         <div className="mt-3 rounded-lg border border-[var(--color-line-2)] px-3.5 py-2.5">
           <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1">Largest common shock · one bad season hits these together</div>
           <div className="text-[13px] text-[var(--color-ink)]">
-            <span className="font-medium">{hazardLabel(cs.hazard)}</span> across <span className="font-medium">{cs.n_commodities} crops</span> — {eur(cs.spend_eur)} spend exposed{cs.at_risk_eur ? <> · <span style={{ color: '#E9744A' }}>{eur(cs.at_risk_eur)} published at-risk</span></> : null}
+            <span className="font-medium">{hazardLabel(cs.hazard)}</span> across <span className="font-medium">{cs.n_commodities} crops</span> — {flow(cs.spend_eur)} spend exposed{cs.at_risk_eur ? <> · <span style={{ color: '#E9744A' }}>{flow(cs.at_risk_eur)} published at-risk</span></> : null}
           </div>
         </div>
       )}
@@ -136,14 +136,14 @@ function SupplyConcentrationCard({ c, commodityIds, onHazard }: { c?: Concentrat
         {c.by_commodity.length > 0 && (
           <div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend by commodity</div>
-            <HBar data={c.by_commodity.slice(0, 6).map(m => ({ label: m.commodity, value: m.spend_eur, sub: `${m.pct_of_spend}%`, color: m.pct_of_spend > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={eur} height={18}
+            <HBar data={c.by_commodity.slice(0, 6).map(m => ({ label: m.commodity, value: m.spend_eur, sub: `${m.pct_of_spend}%`, color: m.pct_of_spend > 25 ? '#E8B24C' : 'var(--color-sky)' }))} format={flow} height={18}
               onBar={(i) => { const cid = commodityIds?.[c.by_commodity[i].commodity]; if (cid) nav(`/detail/commodity/${cid}`) }} />
           </div>
         )}
         {c.by_hazard.length > 0 && (
           <div>
             <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-2">Sourcing spend exposed by hazard</div>
-            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.spend_eur, sub: `${h.n_commodities} crops`, color: i === 0 ? '#E9744A' : 'var(--color-sky)' }))} format={eur} height={18}
+            <HBar data={c.by_hazard.slice(0, 6).map((h, i) => ({ label: hazardLabel(h.hazard), value: h.spend_eur, sub: `${h.n_commodities} crops`, color: i === 0 ? '#E9744A' : 'var(--color-sky)' }))} format={flow} height={18}
               onBar={onHazard ? (i) => onHazard!(c.by_hazard[i].hazard) : undefined} />
           </div>
         )}

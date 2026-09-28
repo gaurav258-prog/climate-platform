@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { Card, Button, SectionHead, PageHeader, HeroBanner, StatGrid } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { HAZARD_LABEL, hazardLabel } from '../lib/hazards'
+import { balance, flow } from '../lib/money'
 
 // Solvency II capital for a property insurer — the catastrophe SCR on TWO labelled bases:
 //  · internal-model: our common-shock cat engine's 1-in-200 (99.5% VaR), gross & net of reinsurance
@@ -36,8 +37,6 @@ interface ReinResp {
   program?: Record<string, number>
 }
 
-const eur = (v?: number | null) => (typeof v === 'number' ? `€${Math.round(v).toLocaleString()}` : '—')
-const eurM = (v?: number | null) => (typeof v === 'number' ? `€${(v / 1e6).toFixed(1)}m` : '—')
 const PERIL_LABEL: Record<string, string> = { windstorm: 'Windstorm', earthquake: 'Earthquake', flood: 'Flood', hail: 'Hail', subsidence: 'Subsidence' }
 const PERIL_COLOR: Record<string, string> = { windstorm: '#7db8ff', earthquake: '#e0574a', flood: '#3f7fd6', hail: '#a78bfa', subsidence: '#f2b45a' }
 
@@ -74,15 +73,15 @@ export default function Solvency() {
   const im = d.natcat_scr_eur
   const imNet = ((reins.data?.net?.net_aep_eur) || {}).rp_200 ?? reins.data?.net?.net_pml_eur
   const heroStats: { label: string; value: string; tone?: string }[] = [
-    { label: 'Standard formula · NatCat SCR', value: eurM(sf?.natcat_scr_eur), tone: 'sky' },
-    { label: 'Internal model · 1-in-200 gross', value: eurM(im) },
-    { label: 'Net of reinsurance', value: eurM(imNet) },
+    { label: 'Standard formula · NatCat SCR', value: balance(sf?.natcat_scr_eur), tone: 'sky' },
+    { label: 'Internal model · 1-in-200 gross', value: balance(im) },
+    { label: 'Net of reinsurance', value: balance(imNet) },
     { label: 'SCR / sum insured', value: `${d.scr_pct_of_sum_insured ?? '—'}%` },
   ]
 
   const perilBars = sf?.scr_by_peril_eur
     ? Object.entries(sf.scr_by_peril_eur).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
-        .map(([k, v]) => ({ label: PERIL_LABEL[k] ?? k, value: v, color: PERIL_COLOR[k], sub: eur(v) }))
+        .map(([k, v]) => ({ label: PERIL_LABEL[k] ?? k, value: v, color: PERIL_COLOR[k], sub: balance(v, { full: true }) }))
     : []
 
   return (
@@ -100,15 +99,15 @@ export default function Solvency() {
           <SectionHead icon={Building2} hint="99.5% VaR · our common-shock cat engine">Internal model</SectionHead>
           <div className="mt-3">
             <StatGrid cols={2} items={[
-              { label: 'NatCat SCR — gross (1-in-200)', value: eur(im), accent: 'var(--color-ink)' },
-              { label: 'Net of reinsurance', value: eur(imNet) },
-              { label: 'Mean annual cat loss', value: eur(d.mean_annual_loss_eur) },
-              { label: 'Risk load (SCR − mean)', value: eur(d.risk_load_eur) },
+              { label: 'NatCat SCR — gross (1-in-200)', value: balance(im, { full: true }), accent: 'var(--color-ink)' },
+              { label: 'Net of reinsurance', value: balance(imNet, { full: true }) },
+              { label: 'Mean annual cat loss', value: flow(d.mean_annual_loss_eur, { full: true }) },
+              { label: 'Risk load (SCR − mean)', value: balance(d.risk_load_eur, { full: true }) },
             ]} />
           </div>
           {reins.data?.available && (
             <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3.5 py-2.5 text-[12px] text-[var(--color-mute)]">
-              Reinsurance cedes <b className="text-[var(--color-ink)]">{eur(reins.data?.net?.ceded_pml_eur)}</b> of the single-event PML — gross {eur(reins.data?.gross_pml_eur)} → net {eur(reins.data?.net?.net_pml_eur)}.
+              Reinsurance cedes <b className="text-[var(--color-ink)]">{balance(reins.data?.net?.ceded_pml_eur, { full: true })}</b> of the single-event PML — gross {balance(reins.data?.gross_pml_eur, { full: true })} → net {balance(reins.data?.net?.net_pml_eur, { full: true })}.
             </div>
           )}
         </Card>
@@ -119,14 +118,14 @@ export default function Solvency() {
           {sf?.available ? (
             <div className="mt-3">
               <StatGrid cols={2} items={[
-                { label: 'NatCat SCR (√Σ SCR_peril²)', value: eur(sf.natcat_scr_eur), accent: 'var(--color-sky)' },
-                { label: 'Undiversified (Σ perils)', value: eur(sf.undiversified_sum_eur) },
-                { label: 'Cross-peril diversification', value: eur(sf.cross_peril_diversification_benefit_eur) },
+                { label: 'NatCat SCR (√Σ SCR_peril²)', value: balance(sf.natcat_scr_eur, { full: true }), accent: 'var(--color-sky)' },
+                { label: 'Undiversified (Σ perils)', value: balance(sf.undiversified_sum_eur, { full: true }) },
+                { label: 'Cross-peril diversification', value: balance(sf.cross_peril_diversification_benefit_eur, { full: true }) },
                 { label: 'Basis', value: 'gross of reinsurance' },
               ]} />
               <div className="mt-3">
                 <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by peril</div>
-                <HBar data={perilBars} format={eurM} />
+                <HBar data={perilBars} format={balance} />
               </div>
             </div>
           ) : <div className="mt-3 text-[12.5px] text-[var(--color-mute)]">Standard-formula factors not loaded.</div>}
@@ -167,13 +166,13 @@ function PerilDetail({ sf }: { sf: SF }) {
                 <span className="w-2 h-2 rounded-full" style={{ background: PERIL_COLOR[k] }} />
                 <span className="text-[13px] font-medium text-[var(--color-ink)]">{PERIL_LABEL[k]}</span>
                 <span className="mono text-[10px] text-[var(--color-faint)] ml-1">{b!.citation}</span>
-                <span className="ml-auto mono text-[12.5px] text-[var(--color-ink)]">{eur(b!.scr_eur)}</span>
+                <span className="ml-auto mono text-[12.5px] text-[var(--color-ink)]">{balance(b!.scr_eur, { full: true })}</span>
               </button>
               {isOpen && (
                 <div className="border-t border-[var(--color-line)]">
                   <div className="px-3.5 pt-3 pb-1">
                     <div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-1.5">SCR by region</div>
-                    <HBar data={b!.per_region!.map(r => ({ label: r.region, value: r.scr_region_eur, sub: `Q ${(r.risk_factor_q * 100).toFixed(1)}%`, color: PERIL_COLOR[k] }))} format={eurM} height={14} />
+                    <HBar data={b!.per_region!.map(r => ({ label: r.region, value: r.scr_region_eur, sub: `Q ${(r.risk_factor_q * 100).toFixed(1)}%`, color: PERIL_COLOR[k] }))} format={balance} height={14} />
                   </div>
                   <table className="w-full text-[12px]">
                     <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase">
@@ -186,22 +185,22 @@ function PerilDetail({ sf }: { sf: SF }) {
                       {b!.per_region!.map(r => (
                         <tr key={r.region} className="border-t border-[var(--color-line-2)]">
                           <td className="px-3.5 py-1.5 text-[var(--color-ink)]">{r.region} · <span className="text-[var(--color-mute)]">{r.region_name}</span></td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-mute)]">{eur(r.sum_insured_eur)}</td>
+                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-mute)]">{balance(r.sum_insured_eur, { full: true })}</td>
                           <td className="px-3.5 py-1.5 text-right mono text-[var(--color-mute)]">{(r.risk_factor_q * 100).toFixed(2)}%</td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)]">{eur(r.scr_region_eur)}</td>
+                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-ink)]">{balance(r.scr_region_eur, { full: true })}</td>
                         </tr>
                       ))}
                       {b!.other_regions_sum_insured_eur ? (
                         <tr className="border-t border-[var(--color-line-2)]">
                           <td className="px-3.5 py-1.5 text-[var(--color-faint)] italic" colSpan={3}>outside Annex regions (not in the charge)</td>
-                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-faint)]">{eur(b!.other_regions_sum_insured_eur)} SI</td>
+                          <td className="px-3.5 py-1.5 text-right mono text-[var(--color-faint)]">{balance(b!.other_regions_sum_insured_eur, { full: true })} SI</td>
                         </tr>
                       ) : null}
                     </tbody>
                   </table>
                   {(b!.regional_diversification_benefit_eur ?? 0) > 0 && (
                     <div className="px-3.5 py-2 border-t border-[var(--color-line-2)] mono text-[10.5px] text-[var(--color-faint)]">
-                      regional diversification benefit {eur(b!.regional_diversification_benefit_eur)} · undiversified {eur(b!.undiversified_scr_eur)}
+                      regional diversification benefit {balance(b!.regional_diversification_benefit_eur, { full: true })} · undiversified {balance(b!.undiversified_scr_eur, { full: true })}
                     </div>
                   )}
                 </div>
@@ -245,11 +244,11 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
       ) : (
         <div className="mt-3 space-y-3">
           <StatGrid cols={2} items={[
-            { label: 'Total gross incurred', value: eur(data.total_gross_incurred_loss_eur), accent: 'var(--color-ink)' },
-            { label: 'Total net (after reinsurance)', value: data.total_net_incurred_loss_eur != null ? eur(data.total_net_incurred_loss_eur) : 'not supplied' },
-            { label: 'Modelled EAL — pricing model (¶16(c)-(d))', value: eur(data.modeled?.total_expected_annual_loss_eur),
+            { label: 'Total gross incurred', value: flow(data.total_gross_incurred_loss_eur, { full: true }), accent: 'var(--color-ink)' },
+            { label: 'Total net (after reinsurance)', value: data.total_net_incurred_loss_eur != null ? flow(data.total_net_incurred_loss_eur, { full: true }) : 'not supplied' },
+            { label: 'Modelled EAL — pricing model (¶16(c)-(d))', value: flow(data.modeled?.total_expected_annual_loss_eur, { full: true }),
               sub: 'Per-policy pricing-model sum — a different methodology from "Mean annual cat loss" on the Internal model card above (Monte-Carlo simulation mean). Both are anticipated/¶16(c)-(d); they are not expected to match exactly.' },
-            { label: 'Standard-formula SCR (¶16(c)-(d))', value: eur(data.modeled?.standard_formula_natcat_scr_eur) },
+            { label: 'Standard-formula SCR (¶16(c)-(d))', value: balance(data.modeled?.standard_formula_natcat_scr_eur, { full: true }) },
           ]} />
           <table className="w-full text-[12px]">
             <thead><tr className="text-[var(--color-faint)] mono text-[10px] uppercase">
@@ -262,8 +261,8 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
               {data.by_peril.map(p => (
                 <tr key={p.peril} className="border-t border-[var(--color-line-2)]">
                   <td className="px-2 py-1.5 text-[var(--color-ink)]">{hazardLabel(p.peril) ?? p.peril}</td>
-                  <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(p.gross_incurred_loss_eur)}</td>
-                  <td className="px-2 py-1.5 text-right mono text-[var(--color-mute)]">{p.net_incurred_loss_eur != null ? eur(p.net_incurred_loss_eur) : '—'}</td>
+                  <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{flow(p.gross_incurred_loss_eur, { full: true })}</td>
+                  <td className="px-2 py-1.5 text-right mono text-[var(--color-mute)]">{p.net_incurred_loss_eur != null ? flow(p.net_incurred_loss_eur, { full: true }) : '—'}</td>
                   <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{p.n_records}</td>
                 </tr>
               ))}
@@ -279,7 +278,7 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
                       {data.by_region.map(r => (
                         <tr key={r.region} className="border-t border-[var(--color-line-2)]">
                           <td className="px-2 py-1.5 text-[var(--color-ink)]">{r.region}</td>
-                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(r.gross_incurred_loss_eur)}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{flow(r.gross_incurred_loss_eur, { full: true })}</td>
                           <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{r.n_records}</td>
                         </tr>
                       ))}
@@ -295,7 +294,7 @@ function IncurredLosses({ data, loading, onSaved }: { data?: IncurredSummary; lo
                       {data.by_modelled.map(m => (
                         <tr key={m.modelled} className="border-t border-[var(--color-line-2)]">
                           <td className="px-2 py-1.5 text-[var(--color-ink)]">{m.modelled === 'modelled' ? 'Modelled catastrophe' : 'Non-modelled catastrophe'}</td>
-                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{eur(m.gross_incurred_loss_eur)}</td>
+                          <td className="px-2 py-1.5 text-right mono text-[var(--color-ink)]">{flow(m.gross_incurred_loss_eur, { full: true })}</td>
                           <td className="px-2 py-1.5 text-right mono text-[var(--color-faint)]">{m.n_records}</td>
                         </tr>
                       ))}

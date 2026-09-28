@@ -32,14 +32,13 @@ def money(v, ccy: Optional[str] = None, compact: bool = True) -> str:
     if not isinstance(v, (int, float)):
         return "—"
     s, n = symbol(ccy or current.get()), float(v)
+    sign, a = ("−" if n < 0 else ""), abs(n)     # the minus before the symbol: '−€4.1m', as the screens write it
     if not compact:
-        return f"{s}{n:,.0f}"
-    if n == 0:
-        return f"{s}0"
-    if abs(n) >= 1e9:
-        return f"{s}{n / 1e9:.2f}bn"
-    if abs(n) >= 1e6:
-        return f"{s}{n / 1e6:.1f}m"
-    if abs(n) >= 1e3:
-        return f"{s}{round(n / 1e3):,}k"
-    return f"{s}{round(n):,}"
+        return f"{sign}{s}{a:,.0f}"
+    if a >= 1e9:
+        return f"{sign}{s}{a / 1e9:.2f}bn"
+    if a >= 1e6:
+        return f"{sign}{s}{a / 1e6:.1f}m"
+    if a >= 1e3:
+        return f"{sign}{s}{round(a / 1e3):,}k"
+    return f"{sign}{s}{round(a):,}"

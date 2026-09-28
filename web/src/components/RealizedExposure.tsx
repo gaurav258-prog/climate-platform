@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { History, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
+import { balance, flow } from '../lib/money'
 import { Card } from './ui'
 import AssetDrawer, { type DrawerCfg } from './AssetDrawer'
 
@@ -30,7 +31,6 @@ const SECTOR_CFG: Record<string, DrawerCfg> = {
   asset_manager: { prefix: 'assetmgmt', itemKey: 'holding', nameKey: 'holding_name', valueKey: 'position_value_eur', typeKey: 'sector', valuationKey: 'climate_var', auditKey: 'valuation_audit', overrideMode: 'valuation' },
 }
 
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 
 function tone(e: REvent): string {
   if (e.kind === 'crop_shock') return (e.yoy_change_pct ?? 0) <= -20 ? '#D23B3B' : '#E8853C'
@@ -96,9 +96,9 @@ export default function RealizedExposure() {
                 <span className="mono text-[11px] text-[var(--color-faint)]">{e.year ?? '—'}</span>
                 <span className="flex-1 min-w-0" />
                 {e.kind === 'crop_shock' ? (
-                  <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{eur(e.spend_eur)} spend exposed</span>
+                  <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{flow(e.spend_eur)} spend exposed</span>
                 ) : (
-                  <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{e.n_assets} asset{e.n_assets === 1 ? '' : 's'} · {eur(e.value_exposed_eur)} · {e.closest_km}km</span>
+                  <span className="mono text-[11px] text-[var(--color-mute)] tabular-nums">{e.n_assets} asset{e.n_assets === 1 ? '' : 's'} · {balance(e.value_exposed_eur)} · {e.closest_km}km</span>
                 )}
               </div>
               {open && e.assets && (
@@ -108,7 +108,7 @@ export default function RealizedExposure() {
                       className={`flex items-center gap-2 text-[11.5px] py-0.5 ${cfg ? 'cursor-pointer hover:text-[var(--color-sky)]' : ''}`}>
                       <span className="text-[var(--color-mute)] hover:text-[var(--color-sky)] min-w-0 truncate">{a.name}</span>
                       <span className="flex-1" />
-                      <span className="mono text-[10.5px] text-[var(--color-faint)] tabular-nums">{eur(a.value_eur)} · {a.closest_km}km</span>
+                      <span className="mono text-[10.5px] text-[var(--color-faint)] tabular-nums">{balance(a.value_eur)} · {a.closest_km}km</span>
                     </div>
                   ))}
                 </div>

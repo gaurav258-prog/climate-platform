@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import { PLACE_LABELS } from '../lib/placeLabels'
 import { Card, PageHeader } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import { flow } from '../lib/money'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; country: string | null
@@ -20,7 +21,6 @@ interface Hex { cell: string; rings: [number, number][][]; score: number | null;
   driver_hazard: string | null; n_plots: number; plots?: HexPlot[]; is_plot_cell: boolean; status: string }
 interface HexResponse { resolution: number; hexes: Hex[]; n_plot_cells?: number }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const hazardColor = (s: number | null) => s == null ? '#64748b' : s >= 60 ? '#fb7185' : s >= 40 ? '#f59e0b' : s >= 1 ? '#34d399' : '#64748b'
 const bandLabel = (s: number | null) => s == null ? 'unscored' : s >= 60 ? 'High' : s >= 40 ? 'Medium' : 'Low'
 const prettyHazard = hazardLabel
@@ -241,7 +241,7 @@ export default function RiskMap() {
               style={{ left: hover.x, top: hover.y, transform: 'translate(-50%,-100%) translateY(-12px)',
                 pointerEvents: 'none', background: '#0b1a2e', border: '1px solid rgba(255,255,255,.1)', minWidth: 172 }}>
               <div className="text-[13px] font-semibold" style={{ color: '#f1f5f9' }}>{hover.plot.plot_name}</div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#9db4d4' }}>{hover.plot.commodity} · {hover.plot.country ?? '—'} · {eur(hover.plot.spend_eur)}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: '#9db4d4' }}>{hover.plot.commodity} · {hover.plot.country ?? '—'} · {flow(hover.plot.spend_eur)}</div>
               <div className="text-[11px] mt-1 flex items-center gap-1.5" style={{ color: '#cbd5e1' }}>
                 <span className="inline-block w-2 h-2 rounded-full" style={{ background: hazardColor(hover.plot.hazard_score) }} />
                 {prettyHazard(hover.plot.top_hazard)} hazard {hover.plot.hazard_score != null ? Math.round(hover.plot.hazard_score) : ''}

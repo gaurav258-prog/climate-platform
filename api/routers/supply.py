@@ -440,6 +440,8 @@ class SiteUpdate(BaseModel):
     annual_throughput_eur: Optional[float] = None
     country: Optional[str] = None
     region: Optional[str] = None
+    currency: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 4217 code of the amounts sent — required with an amount, never assumed.")
+    book_date: Optional[str] = Field(None, description="YYYY-MM-DD the amounts describe — required with an amount.")
 
 
 class PlotUpdate(BaseModel):
@@ -451,6 +453,17 @@ class PlotUpdate(BaseModel):
     plot_area_ha: Optional[float] = None
     region: Optional[str] = None
     country: Optional[str] = None
+    currency: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 4217 code of the spend — required with it, never assumed.")
+    book_date: Optional[str] = Field(None, description="YYYY-MM-DD: the spend converts at the average of the 12 months to it.")
+
+
+def _money_changes(session, org_id: str, kind: str, changes: dict):
+    from services.governance.location_governance import LocationMoneyError, convert_money_changes
+    currency, book_date = changes.pop("currency", None), changes.pop("book_date", None)
+    try:
+        return convert_money_changes(session, org_id, kind, changes, currency, book_date)
+    except LocationMoneyError as e:
+        raise HTTPException(status_code=422, detail={"error": "currency", "message": str(e)})
 
 
 def _own_or_404(session, table, id_col, target_id, org_id, label):
@@ -468,11 +481,12 @@ def update_site(site_id: str, body: SiteUpdate, session: DbSession,
     _own_or_404(session, "sc_company_sites", "site_id", site_id, org_id, "Site")
     changes = body.model_dump(exclude_unset=True, exclude_none=True)
     changes.pop("commodity", None)  # not a site field
+    changes, ms = _money_changes(session, org_id, "site", changes)
     if not changes:
         raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.site.update", target_id=site_id, changes=changes,
-                           title=f"Edit site {site_id[:8]}")
+                           title=f"Edit site {site_id[:8]}", money_source=ms)
 
 
 @router.delete("/site/{site_id}", summary="Delete an operational site (needs 4-eyes approval)")
@@ -493,11 +507,12 @@ def update_plot(plot_id: str, body: PlotUpdate, session: DbSession,
     _own_or_404(session, "sc_sourcing_plots", "plot_id", plot_id, org_id, "Plot")
     data = body.model_dump(exclude_unset=True, exclude_none=True)
     commodity = data.pop("commodity", None)
+    data, ms = _money_changes(session, org_id, "plot", data)
     if not data and not commodity:
         raise HTTPException(status_code=400, detail={"error": "no_changes", "message": "No fields to update."})
     return submit_or_apply(session, org_id=org_id, actor_user_id=ctx["user"]["id"],
                            request_type="supply.plot.update", target_id=plot_id, changes=data,
-                           commodity=commodity, title=f"Edit plot {plot_id[:8]}")
+                           commodity=commodity, title=f"Edit plot {plot_id[:8]}", money_source=ms)
 
 
 @router.delete("/plot/{plot_id}", summary="Delete a sourcing plot (needs 4-eyes approval)")

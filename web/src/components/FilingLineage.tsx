@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown, Satellite, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { api } from '../lib/api'
+import { money, balance } from '../lib/money'
 import { Card, Lens } from './ui'
 import { hazardLabel, sevColor, frameworkLabel, bucketLabel } from '../lib/hazards'
 import { HBar } from './Charts'
@@ -15,17 +16,17 @@ interface HazEntry { hazard: string; exposed_value_eur: number | null; n_exposed
 interface Source { key: string; name: string; maturity: string | null; status: string | null }
 interface Granular { risk_score: number | null; model_version: string | null; data_vintage: string | null; scored_at: string | null; fingerprint: string | null; ci_lower: number | null; ci_upper: number | null; score_lane: string | null }
 interface Contributor { asset_id: string; asset_name: string; value_eur: number | null; h3_cell: string; country: string | null; filed: { score: number | null; bucket: string | null; model_version: string | null }; granular: Granular | null; drift: boolean }
-interface Lineage { supported: boolean; framework: string; message?: string; hazard: string; basis: { scenario: string; horizon: string }; cell: { exposed_value_eur: number | null; n_exposed: number; max_score: number }; contributors: Contributor[]; sources: Source[]; drift_count: number }
+interface Lineage { supported: boolean; framework: string; message?: string; hazard: string; basis: { scenario: string; horizon: string }; cell: { exposed_value_eur: number | null; n_exposed: number; max_score: number }; currency?: string; contributors: Contributor[]; sources: Source[]; drift_count: number }
 interface UsedBy { vertical: string; framework: string | null; filing: { filing_id: string; status: string } | null; n: number; value_eur: number; entities: { entity_id: string; name: string; value_eur: number | null }[] }
 interface Upstream { h3_cell: string; hazards_scored_here: string[]; used_by: UsedBy[] }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const feedDot = (s: string | null) => s === 'fresh' || s === 'live' ? '#34d399' : s === 'overdue' || s === 'failed' ? '#fb7185' : s === 'due_soon' ? '#e8b24c' : '#64748b'
 
 export default function FilingLineage({ filingId }: { filingId: string }) {
-  const q = useQuery({ queryKey: ['lineage-haz', filingId], queryFn: () => api.get<{ hazards: HazEntry[] }>(`/v1/filings/${filingId}/lineage/hazards`) })
+  const q = useQuery({ queryKey: ['lineage-haz', filingId], queryFn: () => api.get<{ hazards: HazEntry[]; currency: string }>(`/v1/filings/${filingId}/lineage/hazards`) })
   const [open, setOpen] = useState<string | null>(null)
   const hazards = q.data?.hazards ?? []
+  const ccy = q.data?.currency ?? 'EUR'   // filed cells are in the filing's own currency
   if (!hazards.length) return null
 
   const charted = hazards.filter(h => (h.exposed_value_eur ?? 0) > 0).slice(0, 8)
@@ -36,7 +37,7 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
         <div>
           <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)] mb-2">Exposure by hazard · value at High+</div>
           <Card className="p-4">
-            <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score) }))} format={eur} />
+            <HBar data={charted.map(h => ({ label: hazardLabel(h.hazard), value: h.exposed_value_eur ?? 0, color: sevColor(h.max_score) }))} format={(n: number) => money(n, ccy)} />
           </Card>
         </div>
       )}
@@ -53,7 +54,7 @@ export default function FilingLineage({ filingId }: { filingId: string }) {
               {open === h.hazard ? <ChevronDown size={14} className="text-[var(--color-faint)]" /> : <ChevronRight size={14} className="text-[var(--color-faint)]" />}
               <span className="flex-1 text-[13px] text-[var(--color-ink)]">{hazardLabel(h.hazard)}</span>
               <span className="mono text-[11px] text-[var(--color-faint)]">{h.n_exposed} assets</span>
-              <span className="mono text-[12.5px] tabular-nums text-[var(--color-mute)] w-20 text-right">{eur(h.exposed_value_eur)}</span>
+              <span className="mono text-[12.5px] tabular-nums text-[var(--color-mute)] w-20 text-right">{money(h.exposed_value_eur, ccy)}</span>
             </button>
             {open === h.hazard && <HazardTrace filingId={filingId} hazard={h.hazard} />}
           </div>
@@ -106,13 +107,13 @@ function HazardTrace({ filingId, hazard }: { filingId: string; hazard: string })
         <div className="mono text-[10px] uppercase tracking-wide text-[var(--color-faint)] flex items-center gap-1">
           <ArrowDownRight size={12} /> Contributing assets ({d.contributors.length})
         </div>
-        {d.contributors.map(c => <ContributorRow key={c.asset_id} c={c} />)}
+        {d.contributors.map(c => <ContributorRow key={c.asset_id} c={c} ccy={d.currency ?? 'EUR'} />)}
       </div>
     </div>
   )
 }
 
-function ContributorRow({ c }: { c: Contributor }) {
+function ContributorRow({ c, ccy }: { c: Contributor; ccy: string }) {
   const [rev, setRev] = useState(false)
   const g = c.granular
   return (
@@ -124,7 +125,7 @@ function ContributorRow({ c }: { c: Contributor }) {
             <ArrowUpRight size={11} /> grid cell {c.h3_cell.slice(0, 10)}… · who else uses it
           </button>
         </div>
-        <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{eur(c.value_eur)}</div>
+        <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{money(c.value_eur, ccy)}</div>
       </div>
       {/* golden-source row */}
       <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] border-t border-[var(--color-line)] pt-2">
@@ -152,7 +153,7 @@ function ReverseTrace({ h3 }: { h3: string }) {
       {d.used_by.map((u, i) => (
         <div key={i} className="text-[11.5px]">
           <span className="text-[var(--color-ink)] capitalize">{u.vertical}</span>
-          <span className="text-[var(--color-mute)]"> · {u.n} holding{u.n === 1 ? '' : 's'} · {eur(u.value_eur)}</span>
+          <span className="text-[var(--color-mute)]"> · {u.n} holding{u.n === 1 ? '' : 's'} · {balance(u.value_eur)}</span>
           {u.filing && <span className="mono text-[10px] text-[var(--color-sky)]"> → {frameworkLabel(u.framework)} filing ({u.filing.status})</span>}
         </div>
       ))}

@@ -156,6 +156,10 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
                    "events_in_period": [{**dict(r), "r2_oos": float(r["r2_oos"]) if r["r2_oos"] is not None else None, "created_at": _iso(r["created_at"])} for r in ev[:30]],
                    "gate": "A model publishes a euro figure only when its out-of-sample r² is at least 0.40; below that it is a screening signal, never a number in a filing."}
 
+    # the currency the pack's amounts are written in, with the rates of the day it was assembled — part of the hashed
+    # content, so a later render of an attested pack writes exactly what was attested
+    from services.governance.display_currency import view as money_view
+    c["money"] = money_view(session, org_id)
     c["method"] = {"engine": "Every figure is the organisation's own engine result at the stated basis, the same result the screens and filings show; nothing is recomputed differently for the board.",
                    "appetite": "Appetite bands are the organisation's own (Settings → KRI appetite), changed only through the four-eyes approval flow.",
                    "attestation": "An attestation binds a named person, in a stated capacity, to the SHA-256 of this pack's canonical content after re-authentication (password and authenticator). It is recorded on the audit trail and printed on the pack.",
@@ -164,11 +168,12 @@ def assemble(session, *, org: dict, actor: dict, period_from: date, period_to: d
 
 
 # ── rendering ───────────────────────────────────────────────────────────────────────────────────────────────
-def _fmt(v, fmt):
+def _fmt(v, fmt, dv: Optional[dict] = None):
     if v is None:
         return "—"
-    if fmt == "eur":
-        v = float(v); return f"€{v/1e9:.2f}bn" if abs(v) >= 1e9 else f"€{v/1e6:.1f}m" if abs(v) >= 1e6 else f"€{v/1e3:.0f}k"
+    if fmt == "eur":   # an engine balance, in the pack's currency (a pack assembled before currencies were recorded: EUR)
+        from services.governance.display_currency import balance
+        return balance(float(v), dv)
     if fmt == "pct":
         return f"{float(v):.1f}%"
     return str(v)
@@ -211,7 +216,7 @@ def render_pdf(c: dict, attestations: list[dict]) -> bytes:
             x += [Paragraph(f"<b>{fw['framework']}</b> — {fw.get('reason') or 'not evaluated'}", P)]; continue
         rows = [["Indicator", "Value", "Status", "Amber", "Red", "Source"]]; tones = {}
         for i, k in enumerate(fw["kpis"], start=1):
-            rows.append([k["label"], _fmt(k["value"], k["fmt"]), (k["status"] or "ungraded").upper(), _fmt(k["amber"], k["fmt"]), _fmt(k["red"], k["fmt"]), k["kind"]])
+            rows.append([k["label"], _fmt(k["value"], k["fmt"], c.get("money")), (k["status"] or "ungraded").upper(), _fmt(k["amber"], k["fmt"], c.get("money")), _fmt(k["red"], k["fmt"], c.get("money")), k["kind"]])
             if k["status"]:
                 tones[(i, 2)] = k["status"]
         x += [Paragraph(f"<b>{fw['label']}</b>{(' · ' + fw['regulator']) if fw.get('regulator') else ''}", P), table(rows, [62 * mm, 24 * mm, 20 * mm, 22 * mm, 22 * mm, 22 * mm], tones)]

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, CornerDownRight, Check, X } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { balance } from '../lib/money'
 import { Card, Button } from './ui'
 import { useCurrencies } from './MoneyDeclaration'
 
@@ -17,7 +18,6 @@ interface Form { name: string; kind: string; parent_entity_id: string; ownership
 
 const KINDS = ['group', 'sub_group', 'legal_entity', 'fund', 'division']
 const METHODS = ['full', 'proportional', 'equity']
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const err = (e: unknown, fb: string) => {
   if (!(e instanceof ApiError) || typeof e.body !== 'object' || !e.body) return fb
   const b = e.body as { message?: unknown; error?: { message?: unknown } }
@@ -77,7 +77,7 @@ export default function AdminEntities() {
                       <div className="mono text-[10px] text-[var(--color-faint)]">{e.kind.replace(/_/g, ' ')}</div>
                     </div>
                   </div>
-                  <div className="text-right"><div className="mono text-[12.5px] text-[var(--color-mute)]">{eur(e.value_eur)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{e.n_assets} asset{e.n_assets === 1 ? '' : 's'}</div></div>
+                  <div className="text-right"><div className="mono text-[12.5px] text-[var(--color-mute)]">{balance(e.value_eur)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">{e.n_assets} asset{e.n_assets === 1 ? '' : 's'}</div></div>
                   <div className="text-right w-40">
                     <div className="mono text-[11px] text-[var(--color-ink)]" title={e.currency_inherited_from ? 'inherited — solo figures are presented in this currency' : 'this entity\'s functional currency'}>{e.effective_currency ?? '—'}{e.currency_inherited_from ? <span className="text-[var(--color-faint)]"> · inherited</span> : ''}</div>
                     {e.lei && <div className="mono text-[10px] text-[var(--color-faint)]" title="the entity's own LEI — identifies it in its filings">LEI {e.lei}</div>}

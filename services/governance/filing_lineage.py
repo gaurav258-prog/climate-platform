@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from services.data.feeds import feeds_for_hazard
 from services.governance.filings import get_filing
+from services.governance.money_format import presentation_of
 
 # vertical → the framework whose filing consumes that vertical's book (others not wired yet)
 _VERTICAL_FRAMEWORK = {"banking": "bank_tcfd", "assetmgmt": "sfdr_pai",
@@ -142,7 +143,7 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
 
     return {
         "supported": True, "filing_id": filing_id, "framework": framework, "hazard": hazard,
-        "basis": {"scenario": scenario, "horizon": horizon},
+        "basis": {"scenario": scenario, "horizon": horizon}, "currency": presentation_of(payload),
         "cell": {"exposed_value_eur": cell.get("exposed_value_eur"), "n_exposed": cell.get("n_exposed"),
                  "max_score": cell.get("max_score")},
         "contributors": contributors,
@@ -153,6 +154,11 @@ def cell_lineage(session: Session, org_id: str, filing_id: str, hazard: str) -> 
 
 def reported_hazards(session: Session, org_id: str, filing_id: str) -> list[dict]:
     """The hazard cells a filing reports — the entry points for a forward trace (bank_tcfd)."""
+    return hazards_view(session, org_id, filing_id)["hazards"]
+
+
+def hazards_view(session: Session, org_id: str, filing_id: str) -> dict:
+    """reported_hazards plus the currency the filing's amounts are in (its frozen presentation currency)."""
     filing = get_filing(session, org_id, filing_id, with_payload=True)
     if not filing:
         raise ValueError("filing not found")
@@ -162,7 +168,7 @@ def reported_hazards(session: Session, org_id: str, filing_id: str) -> list[dict
             "n_exposed": b.get("n_exposed"), "max_score": b.get("max_score")}
            for h, b in byh.items()]
     out.sort(key=lambda x: (x["exposed_value_eur"] or 0), reverse=True)
-    return out
+    return {"hazards": out, "currency": presentation_of(payload)}
 
 
 def cell_upstream(session: Session, org_id: str, h3_cell: str) -> dict:

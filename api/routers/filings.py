@@ -411,9 +411,9 @@ def validation(filing_id: str, session: DbSession, ctx: dict = Depends(require_p
 
 @router.get("/filings/{filing_id}/lineage/hazards", summary="The hazard cells a filing reports (trace entry points)")
 def lineage_hazards(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
-    from services.governance.filing_lineage import reported_hazards
+    from services.governance.filing_lineage import hazards_view
     try:
-        return {"hazards": reported_hazards(session, ctx["org"]["org_id"], filing_id)}
+        return hazards_view(session, ctx["org"]["org_id"], filing_id)
     except ValueError as e:
         raise HTTPException(404, {"error": "not_found", "message": str(e)})
 

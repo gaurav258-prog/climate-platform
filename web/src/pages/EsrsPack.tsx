@@ -6,6 +6,7 @@ import { api, download } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Card, Button, Stat, PageHeader, SectionHead } from '../components/ui'
 import ReportTabs from '../components/ReportTabs'
+import { balance, flow, money } from '../lib/money'
 
 interface AdaptationAction { hazard: string; label: string; actions: string[] }
 interface Topic {
@@ -36,7 +37,6 @@ interface Pack {
   provenance: Record<string, string>; note: string
 }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `€${(n / 1e3).toFixed(0)}k` : `€${n}`
 const ICON: Record<string, typeof CloudRain> = { E1: CloudRain, E3: Droplets, E4: Trees }
 const materialPill = (m: boolean) => m
   ? 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_14%,transparent)]'
@@ -86,11 +86,11 @@ export default function EsrsPack() {
               {t.topic === 'E1' && t.financial_effects && (
                 <div className="grid grid-cols-2 gap-y-2 text-[13px] flex-1">
                   <span className="text-[var(--color-mute)]">Asset value at risk</span>
-                  <span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.asset_value_at_risk_eur)}{t.financial_effects.pct_of_assets_at_risk != null ? ` · ${t.financial_effects.pct_of_assets_at_risk}%` : ''}</span>
+                  <span className="text-right font-medium text-[var(--color-warn)]">{balance(t.financial_effects.asset_value_at_risk_eur)}{t.financial_effects.pct_of_assets_at_risk != null ? ` · ${t.financial_effects.pct_of_assets_at_risk}%` : ''}</span>
                   <span className="text-[var(--color-mute)]" title="Business-interruption expected-loss proxy (exposed throughput × expected-downtime fraction), not raw revenue tied to at-risk activities — ESRS E1-9 AR 68 states there is no commonly accepted methodology for this metric. Confirm this is what you intend before filing it as the para 66(d) percentage.">Business interruption ⓘ</span>
-                  <span className="text-right font-medium">{eur(t.financial_effects.business_interruption_eur)}{t.financial_effects.pct_of_revenue_at_risk != null ? ` · ${t.financial_effects.pct_of_revenue_at_risk}%` : ''}</span>
-                  <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.financial_effects.cogs_at_risk_published_eur)}</span>
-                  <span className="text-[var(--color-mute)]">Exposure mapped · withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{eur(t.financial_effects.exposure_mapped_but_withheld_eur)}</span>
+                  <span className="text-right font-medium">{flow(t.financial_effects.business_interruption_eur)}{t.financial_effects.pct_of_revenue_at_risk != null ? ` · ${t.financial_effects.pct_of_revenue_at_risk}%` : ''}</span>
+                  <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{flow(t.financial_effects.cogs_at_risk_published_eur)}</span>
+                  <span className="text-[var(--color-mute)]">Exposure mapped · withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{flow(t.financial_effects.exposure_mapped_but_withheld_eur)}</span>
                   <span className="text-[var(--color-mute)]">Adaptation coverage · at-risk assets</span>
                   <span className="text-right font-medium text-[var(--color-good)]">{t.financial_effects.adaptation_coverage_pct_of_at_risk_assets != null ? `${t.financial_effects.adaptation_coverage_pct_of_at_risk_assets}%` : '—'}</span>
                 </div>
@@ -108,9 +108,9 @@ export default function EsrsPack() {
               {t.topic === 'E3' && t.own_operations && t.upstream && (
                 <div className="grid grid-cols-2 gap-y-2 text-[13px] flex-1">
                   <span className="text-[var(--color-mute)]">Sites water-stressed</span><span className="text-right font-medium">{t.own_operations.sites_water_stressed}/{t.own_operations.sites}</span>
-                  <span className="text-[var(--color-mute)]">Asset value exposed</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.own_operations.asset_value_exposed_eur)}</span>
+                  <span className="text-[var(--color-mute)]">Asset value exposed</span><span className="text-right font-medium text-[var(--color-warn)]">{balance(t.own_operations.asset_value_exposed_eur)}</span>
                   <span className="text-[var(--color-mute)]">Plots water-stressed</span><span className="text-right font-medium">{t.upstream.plots_water_stressed}/{t.upstream.plots}</span>
-                  <span className="text-[var(--color-mute)]">Spend exposed</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(t.upstream.spend_exposed_eur)}</span>
+                  <span className="text-[var(--color-mute)]">Spend exposed</span><span className="text-right font-medium text-[var(--color-warn)]">{flow(t.upstream.spend_exposed_eur)}</span>
                 </div>
               )}
               {t.topic === 'E4' && (
@@ -121,8 +121,8 @@ export default function EsrsPack() {
                   <span className="text-[var(--color-mute)]">Post-cutoff forest loss</span><span className="text-right font-medium">{t.post_cutoff_forest_loss_ha} ha</span>
                   {t.protected_areas && (<>
                     <span className="col-span-2 mt-1.5 text-[11px] uppercase tracking-wide text-[var(--color-faint)]">Protected areas · E4-5</span>
-                    <span className="text-[var(--color-mute)]">Sites in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.sites_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.sites_in_protected}/{t.protected_areas.sites_total}{t.protected_areas.site_value_in_protected_eur ? ` · ${eur(t.protected_areas.site_value_in_protected_eur)}` : ''}</span>
-                    <span className="text-[var(--color-mute)]">Plots in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.plots_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.plots_in_protected}/{t.protected_areas.plots_total}{t.protected_areas.plot_spend_in_protected_eur ? ` · ${eur(t.protected_areas.plot_spend_in_protected_eur)}` : ''}</span>
+                    <span className="text-[var(--color-mute)]">Sites in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.sites_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.sites_in_protected}/{t.protected_areas.sites_total}{t.protected_areas.site_value_in_protected_eur ? ` · ${balance(t.protected_areas.site_value_in_protected_eur)}` : ''}</span>
+                    <span className="text-[var(--color-mute)]">Plots in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.plots_in_protected ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.plots_in_protected}/{t.protected_areas.plots_total}{t.protected_areas.plot_spend_in_protected_eur ? ` · ${flow(t.protected_areas.plot_spend_in_protected_eur)}` : ''}</span>
                     <span className="text-[var(--color-mute)]">Area in / near</span><span className="text-right font-medium" style={{ color: t.protected_areas.protected_area_ha ? 'var(--color-warn)' : 'var(--color-ink)' }}>{t.protected_areas.protected_area_ha} ha</span>
                   </>)}
                 </div>
@@ -210,9 +210,9 @@ function TaxonomyAdaptation() {
       <p className="text-[12px] text-[var(--color-mute)] mb-4 max-w-3xl">The mandated hard input for the adaptation objective is a robust <b>Climate Risk &amp; Vulnerability Assessment</b> and evidence that adaptation solutions address the material physical risks — that's ours. We provide the substantial-contribution evidence, not the turnover/capex/opex alignment %.</p>
       <div className="grid sm:grid-cols-4 gap-4 mb-4">
         <Stat big={`${d.crva.coverage_pct ?? 0}%`} label="CRVA coverage (sites assessed)" tone={d.crva.coverage_pct === 100 ? 'good' : 'warn'} />
-        <Stat big={eur(d.crva.asset_value_assessed_eur)} label="asset value assessed" />
+        <Stat big={balance(d.crva.asset_value_assessed_eur)} label="asset value assessed" />
         <Stat big={`${d.physical_risk.share_of_assets_exposed_pct ?? 0}%`} label="of assets materially exposed" tone="warn" />
-        <Stat big={eur(d.substantial_contribution.candidate_contributing_value_eur)} label="candidate adaptation-contributing value" tone="warn" />
+        <Stat big={balance(d.substantial_contribution.candidate_contributing_value_eur)} label="candidate adaptation-contributing value" tone="warn" />
       </div>
       <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-[12.5px]">
         <div>
@@ -361,9 +361,9 @@ function FrozenDetail({ snapshotId, note, basis, version, reportType }: { snapsh
       {note && <p className="text-[12px] text-[var(--color-mute)] mb-2 italic">“{note}”</p>}
       {!p ? <div className="text-[var(--color-faint)]">loading frozen figures…</div> : (
         <div className="grid sm:grid-cols-3 gap-x-6 gap-y-1 text-[var(--color-mute)]">
-          {fe && <div className="flex justify-between gap-2"><span>Asset value at risk</span><span className="font-medium text-[var(--color-ink)]">{eur(fe.asset_value_at_risk_eur)}</span></div>}
-          {fe && <div className="flex justify-between gap-2"><span>COGS at risk (published)</span><span className="font-medium text-[var(--color-ink)]">{eur(fe.cogs_at_risk_published_eur)}</span></div>}
-          {fe && <div className="flex justify-between gap-2"><span>Exposure mapped · withheld</span><span className="font-medium text-[var(--color-faint)]">{eur(fe.exposure_mapped_but_withheld_eur)}</span></div>}
+          {fe && <div className="flex justify-between gap-2"><span>Asset value at risk</span><span className="font-medium text-[var(--color-ink)]">{money(fe.asset_value_at_risk_eur, 'EUR')}</span></div>}
+          {fe && <div className="flex justify-between gap-2"><span>COGS at risk (published)</span><span className="font-medium text-[var(--color-ink)]">{money(fe.cogs_at_risk_published_eur, 'EUR')}</span></div>}
+          {fe && <div className="flex justify-between gap-2"><span>Exposure mapped · withheld</span><span className="font-medium text-[var(--color-faint)]">{money(fe.exposure_mapped_but_withheld_eur, 'EUR')}</span></div>}
           {e3?.upstream && <div className="flex justify-between gap-2"><span>E3 plots water-stressed</span><span className="font-medium text-[var(--color-ink)]">{e3.upstream.plots_water_stressed}/{e3.upstream.plots}</span></div>}
           {e4 && <div className="flex justify-between gap-2"><span>E4 EUDR-covered plots</span><span className="font-medium text-[var(--color-ink)]">{e4.eudr_covered_plots}</span></div>}
           {e4 && <div className="flex justify-between gap-2"><span>E4 deforestation-free</span><span className="font-medium text-[var(--color-good)]">{e4.deforestation_free}</span></div>}

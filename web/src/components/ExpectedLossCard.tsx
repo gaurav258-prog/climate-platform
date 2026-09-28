@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { balance, flow } from '../lib/money'
 import { Card, StatGrid, type StatItem } from './ui'
 
 interface ELAsset {
@@ -11,7 +12,6 @@ interface ELResp {
   n_assets: number; maturity_fed: number; maturity_assumed: number; default_tenor_years: number; assets: ELAsset[]; basis: string
 }
 
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const pct = (n: number) => `${(n * 100).toFixed(n < 0.1 ? 1 : 0)}%`
 
 export default function ExpectedLossCard({ prefix, scenario, scenarioLabel }: { prefix: string; scenario: string; scenarioLabel: string }) {
@@ -23,8 +23,8 @@ export default function ExpectedLossCard({ prefix, scenario, scenarioLabel }: { 
   if (!d) return null
 
   const metrics: StatItem[] = [
-    { label: 'Expected loss · next 12 months', value: eur(d.annual_el_eur), sub: `${d.annual_el_bps} bps of exposure` },
-    { label: 'Expected loss · over remaining loan life', value: eur(d.lifetime_el_eur), sub: `${d.lifetime_el_bps} bps of exposure · maturity-matched`, accent: 'var(--color-warn)' },
+    { label: 'Expected loss · next 12 months', value: flow(d.annual_el_eur), sub: `${d.annual_el_bps} bps of exposure` },
+    { label: 'Expected loss · over remaining loan life', value: balance(d.lifetime_el_eur), sub: `${d.lifetime_el_bps} bps of exposure · maturity-matched`, accent: 'var(--color-warn)' },
   ]
 
   return (
@@ -62,11 +62,11 @@ export default function ExpectedLossCard({ prefix, scenario, scenarioLabel }: { 
             {d.assets.slice(0, 8).map(a => (
               <tr key={a.entity_id} className="border-t border-[var(--color-line)]">
                 <td className="px-5 py-1.5 text-[var(--color-ink)]">{a.entity_name}</td>
-                <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-mute)]">{eur(a.ead_eur)}</td>
+                <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-mute)]">{balance(a.ead_eur)}</td>
                 <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-mute)]">{pct(a.p_event)}</td>
                 <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-mute)]">{pct(a.damage_ratio)}</td>
                 <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-mute)]">{a.tenor_years}y<span className="text-[var(--color-faint)] text-[9px]">·{a.tenor_source === 'fed' ? 'fed' : 'ass.'}</span></td>
-                <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-ink)]">{eur(a.lifetime_el_eur)}</td>
+                <td className="px-3 py-1.5 text-right mono tabular-nums text-[var(--color-ink)]">{balance(a.lifetime_el_eur)}</td>
                 <td className="px-5 py-1.5 text-right mono tabular-nums" style={{ color: a.el_pct_of_ead >= 20 ? 'var(--color-bad,#e0574a)' : 'var(--color-mute)' }}>{a.el_pct_of_ead}%</td>
               </tr>
             ))}

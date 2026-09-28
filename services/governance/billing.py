@@ -16,7 +16,11 @@ from sqlalchemy.orm import Session
 from api.services.rbac import write_audit
 from core.config import settings
 
-# seat count + monthly price (EUR cents); entitlements stay sector-driven, plans govern seats + tier
+# The price book's currency: every plan price and every invoice is in it. Amounts are in its minor units (ISO 4217
+# minor_units: cents for EUR) — the screen formats them from the invoice's own currency, never assumes €.
+PRICE_CURRENCY = "EUR"
+
+# seat count + monthly price (minor units of PRICE_CURRENCY); entitlements stay sector-driven, plans govern seats + tier
 PLANS = {
     "trial":      {"seats": 5,    "price_cents": 0,      "label": "Trial"},
     "starter":    {"seats": 10,   "price_cents": 50000,  "label": "Starter"},
@@ -71,6 +75,7 @@ def get_billing(session: Session, org_id: str) -> dict:
         "subscription": dict(sub) if sub else None,
         "seats_used": _active_users(session, org_id),
         "plans": [{"key": k, **v} for k, v in PLANS.items()],
+        "price_currency": PRICE_CURRENCY,
         "invoices": [dict(i) for i in invoices],
         "billing_provider": "stripe" if settings.STRIPE_API_KEY else "manual",
     }
@@ -101,5 +106,5 @@ def _raise_invoice(session: Session, org_id: str, amount_cents: int) -> None:
     # Stripe charging is gated; in manual mode the invoice is simply recorded 'open'
     session.execute(text("""
         INSERT INTO invoice (invoice_id, org_id, number, amount_cents, currency, status, period_start, period_end)
-        VALUES (CAST(:i AS uuid), CAST(:o AS uuid), :n, :a, 'EUR', 'open', now(), now() + interval '30 days')
-    """), {"i": str(uuid.uuid4()), "o": org_id, "n": num, "a": amount_cents})
+        VALUES (CAST(:i AS uuid), CAST(:o AS uuid), :n, :a, :c, 'open', now(), now() + interval '30 days')
+    """), {"i": str(uuid.uuid4()), "o": org_id, "n": num, "a": amount_cents, "c": PRICE_CURRENCY})

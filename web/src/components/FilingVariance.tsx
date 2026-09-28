@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown, Minus, GitCompareArrows } from 'lucide-react'
 import { api } from '../lib/api'
+import { money } from '../lib/money'
 import { Card, Lens } from './ui'
 import { hazardLabel, bucketLabel } from '../lib/hazards'
 import { DivergingBars, PairBars } from './Charts'
@@ -12,7 +13,7 @@ interface D { now: number; prior: number; delta: number }
 interface Mover { asset: string; value_eur: number | null; from_score: number; to_score: number; delta: number; from_bucket: string | null; to_bucket: string | null }
 interface Entry { asset: string; value_eur: number | null; score: number | null; bucket: string | null; gone?: boolean }
 interface Variance {
-  supported: boolean; message?: string; prior_filing_id?: string
+  supported: boolean; message?: string; prior_filing_id?: string; currency?: string
   basis?: { current: { period: string }; prior: { period: string } }
   headline?: { total_value: D; value_at_risk: D; pct_at_risk: { now: number; prior: number; delta: number } }
   by_hazard?: ({ hazard: string } & D)[]
@@ -20,8 +21,6 @@ interface Variance {
   counts?: { assets_now: number; assets_prior: number; added: number; removed: number }
 }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
-const signedEur = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '±') + eur(Math.abs(n)).replace('€', '€')
 // for a RISK figure, up is bad (red), down is good (green)
 const riskTone = (delta: number) => delta > 0 ? '#fb7185' : delta < 0 ? '#34d399' : '#64748b'
 
@@ -30,6 +29,9 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
   const d = q.data
   if (!d || !d.supported) return null   // no prior to compare, or unsupported framework — show nothing
   const h = d.headline!
+  // a filing's amounts are in its own (frozen) presentation currency — both filings share it, or there is no variance
+  const ccy = d.currency ?? 'EUR'
+  const eur = (n?: number | null) => money(n, ccy)
   const material = h.total_value.delta !== 0 || h.value_at_risk.delta !== 0 || (d.drivers?.movers.length ?? 0) > 0 || (d.counts?.added ?? 0) > 0 || (d.counts?.removed ?? 0) > 0
 
   return (
@@ -45,8 +47,8 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
           ? <p className="text-[12.5px] text-[var(--color-mute)]">No material change since {d.basis?.prior.period} — same book, same scores. A restatement with unchanged data reconciles exactly.</p>
           : <>
               <div className="grid grid-cols-3 gap-3">
-                <Tile label="Book value" delta={h.total_value.delta} now={h.total_value.now} risk={false} />
-                <Tile label="Value at risk" delta={h.value_at_risk.delta} now={h.value_at_risk.now} risk />
+                <Tile label="Book value" delta={h.total_value.delta} now={h.total_value.now} risk={false} ccy={ccy} />
+                <Tile label="Value at risk" delta={h.value_at_risk.delta} now={h.value_at_risk.now} risk ccy={ccy} />
                 <PctTile label="Share at risk" now={h.pct_at_risk.now} delta={h.pct_at_risk.delta} />
               </div>
 
@@ -84,13 +86,13 @@ export default function FilingVariance({ filingId }: { filingId: string }) {
   )
 }
 
-function Tile({ label, delta, risk }: { label: string; delta: number; now: number; risk: boolean }) {
+function Tile({ label, delta, risk, ccy }: { label: string; delta: number; now: number; risk: boolean; ccy: string }) {
   const tone = risk ? riskTone(delta) : (delta === 0 ? '#64748b' : 'var(--color-ink)')
   const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus
   return (
     <div>
       <div className="flex items-center gap-1 text-[15px] mono" style={{ color: tone }}>
-        <Icon size={13} />{delta === 0 ? '±0' : signedEur(delta)}
+        <Icon size={13} />{delta === 0 ? '±0' : `${delta > 0 ? '+' : ''}${money(delta, ccy)}`}
       </div>
       <div className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mt-1">{label}</div>
     </div>

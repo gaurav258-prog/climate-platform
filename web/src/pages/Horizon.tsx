@@ -8,6 +8,7 @@ import HexMap from '../components/HexMap'
 import { hazardLabel } from '../lib/hazards'
 import { useAuth } from '../lib/auth'
 import { COAST } from '../lib/coastline'
+import { balance, flow } from '../lib/money'
 
 interface GAsset {
   id: string; name: string; kind: string; lat: number; lon: number; region: string
@@ -398,7 +399,6 @@ export default function Horizon() {
   const beltElevated = beltAssets.filter(a => scoreAt(a, S.current.year) >= 50).length
 
   // left-rail / right-rail helpers
-  const fmtEur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${Math.round(v / 1e3)}k`
   const openKpi = (k: string) => { S.current.play = false; setPlaying(false); setShowAllAtRisk(false); setPanel({ kind: k }) }
   // Choose the year to animate TO, then run from today up to it, so you watch the progression arrive.
   const playTo = (y: number) => { S.current.target = y; setTargetYear(y); S.current.year = 2025; S.current.yearInt = 2025; setViewYear(2025); S.current.play = true; setPlaying(true) }
@@ -502,7 +502,7 @@ export default function Horizon() {
             <span aria-hidden className="absolute top-4 right-4 w-2 h-2 rounded-full" style={{ background: '#E9744A' }} />
             <div className="mono text-[11px] tracking-[0.18em] uppercase text-[var(--color-faint)]">At risk · <span ref={yearElRef}>2025</span></div>
             <div ref={statElRef} className="text-[24px] leading-tight mt-1 tabular-nums" style={{ color: '#E9744A' }}>{kpis.n_elevated} / {kpis.n_assets}</div>
-            <div className="mono text-[12px] text-[var(--color-mute)] mt-1 truncate">{kpis.volume_at_risk_eur_today != null ? `${fmtEur(kpis.volume_at_risk_eur_today)} at risk · ${fmtEur(kpis.book_value_eur)} book` : `${fmtEur(kpis.book_value_eur)} book · ${kpis.n_assets} ${noun}`}</div>
+            <div className="mono text-[12px] text-[var(--color-mute)] mt-1 truncate">{kpis.volume_at_risk_eur_today != null ? `${flow(kpis.volume_at_risk_eur_today)} at risk · ${balance(kpis.book_value_eur)} book` : `${balance(kpis.book_value_eur)} book · ${kpis.n_assets} ${noun}`}</div>
           </button>
           <Tile label="Filing readiness" value={`${kpis.readiness.passed} / ${kpis.readiness.total}`} tint={kpis.readiness.passed === kpis.readiness.total ? '#5FB98C' : '#E8B24C'} sub="checks passed" onClick={() => openKpi('readiness')} />
         </>)}
@@ -568,7 +568,7 @@ export default function Horizon() {
           {(panel.kind === 'book' || panel.kind === 'elevated') && kpis && (
             <div className="mt-6">
               <div className="mono text-[11.5px] tracking-[0.22em] uppercase text-[var(--color-faint)]">{panel.kind === 'book' ? 'Book value' : 'Elevated by 2050'}</div>
-              <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{panel.kind === 'book' ? fmtEur(kpis.book_value_eur) : `${kpis.n_elevated} of ${kpis.n_assets} ${noun}`}</div>
+              <div className="display text-[30px] text-[#F4EFE6] mt-1.5">{panel.kind === 'book' ? balance(kpis.book_value_eur) : `${kpis.n_elevated} of ${kpis.n_assets} ${noun}`}</div>
               <div className="text-[14px] text-[var(--color-mute)] mt-2 leading-relaxed">{panel.kind === 'book' ? `Total value across your ${assets.length} located ${noun}. Top exposures:` : 'Highest projected physical-risk under the disorderly-2°C path at 2050:'}</div>
               {(() => {
                 const full = panel.kind === 'book' ? topByValue : elevated2050
@@ -578,7 +578,7 @@ export default function Horizon() {
                     {shown.map(a => { const l = a.traj['2050'] ?? a.traj.current; const [r, g, b] = col(l); return (
                       <button key={a.id} onClick={() => { setPanel(null); S.current.focus = a; setSel(a) }} className="flex items-center justify-between gap-3 text-left rounded-lg border border-[var(--color-line)] px-3 py-2 hover:border-[var(--color-sky)]">
                         <span className="min-w-0"><span className="block text-[14px] text-[var(--color-ink)] truncate">{a.name}</span><span className="mono text-[11px] text-[var(--color-faint)]">{a.region}</span></span>
-                        <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? fmtEur(a.value_eur) : `${Math.round(l)}/100`}</span>
+                        <span className="mono text-[13px] shrink-0" style={{ color: `rgb(${r},${g},${b})` }}>{panel.kind === 'book' ? balance(a.value_eur) : `${Math.round(l)}/100`}</span>
                       </button>) })}
                   </div>
                   {full.length > 8 && (

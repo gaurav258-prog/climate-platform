@@ -5,6 +5,7 @@ import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, ChevronD
 import { api } from '../lib/api'
 import { Card, SectionHead, PageHeader, HeroBanner } from '../components/ui'
 import BoardPack from '../components/BoardPack'
+import { balance, flow } from '../lib/money'
 
 // Supervisory view — two lenses on the same institution.
 //   1) "How regulators read you" (default): for each supervisor of your applicable frameworks — its mission,
@@ -27,7 +28,7 @@ interface Posture {
 }
 
 // ── regulator (outward) ──
-interface Answer { label: string; value: number | string | null; fmt: string; breached: boolean }
+interface Answer { label: string; value: number | string | null; fmt: string; flow?: boolean; breached: boolean }
 interface SQ { framework: string; question: string; focus: string; metric: string | null; answer: Answer | null; answered: boolean; review: boolean }
 interface Focus { title: string; scrutiny: string; transparency: string }
 interface RegChange { title: string; when: string; date: string | null; citation: string; url: string | null }
@@ -35,10 +36,10 @@ interface Review { needs_review: boolean; changes: RegChange[] }
 interface Supervisor { id: string; name: string; jurisdiction: string; mission: string; reference: string; focus_areas: Focus[]; frameworks: string[]; questions: SQ[]; answered: number; total: number; review: Review }
 interface SupResp { supervisors: Supervisor[]; library_reviewed: string; summary: { n_supervisors: number; n_questions: number; n_answered: number; n_review: number } }
 
-const fmtVal = (v: number | string | null, fmt: string) => {
+const fmtVal = (v: number | string | null, fmt: string, isFlow?: boolean) => {
   if (v == null) return '—'
   if (fmt === 'pct') return `${v}%`
-  if (fmt === 'eur') { const n = +v; return n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `€${Math.round(n / 1e3)}k` : `€${n}` }
+  if (fmt === 'eur') return isFlow ? flow(+v) : balance(+v)   // the KRI says whether it is a yearly amount
   return String(v)
 }
 
@@ -176,7 +177,7 @@ function SupervisorCard({ s }: { s: Supervisor }) {
                 {qq.answer
                   ? <>
                       <div className="mono text-[15px] tabular-nums font-medium" style={{ color: qq.answer.breached ? '#fb7185' : 'var(--color-ink)' }}>
-                        {fmtVal(qq.answer.value, qq.answer.fmt)}{qq.answer.breached && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
+                        {fmtVal(qq.answer.value, qq.answer.fmt, qq.answer.flow)}{qq.answer.breached && <AlertTriangle size={11} className="inline ml-1 -mt-0.5" />}
                       </div>
                       <div className="mono text-[9.5px] text-[var(--color-faint)] max-w-[160px] truncate">{qq.answer.label}</div>
                     </>

@@ -16,6 +16,7 @@ import { hazardLabel, sevColor } from '../lib/hazards'
 import { filingLink } from '../lib/links'
 import { toast } from '../lib/toast'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+import { balance, flow, money } from '../lib/money'
 
 // the asset-detail config per bank/REIT framework — lets a KRI exposure row open the full asset drawer
 const DRAWER_CFG: Record<string, DrawerCfg> = {
@@ -27,7 +28,7 @@ const DRAWER_CFG: Record<string, DrawerCfg> = {
 // Key Regulatory Indicator dashboard — the regulator's-eye consolidated view of the book's physical-risk
 // KRIs, with the same headline figures across the org's filed history so the trend is visible.
 
-interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated' }
+interface Kpi { key: string; label: string; value: number | null; fmt: string; tone: string | null; hint: string | null; status?: 'ok' | 'amber' | 'red' | null; amber?: number | null; red?: number | null; direction?: string | null; breached?: boolean; reg?: string; reg_tier?: string; integrated?: boolean; integrated_note?: string | null; kind?: 'computed' | 'integrated'; flow?: boolean }
 interface Regulator { authority: string; disclosure: string; legal_basis: string; form_url: string | null }
 interface Readiness { core: number; covered: number; integrated: string[]; gaps: string[] }
 interface Haz { hazard: string; value: number; score: number }
@@ -48,8 +49,9 @@ const bandNote = (k: Kpi) => {
 interface Ent { name: string; value: number | null; h3_cell: string | null; country: string | null; score: number | null }
 interface HazDrill { supported: boolean; hazard: string; noun: string; entities: Ent[] }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
-const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? eur(k.value) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
+const fmt = (k: Kpi) => k.value == null ? '—' : k.fmt === 'eur' ? (k.flow ? flow(k.value) : balance(k.value)) : k.fmt === 'pct' ? `${k.value}%` : k.fmt === 'ha' ? `${k.value} ha` : k.fmt === 'dec' ? String(k.value) : Math.round(k.value).toLocaleString('en-GB')
+// appetite bands are set in EUR, the engine's currency — shown as set, never translated
+const band_ = (k: Kpi, v?: number | null) => v == null ? '—' : k.fmt === 'eur' ? money(v, 'EUR') : String(v)
 const FRAMEWORKS: Record<string, string> = { bank: 'bank_tcfd', asset_manager: 'sfdr_pai', reit: 'reit_tcfd', insurer: 'insurer_climate', manufacturer: 'esrs_pack' }
 interface Fw { framework: string; label: string }
 
@@ -250,7 +252,7 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
               <div className="mono text-[10px] uppercase tracking-widest text-[var(--color-faint)]">Value at risk by hazard</div>
               {hasAnalytics && <button onClick={() => nav('/analytics')} className="ml-auto inline-flex items-center gap-1 mono text-[9.5px] uppercase tracking-wide text-[var(--color-sky)] hover:underline" title="See how this exposure moves as the world warms">explore forward <ChevronRight size={11} /></button>}
             </div>
-            <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={eur} onBar={i => setDrill(d.by_hazard[i].hazard)} />
+            <HBar data={d.by_hazard.map(h => ({ label: hazardLabel(h.hazard), value: h.value, color: sevColor(h.score) }))} format={balance} onBar={i => setDrill(d.by_hazard[i].hazard)} />
             <div className="mono text-[9.5px] text-[var(--color-faint)] mt-2">click a hazard to see what's driving it{hasAnalytics ? ' · then project it forward in Analytics' : ''}</div>
           </div>
         )}
@@ -260,8 +262,8 @@ function KriReference({ d, hasAnalytics, nav, setDrill, orgType }:
               {d.history.map((h, i) => (
                 <button key={i} onClick={() => h.filing_id && nav(filingLink(orgType, h.filing_id))} className="w-full text-left px-1 py-3 flex items-center gap-4 hover:bg-[var(--color-panel)] transition" title="Open this filing">
                   <div className="flex-1 mono text-[12px] text-[var(--color-mute)]">{h.label}</div>
-                  <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{eur(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>
-                  {h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{eur(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
+                  <div className="text-right"><div className="mono text-[12.5px] tabular-nums">{balance(h.total_value)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">book value</div></div>
+                  {h.value_at_risk != null && <div className="text-right w-24"><div className="mono text-[12.5px] tabular-nums" style={{ color: '#fb7185' }}>{balance(h.value_at_risk)}</div><div className="mono text-[9.5px] text-[var(--color-faint)]">at risk</div></div>}
                   <ChevronRight size={14} className="text-[var(--color-faint)] shrink-0" />
                 </button>
               ))}
@@ -319,7 +321,7 @@ function HazardDrill({ framework, hazard, hasAnalytics, onClose }: { framework: 
                     <div className="mono text-[9.5px] text-[var(--color-faint)]">cell {e.h3_cell ? e.h3_cell.slice(0, 10) + '…' : '—'}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{eur(e.value)}</div>
+                    <div className="mono text-[12px] tabular-nums text-[var(--color-mute)]">{balance(e.value)}</div>
                     <div className="mono text-[10px]" style={{ color: sevColor(e.score ?? 0) }}>{e.score != null ? Math.round(e.score) : '—'}/100</div>
                   </div>
                 </div>
@@ -338,7 +340,7 @@ interface Comp { type: 'hazard' | 'scope' | 'coverage' | 'taxonomy' | 'sector' |
 interface Driver { id?: string | null; name: string; sector?: string | null; country?: string | null; nace?: string | null; value: number; hazard?: string | null; bucket?: string | null; score?: number | null }
 interface Drivers { unit: 'eur' | 'num'; total_count: number; items: Driver[] }
 interface Projection { points: { horizon: string; value: number; lo: number; hi: number }[]; unit: 'eur' | 'pct'; warn?: number | null; breach?: number | null; scenario: string; note: string }
-interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null; filing_id?: string }[]; fmt: string }; projection?: Projection | null; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
+interface Detail { supported: boolean; message?: string; framework: string; kpi: Kpi; regulator?: Regulator; methodology?: string | null; trend: { points: { label: string; value: number | null; filing_id?: string }[]; fmt: string; flow?: boolean }; projection?: Projection | null; composition?: Comp | null; drivers?: Drivers | null; actions: { analytics: boolean; provide: boolean } }
 
 function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: string; onClose: () => void }) {
   const nav = useNavigate()
@@ -387,8 +389,8 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
       await q.refetch(); setEditBand(false); toast.success('Appetite band updated.')
     } catch { toast.error('Could not update the appetite band.') } finally { setSavingBand(false) }
   }
-  const uf = (v: number, unit?: string) => unit === 'eur' ? eur(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
-  const tf = (v: number) => d?.trend.fmt === 'eur' ? eur(v) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
+  const uf = (v: number, unit?: string) => unit === 'eur' ? balance(v) : unit === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
+  const tf = (v: number) => d?.trend.fmt === 'eur' ? (d.trend.flow ? flow(v) : balance(v)) : d?.trend.fmt === 'pct' ? `${v}%` : Math.round(v).toLocaleString('en-GB')
   const compTitle: Record<string, string> = { hazard: 'Exposure by hazard', scope: 'Emissions by scope', coverage: 'Scored vs unscored', taxonomy: 'Eligible vs not eligible', sector: 'Concentration by NACE sector', horizon: 'Projected trajectory by horizon' }
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -431,14 +433,14 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                     <div className="flex items-center gap-2">
                       {k.status && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RAG[k.status] }} />}
                       <span className="text-[var(--color-mute)]">{!k.status ? 'No appetite band set' : k.status === 'ok' ? 'Within appetite' : k.status === 'amber' ? 'Warning — approaching breach' : 'Outside appetite (breach)'}</span>
-                      {!editBand && (k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {k.amber} · breach {k.red}</span>}
+                      {!editBand && (k.amber != null || k.red != null) && <span className="mono text-[10px] text-[var(--color-faint)] ml-auto">warn {band_(k, k.amber)} · breach {band_(k, k.red)}</span>}
                       {!editBand && canSetAppetite && <button onClick={startBand} className={`mono text-[10px] uppercase tracking-wide text-[var(--color-sky)] hover:underline ${(k.amber != null || k.red != null) ? 'ml-2' : 'ml-auto'}`}>{(k.amber != null || k.red != null) ? 'adjust' : 'set band'}</button>}
                     </div>
                     {editBand && (
                       <div className="mt-2 pt-2 border-t border-[var(--color-line-2)] flex flex-wrap items-end gap-2">
-                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Warn ≥</div>
+                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Warn ≥{k.fmt === 'eur' ? ' (EUR)' : ''}</div>
                           <input type="number" value={band.amber ?? ''} onChange={e => setBand(b => ({ ...b, amber: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
-                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Breach ≥</div>
+                        <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Breach ≥{k.fmt === 'eur' ? ' (EUR)' : ''}</div>
                           <input type="number" value={band.red ?? ''} onChange={e => setBand(b => ({ ...b, red: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-20 rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]" /></label>
                         <label className="block"><div className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)] mb-0.5">Direction</div>
                           <select value={band.direction ?? 'higher_worse'} onChange={e => setBand(b => ({ ...b, direction: e.target.value }))} className="rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1 text-[12px]">
@@ -454,7 +456,7 @@ function KriDetail({ framework, kriKey, onClose }: { framework: string; kriKey: 
                 )}
                 {d.projection && d.projection.points.length >= 2 && (() => {
                   const pr = d.projection
-                  const pf = (v: number) => pr.unit === 'eur' ? eur(v) : `${Math.round(v)}%`
+                  const pf = (v: number) => pr.unit === 'eur' ? balance(v) : `${Math.round(v)}%`
                   return (
                     <div>
                       <div className="mono text-[9.5px] uppercase tracking-widest text-[var(--color-faint)] mb-1.5">Projected trajectory · {pr.scenario}</div>

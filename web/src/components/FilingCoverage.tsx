@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ListChecks, ArrowUpRight } from 'lucide-react'
 import { api } from '../lib/api'
+import { balance } from '../lib/money'
 import { useAuth } from '../lib/auth'
 import { Card, SectionHead } from './ui'
 
@@ -15,7 +16,7 @@ interface DisclosureResp { taxonomy: Record<string, TaxBlock> }
 
 // disclosure sectors → their /v1/<prefix>/disclosure endpoint. Insurer has no taxonomy read → no card.
 const PREFIX: Record<string, string> = { bank: 'bank', asset_manager: 'assetmgmt', reit: 'realestate' }
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+const eur = (n?: number | null) => balance(n)   // the live book, before freezing: the organisation's currency
 
 export default function FilingCoverage() {
   const { profile } = useAuth()

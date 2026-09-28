@@ -9,6 +9,7 @@ import GlRecon from '../components/GlRecon'
 import SeasonalArrears from '../components/SeasonalArrears'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
 import ValidatedUpload from '../components/ValidatedUpload'
+import { balance } from '../lib/money'
 
 // One place a customer feeds the engine and sees what it made of their book: upload the book (checked before
 // anything saves), read the scores, then fill the regulatory gaps. Financial sectors; the book differs by sector.
@@ -18,7 +19,6 @@ const SECTORS: Record<string, { prefix: string; listKey: string; bookNoun: strin
   asset_manager: { prefix: 'assetmgmt', listKey: 'holdings', bookNoun: 'holdings book', rowNoun: 'holding' },
   reit:          { prefix: 'realestate', listKey: 'properties', bookNoun: 'property schedule', rowNoun: 'property' },
 }
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round((n || 0) / 1e3)}k`
 
 interface Rollup { n_scored?: number; total_value_eur?: number; value_at_risk_eur?: number; pct_value_at_risk?: number; n_high?: number; by_hazard?: { hazard: string }[] }
 
@@ -83,9 +83,9 @@ export default function DataHub() {
       <Step n={2} title="What the engine made" tone="engine">
         <div className="flex flex-wrap gap-x-8 gap-y-3 mb-3">
           <Metric label="assets scored" value={r?.n_scored != null ? String(r.n_scored) : '—'} />
-          <Metric label="money at high risk" value={eur(r?.value_at_risk_eur)} accent />
+          <Metric label="money at high risk" value={balance(r?.value_at_risk_eur)} accent />
           <Metric label="share of book at risk" value={r?.pct_value_at_risk != null ? `${r.pct_value_at_risk}%` : '—'} />
-          <Metric label="total book value" value={eur(r?.total_value_eur)} />
+          <Metric label="total book value" value={balance(r?.total_value_eur)} />
         </div>
         <div className="flex flex-wrap gap-2">
           <NavBtn to="/portfolio">Open Portfolio</NavBtn>

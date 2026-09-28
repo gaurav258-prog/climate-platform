@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
+import { flow } from '../lib/money'
 
 interface Summary {
   rollup: { volume_at_risk_eur: number; pct_cogs_at_risk: number }
@@ -17,7 +18,6 @@ interface Plot { plot_id: string; plot_name: string; commodity: string; top_haza
   eudr_covered?: boolean; eudr_determination?: string | null }
 interface Portfolio { plots: Plot[] }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const pretty = hazardLabel
 const hz = (s?: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 
@@ -59,7 +59,7 @@ export default function Home() {
         title={(s?.rollup.volume_at_risk_eur ?? 0) > 0 || sitesElevated > 0 ? 'Climate is pressing on your book.' : 'Your book is running clear.'}
         lead="Your climate exposure across operations and sourcing, rolled to euros on the bill of materials — one glance at the whole book."
         stat={[
-          { label: 'Volume at risk (physical)', value: eur(s?.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C', onClick: () => nav('/cogs') },
+          { label: 'Volume at risk (physical)', value: flow(s?.rollup.volume_at_risk_eur), icon: PackageX, tone: '#E8853C', onClick: () => nav('/cogs') },
           { label: 'Operational sites', value: siteList.length, icon: Building2, tone: sitesElevated ? '#E8853C' : undefined, onClick: () => nav('/operations') },
           { label: 'Sourcing plots', value: plots.length, icon: MapPin, tone: 'var(--color-sky)', onClick: () => nav('/sourcing') },
           { label: 'EUDR deforestation-free', value: coveredPlots ? `${defFree}/${coveredPlots}` : '—', icon: TreePine, tone: '#4FA46E', onClick: () => nav('/sourcing') },

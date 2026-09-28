@@ -7,6 +7,7 @@ import { useResizableWidth } from '../lib/resizable'
 import { Card, Button, SectionHead } from './ui'
 import { hazardLabel, sevColor } from '../lib/hazards'
 import { actionLabel } from '../lib/actionLabels'
+import { balance, flow } from '../lib/money'
 
 // The per-asset drill for the four financial books — the depth the agri /detail/* pages already had, plus
 // the actions an analyst needs: override the model's valuation discount (bank / asset-mgr / REIT), or set a
@@ -30,7 +31,6 @@ interface Trigger { hazard_type?: string; attachment_score?: number; exhaustion_
 interface AuditRow { actor_user_id?: string; action: string; detail?: Record<string, unknown>; created_at: string }
 type Detail = Record<string, unknown>
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const BUCKET: Record<string, string> = { VH: 'severe', H: 'high', M: 'elevated', L: 'low' }
 
 // tiny CSP-safe SVG sparkline of a hazard's physical-risk score (0–100) across horizons
@@ -147,7 +147,7 @@ export default function AssetDrawer({ cfg, id, onClose, onChanged }: { cfg: Draw
             <div>
               <h2 className="display text-xl font-semibold">{name}</h2>
               <div className="mono text-[11px] text-[var(--color-faint)] mt-1 flex flex-wrap items-center gap-x-2">
-                <span className="text-[var(--color-mute)]">{eur(value)}</span>
+                <span className="text-[var(--color-mute)]">{balance(value)}</span>
                 {atype && <span>· {atype.replace(/_/g, ' ')}</span>}
                 {(region || country) && <span>· {[region, country].filter(Boolean).join(', ')}</span>}
                 {lat != null && lon != null && <span className="inline-flex items-center gap-1"><MapPin size={10} /> {Math.abs(lat).toFixed(2)}°{lat >= 0 ? 'N' : 'S'}, {Math.abs(lon).toFixed(2)}°{lon >= 0 ? 'E' : 'W'}</span>}
@@ -243,7 +243,7 @@ function ValuationPanel({ cfg, id, val, onDone }: { cfg: DrawerCfg; id: string; 
         {val?.is_overridden && <span className="mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#e8b24c', background: '#e8b24c22' }}>analyst override on file</span>}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
-        <Row k="Risk-adjusted value" v={eur(val?.discounted_value_eur)} />
+        <Row k="Risk-adjusted value" v={balance(val?.discounted_value_eur)} />
         <Row k="Recommended discount" v={val?.recommended_discount_pct != null ? `${val.recommended_discount_pct}%` : '—'} />
         <Row k="Effective discount" v={val?.effective_discount_pct != null ? `${val.effective_discount_pct}%` : '—'} />
         {val?.original_ltv_pct != null && <Row k="LTV" v={`${val.original_ltv_pct}% → ${val.climate_adjusted_ltv_pct}%`} />}
@@ -310,7 +310,7 @@ function TriggerPanel({ id, item, risks, onDone }: { id: string; item?: Record<s
         return (
           <div className="mono text-[11px] text-[var(--color-faint)] space-y-1">
             <div>pricing on file — expected loss &amp; premium computed from the golden source.</div>
-            {p.gross_premium_eur != null && <div className="text-[var(--color-mute)]">premium <b className="text-[var(--color-ink)]">€{Math.round(p.gross_premium_eur).toLocaleString()}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
+            {p.gross_premium_eur != null && <div className="text-[var(--color-mute)]">premium <b className="text-[var(--color-ink)]">{flow(p.gross_premium_eur, { full: true })}</b>{p.rate_on_line_pct != null && <> · rate-on-line {p.rate_on_line_pct}%</>}</div>}
             {p.vulnerability?.applied && p.vulnerability_factor != null && (
               <div>vulnerability <b className="text-[var(--color-mute)]">×{p.vulnerability_factor}</b> — {p.vulnerability.drivers.map(d => `${d.attr.replace(/_/g, ' ')} ${String(d.value)}`).join(' · ')}</div>
             )}

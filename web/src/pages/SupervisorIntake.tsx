@@ -5,6 +5,7 @@ import { ChevronLeft, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { horizonLabel, scenarioLabel } from '../lib/hazards'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { balance } from '../lib/money'
 
 // Tier-2 intake — the data steward's screen. Two files per entity and period, each mapped column-by-column to the
 // canonical fields the supervision profile declares for the entity's sector; nothing is saved until the import.
@@ -17,7 +18,6 @@ interface Status { entity: string; sector_type: string; intake: Spec
   submissions: { framework: string; template: string; period_label: string; n_cells: number; source_file: string | null; created_at: string; basis: Record<string, string> }[] }
 interface Report { kind: string; fields: Field[]; mapping: Record<string, string | null>; columns: string[]; n_total: number; n_valid: number; n_error: number
   errors: { row: number; problems: string[] }[]; missing_required: string[]; ok: boolean }
-const eur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
 
 export default function SupervisorIntake() {
   const { orgId = '' } = useParams()
@@ -39,7 +39,7 @@ export default function SupervisorIntake() {
       <PageHeader eyebrow="Intake · Tier 2" title="What you hold about this entity"
         lead="The template the entity submitted, and your own granular data. Each file is mapped to the canonical fields your profile declares; rows that cannot be placed are listed, never dropped silently. Your data only — the entity never sees it." />
       <StatGrid cols={4} items={[
-        { label: 'Shadow book', value: sb.n_rows.toLocaleString(), sub: sb.n_rows ? `${eur(sb.value_eur)} · ${sb.n_located} located` : 'no granular data yet' },
+        { label: 'Shadow book', value: sb.n_rows.toLocaleString(), sub: sb.n_rows ? `${balance(sb.value_eur)} · ${sb.n_located} located` : 'no granular data yet' },
         { label: 'Value with a location', value: sb.coverage_value_pct != null ? `${sb.coverage_value_pct}%` : '—', sub: d.intake.granular.precision_label },
         { label: 'Scenario projections', value: sb.projection.cells ? `${sb.projection.cells_complete ?? 0} / ${sb.projection.cells} cells` : '—',
           accent: sb.projection.complete ? 'var(--color-good)' : sb.projection.cells ? 'var(--color-warn)' : undefined,

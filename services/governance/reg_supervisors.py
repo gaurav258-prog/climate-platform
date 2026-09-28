@@ -233,7 +233,7 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
             kk = kmap.get(q.get("kri_key")) if q.get("kri_key") else None
             if kk is not None:
                 answer = {"label": kk.get("label"), "value": kk.get("value"),
-                          "fmt": kk.get("fmt"), "breached": bool(kk.get("breached"))}
+                          "fmt": kk.get("fmt"), "flow": bool(kk.get("flow")), "breached": bool(kk.get("breached"))}
             row = {"framework": fw, "question": q["q"], "focus": q["focus"],
                    "metric": q.get("metric"), "answer": answer, "answered": answer is not None,
                    "review": bool(fw_changes)}

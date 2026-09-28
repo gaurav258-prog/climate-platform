@@ -59,6 +59,7 @@ def variance(session: Session, org_id: str, filing_id: str, vs_filing_id: str | 
                            f"subtracted. Compare against a filing in {cc}."}
     return {
         "supported": True, "filing_id": filing_id, "prior_filing_id": prior_id, "framework": cur["framework"],
+        "currency": cc,
         "basis": {"current": {"period": cur["period_label"], **(cur.get("snapshot") or {}).get("reporting_basis", {})},
                   "prior": {"period": prior["period_label"], **(prior.get("snapshot") or {}).get("reporting_basis", {})}},
         **decompose(cp, pp, cfg),

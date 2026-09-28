@@ -6,12 +6,12 @@ import { toast } from '../lib/toast'
 import { Card, PageHeader, SectionHead, PlainLead } from '../components/ui'
 import { HBar } from '../components/Charts'
 import { hazardLabel } from '../lib/hazards'
+import { flow } from '../lib/money'
 import { Radio, ChevronRight, ListPlus } from 'lucide-react'
 
 interface Alert { commodity: string; hazard: string; avg_hazard: number; level: string; spend_eur: number }
 interface Signals { n_alerts: number; alerts: Alert[]; pending: { commodity: string; spend_eur: number }[]; commodity_ids: Record<string, string> }
 
-const eur = (n?: number | null) => n == null ? '—' : `€${(n / 1e6).toFixed(1)}m`
 const LEVEL: Record<string, string> = {
   VH: 'var(--color-bad)', H: 'var(--color-bad)', M: 'var(--color-warn)', L: 'var(--color-good)',
 }
@@ -50,8 +50,8 @@ export default function EarlyWarning() {
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: LEVEL[a.level] ?? 'var(--color-slate)' }} />
                 <span className="text-[14px] font-medium">{a.commodity}</span>
                 <span className="mono text-[11px] text-[var(--color-mute)]">{hazardLabel(a.hazard)} · {a.avg_hazard}</span>
-                <span className="ml-auto mono text-[12px] text-[var(--color-mute)]">{eur(a.spend_eur)} spend</span>
-                <RaiseTaskButton commodity={a.commodity} signal={`${hazardLabel(a.hazard)} · ${eur(a.spend_eur)} spend at risk`} />
+                <span className="ml-auto mono text-[12px] text-[var(--color-mute)]">{flow(a.spend_eur)} spend</span>
+                <RaiseTaskButton commodity={a.commodity} signal={`${hazardLabel(a.hazard)} · ${flow(a.spend_eur)} spend at risk`} />
                 {clickable && <ChevronRight size={15} className="text-[var(--color-faint)] shrink-0 cursor-pointer hover:text-[var(--color-sky)]" onClick={() => open(a.commodity)} />}
               </div>
               )
@@ -70,7 +70,7 @@ export default function EarlyWarning() {
               return (
               <span key={i} onClick={() => open(p.commodity)}
                 className={`mono text-[12px] px-3 py-1.5 rounded-lg border border-[var(--color-line)] text-[var(--color-mute)] ${clickable ? 'cursor-pointer hover:border-[var(--color-sky)] hover:text-[var(--color-ink)] transition' : ''}`}>
-                {p.commodity} <span className="text-[var(--color-faint)]">· {eur(p.spend_eur)}</span>
+                {p.commodity} <span className="text-[var(--color-faint)]">· {flow(p.spend_eur)}</span>
               </span>
               )
             })}

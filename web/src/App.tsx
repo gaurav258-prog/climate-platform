@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from './lib/auth'
 import { api } from './lib/api'
+import { setDisplay, type Display } from './lib/money'
 import Login from './pages/Login'
 import Shell from './components/Shell'
 
@@ -98,8 +99,11 @@ export default function App() {
 
 function Workspace() {
   const { profile, loading } = useAuth()
+  // the currency the organisation's screens show money in — loaded once, before any page renders an amount
+  const mq = useQuery({ queryKey: ['me-money'], queryFn: () => api.get<Display>('/v1/auth/me/money'), enabled: !!profile, staleTime: Infinity })
+  if (mq.data) setDisplay(mq.data)
 
-  if (loading) return <Splash />
+  if (loading || (profile && mq.isPending && !mq.isError)) return <Splash />
   if (!profile) return <Login />
 
   // a platform operator (no customer workspace access) lands on the cross-tenant console

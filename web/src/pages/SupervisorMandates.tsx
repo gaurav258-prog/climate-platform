@@ -7,6 +7,7 @@ import { toast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { frameworkLabel } from '../lib/hazards'
 import { Button, Card, PageHeader, StatGrid } from '../components/ui'
+import { money } from '../lib/money'
 
 // The regulatory mandate registry: which regulation, which article (curated excerpt + the official act), who it applies
 // to (criteria over entity attributes), what must be delivered, through which channel and by when, and the version
@@ -29,7 +30,7 @@ interface PopResp { period_end: string; mandates: { id: string; short: string; t
   entities: { org_id: string; name: string; type: string; country: string | null; attributes: Record<string, { value: unknown; source: string; as_of: string | null }>; mandates: Cell[]; n_applies: number; n_cannot: number; missing: string[] }[]
   attributes: Record<string, { label: string; type: string; unit?: string }>; summary: { entities: number; cannot_determine: number; attributes_missing: number } }
 const SC: Record<Cell['status'], string> = { applies: 'var(--color-good)', not_applicable: 'var(--color-faint)', cannot_determine: 'var(--color-warn)' }
-const fmtVal = (v: unknown, unit?: string) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : typeof v === 'number' ? (unit === 'eur' ? (v >= 1e9 ? `€${(v / 1e9).toFixed(1)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(0)}m` : `€${v.toLocaleString()}`) : v.toLocaleString()) : String(v)
+const fmtVal = (v: unknown, unit?: string) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : typeof v === 'number' ? (unit === 'eur' ? money(v, 'EUR') : v.toLocaleString()) : String(v)
 const condText = (c: Cond) => c.label
 
 export default function SupervisorMandates() {

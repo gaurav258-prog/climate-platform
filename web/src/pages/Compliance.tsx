@@ -7,6 +7,7 @@ import { Eyebrow, Card, SectionHead, PageHeader, HeroBanner } from '../component
 import { hazardLabel } from '../lib/hazards'
 import FilingCockpit from '../components/FilingCockpit'
 import AssetDrawer, { type DrawerCfg } from '../components/AssetDrawer'
+import { balance } from '../lib/money'
 
 // the insurer's own DrawerCfg (Portfolio.tsx's SECTORS.insurer) — trigger rows open the SAME drawer
 // Portfolio uses for a policy, not a second one
@@ -33,7 +34,6 @@ const TITLE: Record<string, { title: string; blurb: string }> = {
   reit:          { title: 'Reports & filings', blurb: 'The filings that need you, front and centre — everything else is a click away under Details.' },
   insurer:       { title: 'Reports & filings', blurb: 'Your climate filings and the live parametric-cover monitoring behind them.' },
 }
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 function col(l: number): [number, number, number] { return l < 28 ? [95, 185, 140] : l < 50 ? [232, 178, 76] : l < 75 ? [233, 116, 74] : [210, 59, 59] }
 
 export default function Compliance() {
@@ -77,7 +77,7 @@ function TriggersView() {
         stat={[
           { label: 'Configured triggers', value: r.n_configured, icon: SlidersHorizontal, tone: 'var(--color-sky)' },
           { label: 'Breached now', value: r.n_triggered_now, icon: AlertTriangle, tone: r.n_triggered_now > 0 ? '#D23B3B' : '#4FA46E', pulse: r.n_triggered_now > 0 },
-          { label: 'Payout if breached', value: eur(r.total_payout_if_triggered_eur), icon: Coins, tone: r.n_triggered_now > 0 ? '#E8853C' : undefined },
+          { label: 'Payout if breached', value: balance(r.total_payout_if_triggered_eur), icon: Coins, tone: r.n_triggered_now > 0 ? '#E8853C' : undefined },
         ]} />
       {q.data.configured.length === 0
         ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">No parametric triggers configured yet. Configure index-based cover on a policy to monitor breaches here.</Card>
@@ -115,7 +115,7 @@ function TriggerTable({ title, rows, breached, onOpen }: { title: string; rows: 
             <div className="w-20 text-right"><span className="mono text-[12px]" style={{ color: `rgb(${r},${g},${b})` }}>{t.current_score != null ? `${Math.round(t.current_score)}/100` : '—'}</span></div>
             {breached
               ? <div className="w-32 text-right">
-                  <div className="mono text-[13px] tabular-nums text-[var(--color-bad)]">{eur(t.payout_eur)}</div>
+                  <div className="mono text-[13px] tabular-nums text-[var(--color-bad)]">{balance(t.payout_eur)}</div>
                   <div className="mono text-[10.5px] text-[var(--color-faint)]">{t.payout_pct}% payout</div>
                 </div>
               : <div className="w-32 flex flex-col items-end gap-1">

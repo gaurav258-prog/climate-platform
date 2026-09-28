@@ -4,6 +4,7 @@ import { Sprout, Upload, Download } from 'lucide-react'
 import { api, upload as uploadFile, download } from '../lib/api'
 import MoneyDeclaration from './MoneyDeclaration'
 import { toast } from '../lib/toast'
+import { balance } from '../lib/money'
 import { Card, StatGrid, type StatItem } from './ui'
 
 // Seasonal-arrears overlay — separate normal harvest-cycle carry-over from genuine deterioration. Upload the
@@ -18,7 +19,6 @@ interface Resp {
              n_genuine: number; genuine_eur: number; reclassified_pct: number; n_not_checked_no_country: number }
   loans?: Loan[]
 }
-const eur = (n?: number | null) => n == null ? '—' : Math.abs(n) >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
 const BADGE: Record<string, { color: string; bg: string }> = {
   seasonal: { color: 'var(--color-warn)', bg: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' },
   climate_attributed: { color: 'var(--color-sky)', bg: 'color-mix(in oklab, var(--color-sky) 14%, transparent)' },
@@ -78,10 +78,10 @@ export default function SeasonalArrears() {
         ) : s ? (
           <>
             <StatGrid cols={5} className="mb-3" items={[
-              { label: <>Past due · {s.n_past_due}</>, value: eur(s.past_due_eur) },
-              { label: <>Seasonal · {s.n_seasonal}</>, value: eur(s.seasonal_eur), accent: 'var(--color-warn)' },
-              { label: <>Climate-attributed · {s.n_climate_attributed}</>, value: eur(s.climate_attributed_eur), accent: 'var(--color-sky)' },
-              { label: <>Genuine · {s.n_genuine}</>, value: eur(s.genuine_eur), accent: 'var(--color-bad)' },
+              { label: <>Past due · {s.n_past_due}</>, value: balance(s.past_due_eur) },
+              { label: <>Seasonal · {s.n_seasonal}</>, value: balance(s.seasonal_eur), accent: 'var(--color-warn)' },
+              { label: <>Climate-attributed · {s.n_climate_attributed}</>, value: balance(s.climate_attributed_eur), accent: 'var(--color-sky)' },
+              { label: <>Genuine · {s.n_genuine}</>, value: balance(s.genuine_eur), accent: 'var(--color-bad)' },
               { label: 'Reclassified', value: `${s.reclassified_pct}%` },
             ] satisfies StatItem[]} />
             <div className="divide-y divide-[var(--color-line)] border-t border-[var(--color-line)]">
@@ -91,7 +91,7 @@ export default function SeasonalArrears() {
                   <span className="text-[var(--color-ink)] shrink-0">{l.borrower_name || l.loan_ref}</span>
                   <span className="text-[var(--color-mute)] truncate flex-1 min-w-0 hidden sm:block">· {l.rationale}</span>
                   <span className="mono text-[11px] text-[var(--color-faint)] shrink-0">{l.days_past_due}d</span>
-                  <span className="mono tabular-nums text-[var(--color-ink)] shrink-0 w-14 text-right">{eur(l.exposure_eur)}</span>
+                  <span className="mono tabular-nums text-[var(--color-ink)] shrink-0 w-14 text-right">{balance(l.exposure_eur)}</span>
                 </div>
               ))}
             </div>

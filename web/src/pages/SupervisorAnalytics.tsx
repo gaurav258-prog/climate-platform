@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { Card, PageHeader, StatGrid } from '../components/ui'
 import { severityHex } from '../components/SiteMap'
 import { SCENARIO_LABEL } from '../lib/hazards'
+import { balance } from '../lib/money'
 
 // The horizontal risk analyst's workbench. Every chart is an engine figure under one basis; precision is
 // labelled; projections say which part of the high-risk value actually moves with the scenario.
@@ -22,7 +23,6 @@ interface Resp { scenario: string; horizon: string; profile_id: string; n_entiti
   anchor_coverage: { anchors: { scenario: string; horizon: string; hazards: number; hazard_list: string[] }[]; hazards_today: number; note: string }
   distribution: Record<string, { label: string; n_entities: number; metrics: { id: string; label: string; unit: string; direction?: string; watch_above?: number; act_above?: number; watch_below?: number
     distribution: { n: number; median?: number }; entities: { org_id: string; name: string; value: number | null; flag: string }[] }[] }> }
-const eur = (v: number) => v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}m` : `€${(v / 1e3).toFixed(0)}k`
 const SCEN_LABEL = SCENARIO_LABEL
 const SCEN_COLOR: Record<string, string> = { baseline: '#888780', orderly_1_5c: '#1D9E75', disorderly_2c: '#EF9F27', hot_house_3_5c: '#E24B4A' }
 const FLAGC: Record<string, string> = { act: '#E24B4A', watch: '#EF9F27', ok: '#639922', na: '#B4B2A9' }
@@ -45,7 +45,7 @@ function TreeTile(p: { x?: number; y?: number; width?: number; height?: number; 
     <g onClick={() => onOpen?.(regionKey)} style={{ cursor: 'pointer' }} data-region={regionKey}>
       <rect x={x} y={y} width={width} height={height} rx={3} fill={severityHex(max_score)} fillOpacity={0.85} stroke="var(--color-bg)" strokeWidth={1.5} />
       {width > 60 && height > 28 && <text x={x + 6} y={y + 16} fontSize={11} fill="#fff" style={{ pointerEvents: 'none' }}>{name.length > width / 6.5 ? name.slice(0, Math.max(3, width / 6.5 - 1)) + '…' : name}</text>}
-      {width > 60 && height > 42 && <text x={x + 6} y={y + 30} fontSize={10} fill="#fff" opacity={0.85} style={{ pointerEvents: 'none' }}>{eur(value)}</text>}
+      {width > 60 && height > 42 && <text x={x + 6} y={y + 30} fontSize={10} fill="#fff" opacity={0.85} style={{ pointerEvents: 'none' }}>{balance(value)}</text>}
     </g>)
 }
 
@@ -77,14 +77,14 @@ export default function SupervisorAnalytics() {
         <label className="text-[12px] text-[var(--color-mute)]">Horizon
           <select value={horizon} onChange={e => setHorizon(e.target.value)} className="ml-2 bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-2.5 py-1.5 text-[12.5px] text-[var(--color-ink)] outline-none">
             {['current', '2030', '2050', '2100'].map(h => <option key={h} value={h}>{h === 'current' ? 'today' : h}</option>)}</select></label>
-        {d && <span className="mono text-[11px] text-[var(--color-faint)]">{d.n_entities} entities · {d.n_assets.toLocaleString()} assets · {eur(d.concentration.total_value_eur)}</span>}
+        {d && <span className="mono text-[11px] text-[var(--color-faint)]">{d.n_entities} entities · {d.n_assets.toLocaleString()} assets · {balance(d.concentration.total_value_eur)}</span>}
       </div>
       {q.isLoading ? <div className="py-10 text-center text-[var(--color-faint)] text-sm">computing across the population…</div> : !d ? <div className="text-[13px] text-[var(--color-bad)]">Could not load analytics.</div> : (<>
         <StatGrid cols={4} items={[
           { label: 'Regions with exposure', value: String(d.concentration.n_regions), sub: 'NUTS-3 · hexagons outside EU' },
           { label: 'Top-10 regions hold', value: d.concentration.top10_share_pct != null ? `${d.concentration.top10_share_pct}%` : '—', sub: 'of located exposure', accent: (d.concentration.top10_share_pct ?? 0) > 50 ? 'var(--color-warn)' : undefined },
-          { label: 'Largest region', value: d.concentration.by_region[0] ? eur(d.concentration.by_region[0].value_eur) : '—', sub: d.concentration.by_region[0]?.name ?? '' },
-          { label: 'Unlocated exposure', value: eur(d.concentration.unlocated_value_eur), sub: 'no coordinates — not on the map' },
+          { label: 'Largest region', value: d.concentration.by_region[0] ? balance(d.concentration.by_region[0].value_eur) : '—', sub: d.concentration.by_region[0]?.name ?? '' },
+          { label: 'Unlocated exposure', value: balance(d.concentration.unlocated_value_eur), sub: 'no coordinates — not on the map' },
         ]} />
 
         <div className="grid lg:grid-cols-[3fr_2fr] gap-6">
@@ -151,9 +151,9 @@ export default function SupervisorAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={d.concentration.by_hazard.slice(0, 10).map(h => ({ ...h, label: h.hazard.replace(/_/g, ' ') }))} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
                   <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} tickFormatter={(v) => eur(Number(v))} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-faint)' }} tickFormatter={(v) => balance(Number(v))} />
                   <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: 'var(--color-mute)' }} />
-                  <Tooltip formatter={(v, n) => [eur(Number(v)), n === 'high_value_eur' ? 'at high risk' : 'exposure']} />
+                  <Tooltip formatter={(v, n) => [balance(Number(v)), n === 'high_value_eur' ? 'at high risk' : 'exposure']} />
                   <Bar dataKey="value_eur" fill="#85B7EB" isAnimationActive={false} />
                   <Bar dataKey="high_value_eur" fill="#E24B4A" isAnimationActive={false} />
                 </BarChart>
@@ -216,9 +216,9 @@ export default function SupervisorAnalytics() {
                   <div style={{ height: 40 + 22 * Math.max(1, m.entities.length) }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={m.entities.map(e => ({ name: e.name.replace(' (demo)', ''), value: e.value ?? 0, flag: e.flag, org_id: e.org_id }))} layout="vertical" margin={{ top: 2, right: 16, left: 4, bottom: 0 }} style={{ cursor: 'pointer' }}>
-                        <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? eur(Number(v)) : `${v}%`} />
+                        <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--color-faint)' }} tickFormatter={(v) => m.unit === 'eur' ? balance(Number(v)) : `${v}%`} />
                         <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10.5, fill: 'var(--color-mute)' }} />
-                        <Tooltip formatter={(v) => [m.unit === 'eur' ? eur(Number(v)) : `${v}%`, m.label]} />
+                        <Tooltip formatter={(v) => [m.unit === 'eur' ? balance(Number(v)) : `${v}%`, m.label]} />
                         {m.distribution.median != null && <ReferenceLine x={m.distribution.median} stroke="var(--color-sky)" strokeDasharray="4 3" />}
                         {m.watch_above != null && <ReferenceLine x={m.watch_above} stroke="#EF9F27" />}
                         {m.act_above != null && <ReferenceLine x={m.act_above} stroke="#E24B4A" />}

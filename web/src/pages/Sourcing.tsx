@@ -11,6 +11,7 @@ import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import { hazardLabel, sevColor, sevLabel } from '../lib/hazards'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
+import { flow } from '../lib/money'
 
 interface Plot {
   plot_id: string; commodity: string; eudr_covered: boolean; plot_name: string; region: string | null
@@ -20,7 +21,6 @@ interface Plot {
 interface Portfolio { plots: Plot[] }
 interface Commodity { id: string; name: string; eudr_covered: boolean }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const hz = (s: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
 
@@ -105,7 +105,7 @@ export default function Sourcing() {
         lead="Geolocated and scored on live hazard, and — where EUDR-covered — checked against satellite forest-loss."
         stat={[
           { label: 'sourcing plots', value: plots.length, icon: Sprout, tone: 'var(--color-sky)' },
-          { label: 'annual spend', value: eur(totalSpend), icon: Coins },
+          { label: 'annual spend', value: flow(totalSpend), icon: Coins },
           { label: 'EUDR-covered plots', value: eudrPlots, icon: TreePine, tone: '#4FA46E' },
         ]} />
 
@@ -123,7 +123,7 @@ export default function Sourcing() {
                   <span className="text-[12.5px] font-medium text-[var(--color-ink)]">{hazardLabel(hz)}</span>
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: sevColor(g.worst), background: `${sevColor(g.worst)}22` }}>{sevLabel(g.worst)}</span>
                 </div>
-                <div className="text-2xl font-semibold mono" style={{ color: sevColor(g.worst) }}>{eur(g.eur)}</div>
+                <div className="text-2xl font-semibold mono" style={{ color: sevColor(g.worst) }}>{flow(g.eur)}</div>
                 <div className="text-[11px] text-[var(--color-mute)] mt-0.5">{g.n} plot{g.n === 1 ? '' : 's'} · annual spend exposed</div>
               </div>
             ))}
@@ -175,7 +175,7 @@ export default function Sourcing() {
         {plots.length === 0 ? <div className="py-8 text-center text-[var(--color-faint)] text-sm flex flex-col items-center gap-2"><Sprout size={20} /> No plots yet — add your first above.</div> : (
         <BookWithMap noun="plots" color={severityHex} selectedId={sel} onSelect={(id) => setSel(prev => (prev === id ? null : id))}
           points={plots.map(p => ({ id: p.plot_id, name: p.plot_name, lat: p.lat, lon: p.lon, score: p.hazard_score,
-                                    sub: [p.commodity, p.country].filter(Boolean).join(' · '), value: eur(p.spend_eur) }))}>
+                                    sub: [p.commodity, p.country].filter(Boolean).join(' · '), value: flow(p.spend_eur) }))}>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
@@ -195,7 +195,7 @@ export default function Sourcing() {
                   </td>
                   <td className="pr-3 text-[var(--color-mute)]">{p.commodity}</td>
                   <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{p.region ?? '—'} · {p.country ?? '—'}</td>
-                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(p.spend_eur)}</td>
+                  <td className="pr-3 text-right mono text-[var(--color-mute)]">{flow(p.spend_eur)}</td>
                   <td className="pr-3">
                     {p.hazard_score != null
                       ? <span className="mono text-[12px]" style={{ color: hz(p.hazard_score) }}>{hazardLabel(p.top_hazard)} {p.hazard_score.toFixed(0)}</span>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, AlertTriangle, Snowflake } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
+import { balance } from '../lib/money'
 import { Card, Button, SectionHead, StatGrid, type StatItem } from './ui'
 
 // The confirm-data step: before a filing is frozen, the preparer reviews the basis, the data coverage and
@@ -20,7 +21,7 @@ interface Preflight {
 }
 interface Ent { entity_id: string; name: string; kind: string; parent_entity_id: string | null; n_assets: number }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e9 ? `€${(n / 1e9).toFixed(2)}bn` : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${Math.round(n / 1e3)}k`
+const eur = (n?: number | null) => balance(n)   // the live book, before freezing: the organisation's currency
 
 export default function FilingPreflight({ framework, onClose, onGenerated }: { framework: string; onClose: () => void; onGenerated: (id: string) => void }) {
   const q = useQuery({ queryKey: ['preflight', framework], queryFn: () => api.get<Preflight>(`/v1/filings/preflight?framework=${framework}`) })

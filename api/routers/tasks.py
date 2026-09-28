@@ -20,6 +20,8 @@ from fastapi import APIRouter, Query
 from sqlalchemy import text
 
 from api.deps import CurrentUser, DbSession
+from services.governance.display_currency import balance as _bal
+from services.governance.display_currency import flow as _flow
 
 router = APIRouter(prefix="/v1/me", tags=["Me"])
 
@@ -70,12 +72,7 @@ _SECTOR_ASSETS = {
 }
 
 
-def _eur(v) -> str:
-    v = float(v or 0)
-    if v >= 1e9: return f"€{v/1e9:.2f}bn"
-    if v >= 1e6: return f"€{v/1e6:.1f}m"
-    if v >= 1e3: return f"€{v/1e3:.0f}k"
-    return f"€{v:.0f}"
+# facet amounts are engine (EUR) figures written in the organisation's currency — globe() sets the view
 
 
 # Per-sector "key parameters" for a clicked site — real columns from the sector's own table, mapped to
@@ -83,7 +80,7 @@ def _eur(v) -> str:
 def _bank_facets(r):
     loan, av = r.get("f_loan"), r.get("value_eur")
     ltv = f"{round(100*float(loan)/float(av))}%" if loan and av else "—"
-    out = [{"k": "Outstanding loan", "v": _eur(loan) if loan else "—"},
+    out = [{"k": "Outstanding loan", "v": _bal(float(loan)) if loan else "—"},
            {"k": "Loan-to-value", "v": ltv},
            {"k": "Financed emissions", "v": f"{float(r.get('f_ghg') or 0):,.0f} tCO₂e" if r.get("f_ghg") else "—"}]
     if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
@@ -92,7 +89,7 @@ def _bank_facets(r):
 
 
 def _insurer_facets(r):
-    out = [{"k": "Sum insured", "v": _eur(r.get("value_eur"))}]
+    out = [{"k": "Sum insured", "v": _bal(float(r.get("value_eur") or 0))}]
     if r.get("f_ded") is not None: out.append({"k": "Deductible", "v": f"{r['f_ded']}%"})
     if r.get("f_ctype") or r.get("f_year"):
         out.append({"k": "Construction / year", "v": f"{r.get('f_ctype') or '—'} · {r.get('f_year') or '—'}"})
@@ -101,26 +98,26 @@ def _insurer_facets(r):
 
 
 def _am_facets(r):
-    out = [{"k": "Position value", "v": _eur(r.get("value_eur"))}]
+    out = [{"k": "Position value", "v": _bal(float(r.get("value_eur") or 0))}]
     if r.get("f_sector"): out.append({"k": "Sector", "v": r["f_sector"]})
     if r.get("f_nace"): out.append({"k": "NACE", "v": r["f_nace"]})
     return out
 
 
 def _reit_facets(r):
-    out = [{"k": "Property value", "v": _eur(r.get("value_eur"))}]
-    if r.get("f_noi") is not None: out.append({"k": "Annual NOI", "v": _eur(r.get("f_noi"))})
+    out = [{"k": "Property value", "v": _bal(float(r.get("value_eur") or 0))}]
+    if r.get("f_noi") is not None: out.append({"k": "Annual NOI", "v": _flow(float(r["f_noi"]))})
     if r.get("f_ptype") or r.get("f_year"):
         out.append({"k": "Type / year", "v": f"{r.get('f_ptype') or '—'} · {r.get('f_year') or '—'}"})
     return out
 
 
 def _site_facets(r):
-    return [{"k": "Annual value", "v": _eur(r.get("value_eur"))}, {"k": "Country", "v": r.get("region") or "—"}]
+    return [{"k": "Asset value", "v": _bal(float(r.get("value_eur") or 0))}, {"k": "Country", "v": r.get("region") or "—"}]
 
 
 def _plot_facets(r):
-    out = [{"k": "Annual spend", "v": _eur(r.get("value_eur"))}]
+    out = [{"k": "Annual spend", "v": _flow(float(r.get("value_eur") or 0))}]
     if r.get("f_commodity"): out.append({"k": "Commodity", "v": r["f_commodity"]})
     out.append({"k": "EUDR", "v": "covered · undetermined" if r.get("eudr_undetermined")
                 else ("covered · determined" if r.get("f_eudr_covered") else "not covered")})
@@ -142,8 +139,16 @@ def globe(session: DbSession, ctx: CurrentUser,
     org_id = ctx["org"]["org_id"]
     org_type = session.execute(text("SELECT type FROM organizations WHERE org_id=:o"), {"o": org_id}).scalar()
 
+    from services.governance.display_currency import using, view
+    dv = view(session, org_id)
+
     def _pivot(rows, facet_fn=None):
         by_asset: dict = {}
+        with using(session, org_id, dv):
+            _rows(rows, facet_fn, by_asset)
+        return _finish(by_asset)
+
+    def _rows(rows, facet_fn, by_asset):
         for r in rows:
             if r["id"] not in by_asset:
                 by_asset[r["id"]] = {
@@ -152,6 +157,8 @@ def globe(session: DbSession, ctx: CurrentUser,
                     "eudr_undetermined": bool(r.get("eudr_undetermined")),
                     "facets": (facet_fn(r) if facet_fn else []), "_haz": {}}
             by_asset[r["id"]]["_haz"].setdefault(r["hazard"], {})[r["horizon"]] = float(r["score"] or 0)
+
+    def _finish(by_asset):
         out = []
         from services.intelligence.adaptation import actions_for
         for a in by_asset.values():

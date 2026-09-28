@@ -13,6 +13,8 @@ Every path writes access_audit_log — nothing mutates a location without an aud
 """
 from __future__ import annotations
 
+import json
+
 import h3
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -28,6 +30,35 @@ PLOT_COLS = {"plot_name", "latitude", "longitude", "annual_spend_eur", "plot_are
              "region", "country"}  # commodity handled specially (name → id)
 
 _TABLE = {"site": ("sc_company_sites", "site_id"), "plot": ("sc_sourcing_plots", "plot_id")}
+
+# The money a location edit can change: column → is it a yearly flow? (a flow converts at the 12-month average, a
+# balance at the closing rate on the book date — the same policy as adding the location, services/intake/money.py)
+MONEY_FIELDS = {"site": {"annual_value_eur": False, "annual_throughput_eur": True},
+                "plot": {"annual_spend_eur": True}}
+
+
+class LocationMoneyError(ValueError):
+    pass
+
+
+def convert_money_changes(session: Session, org_id: str, kind: str, changes: dict,
+                          currency: str | None, book_date) -> tuple[dict, dict | None]:
+    """An edit's amounts, sent in `currency` for `book_date`, → EUR for the engine, plus the money_source record of what
+    was sent and the rate used. Converted when the edit is made, so an approver sees the figure that will be stored.
+    An amount without a currency or book date is refused — never assumed EUR."""
+    from services.intake.money import MoneyError, convert_amount, source_record
+    money = {k: v for k, v in changes.items() if k in MONEY_FIELDS[kind]}
+    if not money:
+        return changes, None
+    conv = {}
+    try:
+        for k, v in money.items():
+            conv[k] = convert_amount(session, v, currency, book_date, flow=MONEY_FIELDS[kind][k],
+                                     label=k.removesuffix("_eur").replace("_", " "), org_id=org_id)
+    except MoneyError as e:
+        raise LocationMoneyError(str(e)) from e
+    out = {**changes, **{k: c["eur"] for k, c in conv.items()}}
+    return out, source_record((currency or "").upper(), book_date, conv, origin="manual_edit")
 
 
 def resolve_policy(session: Session, org_id: str, action_key: str) -> dict:
@@ -76,13 +107,14 @@ def _clean_changes(kind: str, changes: dict) -> dict:
 
 def submit_or_apply(session: Session, *, org_id: str, actor_user_id: str, request_type: str,
                     target_id: str, changes: dict | None = None, commodity: str | None = None,
-                    title: str) -> dict:
+                    title: str, money_source: dict | None = None) -> dict:
     """The single entry the endpoints call. Reads the approval matrix: either applies the change
     directly (audited) or opens a 4-eyes approval request for a checker to clear."""
     import json
     verb = request_type.rsplit(".", 1)[1]
     changed = list((_clean_changes(request_type.split(".")[1], changes or {})).keys()) if verb == "update" else None
-    payload = {"target_id": target_id, "changes": changes or {}, **({"commodity": commodity} if commodity else {})}
+    payload = {"target_id": target_id, "changes": changes or {}, **({"commodity": commodity} if commodity else {}),
+               **({"money_source": money_source} if money_source else {})}
 
     if needs_approval(session, org_id, request_type, changed):
         rid = session.execute(text("""
@@ -121,6 +153,9 @@ def apply_location_change(session: Session, request_type: str, payload: dict,
     sets, params = [], {"i": target_id, "o": org_id}
     for k, v in changes.items():
         sets.append(f"{k} = :{k}"); params[k] = v
+    if payload.get("money_source") and any(k in MONEY_FIELDS[kind] for k in changes):
+        from services.intake.money import money_source_merge_sql
+        sets.append(f"money_source = {money_source_merge_sql()}"); params["ms"] = json.dumps(payload["money_source"], default=str)
     if kind == "plot" and commodity:
         cid = session.execute(text("SELECT commodity_id::text FROM sc_commodities WHERE name=:n"), {"n": commodity}).scalar()
         if cid:

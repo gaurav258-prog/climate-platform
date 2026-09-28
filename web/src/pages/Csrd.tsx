@@ -4,6 +4,7 @@ import { api, download } from '../lib/api'
 import { Card, Button, PageHeader, HeroBanner, SectionHead } from '../components/ui'
 import { hazardLabel } from '../lib/hazards'
 import ReportTabs from '../components/ReportTabs'
+import { balance, flow } from '../lib/money'
 
 interface HazardBlock { hazard: string; label: string; class: string
   own_operations: { n_sites: number; asset_value_eur: number; bi_at_risk_eur: number; max_score: number } | null
@@ -23,7 +24,6 @@ interface E1 {
   provenance: Record<string, string>
 }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : n >= 1e3 ? `€${(n / 1e3).toFixed(0)}k` : `€${n}`
 const CLS: Record<string, string> = {
   acute: 'text-[var(--color-bad)] bg-[color-mix(in_oklab,var(--color-bad)_13%,transparent)]',
   chronic: 'text-[var(--color-warn)] bg-[color-mix(in_oklab,var(--color-warn)_13%,transparent)]',
@@ -64,10 +64,10 @@ export default function Csrd() {
         title="The anticipated financial effects your CSRD filing must carry."
         lead="Assembled from your own sites and your sourcing book — a euro shows as a firm loss only where the hazard-to-yield chain is validated, otherwise exposure is mapped and the € withheld."
         stat={[
-          { label: 'Asset value at material risk', value: eur(fe.asset_value_at_risk_eur), icon: Building2, tone: '#E8853C' },
-          { label: 'Business interruption (indicative)', value: eur(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
-          { label: 'Sourcing COGS at risk (published)', value: eur(fe.cogs_at_risk_published_eur), icon: Sprout, tone: '#E8853C' },
-          { label: 'Exposure mapped · € withheld', value: eur(fe.exposure_mapped_but_withheld_eur), icon: ShieldCheck, tone: 'var(--color-sky)' },
+          { label: 'Asset value at material risk', value: balance(fe.asset_value_at_risk_eur), icon: Building2, tone: '#E8853C' },
+          { label: 'Business interruption (indicative)', value: flow(fe.business_interruption_eur), icon: TrendingUp, tone: '#E8853C' },
+          { label: 'Sourcing COGS at risk (published)', value: flow(fe.cogs_at_risk_published_eur), icon: Sprout, tone: '#E8853C' },
+          { label: 'Exposure mapped · € withheld', value: flow(fe.exposure_mapped_but_withheld_eur), icon: ShieldCheck, tone: 'var(--color-sky)' },
         ]} />
       <p className="text-[12px] text-[var(--color-mute)] -mt-3">{fe.note}</p>
 
@@ -85,13 +85,13 @@ export default function Csrd() {
               <div className="flex items-start gap-2">
                 <Building2 size={15} className="text-[var(--color-blue)] mt-0.5 shrink-0" />
                 {h.own_operations
-                  ? <span className="text-[var(--color-mute)]">Own operations · <b className="text-[var(--color-ink)]">{h.own_operations.n_sites}</b> site(s) · {eur(h.own_operations.asset_value_eur)} asset value · BI {eur(h.own_operations.bi_at_risk_eur)} · peak score {h.own_operations.max_score}</span>
+                  ? <span className="text-[var(--color-mute)]">Own operations · <b className="text-[var(--color-ink)]">{h.own_operations.n_sites}</b> site(s) · {balance(h.own_operations.asset_value_eur)} asset value · BI {flow(h.own_operations.bi_at_risk_eur)} · peak score {h.own_operations.max_score}</span>
                   : <span className="text-[var(--color-faint)]">Own operations · not material</span>}
               </div>
               <div className="flex items-start gap-2">
                 <Sprout size={15} className="text-[var(--color-good)] mt-0.5 shrink-0" />
                 {h.upstream
-                  ? <span className="text-[var(--color-mute)]">Upstream sourcing · <b className="text-[var(--color-ink)]">{h.upstream.n_commodities}</b> commodit(ies) · {eur(h.upstream.spend_eur)} spend · COGS {eur(h.upstream.cogs_at_risk_eur)} published · peak score {h.upstream.max_score}</span>
+                  ? <span className="text-[var(--color-mute)]">Upstream sourcing · <b className="text-[var(--color-ink)]">{h.upstream.n_commodities}</b> commodit(ies) · {flow(h.upstream.spend_eur)} spend · COGS {flow(h.upstream.cogs_at_risk_eur)} published · peak score {h.upstream.max_score}</span>
                   : <span className="text-[var(--color-faint)]">Upstream sourcing · not material</span>}
               </div>
             </div>
@@ -105,18 +105,18 @@ export default function Csrd() {
           <SectionHead icon={Building2} className="mb-3">Own operations</SectionHead>
           <div className="grid grid-cols-2 gap-y-2 text-[13px]">
             <span className="text-[var(--color-mute)]">Sites</span><span className="text-right font-medium">{d.own_operations.n_sites}</span>
-            <span className="text-[var(--color-mute)]">Asset value</span><span className="text-right font-medium">{eur(d.own_operations.asset_value_eur)}</span>
-            <span className="text-[var(--color-mute)]">…at material risk</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.own_operations.asset_value_at_risk_eur)}</span>
-            <span className="text-[var(--color-mute)]">Annual throughput</span><span className="text-right font-medium">{eur(d.own_operations.throughput_eur)}</span>
-            <span className="text-[var(--color-mute)]">Business interruption (indicative)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.own_operations.business_interruption_eur)}</span>
+            <span className="text-[var(--color-mute)]">Asset value</span><span className="text-right font-medium">{balance(d.own_operations.asset_value_eur)}</span>
+            <span className="text-[var(--color-mute)]">…at material risk</span><span className="text-right font-medium text-[var(--color-warn)]">{balance(d.own_operations.asset_value_at_risk_eur)}</span>
+            <span className="text-[var(--color-mute)]">Annual throughput</span><span className="text-right font-medium">{flow(d.own_operations.throughput_eur)}</span>
+            <span className="text-[var(--color-mute)]">Business interruption (indicative)</span><span className="text-right font-medium text-[var(--color-warn)]">{flow(d.own_operations.business_interruption_eur)}</span>
           </div>
         </Card>
         <Card className="p-5">
           <SectionHead icon={Sprout} className="mb-3">Upstream sourcing</SectionHead>
           <div className="grid grid-cols-2 gap-y-2 text-[13px]">
-            <span className="text-[var(--color-mute)]">Ingredient spend</span><span className="text-right font-medium">{eur(d.upstream_sourcing.ingredient_spend_eur)}</span>
-            <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{eur(d.upstream_sourcing.cogs_at_risk_published_eur)}</span>
-            <span className="text-[var(--color-mute)]">Exposure mapped · € withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{eur(d.upstream_sourcing.exposure_mapped_spend_eur)}</span>
+            <span className="text-[var(--color-mute)]">Ingredient spend</span><span className="text-right font-medium">{flow(d.upstream_sourcing.ingredient_spend_eur)}</span>
+            <span className="text-[var(--color-mute)]">COGS at risk (published)</span><span className="text-right font-medium text-[var(--color-warn)]">{flow(d.upstream_sourcing.cogs_at_risk_published_eur)}</span>
+            <span className="text-[var(--color-mute)]">Exposure mapped · € withheld</span><span className="text-right font-medium text-[var(--color-faint)]">{flow(d.upstream_sourcing.exposure_mapped_spend_eur)}</span>
           </div>
           <div className="mt-3 space-y-1.5">
             {d.upstream_sourcing.commodities.map(c => (
@@ -124,7 +124,7 @@ export default function Csrd() {
                 <span className="text-[var(--color-ink)]">{c.commodity}</span>
                 <span className="text-[var(--color-faint)]">· {hazardLabel(c.hazard)} {c.avg_hazard ?? '—'}</span>
                 <span className="ml-auto">{c.published
-                  ? <span className="text-[var(--color-warn)] font-medium">{c.calibration === 'ranged' ? `${eur(c.volume_at_risk_low_eur)}–${eur(c.volume_at_risk_high_eur)}` : eur(c.volume_at_risk_eur)}{c.fit_r2 != null ? ` · r² ${c.fit_r2.toFixed(2)}` : ''}</span>
+                  ? <span className="text-[var(--color-warn)] font-medium">{c.calibration === 'ranged' ? `${flow(c.volume_at_risk_low_eur)}–${flow(c.volume_at_risk_high_eur)}` : flow(c.volume_at_risk_eur)}{c.fit_r2 != null ? ` · r² ${c.fit_r2.toFixed(2)}` : ''}</span>
                   : <span className="mono text-[11px] text-[var(--color-faint)]" title={c.held_reason ?? ''}>€ withheld</span>}</span>
               </div>
             ))}

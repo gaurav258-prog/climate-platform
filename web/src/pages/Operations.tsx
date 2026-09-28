@@ -10,6 +10,7 @@ import { hazardLabel, bucketLabel } from '../lib/hazards'
 import { BookWithMap, severityHex } from '../components/SiteMap'
 import AddressAutocomplete, { type Place } from '../components/AddressAutocomplete'
 import SectionTabs, { DATA_TABS } from '../components/SectionTabs'
+import { balance, flow } from '../lib/money'
 
 interface Site {
   site_id: string; name: string; site_type: string; lat: number | null; lon: number | null
@@ -19,7 +20,6 @@ interface Site {
 interface Totals { asset_value_eur: number; throughput_eur: number; bi_at_risk_eur: number; n_elevated: number }
 interface SitesResp { sites: Site[]; site_types: string[]; totals: Totals; bi_note: string }
 
-const eur = (n?: number | null) => n == null ? '—' : n >= 1e6 ? `€${(n / 1e6).toFixed(1)}m` : `€${(n / 1e3).toFixed(0)}k`
 const hz = (s: number | null) => s == null ? 'var(--color-faint)' : s >= 60 ? 'var(--color-bad)' : s >= 40 ? 'var(--color-warn)' : 'var(--color-good)'
 const pretty = hazardLabel
 const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -116,8 +116,8 @@ export default function Operations() {
         stat={[
           { label: 'operational sites', value: sites.length, icon: Building2, tone: 'var(--color-sky)' },
           { label: 'at elevated hazard (≥40)', value: highN, icon: AlertTriangle, tone: highN ? '#E8853C' : undefined },
-          { label: 'asset value (damage exposure)', value: eur(t?.asset_value_eur), icon: Coins },
-          { label: 'business-interruption exposure', value: eur(t?.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
+          { label: 'asset value (damage exposure)', value: balance(t?.asset_value_eur), icon: Coins },
+          { label: 'business-interruption exposure', value: flow(t?.bi_at_risk_eur), icon: Activity, tone: (t?.bi_at_risk_eur ?? 0) > 0 ? '#E8853C' : undefined },
         ]} />
       <div className="text-[11px] text-[var(--color-faint)] -mt-3">{q.data?.bi_note}</div>
 
@@ -164,7 +164,7 @@ export default function Operations() {
           sites.length === 0 ? <div className="py-8 text-center text-[var(--color-faint)] text-sm">No sites yet — add your first above.</div> : (
             <BookWithMap color={severityHex} selectedId={sel} onSelect={(id) => setSel(prev => (prev === id ? null : id))}
               points={sites.map(s => ({ id: s.site_id, name: s.name, lat: s.lat as number, lon: s.lon as number, score: s.hazard_score,
-                                        sub: [s.country, typeLabel(s.site_type)].filter(Boolean).join(' · '), value: eur(s.value_eur) }))}>
+                                        sub: [s.country, typeLabel(s.site_type)].filter(Boolean).join(' · '), value: balance(s.value_eur) }))}>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
@@ -185,9 +185,9 @@ export default function Operations() {
                       </td>
                       <td className="pr-3"><span className="inline-flex items-center gap-1.5 text-[var(--color-mute)]"><TypeIcon t={s.site_type} />{typeLabel(s.site_type)}</span></td>
                       <td className="pr-3 mono text-[11px] text-[var(--color-mute)]">{s.country ?? '—'} · {s.lat?.toFixed(2)}, {s.lon?.toFixed(2)}</td>
-                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(s.value_eur)}</td>
-                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{eur(s.throughput_eur)}</td>
-                      <td className="pr-3 text-right mono" style={{ color: s.bi_at_risk_eur ? 'var(--color-warn)' : 'var(--color-faint)' }}>{s.bi_at_risk_eur ? eur(s.bi_at_risk_eur) : '—'}</td>
+                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{balance(s.value_eur)}</td>
+                      <td className="pr-3 text-right mono text-[var(--color-mute)]">{flow(s.throughput_eur)}</td>
+                      <td className="pr-3 text-right mono" style={{ color: s.bi_at_risk_eur ? 'var(--color-warn)' : 'var(--color-faint)' }}>{s.bi_at_risk_eur ? flow(s.bi_at_risk_eur) : '—'}</td>
                       <td className="pr-3">
                         {s.hazard_score != null
                           ? <span className="mono text-[12px]" style={{ color: hz(s.hazard_score) }}>{pretty(s.top_hazard)} {s.hazard_score.toFixed(0)} · {bucketLabel(s.bucket)}</span>

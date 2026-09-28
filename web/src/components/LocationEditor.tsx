@@ -5,8 +5,9 @@ import { Pencil, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Button } from './ui'
+import MoneyDeclaration from './MoneyDeclaration'
 
-type Field = { key: string; label: string; type: 'text' | 'number' | 'select'; options?: string[]; material?: boolean }
+type Field = { key: string; label: string; type: 'text' | 'number' | 'select'; options?: string[]; material?: boolean; money?: boolean }
 
 const SITE_TYPES = ['hq', 'factory', 'warehouse', 'distribution_centre', 'office', 'other']
 const inp = 'w-full bg-[var(--color-panel)] border border-[var(--color-line)] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-[var(--color-sky)]'
@@ -17,8 +18,8 @@ const SITE_FIELDS: Field[] = [
   { key: 'site_type', label: 'Type', type: 'select', options: SITE_TYPES },
   { key: 'country', label: 'Country', type: 'text' },
   { key: 'region', label: 'Region', type: 'text' },
-  { key: 'annual_value_eur', label: 'Asset value €', type: 'number', material: true },
-  { key: 'annual_throughput_eur', label: 'Throughput €', type: 'number', material: true },
+  { key: 'annual_value_eur', label: 'Asset value', type: 'number', material: true, money: true },
+  { key: 'annual_throughput_eur', label: 'Yearly throughput', type: 'number', material: true, money: true },
   { key: 'latitude', label: 'Latitude', type: 'number', material: true },
   { key: 'longitude', label: 'Longitude', type: 'number', material: true },
 ]
@@ -27,7 +28,7 @@ const PLOT_FIELDS: Field[] = [
   { key: 'commodity', label: 'Commodity', type: 'select' },
   { key: 'country', label: 'Country', type: 'text' },
   { key: 'region', label: 'Region', type: 'text' },
-  { key: 'annual_spend_eur', label: 'Annual spend €', type: 'number', material: true },
+  { key: 'annual_spend_eur', label: 'Annual spend', type: 'number', material: true, money: true },
   { key: 'plot_area_ha', label: 'Area (ha)', type: 'number' },
   { key: 'latitude', label: 'Latitude', type: 'number', material: true },
   { key: 'longitude', label: 'Longitude', type: 'number', material: true },
@@ -54,10 +55,15 @@ export default function LocationEditor({ kind, id, record, onChanged }:
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'pending' | 'err' } | null>(null)
-  const base = initial(kind, record)
-  const [form, setForm] = useState<Record<string, string>>(base)
-  const cq = useQuery({ queryKey: ['commodities'], queryFn: () => api.get<{ commodities: { name: string }[] }>('/v1/supply/commodities'), enabled: kind === 'plot' })
+  // amounts are stored in EUR and shown so; an edit in another currency starts the amounts blank and is converted on
+  // save (a value at the closing rate of the book date, a yearly figure at the 12-month average)
+  const [ccy, setCcy] = useState('EUR')
+  const [bookDate, setBookDate] = useState(new Date().toISOString().slice(0, 10))
+  const stored = initial(kind, record)
   const fields = kind === 'site' ? SITE_FIELDS : PLOT_FIELDS
+  const base = ccy === 'EUR' ? stored : { ...stored, ...Object.fromEntries(fields.filter(f => f.money).map(f => [f.key, ''])) }
+  const [form, setForm] = useState<Record<string, string>>(stored)
+  const cq = useQuery({ queryKey: ['commodities'], queryFn: () => api.get<{ commodities: { name: string }[] }>('/v1/supply/commodities'), enabled: kind === 'plot' })
 
   if (!canWrite) return null
 
@@ -75,6 +81,7 @@ export default function LocationEditor({ kind, id, record, onChanged }:
       if (v !== (base[f.key] ?? '').trim()) changes[f.key] = f.type === 'number' ? Number(v) : v
     }
     if (Object.keys(changes).length === 0) { setMsg({ text: 'No changes to save.', tone: 'err' }); return }
+    if (fields.some(f => f.money && f.key in changes)) { changes.currency = ccy; changes.book_date = bookDate }
     setBusy(true); setMsg(null)
     try {
       const r = await api.patch<{ status: string }>(`/v1/supply/${kind}/${id}`, changes)
@@ -96,7 +103,7 @@ export default function LocationEditor({ kind, id, record, onChanged }:
   return (
     <div className="w-full">
       <div className="flex items-center gap-2">
-        <button onClick={() => { setOpen(o => !o); setForm(base); setMsg(null) }}
+        <button onClick={() => { setOpen(o => !o); setCcy('EUR'); setForm(stored); setMsg(null) }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-line-2)] px-3 py-1.5 text-[13px] text-[var(--color-ink)] hover:border-[var(--color-sky)] hover:text-[var(--color-sky)] transition">
           {open ? <X size={14} /> : <Pencil size={14} />} {open ? 'Cancel' : 'Edit'}
         </button>
@@ -114,7 +121,7 @@ export default function LocationEditor({ kind, id, record, onChanged }:
             {fields.map(f => (
               <label key={f.key} className="block">
                 <div className="text-[10px] uppercase tracking-wide text-[var(--color-faint)] mb-1 mono flex items-center gap-1.5">
-                  {f.label}{f.material && <span className="text-[var(--color-warn)] normal-case tracking-normal">· needs approval</span>}
+                  {f.label}{f.money ? ` (${ccy})` : ''}{f.material && <span className="text-[var(--color-warn)] normal-case tracking-normal">· needs approval</span>}
                 </div>
                 {f.type === 'select'
                   ? <select className={inp} value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })}>
@@ -124,6 +131,11 @@ export default function LocationEditor({ kind, id, record, onChanged }:
                       onChange={e => setForm({ ...form, [f.key]: e.target.value })} />}
               </label>
             ))}
+          </div>
+          <div className="mt-3">
+            <MoneyDeclaration currency={ccy} bookDate={bookDate} setBookDate={setBookDate}
+              setCurrency={c => { setCcy(c); setForm(f => ({ ...f, ...(c === 'EUR' ? Object.fromEntries(fields.filter(x => x.money).map(x => [x.key, stored[x.key]])) : Object.fromEntries(fields.filter(x => x.money).map(x => [x.key, '']))) })) }}
+              note="The value and spend are shown as stored, in EUR. Choose another currency to enter new amounts in it; they convert on save." />
           </div>
           <div className="mt-3 flex items-center gap-3">
             <Button onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</Button>
