@@ -233,4 +233,4 @@ def test_yoy_skips_incomparable_methods():
     assert meta["available"] is True
     assert "change" not in inds[0]           # methods differ → no change computed
     assert inds[0]["prior_value"] == {"total": 40000000}
-    assert "not comparable" in inds[0]["change_note"]
+    assert "Not directly comparable" in inds[0]["change_note"] and "None%" not in inds[0]["change_note"]

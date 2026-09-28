@@ -20,7 +20,7 @@ interface Check { issuer_id: string; issuer: string; field: string; label: strin
 interface Draft {
   uses: string[]; notes: string[]; data_checks: Check[]; funds: Record<string, { statement: string; reference_year: number | null; fund_name: string }>
   rows: { fund_id: string; isin: string; n_filled: number }[]
-  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; n_data_checks: number; ready: boolean }
+  completeness: { n_rows: number; n_required: number; n_filled: number; filled_pct: number | null; n_blocking: number; blocking: Gap[]; n_to_review: number; to_review: string[]; n_data_checks: number; ready: boolean }
 }
 interface Field { name: string; kind: string; choices: string[]; multi: boolean; scope: 'organisation' | 'fund'; codification: string }
 interface Version { publication_id: string; version: number; status: string; uses: string[]; reference_date: string; prepared_by: string | null; prepared_at: string; decided_by: string | null; n_share_classes: number; decision_reason: string | null }
@@ -50,8 +50,15 @@ export default function EetPanel() {
     const m = fmeta[g.field]
     if (!g.answerable || !m) return []
     const funds = m.scope === 'organisation' ? [null] : [...new Set(g.isins.map(i => fundOf[i]))]
-    return funds.map(fid => ({ g, m, fid, key: `${g.field}|${fid ?? ''}` }))
-  })
+    return funds.map(fid => ({ g, m, fid, key: `${g.field}|${fid ?? ''}`, review: false }))
+  }).concat((d?.completeness.to_review ?? []).flatMap(name => {
+    // conditional fields whose condition depends on another answer (e.g. a Taxonomy commitment): answer if they apply
+    const m = fmeta[name]
+    if (!m || m.kind === undefined) return []
+    const g: Gap = { field: name, section: '', definition: '', codification: m.codification, answerable: true, isins: [] }
+    const funds = m.scope === 'organisation' ? [null] : [...new Set((d?.rows ?? []).map(r => r.fund_id))]
+    return funds.map(fid => ({ g, m, fid, key: `${name}|${fid ?? ''}`, review: true }))
+  }))
   const save = async () => {
     setBusy(true)
     try {
@@ -124,10 +131,10 @@ export default function EetPanel() {
               </div>)}
             {inputs.length > 0 && (
               <div className="rounded-xl border border-[var(--color-line-2)] divide-y divide-[var(--color-line)]">
-                {inputs.map(({ g, m, fid, key }) => (
+                {inputs.map(({ g, m, fid, key, review }) => (
                   <div key={key} className="px-3 py-2 flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-[260px]">
-                      <div className="text-[12.5px] text-[var(--color-ink)]">{label(g.field)}{fid && Object.keys(d.funds).length > 1 ? <span className="text-[var(--color-faint)]"> · {d.funds[fid]?.fund_name}</span> : ''}</div>
+                      <div className="text-[12.5px] text-[var(--color-ink)]">{review && <span className="mono text-[9.5px] uppercase tracking-wide text-[var(--color-faint)] mr-1.5">if it applies</span>}{label(g.field)}{fid && Object.keys(d.funds).length > 1 ? <span className="text-[var(--color-faint)]"> · {d.funds[fid]?.fund_name}</span> : ''}</div>
                       <div className="text-[11px] text-[var(--color-faint)] line-clamp-2" title={g.definition}>{g.definition}</div>
                     </div>
                     {m.kind === 'choice' && !m.multi

@@ -68,8 +68,15 @@ def collateral_stranding_overlay(assets: list[dict], floor_epc: str = "D") -> di
     return {"available": True, **roll, "top_exposures": top[:8]}
 
 
-def _section(nace_code: str | None) -> str:
-    return (nace_code or "").strip()[:2] or "—"
+def _division(nace_code: str | None) -> str:
+    """The NACE division the loan's counterparty is in ('C24'), from the platform's NACE reference; '—' if unclassified."""
+    from services.reference import nace
+    return nace.division(nace_code) or "—"
+
+
+def _label(division: str) -> str:
+    from services.reference import nace
+    return nace.label(division) or "Unclassified"
 
 
 def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str, price_basis: dict | None = None,
@@ -112,7 +119,7 @@ def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str, pri
         total_transition_el += transition_el
         scored_score_x_exposure += blk["transition_risk_score"] * outstanding
 
-        sec = _section(nace)
+        sec = _division(nace)
         b = by_sector[sec]
         b["outstanding"] += outstanding
         b["financed_emissions"] += financed_em
@@ -134,7 +141,7 @@ def loan_transition_overlay(assets: list[dict], scenario: str, horizon: str, pri
 
     top.sort(key=lambda r: -r["transition_el_eur"])
     sectors = sorted(
-        [{"nace_section": k, "outstanding_eur": round(v["outstanding"]),
+        [{"nace_division": k, "label": _label(k), "outstanding_eur": round(v["outstanding"]),
           "financed_emissions_tco2e": round(v["financed_emissions"]),
           "transition_el_eur": round(v["transition_el"]), "n": v["n"]} for k, v in by_sector.items()],
         key=lambda r: -r["transition_el_eur"])

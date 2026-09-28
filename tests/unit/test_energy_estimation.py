@@ -30,7 +30,10 @@ def test_reference_tables_recompute_from_their_inputs():
 
 
 def test_lookups_use_the_finest_level_published():
-    assert EE.intensity("24.10")["code"] == "C24" and EE.intensity("19.20")["code"] == "C"     # C19: 9 countries, 48% → section
+    assert EE.intensity("24.10")["code"] == "C24"
+    thin = [r["nace_code"] for r in csv.DictReader((REF / "nace_energy_intensity.csv").open()) if r["thin"]]
+    for code in thin:                                                                        # too few countries → section figure
+        assert EE.intensity(code[1:3])["code"] == code[0]
     assert EE.intensity("51.10")["value"] > EE.intensity("47.11")["value"]                     # airlines ≫ retail
     assert EE.intensity("62.01") is None and EE.intensity(None) is None                       # not a high-impact sector
     assert EE.non_renewable_production("FR")["value"] > 50                                    # nuclear is non-renewable
@@ -59,3 +62,19 @@ def test_pai5_counts_each_company_once():
     rows = [_row(nace_code="35.11", country="DE", nr_cons=10, nr_prod=90), _row(nace_code="24.10", nr_cons=50)]
     out = energy_pais(rows, 2.0, energy_facts(rows))["pai_5"]
     assert out["value"] == pytest.approx((90 + 50) / 2)                                       # producer → production share
+
+
+def test_a_company_gets_its_own_countrys_sector_figure_else_the_labelled_european_one():
+    pl, eu = EE.intensity("35.11", "PL"), EE.intensity("35.11")
+    assert pl["basis"].startswith("PL national figure") and pl["value"] > eu["value"]                   # coal-heavy Polish power
+    us = EE.intensity("24.10", "US")                                                         # no national figure → European
+    assert us["value"] == EE.intensity("24.10")["value"] and "no national figure for US" in us["basis"]
+    assert "European countries" in us["basis"]
+
+
+def test_a_basis_change_is_explained_in_plain_words_in_the_rts_explanation_column():
+    from ml.regulatory.sfdr_pai import _basis_change_note, _explanation
+    ind = {"number": 5, "method": "estimated", "coverage_pct": 100.0, "source": "x", "input_required": None}
+    ind["change_note"] = _basis_change_note({"method": "partial", "coverage_pct": 7.7}, ind)
+    text = _explanation(ind, 2025)
+    assert "Not directly comparable with last year" in text and "7.7% → 100.0%" in text and "estimates" in text

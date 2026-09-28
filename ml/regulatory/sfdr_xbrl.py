@@ -54,11 +54,21 @@ _UNITS = [
 ]
 
 
+class XbrlIdentityError(ValueError):
+    """The statement lacks what an XBRL instance must state — who files it (LEI) and for which period."""
+
+
 def _lei_period(statement: dict) -> tuple[str, str]:
+    """The filer's LEI and the reference year. Neither is ever made up: a statement without them can't become an XBRL
+    instance (until 2026-09-28 a placeholder LEI and the year 2023 were written in)."""
     ent = statement.get("entity", {}) or {}
-    lei = escape(str(ent.get("manager_lei") or "LEIUNAVAILABLE00000"))
+    lei = (ent.get("manager_lei") or "").strip()
     ref_year = (statement.get("summary", {}) or {}).get("reference_year")
-    return lei, (f"{ref_year}" if ref_year else "2023")
+    if not lei:
+        raise XbrlIdentityError("no manager LEI on file — add it in the SFDR filing identity, then export again")
+    if not ref_year:
+        raise XbrlIdentityError("the statement has no reference year — supply issuer data with a reporting year first")
+    return escape(lei), f"{ref_year}"
 
 
 def _facts(statement: dict) -> list[tuple]:

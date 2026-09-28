@@ -50,7 +50,7 @@ def test_by_sector_concentration_and_ordering():
     book = [_loan("35.11", 200_000_000, ghg1=400_000), _loan("62.01", 50_000_000, ghg1=200)]
     r = loan_transition_overlay(book, "disorderly_2c", "2050", BASIS)
     # sectors sorted by transition EL desc → the power sector (35) leads
-    assert r["by_sector"][0]["nace_section"] == "35"
+    assert r["by_sector"][0]["nace_division"] == "D35" and r["by_sector"][0]["label"].startswith("Electricity")
 
 
 def test_no_signal_is_unavailable():

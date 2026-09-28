@@ -67,7 +67,7 @@ def export_filing(session: Session, org_id: str, filing_id: str, fmt: str) -> tu
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.getvalue())
 
     if fmt == "xbrl":
-        xml = _xbrl(session, org_id, filing["framework"], payload, basis)
+        xml = _xbrl(session, org_id, filing["framework"], payload, basis, filing.get("entity_id"))
         return f"{stem}.xbrl", "application/xml", xml.encode("utf-8")
 
     if fmt == "ixbrl":
@@ -214,14 +214,38 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
 _ESRS_PROFILE = "efrag_set1"
 
 
-def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict) -> str:
+def _identity(session: Session, org_id: str, entity_id: str | None) -> dict:
+    """Who the filing identifies to the regulator: the filing entity's own LEI (a solo or sub-group filing), else the
+    organisation's (a whole-organisation filing, or an entity without one — said so in the file). No LEI at all refuses
+    the export: an XBRL instance with a made-up identifier is not a filing."""
+    org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),
+                          {"o": org_id}).mappings().first() or {}
+    name = org.get("legal_name") or org.get("name") or ""
+    if entity_id:
+        ent = session.execute(text("SELECT lei, name FROM reporting_entities WHERE org_id = :o AND entity_id = :e"),
+                              {"o": org_id, "e": entity_id}).mappings().first()
+        if ent and ent["lei"]:
+            return {"lei": ent["lei"].strip(), "name": ent["name"], "note": "identified by the filing entity's own LEI"}
+        if org.get("lei"):
+            return {"lei": org["lei"].strip(), "name": name,
+                    "note": f"{ent['name'] if ent else 'the filing entity'} has no LEI on file — identified by the organisation's LEI"}
+    elif org.get("lei"):
+        return {"lei": org["lei"].strip(), "name": name, "note": "identified by the organisation's LEI"}
+    raise ExportError("no LEI on file for this filing — add the entity's LEI (Admin → Entities) or the organisation's, "
+                      "then export again")
+
+
+def _xbrl(session: Session, org_id: str, framework: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
     if framework == "sfdr_pai":
-        from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
-        return sfdr_pai_xbrl(payload)
+        from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_xbrl
+        try:
+            return sfdr_pai_xbrl(payload)
+        except XbrlIdentityError as e:
+            raise ExportError(str(e)) from e
     if framework == "bank_tcfd":
-        return _bank_tcfd_xbrl(session, org_id, payload, basis)
+        return _bank_tcfd_xbrl(session, org_id, payload, basis, entity_id)
     if framework == "bank_p3esg":
-        return _bank_p3esg_xbrl(session, org_id, payload, basis)
+        return _bank_p3esg_xbrl(session, org_id, payload, basis, entity_id)
     if framework == "esrs_pack":                     # tag the FROZEN pack via the shared iXBRL engine (WORM-faithful)
         from services.intelligence.esrs_xbrl import build_xbrl_instance
         return build_xbrl_instance(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
@@ -238,8 +262,11 @@ def _ixbrl(session: Session, org_id: str, framework: str, payload: dict, basis: 
         return build_ixbrl(session, org_id, pack=payload, profile_key=_ESRS_PROFILE,
                            period_end=(basis or {}).get("reporting_period_end"))
     if framework == "sfdr_pai":
-        from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
-        return sfdr_pai_ixbrl(payload)
+        from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_ixbrl
+        try:
+            return sfdr_pai_ixbrl(payload)
+        except XbrlIdentityError as e:
+            raise ExportError(str(e)) from e
     raise ExportError(f"no iXBRL renderer for '{framework}' (available for ESRS + SFDR filings)")
 
 
@@ -259,11 +286,10 @@ def _at(value, dec: str):
     return int(round(value)) if d <= 0 else round(float(value), d)
 
 
-def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
+def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
     from xml.sax.saxutils import escape
-    org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),
-                          {"o": org_id}).mappings().first() or {}
-    lei = escape(str(org.get("lei") or "LEIUNAVAILABLE00000"))
+    who = _identity(session, org_id, entity_id)
+    lei = escape(who["lei"])
     period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
     rollup = payload.get("rollup") or {}
     tax = payload.get("taxonomy") or {}
@@ -299,7 +325,7 @@ def _bank_tcfd_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -
         '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
         '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
         f'            xmlns:tb="{_TB_NS}">',
-        f'  <!-- TCFD / EU-Taxonomy physical-risk disclosure · {escape(str(org.get("legal_name") or org.get("name") or ""))} -->',
+        f'  <!-- TCFD / EU-Taxonomy physical-risk disclosure · {escape(who["name"])} · {escape(who["note"])} -->',
         '  <xbrli:context id="d0">',
         '    <xbrli:entity>',
         f'      <xbrli:identifier scheme="{_LEI_SCHEME}">{lei}</xbrli:identifier>',
@@ -366,14 +392,13 @@ def p3esg_binding_status() -> dict:
                      "Jun-2026, ref 31 Dec 2026 / 2027 SNCIs) to bind. Template/column refs already verified vs 2022/2453.")}
 
 
-def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) -> str:
+def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, entity_id: str | None = None) -> str:
     from xml.sax.saxutils import escape
 
     from services.governance.pillar3_templates import gar_grid, template1_grid, template5_grid
 
-    org = session.execute(text("SELECT lei, legal_name, name FROM organizations WHERE org_id = :o"),
-                          {"o": org_id}).mappings().first() or {}
-    lei = escape(str(org.get("lei") or "LEIUNAVAILABLE00000"))
+    who = _identity(session, org_id, entity_id)
+    lei = escape(who["lei"])
     period = str(basis.get("reporting_period_end") or "")[:4] or "2024"
     assets = payload.get("assets") or []
     rollup = payload.get("rollup") or {}
@@ -421,7 +446,7 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict) 
         '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"',
         '            xmlns:iso4217="http://www.xbrl.org/2003/iso4217"',
         f'            xmlns:p3="{ns}">',
-        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure (ITS 2022/2453) · {escape(str(org.get("legal_name") or org.get("name") or ""))} -->',
+        f'  <!-- Pillar 3 ESG physical-risk & Taxonomy disclosure (ITS 2022/2453) · {escape(who["name"])} · {escape(who["note"])} -->',
         ('  <!-- Taxonomy binding: OFFICIAL EBA element map -->' if emap else
          '  <!-- Taxonomy binding: provisional namespace (EBA Pillar 3 XBRL taxonomy pending); drop config/eba_p3esg_binding.json to bind -->'),
         '  <xbrli:context id="d0">',

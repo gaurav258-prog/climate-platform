@@ -221,6 +221,7 @@ class EntityCreate(BaseModel):
     requires_solo_filing: Optional[bool] = None
     solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
     functional_currency: Optional[str] = Field(None, max_length=3, description="ISO 4217; blank = inherit from the parent")
+    lei: Optional[str] = Field(None, max_length=20, description="the entity's own LEI (ISO 17442) — identifies it in its filings")
 
 
 class EntityPatch(BaseModel):
@@ -237,6 +238,8 @@ class EntityPatch(BaseModel):
     set_solo_waiver_reason: bool = False   # apply solo_waiver_reason (True lets you clear it with null)
     functional_currency: Optional[str] = Field(None, max_length=3)
     set_functional_currency: bool = False  # apply functional_currency (True with null = inherit from the parent)
+    lei: Optional[str] = Field(None, max_length=20)
+    set_lei: bool = False                  # apply lei (True with null = remove it)
 
 
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
@@ -248,7 +251,8 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
                             consolidation_method=body.consolidation_method,
                             consolidation_basis=body.consolidation_basis,
                             requires_solo_filing=body.requires_solo_filing,
-                            solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency)
+                            solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency,
+                            lei=body.lei)
     except E.EntityError as ex:
         raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
@@ -269,6 +273,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.requires_solo_filing is not None: kwargs["requires_solo_filing"] = body.requires_solo_filing
     if body.set_solo_waiver_reason: kwargs["solo_waiver_reason"] = body.solo_waiver_reason
     if body.set_functional_currency: kwargs["functional_currency"] = body.functional_currency
+    if body.set_lei: kwargs["lei"] = body.lei
     try:
         e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
     except E.EntityError as ex:

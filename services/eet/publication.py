@@ -56,14 +56,13 @@ def set_answers(session: Session, org_id: str, fund_id: Optional[str], values: d
                                        {"f": fund_id, "o": org_id}).first():
         raise EETError("fund not found")
     computed = computed_names()
-    saved, removed, refused = [], [], []
+    saved, removed, refused, from_book = [], [], [], []
     for name, raw in (values or {}).items():
         if name not in F.by_name():
             refused.append({"field": name, "reason": f"not an EET {F.version()} field"})
             continue
-        if name in computed:
-            refused.append({"field": name, "reason": "Tellumen fills this from your book — it can't be typed in"})
-            continue
+        if name in computed:     # accepted, but a figure from the book takes precedence whenever the book has one
+            from_book.append(name)
         scope = _scope(name)
         if scope == "fund" and not fund_id:
             refused.append({"field": name, "reason": "a product field — answer it for a fund"})
@@ -86,7 +85,9 @@ def set_answers(session: Session, org_id: str, fund_id: Optional[str], values: d
             ON CONFLICT ({key}, field_name) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()
         """), {"k": kid, "n": name, "v": v, "u": user_id})
         saved.append({"field": name, "value": v, "scope": scope})
-    return {"saved": saved, "removed": removed, "refused": refused}
+    return {"saved": saved, "removed": removed, "refused": refused,
+            "note": (f"{len(from_book)} of these are figures Tellumen computes from your book: your answer is used only "
+                     "while the book has no figure for them.") if from_book else None}
 
 
 # ───────────────────────────── versions ─────────────────────────────

@@ -1,0 +1,179 @@
+code,name,numeric,minor_units,non_circulating,symbol,symbol_intl,narrow_symbol,names,published
+AED,UAE Dirham,784,2,,AED,AED,,UAE dirham;UAE dirhams;United Arab Emirates Dirham,2026-09-17
+AFN,Afghani,971,2,,AFN,AFN,؋,Afghan Afghani;Afghan Afghanis,2026-09-17
+ALL,Lek,008,2,,ALL,ALL,,Albanian Lek;Albanian lek;Albanian lekë,2026-09-17
+AMD,Armenian Dram,051,2,,AMD,AMD,֏,Armenian Dram;Armenian dram;Armenian drams,2026-09-17
+AOA,Kwanza,973,2,,AOA,AOA,Kz,Angolan Kwanza;Angolan kwanza;Angolan kwanzas,2026-09-17
+ARS,Argentine Peso,032,2,,ARS,ARS,$,Argentine Peso;Argentine peso;Argentine pesos,2026-09-17
+AUD,Australian Dollar,036,2,,A$,A$,$,Australian Dollar;Australian dollar;Australian dollars,2026-09-17
+AWG,Aruban Florin,533,2,,AWG,AWG,,Aruban Florin;Aruban florin,2026-09-17
+AZN,Azerbaijan Manat,944,2,,AZN,AZN,₼,Azerbaijani Manat;Azerbaijani manat;Azerbaijani manats,2026-09-17
+BAM,Convertible Mark,977,2,,BAM,BAM,KM,Bosnia-Herzegovina Convertible Mark;Bosnia-Herzegovina convertible mark;Bosnia-Herzegovina convertible marks,2026-09-17
+BBD,Barbados Dollar,052,2,,BBD,BBD,$,Barbadian Dollar;Barbadian dollar;Barbadian dollars,2026-09-17
+BDT,Taka,050,2,,BDT,BDT,৳,Bangladeshi Taka;Bangladeshi taka;Bangladeshi takas,2026-09-17
+BHD,Bahraini Dinar,048,3,,BHD,BHD,,Bahraini Dinar;Bahraini dinar;Bahraini dinars,2026-09-17
+BIF,Burundi Franc,108,0,,BIF,BIF,,Burundian Franc;Burundian franc;Burundian francs,2026-09-17
+BMD,Bermudian Dollar,060,2,,BMD,BMD,$,Bermudan Dollar;Bermudan dollar;Bermudan dollars,2026-09-17
+BND,Brunei Dollar,096,2,,BND,BND,$,Brunei Dollar;Brunei dollar;Brunei dollars,2026-09-17
+BOB,Boliviano,068,2,,BOB,BOB,Bs,Bolivian Boliviano;Bolivian boliviano;Bolivian bolivianos,2026-09-17
+BOV,Mvdol,984,2,yes,,,,Bolivian Mvdol;Bolivian mvdol;Bolivian mvdols,2026-09-17
+BRL,Brazilian Real,986,2,,R$,R$,R$,Brazilian Real;Brazilian real;Brazilian reals,2026-09-17
+BSD,Bahamian Dollar,044,2,,BSD,BSD,$,Bahamian Dollar;Bahamian dollar;Bahamian dollars,2026-09-17
+BTN,Ngultrum,064,2,,BTN,BTN,,Bhutanese Ngultrum;Bhutanese ngultrum;Bhutanese ngultrums,2026-09-17
+BWP,Pula,072,2,,BWP,BWP,P,Botswanan Pula;Botswanan pula;Botswanan pulas,2026-09-17
+BYN,Belarusian Ruble,933,2,,BYN,BYN,,Belarusian Ruble;Belarusian ruble;Belarusian rubles,2026-09-17
+BZD,Belize Dollar,084,2,,BZD,BZD,$,Belize Dollar;Belize dollar;Belize dollars,2026-09-17
+CAD,Canadian Dollar,124,2,,CA$,CA$,$,Canadian Dollar;Canadian dollar;Canadian dollars,2026-09-17
+CDF,Congolese Franc,976,2,,CDF,CDF,,Congolese Franc;Congolese franc;Congolese francs,2026-09-17
+CHE,WIR Euro,947,2,yes,,,,WIR Euro;WIR euro;WIR euros,2026-09-17
+CHF,Swiss Franc,756,2,,CHF,CHF,,Swiss Franc;Swiss franc;Swiss francs,2026-09-17
+CHW,WIR Franc,948,2,yes,,,,WIR Franc;WIR franc;WIR francs,2026-09-17
+CLF,Unidad de Fomento,990,4,yes,,,,Chilean Unit of Account (UF);Chilean unit of account (UF);Chilean units of account (UF),2026-09-17
+CLP,Chilean Peso,152,0,,CLP,CLP,$,Chilean Peso;Chilean peso;Chilean pesos,2026-09-17
+CNY,Yuan Renminbi,156,2,,CN¥,CN¥,¥,Chinese Yuan;Chinese yuan,2026-09-17
+COP,Colombian Peso,170,2,,COP,COP,$,Colombian Peso;Colombian peso;Colombian pesos,2026-09-17
+COU,Unidad de Valor Real,970,2,yes,,,,Colombian Real Value Unit;Colombian real value unit;Colombian real value units,2026-09-17
+CRC,Costa Rican Colon,188,2,,CRC,CRC,₡,Costa Rican Colón;Costa Rican colón;Costa Rican colóns,2026-09-17
+CUP,Cuban Peso,192,2,,CUP,CUP,$,Cuban Peso;Cuban peso;Cuban pesos,2026-09-17
+CVE,Cabo Verde Escudo,132,2,,CVE,CVE,,Cape Verdean Escudo;Cape Verdean escudo;Cape Verdean escudos,2026-09-17
+CZK,Czech Koruna,203,2,,CZK,CZK,Kč,Czech Koruna;Czech koruna;Czech korunas,2026-09-17
+DJF,Djibouti Franc,262,0,,DJF,DJF,,Djiboutian Franc;Djiboutian franc;Djiboutian francs,2026-09-17
+DKK,Danish Krone,208,2,,DKK,DKK,kr,Danish Krone;Danish krone;Danish kroner,2026-09-17
+DOP,Dominican Peso,214,2,,DOP,DOP,$,Dominican Peso;Dominican peso;Dominican pesos,2026-09-17
+DZD,Algerian Dinar,012,2,,DZD,DZD,,Algerian Dinar;Algerian dinar;Algerian dinars,2026-09-17
+EGP,Egyptian Pound,818,2,,EGP,EGP,E£,Egyptian Pound;Egyptian pound;Egyptian pounds,2026-09-17
+ERN,Nakfa,232,2,,ERN,ERN,,Eritrean Nakfa;Eritrean nakfa;Eritrean nakfas,2026-09-17
+ETB,Ethiopian Birr,230,2,,ETB,ETB,,Ethiopian Birr;Ethiopian birr;Ethiopian birrs,2026-09-17
+EUR,Euro,978,2,,€,€,€,Euro;euro;euros,2026-09-17
+FJD,Fiji Dollar,242,2,,FJD,FJD,$,Fijian Dollar;Fijian dollar;Fijian dollars,2026-09-17
+FKP,Falkland Islands Pound,238,2,,FKP,FKP,£,Falkland Islands Pound;Falkland Islands pound;Falkland Islands pounds,2026-09-17
+GBP,Pound Sterling,826,2,,£,£,£,British Pound;British pound;British pounds,2026-09-17
+GEL,Lari,981,2,,GEL,GEL,₾,Georgian Lari;Georgian lari;Georgian laris,2026-09-17
+GHS,Ghana Cedi,936,2,,GHS,GHS,GH₵,Ghanaian Cedi;Ghanaian cedi;Ghanaian cedis,2026-09-17
+GIP,Gibraltar Pound,292,2,,GIP,GIP,£,Gibraltar Pound;Gibraltar pound;Gibraltar pounds,2026-09-17
+GMD,Dalasi,270,2,,GMD,GMD,,Gambian Dalasi;Gambian dalasi;Gambian dalasis,2026-09-17
+GNF,Guinean Franc,324,0,,GNF,GNF,FG,Guinean Franc;Guinean franc;Guinean francs,2026-09-17
+GTQ,Quetzal,320,2,,GTQ,GTQ,Q,Guatemalan Quetzal;Guatemalan quetzal;Guatemalan quetzals,2026-09-17
+GYD,Guyana Dollar,328,2,,GYD,GYD,$,Guyanaese Dollar;Guyanaese dollar;Guyanaese dollars,2026-09-17
+HKD,Hong Kong Dollar,344,2,,HK$,HK$,$,Hong Kong Dollar;Hong Kong dollar;Hong Kong dollars,2026-09-17
+HNL,Lempira,340,2,,HNL,HNL,L,Honduran Lempira;Honduran lempira;Honduran lempiras,2026-09-17
+HTG,Gourde,332,2,,HTG,HTG,,Haitian Gourde;Haitian gourde;Haitian gourdes,2026-09-17
+HUF,Forint,348,2,,HUF,HUF,Ft,Hungarian Forint;Hungarian forint;Hungarian forints,2026-09-17
+IDR,Rupiah,360,2,,IDR,IDR,Rp,Indonesian Rupiah;Indonesian rupiah;Indonesian rupiahs,2026-09-17
+ILS,New Israeli Sheqel,376,2,,₪,₪,₪,Israeli New Shekel;Israeli new shekel;Israeli new shekels,2026-09-17
+INR,Indian Rupee,356,2,,₹,₹,₹,Indian Rupee;Indian rupee;Indian rupees,2026-09-17
+IQD,Iraqi Dinar,368,3,,IQD,IQD,,Iraqi Dinar;Iraqi dinar;Iraqi dinars,2026-09-17
+IRR,Iranian Rial,364,2,,IRR,IRR,,Iranian Rial;Iranian rial;Iranian rials,2026-09-17
+ISK,Iceland Krona,352,0,,ISK,ISK,kr,Icelandic Króna;Icelandic króna;Icelandic krónur,2026-09-17
+JMD,Jamaican Dollar,388,2,,JMD,JMD,$,Jamaican Dollar;Jamaican dollar;Jamaican dollars,2026-09-17
+JOD,Jordanian Dinar,400,3,,JOD,JOD,,Jordanian Dinar;Jordanian dinar;Jordanian dinars,2026-09-17
+JPY,Yen,392,0,,¥,JP¥,¥,Japanese Yen;Japanese yen,2026-09-17
+KES,Kenyan Shilling,404,2,,KES,KES,,Kenyan Shilling;Kenyan shilling;Kenyan shillings,2026-09-17
+KGS,Som,417,2,,KGS,KGS,⃀,Kyrgyz Som;Kyrgyz som;Kyrgyz soms,2026-09-17
+KHR,Riel,116,2,,KHR,KHR,៛,Cambodian Riel;Cambodian riel;Cambodian riels,2026-09-17
+KMF,Comorian Franc,174,0,,KMF,KMF,CF,Comorian Franc;Comorian franc;Comorian francs,2026-09-17
+KPW,North Korean Won,408,2,,KPW,KPW,₩,North Korean Won;North Korean won,2026-09-17
+KRW,Won,410,0,,₩,₩,₩,South Korean Won;South Korean won,2026-09-17
+KWD,Kuwaiti Dinar,414,3,,KWD,KWD,,Kuwaiti Dinar;Kuwaiti dinar;Kuwaiti dinars,2026-09-17
+KYD,Cayman Islands Dollar,136,2,,KYD,KYD,$,Cayman Islands Dollar;Cayman Islands dollar;Cayman Islands dollars,2026-09-17
+KZT,Tenge,398,2,,KZT,KZT,₸,Kazakhstani Tenge;Kazakhstani tenge;Kazakhstani tenges,2026-09-17
+LAK,Lao Kip,418,2,,LAK,LAK,₭,Laotian Kip;Laotian kip;Laotian kips,2026-09-17
+LBP,Lebanese Pound,422,2,,LBP,LBP,L£,Lebanese Pound;Lebanese pound;Lebanese pounds,2026-09-17
+LKR,Sri Lanka Rupee,144,2,,LKR,LKR,Rs,Sri Lankan Rupee;Sri Lankan rupee;Sri Lankan rupees,2026-09-17
+LRD,Liberian Dollar,430,2,,LRD,LRD,$,Liberian Dollar;Liberian dollar;Liberian dollars,2026-09-17
+LSL,Loti,426,2,,LSL,LSL,,Lesotho Loti;Lesotho loti;Lesotho lotis,2026-09-17
+LYD,Libyan Dinar,434,3,,LYD,LYD,,Libyan Dinar;Libyan dinar;Libyan dinars,2026-09-17
+MAD,Moroccan Dirham,504,2,,MAD,MAD,,Moroccan Dirham;Moroccan dirham;Moroccan dirhams,2026-09-17
+MDL,Moldovan Leu,498,2,,MDL,MDL,,Moldovan Leu;Moldovan lei;Moldovan leu,2026-09-17
+MGA,Malagasy Ariary,969,2,,MGA,MGA,Ar,Malagasy Ariary;Malagasy ariaries;Malagasy ariary,2026-09-17
+MKD,Denar,807,2,,MKD,MKD,,Macedonian Denar;Macedonian denar;Macedonian denari,2026-09-17
+MMK,Kyat,104,2,,MMK,MMK,K,Myanmar Kyat;Myanmar kyat;Myanmar kyats,2026-09-17
+MNT,Tugrik,496,2,,MNT,MNT,₮,Mongolian Tugrik;Mongolian tugrik;Mongolian tugriks,2026-09-17
+MOP,Pataca,446,2,,MOP,MOP,,Macanese Pataca;Macanese pataca;Macanese patacas,2026-09-17
+MRU,Ouguiya,929,2,,MRU,MRU,,Mauritanian Ouguiya;Mauritanian ouguiya;Mauritanian ouguiyas,2026-09-17
+MUR,Mauritius Rupee,480,2,,MUR,MUR,Rs,Mauritian Rupee;Mauritian rupee;Mauritian rupees,2026-09-17
+MVR,Rufiyaa,462,2,,MVR,MVR,,Maldivian Rufiyaa;Maldivian rufiyaa;Maldivian rufiyaas,2026-09-17
+MWK,Malawi Kwacha,454,2,,MWK,MWK,,Malawian Kwacha;Malawian kwacha;Malawian kwachas,2026-09-17
+MXN,Mexican Peso,484,2,,MX$,MX$,$,Mexican Peso;Mexican peso;Mexican pesos,2026-09-17
+MXV,Mexican Unidad de Inversion (UDI),979,2,yes,,,,Mexican Investment Unit;Mexican investment unit;Mexican investment units,2026-09-17
+MYR,Malaysian Ringgit,458,2,,MYR,MYR,RM,Malaysian Ringgit;Malaysian ringgit;Malaysian ringgits,2026-09-17
+MZN,Mozambique Metical,943,2,,MZN,MZN,,Mozambican Metical;Mozambican metical;Mozambican meticals,2026-09-17
+NAD,Namibia Dollar,516,2,,NAD,NAD,$,Namibian Dollar;Namibian dollar;Namibian dollars,2026-09-17
+NGN,Naira,566,2,,NGN,NGN,₦,Nigerian Naira;Nigerian naira;Nigerian nairas,2026-09-17
+NIO,Cordoba Oro,558,2,,NIO,NIO,C$,Nicaraguan Córdoba;Nicaraguan córdoba;Nicaraguan córdobas,2026-09-17
+NOK,Norwegian Krone,578,2,,NOK,NOK,kr,Norwegian Krone;Norwegian krone;Norwegian kroner,2026-09-17
+NPR,Nepalese Rupee,524,2,,NPR,NPR,Rs,Nepalese Rupee;Nepalese rupee;Nepalese rupees,2026-09-17
+NZD,New Zealand Dollar,554,2,,NZ$,NZ$,$,New Zealand Dollar;New Zealand dollar;New Zealand dollars,2026-09-17
+OMR,Rial Omani,512,3,,OMR,OMR,,Omani Rial;Omani rial;Omani rials,2026-09-17
+PAB,Balboa,590,2,,PAB,PAB,,Panamanian Balboa;Panamanian balboa;Panamanian balboas,2026-09-17
+PEN,Sol,604,2,,PEN,PEN,,Peruvian Sol;Peruvian sol;Peruvian soles,2026-09-17
+PGK,Kina,598,2,,PGK,PGK,,Papua New Guinean Kina;Papua New Guinean kina,2026-09-17
+PHP,Philippine Peso,608,2,,₱,₱,₱,Philippine Peso;Philippine peso;Philippine pesos,2026-09-17
+PKR,Pakistan Rupee,586,2,,PKR,PKR,Rs,Pakistani Rupee;Pakistani rupee;Pakistani rupees,2026-09-17
+PLN,Zloty,985,2,,PLN,PLN,zł,Polish Zloty;Polish zloty;Polish zlotys,2026-09-17
+PYG,Guarani,600,0,,PYG,PYG,₲,Paraguayan Guarani;Paraguayan guarani;Paraguayan guaranis,2026-09-17
+QAR,Qatari Rial,634,2,,QAR,QAR,,Qatari Riyal;Qatari riyal;Qatari riyals,2026-09-17
+RON,Romanian Leu,946,2,,RON,RON,lei,Romanian Leu;Romanian lei;Romanian leu,2026-09-17
+RSD,Serbian Dinar,941,2,,RSD,RSD,,Serbian Dinar;Serbian dinar;Serbian dinars,2026-09-17
+RUB,Russian Ruble,643,2,,RUB,RUB,₽,Russian Ruble;Russian ruble;Russian rubles,2026-09-17
+RWF,Rwanda Franc,646,0,,RWF,RWF,RF,Rwandan Franc;Rwandan franc;Rwandan francs,2026-09-17
+SAR,Saudi Riyal,682,2,,SAR,SAR,,Saudi Riyal;Saudi riyal;Saudi riyals,2026-09-17
+SBD,Solomon Islands Dollar,090,2,,SBD,SBD,$,Solomon Islands Dollar;Solomon Islands dollar;Solomon Islands dollars,2026-09-17
+SCR,Seychelles Rupee,690,2,,SCR,SCR,,Seychellois Rupee;Seychellois rupee;Seychellois rupees,2026-09-17
+SDG,Sudanese Pound,938,2,,SDG,SDG,,Sudanese Pound;Sudanese pound;Sudanese pounds,2026-09-17
+SEK,Swedish Krona,752,2,,SEK,SEK,kr,Swedish Krona;Swedish krona;Swedish kronor,2026-09-17
+SGD,Singapore Dollar,702,2,,SGD,SGD,$,Singapore Dollar;Singapore dollar;Singapore dollars,2026-09-17
+SHP,Saint Helena Pound,654,2,,SHP,SHP,£,St. Helena Pound;St. Helena pound;St. Helena pounds,2026-09-17
+SLE,Leone,925,2,,SLE,SLE,,Sierra Leonean Leone;Sierra Leonean leone;Sierra Leonean leones,2026-09-17
+SOS,Somali Shilling,706,2,,SOS,SOS,,Somali Shilling;Somali shilling;Somali shillings,2026-09-17
+SRD,Surinam Dollar,968,2,,SRD,SRD,$,Surinamese Dollar;Surinamese dollar;Surinamese dollars,2026-09-17
+SSP,South Sudanese Pound,728,2,,SSP,SSP,£,South Sudanese Pound;South Sudanese pound;South Sudanese pounds,2026-09-17
+STN,Dobra,930,2,,STN,STN,Db,São Tomé & Príncipe Dobra;São Tomé & Príncipe dobra;São Tomé & Príncipe dobras,2026-09-17
+SVC,El Salvador Colon,222,2,,,,,Salvadoran Colón;Salvadoran colones;Salvadoran colón,2026-09-17
+SYP,Syrian Pound,760,2,,SYP,SYP,£,Syrian Pound;Syrian pound;Syrian pounds,2026-09-17
+SZL,Lilangeni,748,2,,SZL,SZL,,Swazi Lilangeni;Swazi emalangeni;Swazi lilangeni,2026-09-17
+THB,Baht,764,2,,THB,THB,฿,Thai Baht;Thai baht,2026-09-17
+TJS,Somoni,972,2,,TJS,TJS,,Tajikistani Somoni;Tajikistani somoni;Tajikistani somonis,2026-09-17
+TMT,Turkmenistan New Manat,934,2,,TMT,TMT,,Turkmenistani Manat;Turkmenistani manat,2026-09-17
+TND,Tunisian Dinar,788,3,,TND,TND,,Tunisian Dinar;Tunisian dinar;Tunisian dinars,2026-09-17
+TOP,Pa’anga,776,2,,TOP,TOP,T$,Tongan Paʻanga;Tongan paʻanga,2026-09-17
+TRY,Turkish Lira,949,2,,TRY,TRY,₺,Turkish Lira;Turkish lira,2026-09-17
+TTD,Trinidad and Tobago Dollar,780,2,,TTD,TTD,$,Trinidad & Tobago Dollar;Trinidad & Tobago dollar;Trinidad & Tobago dollars,2026-09-17
+TWD,New Taiwan Dollar,901,2,,NT$,NT$,$,New Taiwan Dollar;New Taiwan dollar;New Taiwan dollars,2026-09-17
+TZS,Tanzanian Shilling,834,2,,TZS,TZS,,Tanzanian Shilling;Tanzanian shilling;Tanzanian shillings,2026-09-17
+UAH,Hryvnia,980,2,,UAH,UAH,₴,Ukrainian Hryvnia;Ukrainian hryvnia;Ukrainian hryvnias,2026-09-17
+UGX,Uganda Shilling,800,0,,UGX,UGX,,Ugandan Shilling;Ugandan shilling;Ugandan shillings,2026-09-17
+USD,US Dollar,840,2,,$,US$,$,US Dollar;US dollar;US dollars,2026-09-17
+USN,US Dollar (Next day),997,2,yes,,,,US Dollar (Next day);US dollar (next day);US dollars (next day),2026-09-17
+UYI,Uruguay Peso en Unidades Indexadas (UI),940,0,yes,,,,Uruguayan Peso (Indexed Units);Uruguayan peso (indexed units);Uruguayan pesos (indexed units),2026-09-17
+UYU,Peso Uruguayo,858,2,,UYU,UYU,$,Uruguayan Peso;Uruguayan peso;Uruguayan pesos,2026-09-17
+UYW,Unidad Previsional,927,4,yes,,,,Uruguayan Nominal Wage Index Unit;Uruguayan nominal wage index unit;Uruguayan nominal wage index units,2026-09-17
+UZS,Uzbekistan Sum,860,2,,UZS,UZS,,Uzbekistani Som;Uzbekistani som,2026-09-17
+VED,Bolívar Soberano,926,2,,,,,Bolívar Soberano;Bolívar Soberanos,2026-09-17
+VES,Bolívar Soberano,928,2,,VES,VES,,Venezuelan Bolívar;Venezuelan bolívar;Venezuelan bolívars,2026-09-17
+VND,Dong,704,0,,₫,₫,₫,Vietnamese Dong;Vietnamese dong,2026-09-17
+VUV,Vatu,548,0,,VUV,VUV,,Vanuatu Vatu;Vanuatu vatu;Vanuatu vatus,2026-09-17
+WST,Tala,882,2,,WST,WST,,Samoan Tala;Samoan tala,2026-09-17
+XAD,Arab Accounting Dinar,396,2,yes,,,,,2026-09-17
+XAF,CFA Franc BEAC,950,0,yes,FCFA,FCFA,,Central African CFA Franc;Central African CFA franc;Central African CFA francs,2026-09-17
+XAG,Silver,961,,yes,,,,Silver;troy ounce of silver;troy ounces of silver,2026-09-17
+XAU,Gold,959,,yes,,,,Gold;troy ounce of gold;troy ounces of gold,2026-09-17
+XBA,Bond Markets Unit European Composite Unit (EURCO),955,,yes,,,,European Composite Unit;European composite unit;European composite units,2026-09-17
+XBB,Bond Markets Unit European Monetary Unit (E.M.U.-6),956,,yes,,,,European Monetary Unit;European monetary unit;European monetary units,2026-09-17
+XBC,Bond Markets Unit European Unit of Account 9 (E.U.A.-9),957,,yes,,,,European Unit of Account (XBC);European unit of account (XBC);European units of account (XBC),2026-09-17
+XBD,Bond Markets Unit European Unit of Account 17 (E.U.A.-17),958,,yes,,,,European Unit of Account (XBD);European unit of account (XBD);European units of account (XBD),2026-09-17
+XCD,East Caribbean Dollar,951,2,yes,EC$,EC$,$,East Caribbean Dollar;East Caribbean dollar;East Caribbean dollars,2026-09-17
+XCG,Caribbean Guilder,532,2,yes,Cg.,Cg.,,Caribbean guilder;Caribbean guilders,2026-09-17
+XDR,SDR (Special Drawing Right),960,,yes,,,,Special Drawing Rights;special drawing rights,2026-09-17
+XOF,CFA Franc BCEAO,952,0,yes,F CFA,F CFA,,West African CFA Franc;West African CFA franc;West African CFA francs,2026-09-17
+XPD,Palladium,964,,yes,,,,Palladium;troy ounce of palladium;troy ounces of palladium,2026-09-17
+XPF,CFP Franc,953,0,yes,CFPF,CFPF,,CFP Franc;CFP franc;CFP francs,2026-09-17
+XPT,Platinum,962,,yes,,,,Platinum;troy ounce of platinum;troy ounces of platinum,2026-09-17
+XSU,Sucre,994,,yes,,,,Sucre;Sucres,2026-09-17
+XTS,Codes specifically reserved for testing purposes,963,,yes,,,,Testing Currency Code;Testing Currency unit;Testing Currency units,2026-09-17
+XUA,ADB Unit of Account,965,,yes,,,,ADB Unit of Account;ADB unit of account;ADB units of account,2026-09-17
+XXX,The codes assigned for transactions where no currency is involved,999,,yes,¤,¤,,(unknown currency);(unknown unit of currency);Unknown Currency,2026-09-17
+YER,Yemeni Rial,886,2,,YER,YER,,Yemeni Rial;Yemeni rial;Yemeni rials,2026-09-17
+ZAR,Rand,710,2,,ZAR,ZAR,R,South African Rand;South African rand,2026-09-17
+ZMW,Zambian Kwacha,967,2,,ZMW,ZMW,ZK,Zambian Kwacha;Zambian kwacha;Zambian kwachas,2026-09-17
+ZWG,Zimbabwe Gold,924,2,,ZWG,ZWG,,Zimbabwean Gold;Zimbabwean gold,2026-09-17

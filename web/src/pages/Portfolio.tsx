@@ -42,7 +42,7 @@ type Rollup = Record<string, number | unknown>
 type PortfolioResp = { scenario: string; horizon: string; rollup: Rollup } & Record<string, unknown>
 interface LossBand { expected_value_loss_eur: number; loss_low_eur: number; loss_high_eur: number; band_pct: number | null; ci_coverage_pct: number }
 interface Cat { available: boolean; mean_annual_loss_eur: number; sum_independent_eal_eur: number; mean_reconciles: boolean; pml_eur: number; pml_return_period: number; tail_to_mean_multiple: number | null; n_zones: number; aep_eur: Record<string, number>; oep_eur: Record<string, number> }
-interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_section: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
+interface Transition { available: boolean; financed_emissions_tco2e: number; emissions_reported_pct: number; n_emissions_estimated: number; transition_expected_loss_eur: number; transition_el_pct_of_outstanding: number; exposure_weighted_transition_score: number | null; by_sector: { nace_division: string; label: string; transition_el_eur: number; outstanding_eur: number; n: number }[] }
 interface CombinedVar { available: boolean; median_loss_eur: number; var95_eur: number; var99_eur: number; physical_expected_eur: number; transition_expected_eur: number; combined_expected_eur: number; combined_pct_of_book: number; n_positions: number; n_with_transition: number }
 interface ConcRegion { region: string; value_eur: number; climate_var_eur: number; n: number; pct_of_book: number }
 interface ConcHazard { hazard: string; value_eur: number; climate_var_eur: number; n: number; pct_of_scored: number }
@@ -486,12 +486,6 @@ function CatAccumulation({ cat }: { cat?: Cat }) {
   )
 }
 
-const NACE_SECTION_LABEL: Record<string, string> = {
-  '05': 'Coal mining', '06': 'Oil & gas extraction', '19': 'Refining', '35': 'Power & gas utilities',
-  '24': 'Basic metals (steel)', '23': 'Cement & minerals', '29': 'Motor vehicles', '49': 'Land transport',
-  '51': 'Air transport', '62': 'IT services',
-}
-
 function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: string }) {
   if (!t || !t.available) return null
   const tco2e = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}Mt` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}kt` : `${Math.round(n)}t`
@@ -508,8 +502,8 @@ function TransitionCard({ t, scenarioLabel }: { t?: Transition; scenarioLabel: s
       {t.by_sector?.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {t.by_sector.slice(0, 4).map(s => (
-            <span key={s.nace_section} className="mono text-[10.5px] px-2 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)]">
-              {NACE_SECTION_LABEL[s.nace_section] || `NACE ${s.nace_section}`} · {eur(s.transition_el_eur)}
+            <span key={s.nace_division} title={`NACE ${s.nace_division}`} className="mono text-[10.5px] px-2 py-1 rounded-lg border border-[var(--color-line-2)] text-[var(--color-mute)]">
+              {s.label} · {eur(s.transition_el_eur)}
             </span>
           ))}
         </div>

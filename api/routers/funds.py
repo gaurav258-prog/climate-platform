@@ -14,7 +14,7 @@ import json
 from datetime import date
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, model_validator
@@ -29,7 +29,7 @@ from ml.regulatory.sfdr_pai import (
 )
 from ml.regulatory.sfdr_periodic import periodic_report
 from ml.regulatory.sfdr_precontractual import build_precontractual
-from ml.regulatory.sfdr_xbrl import sfdr_pai_xbrl
+from ml.regulatory.sfdr_xbrl import XbrlIdentityError, sfdr_pai_xbrl
 from ml.regulatory.voluntary_pai import CATALOG as _VOLUNTARY_CATALOG
 from ml.regulatory.voluntary_pai import catalog as voluntary_catalog
 from ml.regulatory.voluntary_pai import validate_keys
@@ -842,7 +842,10 @@ def sfdr_statement_xbrl(fund_id: str, session: DbSession, org_id: OrgId):
     statement, is_frozen = frozen_or_live_statement(session, fund_id)   # see sfdr_statement_xlsx's note
     if statement.get("error"):
         return statement
-    xml = sfdr_pai_xbrl(statement)
+    try:
+        xml = sfdr_pai_xbrl(statement)
+    except XbrlIdentityError as e:
+        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
     suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
     fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xbrl"
     return StreamingResponse(
@@ -859,7 +862,10 @@ def sfdr_statement_ixbrl(fund_id: str, session: DbSession, org_id: OrgId):
     if statement.get("error"):
         return statement
     from ml.regulatory.sfdr_xbrl import sfdr_pai_ixbrl
-    doc = sfdr_pai_ixbrl(statement)
+    try:
+        doc = sfdr_pai_ixbrl(statement)
+    except XbrlIdentityError as e:
+        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
     suffix = "" if is_frozen else "_DRAFT_not_yet_filed"
     fname = f"SFDR_PAI_{statement['entity']['fund_name'].replace(' ', '_')}{suffix}.xhtml"
     return StreamingResponse(
@@ -872,7 +878,10 @@ def entity_statement_xbrl(session: DbSession, org_id: OrgId):
     statement = entity_pai_statement(session, org_id)
     if statement.get("error"):
         return statement
-    xml = sfdr_pai_xbrl(statement)
+    try:
+        xml = sfdr_pai_xbrl(statement)
+    except XbrlIdentityError as e:
+        raise HTTPException(422, {"error": "not_exportable", "message": str(e)})
     fname = f"SFDR_PAI_Entity_{statement['entity']['manager'].replace(' ', '_')}.xbrl"
     return StreamingResponse(
         iter([xml]), media_type="application/xml",

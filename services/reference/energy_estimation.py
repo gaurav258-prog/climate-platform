@@ -1,7 +1,9 @@
 """Estimates for a company's energy facts (SFDR PAI 5 and 6) when neither the company nor a data vendor reports them.
 
-  energy consumption intensity  the EU-27 average for its activity (data/reference/nace_energy_intensity.csv — Eurostat
-                                energy accounts ÷ turnover, finest NACE level published, else its section)
+  energy consumption intensity  its OWN COUNTRY's figure for its activity where that country reports it to Eurostat
+                                (nace_energy_intensity_by_country.csv), else the European figure for its activity
+                                (nace_energy_intensity.csv — the countries reporting every part, summed), finest NACE
+                                level published, else its section. The activity is resolved by services.reference.nace.
   non-renewable consumption     100 − its country's renewable share of primary energy
   non-renewable production      100 − its country's renewable share of electricity (energy producers, NACE D)
                                 (data/reference/country_renewable_shares.csv — Our World in Data)
@@ -16,51 +18,42 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from services.reference import nace
+
 _REF = Path(__file__).resolve().parents[2] / "data" / "reference"
-# NACE Rev. 2 division → section
-_SECTION = [("A", 1, 3), ("B", 5, 9), ("C", 10, 33), ("D", 35, 35), ("E", 36, 39), ("F", 41, 43), ("G", 45, 47),
-            ("H", 49, 53), ("I", 55, 56), ("J", 58, 63), ("K", 64, 66), ("L", 68, 68), ("M", 69, 75), ("N", 77, 82),
-            ("O", 84, 84), ("P", 85, 85), ("Q", 86, 88), ("R", 90, 93), ("S", 94, 96), ("T", 97, 98), ("U", 99, 99)]
-
-
-def division(nace_code: Optional[str]) -> Optional[int]:
-    s = (nace_code or "").strip().lstrip("ABCDEFGHIJKLMNOPQRSTU").strip()
-    try:
-        return int(s.replace(".", "")[:2])
-    except ValueError:
-        return None
 
 
 def section(nace_code: Optional[str]) -> Optional[str]:
-    d = division(nace_code)
-    if d is None:
-        return None
-    return next((sec for sec, lo, hi in _SECTION if lo <= d <= hi), None)
+    return nace.section(nace_code)
 
 
 @lru_cache(maxsize=1)
 def _intensities() -> tuple[dict, dict]:
+    """(division → European figure, section → European figure). A figure the table marks thin (too few reporting
+    countries) is not used for a division — the section's figure is the better estimate then."""
     by_div, by_sec = {}, {}
     with (_REF / "nace_energy_intensity.csv").open() as f:
         for r in csv.DictReader(f):
-            row = {"value": float(r["intensity_gwh_per_meur"]), "code": r["nace_code"], "year": int(r["year"])}
+            row = {"value": float(r["intensity_gwh_per_meur"]), "code": r["nace_code"], "year": int(r["year"]),
+                   "n": int(r["n_countries"])}
             if r["nace_code"] == r["section"]:
                 by_sec[r["section"]] = row
-            elif _solid(r):
+            elif not r["thin"]:
                 for d in r["divisions"].split(";"):
                     by_div[d] = row
     return by_div, by_sec
 
 
-MIN_COUNTRIES, MIN_COVERAGE_PCT = 10, 50.0
-
-
-def _solid(r: dict) -> bool:
-    """A division figure built from member states is used only when it rests on enough of the EU (≥ 10 countries or
-    ≥ 50% of EU turnover); otherwise the company's section average is the better estimate."""
-    n = int(r.get("n_countries") or 0)
-    cov = float(r["eu_turnover_covered_pct"]) if r.get("eu_turnover_covered_pct") else None
-    return n >= MIN_COUNTRIES or (cov is not None and cov >= MIN_COVERAGE_PCT)
+@lru_cache(maxsize=1)
+def _by_country() -> dict:
+    out: dict = {}
+    with (_REF / "nace_energy_intensity_by_country.csv").open() as f:
+        for r in csv.DictReader(f):
+            row = {"value": float(r["intensity_gwh_per_meur"]), "code": r["nace_code"], "year": int(r["year"])}
+            keys = [r["section"]] if r["nace_code"] == r["section"] else r["divisions"].split(";")
+            for k in keys:
+                out[(r["country_iso2"], k)] = row
+    return out
 
 
 @lru_cache(maxsize=1)
@@ -69,16 +62,24 @@ def _country() -> dict:
         return {r["country_iso2"]: r for r in csv.DictReader(f)}
 
 
-def intensity(nace_code: Optional[str]) -> Optional[dict]:
-    """{value (GWh/€M revenue), basis} — the EU-27 average for the company's activity, or None if no NACE code."""
-    sec, d = section(nace_code), division(nace_code)
+def intensity(nace_code: Optional[str], country: Optional[str] = None) -> Optional[dict]:
+    """{value (GWh/€M revenue), basis} — the company's country figure for its activity where that country reports it to
+    Eurostat, else the European figure; None if the code isn't a NACE activity the table covers."""
+    sec, div = nace.section(nace_code), nace.division(nace_code)
     if sec is None:
         return None
+    c = (country or "").strip().upper()
+    own = _by_country()
+    row = (own.get((c, div)) if div else None) or own.get((c, sec))
+    if row:
+        return {**row, "basis": f"{c} national figure for NACE {row['code']} ({row['year']}, Eurostat energy accounts ÷ turnover)"}
     by_div, by_sec = _intensities()
-    row = by_div.get(f"{sec}{d:02d}") or by_sec.get(sec)
+    row = (by_div.get(div) if div else None) or by_sec.get(sec)
     if not row:
         return None
-    return {**row, "basis": f"EU-27 average for NACE {row['code']} ({row['year']}, Eurostat energy accounts ÷ turnover)"}
+    where = f" — no national figure for {c}" if c else ""
+    return {**row, "basis": f"average of {row['n']} European countries for NACE {row['code']} ({row['year']}, "
+                            f"Eurostat energy accounts ÷ turnover){where}"}
 
 
 def non_renewable_consumption(country: Optional[str]) -> Optional[dict]:

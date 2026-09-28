@@ -79,6 +79,8 @@ async def upload(session: DbSession, ctx: CurrentUser,
                  framework: str = Form(...),
                  period_label: str = Form(...),
                  entity_name: Optional[str] = Form(None),
+                 currency: Optional[str] = Form(None),
+                 period_end: Optional[str] = Form(None),
                  _p: dict = Depends(require_permission("reports.publish"))):
     data = await file.read()
     if not data:
@@ -88,7 +90,8 @@ async def upload(session: DbSession, ctx: CurrentUser,
     try:
         return PF.create_from_upload(session, ctx["org"]["org_id"], ctx["user"]["id"],
                                      framework=framework, period_label=period_label,
-                                     entity_name=entity_name, filename=file.filename or "upload", data=data)
+                                     entity_name=entity_name, filename=file.filename or "upload", data=data,
+                                     currency=currency, period_end=period_end)
     except PF.FilingError as e:
         raise HTTPException(400, {"error": "bad_request", "message": str(e)})
 

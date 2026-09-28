@@ -1,0 +1,567 @@
+{
+  "eet_version": "V1.1.3",
+  "about": "How Tellumen fills and checks an EET V1.1.3 file: the SFDR product type code, where each PAI field's value comes from in the fund's SFDR PAI statement, and when each Conditional field applies. A new FinDatEx version gets its own rules file; the code reads whichever matches the field list.",
+  "sfdr_product_type": {
+    "article_6": "6",
+    "article_8": "8",
+    "article_8_plus": "8",
+    "article_9": "9",
+    "default": "0"
+  },
+  "use_flags": {
+    "precontractual": "00060_EET_Data_Reporting_SFDR_Pre_Contractual",
+    "periodic": "00070_EET_Data_Reporting_SFDR_Periodic",
+    "entity": "00080_EET_Data_Reporting_SFDR_Entity_Level",
+    "mifid": "00090_EET_Data_Reporting_MiFID",
+    "idd": "00100_EET_Data_Reporting_IDD"
+  },
+  "pai_values": [
+    {
+      "stem": "GHG_Emissions_Scope_1_Value",
+      "indicator": 1,
+      "read": {
+        "path": "value.scope_1"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Emissions_Scope_2_Value",
+      "indicator": 1,
+      "read": {
+        "path": "value.scope_2"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Emissions_Scope_3_Value",
+      "indicator": 1,
+      "read": {
+        "path": "value.scope_3"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Emissions_Total_Scope12_Value",
+      "indicator": 1,
+      "read": {
+        "sum": [
+          "value.scope_1",
+          "value.scope_2"
+        ]
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Emissions_Total_Scope123_Value",
+      "indicator": 1,
+      "read": {
+        "path": "value.total"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Carbon_Footprint_Scope123_Value",
+      "indicator": 2,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Carbon_Footprint_Scope12_Value",
+      "indicator": 2,
+      "read": {
+        "path": "value",
+        "times_ratio": {
+          "indicator": 1,
+          "num": [
+            "value.scope_1",
+            "value.scope_2"
+          ],
+          "den": "value.total"
+        }
+      },
+      "holdings": "companies",
+      "note": "Scope 1+2 footprint = the Scope 1+2+3 footprint × (Scope 1+2 ÷ total) financed emissions."
+    },
+    {
+      "stem": "GHG_Intensity_Of_Investee_Companies_Scope12_Value",
+      "indicator": 3,
+      "read": {
+        "path": "value_scope_1_2"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Intensity_Of_Investee_Companies_Scope123_Value",
+      "indicator": 3,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Exposure_To_Companies_Active_In_The_Fossil_Fuel_Sector_Value",
+      "indicator": 4,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Share_Energy_Consumption_From_Non-Renewable_Sources",
+      "indicator": 5,
+      "cell": "consumption",
+      "scale": 0.01
+    },
+    {
+      "stem": "Share_Energy_Production_From_Non-Renewable_Sources",
+      "indicator": 5,
+      "cell": "production",
+      "scale": 0.01
+    },
+    {
+      "stem": "Energy_Consumption_Intensity_Per_High_Impact_Climate_Sector_NACE_{section}",
+      "indicator": 6,
+      "cells": "by_section",
+      "sections": "ABCDEFGHLM"
+    },
+    {
+      "stem": "Activities_Negatively_Affecting_Biodiversity-sensitive_Areas_Value",
+      "indicator": 7,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Water_Emissions_Value",
+      "indicator": 8,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Hazardous_Waste_Ratio_Value",
+      "indicator": 9,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Share_Of_Companies_Involved_In_Violation_Of_UN_Global_Compact_Principles_And_OECD_Guidelines_For_Multinational_Enterprises_Value",
+      "indicator": 10,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Share_Of_Companies_Without_Policies_To_Monitor_Compliance_With_UNGCP_And_OECD_Guidelines_For_Multinational_Enterprises_Value",
+      "indicator": 11,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Unadjusted_Gender_Pay_Gap_Value",
+      "indicator": 12,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Board_Gender_Diversity_Value",
+      "indicator": 13,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "Share_Of_Investments_Involved_In_Controversial_Weapons_Value",
+      "indicator": 14,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "companies"
+    },
+    {
+      "stem": "GHG_Intensity_Value",
+      "indicator": 15,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "sovereigns"
+    },
+    {
+      "stem": "Number_Of_Countries_Subject_To_Social_Violations_Value",
+      "indicator": 16,
+      "read": {
+        "path": "value"
+      },
+      "holdings": "sovereigns"
+    },
+    {
+      "stem": "Percent_Of_Countries_Subject_To_Social_Violations_Value",
+      "indicator": 16,
+      "read": {
+        "path": "value_pct",
+        "scale": 0.01
+      },
+      "holdings": "sovereigns"
+    },
+    {
+      "stem": "Exposure_To_Fossil_Fuels_Extraction_Storage_Transport_Manufacture_Value",
+      "indicator": 17,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "real_estate"
+    },
+    {
+      "stem": "Exposure_To_Energy-inefficient_Real_Estate_Assets_Value",
+      "indicator": 18,
+      "read": {
+        "path": "value",
+        "scale": 0.01
+      },
+      "holdings": "real_estate"
+    }
+  ],
+  "taxonomy_values": [
+    {
+      "incl_sovereign": "20660_Financial_Instrument_Percentage_Taxonomy_Aligned_Incl_Sovereign_Revenue",
+      "excl_sovereign": "20690_Financial_Instrument_Percentage_Taxonomy_Aligned_Excl_Sovereign_Revenue",
+      "from": "taxonomy_aligned_turnover_pct"
+    },
+    {
+      "incl_sovereign": "20670_Financial_Instrument_Percentage_Taxonomy_Aligned_Incl_Sovereign_Capex",
+      "excl_sovereign": "20700_Financial_Instrument_Percentage_Taxonomy_Aligned_Excl_Sovereign_Capex",
+      "from": "taxonomy_aligned_capex_pct"
+    }
+  ],
+  "conditions": [
+    {
+      "match": {
+        "codes": [
+          20070,
+          20080
+        ]
+      },
+      "applies": {
+        "all": [
+          {
+            "fund_type": "fund_of_funds"
+          },
+          {
+            "sfdr_in": [
+              "8",
+              "9"
+            ]
+          }
+        ]
+      },
+      "source": "Proportion in look through of art 8 / 9 sub invested funds for funds of funds"
+    },
+    {
+      "match": {
+        "name_contains": "_Art_8"
+      },
+      "applies": {
+        "sfdr_in": [
+          "8"
+        ]
+      },
+      "source": "Art. 8 product fields"
+    },
+    {
+      "match": {
+        "name_contains": "_Art_9"
+      },
+      "applies": {
+        "sfdr_in": [
+          "9"
+        ]
+      },
+      "source": "Art. 9 product fields"
+    },
+    {
+      "match": {
+        "codes": [
+          20050
+        ]
+      },
+      "applies": {
+        "sfdr_in": [
+          "0"
+        ]
+      },
+      "source": "Conditional to 20040 set to 0"
+    },
+    {
+      "match": {
+        "codes": [
+          10020
+        ]
+      },
+      "applies": {
+        "field_eq": [
+          10010,
+          "L"
+        ]
+      },
+      "source": "Conditional to field 10010 is set to LEI"
+    },
+    {
+      "match": {
+        "ranges": [
+          [
+            80000,
+            80050
+          ]
+        ]
+      },
+      "applies": false,
+      "source": "Conditional to being a Structured Product"
+    },
+    {
+      "match": {
+        "codes": [
+          20570,
+          20580
+        ]
+      },
+      "applies": {
+        "sfdr_in": [
+          "9"
+        ]
+      },
+      "source": "Conditional to product being art 9"
+    },
+    {
+      "match": {
+        "codes": [
+          20380
+        ]
+      },
+      "applies": {
+        "field_eq": [
+          20370,
+          "Y"
+        ]
+      },
+      "source": "conditional to 20370"
+    },
+    {
+      "match": {
+        "codes": [
+          90010,
+          90020
+        ]
+      },
+      "applies": {
+        "field_eq": [
+          90000,
+          "Y"
+        ]
+      },
+      "source": "Conditional to 90000"
+    },
+    {
+      "match": {
+        "codes": [
+          90040,
+          90050
+        ]
+      },
+      "applies": {
+        "field_eq": [
+          90030,
+          "Y"
+        ]
+      },
+      "source": "Conditional to 90030"
+    },
+    {
+      "match": {
+        "codes": [
+          90060,
+          90070
+        ]
+      },
+      "applies": {
+        "any": [
+          {
+            "field_eq": [
+              90000,
+              "Y"
+            ]
+          },
+          {
+            "field_eq": [
+              90030,
+              "Y"
+            ]
+          }
+        ]
+      },
+      "source": "Conditionnal to 90000 set to Y or 90030 set to Y"
+    },
+    {
+      "match": {
+        "codes": [
+          100000
+        ]
+      },
+      "applies": {
+        "all": [
+          {
+            "field_gt": [
+              31240,
+              0
+            ]
+          },
+          {
+            "field_gt": [
+              31210,
+              0
+            ]
+          }
+        ]
+      },
+      "source": "Blank if none; conditional to 31210 > 0"
+    },
+    {
+      "match": {
+        "codes": [
+          100010
+        ]
+      },
+      "applies": {
+        "field_gt": [
+          31240,
+          0
+        ]
+      },
+      "source": "Blank if none; conditional to 31240 > 0"
+    },
+    {
+      "match": {
+        "ranges": [
+          [
+            20600,
+            20650
+          ]
+        ]
+      },
+      "applies": {
+        "any": [
+          {
+            "all": [
+              {
+                "sfdr_in": [
+                  "8"
+                ]
+              },
+              {
+                "field_eq": [
+                  20190,
+                  "Y"
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "sfdr_in": [
+                  "9"
+                ]
+              },
+              {
+                "field_eq": [
+                  20230,
+                  "Y"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "source": "Link to pre contractual reports — the minimum Taxonomy alignment a product commits to (20190 / 20230)"
+    },
+    {
+      "match": {
+        "ranges": [
+          [
+            20480,
+            20560
+          ],
+          [
+            20660,
+            20790
+          ],
+          [
+            90080,
+            90250
+          ]
+        ],
+        "codes": [
+          20140,
+          20150
+        ]
+      },
+      "applies": {
+        "all": [
+          {
+            "sfdr_in": [
+              "8",
+              "9"
+            ]
+          },
+          {
+            "use": "periodic"
+          }
+        ]
+      },
+      "source": "Link to periodic reports / To be updated when periodic / annual reports are updated"
+    },
+    {
+      "match": {
+        "ranges": [
+          [
+            20390,
+            20470
+          ]
+        ],
+        "codes": [
+          20120,
+          20130,
+          20370,
+          90000,
+          90030
+        ]
+      },
+      "applies": {
+        "sfdr_in": [
+          "8",
+          "9"
+        ]
+      },
+      "source": "Link to pre-contractual report / Conditional to 20040 or 20050 set to 8 or 9"
+    }
+  ]
+}

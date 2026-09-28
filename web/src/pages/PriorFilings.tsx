@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useCurrencies } from '../components/MoneyDeclaration'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from 'recharts'
 import { UploadCloud, FileCheck2, Trash2, Lock, ChevronRight, X, TrendingUp, AlertTriangle, FileText, Download, ShieldCheck } from 'lucide-react'
@@ -47,6 +48,9 @@ export default function PriorFilings() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [framework, setFramework] = useState('')
   const [period, setPeriod] = useState('')
+  const [periodEnd, setPeriodEnd] = useState('')
+  const [fileCcy, setFileCcy] = useState('')
+  const currencies = useCurrencies()
   const [entity, setEntity] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Filing | null>(null)          // the report just read, awaiting confirm
@@ -78,6 +82,8 @@ export default function PriorFilings() {
       const fd = new FormData()
       fd.append('file', f); fd.append('framework', framework); fd.append('period_label', period.trim())
       if (entity.trim()) fd.append('entity_name', entity.trim())
+      if (fileCcy) fd.append('currency', fileCcy)
+      if (periodEnd) fd.append('period_end', periodEnd)
       const d = await api.post<Filing>('/v1/prior-filings/upload', fd)
       setDraft(d); setEdits({}); setBasis(d.basis_note ?? '')
     } catch (e) {
@@ -139,6 +145,17 @@ export default function PriorFilings() {
                 <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting period</div>
                 <input value={period} onChange={e => setPeriod(e.target.value)} placeholder="2023"
                   className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
+              </label>
+              <label className="w-[150px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Period end</div>
+                <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} title="The date the reporting period ends — money converts at its rate. Blank: 31 December of the year in the period."
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] outline-none focus:border-[var(--color-sky)]" />
+              </label>
+              <label className="w-[130px]">
+                <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Currency</div>
+                <select value={fileCcy} onChange={e => setFileCcy(e.target.value)} title="The currency the filing reports money in. Needed when it writes amounts with a symbol several currencies share ($, £, ¥)."
+                  className="w-full bg-[var(--color-panel)] border border-[var(--color-line-2)] rounded-lg px-3 py-2 text-[13.5px] mono outline-none focus:border-[var(--color-sky)]">
+                  <option value="">— as written —</option>{currencies.map(c => <option key={c} value={c}>{c}</option>)}</select>
               </label>
               <label className="flex-1 min-w-[200px]">
                 <div className="mono text-[10px] tracking-[0.14em] uppercase text-[var(--color-faint)] mb-1.5">Reporting entity <span className="normal-case tracking-normal">(optional)</span></div>

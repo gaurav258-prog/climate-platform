@@ -9,8 +9,8 @@ for producers) and PAI 6 per high-impact NACE section. Each company's figure is 
     3. only then an ESTIMATE (services.reference.energy_estimation: EU sector / country averages) — flagged, and the share
        of the fund's value resting on estimates is reported with every indicator
 
-An estimate never overrides a real figure. A real figure that looks like a unit slip — an energy intensity more than 10×
-away from its sector average (MWh typed as GWh is 1,000×; a misplaced decimal 10×), or a share written as a fraction
+An estimate never overrides a real figure. A real figure that looks like a unit slip — an energy intensity further from
+its sector average than the organisation's governed check factor (esg_energy_intensity_check_factor, default 10×) (MWh typed as GWh is 1,000×; a misplaced decimal 10×), or a share written as a fraction
 (0.6 where 60% is meant) — is flagged until a person corrects it or confirms it as right, with a reason
 (issuer_data_confirmations, for that exact value). An unresolved flag blocks an EET version.
 The bands are deliberately wide: tested on the demo book, a 3× / 40-point band flagged five figures that are genuinely
@@ -26,7 +26,8 @@ from sqlalchemy import text
 from services.governance.pillar3_templates import HIGH_CLIMATE_NACE
 
 EET_SECTIONS = ("A", "B", "C", "D", "E", "F", "G", "H", "L", "M")
-INTENSITY_BAND = 10.0         # a reported intensity beyond 10× (or under 1/10 of) the sector average is checked
+# how far a reported intensity may sit from its sector average before it is checked: the organisation's governed
+# setting esg_energy_intensity_check_factor (calc_settings; default 10×, audited when changed)
 FRACTION_MAX = 1.0            # a reported % share of 1 or less, where the country average is well above, looks like a fraction
 FRACTION_MIN_ESTIMATE = 5.0
 FIELD_LABEL = {"energy_intensity": "energy intensity (GWh per €M revenue)",
@@ -41,7 +42,7 @@ def energy_facts(rows: list[dict]) -> list[dict]:
     out = []
     for r in rows:
         sec = EE.section(r["nace_code"])
-        est_i, est_c = EE.intensity(r["nace_code"]), EE.non_renewable_consumption(r.get("country"))
+        est_i, est_c = EE.intensity(r["nace_code"], r.get("country")), EE.non_renewable_consumption(r.get("country"))
         est_p = EE.non_renewable_production(r.get("country")) if sec == "D" else None
         pairs = {}
         if r["energy_int"] is not None:
@@ -72,12 +73,12 @@ def energy_facts(rows: list[dict]) -> list[dict]:
     return out
 
 
-def _implausible(field: str, reported: float, estimate: float) -> Optional[str]:
+def _implausible(field: str, reported: float, estimate: float, band: float = 10.0) -> Optional[str]:
     if field == "energy_intensity":
         if estimate <= 0:
             return None
         ratio = reported / estimate if reported else 0.0
-        if ratio > INTENSITY_BAND or ratio < 1 / INTENSITY_BAND:
+        if ratio > band or ratio < 1 / band:
             return f"{ratio:.1f}× the sector average — check the unit (GWh, per €M of revenue)"
         return None
     if 0 < reported <= FRACTION_MAX and estimate >= FRACTION_MIN_ESTIMATE:
@@ -95,10 +96,14 @@ def outliers(session, org_id: Optional[str], rows: list[dict], energy: list[dict
             WHERE org_id = CAST(:o AS uuid) AND issuer_id = ANY(CAST(:i AS uuid[]))
         """), {"o": org_id, "i": ids}).mappings():
             confirmed.setdefault((c["issuer_id"], c["field"]), []).append(c["value"])
+    band = 10.0
+    if org_id:
+        from services.calc_settings import get_calc_settings
+        band = float(get_calc_settings(session, org_id).get("esg_energy_intensity_check_factor", 10.0))
     out, seen = [], set()
     for r, f in zip(rows, energy):
         for field, (rep, est, basis) in f["pairs"].items():
-            why = _implausible(field, rep, est)
+            why = _implausible(field, rep, est, band)
             key = (r.get("issuer_id"), field)
             if not why or key in seen:
                 continue

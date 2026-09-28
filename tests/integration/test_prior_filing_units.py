@@ -40,3 +40,45 @@ def test_a_fund_shows_its_value_in_its_own_base_currency(session_rolled_back):
     v = fund_base_view(s, "USD", d, {"total_value": 1_000_000.0})
     assert v["currency"] == "USD" and v["total_value"] == round(1_000_000 * usd) and v["rate"]["units_per_eur"] == usd
     assert fund_base_view(s, None, d, {"total_value": 5.4}) == {"currency": "EUR", "as_of": "2025-12-31", "total_value": 5}
+
+
+def test_a_shared_symbol_is_never_added_until_the_filing_says_which_currency(session_rolled_back):
+    s = session_rolled_back
+    got = _combine(s, [_f(5, "$"), _f(7, "$")], "EUR")
+    assert got["value"] is None and "state the filing's currency" in got["note"]
+
+
+def test_an_upload_declares_its_currency_and_period_end(session_rolled_back):
+    import io
+
+    from openpyxl import Workbook
+
+    import services.governance.prior_filings as PF
+    from sqlalchemy import text
+    s = session_rolled_back
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Total book value", "$1,500,000"])
+    ws.append(["Scope 3 financed emissions (tCO2e)", 1640000])
+    buf = io.BytesIO()
+    wb.save(buf)
+    org = "11111111-1111-4111-8111-111111111111"
+    f = PF.create_from_upload(s, org, None, framework="bank_p3esg", period_label="FY2024", entity_name=None,
+                              filename="p3.xlsx", data=buf.getvalue(), currency="cad", period_end="2024-09-30")
+    try:
+        _check_upload(s, f, PF, buf)
+    finally:                                     # create_from_upload commits: remove what it wrote
+        PF.delete_filing(s, f["filing_id"], org)
+
+
+def _check_upload(s, f, PF, buf):
+    from sqlalchemy import text
+    org = "11111111-1111-4111-8111-111111111111"
+    units = {r[0]: r[1] for r in s.execute(text("SELECT label, unit FROM reported_figure WHERE filing_id = CAST(:f AS uuid)"),
+                                           {"f": f["filing_id"]})}
+    assert units["Total book value"] == "CAD" and units["Scope 3 financed emissions (tCO2e)"] == "tCO2e"
+    pe = s.execute(text("SELECT period_end, currency FROM reported_filing WHERE filing_id = CAST(:f AS uuid)"), {"f": f["filing_id"]}).first()
+    assert (pe[0].isoformat(), pe[1]) == ("2024-09-30", "CAD")
+    with pytest.raises(PF.FilingError, match="ISO 4217"):
+        PF.create_from_upload(s, org, None, framework="bank_p3esg", period_label="FY2024", entity_name=None,
+                              filename="p3.xlsx", data=buf.getvalue(), currency="XYZ")

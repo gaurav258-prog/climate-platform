@@ -2,7 +2,10 @@
 
 A figure is only comparable with another in the SAME unit. Every reader normalises to one vocabulary:
 
-    money      → its ISO 4217 code ('EUR', 'USD', 'GBP', …)   from €/$/£/¥ signs, ISO codes, or iso4217: measures
+    money      → its ISO 4217 code ('EUR', 'USD', …) from an ISO code, an iso4217: measure, a symbol only one currency
+                 uses ('€', 'US$', 'CA$') or a currency's own name ('euros') — all from services.reference.iso4217
+               → the bare SYMBOL ('$', '£', '¥', 'kr') when several currencies share it: ambiguous, resolved only by the
+                 currency the sender declares for the file (resolve_declared), never guessed
     percentage → '%'
     ratio      → 'pure'                                       (xbrli:pure)
     emissions  → 'tCO2e'; energy → 'MWh' / 'GWh'; area → 'ha'
@@ -16,15 +19,15 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-CURRENCIES = frozenset("EUR USD GBP CHF JPY SEK NOK DKK PLN CZK HUF RON BGN ISK CAD AUD NZD CNY HKD SGD INR BRL ZAR MXN "
-                       "KRW TRY ILS AED SAR".split())
-_SIGNS = (("US$", "USD"), ("€", "EUR"), ("£", "GBP"), ("¥", "JPY"), ("$", "USD"))
-_WORD_CCY = {"euro": "EUR", "euros": "EUR", "dollar": "USD", "dollars": "USD", "pound": "GBP", "pounds": "GBP",
-             "sterling": "GBP", "franc": "CHF", "francs": "CHF"}
-_SCALE = ((r"\b(?:bn|billions?|mrd\.?|milliarden?)\b", 1e9),
-          (r"(?<=\d)\s?bn\b|(?<=\d)\s?b\b", 1e9),
-          (r"\b(?:mn|mio\.?|millions?|mln)\b|(?<=\d)\s?m\b|\bm(?=\s*[€$£)])|(?<=[€$£])\s?m\b|\b(?:eur|usd|gbp|chf)\s?m\b", 1e6),
-          (r"\b(?:thousands?|tsd\.?|tausend)\b|'000|(?<=\d)\s?k\b|\b(?:eur|usd|gbp|chf)\s?k\b", 1e3))
+from services.reference import iso4217
+
+CURRENCIES = iso4217.codes()
+# magnitude words, in the languages filings are written in (parsing grammar, not reference data)
+_CCY = "|".join(sorted(c.lower() for c in CURRENCIES))
+_SCALE = ((r"\b(?:bn|billions?|mrd\.?|milliarden?|mds?)\b|(?<=\d)\s?bn?\b", 1e9),
+          (r"\b(?:mn|mio\.?|millions?|mln|m€)\b|(?<=\d)\s?m\b|\bm(?=\s*[^\w\s])|(?<=[^\w\s])\s?m\b"
+           rf"|\b(?:{_CCY})\s?m\b", 1e6),
+          (rf"\b(?:thousands?|tsd\.?|tausend|milliers?)\b|'000|(?<=\d)\s?k\b|\b(?:{_CCY})\s?k\b", 1e3))
 _PHYSICAL = ((r"t\s?co2\s?-?e(q)?|tonnes? co2|tco₂e", "tCO2e"), (r"\bgwh\b", "GWh"), (r"\bmwh\b", "MWh"),
              (r"\bhectares?\b|\bha\b", "ha"))
 
@@ -33,31 +36,47 @@ def is_currency(unit: Optional[str]) -> bool:
     return bool(unit) and unit in CURRENCIES
 
 
+def is_ambiguous_money(unit: Optional[str]) -> bool:
+    """A currency symbol several currencies share ('$', '£', '¥') — money, but which currency the file must say."""
+    return bool(unit) and unit in iso4217.ambiguous_symbols()
+
+
+def resolve_declared(unit: Optional[str], declared: Optional[str]) -> Optional[str]:
+    """A shared symbol takes the currency the sender declared for the file; everything else stays as read."""
+    return declared if (declared and is_ambiguous_money(unit)) else unit
+
+
+def _money(raw: str, low: str) -> Optional[str]:
+    unique = iso4217.unique_symbols()
+    for sym in sorted(unique, key=len, reverse=True):              # longest first: US$ before $
+        if not sym.isalpha() and sym in raw:
+            return unique[sym]
+    # an ISO code only in capitals ('USD 5m', 'in EUR'): lower-case 'try' or 'eur' inside a word is not a currency
+    m = re.search(r"(?<![A-Za-z])(" + "|".join(sorted(CURRENCIES)) + r")(?![A-Za-z])", raw)
+    if m:
+        return m.group(1)
+    for sym in sorted(unique, key=len, reverse=True):              # alphabetic symbols ('Fr.') as whole words
+        if sym.isalpha() and re.search(rf"(?<![A-Za-z]){re.escape(sym)}(?![A-Za-z])", raw):
+            return unique[sym]
+    names = iso4217.names()
+    for n in sorted(names, key=len, reverse=True):                 # a currency's own name ('euros', 'us dollars')
+        if re.search(rf"(?<![a-z]){re.escape(n)}(?![a-z])", low):
+            return names[n]
+    for sym in sorted(iso4217.ambiguous_symbols(), key=len, reverse=True):
+        hit = (re.search(rf"(?<![A-Za-z]){re.escape(sym)}(?![A-Za-z])", raw) if sym.isalpha() else sym in raw)
+        if hit:
+            return sym                                              # shared symbol: kept as written, never guessed
+    return None
+
+
 def from_text(s: Optional[str]) -> tuple[Optional[str], float]:
     """(unit, scale) stated in a value or a label: '€12.3m' → ('EUR', 1e6); 'Total assets (USD thousands)' →
-    ('USD', 1e3); '12.5%' → ('%', 1); 'Scope 1 (tCO2e)' → ('tCO2e', 1); nothing stated → (None, 1)."""
+    ('USD', 1e3); '$450k' → ('$', 1e3) — which dollar, the file must say; '12.5%' → ('%', 1); nothing → (None, 1)."""
     if not s:
         return None, 1.0
     raw = str(s)
     low = raw.lower()
-    unit = None
-    if "%" in raw:
-        unit = "%"
-    if unit is None:
-        for sign, code in _SIGNS:
-            if sign in raw:
-                unit = code
-                break
-    if unit is None:
-        # an ISO code only in capitals ('USD 5m', 'in EUR'): lower-case 'try' or 'eur' inside a word is not a currency
-        m = re.search(r"(?<![A-Za-z])(" + "|".join(sorted(CURRENCIES)) + r")(?![A-Za-z])", raw)
-        if m:
-            unit = m.group(1)
-    if unit is None:
-        for w, code in _WORD_CCY.items():
-            if re.search(rf"\b{w}\b", low):
-                unit = code
-                break
+    unit = "%" if "%" in raw else _money(raw, low)
     if unit is None:
         for pat, u in _PHYSICAL:
             if re.search(pat, low):
@@ -93,6 +112,8 @@ def normalise(unit: Optional[str]) -> Optional[str]:
     s = str(unit).strip()
     if s.upper() in CURRENCIES:
         return s.upper()
+    if iso4217.symbol_currency(s):
+        return iso4217.symbol_currency(s)
     if s.lower() in ("pure", "ratio"):
         return "pure"
     u, _ = from_text(s)

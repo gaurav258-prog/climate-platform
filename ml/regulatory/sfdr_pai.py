@@ -69,7 +69,8 @@ MANDATORY_PAI_INDICATORS = [
 _GOLDEN_SOURCE = "Tellumen golden source (issuer emissions + revenue, provenance-stamped)"
 
 # ── Sovereign PAI (RTS Annex I, Table 1, indicators 15-16) ──
-# GHG intensity of investee COUNTRIES: tCO2e per €M GDP — the RTS basis: total GHG (CO2e, excl. LULUCF) ÷ GDP at
+# GHG intensity of investee COUNTRIES: tCO2e per €M GDP — the RTS basis: total GHG (CO2e, excl. LULUCF; national
+# inventory, else EDGAR) ÷ GDP at
 # current market prices in EUR, same year. Loaded from data/reference/country_ghg_intensity.csv (built by
 # scripts/build_country_intensities.py, every input kept per row); the embedded dict is the offline fallback.
 # Until 2026-09-27 the file divided CO2 only by PPP GDP (constant international $) — not the RTS basis.
@@ -285,8 +286,8 @@ def _sovereign_indicators(comp: dict) -> list[dict]:
     return [
         _row(15, "Sovereign", "GHG intensity of investee countries", "tCO₂e/€M GDP",
              value=si, coverage=cov,
-             source=("country total GHG excl. LULUCF ÷ GDP at current prices in EUR, same year (OWID/PRIMAP-hist, "
-                     "World Bank WDI, ECB)") if si is not None else None,
+             source=("country total GHG excl. LULUCF ÷ GDP at current prices in EUR, same year (national inventory where "
+                     "Eurostat carries it, else EC-JRC EDGAR; World Bank WDI; ECB)") if si is not None else None,
              method=("partial" if missing else "computed") if si is not None else "not_available",
              input_required=(f"GHG intensity for {', '.join(missing)} (no public figure — excluded from the average)"
                              if missing else None) if si is not None else "sovereign-bond holdings with issuer country"),
@@ -343,13 +344,27 @@ def _attach_prior_year(session, fund_id: str, ref_year, indicators: list[dict]) 
         # PCAF-attributed financed total) — comparing across those would fabricate
         # a huge bogus move, so a method mismatch shows the prior value but no change.
         if prior.get("method") != ind.get("method"):
-            ind["change_note"] = f"not comparable — method changed ({prior.get('method')} → {ind.get('method')})"
+            ind["change_note"] = _basis_change_note(prior, ind)
             continue
         pv, cv = _indicator_numeric(prior.get("value")), _indicator_numeric(ind.get("value"))
         if pv is not None and cv is not None:
             ind["change"] = round(cv - pv, 3)
             ind["change_pct"] = round(100 * (cv - pv) / pv, 1) if pv else None
     return {"available": True, "prior_reference_year": row["reference_year"]}
+
+
+def _basis_change_note(prior: dict, ind: dict) -> str:
+    """Plain words for a year-on-year move that is NOT like for like — carried into the RTS 'Explanation' column, so
+    the reader (and the regulator) sees why the figure moved, not only that it did."""
+    was, now = prior.get("method"), ind.get("method")
+    pc, cc = prior.get("coverage_pct"), ind.get("coverage_pct")
+    cov = f"; coverage {pc}% → {cc}%" if pc is not None and cc is not None else ""
+    if now == "estimated" and was != "estimated":
+        return (f"Not directly comparable with last year: this year's figure also covers holdings with no reported data, "
+                f"using documented sector / country estimates{cov}. Last year's figure covered reported data only.")
+    if was == "estimated" and now != "estimated":
+        return f"Not directly comparable with last year: last year's figure included estimates; this year's rests on reported data{cov}."
+    return f"Not directly comparable with last year: the calculation basis changed ({was} → {now}{cov})."
 
 
 def _look_through(session, fund_id: str, comp: dict) -> dict:
@@ -519,6 +534,8 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
 
     # Year-on-year: attach each indicator's prior filed value + change (SFDR yr 2+).
     comparison = _attach_prior_year(session, fund_id, ref_year, indicators)
+    # indicators whose basis changed since the last filing — each explained in its row; listed so the preparer sees them
+    comparison["basis_changes"] = [{"number": i["number"], "note": i["change_note"]} for i in indicators if i.get("change_note")]
 
     manager_lei = fund.get("manager_lei")
     # Filing-readiness: the reporting-entity identity SFDR's Annex I header needs.
@@ -626,7 +643,7 @@ def sfdr_pai_statement(session, fund_id: str) -> dict:
                 {"item": "Estimated emissions", "source": "NACE sector intensity × revenue — EXIOBASE 3 IOT_2022_ixi (EU output-weighted GHG), interim fallback where EXIOBASE folds sectors", "vintage": "2022"},
                 {"item": "Estimated energy intensity (PAI 6)", "source": "EU-27 energy consumed per €M turnover by NACE activity — Eurostat energy accounts (PEFA) ÷ structural business statistics (data/reference/nace_energy_intensity.csv); only where no company or vendor figure", "vintage": "2022"},
                 {"item": "Estimated energy mix (PAI 5)", "source": "country renewable share of primary energy (consumption) / of electricity (producers) — Our World in Data (data/reference/country_renewable_shares.csv); only where no company or vendor figure", "vintage": "2024"},
-                {"item": "Sovereign country GHG intensity", "source": "total GHG excl. LULUCF (OWID/PRIMAP-hist) ÷ GDP at current prices in EUR (World Bank WDI × ECB annual average), same year (data/reference/country_ghg_intensity.csv)", "vintage": _country_vintage()},
+                {"item": "Sovereign country GHG intensity", "source": "total GHG excl. LULUCF — the country's national inventory (UNFCCC, via Eurostat) where available, else EC-JRC EDGAR (all gases, GWP-100 AR5) — ÷ GDP at current prices in EUR (World Bank WDI × ECB annual average), same year (data/reference/country_ghg_intensity.csv)", "vintage": _country_vintage()},
             ],
             "model_versions": {
                 "emissions_estimation": "emissions-est-v1-sector-intensity",
@@ -831,6 +848,8 @@ def _explanation(ind: dict, ref_year) -> str:
         base = f"Not applicable — {ind['input_required']}." if ind["input_required"] else "Not applicable."
     else:
         base = f"Not available. Input required: {ind['input_required']}." if ind["input_required"] else "Not available."
+    if ind.get("change_note"):
+        base += f" {ind['change_note']}"
     return base
 
 

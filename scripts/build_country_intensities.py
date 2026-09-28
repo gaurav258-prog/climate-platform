@@ -6,7 +6,8 @@ CO2-equivalent per million EUR of GDP. So for each country, ONE year for both si
     intensity = total GHG emissions, excl. land use (Mt CO2e)  × 1e6        (the country's OFFICIAL national inventory
                                                                             as reported to the UNFCCC — Eurostat
                                                                             env_air_gge TOTX4_MEMO — where Eurostat
-                                                                            carries it; else OWID total_ghg_excluding_lucf)
+                                                                            carries it; else EC-JRC EDGAR (all gases,
+                                                                            GWP-100 AR5, every country); else OWID)
               ÷ GDP at current market prices in EUR millions                (World Bank WDI NY.GDP.MKTP.CD, current US$,
                                                                             × that year's average EUR per USD, ECB)
 
@@ -28,6 +29,7 @@ from pathlib import Path
 
 import requests
 
+EDGAR_URL = "https://edgar.jrc.ec.europa.eu/booklet/EDGAR_{y}_GHG_booklet_{y}.xlsx"
 EUROSTAT_GGE = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/env_air_gge?format=JSON&lang=en"
                 "&unit=MIO_T&airpol=GHG&src_crf=TOTX4_MEMO&sinceTimePeriod=2015")
 _EUROSTAT_GEO = {"EL": "GR", "UK": "GB"}
@@ -68,8 +70,28 @@ def _official_inventories() -> dict[tuple[str, int], float]:
     return out
 
 
+def _edgar() -> tuple[dict[tuple[str, int], float], str]:
+    """(ISO-3, year) → Mt CO2e excl. LULUCF, fossil CO2 + CH4 + N2O + F-gases (GWP-100 AR5), latest EDGAR report."""
+    import openpyxl
+    for y in range(date.today().year, date.today().year - 3, -1):
+        r = requests.get(EDGAR_URL.format(y=y), timeout=180)
+        if r.status_code == 200 and r.content[:2] == b"PK":
+            ws = openpyxl.load_workbook(io.BytesIO(r.content), read_only=True)["GHG_totals_by_country"]
+            rows = list(ws.iter_rows(values_only=True))
+            years = rows[0][2:]
+            out = {}
+            for row in rows[1:]:
+                if row[0] and len(str(row[0])) == 3:
+                    for yr, v in zip(years, row[2:]):
+                        if v is not None:
+                            out[(row[0], int(yr))] = float(v)
+            return out, f"EC-JRC EDGAR {y} report"
+    return {}, ""
+
+
 def build() -> int:
     official = _official_inventories()
+    edgar, edgar_src = _edgar()
     owid = requests.get(OWID_URL, timeout=120)
     owid.raise_for_status()
     ghg: dict[tuple[str, int], float] = {}
@@ -96,6 +118,8 @@ def build() -> int:
         def emissions(y):
             if (iso2, y) in official:
                 return official[(iso2, y)], "national inventory (UNFCCC, via Eurostat env_air_gge)"
+            if (iso3, y) in edgar and edgar[(iso3, y)] > 0:
+                return edgar[(iso3, y)], f"{edgar_src} (all gases, GWP-100 AR5)"
             if (iso3, y) in ghg and ghg[(iso3, y)] > 0:
                 return ghg[(iso3, y)], "OWID total_ghg_excluding_lucf"
             return None
@@ -103,11 +127,11 @@ def build() -> int:
         if not years:
             continue
         # prefer the latest year the official inventory covers, if the country has one
-        off_years = [y for y in years if (iso2, y) in official]
+        off_years = [y for y in years if (iso2, y) in official] or [y for y in years if (iso3, y) in edgar]
         y = max(off_years or years)
         mt, src = emissions(y)
         gdp_meur = gdp[(iso3, y)] * fx[y] / 1e6
-        rows.append([iso2, round(mt * 1e6 / gdp_meur, 1), y, round(mt, 3), round(gdp_meur, 1),
+        rows.append([iso2, round(mt * 1e6 / gdp_meur, 2), y, round(mt, 6), round(gdp_meur, 1),
                      round(fx[y], 6), BASIS, f"{src}; World Bank WDI NY.GDP.MKTP.CD; ECB USD annual average"])
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

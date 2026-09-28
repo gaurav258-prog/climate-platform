@@ -19,11 +19,6 @@ _FILE = Path(__file__).resolve().parents[2] / "data" / "reference" / "eet" / "ee
 USES = ("periodic", "precontractual", "entity", "mifid", "idd", "look_through")
 USE_LABEL = {"periodic": "SFDR periodic", "precontractual": "SFDR pre-contractual", "entity": "SFDR entity (PAI)",
              "mifid": "MiFID products", "idd": "IDD products", "look_through": "Funds of funds / look-through"}
-# the data-set flags (00060–00100) that say which uses a file carries
-USE_FLAG = {"precontractual": "00060_EET_Data_Reporting_SFDR_Pre_Contractual",
-            "periodic": "00070_EET_Data_Reporting_SFDR_Periodic",
-            "entity": "00080_EET_Data_Reporting_SFDR_Entity_Level",
-            "mifid": "00090_EET_Data_Reporting_MiFID", "idd": "00100_EET_Data_Reporting_IDD"}
 
 
 class EETValueError(ValueError):

@@ -1,0 +1,997 @@
+code,section,dotted,level,parent,label
+A,A,,section,,"Agriculture, forestry and fishing"
+A01,A,01,division,A,"Crop and animal production, hunting and related service activities"
+A011,A,01.1,group,A01,Growing of non-perennial crops
+A0111,A,01.11,class,A011,"Growing of cereals (except rice), leguminous crops and oil seeds"
+A0112,A,01.12,class,A011,Growing of rice
+A0113,A,01.13,class,A011,"Growing of vegetables and melons, roots and tubers"
+A0114,A,01.14,class,A011,Growing of sugar cane
+A0115,A,01.15,class,A011,Growing of tobacco
+A0116,A,01.16,class,A011,Growing of fibre crops
+A0119,A,01.19,class,A011,Growing of other non-perennial crops
+A012,A,01.2,group,A01,Growing of perennial crops
+A0121,A,01.21,class,A012,Growing of grapes
+A0122,A,01.22,class,A012,Growing of tropical and subtropical fruits
+A0123,A,01.23,class,A012,Growing of citrus fruits
+A0124,A,01.24,class,A012,Growing of pome fruits and stone fruits
+A0125,A,01.25,class,A012,Growing of other tree and bush fruits and nuts
+A0126,A,01.26,class,A012,Growing of oleaginous fruits
+A0127,A,01.27,class,A012,Growing of beverage crops
+A0128,A,01.28,class,A012,"Growing of spices, aromatic, drug and pharmaceutical crops"
+A0129,A,01.29,class,A012,Growing of other perennial crops
+A013,A,01.3,group,A01,Plant propagation
+A0130,A,01.30,class,A013,Plant propagation
+A014,A,01.4,group,A01,Animal production
+A0141,A,01.41,class,A014,Raising of dairy cattle
+A0142,A,01.42,class,A014,Raising of other cattle and buffaloes
+A0143,A,01.43,class,A014,Raising of horses and other equines
+A0144,A,01.44,class,A014,Raising of camels and camelids
+A0145,A,01.45,class,A014,Raising of sheep and goats
+A0146,A,01.46,class,A014,Raising of swine/pigs
+A0147,A,01.47,class,A014,Raising of poultry
+A0149,A,01.49,class,A014,Raising of other animals
+A015,A,01.5,group,A01,Mixed farming
+A0150,A,01.50,class,A015,Mixed farming
+A016,A,01.6,group,A01,Support activities to agriculture and post-harvest crop activities
+A0161,A,01.61,class,A016,Support activities for crop production
+A0162,A,01.62,class,A016,Support activities for animal production
+A0163,A,01.63,class,A016,Post-harvest crop activities
+A0164,A,01.64,class,A016,Seed processing for propagation
+A017,A,01.7,group,A01,"Hunting, trapping and related service activities"
+A0170,A,01.70,class,A017,"Hunting, trapping and related service activities"
+A02,A,02,division,A,Forestry and logging
+A021,A,02.1,group,A02,Silviculture and other forestry activities
+A0210,A,02.10,class,A021,Silviculture and other forestry activities
+A022,A,02.2,group,A02,Logging
+A0220,A,02.20,class,A022,Logging
+A023,A,02.3,group,A02,Gathering of wild growing non-wood products
+A0230,A,02.30,class,A023,Gathering of wild growing non-wood products
+A024,A,02.4,group,A02,Support services to forestry
+A0240,A,02.40,class,A024,Support services to forestry
+A03,A,03,division,A,Fishing and aquaculture
+A031,A,03.1,group,A03,Fishing
+A0311,A,03.11,class,A031,Marine fishing
+A0312,A,03.12,class,A031,Freshwater fishing
+A032,A,03.2,group,A03,Aquaculture
+A0321,A,03.21,class,A032,Marine aquaculture
+A0322,A,03.22,class,A032,Freshwater aquaculture
+B,B,,section,,Mining and quarrying
+B05,B,05,division,B,Mining of coal and lignite
+B051,B,05.1,group,B05,Mining of hard coal
+B0510,B,05.10,class,B051,Mining of hard coal
+B052,B,05.2,group,B05,Mining of lignite
+B0520,B,05.20,class,B052,Mining of lignite
+B06,B,06,division,B,Extraction of crude petroleum and natural gas
+B061,B,06.1,group,B06,Extraction of crude petroleum
+B0610,B,06.10,class,B061,Extraction of crude petroleum
+B062,B,06.2,group,B06,Extraction of natural gas
+B0620,B,06.20,class,B062,Extraction of natural gas
+B07,B,07,division,B,Mining of metal ores
+B071,B,07.1,group,B07,Mining of iron ores
+B0710,B,07.10,class,B071,Mining of iron ores
+B072,B,07.2,group,B07,Mining of non-ferrous metal ores
+B0721,B,07.21,class,B072,Mining of uranium and thorium ores
+B0729,B,07.29,class,B072,Mining of other non-ferrous metal ores
+B08,B,08,division,B,Other mining and quarrying
+B081,B,08.1,group,B08,"Quarrying of stone, sand and clay"
+B0811,B,08.11,class,B081,"Quarrying of ornamental and building stone, limestone, gypsum, chalk and slate"
+B0812,B,08.12,class,B081,Operation of gravel and sand pits; mining of clays and kaolin
+B089,B,08.9,group,B08,Mining and quarrying n.e.c.
+B0891,B,08.91,class,B089,Mining of chemical and fertiliser minerals
+B0892,B,08.92,class,B089,Extraction of peat
+B0893,B,08.93,class,B089,Extraction of salt
+B0899,B,08.99,class,B089,Other mining and quarrying n.e.c.
+B09,B,09,division,B,Mining support service activities
+B091,B,09.1,group,B09,Support activities for petroleum and natural gas extraction
+B0910,B,09.10,class,B091,Support activities for petroleum and natural gas extraction
+B099,B,09.9,group,B09,Support activities for other mining and quarrying
+B0990,B,09.90,class,B099,Support activities for other mining and quarrying
+C,C,,section,,Manufacturing
+C10,C,10,division,C,Manufacture of food products
+C101,C,10.1,group,C10,Processing and preserving of meat and production of meat products
+C1011,C,10.11,class,C101,Processing and preserving of meat
+C1012,C,10.12,class,C101,Processing and preserving of poultry meat
+C1013,C,10.13,class,C101,Production of meat and poultry meat products
+C102,C,10.2,group,C10,"Processing and preserving of fish, crustaceans and molluscs"
+C1020,C,10.20,class,C102,"Processing and preserving of fish, crustaceans and molluscs"
+C103,C,10.3,group,C10,Processing and preserving of fruit and vegetables
+C1031,C,10.31,class,C103,Processing and preserving of potatoes
+C1032,C,10.32,class,C103,Manufacture of fruit and vegetable juice
+C1039,C,10.39,class,C103,Other processing and preserving of fruit and vegetables
+C104,C,10.4,group,C10,Manufacture of vegetable and animal oils and fats
+C1041,C,10.41,class,C104,Manufacture of oils and fats
+C1042,C,10.42,class,C104,Manufacture of margarine and similar edible fats
+C105,C,10.5,group,C10,Manufacture of dairy products
+C1051,C,10.51,class,C105,Operation of dairies and cheese making
+C1052,C,10.52,class,C105,Manufacture of ice cream
+C106,C,10.6,group,C10,"Manufacture of grain mill products, starches and starch products"
+C1061,C,10.61,class,C106,Manufacture of grain mill products
+C1062,C,10.62,class,C106,Manufacture of starches and starch products
+C107,C,10.7,group,C10,Manufacture of bakery and farinaceous products
+C1071,C,10.71,class,C107,Manufacture of bread; manufacture of fresh pastry goods and cakes
+C1072,C,10.72,class,C107,Manufacture of rusks and biscuits; manufacture of preserved pastry goods and cakes
+C1073,C,10.73,class,C107,"Manufacture of macaroni, noodles, couscous and similar farinaceous products"
+C108,C,10.8,group,C10,Manufacture of other food products
+C1081,C,10.81,class,C108,Manufacture of sugar
+C1082,C,10.82,class,C108,"Manufacture of cocoa, chocolate and sugar confectionery"
+C1083,C,10.83,class,C108,Processing of tea and coffee
+C1084,C,10.84,class,C108,Manufacture of condiments and seasonings
+C1085,C,10.85,class,C108,Manufacture of prepared meals and dishes
+C1086,C,10.86,class,C108,Manufacture of homogenised food preparations and dietetic food
+C1089,C,10.89,class,C108,Manufacture of other food products n.e.c.
+C109,C,10.9,group,C10,Manufacture of prepared animal feeds
+C1091,C,10.91,class,C109,Manufacture of prepared feeds for farm animals
+C1092,C,10.92,class,C109,Manufacture of prepared pet foods
+C11,C,11,division,C,Manufacture of beverages
+C110,C,11.0,group,C11,Manufacture of beverages
+C1101,C,11.01,class,C110,"Distilling, rectifying and blending of spirits"
+C1102,C,11.02,class,C110,Manufacture of wine from grape
+C1103,C,11.03,class,C110,Manufacture of cider and other fruit wines
+C1104,C,11.04,class,C110,Manufacture of other non-distilled fermented beverages
+C1105,C,11.05,class,C110,Manufacture of beer
+C1106,C,11.06,class,C110,Manufacture of malt
+C1107,C,11.07,class,C110,Manufacture of soft drinks; production of mineral waters and other bottled waters
+C12,C,12,division,C,Manufacture of tobacco products
+C120,C,12.0,group,C12,Manufacture of tobacco products
+C1200,C,12.00,class,C120,Manufacture of tobacco products
+C13,C,13,division,C,Manufacture of textiles
+C131,C,13.1,group,C13,Preparation and spinning of textile fibres
+C1310,C,13.10,class,C131,Preparation and spinning of textile fibres
+C132,C,13.2,group,C13,Weaving of textiles
+C1320,C,13.20,class,C132,Weaving of textiles
+C133,C,13.3,group,C13,Finishing of textiles
+C1330,C,13.30,class,C133,Finishing of textiles
+C139,C,13.9,group,C13,Manufacture of other textiles
+C1391,C,13.91,class,C139,Manufacture of knitted and crocheted fabrics
+C1392,C,13.92,class,C139,"Manufacture of made-up textile articles, except apparel"
+C1393,C,13.93,class,C139,Manufacture of carpets and rugs
+C1394,C,13.94,class,C139,"Manufacture of cordage, rope, twine and netting"
+C1395,C,13.95,class,C139,"Manufacture of non-wovens and articles made from non-wovens, except apparel"
+C1396,C,13.96,class,C139,Manufacture of other technical and industrial textiles
+C1399,C,13.99,class,C139,Manufacture of other textiles n.e.c.
+C14,C,14,division,C,Manufacture of wearing apparel
+C141,C,14.1,group,C14,"Manufacture of wearing apparel, except fur apparel"
+C1411,C,14.11,class,C141,Manufacture of leather clothes
+C1412,C,14.12,class,C141,Manufacture of workwear
+C1413,C,14.13,class,C141,Manufacture of other outerwear
+C1414,C,14.14,class,C141,Manufacture of underwear
+C1419,C,14.19,class,C141,Manufacture of other wearing apparel and accessories
+C142,C,14.2,group,C14,Manufacture of articles of fur
+C1420,C,14.20,class,C142,Manufacture of articles of fur
+C143,C,14.3,group,C14,Manufacture of knitted and crocheted apparel
+C1431,C,14.31,class,C143,Manufacture of knitted and crocheted hosiery
+C1439,C,14.39,class,C143,Manufacture of other knitted and crocheted apparel
+C15,C,15,division,C,Manufacture of leather and related products
+C151,C,15.1,group,C15,"Tanning and dressing of leather; manufacture of luggage, handbags, saddlery and harness; dressing and dyeing of fur"
+C1511,C,15.11,class,C151,Tanning and dressing of leather; dressing and dyeing of fur
+C1512,C,15.12,class,C151,"Manufacture of luggage, handbags and the like, saddlery and harness"
+C152,C,15.2,group,C15,Manufacture of footwear
+C1520,C,15.20,class,C152,Manufacture of footwear
+C16,C,16,division,C,"Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials"
+C161,C,16.1,group,C16,Sawmilling and planing of wood
+C1610,C,16.10,class,C161,Sawmilling and planing of wood
+C162,C,16.2,group,C16,"Manufacture of products of wood, cork, straw and plaiting materials"
+C1621,C,16.21,class,C162,Manufacture of veneer sheets and wood-based panels
+C1622,C,16.22,class,C162,Manufacture of assembled parquet floors
+C1623,C,16.23,class,C162,Manufacture of other builders' carpentry and joinery
+C1624,C,16.24,class,C162,Manufacture of wooden containers
+C1629,C,16.29,class,C162,"Manufacture of other products of wood; manufacture of articles of cork, straw and plaiting materials"
+C17,C,17,division,C,Manufacture of paper and paper products
+C171,C,17.1,group,C17,"Manufacture of pulp, paper and paperboard"
+C1711,C,17.11,class,C171,Manufacture of pulp
+C1712,C,17.12,class,C171,Manufacture of paper and paperboard
+C172,C,17.2,group,C17,Manufacture of articles of paper and paperboard
+C1721,C,17.21,class,C172,Manufacture of corrugated paper and paperboard and of containers of paper and paperboard
+C1722,C,17.22,class,C172,Manufacture of household and sanitary goods and of toilet requisites
+C1723,C,17.23,class,C172,Manufacture of paper stationery
+C1724,C,17.24,class,C172,Manufacture of wallpaper
+C1729,C,17.29,class,C172,Manufacture of other articles of paper and paperboard
+C18,C,18,division,C,Printing and reproduction of recorded media
+C181,C,18.1,group,C18,Printing and service activities related to printing
+C1811,C,18.11,class,C181,Printing of newspapers
+C1812,C,18.12,class,C181,Other printing
+C1813,C,18.13,class,C181,Pre-press and pre-media services
+C1814,C,18.14,class,C181,Binding and related services
+C182,C,18.2,group,C18,Reproduction of recorded media
+C1820,C,18.20,class,C182,Reproduction of recorded media
+C19,C,19,division,C,Manufacture of coke and refined petroleum products
+C191,C,19.1,group,C19,Manufacture of coke oven products
+C1910,C,19.10,class,C191,Manufacture of coke oven products
+C192,C,19.2,group,C19,Manufacture of refined petroleum products
+C1920,C,19.20,class,C192,Manufacture of refined petroleum products
+C20,C,20,division,C,Manufacture of chemicals and chemical products
+C201,C,20.1,group,C20,"Manufacture of basic chemicals, fertilisers and nitrogen compounds, plastics and synthetic rubber in primary forms"
+C2011,C,20.11,class,C201,Manufacture of industrial gases
+C2012,C,20.12,class,C201,Manufacture of dyes and pigments
+C2013,C,20.13,class,C201,Manufacture of other inorganic basic chemicals
+C2014,C,20.14,class,C201,Manufacture of other organic basic chemicals
+C2015,C,20.15,class,C201,Manufacture of fertilisers and nitrogen compounds
+C2016,C,20.16,class,C201,Manufacture of plastics in primary forms
+C2017,C,20.17,class,C201,Manufacture of synthetic rubber in primary forms
+C202,C,20.2,group,C20,Manufacture of pesticides and other agrochemical products
+C2020,C,20.20,class,C202,Manufacture of pesticides and other agrochemical products
+C203,C,20.3,group,C20,"Manufacture of paints, varnishes and similar coatings, printing ink and mastics"
+C2030,C,20.30,class,C203,"Manufacture of paints, varnishes and similar coatings, printing ink and mastics"
+C204,C,20.4,group,C20,"Manufacture of soap and detergents, cleaning and polishing preparations, perfumes and toilet preparations"
+C2041,C,20.41,class,C204,"Manufacture of soap and detergents, cleaning and polishing preparations"
+C2042,C,20.42,class,C204,Manufacture of perfumes and toilet preparations
+C205,C,20.5,group,C20,Manufacture of other chemical products
+C2051,C,20.51,class,C205,Manufacture of explosives
+C2052,C,20.52,class,C205,Manufacture of glues
+C2053,C,20.53,class,C205,Manufacture of essential oils
+C2059,C,20.59,class,C205,Manufacture of other chemical products n.e.c.
+C206,C,20.6,group,C20,Manufacture of man-made fibres
+C2060,C,20.60,class,C206,Manufacture of man-made fibres
+C21,C,21,division,C,Manufacture of basic pharmaceutical products and pharmaceutical preparations
+C211,C,21.1,group,C21,Manufacture of basic pharmaceutical products
+C2110,C,21.10,class,C211,Manufacture of basic pharmaceutical products
+C212,C,21.2,group,C21,Manufacture of pharmaceutical preparations
+C2120,C,21.20,class,C212,Manufacture of pharmaceutical preparations
+C22,C,22,division,C,Manufacture of rubber and plastic products
+C221,C,22.1,group,C22,Manufacture of rubber products
+C2211,C,22.11,class,C221,Manufacture of rubber tyres and tubes; retreading and rebuilding of rubber tyres
+C2219,C,22.19,class,C221,Manufacture of other rubber products
+C222,C,22.2,group,C22,Manufacture of plastics products
+C2221,C,22.21,class,C222,"Manufacture of plastic plates, sheets, tubes and profiles"
+C2222,C,22.22,class,C222,Manufacture of plastic packing goods
+C2223,C,22.23,class,C222,Manufacture of builders' ware of plastic
+C2229,C,22.29,class,C222,Manufacture of other plastic products
+C23,C,23,division,C,Manufacture of other non-metallic mineral products
+C231,C,23.1,group,C23,Manufacture of glass and glass products
+C2311,C,23.11,class,C231,Manufacture of flat glass
+C2312,C,23.12,class,C231,Shaping and processing of flat glass
+C2313,C,23.13,class,C231,Manufacture of hollow glass
+C2314,C,23.14,class,C231,Manufacture of glass fibres
+C2319,C,23.19,class,C231,"Manufacture and processing of other glass, including technical glassware"
+C232,C,23.2,group,C23,Manufacture of refractory products
+C2320,C,23.20,class,C232,Manufacture of refractory products
+C233,C,23.3,group,C23,Manufacture of clay building materials
+C2331,C,23.31,class,C233,Manufacture of ceramic tiles and flags
+C2332,C,23.32,class,C233,"Manufacture of bricks, tiles and construction products, in baked clay"
+C234,C,23.4,group,C23,Manufacture of other porcelain and ceramic products
+C2341,C,23.41,class,C234,Manufacture of ceramic household and ornamental articles
+C2342,C,23.42,class,C234,Manufacture of ceramic sanitary fixtures
+C2343,C,23.43,class,C234,Manufacture of ceramic insulators and insulating fittings
+C2344,C,23.44,class,C234,Manufacture of other technical ceramic products
+C2349,C,23.49,class,C234,Manufacture of other ceramic products
+C235,C,23.5,group,C23,"Manufacture of cement, lime and plaster"
+C2351,C,23.51,class,C235,Manufacture of cement
+C2352,C,23.52,class,C235,Manufacture of lime and plaster
+C236,C,23.6,group,C23,"Manufacture of articles of concrete, cement and plaster"
+C2361,C,23.61,class,C236,Manufacture of concrete products for construction purposes
+C2362,C,23.62,class,C236,Manufacture of plaster products for construction purposes
+C2363,C,23.63,class,C236,Manufacture of ready-mixed concrete
+C2364,C,23.64,class,C236,Manufacture of mortars
+C2365,C,23.65,class,C236,Manufacture of fibre cement
+C2369,C,23.69,class,C236,"Manufacture of other articles of concrete, plaster and cement"
+C237,C,23.7,group,C23,"Cutting, shaping and finishing of stone"
+C2370,C,23.70,class,C237,"Cutting, shaping and finishing of stone"
+C239,C,23.9,group,C23,Manufacture of abrasive products and non-metallic mineral products n.e.c.
+C2391,C,23.91,class,C239,Production of abrasive products
+C2399,C,23.99,class,C239,Manufacture of other non-metallic mineral products n.e.c.
+C24,C,24,division,C,Manufacture of basic metals
+C241,C,24.1,group,C24,Manufacture of basic iron and steel and of ferro-alloys
+C2410,C,24.10,class,C241,Manufacture of basic iron and steel and of ferro-alloys
+C242,C,24.2,group,C24,"Manufacture of tubes, pipes, hollow profiles and related fittings, of steel"
+C2420,C,24.20,class,C242,"Manufacture of tubes, pipes, hollow profiles and related fittings, of steel"
+C243,C,24.3,group,C24,Manufacture of other products of first processing of steel
+C2431,C,24.31,class,C243,Cold drawing of bars
+C2432,C,24.32,class,C243,Cold rolling of narrow strip
+C2433,C,24.33,class,C243,Cold forming or folding
+C2434,C,24.34,class,C243,Cold drawing of wire
+C244,C,24.4,group,C24,Manufacture of basic precious and other non-ferrous metals
+C2441,C,24.41,class,C244,Precious metals production
+C2442,C,24.42,class,C244,Aluminium production
+C2443,C,24.43,class,C244,"Lead, zinc and tin production"
+C2444,C,24.44,class,C244,Copper production
+C2445,C,24.45,class,C244,Other non-ferrous metal production
+C2446,C,24.46,class,C244,Processing of nuclear fuel
+C245,C,24.5,group,C24,Casting of metals
+C2451,C,24.51,class,C245,Casting of iron
+C2452,C,24.52,class,C245,Casting of steel
+C2453,C,24.53,class,C245,Casting of light metals
+C2454,C,24.54,class,C245,Casting of other non-ferrous metals
+C25,C,25,division,C,"Manufacture of fabricated metal products, except machinery and equipment"
+C251,C,25.1,group,C25,Manufacture of structural metal products
+C2511,C,25.11,class,C251,Manufacture of metal structures and parts of structures
+C2512,C,25.12,class,C251,Manufacture of doors and windows of metal
+C252,C,25.2,group,C25,"Manufacture of tanks, reservoirs and containers of metal"
+C2521,C,25.21,class,C252,Manufacture of central heating radiators and boilers
+C2529,C,25.29,class,C252,"Manufacture of other tanks, reservoirs and containers of metal"
+C253,C,25.3,group,C25,"Manufacture of steam generators, except central heating hot water boilers"
+C2530,C,25.30,class,C253,"Manufacture of steam generators, except central heating hot water boilers"
+C254,C,25.4,group,C25,Manufacture of weapons and ammunition
+C2540,C,25.40,class,C254,Manufacture of weapons and ammunition
+C255,C,25.5,group,C25,"Forging, pressing, stamping and roll-forming of metal; powder metallurgy"
+C2550,C,25.50,class,C255,"Forging, pressing, stamping and roll-forming of metal; powder metallurgy"
+C256,C,25.6,group,C25,Treatment and coating of metals; machining
+C2561,C,25.61,class,C256,Treatment and coating of metals
+C2562,C,25.62,class,C256,Machining
+C257,C,25.7,group,C25,"Manufacture of cutlery, tools and general hardware"
+C2571,C,25.71,class,C257,Manufacture of cutlery
+C2572,C,25.72,class,C257,Manufacture of locks and hinges
+C2573,C,25.73,class,C257,Manufacture of tools
+C259,C,25.9,group,C25,Manufacture of other fabricated metal products
+C2591,C,25.91,class,C259,Manufacture of steel drums and similar containers
+C2592,C,25.92,class,C259,Manufacture of light metal packaging
+C2593,C,25.93,class,C259,"Manufacture of wire products, chain and springs"
+C2594,C,25.94,class,C259,Manufacture of fasteners and screw machine products
+C2599,C,25.99,class,C259,Manufacture of other fabricated metal products n.e.c.
+C26,C,26,division,C,"Manufacture of computer, electronic and optical products"
+C261,C,26.1,group,C26,Manufacture of electronic components and boards
+C2611,C,26.11,class,C261,Manufacture of electronic components
+C2612,C,26.12,class,C261,Manufacture of loaded electronic boards
+C262,C,26.2,group,C26,Manufacture of computers and peripheral equipment
+C2620,C,26.20,class,C262,Manufacture of computers and peripheral equipment
+C263,C,26.3,group,C26,Manufacture of communication equipment
+C2630,C,26.30,class,C263,Manufacture of communication equipment
+C264,C,26.4,group,C26,Manufacture of consumer electronics
+C2640,C,26.40,class,C264,Manufacture of consumer electronics
+C265,C,26.5,group,C26,"Manufacture of instruments and appliances for measuring, testing and navigation; watches and clocks"
+C2651,C,26.51,class,C265,"Manufacture of instruments and appliances for measuring, testing and navigation"
+C2652,C,26.52,class,C265,Manufacture of watches and clocks
+C266,C,26.6,group,C26,"Manufacture of irradiation, electromedical and electrotherapeutic equipment"
+C2660,C,26.60,class,C266,"Manufacture of irradiation, electromedical and electrotherapeutic equipment"
+C267,C,26.7,group,C26,Manufacture of optical instruments and photographic equipment
+C2670,C,26.70,class,C267,Manufacture of optical instruments and photographic equipment
+C268,C,26.8,group,C26,Manufacture of magnetic and optical media
+C2680,C,26.80,class,C268,Manufacture of magnetic and optical media
+C27,C,27,division,C,Manufacture of electrical equipment
+C271,C,27.1,group,C27,"Manufacture of electric motors, generators, transformers and electricity distribution and control apparatus"
+C2711,C,27.11,class,C271,"Manufacture of electric motors, generators and transformers"
+C2712,C,27.12,class,C271,Manufacture of electricity distribution and control apparatus
+C272,C,27.2,group,C27,Manufacture of batteries and accumulators
+C2720,C,27.20,class,C272,Manufacture of batteries and accumulators
+C273,C,27.3,group,C27,Manufacture of wiring and wiring devices
+C2731,C,27.31,class,C273,Manufacture of fibre optic cables
+C2732,C,27.32,class,C273,Manufacture of other electronic and electric wires and cables
+C2733,C,27.33,class,C273,Manufacture of wiring devices
+C274,C,27.4,group,C27,Manufacture of electric lighting equipment
+C2740,C,27.40,class,C274,Manufacture of electric lighting equipment
+C275,C,27.5,group,C27,Manufacture of domestic appliances
+C2751,C,27.51,class,C275,Manufacture of electric domestic appliances
+C2752,C,27.52,class,C275,Manufacture of non-electric domestic appliances
+C279,C,27.9,group,C27,Manufacture of other electrical equipment
+C2790,C,27.90,class,C279,Manufacture of other electrical equipment
+C28,C,28,division,C,Manufacture of machinery and equipment n.e.c.
+C281,C,28.1,group,C28,Manufacture of general-purpose machinery
+C2811,C,28.11,class,C281,"Manufacture of engines and turbines, except aircraft, vehicle and cycle engines"
+C2812,C,28.12,class,C281,Manufacture of fluid power equipment
+C2813,C,28.13,class,C281,Manufacture of other pumps and compressors
+C2814,C,28.14,class,C281,Manufacture of other taps and valves
+C2815,C,28.15,class,C281,"Manufacture of bearings, gears, gearing and driving elements"
+C282,C,28.2,group,C28,Manufacture of other general-purpose machinery
+C2821,C,28.21,class,C282,"Manufacture of ovens, furnaces and furnace burners"
+C2822,C,28.22,class,C282,Manufacture of lifting and handling equipment
+C2823,C,28.23,class,C282,Manufacture of office machinery and equipment (except computers and peripheral equipment)
+C2824,C,28.24,class,C282,Manufacture of power-driven hand tools
+C2825,C,28.25,class,C282,Manufacture of non-domestic cooling and ventilation equipment
+C2829,C,28.29,class,C282,Manufacture of other general-purpose machinery n.e.c.
+C283,C,28.3,group,C28,Manufacture of agricultural and forestry machinery
+C2830,C,28.30,class,C283,Manufacture of agricultural and forestry machinery
+C284,C,28.4,group,C28,Manufacture of metal forming machinery and machine tools
+C2841,C,28.41,class,C284,Manufacture of metal forming machinery
+C2849,C,28.49,class,C284,Manufacture of other machine tools
+C289,C,28.9,group,C28,Manufacture of other special-purpose machinery
+C2891,C,28.91,class,C289,Manufacture of machinery for metallurgy
+C2892,C,28.92,class,C289,"Manufacture of machinery for mining, quarrying and construction"
+C2893,C,28.93,class,C289,"Manufacture of machinery for food, beverage and tobacco processing"
+C2894,C,28.94,class,C289,"Manufacture of machinery for textile, apparel and leather production"
+C2895,C,28.95,class,C289,Manufacture of machinery for paper and paperboard production
+C2896,C,28.96,class,C289,Manufacture of plastics and rubber machinery
+C2899,C,28.99,class,C289,Manufacture of other special-purpose machinery n.e.c.
+C29,C,29,division,C,"Manufacture of motor vehicles, trailers and semi-trailers"
+C291,C,29.1,group,C29,Manufacture of motor vehicles
+C2910,C,29.10,class,C291,Manufacture of motor vehicles
+C292,C,29.2,group,C29,Manufacture of bodies (coachwork) for motor vehicles; manufacture of trailers and semi-trailers
+C2920,C,29.20,class,C292,Manufacture of bodies (coachwork) for motor vehicles; manufacture of trailers and semi-trailers
+C293,C,29.3,group,C29,Manufacture of parts and accessories for motor vehicles
+C2931,C,29.31,class,C293,Manufacture of electrical and electronic equipment for motor vehicles
+C2932,C,29.32,class,C293,Manufacture of other parts and accessories for motor vehicles
+C30,C,30,division,C,Manufacture of other transport equipment
+C301,C,30.1,group,C30,Building of ships and boats
+C3011,C,30.11,class,C301,Building of ships and floating structures
+C3012,C,30.12,class,C301,Building of pleasure and sporting boats
+C302,C,30.2,group,C30,Manufacture of railway locomotives and rolling stock
+C3020,C,30.20,class,C302,Manufacture of railway locomotives and rolling stock
+C303,C,30.3,group,C30,Manufacture of air and spacecraft and related machinery
+C3030,C,30.30,class,C303,Manufacture of air and spacecraft and related machinery
+C304,C,30.4,group,C30,Manufacture of military fighting vehicles
+C3040,C,30.40,class,C304,Manufacture of military fighting vehicles
+C309,C,30.9,group,C30,Manufacture of transport equipment n.e.c.
+C3091,C,30.91,class,C309,Manufacture of motorcycles
+C3092,C,30.92,class,C309,Manufacture of bicycles and invalid carriages
+C3099,C,30.99,class,C309,Manufacture of other transport equipment n.e.c.
+C31,C,31,division,C,Manufacture of furniture
+C310,C,31.0,group,C31,Manufacture of furniture
+C3101,C,31.01,class,C310,Manufacture of office and shop furniture
+C3102,C,31.02,class,C310,Manufacture of kitchen furniture
+C3103,C,31.03,class,C310,Manufacture of mattresses
+C3109,C,31.09,class,C310,Manufacture of other furniture
+C32,C,32,division,C,Other manufacturing
+C321,C,32.1,group,C32,"Manufacture of jewellery, bijouterie and related articles"
+C3211,C,32.11,class,C321,Striking of coins
+C3212,C,32.12,class,C321,Manufacture of jewellery and related articles
+C3213,C,32.13,class,C321,Manufacture of imitation jewellery and related articles
+C322,C,32.2,group,C32,Manufacture of musical instruments
+C3220,C,32.20,class,C322,Manufacture of musical instruments
+C323,C,32.3,group,C32,Manufacture of sports goods
+C3230,C,32.30,class,C323,Manufacture of sports goods
+C324,C,32.4,group,C32,Manufacture of games and toys
+C3240,C,32.40,class,C324,Manufacture of games and toys
+C325,C,32.5,group,C32,Manufacture of medical and dental instruments and supplies
+C3250,C,32.50,class,C325,Manufacture of medical and dental instruments and supplies
+C329,C,32.9,group,C32,Manufacturing n.e.c.
+C3291,C,32.91,class,C329,Manufacture of brooms and brushes
+C3299,C,32.99,class,C329,Other manufacturing n.e.c.
+C33,C,33,division,C,Repair and installation of machinery and equipment
+C331,C,33.1,group,C33,"Repair of fabricated metal products, machinery and equipment"
+C3311,C,33.11,class,C331,Repair of fabricated metal products
+C3312,C,33.12,class,C331,Repair of machinery
+C3313,C,33.13,class,C331,Repair of electronic and optical equipment
+C3314,C,33.14,class,C331,Repair of electrical equipment
+C3315,C,33.15,class,C331,Repair and maintenance of ships and boats
+C3316,C,33.16,class,C331,Repair and maintenance of aircraft and spacecraft
+C3317,C,33.17,class,C331,Repair and maintenance of other transport equipment
+C3319,C,33.19,class,C331,Repair of other equipment
+C332,C,33.2,group,C33,Installation of industrial machinery and equipment
+C3320,C,33.20,class,C332,Installation of industrial machinery and equipment
+D,D,,section,,"Electricity, gas, steam and air conditioning supply"
+D35,D,35,division,D,"Electricity, gas, steam and air conditioning supply"
+D351,D,35.1,group,D35,"Electric power generation, transmission and distribution"
+D3511,D,35.11,class,D351,Production of electricity
+D3512,D,35.12,class,D351,Transmission of electricity
+D3513,D,35.13,class,D351,Distribution of electricity
+D3514,D,35.14,class,D351,Trade of electricity
+D352,D,35.2,group,D35,Manufacture of gas; distribution of gaseous fuels through mains
+D3521,D,35.21,class,D352,Manufacture of gas
+D3522,D,35.22,class,D352,Distribution of gaseous fuels through mains
+D3523,D,35.23,class,D352,Trade of gas through mains
+D353,D,35.3,group,D35,Steam and air conditioning supply
+D3530,D,35.30,class,D353,Steam and air conditioning supply
+E,E,,section,,"Water supply; sewerage, waste management and remediation activities"
+E36,E,36,division,E,"Water collection, treatment and supply"
+E360,E,36.0,group,E36,"Water collection, treatment and supply"
+E3600,E,36.00,class,E360,"Water collection, treatment and supply"
+E37,E,37,division,E,Sewerage
+E370,E,37.0,group,E37,Sewerage
+E3700,E,37.00,class,E370,Sewerage
+E38,E,38,division,E,"Waste collection, treatment and disposal activities; materials recovery"
+E381,E,38.1,group,E38,Waste collection
+E3811,E,38.11,class,E381,Collection of non-hazardous waste
+E3812,E,38.12,class,E381,Collection of hazardous waste
+E382,E,38.2,group,E38,Waste treatment and disposal
+E3821,E,38.21,class,E382,Treatment and disposal of non-hazardous waste
+E3822,E,38.22,class,E382,Treatment and disposal of hazardous waste
+E383,E,38.3,group,E38,Materials recovery
+E3831,E,38.31,class,E383,Dismantling of wrecks
+E3832,E,38.32,class,E383,Recovery of sorted materials
+E39,E,39,division,E,Remediation activities and other waste management services
+E390,E,39.0,group,E39,Remediation activities and other waste management services
+E3900,E,39.00,class,E390,Remediation activities and other waste management services
+F,F,,section,,Construction
+F41,F,41,division,F,Construction of buildings
+F411,F,41.1,group,F41,Development of building projects
+F4110,F,41.10,class,F411,Development of building projects
+F412,F,41.2,group,F41,Construction of residential and non-residential buildings
+F4120,F,41.20,class,F412,Construction of residential and non-residential buildings
+F42,F,42,division,F,Civil engineering
+F421,F,42.1,group,F42,Construction of roads and railways
+F4211,F,42.11,class,F421,Construction of roads and motorways
+F4212,F,42.12,class,F421,Construction of railways and underground railways
+F4213,F,42.13,class,F421,Construction of bridges and tunnels
+F422,F,42.2,group,F42,Construction of utility projects
+F4221,F,42.21,class,F422,Construction of utility projects for fluids
+F4222,F,42.22,class,F422,Construction of utility projects for electricity and telecommunications
+F429,F,42.9,group,F42,Construction of other civil engineering projects
+F4291,F,42.91,class,F429,Construction of water projects
+F4299,F,42.99,class,F429,Construction of other civil engineering projects n.e.c.
+F43,F,43,division,F,Specialised construction activities
+F431,F,43.1,group,F43,Demolition and site preparation
+F4311,F,43.11,class,F431,Demolition
+F4312,F,43.12,class,F431,Site preparation
+F4313,F,43.13,class,F431,Test drilling and boring
+F432,F,43.2,group,F43,"Electrical, plumbing and other construction installation activities"
+F4321,F,43.21,class,F432,Electrical installation
+F4322,F,43.22,class,F432,"Plumbing, heat and air-conditioning installation"
+F4329,F,43.29,class,F432,Other construction installation
+F433,F,43.3,group,F43,Building completion and finishing
+F4331,F,43.31,class,F433,Plastering
+F4332,F,43.32,class,F433,Joinery installation
+F4333,F,43.33,class,F433,Floor and wall covering
+F4334,F,43.34,class,F433,Painting and glazing
+F4339,F,43.39,class,F433,Other building completion and finishing
+F439,F,43.9,group,F43,Other specialised construction activities
+F4391,F,43.91,class,F439,Roofing activities
+F4399,F,43.99,class,F439,Other specialised construction activities n.e.c.
+G,G,,section,,Wholesale and retail trade; repair of motor vehicles and motorcycles
+G45,G,45,division,G,Wholesale and retail trade and repair of motor vehicles and motorcycles
+G451,G,45.1,group,G45,Sale of motor vehicles
+G4511,G,45.11,class,G451,Sale of cars and light motor vehicles
+G4519,G,45.19,class,G451,Sale of other motor vehicles
+G452,G,45.2,group,G45,Maintenance and repair of motor vehicles
+G4520,G,45.20,class,G452,Maintenance and repair of motor vehicles
+G453,G,45.3,group,G45,Sale of motor vehicle parts and accessories
+G4531,G,45.31,class,G453,Wholesale trade of motor vehicle parts and accessories
+G4532,G,45.32,class,G453,Retail trade of motor vehicle parts and accessories
+G454,G,45.4,group,G45,"Sale, maintenance and repair of motorcycles and related parts and accessories"
+G4540,G,45.40,class,G454,"Sale, maintenance and repair of motorcycles and related parts and accessories"
+G46,G,46,division,G,"Wholesale trade, except of motor vehicles and motorcycles"
+G461,G,46.1,group,G46,Wholesale on a fee or contract basis
+G4611,G,46.11,class,G461,"Agents involved in the sale of agricultural raw materials, live animals, textile raw materials and semi-finished goods"
+G4612,G,46.12,class,G461,"Agents involved in the sale of fuels, ores, metals and industrial chemicals"
+G4613,G,46.13,class,G461,Agents involved in the sale of timber and building materials
+G4614,G,46.14,class,G461,"Agents involved in the sale of machinery, industrial equipment, ships and aircraft"
+G4615,G,46.15,class,G461,"Agents involved in the sale of furniture, household goods, hardware and ironmongery"
+G4616,G,46.16,class,G461,"Agents involved in the sale of textiles, clothing, fur, footwear and leather goods"
+G4617,G,46.17,class,G461,"Agents involved in the sale of food, beverages and tobacco"
+G4618,G,46.18,class,G461,Agents specialised in the sale of other particular products
+G4619,G,46.19,class,G461,Agents involved in the sale of a variety of goods
+G462,G,46.2,group,G46,Wholesale of agricultural raw materials and live animals
+G4621,G,46.21,class,G462,"Wholesale of grain, unmanufactured tobacco, seeds and animal feeds"
+G4622,G,46.22,class,G462,Wholesale of flowers and plants
+G4623,G,46.23,class,G462,Wholesale of live animals
+G4624,G,46.24,class,G462,"Wholesale of hides, skins and leather"
+G463,G,46.3,group,G46,"Wholesale of food, beverages and tobacco"
+G4631,G,46.31,class,G463,Wholesale of fruit and vegetables
+G4632,G,46.32,class,G463,Wholesale of meat and meat products
+G4633,G,46.33,class,G463,"Wholesale of dairy products, eggs and edible oils and fats"
+G4634,G,46.34,class,G463,Wholesale of beverages
+G4635,G,46.35,class,G463,Wholesale of tobacco products
+G4636,G,46.36,class,G463,Wholesale of sugar and chocolate and sugar confectionery
+G4637,G,46.37,class,G463,"Wholesale of coffee, tea, cocoa and spices"
+G4638,G,46.38,class,G463,"Wholesale of other food, including fish, crustaceans and molluscs"
+G4639,G,46.39,class,G463,"Non-specialised wholesale of food, beverages and tobacco"
+G464,G,46.4,group,G46,Wholesale of household goods
+G4641,G,46.41,class,G464,Wholesale of textiles
+G4642,G,46.42,class,G464,Wholesale of clothing and footwear
+G4643,G,46.43,class,G464,Wholesale of electrical household appliances
+G4644,G,46.44,class,G464,Wholesale of china and glassware and cleaning materials
+G4645,G,46.45,class,G464,Wholesale of perfume and cosmetics
+G4646,G,46.46,class,G464,Wholesale of pharmaceutical goods
+G4647,G,46.47,class,G464,"Wholesale of furniture, carpets and lighting equipment"
+G4648,G,46.48,class,G464,Wholesale of watches and jewellery
+G4649,G,46.49,class,G464,Wholesale of other household goods
+G465,G,46.5,group,G46,Wholesale of information and communication equipment
+G4651,G,46.51,class,G465,"Wholesale of computers, computer peripheral equipment and software"
+G4652,G,46.52,class,G465,Wholesale of electronic and telecommunications equipment and parts
+G466,G,46.6,group,G46,"Wholesale of other machinery, equipment and supplies"
+G4661,G,46.61,class,G466,"Wholesale of agricultural machinery, equipment and supplies"
+G4662,G,46.62,class,G466,Wholesale of machine tools
+G4663,G,46.63,class,G466,"Wholesale of mining, construction and civil engineering machinery"
+G4664,G,46.64,class,G466,Wholesale of machinery for the textile industry and of sewing and knitting machines
+G4665,G,46.65,class,G466,Wholesale of office furniture
+G4666,G,46.66,class,G466,Wholesale of other office machinery and equipment
+G4669,G,46.69,class,G466,Wholesale of other machinery and equipment
+G467,G,46.7,group,G46,Other specialised wholesale
+G4671,G,46.71,class,G467,"Wholesale of solid, liquid and gaseous fuels and related products"
+G4672,G,46.72,class,G467,Wholesale of metals and metal ores
+G4673,G,46.73,class,G467,"Wholesale of wood, construction materials and sanitary equipment"
+G4674,G,46.74,class,G467,"Wholesale of hardware, plumbing and heating equipment and supplies"
+G4675,G,46.75,class,G467,Wholesale of chemical products
+G4676,G,46.76,class,G467,Wholesale of other intermediate products
+G4677,G,46.77,class,G467,Wholesale of waste and scrap
+G469,G,46.9,group,G46,Non-specialised wholesale trade
+G4690,G,46.90,class,G469,Non-specialised wholesale trade
+G47,G,47,division,G,"Retail trade, except of motor vehicles and motorcycles"
+G471,G,47.1,group,G47,Retail sale in non-specialised stores
+G4711,G,47.11,class,G471,"Retail sale in non-specialised stores with food, beverages or tobacco predominating"
+G4719,G,47.19,class,G471,Other retail sale in non-specialised stores
+G472,G,47.2,group,G47,"Retail sale of food, beverages and tobacco in specialised stores"
+G4721,G,47.21,class,G472,Retail sale of fruit and vegetables in specialised stores
+G4722,G,47.22,class,G472,Retail sale of meat and meat products in specialised stores
+G4723,G,47.23,class,G472,"Retail sale of fish, crustaceans and molluscs in specialised stores"
+G4724,G,47.24,class,G472,"Retail sale of bread, cakes, flour confectionery and sugar confectionery in specialised stores"
+G4725,G,47.25,class,G472,Retail sale of beverages in specialised stores
+G4726,G,47.26,class,G472,Retail sale of tobacco products in specialised stores
+G4729,G,47.29,class,G472,Other retail sale of food in specialised stores
+G473,G,47.3,group,G47,Retail sale of automotive fuel in specialised stores
+G4730,G,47.30,class,G473,Retail sale of automotive fuel in specialised stores
+G474,G,47.4,group,G47,Retail sale of information and communication equipment in specialised stores
+G4741,G,47.41,class,G474,"Retail sale of computers, peripheral units and software in specialised stores"
+G4742,G,47.42,class,G474,Retail sale of telecommunications equipment in specialised stores
+G4743,G,47.43,class,G474,Retail sale of audio and video equipment in specialised stores
+G475,G,47.5,group,G47,Retail sale of other household equipment in specialised stores
+G4751,G,47.51,class,G475,Retail sale of textiles in specialised stores
+G4752,G,47.52,class,G475,"Retail sale of hardware, paints and glass in specialised stores"
+G4753,G,47.53,class,G475,"Retail sale of carpets, rugs, wall and floor coverings in specialised stores"
+G4754,G,47.54,class,G475,Retail sale of electrical household appliances in specialised stores
+G4759,G,47.59,class,G475,"Retail sale of furniture, lighting equipment and other household articles in specialised stores"
+G476,G,47.6,group,G47,Retail sale of cultural and recreation goods in specialised stores
+G4761,G,47.61,class,G476,Retail sale of books in specialised stores
+G4762,G,47.62,class,G476,Retail sale of newspapers and stationery in specialised stores
+G4763,G,47.63,class,G476,Retail sale of music and video recordings in specialised stores
+G4764,G,47.64,class,G476,Retail sale of sporting equipment in specialised stores
+G4765,G,47.65,class,G476,Retail sale of games and toys in specialised stores
+G477,G,47.7,group,G47,Retail sale of other goods in specialised stores
+G4771,G,47.71,class,G477,Retail sale of clothing in specialised stores
+G4772,G,47.72,class,G477,Retail sale of footwear and leather goods in specialised stores
+G4773,G,47.73,class,G477,Dispensing chemist in specialised stores
+G4774,G,47.74,class,G477,Retail sale of medical and orthopaedic goods in specialised stores
+G4775,G,47.75,class,G477,Retail sale of cosmetic and toilet articles in specialised stores
+G4776,G,47.76,class,G477,"Retail sale of flowers, plants, seeds, fertilisers, pet animals and pet food in specialised stores"
+G4777,G,47.77,class,G477,Retail sale of watches and jewellery in specialised stores
+G4778,G,47.78,class,G477,Other retail sale of new goods in specialised stores
+G4779,G,47.79,class,G477,Retail sale of second-hand goods in stores
+G478,G,47.8,group,G47,Retail sale via stalls and markets
+G4781,G,47.81,class,G478,"Retail sale via stalls and markets of food, beverages and tobacco products"
+G4782,G,47.82,class,G478,"Retail sale via stalls and markets of textiles, clothing and footwear"
+G4789,G,47.89,class,G478,Retail sale via stalls and markets of other goods
+G479,G,47.9,group,G47,"Retail trade not in stores, stalls or markets"
+G4791,G,47.91,class,G479,Retail sale via mail order houses or via Internet
+G4799,G,47.99,class,G479,"Other retail sale not in stores, stalls or markets"
+H,H,,section,,Transportation and storage
+H49,H,49,division,H,Land transport and transport via pipelines
+H491,H,49.1,group,H49,"Passenger rail transport, interurban"
+H4910,H,49.10,class,H491,"Passenger rail transport, interurban"
+H492,H,49.2,group,H49,Freight rail transport
+H4920,H,49.20,class,H492,Freight rail transport
+H493,H,49.3,group,H49,Other passenger land transport
+H4931,H,49.31,class,H493,Urban and suburban passenger land transport
+H4932,H,49.32,class,H493,Taxi operation
+H4939,H,49.39,class,H493,Other passenger land transport n.e.c.
+H494,H,49.4,group,H49,Freight transport by road and removal services
+H4941,H,49.41,class,H494,Freight transport by road
+H4942,H,49.42,class,H494,Removal services
+H495,H,49.5,group,H49,Transport via pipeline
+H4950,H,49.50,class,H495,Transport via pipeline
+H50,H,50,division,H,Water transport
+H501,H,50.1,group,H50,Sea and coastal passenger water transport
+H5010,H,50.10,class,H501,Sea and coastal passenger water transport
+H502,H,50.2,group,H50,Sea and coastal freight water transport
+H5020,H,50.20,class,H502,Sea and coastal freight water transport
+H503,H,50.3,group,H50,Inland passenger water transport
+H5030,H,50.30,class,H503,Inland passenger water transport
+H504,H,50.4,group,H50,Inland freight water transport
+H5040,H,50.40,class,H504,Inland freight water transport
+H51,H,51,division,H,Air transport
+H511,H,51.1,group,H51,Passenger air transport
+H5110,H,51.10,class,H511,Passenger air transport
+H512,H,51.2,group,H51,Freight air transport and space transport
+H5121,H,51.21,class,H512,Freight air transport
+H5122,H,51.22,class,H512,Space transport
+H52,H,52,division,H,Warehousing and support activities for transportation
+H521,H,52.1,group,H52,Warehousing and storage
+H5210,H,52.10,class,H521,Warehousing and storage
+H522,H,52.2,group,H52,Support activities for transportation
+H5221,H,52.21,class,H522,Service activities incidental to land transportation
+H5222,H,52.22,class,H522,Service activities incidental to water transportation
+H5223,H,52.23,class,H522,Service activities incidental to air transportation
+H5224,H,52.24,class,H522,Cargo handling
+H5229,H,52.29,class,H522,Other transportation support activities
+H53,H,53,division,H,Postal and courier activities
+H531,H,53.1,group,H53,Postal activities under universal service obligation
+H5310,H,53.10,class,H531,Postal activities under universal service obligation
+H532,H,53.2,group,H53,Other postal and courier activities
+H5320,H,53.20,class,H532,Other postal and courier activities
+I,I,,section,,Accommodation and food service activities
+I55,I,55,division,I,Accommodation
+I551,I,55.1,group,I55,Hotels and similar accommodation
+I5510,I,55.10,class,I551,Hotels and similar accommodation
+I552,I,55.2,group,I55,Holiday and other short-stay accommodation
+I5520,I,55.20,class,I552,Holiday and other short-stay accommodation
+I553,I,55.3,group,I55,"Camping grounds, recreational vehicle parks and trailer parks"
+I5530,I,55.30,class,I553,"Camping grounds, recreational vehicle parks and trailer parks"
+I559,I,55.9,group,I55,Other accommodation
+I5590,I,55.90,class,I559,Other accommodation
+I56,I,56,division,I,Food and beverage service activities
+I561,I,56.1,group,I56,Restaurants and mobile food service activities
+I5610,I,56.10,class,I561,Restaurants and mobile food service activities
+I562,I,56.2,group,I56,Event catering and other food service activities
+I5621,I,56.21,class,I562,Event catering activities
+I5629,I,56.29,class,I562,Other food service activities
+I563,I,56.3,group,I56,Beverage serving activities
+I5630,I,56.30,class,I563,Beverage serving activities
+J,J,,section,,Information and communication
+J58,J,58,division,J,Publishing activities
+J581,J,58.1,group,J58,"Publishing of books, periodicals and other publishing activities"
+J5811,J,58.11,class,J581,Book publishing
+J5812,J,58.12,class,J581,Publishing of directories and mailing lists
+J5813,J,58.13,class,J581,Publishing of newspapers
+J5814,J,58.14,class,J581,Publishing of journals and periodicals
+J5819,J,58.19,class,J581,Other publishing activities
+J582,J,58.2,group,J58,Software publishing
+J5821,J,58.21,class,J582,Publishing of computer games
+J5829,J,58.29,class,J582,Other software publishing
+J59,J,59,division,J,"Motion picture, video and television programme production, sound recording and music publishing activities"
+J591,J,59.1,group,J59,"Motion picture, video and television programme activities"
+J5911,J,59.11,class,J591,"Motion picture, video and television programme production activities"
+J5912,J,59.12,class,J591,"Motion picture, video and television programme post-production activities"
+J5913,J,59.13,class,J591,"Motion picture, video and television programme distribution activities"
+J5914,J,59.14,class,J591,Motion picture projection activities
+J592,J,59.2,group,J59,Sound recording and music publishing activities
+J5920,J,59.20,class,J592,Sound recording and music publishing activities
+J60,J,60,division,J,Programming and broadcasting activities
+J601,J,60.1,group,J60,Radio broadcasting
+J6010,J,60.10,class,J601,Radio broadcasting
+J602,J,60.2,group,J60,Television programming and broadcasting activities
+J6020,J,60.20,class,J602,Television programming and broadcasting activities
+J61,J,61,division,J,Telecommunications
+J611,J,61.1,group,J61,Wired telecommunications activities
+J6110,J,61.10,class,J611,Wired telecommunications activities
+J612,J,61.2,group,J61,Wireless telecommunications activities
+J6120,J,61.20,class,J612,Wireless telecommunications activities
+J613,J,61.3,group,J61,Satellite telecommunications activities
+J6130,J,61.30,class,J613,Satellite telecommunications activities
+J619,J,61.9,group,J61,Other telecommunications activities
+J6190,J,61.90,class,J619,Other telecommunications activities
+J62,J,62,division,J,"Computer programming, consultancy and related activities"
+J620,J,62.0,group,J62,"Computer programming, consultancy and related activities"
+J6201,J,62.01,class,J620,Computer programming activities
+J6202,J,62.02,class,J620,Computer consultancy activities
+J6203,J,62.03,class,J620,Computer facilities management activities
+J6209,J,62.09,class,J620,Other information technology and computer service activities
+J63,J,63,division,J,Information service activities
+J631,J,63.1,group,J63,"Data processing, hosting and related activities; web portals"
+J6311,J,63.11,class,J631,"Data processing, hosting and related activities"
+J6312,J,63.12,class,J631,Web portals
+J639,J,63.9,group,J63,Other information service activities
+J6391,J,63.91,class,J639,News agency activities
+J6399,J,63.99,class,J639,Other information service activities n.e.c.
+K,K,,section,,Financial and insurance activities
+K64,K,64,division,K,"Financial service activities, except insurance and pension funding"
+K641,K,64.1,group,K64,Monetary intermediation
+K6411,K,64.11,class,K641,Central banking
+K6419,K,64.19,class,K641,Other monetary intermediation
+K642,K,64.2,group,K64,Activities of holding companies
+K6420,K,64.20,class,K642,Activities of holding companies
+K643,K,64.3,group,K64,"Trusts, funds and similar financial entities"
+K6430,K,64.30,class,K643,"Trusts, funds and similar financial entities"
+K649,K,64.9,group,K64,"Other financial service activities, except insurance and pension funding"
+K6491,K,64.91,class,K649,Financial leasing
+K6492,K,64.92,class,K649,Other credit granting
+K6499,K,64.99,class,K649,"Other financial service activities, except insurance and pension funding n.e.c."
+K65,K,65,division,K,"Insurance, reinsurance and pension funding, except compulsory social security"
+K651,K,65.1,group,K65,Insurance
+K6511,K,65.11,class,K651,Life insurance
+K6512,K,65.12,class,K651,Non-life insurance
+K652,K,65.2,group,K65,Reinsurance
+K6520,K,65.20,class,K652,Reinsurance
+K653,K,65.3,group,K65,Pension funding
+K6530,K,65.30,class,K653,Pension funding
+K66,K,66,division,K,Activities auxiliary to financial services and insurance activities
+K661,K,66.1,group,K66,"Activities auxiliary to financial services, except insurance and pension funding"
+K6611,K,66.11,class,K661,Administration of financial markets
+K6612,K,66.12,class,K661,Security and commodity contracts brokerage
+K6619,K,66.19,class,K661,"Other activities auxiliary to financial services, except insurance and pension funding"
+K662,K,66.2,group,K66,Activities auxiliary to insurance and pension funding
+K6621,K,66.21,class,K662,Risk and damage evaluation
+K6622,K,66.22,class,K662,Activities of insurance agents and brokers
+K6629,K,66.29,class,K662,Other activities auxiliary to insurance and pension funding
+K663,K,66.3,group,K66,Fund management activities
+K6630,K,66.30,class,K663,Fund management activities
+L,L,,section,,Real estate activities
+L68,L,68,division,L,Real estate activities
+L681,L,68.1,group,L68,Buying and selling of own real estate
+L6810,L,68.10,class,L681,Buying and selling of own real estate
+L682,L,68.2,group,L68,Renting and operating of own or leased real estate
+L6820,L,68.20,class,L682,Renting and operating of own or leased real estate
+L683,L,68.3,group,L68,Real estate activities on a fee or contract basis
+L6831,L,68.31,class,L683,Real estate agencies
+L6832,L,68.32,class,L683,Management of real estate on a fee or contract basis
+M,M,,section,,"Professional, scientific and technical activities"
+M69,M,69,division,M,Legal and accounting activities
+M691,M,69.1,group,M69,Legal activities
+M6910,M,69.10,class,M691,Legal activities
+M692,M,69.2,group,M69,"Accounting, bookkeeping and auditing activities; tax consultancy"
+M6920,M,69.20,class,M692,"Accounting, bookkeeping and auditing activities; tax consultancy"
+M70,M,70,division,M,Activities of head offices; management consultancy activities
+M701,M,70.1,group,M70,Activities of head offices
+M7010,M,70.10,class,M701,Activities of head offices
+M702,M,70.2,group,M70,Management consultancy activities
+M7021,M,70.21,class,M702,Public relations and communication activities
+M7022,M,70.22,class,M702,Business and other management consultancy activities
+M71,M,71,division,M,Architectural and engineering activities; technical testing and analysis
+M711,M,71.1,group,M71,Architectural and engineering activities and related technical consultancy
+M7111,M,71.11,class,M711,Architectural activities
+M7112,M,71.12,class,M711,Engineering activities and related technical consultancy
+M712,M,71.2,group,M71,Technical testing and analysis
+M7120,M,71.20,class,M712,Technical testing and analysis
+M72,M,72,division,M,Scientific research and development
+M721,M,72.1,group,M72,Research and experimental development on natural sciences and engineering
+M7211,M,72.11,class,M721,Research and experimental development on biotechnology
+M7219,M,72.19,class,M721,Other research and experimental development on natural sciences and engineering
+M722,M,72.2,group,M72,Research and experimental development on social sciences and humanities
+M7220,M,72.20,class,M722,Research and experimental development on social sciences and humanities
+M73,M,73,division,M,Advertising and market research
+M731,M,73.1,group,M73,Advertising
+M7311,M,73.11,class,M731,Advertising agencies
+M7312,M,73.12,class,M731,Media representation
+M732,M,73.2,group,M73,Market research and public opinion polling
+M7320,M,73.20,class,M732,Market research and public opinion polling
+M74,M,74,division,M,"Other professional, scientific and technical activities"
+M741,M,74.1,group,M74,Specialised design activities
+M7410,M,74.10,class,M741,Specialised design activities
+M742,M,74.2,group,M74,Photographic activities
+M7420,M,74.20,class,M742,Photographic activities
+M743,M,74.3,group,M74,Translation and interpretation activities
+M7430,M,74.30,class,M743,Translation and interpretation activities
+M749,M,74.9,group,M74,"Other professional, scientific and technical activities n.e.c."
+M7490,M,74.90,class,M749,"Other professional, scientific and technical activities n.e.c."
+M75,M,75,division,M,Veterinary activities
+M750,M,75.0,group,M75,Veterinary activities
+M7500,M,75.00,class,M750,Veterinary activities
+N,N,,section,,Administrative and support service activities
+N77,N,77,division,N,Rental and leasing activities
+N771,N,77.1,group,N77,Renting and leasing of motor vehicles
+N7711,N,77.11,class,N771,Renting and leasing of cars and light motor vehicles
+N7712,N,77.12,class,N771,Renting and leasing of trucks
+N772,N,77.2,group,N77,Renting and leasing of personal and household goods
+N7721,N,77.21,class,N772,Renting and leasing of recreational and sports goods
+N7722,N,77.22,class,N772,Renting of video tapes and disks
+N7729,N,77.29,class,N772,Renting and leasing of other personal and household goods
+N773,N,77.3,group,N77,"Renting and leasing of other machinery, equipment and tangible goods"
+N7731,N,77.31,class,N773,Renting and leasing of agricultural machinery and equipment
+N7732,N,77.32,class,N773,Renting and leasing of construction and civil engineering machinery and equipment
+N7733,N,77.33,class,N773,Renting and leasing of office machinery and equipment (including computers)
+N7734,N,77.34,class,N773,Renting and leasing of water transport equipment
+N7735,N,77.35,class,N773,Renting and leasing of air transport equipment
+N7739,N,77.39,class,N773,"Renting and leasing of other machinery, equipment and tangible goods n.e.c."
+N774,N,77.4,group,N77,"Leasing of intellectual property and similar products, except copyrighted works"
+N7740,N,77.40,class,N774,"Leasing of intellectual property and similar products, except copyrighted works"
+N78,N,78,division,N,Employment activities
+N781,N,78.1,group,N78,Activities of employment placement agencies
+N7810,N,78.10,class,N781,Activities of employment placement agencies
+N782,N,78.2,group,N78,Temporary employment agency activities
+N7820,N,78.20,class,N782,Temporary employment agency activities
+N783,N,78.3,group,N78,Other human resources provision
+N7830,N,78.30,class,N783,Other human resources provision
+N79,N,79,division,N,"Travel agency, tour operator and other reservation service and related activities"
+N791,N,79.1,group,N79,Travel agency and tour operator activities
+N7911,N,79.11,class,N791,Travel agency activities
+N7912,N,79.12,class,N791,Tour operator activities
+N799,N,79.9,group,N79,Other reservation service and related activities
+N7990,N,79.90,class,N799,Other reservation service and related activities
+N80,N,80,division,N,Security and investigation activities
+N801,N,80.1,group,N80,Private security activities
+N8010,N,80.10,class,N801,Private security activities
+N802,N,80.2,group,N80,Security systems service activities
+N8020,N,80.20,class,N802,Security systems service activities
+N803,N,80.3,group,N80,Investigation activities
+N8030,N,80.30,class,N803,Investigation activities
+N81,N,81,division,N,Services to buildings and landscape activities
+N811,N,81.1,group,N81,Combined facilities support activities
+N8110,N,81.10,class,N811,Combined facilities support activities
+N812,N,81.2,group,N81,Cleaning activities
+N8121,N,81.21,class,N812,General cleaning of buildings
+N8122,N,81.22,class,N812,Other building and industrial cleaning activities
+N8129,N,81.29,class,N812,Other cleaning activities
+N813,N,81.3,group,N81,Landscape service activities
+N8130,N,81.30,class,N813,Landscape service activities
+N82,N,82,division,N,"Office administrative, office support and other business support activities"
+N821,N,82.1,group,N82,Office administrative and support activities
+N8211,N,82.11,class,N821,Combined office administrative service activities
+N8219,N,82.19,class,N821,"Photocopying, document preparation and other specialised office support activities"
+N822,N,82.2,group,N82,Activities of call centres
+N8220,N,82.20,class,N822,Activities of call centres
+N823,N,82.3,group,N82,Organisation of conventions and trade shows
+N8230,N,82.30,class,N823,Organisation of conventions and trade shows
+N829,N,82.9,group,N82,Business support service activities n.e.c.
+N8291,N,82.91,class,N829,Activities of collection agencies and credit bureaus
+N8292,N,82.92,class,N829,Packaging activities
+N8299,N,82.99,class,N829,Other business support service activities n.e.c.
+O,O,,section,,Public administration and defence; compulsory social security
+O84,O,84,division,O,Public administration and defence; compulsory social security
+O841,O,84.1,group,O84,Administration of the State and the economic and social policy of the community
+O8411,O,84.11,class,O841,General public administration activities
+O8412,O,84.12,class,O841,"Regulation of the activities of providing health care, education, cultural services and other social services, except social security"
+O8413,O,84.13,class,O841,Regulation of and contribution to more efficient operation of businesses
+O842,O,84.2,group,O84,Provision of services to the community as a whole
+O8421,O,84.21,class,O842,Foreign affairs
+O8422,O,84.22,class,O842,Defence activities
+O8423,O,84.23,class,O842,Justice and judicial activities
+O8424,O,84.24,class,O842,Public order and safety activities
+O8425,O,84.25,class,O842,Fire service activities
+O843,O,84.3,group,O84,Compulsory social security activities
+O8430,O,84.30,class,O843,Compulsory social security activities
+P,P,,section,,Education
+P85,P,85,division,P,Education
+P851,P,85.1,group,P85,Pre-primary education
+P8510,P,85.10,class,P851,Pre-primary education
+P852,P,85.2,group,P85,Primary education
+P8520,P,85.20,class,P852,Primary education
+P853,P,85.3,group,P85,Secondary education
+P8531,P,85.31,class,P853,General secondary education
+P8532,P,85.32,class,P853,Technical and vocational secondary education
+P854,P,85.4,group,P85,Higher education
+P8541,P,85.41,class,P854,Post-secondary non-tertiary education
+P8542,P,85.42,class,P854,Tertiary education
+P855,P,85.5,group,P85,Other education
+P8551,P,85.51,class,P855,Sports and recreation education
+P8552,P,85.52,class,P855,Cultural education
+P8553,P,85.53,class,P855,Driving school activities
+P8559,P,85.59,class,P855,Other education n.e.c.
+P856,P,85.6,group,P85,Educational support activities
+P8560,P,85.60,class,P856,Educational support activities
+Q,Q,,section,,Human health and social work activities
+Q86,Q,86,division,Q,Human health activities
+Q861,Q,86.1,group,Q86,Hospital activities
+Q8610,Q,86.10,class,Q861,Hospital activities
+Q862,Q,86.2,group,Q86,Medical and dental practice activities
+Q8621,Q,86.21,class,Q862,General medical practice activities
+Q8622,Q,86.22,class,Q862,Specialist medical practice activities
+Q8623,Q,86.23,class,Q862,Dental practice activities
+Q869,Q,86.9,group,Q86,Other human health activities
+Q8690,Q,86.90,class,Q869,Other human health activities
+Q87,Q,87,division,Q,Residential care activities
+Q871,Q,87.1,group,Q87,Residential nursing care activities
+Q8710,Q,87.10,class,Q871,Residential nursing care activities
+Q872,Q,87.2,group,Q87,"Residential care activities for mental retardation, mental health and substance abuse"
+Q8720,Q,87.20,class,Q872,"Residential care activities for mental retardation, mental health and substance abuse"
+Q873,Q,87.3,group,Q87,Residential care activities for the elderly and disabled
+Q8730,Q,87.30,class,Q873,Residential care activities for the elderly and disabled
+Q879,Q,87.9,group,Q87,Other residential care activities
+Q8790,Q,87.90,class,Q879,Other residential care activities
+Q88,Q,88,division,Q,Social work activities without accommodation
+Q881,Q,88.1,group,Q88,Social work activities without accommodation for the elderly and disabled
+Q8810,Q,88.10,class,Q881,Social work activities without accommodation for the elderly and disabled
+Q889,Q,88.9,group,Q88,Other social work activities without accommodation
+Q8891,Q,88.91,class,Q889,Child day-care activities
+Q8899,Q,88.99,class,Q889,Other social work activities without accommodation n.e.c.
+R,R,,section,,"Arts, entertainment and recreation"
+R90,R,90,division,R,"Creative, arts and entertainment activities"
+R900,R,90.0,group,R90,"Creative, arts and entertainment activities"
+R9001,R,90.01,class,R900,Performing arts
+R9002,R,90.02,class,R900,Support activities to performing arts
+R9003,R,90.03,class,R900,Artistic creation
+R9004,R,90.04,class,R900,Operation of arts facilities
+R91,R,91,division,R,"Libraries, archives, museums and other cultural activities"
+R910,R,91.0,group,R91,"Libraries, archives, museums and other cultural activities"
+R9101,R,91.01,class,R910,Library and archives activities
+R9102,R,91.02,class,R910,Museums activities
+R9103,R,91.03,class,R910,Operation of historical sites and buildings and similar visitor attractions
+R9104,R,91.04,class,R910,Botanical and zoological gardens and nature reserves activities
+R92,R,92,division,R,Gambling and betting activities
+R920,R,92.0,group,R92,Gambling and betting activities
+R9200,R,92.00,class,R920,Gambling and betting activities
+R93,R,93,division,R,Sports activities and amusement and recreation activities
+R931,R,93.1,group,R93,Sports activities
+R9311,R,93.11,class,R931,Operation of sports facilities
+R9312,R,93.12,class,R931,Activities of sport clubs
+R9313,R,93.13,class,R931,Fitness facilities
+R9319,R,93.19,class,R931,Other sports activities
+R932,R,93.2,group,R93,Amusement and recreation activities
+R9321,R,93.21,class,R932,Activities of amusement parks and theme parks
+R9329,R,93.29,class,R932,Other amusement and recreation activities
+S,S,,section,,Other service activities
+S94,S,94,division,S,Activities of membership organisations
+S941,S,94.1,group,S94,"Activities of business, employers and professional membership organisations"
+S9411,S,94.11,class,S941,Activities of business and employers membership organisations
+S9412,S,94.12,class,S941,Activities of professional membership organisations
+S942,S,94.2,group,S94,Activities of trade unions
+S9420,S,94.20,class,S942,Activities of trade unions
+S949,S,94.9,group,S94,Activities of other membership organisations
+S9491,S,94.91,class,S949,Activities of religious organisations
+S9492,S,94.92,class,S949,Activities of political organisations
+S9499,S,94.99,class,S949,Activities of other membership organisations n.e.c.
+S95,S,95,division,S,Repair of computers and personal and household goods
+S951,S,95.1,group,S95,Repair of computers and communication equipment
+S9511,S,95.11,class,S951,Repair of computers and peripheral equipment
+S9512,S,95.12,class,S951,Repair of communication equipment
+S952,S,95.2,group,S95,Repair of personal and household goods
+S9521,S,95.21,class,S952,Repair of consumer electronics
+S9522,S,95.22,class,S952,Repair of household appliances and home and garden equipment
+S9523,S,95.23,class,S952,Repair of footwear and leather goods
+S9524,S,95.24,class,S952,Repair of furniture and home furnishings
+S9525,S,95.25,class,S952,"Repair of watches, clocks and jewellery"
+S9529,S,95.29,class,S952,Repair of other personal and household goods
+S96,S,96,division,S,Other personal service activities
+S960,S,96.0,group,S96,Other personal service activities
+S9601,S,96.01,class,S960,Washing and (dry-)cleaning of textile and fur products
+S9602,S,96.02,class,S960,Hairdressing and other beauty treatment
+S9603,S,96.03,class,S960,Funeral and related activities
+S9604,S,96.04,class,S960,Physical well-being activities
+S9609,S,96.09,class,S960,Other personal service activities n.e.c.
+T,T,,section,,Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use
+T97,T,97,division,T,Activities of households as employers of domestic personnel
+T970,T,97.0,group,T97,Activities of households as employers of domestic personnel
+T9700,T,97.00,class,T970,Activities of households as employers of domestic personnel
+T98,T,98,division,T,Undifferentiated goods- and services-producing activities of private households for own use
+T981,T,98.1,group,T98,Undifferentiated goods-producing activities of private households for own use
+T9810,T,98.10,class,T981,Undifferentiated goods-producing activities of private households for own use
+T982,T,98.2,group,T98,Undifferentiated service-producing activities of private households for own use
+T9820,T,98.20,class,T982,Undifferentiated service-producing activities of private households for own use
+U,U,,section,,Activities of extraterritorial organisations and bodies
+U99,U,99,division,U,Activities of extraterritorial organisations and bodies
+U990,U,99.0,group,U99,Activities of extraterritorial organisations and bodies
+U9900,U,99.00,class,U990,Activities of extraterritorial organisations and bodies

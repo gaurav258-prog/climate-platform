@@ -80,6 +80,7 @@ def test_the_eet_workflow_end_to_end(am):
     assert float(v["30040_GHG_Emissions_Scope_1_Coverage"]) <= 1 and "30180_GHG_Emissions_Total_Scope123_Value" in v
     comp = d["completeness"]
     assert not comp["ready"] and comp["n_blocking"] > 0 and all(b["answerable"] for b in comp["blocking"])
+    # (every missing field can be answered — even one Tellumen computes, when the book has no figure for it)
 
     # can't prepare while mandatory fields are empty
     r = c.post("/v1/eet/versions", headers=c.maker, json={"uses": uses.split(",")})
@@ -89,8 +90,8 @@ def test_the_eet_workflow_end_to_end(am):
     r = c.put("/v1/eet/answers", headers=c.maker, json={"fund_id": c.fund, "values": {
         "20180_Financial_Instrument_Products_Minimal_Proportion_Of_Sustainable_Investments_Art_8": "20",
         "30020_GHG_Emissions_Scope_1_Value": "1"}}).json()
-    assert {x["field"] for x in r["refused"]} == {"20180_Financial_Instrument_Products_Minimal_Proportion_Of_Sustainable_Investments_Art_8",
-                                                  "30020_GHG_Emissions_Scope_1_Value"}
+    assert {x["field"] for x in r["refused"]} == {"20180_Financial_Instrument_Products_Minimal_Proportion_Of_Sustainable_Investments_Art_8"}
+    assert "only while the book has no figure" in r["note"]                     # a book figure wins over a typed one
     fl = {f["name"]: f for f in c.get(f"/v1/eet/fields?uses={uses}&only=required", headers=c.maker).json()["fields"]}
     need = [b["field"] for b in comp["blocking"]]
     org_vals = {n: _valid(fl[n]) for n in need if fl[n]["scope"] == "organisation"}
@@ -98,7 +99,9 @@ def test_the_eet_workflow_end_to_end(am):
     for body in ({"values": org_vals}, {"fund_id": c.fund, "values": fund_vals}):
         r = c.put("/v1/eet/answers", headers=c.maker, json=body).json()
         assert not r["refused"], r["refused"]
-    assert c.get(f"/v1/eet/draft?uses={uses}", headers=c.maker).json()["completeness"]["ready"]
+    after = c.get(f"/v1/eet/draft?uses={uses}", headers=c.maker).json()
+    assert after["completeness"]["ready"]
+    assert after["rows"][0]["values"]["30020_GHG_Emissions_Scope_1_Value"] != "1"      # the book's figure, not the typed 1
 
     # prepare → the maker can't approve → the approver approves → published
     v1 = c.post("/v1/eet/versions", headers=c.maker, json={"uses": uses.split(","), "note": "first EET"})

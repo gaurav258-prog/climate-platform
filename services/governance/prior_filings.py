@@ -47,13 +47,34 @@ def datapoints(framework: str) -> list[dict]:
 
 
 def create_from_upload(session, org_id: str, user_id: Optional[str], *, framework: str,
-                       period_label: str, entity_name: Optional[str], filename: str, data: bytes) -> dict:
+                       period_label: str, entity_name: Optional[str], filename: str, data: bytes,
+                       currency: Optional[str] = None, period_end: Optional[str] = None) -> dict:
+    """currency: the currency the filing's money is reported in — resolves shared symbols ('$', '£', '¥') the file
+    uses; never assumed. period_end: the date the period ends (money converts at it in trends); when not given it is
+    taken from a year in the label (31 December) and stored, so it is visible, not re-guessed on every read."""
+    from datetime import date as _date
+
+    from services.ingest.units import resolve_declared
+    from services.reference.iso4217 import codes
     if framework not in _LABEL:
         raise FilingError("Unknown framework.")
     if not period_label or not period_label.strip():
         raise FilingError("A reporting period is required.")
+    ccy = (currency or "").strip().upper() or None
+    if ccy and ccy not in codes():
+        raise FilingError(f"'{ccy}' is not an ISO 4217 currency code.")
+    if period_end:
+        try:
+            pe = _date.fromisoformat(str(period_end)[:10])
+        except ValueError:
+            raise FilingError("The period end must be a date (YYYY-MM-DD).")
+    else:
+        m = _re.search(r"(19|20)\d{2}", period_label)
+        pe = _date(int(m.group(0)), 12, 31) if m else None
     try:
         read = filing_import.extract(framework, filename, data)
+        for c in read["cells"]:
+            c["unit"] = resolve_declared(c["unit"], ccy)
     except ValueError as e:
         code = str(e)
         raise FilingError({
@@ -65,10 +86,10 @@ def create_from_upload(session, org_id: str, user_id: Optional[str], *, framewor
     sha = hashlib.sha256(data).hexdigest()
     fid = session.execute(text("""
         INSERT INTO reported_filing (org_id, framework, period_label, entity_name, file_format,
-            original_filename, file_bytes, file_sha256, file_size, n_lines, status, uploaded_by)
-        VALUES (:org, :fw, :pl, :ent, :fmt, :fn, :bytes, :sha, :sz, :n, 'draft', :uid)
+            original_filename, file_bytes, file_sha256, file_size, n_lines, status, uploaded_by, currency, period_end)
+        VALUES (:org, :fw, :pl, :ent, :fmt, :fn, :bytes, :sha, :sz, :n, 'draft', :uid, :ccy, :pe)
         RETURNING filing_id
-    """), {"org": org_id, "fw": framework, "pl": period_label.strip(), "ent": entity_name,
+    """), {"org": org_id, "fw": framework, "pl": period_label.strip(), "ent": entity_name, "ccy": ccy, "pe": pe,
            "fmt": read["format"], "fn": filename, "bytes": data, "sha": sha, "sz": len(data),
            "n": read["n_total"], "uid": user_id}).scalar()
 
@@ -298,11 +319,15 @@ def _period_end(fig: dict):
 def _combine(session, figs: list[dict], ccy: str) -> dict:
     """One period's figures for one datapoint → {value, unit, …}. Money is converted to `ccy` (closing rate on the
     period end); anything else is only added to figures in the same unit."""
-    from services.ingest.units import is_currency
+    from services.ingest.units import is_ambiguous_money, is_currency
     from services.reference.fx import FxError, rate_for
     by_unit: dict = {}
     for f in figs:
         by_unit[f["unit"]] = by_unit.get(f["unit"], 0.0) + float(f["value_num"])
+    shared = sorted(u for u in by_unit if is_ambiguous_money(u))
+    if shared:                        # '$' could be several currencies: not used until the filing's currency is stated
+        return {"value": None, "unit": None, "mixed_units": sorted(str(u) for u in by_unit),
+                "note": f"money written as {', '.join(shared)} — state the filing's currency (or the unit on confirm)"}
     money = {u: v for u, v in by_unit.items() if is_currency(u)}
     if money and len(money) == len(by_unit):
         if set(money) == {ccy}:

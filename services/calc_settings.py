@@ -94,6 +94,14 @@ INTERPRETATION_SCHEMA: dict = {
         "description": "Your own (treasury) rates are used when you supply them; one further than this from the ECB / "
                        "IMF rate for the same day needs a second person to accept it.",
     },
+    "esg_energy_intensity_check_factor": {
+        "frameworks": ["sfdr_pai", "assetmgmt_tcfd"],
+        "default": 10.0, "kind": "float", "min": 2.0, "max": 1000.0,
+        "label": "Company energy intensity: how far from the sector average before it is checked (×)",
+        "description": "A reported energy intensity more than this many times above — or below — the sector average for "
+                       "its activity is flagged as a possible unit slip (MWh typed as GWh is 1,000×) until someone "
+                       "corrects it or confirms it with a reason. Ordinary differences are expected: set it wide.",
+    },
     "equity_consolidation": {
         "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "reit_tcfd", "insurer_climate"],
         "default": "economic_share", "kind": "enum", "allowed": ["economic_share", "excluded", "full"],

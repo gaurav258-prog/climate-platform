@@ -57,3 +57,13 @@ def test_a_vendor_never_overwrites_the_managers_own_figure(session_rolled_back):
     assert after[0] == before[0] == 18.0 and after[2] == "client"               # the manager's 18% stands
     assert after[1] == 410.0 and before[1] is None                               # the vendor filled a blank
     assert rep["client_conflicts"] >= 1
+
+
+def test_the_check_band_is_the_organisations_governed_setting(session_rolled_back):
+    from services.calc_settings import upsert_calc_settings
+    s = session_rolled_back
+    org, fund, _, asml = _setup(s)
+    s.execute(text("UPDATE issuer_esg_metrics SET energy_intensity_gwh_per_meur = 5 WHERE issuer_id = CAST(:i AS uuid)"), {"i": asml})
+    assert _flags(s, fund) == [("ASML Holding N.V.", "energy_intensity")]
+    upsert_calc_settings(s, org, {"esg_energy_intensity_check_factor": 1000.0}, None)
+    assert _flags(s, fund) == []

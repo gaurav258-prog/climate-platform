@@ -192,3 +192,24 @@ def test_a_file_names_the_holding_entity_and_the_intragroup_counterparty(session
         SELECT external_ref, reporting_entity_id::text, intragroup_entity_id::text FROM portfolio_entities
         WHERE org_id = CAST(:o AS uuid) AND external_ref LIKE :t"""), {"o": BANK_ORG, "t": f"{tag}-%"})}
     assert got == {f"{tag}-0": (leasing["entity_id"], None), f"{tag}-1": (bank["entity_id"], leasing["entity_id"])}
+
+
+def test_an_entity_filing_is_identified_by_the_entitys_own_lei(session_rolled_back):
+    from services.governance.filing_export import ExportError, export_filing
+    s = session_rolled_back
+    _, _, leasing, _ = _tree(s)
+    with pytest.raises(E.EntityError, match="not a valid LEI"):
+        E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001KJTIIGC8Y1R13")          # check digits wrong
+    E.update_entity(s, BANK_ORG, leasing["entity_id"], lei="5493001kjtiigc8y1r12")              # stored upper-case
+    user = s.execute(text("SELECT user_id::text FROM users WHERE org_id = CAST(:o AS uuid) ORDER BY created_at LIMIT 1"),
+                     {"o": BANK_ORG}).scalar()
+    tok = F.preflight(s, BANK_ORG, "bank", "bank_tcfd")["confirm_token"]
+    f = F.generate_filing(s, BANK_ORG, "bank", "bank_tcfd", user, confirm_token=tok, entity_id=leasing["entity_id"])
+    xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
+    assert ">5493001KJTIIGC8Y1R12<" in xml and "filing entity's own LEI" in xml
+    E.update_entity(s, BANK_ORG, leasing["entity_id"], lei=None)
+    xml = export_filing(s, BANK_ORG, f["filing_id"], "xbrl")[2].decode()
+    assert "has no LEI on file — identified by the organisation's LEI" in xml
+    s.execute(text("UPDATE organizations SET lei = NULL WHERE org_id = CAST(:o AS uuid)"), {"o": BANK_ORG})
+    with pytest.raises(ExportError, match="no LEI on file"):                                     # never a made-up identifier
+        export_filing(s, BANK_ORG, f["filing_id"], "xbrl")
