@@ -38,3 +38,15 @@ def alert_sweep() -> dict:
     if res["raised"]:
         logger.warning("regulatory alert sweep: raised %d alert(s) across %d orgs", res["raised"], res["orgs"])
     return res
+
+
+@celery_app.task(name="reg.signals_sweep")
+def signals_sweep() -> dict:
+    """CRCS early warning: read the regulators' feeds and the news; confirm signals the register has since recorded."""
+    from core.db.session import get_session
+    from services.regulatory_monitoring.early_signals import sweep
+    with get_session() as s:
+        res = sweep(s)
+    if res["errors"]:
+        logger.info("early signals: %d source(s) unreachable (%s)", len(res["errors"]), res["errors"])
+    return res

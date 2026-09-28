@@ -1,0 +1,33 @@
+{
+  "version": "2026-09-28",
+  "about": "Early-warning sources for regulatory change (CRCS). Each item is an UNCONFIRMED signal until the official EU register records a change; signals never move a date or a deadline. Sources are the regulators' own feeds plus a news index. A topic maps an item to the platform's frameworks by words in its title or summary.",
+  "sources": [
+    {"key": "eba", "name": "European Banking Authority — news", "authority": "EBA", "jurisdiction": "EU", "kind": "rss",
+     "url": "https://www.eba.europa.eu/news-press/news/rss.xml"},
+    {"key": "esma", "name": "European Securities and Markets Authority — news", "authority": "ESMA", "jurisdiction": "EU", "kind": "rss",
+     "url": "https://www.esma.europa.eu/rss.xml"},
+    {"key": "fca", "name": "UK Financial Conduct Authority — news", "authority": "FCA", "jurisdiction": "GB", "kind": "rss",
+     "url": "https://www.fca.org.uk/news/rss.xml"},
+    {"key": "sec", "name": "US Securities and Exchange Commission — press releases", "authority": "SEC", "jurisdiction": "US", "kind": "rss",
+     "url": "https://www.sec.gov/news/pressreleases.rss"},
+    {"key": "news", "name": "GDELT news index (global press)", "authority": "News", "jurisdiction": "EU", "kind": "gdelt",
+     "url": "https://api.gdeltproject.org/api/v2/doc/doc",
+     "query": "(CSRD OR SFDR OR \"EU taxonomy\" OR \"Pillar 3\" OR EUDR OR ESRS OR \"Solvency II\") (regulation OR directive OR EBA OR ESMA OR EFRAG OR EIOPA OR Commission)"}
+  ],
+  "topics": [
+    {"key": "pillar3_esg", "label": "Pillar 3 ESG disclosures", "frameworks": ["bank_p3esg"],
+     "words": ["pillar 3", "pillar iii", "esg risk", "esg risks", "prudential disclosure"]},
+    {"key": "taxonomy", "label": "EU Taxonomy", "frameworks": ["bank_tcfd", "reit_tcfd", "reit_taxonomy"],
+     "words": ["taxonomy", "green asset ratio", "gar"]},
+    {"key": "sfdr", "label": "SFDR", "frameworks": ["sfdr_pai", "assetmgmt_tcfd"],
+     "words": ["sfdr", "sustainable finance disclosure", "principal adverse", "fund names", "esg-related terms"]},
+    {"key": "csrd_esrs", "label": "CSRD / ESRS", "frameworks": ["csrd_e1", "esrs_pack"],
+     "words": ["csrd", "esrs", "sustainability reporting standard", "omnibus", "efrag"]},
+    {"key": "eudr", "label": "EU Deforestation Regulation", "frameworks": ["eudr_dds"],
+     "words": ["eudr", "deforestation"]},
+    {"key": "solvency_natcat", "label": "Solvency II / natural catastrophe", "frameworks": ["insurer_climate", "insurer_solvency"],
+     "words": ["solvency ii", "natural catastrophe", "nat cat", "natcat", "climate change risk scenario"]},
+    {"key": "climate_disclosure", "label": "Climate disclosure (general)", "frameworks": [],
+     "words": ["climate-related disclosure", "climate disclosure", "sustainability disclosure", "sustainability-related disclosure", "transition plan", "issb", "sdr"]}
+  ]
+}

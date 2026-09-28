@@ -12,9 +12,9 @@ import { useCurrencies } from './MoneyDeclaration'
 interface Ent {
   entity_id: string; name: string; kind: string; parent_entity_id: string | null
   ownership_pct: number; consolidation_method: string; n_assets: number; value_eur: number
-  functional_currency: string | null; effective_currency: string | null; currency_inherited_from: string | null; lei: string | null
+  functional_currency: string | null; effective_currency: string | null; currency_inherited_from: string | null; lei: string | null; country: string | null
 }
-interface Form { name: string; kind: string; parent_entity_id: string; ownership_pct: number; consolidation_method: string; functional_currency: string; lei: string }
+interface Form { name: string; kind: string; parent_entity_id: string; ownership_pct: number; consolidation_method: string; functional_currency: string; lei: string; country: string }
 
 const KINDS = ['group', 'sub_group', 'legal_entity', 'fund', 'division']
 const METHODS = ['full', 'proportional', 'equity']
@@ -102,8 +102,10 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
     name: edit?.name ?? '', kind: edit?.kind ?? 'legal_entity',
     parent_entity_id: edit?.parent_entity_id ?? '', ownership_pct: edit?.ownership_pct ?? 100,
     consolidation_method: edit?.consolidation_method ?? 'full', functional_currency: edit?.functional_currency ?? '', lei: edit?.lei ?? '',
+    country: edit?.country ?? '',
   })
   const currencies = useCurrencies()
+  const cq = useQuery({ queryKey: ['countries'], queryFn: () => api.get<{ countries: { code: string; name: string }[] }>('/v1/intake/countries'), staleTime: Infinity })
   const [busy, setBusy] = useState(false)
   // a node can't be its own parent or (on edit) parented under a descendant — the backend enforces it too;
   // here we just drop self from the options for a cleaner list
@@ -115,8 +117,8 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
     if (!f.name.trim()) { onError('Name is required.'); return }
     setBusy(true); onError('')
     try {
-      const body = { name: f.name.trim(), kind: f.kind, ownership_pct: Number(f.ownership_pct), consolidation_method: f.consolidation_method, functional_currency: f.functional_currency || null, lei: f.lei.trim().toUpperCase() || null }
-      if (edit) await api.patch(`/v1/filings/entities/${edit.entity_id}`, { ...body, set_parent: true, parent_entity_id: f.parent_entity_id || null, set_functional_currency: true, set_lei: true })
+      const body = { name: f.name.trim(), kind: f.kind, ownership_pct: Number(f.ownership_pct), consolidation_method: f.consolidation_method, functional_currency: f.functional_currency || null, lei: f.lei.trim().toUpperCase() || null, country: f.country || null }
+      if (edit) await api.patch(`/v1/filings/entities/${edit.entity_id}`, { ...body, set_parent: true, parent_entity_id: f.parent_entity_id || null, set_functional_currency: true, set_lei: true, set_country: true })
       else await api.post('/v1/filings/entities', { ...body, parent_entity_id: f.parent_entity_id || null })
       onSaved()
     } catch (ex) { onError(err(ex, 'Could not save the entity.')) }
@@ -146,6 +148,10 @@ function EntityForm({ ents, edit, onCancel, onSaved, onError }: { ents: Ent[]; e
       <label className="flex flex-col gap-1"><span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">LEI</span>
         <input value={f.lei} onChange={e => set('lei', e.target.value)} maxLength={20} placeholder="20 characters" className={`${box} mono w-48`}
           title="The entity's own Legal Entity Identifier (ISO 17442). Its solo and sub-group filings are identified by it; without one, the organisation's LEI is used and the file says so." /></label>
+      <label className="flex flex-col gap-1"><span className="mono text-[9px] uppercase tracking-wide text-[var(--color-faint)]">Country</span>
+        <select value={f.country} onChange={e => set('country', e.target.value)} className={`${box} w-44`}
+          title="The country whose law governs this entity's own records — it sets how long its filings must be kept. Blank = the organisation's country.">
+          <option value="">— organisation's —</option>{(cq.data?.countries ?? []).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
       <Button variant="primary" onClick={save} disabled={busy}><Check size={14} /> {edit ? 'Save' : 'Add'}</Button>
       <Button variant="ghost" onClick={onCancel}><X size={14} /> Cancel</Button>
     </div>

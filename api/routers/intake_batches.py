@@ -184,6 +184,13 @@ def revoke_sftp_key(key_id: str, session: DbSession, ctx: dict = Depends(require
 
 # ── currency coverage (the FX foundation: which official source serves each currency, how fresh, how well sources agree) ──
 
+@router.get("/countries", summary="Countries (ISO 3166 alpha-2 with English names) — the country reference")
+def countries(session: DbSession, ctx: CurrentUser):
+    from sqlalchemy import text
+    rows = session.execute(text("SELECT iso2, name_en FROM ref_countries ORDER BY name_en")).all()
+    return {"countries": [{"code": r[0], "name": r[1]} for r in rows]}
+
+
 @router.get("/fx/currencies", summary="Currencies we can convert (ISO 4217 codes)")
 def fx_currencies(session: DbSession, ctx: CurrentUser):
     from services.reference.fx import supported_currencies

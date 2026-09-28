@@ -8,7 +8,8 @@ from services.intelligence.third_parties import CRITICALITY, KINDS, register_csv
 
 def test_links_are_declared_not_inferred():
     L = links_for("insurer_climate", "insurer")
-    fx = {"fx_flow_rate", "fx_client_rate_tolerance_pct"}          # every money figure in the filing (multi-currency)
+    fx = {"fx_flow_rate", "fx_client_rate_tolerance_pct",          # every money figure in the filing (multi-currency)
+          "retention_minimum_years"}                               # and every filed record (CRCS record retention)
     assert {s["key"] for s in L["switches"]} == {"pml_return_period", "equity_consolidation"} | fx
     assert L["kris"] and L["template"] and L["template"]["official_form"] and L["n"] >= 5
     bank = links_for("insurer_climate", "bank")["switches"]

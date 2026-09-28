@@ -1,0 +1,393 @@
+{
+ "version": "2026-09-28",
+ "about": "Record-retention periods for filed reports, each cited to the official legal text (act, article, URL, the sentence that sets the period). Verified 2026-09-28 against the official publications. 'coverage' says whether the law names the document ('named') or covers it through general wording such as books or records ('indirect'). Tax-law periods are not included and may be longer. No rule states a period of its own.",
+ "runs_from": {
+  "end_of_calendar_year_prepared": "31 December of the year the report was prepared (frozen)",
+  "end_of_period_year": "31 December of the calendar year the reporting period ends in",
+  "period_end": "the reporting period end",
+  "publication": "the day the report was published (submitted)"
+ },
+ "national": {
+  "DE": [
+   {
+    "key": "de_hgb_257",
+    "country": "DE",
+    "act": "Handelsgesetzbuch (HGB)",
+    "article": "§ 257(1) Nr. 1, (4), (5)",
+    "url": "https://www.gesetze-im-internet.de/hgb/__257.html",
+    "quote": "Die in Absatz 1 Nummer 1 aufgeführten Unterlagen sind zehn Jahre, die in Absatz 1 Nummer 4 aufgeführten Unterlagen acht Jahre … aufzubewahren.",
+    "years": 10,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "named",
+    "note": "Jahresabschluss and Lagebericht are named. The 2025 change (BEG IV) shortened only accounting vouchers to 8 years."
+   }
+  ],
+  "AT": [
+   {
+    "key": "at_ugb_212",
+    "country": "AT",
+    "act": "Unternehmensgesetzbuch (UGB)",
+    "article": "§ 212(1), (2)",
+    "url": "https://www.ris.bka.gv.at/NormDokument.wxe?Abfrage=Bundesnormen&Gesetzesnummer=10001702&Paragraf=212",
+    "quote": "…Jahresabschlüsse samt den Lageberichten, Konzernabschlüsse samt den Konzernlageberichten … sieben Jahre lang geordnet aufzubewahren",
+    "years": 7,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "named"
+   }
+  ],
+  "SE": [
+   {
+    "key": "se_bfl_7_2",
+    "country": "SE",
+    "act": "Bokföringslagen (1999:1078)",
+    "article": "7 kap. 2 §",
+    "url": "https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/bokforingslag-19991078_sfs-1999-1078/",
+    "quote": "De ska bevaras fram till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades (bevarandetid).",
+    "years": 7,
+    "runs_from": "end_of_period_year",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "named",
+    "note": "Räkenskapsinformation includes the årsredovisning (1 kap. 2 § 9)."
+   }
+  ],
+  "DK": [
+   {
+    "key": "dk_bogf_12",
+    "country": "DK",
+    "act": "Bogføringsloven (LOV nr 700 af 24/05/2022)",
+    "article": "§ 12",
+    "url": "https://www.retsinformation.dk/eli/lta/2022/700",
+    "quote": "Virksomheder skal på betryggende vis opbevare regnskabsmateriale, jf. § 4, i 5 år fra udgangen af det regnskabsår, materialet vedrører",
+    "years": 5,
+    "runs_from": "period_end",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "named",
+    "note": "Regnskabsmateriale includes the statutory accounts and the documentation behind the ledelsesberetning (§ 4)."
+   }
+  ],
+  "PL": [
+   {
+    "key": "pl_uor_74_1",
+    "country": "PL",
+    "act": "Ustawa o rachunkowości",
+    "article": "art. 74(1)",
+    "url": "https://api.sejm.gov.pl/eli/acts/DU/2026/522/text.pdf",
+    "quote": "Zatwierdzone roczne sprawozdania finansowe … podlegają przechowywaniu przez okres co najmniej 5 lat, licząc od początku roku następującego po roku obrotowym, w którym zatwierdzono…",
+    "years": 5,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements"
+    ],
+    "coverage": "named",
+    "note": "Permanent retention ended on 31 Dec 2021; now at least 5 years."
+   },
+   {
+    "key": "pl_uor_74_2",
+    "country": "PL",
+    "act": "Ustawa o rachunkowości",
+    "article": "art. 74(2) pkt 8, (3)",
+    "url": "https://api.sejm.gov.pl/eli/acts/DU/2026/522/text.pdf",
+    "quote": "pozostałe dowody księgowe i sprawozdania, których obowiązek sporządzenia wynika z ustawy – 5 lat.",
+    "years": 5,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "The management report falls under 'other reports required by the Act' (pkt 8) — a reading of the text."
+   }
+  ],
+  "FR": [
+   {
+    "key": "fr_ccom_l123_22",
+    "country": "FR",
+    "act": "Code de commerce",
+    "article": "art. L123-22",
+    "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000006219327",
+    "quote": "Les documents comptables et les pièces justificatives sont conservés pendant dix ans.",
+    "years": 10,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "The article names 'documents comptables'; it does not name the management report or say when the period starts — counted conservatively from the end of the year the report was prepared."
+   }
+  ],
+  "NL": [
+   {
+    "key": "nl_bw2_10",
+    "country": "NL",
+    "act": "Burgerlijk Wetboek Boek 2",
+    "article": "art. 10(3)",
+    "url": "https://wetten.overheid.nl/BWBR0003045/",
+    "quote": "Het bestuur is verplicht de in de leden 1 en 2 bedoelde boeken, bescheiden en andere gegevensdragers gedurende zeven jaren te bewaren.",
+    "years": 7,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers books and records including the balance sheet and P&L; the management report is not named and the start is not stated — counted conservatively from the end of the year the report was prepared."
+   }
+  ],
+  "ES": [
+   {
+    "key": "es_ccom_30",
+    "country": "ES",
+    "act": "Código de Comercio",
+    "article": "art. 30.1",
+    "url": "https://www.boe.es/buscar/act.php?id=BOE-A-1885-6627#a30",
+    "quote": "…debidamente ordenados, durante seis años, a partir del último asiento realizado en los libros…",
+    "years": 6,
+    "runs_from": "period_end",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers books, documentation and supporting evidence; the management report is not named."
+   }
+  ],
+  "IT": [
+   {
+    "key": "it_cc_2220",
+    "country": "IT",
+    "act": "Codice civile",
+    "article": "art. 2220",
+    "url": "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1942-03-16;262:2~art2220",
+    "quote": "Le scritture devono essere conservate per dieci anni dalla data dell'ultima registrazione.",
+    "years": 10,
+    "runs_from": "period_end",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers accounting records ('scritture'); the balance sheet through the inventory book; the management report is not named."
+   }
+  ],
+  "LU": [
+   {
+    "key": "lu_ccom_16",
+    "country": "LU",
+    "act": "Code de commerce",
+    "article": "art. 16, al. 2",
+    "url": "https://legilux.public.lu/eli/etat/leg/code/commerce/20260803",
+    "quote": "…doivent être conservés pendant dix ans à partir de la clôture de l'exercice auquel ils se rapportent.",
+    "years": 10,
+    "runs_from": "period_end",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers the comptes annuels (art. 15); the management report is not named."
+   }
+  ],
+  "PT": [
+   {
+    "key": "pt_ccom_40",
+    "country": "PT",
+    "act": "Código Comercial",
+    "article": "art. 40.º(1)",
+    "url": "https://diariodarepublica.pt/dr/detalhe/decreto-lei/76-a-2006-620286",
+    "quote": "Todo o comerciante é obrigado a arquivar … a sua escrituração mercantil e os documentos a ela relativos, devendo conservar tudo pelo período de 10 anos.",
+    "years": 10,
+    "runs_from": "end_of_calendar_year_prepared",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers bookkeeping and related documents; neither the accounts nor the management report is named, and no start is stated — counted conservatively from the end of the year the report was prepared."
+   }
+  ],
+  "BE": [
+   {
+    "key": "be_cde_iii_88",
+    "country": "BE",
+    "act": "Code de droit économique",
+    "article": "art. III.88",
+    "url": "https://www.ejustice.just.fgov.be/cgi_loi/change_lg.pl?language=fr&la=F&cn=2013022819&table_name=loi",
+    "quote": "…tenues de conserver leurs livres pendant sept ans à partir du premier janvier de l'année qui suit leur clôture.",
+    "years": 7,
+    "runs_from": "end_of_period_year",
+    "covers": [
+     "financial_statements",
+     "management_report"
+    ],
+    "coverage": "indirect",
+    "note": "Covers books; the annual accounts and management report are not named."
+   }
+  ]
+ },
+ "no_statute": {
+  "GB": {
+   "act": "Companies Act 2006",
+   "article": "s. 388(4)",
+   "url": "https://www.legislation.gov.uk/ukpga/2006/46/section/388",
+   "note": "UK company law sets a period for accounting records only (3 years private / 6 years public); it sets none for the annual accounts or the directors' report."
+  },
+  "IE": {
+   "act": "Companies Act 2014",
+   "article": "s. 285",
+   "url": "https://www.irishstatutebook.ie/eli/2014/act/38/section/285/enacted/en/html",
+   "note": "Irish company law sets a period for accounting records only (6 years); it sets none for the annual accounts or the directors' report."
+  }
+ },
+ "frameworks": {
+  "td_art4": {
+   "key": "td_art4",
+   "act": "Transparency Directive 2004/109/EC (as amended by 2013/50/EU)",
+   "article": "Art. 4(1)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32013L0050",
+   "quote": "…and shall ensure that it remains publicly available for at least 10 years.",
+   "years": 10,
+   "runs_from": "publication",
+   "condition": "listed",
+   "coverage": "named",
+   "covers_label": "annual financial report of an issuer with listed securities (incl. management report and sustainability statement)"
+  },
+  "crr_434": {
+   "key": "crr_434",
+   "act": "CRR (EU) 575/2013 as amended (CRR2 2019/876; CRR3 2024/1623)",
+   "article": "Art. 434",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1623",
+   "quote": "That archive shall be kept accessible for a period that shall be no less than the storage period set by national law for information included in the institutions' financial reports.",
+   "years": null,
+   "equals_national": "financial_statements",
+   "runs_from": "publication",
+   "coverage": "named",
+   "covers_label": "Pillar 3 disclosure archive — as long as national law keeps financial reports"
+  },
+  "sii_301": {
+   "key": "sii_301",
+   "act": "Commission Delegated Regulation (EU) 2015/35 (Solvency II)",
+   "article": "Art. 301(3)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:32015R0035",
+   "quote": "…that report shall remain available on that website for at least five years after the disclosure date referred to in Article 300(1).",
+   "years": 5,
+   "runs_from": "publication",
+   "coverage": "named",
+   "covers_label": "Solvency and Financial Condition Report on the website",
+   "note": "From 30 January 2027 (Delegated Regulation (EU) 2026/269) both parts of the split SFCR, same five years."
+  },
+  "eudr_4_3": {
+   "key": "eudr_4_3",
+   "act": "Regulation (EU) 2023/1115 (EUDR)",
+   "article": "Art. 4(3)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1115",
+   "quote": "Operators shall keep a record of the due diligence statements for five years from the date the statement is submitted through the information system…",
+   "years": 5,
+   "runs_from": "publication",
+   "coverage": "named",
+   "covers_label": "due diligence statements"
+  },
+  "sfdr_none": {
+   "key": "sfdr_none",
+   "act": "SFDR (EU) 2019/2088 · RTS (EU) 2022/1288",
+   "article": "Art. 12(1) · RTS Art. 10",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019R2088",
+   "quote": "…shall ensure that any information published in accordance with Article 3, 5 or 10 is kept up to date.",
+   "years": null,
+   "coverage": "named",
+   "note": "SFDR sets no retention period (it requires disclosures to be kept up to date; the RTS compares with up to the last five periods). Set your own policy (Settings)."
+  }
+ },
+ "documents": {
+  "csrd_e1": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "esrs_pack": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "bank_tcfd": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "reit_tcfd": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "reit_taxonomy": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "assetmgmt_tcfd": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "insurer_climate": {
+   "document": "management_report",
+   "rules": [
+    "td_art4"
+   ],
+   "national": true
+  },
+  "bank_p3esg": {
+   "document": "pillar3",
+   "rules": [
+    "crr_434"
+   ],
+   "national": false
+  },
+  "insurer_solvency": {
+   "document": "sfcr",
+   "rules": [
+    "sii_301"
+   ],
+   "national": false
+  },
+  "sfdr_pai": {
+   "document": "website_disclosure",
+   "rules": [
+    "sfdr_none"
+   ],
+   "national": false
+  },
+  "eudr_dds": {
+   "document": "eudr_dds",
+   "rules": [
+    "eudr_4_3"
+   ],
+   "national": false
+  }
+ }
+}

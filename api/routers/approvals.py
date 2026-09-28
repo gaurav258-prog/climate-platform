@@ -240,6 +240,10 @@ def decide(request_id: str, body: ApprovalDecision, session: DbSession,
     # Provided datapoint (Lane 2): on attestation the customer/vendor value is signed off and may land in a
     # filing; 4-eyes (checker ≠ maker) is enforced above.
     # Use Tellumen's value for an asset fact instead of the client's (intake phase 3): the live value changes only now.
+    # Lifting a legal hold on a filed report: only a second person may end it.
+    elif row["request_type"] == "filing.legal_hold_lift":
+        from services.governance.record_retention import apply_lift
+        applied = apply_lift(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])
     elif row["request_type"] == "intake.conflict":
         from services.intake.conflicts import apply_decision as apply_conflict
         applied = apply_conflict(session, org_id, row["payload"] or {}, body.decision, ctx["user"]["id"])

@@ -111,6 +111,15 @@ INTERPRETATION_SCHEMA: dict = {
                        "'excluded' = not in the consolidated book (strict IFRS — an associate's assets aren't "
                        "line-by-line consolidated); 'full' = the whole book (only correct for a controlled sub).",
     },
+    "retention_minimum_years": {
+        "frameworks": ["bank_tcfd", "bank_p3esg", "assetmgmt_tcfd", "sfdr_pai", "reit_tcfd", "reit_taxonomy",
+                       "insurer_climate", "insurer_solvency", "esrs_pack", "csrd_e1"],
+        "default": 0, "kind": "int", "min": 0, "max": 50,
+        "label": "Your own minimum record retention (years)",
+        "description": "Filed reports are kept at least as long as the law requires for each one (shown on every filing, "
+                       "with its legal source). Set a longer period here if your own policy requires it; it can never "
+                       "shorten a legal period. Counted from the end of the year the filing was frozen.",
+    },
 }
 
 DEFAULTS = {**_TYPED_DEFAULTS, **{k: v["default"] for k, v in INTERPRETATION_SCHEMA.items()}}

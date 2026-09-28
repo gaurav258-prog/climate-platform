@@ -225,6 +225,7 @@ class EntityCreate(BaseModel):
     solo_waiver_reason: Optional[str] = Field(None, max_length=2000)
     functional_currency: Optional[str] = Field(None, max_length=3, description="ISO 4217; blank = inherit from the parent")
     lei: Optional[str] = Field(None, max_length=20, description="the entity's own LEI (ISO 17442) — identifies it in its filings")
+    country: Optional[str] = Field(None, max_length=2, description="ISO 3166 country whose law governs its records; blank = the organisation's")
 
 
 class EntityPatch(BaseModel):
@@ -243,6 +244,8 @@ class EntityPatch(BaseModel):
     set_functional_currency: bool = False  # apply functional_currency (True with null = inherit from the parent)
     lei: Optional[str] = Field(None, max_length=20)
     set_lei: bool = False                  # apply lei (True with null = remove it)
+    country: Optional[str] = Field(None, max_length=2)
+    set_country: bool = False              # apply country (True with null = the organisation's)
 
 
 @router.post("/filings/entities", status_code=201, summary="Add a reporting entity to the hierarchy")
@@ -255,7 +258,7 @@ def create_entity(body: EntityCreate, session: DbSession, ctx: dict = Depends(re
                             consolidation_basis=body.consolidation_basis,
                             requires_solo_filing=body.requires_solo_filing,
                             solo_waiver_reason=body.solo_waiver_reason, functional_currency=body.functional_currency,
-                            lei=body.lei)
+                            lei=body.lei, country=body.country)
     except E.EntityError as ex:
         raise HTTPException(409, {"error": "entity_error", "message": str(ex)})
     write_audit(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"], action="entity.create",
@@ -277,6 +280,7 @@ def update_entity(entity_id: str, body: EntityPatch, session: DbSession, ctx: di
     if body.set_solo_waiver_reason: kwargs["solo_waiver_reason"] = body.solo_waiver_reason
     if body.set_functional_currency: kwargs["functional_currency"] = body.functional_currency
     if body.set_lei: kwargs["lei"] = body.lei
+    if body.set_country: kwargs["country"] = body.country
     try:
         e = E.update_entity(session, ctx["org"]["org_id"], entity_id, **kwargs)
     except E.EntityError as ex:
@@ -346,6 +350,12 @@ def set_basis(body: BasisPatch, session: DbSession, ctx: dict = Depends(require_
         raise HTTPException(422, {"error": "no_changes", "message": "Nothing to change."})
     return submit_or_apply_config(session, org_id=ctx["org"]["org_id"], actor_user_id=ctx["user"]["id"],
                                   request_type="config.reporting_settings", updates=changes)
+
+
+@router.get("/filings/retention", summary="Every filing with how long it must be kept (the archive view)")
+def retention_register(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.record_retention import register
+    return {"filings": register(session, ctx["org"]["org_id"])}
 
 
 @router.get("/filings/preflight", summary="Confirm-data step: coverage, headline & gaps before freezing a filing")
@@ -435,6 +445,43 @@ def lineage(filing_id: str, hazard: str, session: DbSession,
 def lineage_cell(h3_cell: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.filing_lineage import cell_upstream
     return cell_upstream(session, ctx["org"]["org_id"], h3_cell)
+
+
+@router.get("/filings/{filing_id}/retention", summary="How long this filing must be kept, and under which law")
+def retention(filing_id: str, session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.record_retention import RetentionError, retention_for
+    try:
+        return retention_for(session, ctx["org"]["org_id"], filing_id)
+    except RetentionError as e:
+        raise HTTPException(404, {"error": "not_found", "message": str(e)})
+
+
+class HoldBody(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/filings/{filing_id}/legal-hold", summary="Put a filing on legal hold (it cannot be archived)")
+def legal_hold(filing_id: str, body: HoldBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance.record_retention import RetentionError, set_hold
+    try:
+        out = set_hold(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
+    except RetentionError as e:
+        raise HTTPException(409, {"error": "legal_hold", "message": str(e)})
+    _audit(session, ctx, "filing.legal_hold.set", filing_id, {"reason": body.reason})
+    session.commit()
+    return out
+
+
+@router.post("/filings/{filing_id}/legal-hold/lift", summary="Ask a second person to lift a legal hold")
+def legal_hold_lift(filing_id: str, body: HoldBody, session: DbSession, ctx: dict = Depends(require_permission("approvals.create"))):
+    from services.governance.record_retention import RetentionError, request_lift
+    try:
+        out = request_lift(session, ctx["org"]["org_id"], filing_id, ctx["user"]["id"], body.reason)
+    except RetentionError as e:
+        raise HTTPException(409, {"error": "legal_hold", "message": str(e)})
+    _audit(session, ctx, "approval.create", out["approval_request_id"], {"request_type": "filing.legal_hold_lift"})
+    session.commit()
+    return out
 
 
 @router.get("/filings/{filing_id}/data-revisions", summary="New data since this filing was frozen (it may need restating)")

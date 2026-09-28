@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock, Telescope, GitBranch, BellRing } from 'lucide-react'
+import { ShieldCheck, ExternalLink, CalendarClock, Database, Plug, CheckCircle2, ArrowRight, Radar, ChevronDown, ChevronRight, ListChecks, Clock, Telescope, GitBranch, BellRing, Rss } from 'lucide-react'
 import { api } from '../lib/api'
 import { Card, PageHeader, HeroBanner } from '../components/ui'
 import { ChangeImpact } from '../components/GrcFollowups'
@@ -21,6 +21,8 @@ interface RelAct { celex: string; title: string; since: string | null; relation?
 interface Act { celex: string; title: string; role: string; in_force: boolean; in_force_since: string | null; next_effective: string | null; future: string[]; url: string; live: boolean; ends: string | null; replaced_by: RelAct[]; amendments: RelAct[] }
 interface FwVersion { framework: string; name: string; authority: string; current_since: string | null; amended_by: number; upcoming_effective: string | null; acts: Act[]; checked_at: string | null }
 interface Versions { frameworks: FwVersion[]; checked_at: string | null; summary: { n: number; n_upcoming: number } }
+interface Signal { signal_id: string; source: string; jurisdiction: string; url: string; title: string; summary: string | null; published_at: string | null; topics: string[]; status: string; confirmed_title: string | null }
+interface Signals { signals: Signal[]; jurisdictions: string[]; note: string }
 interface RegAlert { alert_key: string; kind: string; title: string; effective_date: string | null; task_id: string | null; raised_at: string }
 
 const needsIntegration = (p: string) => /integration|credential|traces|api|connect/i.test(p)
@@ -108,10 +110,11 @@ function ComingCard({ c }: { c: Coming }) {
 }
 
 export default function RegChanges() {
-  const [tab, setTab] = useState<'outlook' | 'versions'>('outlook')
+  const [tab, setTab] = useState<'outlook' | 'versions' | 'signals'>('outlook')
   const aq = useQuery({ queryKey: ['reg-alerts'], queryFn: () => api.get<{ alerts: RegAlert[] }>('/v1/reg-changes/alerts') })
   const q = useQuery({ queryKey: ['reg-outlook'], queryFn: () => api.get<Outlook>('/v1/reg-changes/outlook') })
   const vq = useQuery({ queryKey: ['reg-versions'], enabled: tab === 'versions', queryFn: () => api.get<Versions>('/v1/reg-changes/versions') })
+  const sq = useQuery({ queryKey: ['reg-signals'], enabled: tab === 'signals', queryFn: () => api.get<Signals>('/v1/reg-changes/signals') })
   const d = q.data
 
   return (
@@ -132,7 +135,7 @@ export default function RegChanges() {
       )}
 
       <div className="flex gap-1 p-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg-2)] w-fit">
-        {([['outlook', 'Outlook', Telescope], ['versions', 'Version register', GitBranch]] as const).map(([k, l, Icon]) => (
+        {([['outlook', 'Outlook', Telescope], ['versions', 'Version register', GitBranch], ['signals', 'Early signals', Rss]] as const).map(([k, l, Icon]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12.5px] transition ${tab === k ? 'bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_0_0_1px_var(--color-line)]' : 'text-[var(--color-mute)] hover:text-[var(--color-ink)]'}`}>
             <Icon size={14} /> {l}
@@ -141,6 +144,7 @@ export default function RegChanges() {
       </div>
 
       {tab === 'versions' && <VersionRegister data={vq.data} loading={vq.isLoading} />}
+      {tab === 'signals' && <EarlySignals data={sq.data} loading={sq.isLoading} />}
 
       {tab === 'outlook' && <ChangeImpact />}
       {tab === 'outlook' && (q.isLoading ? <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
@@ -250,5 +254,35 @@ function VersionRegister({ data, loading }: { data?: Versions; loading: boolean 
       </div>
       {data.checked_at && <div className="mono text-[10px] text-[var(--color-faint)] mt-3 flex items-start gap-1.5"><Radar size={11} className="mt-0.5 shrink-0 text-[var(--color-good)]" /> Version dates are read live from the official EU register (EUR-Lex / Cellar) — last checked <b className="text-[var(--color-mute)]">{data.checked_at}</b>.</div>}
     </>
+  )
+}
+
+// CRCS early warning — what regulators' own feeds and the press say before the register records a change. Unconfirmed:
+// never a date, a deadline or a filing change.
+function EarlySignals({ data, loading }: { data?: Signals; loading: boolean }) {
+  if (loading) return <Card className="p-10 text-center text-[var(--color-faint)] text-sm">loading…</Card>
+  if (!data) return <div className="text-[12.5px] text-[var(--color-bad)]">Could not load the early signals.</div>
+  return (
+    <div className="space-y-3">
+      <Card className="p-3.5 text-[12.5px] text-[var(--color-mute)] leading-relaxed">
+        <b className="text-[var(--color-ink)]">Unconfirmed until the official register records it.</b> Items from the EBA, ESMA, UK FCA and US SEC
+        news feeds and the press that concern the regulations you file (jurisdictions: {data.jurisdictions.join(', ')}). They never move a date,
+        a deadline or a filing; one the EU register later records is marked confirmed.
+      </Card>
+      {data.signals.length === 0
+        ? <Card className="p-6 text-[13px] text-[var(--color-mute)]">No early signals for your regulations at the moment.</Card>
+        : data.signals.map(sg => (
+          <Card key={sg.signal_id} className="p-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <a href={sg.url} target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-[var(--color-ink)] hover:text-[var(--color-sky)] inline-flex items-center gap-1 min-w-0">{sg.title} <ExternalLink size={11} className="text-[var(--color-faint)] shrink-0" /></a>
+              <span className="mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+                style={sg.status === 'register_confirmed' ? { color: 'var(--color-good)', background: 'color-mix(in oklab, var(--color-good) 14%, transparent)' } : { color: 'var(--color-warn)', background: 'color-mix(in oklab, var(--color-warn) 14%, transparent)' }}>
+                {sg.status === 'register_confirmed' ? 'confirmed by the register' : 'unconfirmed'}</span>
+            </div>
+            <div className="mono text-[10.5px] text-[var(--color-faint)] mt-1">{sg.source} · {sg.jurisdiction} · {sg.published_at ? sg.published_at.slice(0, 10) : 'date not given'} · {sg.topics.join(', ')}</div>
+            {sg.summary && <p className="text-[12.5px] text-[var(--color-mute)] mt-1.5 leading-snug">{sg.summary.slice(0, 280)}{sg.summary.length > 280 ? '…' : ''}</p>}
+            {sg.confirmed_title && <div className="text-[11.5px] mt-1" style={{ color: 'var(--color-good)' }}>Register: {sg.confirmed_title}</div>}
+          </Card>))}
+    </div>
   )
 }

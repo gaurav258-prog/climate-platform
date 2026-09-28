@@ -44,6 +44,25 @@ def versions(session: DbSession, ctx: dict = Depends(require_permission("reports
     return _versions(session, ctx["org"].get("type"))
 
 
+@router.get("/signals", summary="CRCS early signals — regulators' feeds and the press, unconfirmed until the register records a change")
+def signals(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
+    from services.governance.filings import FRAMEWORKS
+    from services.regulatory_monitoring.early_signals import for_org
+    org_type = ctx["org"]["type"]
+    fws = [fw for fw, m in FRAMEWORKS.items() if org_type in (m.get("sectors") or ())]
+    if org_type == "manufacturer":
+        fws.append("eudr_dds")
+    return for_org(session, ctx["org"]["org_id"], fws)
+
+
+@router.post("/signals/{signal_id}/dismiss", summary="Dismiss an early signal as irrelevant (platform operator — signals are shared)")
+def dismiss_signal(signal_id: str, session: DbSession, ctx: dict = Depends(require_permission("platform.admin"))):
+    from services.regulatory_monitoring.early_signals import dismiss
+    dismiss(session, signal_id)
+    session.commit()
+    return {"dismissed": signal_id}
+
+
 @router.get("/alerts", summary="Proactive regulatory alerts raised for this org (detected changes / approaching deadlines)")
 def alerts(session: DbSession, ctx: dict = Depends(require_permission("reports.view"))):
     from services.governance.reg_alerts import list_alerts

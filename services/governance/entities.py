@@ -21,7 +21,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
     rows = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind,
                e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei, e.country,
                e.requires_solo_filing, e.solo_waiver_reason,
                (SELECT count(*) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS n_assets,
                (SELECT COALESCE(sum(pe.primary_value_eur), 0) FROM portfolio_entities pe WHERE pe.reporting_entity_id = e.entity_id) AS value_eur,
@@ -35,7 +35,7 @@ def entity_tree(session: Session, org_id: str) -> list[dict]:
 def get_entity(session: Session, org_id: str, entity_id: str) -> dict | None:
     r = session.execute(text("""
         SELECT e.entity_id::text AS entity_id, e.name, e.kind, e.parent_entity_id::text AS parent_entity_id,
-               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei,
+               e.ownership_pct::float AS ownership_pct, e.consolidation_method, e.consolidation_basis, e.functional_currency, e.lei, e.country,
                e.requires_solo_filing, e.solo_waiver_reason,
                EXISTS(SELECT 1 FROM reporting_entities c WHERE c.parent_entity_id = e.entity_id) AS has_children
         FROM reporting_entities e WHERE e.org_id = :o AND e.entity_id = :e
@@ -152,7 +152,7 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
                   parent_entity_id: str | None = None, ownership_pct: float = 100.0,
                   consolidation_method: str = "full", requires_solo_filing: bool | None = None,
                   solo_waiver_reason: str | None = None, consolidation_basis: str | None = None,
-                  functional_currency: str | None = None, lei: str | None = None) -> dict:
+                  functional_currency: str | None = None, lei: str | None = None, country: str | None = None) -> dict:
     """requires_solo_filing defaults to True — the CRR-safe assumption (Art 6) that an entity's own
     individual-reporting duty applies unless a customer explicitly records why it's waived (Art 7:
     parent guarantee, prudent-management sign-off, no impediment to fund transfer). Never default this to
@@ -188,10 +188,10 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
     eid = session.execute(text("""
         INSERT INTO reporting_entities (entity_id, org_id, name, kind, parent_entity_id, ownership_pct,
                                         consolidation_method, consolidation_basis, requires_solo_filing,
-                                        solo_waiver_reason, functional_currency, lei)
-        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :basis, :rsf, :swr, :fc, :lei) RETURNING entity_id
+                                        solo_waiver_reason, functional_currency, lei, country)
+        VALUES (gen_random_uuid(), :o, :n, :k, :p, :pct, :m, :basis, :rsf, :swr, :fc, :lei, :cc) RETURNING entity_id
     """), {"o": org_id, "n": name.strip(), "k": kind.strip(), "p": parent_entity_id, "fc": _currency(session, functional_currency),
-           "lei": _lei(session, org_id, lei),
+           "lei": _lei(session, org_id, lei), "cc": _country(country),
            "pct": ownership_pct, "m": consolidation_method,
            "basis": (consolidation_basis or "").strip() or None,
            "rsf": requires_solo_filing, "swr": (solo_waiver_reason or "").strip() or None}).scalar()
@@ -201,7 +201,7 @@ def create_entity(session: Session, org_id: str, *, name: str, kind: str = "lega
 def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, kind=None,
                   parent_entity_id=_UNSET, ownership_pct=None, consolidation_method=None,
                   consolidation_basis=_UNSET, requires_solo_filing=None, solo_waiver_reason=_UNSET,
-                  functional_currency=_UNSET, lei=_UNSET) -> dict:
+                  functional_currency=_UNSET, lei=_UNSET, country=_UNSET) -> dict:
     current = get_entity(session, org_id, entity_id)
     if not current:
         raise EntityError("entity not found")
@@ -230,6 +230,8 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
         sets.append("functional_currency = :fc"); params["fc"] = _currency(session, functional_currency)
     if lei is not _UNSET:                   # None / "" = no LEI of its own
         sets.append("lei = :lei"); params["lei"] = _lei(session, org_id, lei, entity_id)
+    if country is not _UNSET:               # None / "" = the organisation's country
+        sets.append("country = :cc"); params["cc"] = _country(country)
     if parent_entity_id is not _UNSET:
         if parent_entity_id == entity_id:
             raise EntityError("an entity can't be its own parent")
@@ -243,6 +245,17 @@ def update_entity(session: Session, org_id: str, entity_id: str, *, name=None, k
     if sets:
         session.execute(text(f"UPDATE reporting_entities SET {', '.join(sets)} WHERE org_id=:o AND entity_id=:e"), params)
     return get_entity(session, org_id, entity_id)
+
+
+def _country(code) -> Optional[str]:
+    """The country whose law governs the entity's own records (ISO 3166 alpha-2); blank = the organisation's."""
+    from services.reference.iso_country import is_valid_country
+    c = (code or "").strip().upper()
+    if not c:
+        return None
+    if not is_valid_country(c):
+        raise EntityError(f"'{code}' is not an ISO 3166 country code (e.g. DE, FR)")
+    return c
 
 
 def lei_valid(lei: str) -> bool:

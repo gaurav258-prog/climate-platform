@@ -111,6 +111,11 @@ celery_app.conf.beat_schedule = {
         "task": "reg.scan_eurlex",
         "schedule": crontab(hour=5, minute=15),   # once a day, early
     },
+    # CRCS early warning: the regulators' own feeds and the press — unconfirmed signals, after the register scan.
+    "reg-signals-sweep-daily": {
+        "task": "reg.signals_sweep",
+        "schedule": crontab(hour=5, minute=30),
+    },
     # After the scan, raise proactive alerts (task + email + webhook) for detected changes / approaching deadlines.
     "reg-alert-sweep-daily": {
         "task": "reg.alert_sweep",

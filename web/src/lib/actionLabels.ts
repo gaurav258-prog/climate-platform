@@ -28,6 +28,8 @@ const LABELS: Record<string, string> = {
   'task.complete': 'Complete task (4-eyes)',
   'intake.batch': 'Import customer data (4-eyes)',
   'intake.conflict': 'Use Tellumen’s value for an asset fact (4-eyes)',
+  'filing.legal_hold_lift': 'Lift a legal hold on a filed report (4-eyes)',
+  'filing.legal_hold.set': 'Put a filed report on legal hold',
   'intake.conflict.client': 'Kept the client’s value for an asset fact',
   'intake.conflict.explained': 'Explained a difference in an asset fact',
 
