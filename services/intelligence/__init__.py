@@ -1,4 +1,1 @@
-"""Competitive Intelligence & Benchmarking"""
-from .benchmarking import CompetitiveBenchmarking
-
-__all__ = ['CompetitiveBenchmarking']
+"""Climate intelligence: supply chain, hazards, disclosures and the engines behind them."""

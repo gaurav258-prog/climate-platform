@@ -190,6 +190,12 @@ class ClimateHazardExposure(Base):
 # REGULATORY FRAMEWORKS & VERSIONING
 # ============================================================================
 
+# ── Legacy CRCS schema (retired 2026-09-28, migration crcs_legacy_retire_20260928) ──────────────────────────────
+# RegulatoryFramework, RegulationVersion, OrgRegulationVersionPreference, RegulatoryChange, RegulatoryDocumentSnapshot,
+# RegulatoryChangeDetail, RegulatoryFiling, FilingAmendment, RegulatoryAlert, DashboardNotification and
+# OrgCrcsSubscription describe tables of a first CRCS design that no code path used; the tables are dropped at head.
+# The classes remain only so the historic bank-vertical migration (d9e3f4a5b6c7) replays unchanged. The live CRCS:
+# services/regulatory_monitoring/eurlex_detector.py and services/governance/reg_*.py.
 class RegulatoryFramework(Base):
     __tablename__ = 'regulatory_frameworks'
 
