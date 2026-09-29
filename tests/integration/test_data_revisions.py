@@ -25,7 +25,8 @@ def s(session_rolled_back):
 
 
 def _filing(s) -> str:
-    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd'"),
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_tcfd' "
+              "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
     token = F.preflight(s, BANK_ORG, "bank", "bank_tcfd")["confirm_token"]
     user = s.execute(text("SELECT user_id::text FROM users WHERE email = 'admin@meridian.demo'")).scalar()

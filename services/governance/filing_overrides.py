@@ -35,6 +35,8 @@ def propose(session: Session, org_id: str, filing_id: str, actor: str, *, datapo
     framework, dps = _filing_form(session, org_id, filing_id)
     if framework is None:
         raise OverrideError("filing not found")
+    if session.execute(text("SELECT status FROM regulatory_filing WHERE filing_id = :f"), {"f": filing_id}).scalar() == "withdrawn":
+        raise OverrideError("this filing was withdrawn — it can no longer be changed")
     dp = dps.get(datapoint_key)
     if not dp:
         raise OverrideError("unknown datapoint")

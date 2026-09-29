@@ -22,7 +22,7 @@ def exceptions(session: Session, org_id: str) -> dict:
     filings = session.execute(text("""
         SELECT filing_id::text AS filing_id, framework, period_label, status
         FROM regulatory_filing
-        WHERE org_id = :o AND status <> 'superseded' AND snapshot_id IS NOT NULL
+        WHERE org_id = :o AND status NOT IN ('superseded', 'withdrawn') AND snapshot_id IS NOT NULL
         ORDER BY created_at DESC
     """), {"o": org_id}).mappings().all()
 

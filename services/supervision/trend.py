@@ -134,7 +134,7 @@ def timeliness(session, regulator_org_id: str, entities: list[dict], cfg: dict) 
     due_by = {(o["org_id"], o["framework"], o["period_label"]): o for o in obligations}
     filings = session.execute(text("""
         SELECT DISTINCT ON (org_id, framework, period_label) org_id::text AS org_id, framework, period_label, period_end, status, updated_at, created_at
-        FROM regulatory_filing WHERE org_id = ANY(CAST(:ids AS uuid[]))
+        FROM regulatory_filing WHERE org_id = ANY(CAST(:ids AS uuid[])) AND status <> 'withdrawn'   -- a discarded draft was never filed
         ORDER BY org_id, framework, period_label, (status = ANY(CAST(:filed AS text[]))) DESC, updated_at DESC
     """), {"ids": ids, "filed": list(FILED)}).mappings().all()
     filing_by = {(f["org_id"], f["framework"], f["period_label"]): f for f in filings}

@@ -37,7 +37,7 @@ def _evidence(session, org_id: str, org_type: Optional[str]) -> dict:
     from services.governance.readiness import org_readiness
     from services.mlops.model_governance import PUBLISH_GATE_R2, registry
     filings = session.execute(text("""SELECT filing_id::text AS filing_id, framework, period_label, period_end, status, approval_request_id::text AS approval_request_id
-                                      FROM regulatory_filing WHERE org_id = CAST(:o AS uuid) AND status <> 'superseded' ORDER BY created_at DESC"""), {"o": org_id}).mappings().all()
+                                      FROM regulatory_filing WHERE org_id = CAST(:o AS uuid) AND status NOT IN ('superseded', 'withdrawn') ORDER BY created_at DESC"""), {"o": org_id}).mappings().all()
     findings: dict[str, list[dict]] = {}          # rule → [{filing, framework, period, passed, message, severity}]
     for f in filings:
         try:

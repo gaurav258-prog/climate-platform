@@ -61,7 +61,8 @@ def test_pillar3_from_the_loan_tape_to_the_export(api):
     assert rows_["table2.d_i"] == "Community engagement policy."
 
     # 3 · pre-flight and generate: the draft freezes the governing specification
-    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg'"),
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg' "
+              "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
     pf = api.get("/v1/filings/preflight?framework=bank_p3esg", headers=maker).json()
     g = api.post("/v1/filings", headers=maker, json={"framework": "bank_p3esg", "confirm_token": pf["confirm_token"]})

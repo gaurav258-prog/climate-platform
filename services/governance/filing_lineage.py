@@ -203,7 +203,7 @@ def cell_upstream(session: Session, org_id: str, h3_cell: str) -> dict:
         if fw:
             f = session.execute(text("""
                 SELECT filing_id::text AS filing_id, status FROM regulatory_filing
-                WHERE org_id = :o AND framework = :fk AND status <> 'superseded'
+                WHERE org_id = :o AND framework = :fk AND status NOT IN ('superseded', 'withdrawn')
                 ORDER BY created_at DESC LIMIT 1
             """), {"o": org_id, "fk": fw}).mappings().first()
             g["filing"] = {"filing_id": f["filing_id"], "status": f["status"]} if f else None

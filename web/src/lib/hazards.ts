@@ -73,7 +73,7 @@ export const horizonLabel = (h?: string | null): string => !h ? '—' : h === 'c
 // Filing / task status codes → words.
 export const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft', in_review: 'In review', returned: 'Returned', approved: 'Approved', attested: 'Attested', submitted: 'Submitted',
-  accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded', released: 'Released', no_submission: 'Not submitted',
+  accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded', withdrawn: 'Withdrawn', released: 'Released', no_submission: 'Not submitted',
   in_progress: 'In progress', none: 'Not filed', filed: 'Filed', pending: 'Awaiting approval', active: 'Active', expired: 'Expired',
   terminated: 'Terminated', computing: 'Computing', done: 'Done', failed: 'Failed', not_assessed: 'Not assessed',
 }

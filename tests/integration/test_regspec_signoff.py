@@ -67,7 +67,8 @@ def test_signoffs_are_append_only(s):
 def test_a_pillar3_filing_freezes_its_spec_and_the_run_checks_the_signoff(session_rolled_back):
     s = session_rolled_back                          # the real specs
     from services.governance import filings as F
-    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg'"),
+    s.execute(text("UPDATE regulatory_filing SET status = 'superseded' WHERE org_id = CAST(:o AS uuid) AND framework = 'bank_p3esg' "
+              "AND status NOT IN ('superseded', 'withdrawn')"),
               {"o": BANK_ORG})
     token = F.preflight(s, BANK_ORG, "bank", "bank_p3esg")["confirm_token"]
     fid = F.generate_filing(s, BANK_ORG, "bank", "bank_p3esg", _uid(s, "admin@meridian.demo"), confirm_token=token)["filing_id"]

@@ -24,7 +24,7 @@ interface Req {
   entity_scoped: boolean; n_filings: number; last_filed: Filing | null; filings: Filing[]; coverage?: Coverage | null
 }
 
-const ST: Record<string, string> = { draft: '#94a3b8', in_review: '#e8b24c', returned: '#e8b24c', approved: '#5cc8ff', attested: '#a78bfa', submitted: '#2dd4bf', accepted: '#34d399', rejected: '#fb7185', superseded: '#64748b' }
+const ST: Record<string, string> = { draft: '#94a3b8', in_review: '#e8b24c', returned: '#e8b24c', approved: '#5cc8ff', attested: '#a78bfa', submitted: '#2dd4bf', accepted: '#34d399', rejected: '#fb7185', superseded: '#64748b', withdrawn: '#64748b' }
 // how a filing section is sourced — the honest coverage vocabulary
 const SRC: Record<string, { label: string; color: string }> = {
   computed:     { label: 'Produced from your data', color: 'var(--color-good)' },

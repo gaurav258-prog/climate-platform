@@ -97,7 +97,7 @@ def flagged_filings(session: Session, org_id: str) -> list[dict]:
                er.created_at, (er.inputs->>'last_observation_id')::bigint AS since
         FROM regulatory_filing rf JOIN report_snapshots rs ON rs.snapshot_id = rf.snapshot_id
         JOIN engine_runs er ON er.run_id = rs.run_id
-        WHERE rf.org_id = CAST(:o AS uuid) AND rf.status <> 'superseded'
+        WHERE rf.org_id = CAST(:o AS uuid) AND rf.status NOT IN ('superseded', 'withdrawn')
     """), {"o": org_id}).mappings().all()
     out = []
     for r in runs:
