@@ -45,6 +45,10 @@ def facts_for(r: dict) -> dict:
         out["counterparty_subsector"] = ("investment_firm", "management_company", "insurance_undertaking")[int(_u(eid, "sub") * 3)]
     if cp == "non_financial_corporation":
         out["nfrd_subject"] = gross >= 20_000_000 or _u(eid, "nfrd") < 0.3
+    if cp in ("non_financial_corporation", "credit_institution", "other_financial_corporation"):
+        # CSRD scope for financial years starting in 2024-2025 (the first wave, Directive (EU) 2022/2464 Art. 5(2)(a)):
+        # the large public-interest entities the NFRD already covered — so, in this demo, the same undertakings
+        out["csrd_subject"] = out.get("nfrd_subject", cp != "non_financial_corporation" and gross >= 20_000_000)
     u = _u(eid, "instr")
     out["instrument_type"] = ("loans_and_advances" if u < 0.86 or cp == "household" else
                               "debt_securities" if u < 0.95 else "equity_instruments")

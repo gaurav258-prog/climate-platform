@@ -57,6 +57,17 @@ def validate(doc: dict) -> list[str]:
         errs.append(f"applies.basis must be one of {BASES}")
     if doc["status"] == "adopted" and not (doc["act"] or {}).get("celex"):
         errs.append("an adopted act needs its CELEX number")
+    opt = doc.get("transitional_option")
+    if opt is not None:
+        need = ("ref", "quote", "switch", "elected_value", "financial_year_starts", "then_governed_by")
+        if any(not opt.get(k) for k in need):
+            errs.append(f"transitional_option needs {need}")
+        elif any(_iso((opt["financial_year_starts"] or {}).get(k)) in (None, "invalid") for k in ("from", "until")):
+            errs.append("transitional_option.financial_year_starts needs from and until dates")
+    for ph in doc.get("phase_in") or []:
+        if not (ph.get("ref") and ph.get("quote") and ph.get("eligibility_only")) or any(
+                _iso((ph.get("disclosures") or {}).get(k)) in (None, "invalid") for k in ("from", "until")):
+            errs.append("each phase_in needs ref, quote, eligibility_only and disclosures from / until dates")
     ids = [t.get("id") for t in doc["templates"]]
     if len(ids) != len(set(ids)) or not all(ids):
         errs.append("template ids must be present and unique")
@@ -121,9 +132,15 @@ def frameworks() -> list[str]:
     return sorted(p.name for p in ROOT.iterdir() if p.is_dir()) if ROOT.is_dir() else []
 
 
-def governing(framework: str, *, period_end: date | str, disclosure_date: date | str | None = None) -> dict | None:
+def governing(framework: str, *, period_end: date | str, disclosure_date: date | str | None = None,
+              elections: dict | None = None, financial_year_start: date | str | None = None) -> dict | None:
     """The adopted spec that governs a filing. Each spec says which date decides (applies.basis): the reference date
-    of the figures, or the date the disclosure is made (defaults to today). Drafts never govern."""
+    of the figures, or the date the disclosure is made (defaults to today). Drafts never govern.
+
+    A spec may let an undertaking keep the previous rules for some financial years (its transitional_option, e.g.
+    Art. 4 of Delegated Regulation 2026/73 for the year starting in 2025): when the organisation has made that election
+    (`elections[switch] == elected_value`, a governed methodology switch) and the filing's financial year starts in the
+    window, the version the option names governs instead."""
     pe = _iso(period_end)
     dd = _iso(disclosure_date) or date.today().isoformat()
     for s in reversed(versions(framework)):
@@ -131,8 +148,21 @@ def governing(framework: str, *, period_end: date | str, disclosure_date: date |
             continue
         on = dd if s["applies"]["basis"] == "disclosure_date" else pe
         if s["applies"]["from"] <= on and (not s["applies"].get("until") or on <= s["applies"]["until"]):
+            opt = s.get("transitional_option")
+            fy = _iso(financial_year_start)
+            if (opt and fy and (elections or {}).get(opt["switch"]) == opt["elected_value"]
+                    and opt["financial_year_starts"]["from"] <= fy <= opt["financial_year_starts"]["until"]):
+                return load(framework, opt["then_governed_by"])
             return s
     return None
+
+
+_USAGE = Path(__file__).resolve().parents[2] / "data" / "reference" / "regspec_usage.json"
+
+
+def families_for(report_type: str) -> list[str]:
+    """The specification families that govern a report type (data/reference/regspec_usage.json)."""
+    return list(json.loads(_USAGE.read_text())["report_types"].get(report_type, []))
 
 
 def template(spec: dict, template_id: str) -> dict:

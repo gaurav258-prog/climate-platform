@@ -1,0 +1,9 @@
+{
+ "note": "Which template-specification families govern each report type (services.regspec.families_for). A filing freezes the governing version of every family listed for its report type. A report type absent here has no specification on the route yet.",
+ "report_types": {
+  "bank_p3esg": ["bank_p3esg"],
+  "sfdr_pai": ["sfdr_pai"],
+  "bank_tcfd": ["bank_taxonomy"],
+  "reit_taxonomy": ["nonfin_taxonomy"]
+ }
+}

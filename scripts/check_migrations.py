@@ -7,6 +7,7 @@ Checks:
   1. Exactly ONE head (no divergent branches left un-merged).
   2. Every `down_revision` points at a revision that actually exists (no dangling links).
   3. No duplicate revision ids.
+  4. Every revision id fits alembic_version.version_num (32 characters).
 
 Usage:  python -m scripts.check_migrations      (exit 0 = ok, non-zero = fail)
 """
@@ -43,6 +44,8 @@ def main() -> int:
         downs[rid] = _idents(dm.group(1)) if dm else []
 
     errors: list[str] = []
+    # alembic_version.version_num is VARCHAR(32): a longer id migrates nothing and fails only at run time
+    errors += [f"{revs[r]}: revision id '{r}' is {len(r)} characters; the limit is 32" for r in revs if len(r) > 32]
     if dupes:
         errors.append(f"duplicate revision id(s): {sorted(set(dupes))}")
 

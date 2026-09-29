@@ -52,6 +52,18 @@ INTERPRETATION_SCHEMA: dict = {
         "description": "Target underwriting profit margin loaded onto the premium. Insurer-specific.",
         "sectors": ["insurer"],
     },
+    # EU Taxonomy Art. 8: the undertaking's own election under Art. 4 of Delegated Regulation (EU) 2026/73. The switch
+    # name and value are the ones the specification's transitional_option declares; regspec.governing() applies it.
+    "taxonomy_2026_73_article_4": {
+        "frameworks": ["bank_tcfd", "reit_taxonomy"],
+        "default": "amended_rules", "kind": "enum", "allowed": ["amended_rules", "pre_amendment_rules"],
+        "label": "EU Taxonomy — financial year starting in 2025",
+        "description": "Delegated Regulation (EU) 2026/73, Art. 4: undertakings may apply the Taxonomy delegated "
+                       "regulations as applicable on 31 December 2025 for the financial year that starts in 2025. "
+                       "'amended_rules' = the 2026/73 templates; 'pre_amendment_rules' = the templates as amended by "
+                       "2023/2486. Other financial years are unaffected.",
+        "sectors": ["bank", "reit"],
+    },
     "climate_var_dependence": {
         "frameworks": ["assetmgmt_tcfd", "sfdr_pai"],
         "default": "independent", "kind": "enum", "allowed": ["independent", "additive", "max"],

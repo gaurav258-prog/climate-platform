@@ -1,0 +1,12 @@
+{
+ "source": "Regulation (EU) 2020/852 (Taxonomy Regulation), Article 9; names and abbreviations as printed in the column headers of Annex VI to Delegated Regulation (EU) 2021/2178 as replaced by Delegated Regulation (EU) 2023/2486 (data/reference/regspec/bank_taxonomy/da_2021_2178_as_amended_2023_2486.json)",
+ "note": "The fact taxonomy_objective on an exposure takes one of these codes. The order is the Article 9 order, which is also the order of the template column blocks.",
+ "objectives": [
+  {"code": "ccm", "article_9": "(a)", "name": "climate change mitigation", "printed": "Climate Change Mitigation (CCM)"},
+  {"code": "cca", "article_9": "(b)", "name": "climate change adaptation", "printed": "Climate Change Adaptation (CCA)"},
+  {"code": "wtr", "article_9": "(c)", "name": "the sustainable use and protection of water and marine resources", "printed": "Water and marine resources (WTR)"},
+  {"code": "ce", "article_9": "(d)", "name": "the transition to a circular economy", "printed": "Circular economy (CE)"},
+  {"code": "ppc", "article_9": "(e)", "name": "pollution prevention and control", "printed": "Pollution (PPC)"},
+  {"code": "bio", "article_9": "(f)", "name": "the protection and restoration of biodiversity and ecosystems", "printed": "Biodiversity and Ecosystems (BIO)"}
+ ]
+}

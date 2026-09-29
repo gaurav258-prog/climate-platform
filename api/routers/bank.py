@@ -65,13 +65,27 @@ EXT_BANKING_COLUMNS = [
     "x.instrument_type", "x.counterparty_subsector", "x.nfrd_subject", "x.loan_purpose", "x.trading_book",
     "x.taxonomy_objective", "x.taxonomy_contribution", "x.specialised_lending",
     "CAST(x.ep_score_kwh_m2 AS FLOAT) AS ep_score_kwh_m2", "x.ep_score_estimated",
+    # EU Taxonomy Art. 8 (Annex V/VI of Del. Reg. 2021/2178): CSRD scope of the counterparty (2026/73 templates), the
+    # counterparty in the issuer reference, and its own KPIs — the latest year stated, per basis:objective — frozen
+    # with the filing (services.governance.taxonomy_gar values general-purpose exposures by them)
+    "x.csrd_subject", "x.counterparty_issuer_id::text AS counterparty_issuer_id",
+    """(SELECT jsonb_object_agg(k.basis || ':' || k.objective, jsonb_build_object(
+            'eligible', k.eligible_pct, 'aligned', k.aligned_pct, 'transitional', k.transitional_pct,
+            'enabling', k.enabling_pct, 'year', k.reporting_year))
+        FROM issuer_taxonomy_kpi k
+        WHERE k.issuer_id = x.counterparty_issuer_id AND k.org_id = e.org_id
+          AND k.reporting_year = (SELECT max(k2.reporting_year) FROM issuer_taxonomy_kpi k2
+                                  WHERE k2.issuer_id = x.counterparty_issuer_id AND k2.org_id = e.org_id)
+       ) AS counterparty_taxonomy_kpi""",
 ]
 
 
 _P3_ATTRS = ("counterparty_sector", "immovable_collateral", "accumulated_impairment_eur", "pab_excluded", "ccm_sustainable",
              "emissions_company_reported", "instrument_type", "counterparty_subsector", "nfrd_subject", "loan_purpose",
              "trading_book", "taxonomy_objective", "taxonomy_contribution", "specialised_lending", "ep_score_kwh_m2",
-             "ep_score_estimated")
+             "ep_score_estimated",
+             # EU Taxonomy Art. 8 (services.governance.taxonomy_gar): CSRD scope and the counterparty's own KPIs
+             "csrd_subject", "counterparty_issuer_id", "counterparty_taxonomy_kpi")
 
 
 def _ltv_kwargs(row):

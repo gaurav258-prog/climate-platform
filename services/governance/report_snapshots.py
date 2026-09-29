@@ -180,17 +180,31 @@ def _fx_record(session: Session, org_id: str, translation) -> dict:
     return summary(translation, names)
 
 
-def _spec_record(session: Session, report_type: str, period_end) -> dict | None:
-    """The governing template specification for a filing, or None when the framework has none yet."""
+def _financial_year_start(period_end):
+    """The first day of the twelve-month financial year ending on period_end (a year ending 29 February starts 1 March)."""
+    from datetime import date as _date
+    from datetime import timedelta
+    try:
+        return _date(period_end.year - 1, period_end.month, period_end.day) + timedelta(days=1)
+    except ValueError:                                      # 29 February has no counterpart a year earlier
+        return _date(period_end.year - 1, 3, 1)
+
+
+def _spec_record(session: Session, family: str, period_end, elections: dict | None = None) -> dict | None:
+    """The governing version of one specification family for a filing (with the organisation's elections, e.g. the
+    Art. 4 option of Delegated Regulation 2026/73 — see regspec.governing), or None when the family has no specs yet."""
+    from datetime import date as _date
+
     import services.regspec as R
     from services.regspec.signoff import status as signoff_status
-    if report_type not in R.frameworks():
+    if family not in R.frameworks():
         return None
-    spec = R.governing(report_type, period_end=period_end)
+    pe = _date.fromisoformat(str(period_end)[:10])
+    spec = R.governing(family, period_end=pe, elections=elections, financial_year_start=_financial_year_start(pe))
     if spec is None:
-        return {"version": None, "note": "no adopted specification applies to this period"}
-    st = signoff_status(session, report_type, spec["version"])
-    return {"framework": report_type, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
+        return {"framework": family, "version": None, "note": "no adopted specification applies to this period"}
+    st = signoff_status(session, family, spec["version"])
+    return {"framework": family, "version": spec["version"], "sha256": spec["_sha256"], "celex": spec["act"].get("celex"),
             "act": spec["act"].get("short") or spec["act"]["title"], "basis": spec["applies"]["basis"],
             "approved": st["approved"], "one_person": st["one_person"], "needs": st["needs"]}
 
@@ -257,7 +271,13 @@ def create_snapshot(session: Session, org_id: str, report_type: str, actor_user_
     period_end = s["reporting_period_end"] or _date(_date.today().year - 1, 12, 31)
     # the template specification governing this filing (change route): its version and the file's sha256, and
     # whether that exact file is signed off — frozen, so the form is always rendered to the spec it was prepared under
-    payload["_spec"] = _spec_record(session, report_type, period_end)
+    # every family that governs this report type (regspec_usage.json), with the organisation's elections applied;
+    # _spec keeps the primary family's record for readers of a single specification
+    from services.calc_settings import get_calc_settings
+    from services.regspec import families_for
+    _elections = get_calc_settings(session, org_id)
+    payload["_specs"] = {f: _spec_record(session, f, period_end, _elections) for f in families_for(report_type)}
+    payload["_spec"] = next(iter(payload["_specs"].values()), None)
     on = _date.today() if (payload["_spec"] or {}).get("basis") == "disclosure_date" else None
     payload["_regulation"] = version_for(session, report_type, period_end, on=on)
     basis["regulation_status"] = (payload["_regulation"] or {}).get("status")

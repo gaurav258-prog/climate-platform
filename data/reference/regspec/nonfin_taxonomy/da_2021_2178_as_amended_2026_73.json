@@ -476,5 +476,16 @@
    ]
   },
   "note": "Second pass: new Annex II of 2026/73 prints exactly two templates (Template 1 summary KPIs 3x16; Template 2 activity breakdown 4x14, duplicated per KPI) and explanatory notes; no per-objective proportion tables, no DNSH/minimum-safeguards columns, no nuclear/gas lines (Annex XII deleted by Art 1(20)). Above Template 2 the OJ prints two fill-in caption cells 'Reported KPI (Turnover/CapEx/OpEx)' and 'Financial year (N)' (recorded in column (1) note; z_axis kept null per schema). Content identical in consolidated text 02021R2178-20260101 (only quote-mark style differs). applies.from 2026-01-01 (Art 4); undertakings may apply the rules as applicable on 31.12.2025 for the financial year starting in 2025 (Art 4 third paragraph)."
+ },
+ "transitional_option": {
+  "ref": "Article 4, third paragraph, of Delegated Regulation (EU) 2026/73",
+  "quote": "Undertakings may, however, apply Delegated Regulations (EU) 2021/2178, (EU) 2021/2139 and (EU) 2023/2486 as applicable on 31 December 2025 for the financial year that starts between 1 January and 31 December 2025.",
+  "switch": "taxonomy_2026_73_article_4",
+  "elected_value": "pre_amendment_rules",
+  "financial_year_starts": {
+   "from": "2025-01-01",
+   "until": "2025-12-31"
+  },
+  "then_governed_by": "da_2021_2178_as_amended_2023_2486"
  }
 }

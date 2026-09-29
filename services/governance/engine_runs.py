@@ -199,8 +199,10 @@ def checks(session: Session, report_type: str, payload: dict, manifest: dict, ro
                       if reg["status"] == "superseded" else
                       f"an act that repeals it in whole or in part is in force for this period — {rep}; review which provisions apply")
             out.append(_check("regulation", "Prepared under the version in force", False, detail, "warn"))
-    spec = payload.get("_spec")
-    if spec:
+    # every specification governing the filing (a filing frozen before _specs existed has its one _spec)
+    for spec in ((payload.get("_specs") or {}).values() if payload.get("_specs") else [payload.get("_spec")]):
+        if not spec:
+            continue
         if not spec.get("version"):
             out.append(_check("specification", "Built to a signed-off template specification", False, spec.get("note", ""), "warn"))
         else:

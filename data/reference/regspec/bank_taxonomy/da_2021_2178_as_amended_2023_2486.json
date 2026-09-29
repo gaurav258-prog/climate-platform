@@ -2801,5 +2801,43 @@
     "T7: the second column printed 'ae' is addressed as 'ae_2' (ids must be unique) with printed_id 'ae'"
    ]
   }
- }
+ },
+ "phase_in": [
+  {
+   "ref": "Article 10(7) of Delegated Regulation (EU) 2021/2178, added by Delegated Regulation (EU) 2023/2486",
+   "quote": "From 1 January 2024 until 31 December 2025, financial undertakings shall only disclose:",
+   "disclosures": {
+    "from": "2024-01-01",
+    "until": "2025-12-31"
+   },
+   "eligibility_only": {
+    "objectives": [
+     "wtr",
+     "ce",
+     "ppc",
+     "bio"
+    ],
+    "activities": {
+     "Delegated Regulation (EU) 2021/2139 Annex I": [
+      "3.18",
+      "3.19",
+      "3.20",
+      "3.21",
+      "6.18",
+      "6.19",
+      "6.20"
+     ],
+     "Delegated Regulation (EU) 2021/2139 Annex II": [
+      "5.13",
+      "7.8",
+      "8.4",
+      "9.3",
+      "14.1",
+      "14.2"
+     ]
+    }
+   },
+   "note": "For these disclosures only eligibility is reported for the activities Delegated Regulation 2023/2486 added — every activity of the four new objectives, and the listed sections of the climate Delegated Act."
+  }
+ ]
 }

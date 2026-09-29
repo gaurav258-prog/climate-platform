@@ -1401,7 +1401,48 @@
    "source_form": "html_table"
   }
  ],
- "interpretations": [],
+ "interpretations": [
+  {
+   "subject": "T2 columns e-j",
+   "reading": "Columns e to j (one per environmental objective) break down the Taxonomy-aligned amount of column d by the objective the exposure's aligned activities contribute to.",
+   "basis": "The template prints the objective columns without a spanning header immediately after 'Of which Taxonomy-aligned' (column d); the aligned amount is the one the Regulation assigns to a single objective (an activity is aligned to the objective it substantially contributes to). The eligible amount is not reported by objective anywhere else in this version's Template 2.",
+   "declared_by": "Tellumen",
+   "resolves": {
+    "template": "T2",
+    "columns": [
+     "e",
+     "f",
+     "g",
+     "h",
+     "i",
+     "j"
+    ],
+    "as": {
+     "measure": "aligned"
+    }
+   }
+  },
+  {
+   "subject": "T3 columns c-h",
+   "reading": "Columns c to h ('Breakdown per environmental objective') break down the Taxonomy-aligned proportion of column b by objective.",
+   "basis": "Columns b to k sit under one blank spanning header beside column a; column b is 'Taxonomy-aligned' and columns i to k ('Of which Use of Proceeds', 'transitional', 'enabling') are parts of the aligned amount, so the objective breakdown between them is read as a breakdown of the aligned proportion as well.",
+   "declared_by": "Tellumen",
+   "resolves": {
+    "template": "T3",
+    "columns": [
+     "c",
+     "d",
+     "e",
+     "f",
+     "g",
+     "h"
+    ],
+    "as": {
+     "measure": "aligned"
+    }
+   }
+  }
+ ],
  "capture": {
   "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
   "captured": "2026-09-29",
@@ -1418,5 +1459,16 @@
     "T0 c3-c7: label without the footnote marker (the rule); the text exactly as printed, marker included, kept in 'printed' and verified verbatim"
    ]
   }
+ },
+ "transitional_option": {
+  "ref": "Article 4, third paragraph, of Delegated Regulation (EU) 2026/73",
+  "quote": "Undertakings may, however, apply Delegated Regulations (EU) 2021/2178, (EU) 2021/2139 and (EU) 2023/2486 as applicable on 31 December 2025 for the financial year that starts between 1 January and 31 December 2025.",
+  "switch": "taxonomy_2026_73_article_4",
+  "elected_value": "pre_amendment_rules",
+  "financial_year_starts": {
+   "from": "2025-01-01",
+   "until": "2025-12-31"
+  },
+  "then_governed_by": "da_2021_2178_as_amended_2023_2486"
  }
 }

@@ -647,7 +647,10 @@ def _frozen_spec(framework: str, payload: dict) -> dict | None:
     import services.regspec as R
     if framework not in R.frameworks():
         return None
-    return R.load(framework, ((payload or {}).get("_spec") or {}).get("version") or _BEFORE_SPECS[framework])
+    p = payload or {}
+    rec = (p.get("_specs") or {}).get(framework) or (p.get("_spec") if (p.get("_spec") or {}).get("framework") in (None, framework) else None)
+    version = (rec or {}).get("version") or _BEFORE_SPECS.get(framework)
+    return R.load(framework, version) if version else None
 
 
 def _p3_title(spec: dict, tid: str) -> str:

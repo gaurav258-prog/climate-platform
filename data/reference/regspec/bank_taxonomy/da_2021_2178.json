@@ -1656,5 +1656,19 @@
     "T0-T7: every row id/label and column id/header chain re-read from the high-res images tile by tile; no differences from the first pass"
    ]
   }
- }
+ },
+ "phase_in": [
+  {
+   "ref": "Article 10(3) of Delegated Regulation (EU) 2021/2178",
+   "quote": "From 1 January 2022 until 31 December 2023, financial undertakings shall only disclose:",
+   "disclosures": {
+    "from": "2022-01-01",
+    "until": "2023-12-31"
+   },
+   "eligibility_only": {
+    "objectives": "all"
+   },
+   "note": "During these years a credit institution discloses the proportions of Taxonomy-eligible and non-eligible exposures (and those of Article 7), not alignment: the aligned columns are not reported."
+  }
+ ]
 }

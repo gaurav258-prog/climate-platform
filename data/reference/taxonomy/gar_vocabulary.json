@@ -1,0 +1,669 @@
+{
+ "about": "How the printed rows and columns of the credit-institution templates (Annex VI to Delegated Regulation (EU) 2021/2178, every version in data/reference/regspec/bank_taxonomy) are read into facts. A row's label chain ('parent > child') is read segment by segment and the fragments combine; so is a column's header chain. Every row and column of every adopted version must resolve (tests/unit/test_taxonomy_vocabulary.py). A fragment with 'input' is a figure the institution enters itself (the platform holds no facts for it); the reason is shown on the form. Segments are matched after whitespace, dash and quote normalisation.",
+ "templates": {
+  "T0": "summary",
+  "T1": "gar_assets",
+  "T2": "sectors",
+  "T3": "gar_ratio_stock",
+  "T4": "gar_ratio_flow",
+  "T5": "off_balance",
+  "T6": "fees_commissions",
+  "T7": "trading_book",
+  "XII_T1": "nuclear_gas",
+  "XII_T2": "nuclear_gas",
+  "XII_T3": "nuclear_gas",
+  "XII_T4": "nuclear_gas",
+  "XII_T5": "nuclear_gas"
+ },
+ "inputs": {
+  "off_balance": "financial guarantees and assets under management are off-balance-sheet: the loan tape carries no such exposures",
+  "fees_commissions": "fees and commissions income by counterparty is not on the loan tape",
+  "trading_book": "trading-book purchases and sales are not on the loan tape",
+  "nuclear_gas": "exposures to the nuclear and fossil gas activities of Delegated Regulation 2021/2139 Sections 4.26-4.31 are not identified on the loan tape",
+  "voluntary": "exposures an institution includes on a voluntary basis are its own choice",
+  "flow_prior": "figures for the previous disclosure reference date come from the previous period's frozen filing",
+  "materiality": "which non-assessed exposures the credit institution considers non-material is its own assessment"
+ },
+ "rows": {
+  "": {},
+  "…": {
+   "elided": true
+  },
+  "1": {},
+  "2": {},
+  "3": {},
+  "4": {},
+  "10": {},
+  "Main KPI": {},
+  "Additional KPIs": {},
+  "Green asset ratio (GAR) stock": {
+   "kpi": "gar_stock"
+  },
+  "GAR (flow)": {
+   "kpi": "gar_flow"
+  },
+  "Trading book": {
+   "kpi": "trading",
+   "trading": true
+  },
+  "Financial guarantees": {
+   "kpi": "finguar",
+   "input": "off_balance"
+  },
+  "Financial guarantees (FinGuar KPI)": {
+   "kpi": "finguar",
+   "input": "off_balance"
+  },
+  "Assets under management": {
+   "kpi": "aum",
+   "input": "off_balance"
+  },
+  "Assets under management (AuM KPI)": {
+   "kpi": "aum",
+   "input": "off_balance"
+  },
+  "Fees and commissions income": {
+   "kpi": "fc",
+   "input": "fees_commissions"
+  },
+  "GAR - Covered assets in both numerator and denominator": {
+   "scope": "numerator"
+  },
+  "Loans and advances, debt securities and equity instruments not HfT eligible for GAR calculation": {
+   "gar": true
+  },
+  "Financial corporations": {
+   "cp": [
+    "credit_institution",
+    "other_financial_corporation"
+   ]
+  },
+  "Financial undertakings": {
+   "cp": [
+    "credit_institution",
+    "other_financial_corporation"
+   ]
+  },
+  "Financial corporates": {
+   "cp": [
+    "credit_institution",
+    "other_financial_corporation"
+   ]
+  },
+  "Financial and Non-financial undertakings": {
+   "cp": [
+    "credit_institution",
+    "other_financial_corporation",
+    "non_financial_corporation"
+   ]
+  },
+  "Credit institutions": {
+   "cp": "credit_institution"
+  },
+  "Other financial corporations": {
+   "cp": "other_financial_corporation"
+  },
+  "Other financial undertakings": {
+   "cp": "other_financial_corporation"
+  },
+  "of which investment firms": {
+   "sub": "investment_firm"
+  },
+  "of which management companies": {
+   "sub": "management_company"
+  },
+  "of which asset managers": {
+   "sub": "management_company"
+  },
+  "of which insurance undertakings": {
+   "sub": "insurance_undertaking"
+  },
+  "of which insurance companies": {
+   "sub": "insurance_undertaking"
+  },
+  "of which insurance insurance unertakings": {
+   "sub": "insurance_undertaking"
+  },
+  "Loans and advances": {
+   "instr": "loans_and_advances"
+  },
+  "Debt securities": {
+   "instr": "debt_securities"
+  },
+  "Debt securities, including UoP": {
+   "instr": "debt_securities"
+  },
+  "Of which debt securities": {
+   "instr": "debt_securities"
+  },
+  "of which debt securities": {
+   "instr": "debt_securities"
+  },
+  "Equity instruments": {
+   "instr": "equity_instruments"
+  },
+  "Of which equity instruments": {
+   "instr": "equity_instruments"
+  },
+  "of which equity instruments": {
+   "instr": "equity_instruments"
+  },
+  "Non-financial corporations": {
+   "cp": "non_financial_corporation"
+  },
+  "Non-financial undertakings": {
+   "cp": "non_financial_corporation"
+  },
+  "Non-financial corporates": {
+   "cp": "non_financial_corporation"
+  },
+  "NFCs subject to NFRD disclosure obligations": {
+   "cp": "non_financial_corporation",
+   "nfrd": true
+  },
+  "Households": {
+   "cp": "household"
+  },
+  "of which loans collateralised by residential immovable property": {
+   "col": "residential"
+  },
+  "of which loans collateralised by commercial immovable property": {
+   "col": "commercial"
+  },
+  "of which building renovation loans": {
+   "purpose": "building_renovation"
+  },
+  "of which motor vehicle loans": {
+   "purpose": "motor_vehicle"
+  },
+  "Local governments financing": {
+   "cp": "general_government",
+   "govt": [
+    "local",
+    "regional"
+   ]
+  },
+  "Local government financing": {
+   "cp": "general_government",
+   "govt": [
+    "local",
+    "regional"
+   ]
+  },
+  "Housing financing": {
+   "purpose": "housing"
+  },
+  "Other local government financing": {
+   "cp": "general_government",
+   "govt": [
+    "local",
+    "regional"
+   ],
+   "purpose_not": "housing"
+  },
+  "Collateral obtained by taking possession: residential and commercial immovable properties": {
+   "col": "repossessed",
+   "gar_scope_any": true
+  },
+  "Assets excluded from the numerator for GAR calculation (covered in the denominator)": {
+   "scope": "numerator_excluded"
+  },
+  "Counterparties not subject to NFRD disclosure obligations, including third-country counterparties": {
+   "cp": "non_financial_corporation",
+   "nfrd": false
+  },
+  "Counterparties not subject to CSRD disclosure obligations, including third-country counterparties": {
+   "cp": "non_financial_corporation",
+   "csrd": false
+  },
+  "SMEs and NFCs (other than SMEs) not subject to NFRD disclosure obligations": {
+   "cp": "non_financial_corporation",
+   "nfrd": false,
+   "eu": true
+  },
+  "SMEs and undertakings (other than SMEs) not subject to CSRD disclosure obligations": {
+   "cp": "non_financial_corporation",
+   "csrd": false,
+   "eu": true
+  },
+  "Non-EU country counterparties not subject to NFRD disclosure obligations": {
+   "cp": "non_financial_corporation",
+   "nfrd": false,
+   "eu": false
+  },
+  "Non-EU country counterparties not subject to CSRD disclosure obligations": {
+   "cp": "non_financial_corporation",
+   "csrd": false,
+   "eu": false
+  },
+  "Derivatives": {
+   "instr": "derivatives"
+  },
+  "On demand interbank loans": {
+   "instr": "on_demand_interbank"
+  },
+  "Cash and cash-related assets": {
+   "instr": "cash"
+  },
+  "Other assets (e.g. Goodwill, commodities etc.)": {
+   "instr": "other_assets"
+  },
+  "Other categories of assets (e.g. Goodwill, commodities etc.)": {
+   "instr": "other_assets"
+  },
+  "Other categories of assets (e.g. goodwill, commodities, etc.)": {
+   "instr": "other_assets"
+  },
+  "Other assets excluded from the numerator for GAR calculation (covered in the denominator)": {
+   "scope": "numerator_excluded"
+  },
+  "Total GAR assets": {
+   "scope": "covered"
+  },
+  "GAR - Total GAR assets": {
+   "scope": "covered"
+  },
+  "Assets not covered for GAR calculation": {
+   "scope": "not_covered"
+  },
+  "Other assets not covered for GAR calculation": {
+   "scope": "not_covered"
+  },
+  "Central governments and Supranational issuers": {
+   "cp": "general_government",
+   "govt": [
+    "central",
+    "supranational"
+   ]
+  },
+  "Sovereigns": {
+   "cp": "general_government",
+   "govt": [
+    "central",
+    "supranational"
+   ]
+  },
+  "Central banks exposure": {
+   "cp": "central_bank"
+  },
+  "Total assets": {
+   "scope": "total"
+  },
+  "Nuclear activities": {
+   "input": "nuclear_gas"
+  },
+  "Fossil gas activities": {
+   "input": "nuclear_gas"
+  },
+  "Of which non-assessed exposures": {
+   "assessed": false
+  },
+  "Exposures included on a voluntary basis": {
+   "input": "voluntary"
+  },
+  "Off-balance sheet exposures - Corporates subject to NFRD disclosure obligations": {
+   "input": "off_balance"
+  },
+  "Off-balance sheet exposures - Undertakings subject to NFRD disclosure obligations": {
+   "input": "off_balance"
+  },
+  "Off-balance sheet exposures (stock) to Undertakings subject to CSRD disclosure obligations and local governments": {
+   "input": "off_balance"
+  },
+  "Fees and Commission income from NFRD corporates - Services other than lending": {
+   "input": "fees_commissions"
+  },
+  "Fees and commissions income from CSRD corporates - Services other than lending": {
+   "input": "fees_commissions"
+  },
+  "Services towards financial corporations": {
+   "input": "fees_commissions"
+  },
+  "Services towards financial undertakings": {
+   "input": "fees_commissions"
+  },
+  "Financial assets held for trading (debt securities and equity holdings) - NFRD corporates": {
+   "input": "trading_book"
+  },
+  "Financial assets held for trading (debt securities and equity holdings) - CSRD corporates": {
+   "input": "trading_book"
+  },
+  "Financial assets held for trading (debt securities and equity instruments) - NFRD corporates": {
+   "input": "trading_book"
+  },
+  "Undertakings and entities not subject to CSRD": {
+   "subject": false
+  }
+ },
+ "columns": {
+  "Disclosure reference date T": {
+   "period": "current"
+  },
+  "Disclosure reference date T-1": {
+   "period": "previous"
+  },
+  "F&C KPI - Disclosure reference date T": {
+   "period": "current",
+   "input": "fees_commissions"
+  },
+  "F&C KPI - Disclosure reference date T-1": {
+   "period": "previous",
+   "input": "fees_commissions"
+  },
+  "Climate Change Mitigation (CCM)": {
+   "objective": "ccm"
+  },
+  "Climate Change Adaptation (CCA)": {
+   "objective": "cca"
+  },
+  "Water and marine resources (WTR)": {
+   "objective": "wtr"
+  },
+  "Circular economy (CE)": {
+   "objective": "ce"
+  },
+  "Pollution (PPC)": {
+   "objective": "ppc"
+  },
+  "Biodiversity and Ecosystems (BIO)": {
+   "objective": "bio"
+  },
+  "TOTAL (CCM + CCA)": {
+   "objective": "all"
+  },
+  "TOTAL (CCM + CCA + WTR + CE + PPC + BIO)": {
+   "objective": "all"
+  },
+  "Breakdown per environmental objective": {},
+  "Of which CCM": {
+   "objective": "ccm"
+  },
+  "Of which CCA": {
+   "objective": "cca"
+  },
+  "Of which WTR": {
+   "objective": "wtr"
+  },
+  "Of which CE": {
+   "objective": "ce"
+  },
+  "Of which PPC": {
+   "objective": "ppc"
+  },
+  "Of which BIO": {
+   "objective": "bio"
+  },
+  "[Gross] carrying amount": {
+   "measure": "gross"
+  },
+  "Gross carrying amount": {
+   "measure": "gross"
+  },
+  "Total gross carrying amount": {
+   "measure": "gross"
+  },
+  "Total [gross] carrying amount": {
+   "measure": "gross"
+  },
+  "Total [Gross] carrying amount": {
+   "measure": "gross"
+  },
+  "Total": {
+   "measure": "gross"
+  },
+  "Total (Million EUR)": {
+   "measure": "gross",
+   "unit": "meur"
+  },
+  "Mn EUR": {
+   "unit": "meur"
+  },
+  "%": {
+   "unit": "pct"
+  },
+  "Fair value": {
+   "measure": "gross",
+   "input": "trading_book"
+  },
+  "Of which towards taxonomy relevant sectors (Taxonomy-eligible)": {
+   "measure": "eligible"
+  },
+  "Of which towards taxonomy relevant sectors (%) (Taxonomy-eligible)": {
+   "measure": "eligible",
+   "unit": "pct"
+  },
+  "Of which towards taxonomy relevant sectors (%) (Taxonomy-": {
+   "measure": "eligible",
+   "unit": "pct"
+  },
+  "Of which towards taxonomy-relevant sectors (%) (Taxonomy-eligible)": {
+   "measure": "eligible",
+   "unit": "pct"
+  },
+  "Of which Taxonomy-eligible": {
+   "measure": "eligible"
+  },
+  "Taxonomy-eligible": {
+   "measure": "eligible"
+  },
+  "Of which environmentally sustainable (Taxonomy-aligned)": {
+   "measure": "aligned"
+  },
+  "Of which environmentally sustainable": {
+   "measure": "aligned"
+  },
+  "Of which environmentally": {
+   "measure": "aligned"
+  },
+  "Of which environmentally sustainable (%)(Taxonomy-aligned)": {
+   "measure": "aligned",
+   "unit": "pct"
+  },
+  "Of which environmentally sustainable (%)(Taxonomy-": {
+   "measure": "aligned",
+   "unit": "pct"
+  },
+  "Of which environmentally sustainable (CCM)": {
+   "measure": "aligned",
+   "objective": "ccm"
+  },
+  "Of which environmentally sustainable (CCA)": {
+   "measure": "aligned",
+   "objective": "cca"
+  },
+  "Of which environmentally sustainable (WTR)": {
+   "measure": "aligned",
+   "objective": "wtr"
+  },
+  "Of which environmentally sustainable (CE)": {
+   "measure": "aligned",
+   "objective": "ce"
+  },
+  "Of which environmentally sustainable (PPC)": {
+   "measure": "aligned",
+   "objective": "ppc"
+  },
+  "Of which environmentally sustainable (BIO)": {
+   "measure": "aligned",
+   "objective": "bio"
+  },
+  "Of which environmentally sustainable (CCM + CCA)": {
+   "measure": "aligned",
+   "objective": "all"
+  },
+  "Of which environmentally sustainable (CCM + CCA + WTR + CE + PPC + BIO)": {
+   "measure": "aligned",
+   "objective": "all"
+  },
+  "Of which Taxonomy-aligned": {
+   "measure": "aligned"
+  },
+  "Taxonomy-aligned": {
+   "measure": "aligned"
+  },
+  "Total exposure to Taxonomy-aligned activities (currency)": {
+   "measure": "aligned",
+   "objective": "all"
+  },
+  "Total environmentally sustainable assets": {
+   "measure": "aligned",
+   "objective": "all"
+  },
+  "Of which Use of Proceeds": {
+   "measure": "use_of_proceeds"
+  },
+  "Of which specialised lending": {
+   "measure": "use_of_proceeds"
+  },
+  "Of which transitional": {
+   "measure": "transitional"
+  },
+  "Of which transitional/adaptation": {
+   "measure": "transitional_or_adaptation"
+  },
+  "Of which adaptation": {
+   "measure": "adaptation"
+  },
+  "Of which enabling": {
+   "measure": "enabling"
+  },
+  "Proportion of Taxonomy aligned in Taxonomy eligible": {
+   "measure": "aligned_in_eligible",
+   "unit": "pct"
+  },
+  "Proportion of Taxonomy-aligned in Taxonomy-eligible": {
+   "measure": "aligned_in_eligible",
+   "unit": "pct"
+  },
+  "Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-eligible)": {
+   "ratio": true,
+   "measure": "eligible",
+   "unit": "pct"
+  },
+  "Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-": {
+   "ratio": true,
+   "measure": "eligible",
+   "unit": "pct"
+  },
+  "Proportion of total covered assets funding taxonomy relevant sectors (Taxonomy-aligned)": {
+   "ratio": true,
+   "measure": "aligned",
+   "unit": "pct"
+  },
+  "Proportion of total assets covered": {
+   "coverage": "stock",
+   "unit": "pct"
+  },
+  "Proportion of total new assets covered": {
+   "coverage": "flow",
+   "unit": "pct"
+  },
+  "% coverage (over total assets)": {
+   "coverage": "stock",
+   "unit": "pct"
+  },
+  "% coverage (over total assets) (%)": {
+   "coverage": "stock",
+   "unit": "pct"
+  },
+  "% of assets excluded from the numerator of the GAR (Article 7(2) and (3) and Section 1.1.2 of Annex V)": {
+   "share_of_total": "numerator_excluded",
+   "unit": "pct"
+  },
+  "% of assets excluded from the denominator of the GAR (Article 7(1) and Section 1.2.4 of Annex V)": {
+   "share_of_total": "not_covered",
+   "unit": "pct"
+  },
+  "KPI": {
+   "unit": "pct"
+  },
+  "KPI (%)": {
+   "unit": "pct"
+  },
+  "Turnover-based": {
+   "basis": "turnover"
+  },
+  "CapEx-based": {
+   "basis": "capex"
+  },
+  "Non-assessed exposures": {
+   "measure": "non_assessed"
+  },
+  "Non-assessed exposures (% of covered assets) (%)": {
+   "measure": "non_assessed",
+   "unit": "pct"
+  },
+  "Of which non-assessed exposures": {
+   "measure": "non_assessed"
+  },
+  "Of which non-assessed fees and commissions income": {
+   "measure": "non_assessed",
+   "input": "fees_commissions"
+  },
+  "Of which not assessed considered non-material by the credit institution": {
+   "measure": "non_assessed_immaterial",
+   "input": "materiality"
+  },
+  "Of which financing non-material activities of counterparties": {
+   "measure": "non_material_activities",
+   "input": "voluntary"
+  },
+  "Of which exposures financing counterparties reporting in accordance with Article 7(9)": {
+   "measure": "article_7_9",
+   "input": "voluntary"
+  },
+  "Breakdown by sector - NACE 4 digits level (code and label)": {
+   "sector": true
+  },
+  "Breakdown by sector - NACE 4 digits level (code and label) (Million EUR)": {
+   "sector": true,
+   "unit": "meur"
+  },
+  "Non-Financial corporates (Subject to NFRD)": {
+   "cp": "non_financial_corporation",
+   "nfrd": true
+  },
+  "Non-Financial corporates (Subject": {
+   "cp": "non_financial_corporation",
+   "nfrd": true
+  },
+  "SMEs and other NFC not subject to NFRD": {
+   "cp": "non_financial_corporation",
+   "nfrd": false
+  },
+  "SMEs and other NFC not subject": {
+   "cp": "non_financial_corporation",
+   "nfrd": false
+  },
+  "Trading KPI": {
+   "input": "trading_book"
+  },
+  "Absolute purchases": {
+   "input": "trading_book"
+  },
+  "Absolute sales": {
+   "input": "trading_book"
+  },
+  "Absolute purchases plus absolute sales": {
+   "input": "trading_book"
+  },
+  "Absolute purchases plus absolute sales (Fair value)": {
+   "input": "trading_book"
+  }
+ },
+ "basis_rules": {
+  "capex_general_lending_uses": "turnover",
+  "capex_general_lending_quote": "Based on the CapEx KPI of the counterparty, except for lending activities where for general lending Turnover KPI is used.",
+  "capex_general_lending_ref": "Annex VI to Delegated Regulation (EU) 2021/2178 (as replaced by 2023/2486), Template 0, footnote (*5)",
+  "credit_institution_counterparty": "the counterparty's KPIs are its own Total GAR (turnover-based and CapEx-based), stated like any other counterparty's KPIs",
+  "credit_institution_counterparty_ref": "Annex V to Delegated Regulation (EU) 2021/2178, as amended by 2023/2486 (Where the counterparty is another credit institution ... weighted by the 'Total GAR of the counterparty')"
+ },
+ "column_notes": {
+  "based on the turnover kpi of the counterparty": {
+   "basis": "turnover"
+  },
+  "based on the capex kpi of the counterparty": {
+   "basis": "capex"
+  }
+ }
+}
