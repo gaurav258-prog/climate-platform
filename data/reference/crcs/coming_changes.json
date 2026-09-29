@@ -1,0 +1,177 @@
+{
+ "_about": "Curated register of coming regulatory changes that no template specification describes (proposals, application-date milestones). Customer-framed. 'date' is the exact date from the cited Official-Journal text where one is fixed, null where the regulator has not set one — never invented. Changes that a draft specification captures (data/reference/regspec) are generated from it and its machine diff, not listed here.",
+ "changes": [
+  {
+   "sectors": [
+    "manufacturer"
+   ],
+   "framework": "eudr_dds",
+   "affects": [
+    "eudr_dds"
+   ],
+   "title": "EUDR obligations take effect",
+   "date": "2026-12-30",
+   "when": "30 Dec 2026 · large operators & traders (SMEs 30 Jun 2027)",
+   "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
+   "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
+   "data_fields": [
+    {
+     "key": "eudr_geoloc",
+     "field": "Plot geolocation — polygon vertices (lat/long), or a point for plots ≤ 4 ha",
+     "note": "WGS-84; ≥ 6 decimal places"
+    },
+    {
+     "key": "eudr_commodity_hs",
+     "field": "Commodity + HS code, and production quantity",
+     "note": "per plot / batch"
+    },
+    {
+     "key": "eudr_country",
+     "field": "Country & region of production",
+     "note": "ISO country + sub-national area"
+    },
+    {
+     "key": "eudr_production_date",
+     "field": "Production date or time window",
+     "note": "harvest / placing-on-market date"
+    },
+    {
+     "key": "eudr_legality",
+     "field": "Legality evidence",
+     "note": "land-use rights, EUDR Annex-II legality documents"
+    },
+    {
+     "key": "eudr_supplier",
+     "field": "Supplier / operator identity",
+     "note": "name, address, EORI where applicable"
+    }
+   ],
+   "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R3234"
+  },
+  {
+   "sectors": [
+    "manufacturer",
+    "bank",
+    "reit"
+   ],
+   "framework": null,
+   "affects": [
+    "bank_tcfd",
+    "reit_tcfd",
+    "csrd_e1",
+    "esrs_pack"
+   ],
+   "title": "EU Taxonomy — environmental objectives",
+   "date": "2024-01-01",
+   "when": "1 Jan 2024 · first reported for FY2024",
+   "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
+   "prepare": "Activity-level data against the four additional environmental objectives.",
+   "data_fields": [
+    {
+     "key": "taxo_nace",
+     "field": "Economic activity per NACE code",
+     "note": "map each activity to a Taxonomy activity"
+    },
+    {
+     "key": "taxo_kpis",
+     "field": "Turnover / CapEx / OpEx attributable to each activity",
+     "note": "the three Art. 8 KPIs"
+    },
+    {
+     "key": "taxo_sc",
+     "field": "Substantial-contribution flag per objective",
+     "note": "water · circular economy · pollution · biodiversity"
+    },
+    {
+     "key": "taxo_dnsh",
+     "field": "DNSH assessment per objective",
+     "note": "‘do no significant harm’ screening"
+    },
+    {
+     "key": "taxo_safeguards",
+     "field": "Minimum-safeguards compliance",
+     "note": "OECD MNE / UN Guiding Principles"
+    }
+   ],
+   "citation": "Environmental Delegated Act (EU) 2023/2486 (applies from 1 Jan 2024)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2486"
+  },
+  {
+   "sectors": [
+    "manufacturer"
+   ],
+   "framework": "esrs_pack",
+   "affects": [
+    "csrd_e1",
+    "esrs_pack"
+   ],
+   "title": "ESRS digital tagging (XBRL)",
+   "date": null,
+   "when": "no fixed date · phased with ESAP go-live (from 2027)",
+   "whats_changing": "Sustainability statements must be tagged in the EFRAG ESRS XBRL taxonomy for machine-readable filing to the European Single Access Point.",
+   "prepare": null,
+   "citation": "EFRAG ESRS XBRL taxonomy · ESAP Regulation (EU) 2023/2859",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R2859"
+  },
+  {
+   "sectors": [
+    "manufacturer",
+    "bank",
+    "insurer",
+    "asset_manager",
+    "reit"
+   ],
+   "framework": null,
+   "affects": [
+    "csrd_e1",
+    "esrs_pack"
+   ],
+   "title": "CSRD / ESRS — Omnibus (‘stop-the-clock’)",
+   "date": null,
+   "when": "Dir. (EU) 2025/794 (Apr 2025) — next waves delayed to FY2027 / FY2028; scope still in negotiation",
+   "whats_changing": "The ‘stop-the-clock’ Directive postpones the next CSRD reporting waves by two years; the substantive scope changes (Omnibus) are still under EU negotiation.",
+   "prepare": "No action yet — you'll be told if your own obligations change.",
+   "citation": "Directive (EU) 2025/794 · EC Omnibus proposal (Feb 2025)",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32025L0794"
+  },
+  {
+   "sectors": [
+    "asset_manager"
+   ],
+   "framework": "sfdr_pai",
+   "affects": [
+    "sfdr_pai"
+   ],
+   "title": "SFDR 2.0 — Commission proposal",
+   "date": null,
+   "when": "Commission proposal COM(2025) 841 (20 Nov 2025) · in negotiation · would apply 18 months after entry into force",
+   "whats_changing": "The proposal deletes the entity-level principal adverse impacts statement (SFDR Articles 4 and 5) and repeals Delegated Regulation (EU) 2022/1288. Until it is adopted and applies, the statement stays mandatory.",
+   "prepare": null,
+   "citation": "Proposal COM(2025) 841 amending Regulation (EU) 2019/2088",
+   "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52025PC0841"
+  },
+  {
+   "sectors": [
+    "bank",
+    "insurer",
+    "asset_manager",
+    "reit"
+   ],
+   "framework": null,
+   "affects": [
+    "bank_tcfd",
+    "reit_tcfd",
+    "assetmgmt_tcfd",
+    "insurer_climate"
+   ],
+   "title": "IFRS S2 / ISSB adoption",
+   "date": null,
+   "when": "date set per jurisdiction on ISSB adoption",
+   "whats_changing": "IFRS S2 climate-related disclosures become required where a jurisdiction adopts the ISSB standards.",
+   "prepare": null,
+   "citation": "IFRS S2 Climate-related Disclosures",
+   "url": "https://www.ifrs.org/"
+  }
+ ]
+}

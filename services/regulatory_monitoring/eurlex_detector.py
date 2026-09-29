@@ -23,18 +23,10 @@ _ENDPOINT = "https://publications.europa.eu/webapi/rdf/sparql"
 # framework id -> the CELEX acts we track for it: the governing act FIRST (its legal dates drive the outlook's
 # verified date), then any key amending / related acts so a change to either is caught. Acts without a single
 # clean CELEX (e.g. TCFD guidance) are omitted — the outlook falls back to the curated library for those.
-FRAMEWORK_CELEX: dict[str, list[str]] = {
-    "bank_tcfd": ["32021R2178"],
-    "reit_tcfd": ["32021R2178"],
-    "bank_p3esg": ["32022R2453", "32024R3172"],   # the 2022 ITS and the 2024 ITS that replaced it
-    "sfdr_pai": ["32022R1288", "32019R2088"],    # RTS + base SFDR
-    "csrd_e1": ["32023R2772", "32022L2464"],     # ESRS Delegated Act + CSRD Directive
-    "esrs_pack": ["32023R2772", "32022L2464"],
-    "insurer_climate": ["32009L0138"],
-    "insurer_solvency": ["32009L0138"],          # S.26.01 NatCat SCR — Solvency II
-    "reit_taxonomy": ["32021R2178"],             # Art. 8 KPIs — Taxonomy Disclosures DA
-    "eudr_dds": ["32023R1115", "32024R3234"],    # EUDR + the application-date amendment
-}
+# the acts watched per framework: every adopted spec's act plus data/reference/crcs/tracked_acts.json
+from services.regulatory_monitoring.tracked_acts import framework_celex  # noqa: E402
+
+FRAMEWORK_CELEX: dict[str, list[str]] = framework_celex()
 
 _QUERY = """PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
 SELECT ?eif ?eov ?inforce ?doc WHERE {

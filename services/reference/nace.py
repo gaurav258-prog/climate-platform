@@ -83,3 +83,14 @@ def divisions_in(code_range: str) -> list[str]:
         elif chunk in t:
             out.append(chunk)
     return out
+
+
+@lru_cache(maxsize=None)
+def sector_set(name: str) -> frozenset:
+    """A named set of NACE sections that a regulation defines (data/reference/nace_sector_sets.json, each cited)."""
+    import json
+    d = json.loads((_FILE.parent / "nace_sector_sets.json").read_text())
+    if name not in d or name.startswith("_"):
+        raise KeyError(f"no NACE sector set '{name}'")
+    return frozenset(d[name]["sections"])
+

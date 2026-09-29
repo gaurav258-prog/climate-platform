@@ -89,9 +89,10 @@ def _sfdr_annex(dps: dict, payload: dict) -> list[dict]:
         sections.append({"title": f"{t1['code']} · {part}", "key": f"sfdr_t1_{len(sections) + 1}", "columns": cols,
                          "rows": rows, "note": None,
                          "spec": {"version": spec["version"], "template": "T1", "sha256": spec["_sha256"]}})
-    sections[0]["note"] = (f"{t1['title']} ({R.citation(spec, 'T1')}). Impact [year n] is the frozen figure: the average of "
-                           "the impacts on 31 March, 30 June, 30 September and 31 December (Article 6(3)); the year n-1, "
-                           "explanation and actions columns are completed on this form.")
+    period = _quote(spec, "T1", "Article 6(3)")
+    sections[0]["note"] = (f"{t1['title']} ({R.citation(spec, 'T1')}). Impact [year n] is the frozen figure"
+                           + (f", computed as {period}" if period else "")
+                           + ". The year n-1, explanation and actions columns are completed on this form.")
 
     # the adopted additional indicators (Article 6(1)): at least one from Table 2 and one from Table 3, reported in the
     # Table 1 format under 'Other indicators …'
@@ -654,6 +655,19 @@ def _p3_title(spec: dict, tid: str) -> str:
     return f"{R.template(spec, tid)['title']} ({R.citation(spec, tid)})"
 
 
+def _readings(spec: dict, tid: str) -> list[str]:
+    """The spec's declared readings for a template, as form notes (where the official text is silent)."""
+    return [f"Declared reading ({i['declared_by']}): {i['reading']}" for i in spec.get("interpretations") or []
+            if i["subject"].split(" ")[0] == tid]
+
+
+def _quote(spec: dict, tid: str, ref_starts: str) -> str | None:
+    """A verbatim instruction from the spec, with its reference."""
+    import services.regspec as R
+    i = next((x for x in R.template(spec, tid).get("instructions") or [] if x["ref"].startswith(ref_starts)), None)
+    return f"“{i['quote']}” ({i['ref'].split(',')[0]})" if i else None
+
+
 def _col_head(c: dict) -> str:
     return f"{c['id']} · {c['label'].split(' > ')[-1]}"
 
@@ -703,13 +717,14 @@ def _spec_grid_section(spec: dict, tid: str, grid: dict, key: str, scope: str | 
              f"collateral from the asset type for {grid['inferred_collateral']:,} (state them on the loan tape to replace the inference)."]
     if grid["unallocated_no_nace"]:
         notes.append(f"{grid['unallocated_no_nace']:,} non-financial-corporate exposures carry no NACE code and sit in no sector row.")
+    # our method (how a figure is produced) is stated here; what the regulation says, or our declared reading of it where
+    # it is silent, comes from the spec
     if tid == "T5":
-        notes.append("Sensitive = a High or Very high climate hazard at the exposure's location; h, i, j are chronic only, "
-                     "acute only and both. Rows 1–9 and 13 hold non-financial corporations by sector; rows 10–12 hold loans "
-                     "by their immovable-property collateral, whatever the counterparty — separate groups, so there is no total row.")
+        notes.append("Method: an exposure is sensitive when a climate hazard at its location is rated High or Very high.")
     if tid == "T1":
-        notes.append("Financed emissions (i, j) are the counterparties' reported Scope 1–3 totals. k is the share of the "
-                     "row's gross carrying amount whose emissions the company reported itself (EBA Q&A 2024_7225: over all exposures).")
+        notes.append("Method: financed emissions (i, j) are the counterparties' reported Scope 1–3 totals; k is the share of "
+                     "the row's gross carrying amount whose emissions the company reported itself, over all the row's exposures.")
+    notes += _readings(spec, tid)
     title = _p3_title(spec, tid) + (f" — {scope}" if scope else "")
     return {"title": title, "key": key, "columns": ["Row"] + [_col_head(c) for c in cols],
             "col_sources": [""] + ["computed" if BINDING[tid]["columns"][c["id"]].startswith("computed") else "integrated" for c in cols],
@@ -751,8 +766,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
         # real-estate collateral, so a loan carrying an EPC label is placed by its label + area (EU vs non-EU
         # from the collateral country). The commercial/residential split and the kWh/m² EP-score buckets aren't
         # in the loan-tape attribute set, so those cells stay '—'.
-        _EU = {"AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
-               "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"}
+        from services.reference.eu_membership import is_member as eu_member
         _LABELS = ["A", "B", "C", "D", "E", "F", "G"]
         acc = {"EU": {"total": 0.0, **{lbl: 0.0 for lbl in _LABELS}}, "nonEU": {"total": 0.0, **{lbl: 0.0 for lbl in _LABELS}}}
         n_epc = 0
@@ -764,7 +778,7 @@ def _p3esg_annex(dps: dict, payload: dict) -> list[dict]:
             if not gross:
                 continue
             n_epc += 1
-            area = "EU" if (a.get("country") or "").upper() in _EU else "nonEU"
+            area = "EU" if eu_member(a.get("country")) else "nonEU"          # membership from Eurostat GISCO
             acc[area]["total"] += gross
             acc[area][epc] += gross
 

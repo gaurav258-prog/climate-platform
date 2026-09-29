@@ -18,21 +18,20 @@ a column no exposure states stays blank — never zero — and each template not
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 from services.governance.pillar3_templates import _asset_hits
 from services.reference import nace as _nace
 
-_OTHER_T1 = "computed:sections:J,K,M,N,O,P,Q,R,S,T,U"
 # How every row and column of Templates 1 and 5 is filled. Sources: computed (from the book and the engine), input (a
 # per-loan fact the institution supplies), n/a. Row ids and column letters are the spec's; coverage() checks this map
 # against every adopted spec, so a version that adds, drops or moves a row fails the build until it is mapped here.
 BINDING: dict[str, dict] = {
     "T1": {
-        "rows": {"1": "computed:sections:A,B,C,D,E,F,G,H,I,L",
-                 **{str(i): "computed:nace" for i in range(2, 53)},
-                 "53": _OTHER_T1, "54": "computed:nace",
-                 "55": "computed:sections:J,M,N,O,P,Q,R,S,T,U", "56": "computed:total"},
+        "rows": {"1": "computed:subtotal", **{str(i): "computed:nace" for i in range(2, 53)},
+                 "53": "computed:subtotal", "54": "computed:nace", "55": "computed:nace_in_label", "56": "computed:total"},
         "columns": {"a": "computed:gross", "b": "input:pab_excluded", "c": "input:ccm_sustainable",
                     "d": "input:ifrs9_stage=2", "e": "input:ifrs9_stage=3", "f": "input:accumulated_impairment_eur",
                     "g": "input:accumulated_impairment_eur|ifrs9_stage=2", "h": "input:accumulated_impairment_eur|ifrs9_stage=3",
@@ -44,7 +43,7 @@ BINDING: dict[str, dict] = {
     "T5": {
         "rows": {**{str(i): "computed:nace" for i in range(1, 10)},
                  "10": "computed:collateral:residential", "11": "computed:collateral:commercial",
-                 "12": "computed:collateral:repossessed", "13": "computed:sections:I,J,K,M,N,O,P,Q,R,S,T,U"},
+                 "12": "computed:collateral:repossessed", "13": "computed:other_sections"},
         "columns": {"a": "computed:country", "b": "computed:gross",
                     "c": "input:residual_maturity_years<=5|sensitive", "d": "input:residual_maturity_years<=10|sensitive",
                     "e": "input:residual_maturity_years<=20|sensitive", "f": "input:residual_maturity_years>20|sensitive",
@@ -56,8 +55,15 @@ BINDING: dict[str, dict] = {
     },
 }
 
-# the asset types that are immovable-property collateral by nature, used only where the loan tape does not say
-_COLLATERAL_BY_TYPE = {"residential_real_estate": "residential", "commercial_real_estate": "commercial", "office": "commercial"}
+# Which NACE sections a grouping row covers is read from the spec's own layout, never typed here:
+#   subtotal         the section rows printed under it, up to the next subtotal or total row
+#   nace_in_label    the sections its label names ('Exposures to other sectors (NACE codes J, M - U)')
+#   other_sections   every section no NACE row of the template names ('Other relevant sectors')
+#   total            every section any subtotal covers
+
+# the asset types read as immovable-property collateral where the loan tape does not say — a declaration, in reference data
+_COLLATERAL_BY_TYPE = json.loads((Path(__file__).resolve().parents[2] / "data" / "reference" / "declarations"
+                                  / "immovable_collateral_by_asset_type.json").read_text())["by_asset_type"]
 _NACE_ROW = re.compile(r"^([A-U])\.?(\d{2}(?:\.\d{1,2})?)?\s+-\s")
 TOP_GEOGRAPHIES = 10
 
@@ -102,20 +108,67 @@ def _nace_match(a: dict, section: str, dotted: str | None) -> bool:
     return d == dotted or (d.startswith(dotted) and d[len(dotted)] in ".0123456789")
 
 
+_SECTIONS = "ABCDEFGHIJKLMNOPQRSTU"
+
+
+def _label_sections(label: str) -> set[str]:
+    """'Exposures to other sectors (NACE codes J, M - U)' → {J, M, N, …, U}."""
+    m = re.search(r"NACE codes?\s+([A-U](?:\s*(?:,|-|–)\s*[A-U])*)", label)
+    if not m:
+        return set()
+    out: set[str] = set()
+    for part in re.split(r"\s*,\s*", m.group(1)):
+        ends = re.split(r"\s*[-–]\s*", part)
+        a, b = ends[0], ends[-1]
+        out |= set(_SECTIONS[_SECTIONS.index(a): _SECTIONS.index(b) + 1])
+    return out
+
+
+def _section_rows(template: dict) -> dict[str, set[str]]:
+    """Row id → the NACE sections it covers, for every row bound to NACE: section rows, label-named groups, subtotals
+    (the section-level rows printed under them) and the total — all read from the spec's rows and their order."""
+    binding = BINDING[template["id"]]["rows"]
+    own: dict[str, set[str]] = {}
+    for r in template["rows"]:
+        how = binding[r["id"]]
+        m = _NACE_ROW.match(r["label"])
+        if how == "computed:nace" and m and not m.group(2):
+            own[r["id"]] = {m.group(1)}                             # a section row ('C - Manufacturing')
+        elif how == "computed:nace_in_label":
+            own[r["id"]] = _label_sections(r["label"])
+    out = dict(own)
+    current = None
+    for r in template["rows"]:
+        how = binding[r["id"]]
+        if how in ("computed:subtotal", "computed:total"):
+            current = r["id"] if how == "computed:subtotal" else None
+            out.setdefault(r["id"], set())
+        elif current and r["id"] in own:
+            out[current] |= own[r["id"]]
+    total = set().union(*(v for k, v in out.items() if binding[k] == "computed:subtotal"))
+    for r in template["rows"]:
+        if binding[r["id"]] == "computed:total":
+            out[r["id"]] = total
+        elif binding[r["id"]] == "computed:other_sections":
+            named = set().union(*(v for k, v in own.items()))
+            out[r["id"]] = set(_SECTIONS) - named
+    return out
+
+
 def _row_filter(template: dict, row: dict, how: str):
     """A predicate over (asset, counterparty sector, collateral kind) for one spec row."""
     kind, _, arg = how.partition(":")[2].partition(":")
+    if kind in ("subtotal", "total", "nace_in_label", "other_sections"):
+        secs = _section_rows(template)[row["id"]]
+        if not secs:
+            raise ValueError(f"{template['id']} row {row['id']}: the spec layout gives this {kind} row no NACE sections")
+        return lambda a, cp, col: cp == "non_financial_corporation" and _nace.section(a.get("nace_code")) in secs
     if kind == "nace":
         m = _NACE_ROW.match(row["label"])
         if not m:
             raise ValueError(f"{template['id']} row {row['id']}: bound as a NACE row but its label names no NACE code")
         sec, dotted = m.group(1), m.group(2)
         return lambda a, cp, col: cp == "non_financial_corporation" and _nace_match(a, sec, dotted)
-    if kind == "sections":
-        secs = set(arg.split(","))
-        return lambda a, cp, col: cp == "non_financial_corporation" and _nace.section(a.get("nace_code")) in secs
-    if kind == "total":
-        return lambda a, cp, col: cp == "non_financial_corporation" and _nace.section(a.get("nace_code")) is not None
     if kind == "collateral":
         return lambda a, cp, col: col == arg
     raise ValueError(f"unknown row binding {how}")

@@ -362,8 +362,8 @@ def _load_p3_binding() -> dict:
     """Official EBA Pillar 3 ESG element map, if supplied → {namespace, elements{fact: element}}.
     A scaffold with null elements is honestly ignored (stays provisional); only a real namespace +
     real element names bind. Drop `config/eba_p3esg_binding.json` in when the EBA publishes the
-    Pillar-3-Data-Hub taxonomy — no code change. The ITS template/column refs in the file are already
-    verified against CIR (EU) 2022/2453; only the machine element id is pending."""
+    Pillar-3-Data-Hub taxonomy — no code change. The file's template/column refs are checked against the governing
+    template specification by a test; only the machine element id is pending."""
     try:
         if _P3_BINDING_FILE.exists():
             data = json.loads(_P3_BINDING_FILE.read_text())
@@ -378,14 +378,16 @@ def _load_p3_binding() -> dict:
     return {}
 
 
+def p3esg_facts() -> list[str]:
+    """Every fact the Pillar 3 export can carry — the element map file is the one list (its 'elements' keys)."""
+    return list(json.loads(_P3_BINDING_FILE.read_text()).get("elements", {}))
+
+
 def p3esg_binding_status() -> dict:
     """Coverage of the EBA element binding — how many of our facts carry an official element id vs provisional."""
     b = _load_p3_binding()
     emap = b.get("elements", {})
-    facts = ["TotalBookValue", "PhysicalRiskSensitiveExposure", "PhysicalRiskChronicOnlyExposure",
-             "PhysicalRiskAcuteOnlyExposure", "PhysicalRiskChronicAndAcuteExposure", "GARTotalAssets", "GARCoveredAssets", "GAREligibleExposure",
-             "GARAlignedExposure", "GreenAssetRatioStockPct", "FinancedEmissionsScope1",
-             "FinancedEmissionsScope2", "FinancedEmissionsScope3", "FinancedEmissionsTotal"]
+    facts = p3esg_facts()                                    # the one list: config/eba_p3esg_binding.json
     bound = [f for f in facts if f in emap]
     return {"profile": "eba_dpm" if emap else "provisional",
             "status": "bound" if len(bound) == len(facts) else ("partial" if bound else "pending_eba_taxonomy"),
@@ -432,7 +434,11 @@ def _bank_p3esg_xbrl(session: Session, org_id: str, payload: dict, basis: dict, 
 
     ccy = presentation_of(payload)
 
+    listed = set(p3esg_facts())
+
     def fact(name, unit, value, dec="2"):
+        if name not in listed:
+            raise ValueError(f"XBRL fact {name} is not in config/eba_p3esg_binding.json — add it there first")
         if value is None:
             return
         el = emap.get(name, name)  # official EBA element when bound, else our provisional local-name

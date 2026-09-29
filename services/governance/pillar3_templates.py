@@ -145,8 +145,8 @@ def gar_grid(assets: list[dict]) -> dict:
     }
 
 
-# EBA "sectors that highly contribute to climate change" (high-climate-impact sectors) — NACE sections A–H, L.
-HIGH_CLIMATE_NACE = frozenset({"A", "B", "C", "D", "E", "F", "G", "H", "L"})
+# the regulation's "high impact climate sectors" (SFDR RTS Annex I definition (9)) — the one reference set.
+HIGH_CLIMATE_NACE = _nace.sector_set("high_impact_climate_sectors")      # cited in data/reference/nace_sector_sets.json
 
 
 def concentration_split(assets: list[dict]) -> dict:

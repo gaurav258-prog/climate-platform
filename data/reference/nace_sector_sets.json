@@ -1,0 +1,9 @@
+{
+ "_about": "Named sets of NACE Rev. 2 sections that regulations define. Each is cited to the official text with its verbatim definition. Read through services.reference.nace.sector_set().",
+ "high_impact_climate_sectors": {
+  "sections": ["A", "B", "C", "D", "E", "F", "G", "H", "L"],
+  "source": "Commission Delegated Regulation (EU) 2022/1288, Annex I, definition (9), OJ L 196, 25.7.2022, p. 38",
+  "quote": "‘high impact climate sectors’ means the sectors listed in Sections A to H and Section L of Annex I to Regulation (EC) No 1893/2006",
+  "verified": "2026-09-29, against the Official Journal text (CELEX 32022R1288)"
+ }
+}

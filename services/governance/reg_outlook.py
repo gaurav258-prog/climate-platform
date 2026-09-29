@@ -7,90 +7,61 @@ proposed but not final, it says so rather than inventing a date.
 """
 from __future__ import annotations
 
+import json
+from datetime import date
+from pathlib import Path
+
 from services.governance.filings import FRAMEWORKS
 from services.governance.reg_reference import reference
 
-# Curated, real upcoming regulatory changes — customer-framed. `date` is the exact effective/application date
-# FROM the cited Official-Journal text where the regulation legally fixes one (ISO, the nearest milestone);
-# it is None only where the regulator has genuinely not set a date (a live proposal or a jurisdiction-by-
-# jurisdiction adoption) — we never invent one. `when` is the human label (with the exact date when fixed, and
-# any secondary milestone). `prepare` is what the CUSTOMER must ready (new data / integration) or None.
-_EURLEX = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
-COMING: list[dict] = [
-    {"sectors": ["manufacturer"], "framework": "eudr_dds", "affects": ["eudr_dds"], "title": "EUDR obligations take effect",
-     "date": "2026-12-30", "when": "30 Dec 2026 · large operators & traders (SMEs 30 Jun 2027)",
-     "whats_changing": "Due-diligence and Due-Diligence-Statement submission become mandatory for in-scope commodities placed on the EU market.",
-     "prepare": "Geolocation polygons for every covered plot, plus legality evidence.",
-     "data_fields": [
-         {"key": "eudr_geoloc", "field": "Plot geolocation — polygon vertices (lat/long), or a point for plots ≤ 4 ha", "note": "WGS-84; ≥ 6 decimal places"},
-         {"key": "eudr_commodity_hs", "field": "Commodity + HS code, and production quantity", "note": "per plot / batch"},
-         {"key": "eudr_country", "field": "Country & region of production", "note": "ISO country + sub-national area"},
-         {"key": "eudr_production_date", "field": "Production date or time window", "note": "harvest / placing-on-market date"},
-         {"key": "eudr_legality", "field": "Legality evidence", "note": "land-use rights, EUDR Annex-II legality documents"},
-         {"key": "eudr_supplier", "field": "Supplier / operator identity", "note": "name, address, EORI where applicable"}],
-     "citation": "EUDR (EU) 2023/1115 · application-date amendment (EU) 2024/3234", "url": _EURLEX + "32024R3234"},
-    {"sectors": ["manufacturer", "bank", "reit"], "framework": None,
-     "affects": ["bank_tcfd", "reit_tcfd", "csrd_e1", "esrs_pack"], "title": "EU Taxonomy — environmental objectives",
-     "date": "2024-01-01", "when": "1 Jan 2024 · first reported for FY2024",
-     "whats_changing": "Taxonomy alignment extends beyond climate mitigation & adaptation to water, circular economy, pollution prevention and biodiversity.",
-     "prepare": "Activity-level data against the four additional environmental objectives.",
-     "data_fields": [
-         {"key": "taxo_nace", "field": "Economic activity per NACE code", "note": "map each activity to a Taxonomy activity"},
-         {"key": "taxo_kpis", "field": "Turnover / CapEx / OpEx attributable to each activity", "note": "the three Art. 8 KPIs"},
-         {"key": "taxo_sc", "field": "Substantial-contribution flag per objective", "note": "water · circular economy · pollution · biodiversity"},
-         {"key": "taxo_dnsh", "field": "DNSH assessment per objective", "note": "‘do no significant harm’ screening"},
-         {"key": "taxo_safeguards", "field": "Minimum-safeguards compliance", "note": "OECD MNE / UN Guiding Principles"}],
-     "citation": "Environmental Delegated Act (EU) 2023/2486 (applies from 1 Jan 2024)", "url": _EURLEX + "32023R2486"},
-    {"sectors": ["manufacturer"], "framework": "esrs_pack", "affects": ["csrd_e1", "esrs_pack"], "title": "ESRS digital tagging (XBRL)",
-     "date": None, "when": "no fixed date · phased with ESAP go-live (from 2027)",
-     "whats_changing": "Sustainability statements must be tagged in the EFRAG ESRS XBRL taxonomy for machine-readable filing to the European Single Access Point.",
-     "prepare": None,
-     "citation": "EFRAG ESRS XBRL taxonomy · ESAP Regulation (EU) 2023/2859", "url": _EURLEX + "32023R2859"},
-    {"sectors": ["manufacturer", "bank", "insurer", "asset_manager", "reit"], "framework": None,
-     "affects": ["csrd_e1", "esrs_pack"], "title": "CSRD / ESRS — Omnibus (‘stop-the-clock’)",
-     "date": None, "when": "Dir. (EU) 2025/794 (Apr 2025) — next waves delayed to FY2027 / FY2028; scope still in negotiation",
-     "whats_changing": "The ‘stop-the-clock’ Directive postpones the next CSRD reporting waves by two years; the substantive scope changes (Omnibus) are still under EU negotiation.",
-     "prepare": "No action yet — you'll be told if your own obligations change.",
-     "citation": "Directive (EU) 2025/794 · EC Omnibus proposal (Feb 2025)", "url": _EURLEX + "32025L0794"},
-    {"sectors": ["bank"], "framework": "bank_p3esg", "affects": ["bank_p3esg"], "title": "Pillar 3 ESG — amended templates (EBA final draft)",
-     "date": None, "when": "EBA final draft of 22 June 2026 · would apply from 1 December 2026 once the Commission adopts it — not yet adopted",
-     "whats_changing": "Templates 1–9 are replaced by EU CRFR1–CRFR4: physical risk (CRFR2) is broken down by hazard type — temperature, "
-                       "wind, water, solid mass — and by country; Template 4 and the Green Asset Ratio / BTAR templates (6–9) are removed "
-                       "from Pillar 3.",
-     "prepare": "Nothing new from you for the hazard breakdown — we classify each exposure's hazards. Keep counterparty sector and "
-                "immovable-property collateral on your loan tape.",
-     "citation": "EBA/ITS/2026/02 (final draft ITS amending Implementing Regulation (EU) 2024/3172)",
-     "url": "https://www.eba.europa.eu/sites/default/files/2026-06/96e1c806-c918-460c-bc8b-4e547b0d85e6/Final%20report%20on%20Draft%20ITS%20on%20amended%20disclosure%20requirements%20for%20ESG%20risks,%20equity%20exposures%20and%20aggregate%20exposure%20to%20shadow%20banking%20entities.pdf"},
-    {"sectors": ["asset_manager"], "framework": "sfdr_pai", "affects": ["sfdr_pai"], "title": "SFDR RTS review — revised PAI indicators (ESAs draft)",
-     "date": None, "when": "ESAs final report JC 2023 55 (4 Dec 2023) · not adopted by the Commission · no application date set",
-     "whats_changing": "The draft would widen Table 1 from 18 to 20 mandatory indicators (adding earnings in non-cooperative tax "
-                       "jurisdictions, tobacco, and employees earning below an adequate wage; moving 'lack of UNGC/OECD compliance "
-                       "processes' to Table 3), rescope several others, and revise Tables 2 and 3.",
-     "prepare": "Nothing yet — if adopted, the new mandatory indicators need per-issuer data; we will list the exact fields.",
-     "data_tbc": "Only a draft: its indicators may change before any adoption.",
-     "citation": "ESAs Joint Final Report JC 2023 55 (draft RTS amending Delegated Regulation (EU) 2022/1288)",
-     "url": "https://www.esma.europa.eu/sites/default/files/2023-12/JC_2023_55_-_Final_Report_SFDR_Delegated_Regulation_amending_RTS.pdf"},
-    {"sectors": ["asset_manager"], "framework": "sfdr_pai", "affects": ["sfdr_pai"], "title": "SFDR 2.0 — Commission proposal",
-     "date": None, "when": "Commission proposal COM(2025) 841 (20 Nov 2025) · in negotiation · would apply 18 months after entry into force",
-     "whats_changing": "The proposal deletes the entity-level principal adverse impacts statement (SFDR Articles 4 and 5) and repeals "
-                       "Delegated Regulation (EU) 2022/1288. Until it is adopted and applies, the statement stays mandatory.",
-     "prepare": None,
-     "citation": "Proposal COM(2025) 841 amending Regulation (EU) 2019/2088", "url": _EURLEX + "52025PC0841"},
-    {"sectors": ["bank", "insurer", "asset_manager", "reit"], "framework": None,
-     "affects": ["bank_tcfd", "reit_tcfd", "assetmgmt_tcfd", "insurer_climate"], "title": "IFRS S2 / ISSB adoption",
-     "date": None, "when": "date set per jurisdiction on ISSB adoption",
-     "whats_changing": "IFRS S2 climate-related disclosures become required where a jurisdiction adopts the ISSB standards.",
-     "prepare": None,
-     "citation": "IFRS S2 Climate-related Disclosures", "url": "https://www.ifrs.org/"},
-]
+_COMING_FILE = Path(__file__).resolve().parents[2] / "data" / "reference" / "crcs" / "coming_changes.json"
 
+
+def _from_draft_specs() -> list[dict]:
+    """A coming change for every draft template specification: what its machine diff against the governing version
+    says, in the customer's terms. Never dated unless the draft itself fixes a date."""
+    import services.regspec as R
+    out = []
+    for fw in R.frameworks():
+        gov = R.governing(fw, period_end=date.today())
+        for d in (s for s in R.versions(fw) if s["status"] == "draft"):
+            if gov is None:
+                continue
+            df = R.diff(gov, d)
+            code = {t["id"]: t.get("code") or t["id"] for t in gov["templates"] + d["templates"]}
+            parts = []
+            if df["templates_removed"]:
+                parts.append(f"removes {', '.join(code[t] for t in df['templates_removed'])}")
+            if df["templates_added"]:
+                parts.append(f"adds {', '.join(code[t] for t in df['templates_added'])}")
+            for c in df["changed"]:
+                n = {k: sum(len((c.get(a) or {}).get(k) or []) for a in ("rows",)) for k in ("added", "removed", "moved")}
+                bits = [f"{v} row(s) {k}" for k, v in n.items() if v]
+                if bits:
+                    parts.append(f"{code[c['id']]}: {', '.join(bits)}")
+            applies = d["applies"].get("from")
+            out.append({
+                "sectors": list((FRAMEWORKS.get(fw) or {}).get("sectors") or ()), "framework": fw, "affects": [fw],
+                "title": f"{(reference(fw) or {}).get('official_name') or fw} — {d['act'].get('short') or d['act']['title']}",
+                "date": None,
+                "when": "draft · not adopted" + (f" · would apply from {applies}" if applies else " · no application date set"),
+                "whats_changing": ("Compared with the version in force: " + "; ".join(parts) + ".") if parts
+                                  else "Changes wording or references only.",
+                "prepare": None, "data_tbc": "A draft: the templates may change before adoption; exact data needs follow on adoption.",
+                "citation": d["act"]["title"], "url": d["act"].get("url"), "spec": d["version"]})
+    return out
+
+
+def coming_changes() -> list[dict]:
+    """Every coming change: the curated register (data/reference/crcs/coming_changes.json) and one per draft spec."""
+    return json.loads(_COMING_FILE.read_text())["changes"] + _from_draft_specs()
 
 def changes_affecting(org_type: str | None, framework: str, session=None) -> list[dict]:
     """Coming changes (for this sector) that touch a given framework — the single signal both the customer
     outlook and the supervisory-question 'review recommended' flags read from. Combines the curated library
     with anything the live EUR-Lex detector has flagged for this framework (session required for the latter)."""
     out = []
-    for c in COMING:
+    for c in coming_changes():
         if org_type not in (c.get("sectors") or []):
             continue
         if c.get("framework") == framework or framework in (c.get("affects") or []):
@@ -150,7 +121,7 @@ def outlook(org_type: str | None, session=None, org_id: str | None = None) -> di
     in_force.sort(key=lambda x: x["name"] or "")
 
     coming = []
-    for c in COMING:
+    for c in coming_changes():
         if org_type not in (c.get("sectors") or []):
             continue
         item = {k: c[k] for k in ("framework", "title", "date", "when", "whats_changing", "prepare", "citation", "url")}
@@ -189,7 +160,7 @@ def outlook(org_type: str | None, session=None, org_id: str | None = None) -> di
     for dc in detected:
         # only surface those relevant to this sector's frameworks
         if not any(dc["framework"] in (c.get("affects") or []) or dc["framework"] == c.get("framework")
-                   for c in COMING if org_type in (c.get("sectors") or [])) \
+                   for c in coming_changes() if org_type in (c.get("sectors") or [])) \
            and dc["framework"] not in [f for f in FRAMEWORKS if org_type in (FRAMEWORKS[f].get("sectors") or ())]:
             continue
         coming.append({"framework": dc["framework"], "title": dc["title"], "date": dc["effective_date"],

@@ -27,6 +27,19 @@ FRAMEWORK_SUPERVISOR: dict[str, str] = {
     "eudr_dds": "ec_traces",
 }
 
+def _reference(sid: str, s: dict) -> str:
+    """What the supervisor works from: the legal basis of every framework it reads (from reg_reference — the governing
+    specification where the framework is on the change route) and its own guidance documents. No act number typed here."""
+    from services.governance.reg_reference import reference
+    parts: list[str] = []
+    for fw, sup in FRAMEWORK_SUPERVISOR.items():
+        lb = (reference(fw) or {}).get("legal_basis") if sup == sid else None
+        for p in (lb or "").split(" · "):
+            if p and p not in parts:
+                parts.append(p)
+    return " · ".join(parts + ([s["guidance"]] if s.get("guidance") else []))
+
+
 # ── the supervisors themselves — mission + supervisory focus (what they scrutinise · transparency sought) ──
 SUPERVISORS: dict[str, dict] = {
     "eba_ecb": {
@@ -34,7 +47,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · banking prudential supervision",
         "mission": "Ensure banks identify, disclose and prudently manage climate-related and environmental "
                    "(C&E) risks so they do not threaten safety and soundness.",
-        "reference": "ECB Guide on climate-related and environmental risks (Nov 2020) · EBA ITS (EU) 2024/3172 (ESG section) · CRR Art. 449a",
+        "guidance": "ECB Guide on climate-related and environmental risks (Nov 2020)",
         "focus_areas": [
             {"title": "Physical-risk concentration",
              "scrutiny": "Whether the banking book is over-concentrated in geographies and sectors exposed to acute and chronic climate hazards.",
@@ -55,7 +68,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · insurance prudential supervision",
         "mission": "Supervise the natural-catastrophe and climate exposure of underwriting and investments, and "
                    "monitor the widening climate protection gap.",
-        "reference": "Solvency II (Dir. 2009/138/EC) climate-risk supervision · IFRS S2 · EIOPA NatCat / protection-gap work",
+        "guidance": "EIOPA NatCat / protection-gap work",
         "focus_areas": [
             {"title": "NatCat exposure & accumulation",
              "scrutiny": "The gross and net catastrophe exposure of the book, peril accumulation, and the modelled PML at extreme return periods.",
@@ -70,7 +83,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · sustainable-finance disclosure",
         "mission": "Ensure financial-market participants disclose the principal adverse impacts of their "
                    "investments completely and consistently, and prevent greenwashing.",
-        "reference": "SFDR (EU) 2019/2088 Art. 4 · RTS (EU) 2022/1288 Annex I · ESAs greenwashing reports",
+        "guidance": "ESAs greenwashing reports",
         "focus_areas": [
             {"title": "PAI completeness",
              "scrutiny": "Whether all 14 mandatory Principal Adverse Impact indicators are reported and how complete the underlying data is.",
@@ -85,7 +98,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · CSRD/ESRS & Taxonomy Art. 8 assurance",
         "mission": "Ensure sustainability statements are prepared on a double-materiality basis, are complete and "
                    "XBRL-tagged, and that the anticipated financial effects of climate risk are disclosed.",
-        "reference": "CSRD (EU) 2022/2464 · ESRS Delegated Reg. (EU) 2023/2772 · Taxonomy DA (EU) 2021/2178",
+        "guidance": "",
         "focus_areas": [
             {"title": "Double materiality (E1)",
              "scrutiny": "Whether material physical and transition climate risks to own operations are identified and quantified.",
@@ -103,7 +116,7 @@ SUPERVISORS: dict[str, dict] = {
         "jurisdiction": "EU · deforestation-free supply chains",
         "mission": "Ensure operators placing in-scope commodities on the EU market submit a valid Due Diligence "
                    "Statement with geolocation and a deforestation-free / legality assessment.",
-        "reference": "EU Deforestation Regulation (EU) 2023/1115 · Art. 33 (DDS) · Annex II",
+        "guidance": "",
         "focus_areas": [
             {"title": "Geolocation completeness",
              "scrutiny": "Whether every covered plot carries the required geolocation (polygons for plots > 4 ha).",
@@ -249,7 +262,7 @@ def supervisory_anticipation(session: Session, org_id: str, org_type: str | None
         changes = list(e["changes"].values())
         supervisors.append({
             "id": sid, "name": s["name"], "jurisdiction": s["jurisdiction"], "mission": s["mission"],
-            "reference": s["reference"], "focus_areas": s["focus_areas"],
+            "reference": _reference(sid, s), "focus_areas": s["focus_areas"],
             "frameworks": sorted(e["framework_ids"]), "questions": questions,
             "answered": sum(1 for q in questions if q["answered"]), "total": len(questions),
             "review": {"needs_review": bool(changes), "changes": changes},

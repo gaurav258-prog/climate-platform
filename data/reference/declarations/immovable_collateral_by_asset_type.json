@@ -1,0 +1,11 @@
+{
+ "_about": "Declared by Tellumen, not a regulatory list: where a loan tape does not state a loan's immovable-property collateral (field immovable_collateral), the asset type is read as its collateral for these types only. The form says how many loans were placed this way. Any other asset type is never assumed to be property collateral.",
+ "declared_by": "Tellumen",
+ "declared": "2026-09-28",
+ "basis": "Pillar 3 Template 5 rows 10-12 classify loans by the immovable property collateralising them, by predominant use (FINREP Annex V, Part 1). A residential or commercial property asset in the book is that property.",
+ "by_asset_type": {
+  "residential_real_estate": "residential",
+  "commercial_real_estate": "commercial",
+  "office": "commercial"
+ }
+}

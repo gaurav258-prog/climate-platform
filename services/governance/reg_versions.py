@@ -12,19 +12,8 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-# curated identity for each tracked act (title + its role in the lineage) — the dates come live from Cellar.
-ACT_META: dict[str, dict] = {
-    "32023R1115": {"title": "EU Deforestation Regulation (EUDR)", "role": "base"},
-    "32024R3234": {"title": "EUDR — application-date amendment", "role": "amendment"},
-    "32021R2178": {"title": "Taxonomy Disclosures Delegated Act", "role": "base"},
-    "32022R2453": {"title": "Pillar 3 ESG — ITS (2022)", "role": "base"},
-    "32024R3172": {"title": "Pillar 3 disclosures — ITS (2024)", "role": "base"},
-    "32022R1288": {"title": "SFDR Regulatory Technical Standards", "role": "base"},
-    "32019R2088": {"title": "SFDR (base Regulation)", "role": "base"},
-    "32023R2772": {"title": "ESRS Delegated Act", "role": "base"},
-    "32022L2464": {"title": "CSRD Directive", "role": "base"},
-    "32009L0138": {"title": "Solvency II Directive", "role": "base"},
-}
+# each watched act's title and role: from its specification or data/reference/crcs/tracked_acts.json
+from services.regulatory_monitoring.tracked_acts import act_meta  # noqa: E402
 
 
 def _milestones(eif: list[str]) -> dict:
@@ -62,7 +51,7 @@ def versions(session: Session, org_type: str | None) -> dict:
             sig, ck = snaps.get(cx, ({}, None))
             eif = sig.get("entry_into_force") or []
             m = _milestones(eif)
-            am = ACT_META.get(cx, {"title": cx, "role": "base"})
+            am = act_meta(cx)
             if ck:
                 checked = ck.date().isoformat()
             rels = _relations(session, [cx])
@@ -173,7 +162,7 @@ def version_for(session: Session, framework: str, period_end: date | str, on: da
                 notes.append(f"the register shows {cx} in force but also ended on {eov}; not acted on")
             else:
                 ended_at = eov
-        governing.append({"celex": cx, "title": ACT_META.get(cx, {}).get("title", cx), "role": ACT_META.get(cx, {}).get("role", "base"),
+        governing.append({"celex": cx, "title": act_meta(cx)["title"], "role": act_meta(cx)["role"],
                           "ended": ended_at})
         if ended_at and ended_at < pe:
             status = "superseded"
