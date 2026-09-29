@@ -38,13 +38,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-# Only mapped where a specific Annex I section genuinely, directly covers the
-# NACE activity -- no forced matches. Checked against the 7 demo sectors'
-# real NACE codes; extend this table as real NACE codes are encountered.
-NACE_ANNEX_I_ELIGIBILITY = {
-    "68.20": "Climate Delegated Act (EU) 2021/2139, Annex I §7.7 — Acquisition and ownership of buildings",
-    "35.11": "Climate Delegated Act (EU) 2021/2139, Annex I §4 — Electricity, gas, steam and air conditioning supply",
-}
+# Which activity a NACE code decides comes from the Taxonomy's own activity list (services/reference/
+# taxonomy_activities.py, captured from the Delegated Acts): eligible only where every activity listing the code is the
+# same activity. The former typed table marked every NACE 35.11 exposure eligible under a non-existent 'Annex I §4';
+# electricity generation is several activities (solar, wind, gas, …), and coal generation none (error log E30).
 
 # Annex I §7.7 point 1 (verified verbatim): for buildings built before 31 Dec 2020,
 # the building must have AT LEAST EPC class A -- B does NOT qualify. (The regulation's
@@ -61,7 +58,7 @@ def classify_taxonomy(
     minimum_safeguards_status: Optional[str] = None,
 ) -> dict:
     """
-    Returns {"status": "eligible"|"not_eligible", "activity_ref": str|None,
+    Returns {"status": "eligible"|"not_eligible"|"not_determined"|"not_assessed", "activity_ref": str|None,
     "reasoning": {...}}. Never returns "aligned" -- see module docstring
     (DNSH across the other five environmental objectives is never assessed
     here, regardless of what evidence is supplied).
@@ -90,10 +87,20 @@ def classify_taxonomy(
             },
         }
 
-    activity_ref = NACE_ANNEX_I_ELIGIBILITY.get(nace_code)
-    status = "eligible" if activity_ref else "not_eligible"
+    from services.reference.taxonomy_activities import activity_for
+    found = activity_for(nace_code)
+    if found["status"] == "determined":
+        status = "eligible"
+        activity_ref = f"{' / '.join(found['codes'])} — {found['title']}"
+    elif found["status"] == "not_determined":
+        # the NACE code is listed by several different activities: which one the undertaking performs (and so
+        # whether it is eligible at all) is not decided by its NACE code
+        status, activity_ref = "not_determined", None
+    else:
+        status, activity_ref = "not_eligible", None
+    is_buildings = found.get("section") == "7.7"             # the §7.7 EPC test applies to that activity only
 
-    if epc_rating:
+    if epc_rating and is_buildings:
         substantial_contribution_verified = epc_rating in EPC_MEETS_SUBSTANTIAL_CONTRIBUTION
         substantial_contribution_note = (
             f"EPC {epc_rating} supplied — meets Annex I §7.7 point 1's substantial-contribution "
@@ -110,8 +117,8 @@ def classify_taxonomy(
     else:
         substantial_contribution_verified = False
         substantial_contribution_note = (
-            "Requires technical screening criteria data (e.g. building EPC rating, or "
-            "generation-source mix) not currently supplied for this entity."
+            "Requires the technical screening criteria of the activity (e.g. a building's EPC rating for §7.7, or "
+            "the generation source for electricity), not currently supplied for this entity."
         )
 
     if minimum_safeguards_status:
@@ -130,6 +137,11 @@ def classify_taxonomy(
     reasoning = {
         "activity_described_in_annex_i": bool(activity_ref),
         "activity_ref": activity_ref,
+        "candidate_activities": [a["code"] + " " + a["title"] for a in found["activities"]][:20],
+        "nace_basis": {"determined": "every Taxonomy activity listing this NACE code is the same activity",
+                       "not_determined": "several different Taxonomy activities list this NACE code — the activity "
+                                         "performed decides eligibility",
+                       "none": "no Taxonomy activity of the Delegated Acts lists this NACE code"}[found["status"]],
         "substantial_contribution_verified": substantial_contribution_verified,
         "substantial_contribution_note": substantial_contribution_note,
         "minimum_safeguards_verified": minimum_safeguards_verified,

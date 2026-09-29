@@ -65,7 +65,12 @@ def facts_for(r: dict) -> dict:
     if cp == "non_financial_corporation" and out["instrument_type"] == "loans_and_advances":
         out["specialised_lending"] = gross >= 10_000_000 and _u(eid, "sl") < 0.25
     if (r["taxonomy_status"] or "") in ("eligible", "aligned"):
-        out["taxonomy_objective"] = "cca" if _u(eid, "obj") < 0.15 else "ccm"
+        # the objective follows from the Taxonomy activity the exposure is classified to ('CCM 7.7 / CCA 7.7 — …' →
+        # mitigation or adaptation; 'BIO 2.1 — …' → biodiversity), from the activity reference — never another one
+        objs = [c.split()[0].lower() for c in (r["taxonomy_activity"] or "").split(" — ")[0].split(" / ") if c.strip()]
+        objs = [o for o in objs if o in ("ccm", "cca", "wtr", "ce", "ppc", "bio")]
+        if objs:
+            out["taxonomy_objective"] = objs[0] if len(objs) == 1 else (objs[1] if _u(eid, "obj") < 0.15 else objs[0])
     if out.get("immovable_collateral"):
         epc = (r["epc_label"] or "").strip().upper()
         if epc in _EP_FROM_EPC:
@@ -81,7 +86,8 @@ def main() -> None:
     with get_session() as s:
         rows = s.execute(text("""
             SELECT e.entity_id::text AS entity_id, e.nace_code, e.entity_type, CAST(e.primary_value_eur AS FLOAT) AS primary_value_eur,
-                   CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur, x.taxonomy_status, x.epc_label
+                   CAST(x.outstanding_loan_balance_eur AS FLOAT) AS outstanding_loan_balance_eur, x.taxonomy_status, x.epc_label,
+            x.taxonomy_activity, x.taxonomy_objective
             FROM portfolio_entities e
             JOIN organizations o ON o.org_id = e.org_id
             JOIN ext_banking x ON x.entity_id = e.entity_id
@@ -89,7 +95,11 @@ def main() -> None:
         n = 0
         for r in rows:
             f = facts_for(dict(r))
-            sets = ", ".join(f"{k} = COALESCE({k}, :{k})" for k in f)          # never overwrite a stated fact
+            # never overwrite a stated fact — except a demo objective the exposure's own activity rules out (the demo
+            # once drew objectives before activities were classified from the Taxonomy's activity list)
+            fix_objective = "taxonomy_objective" in f and r["taxonomy_objective"] not in (None, f["taxonomy_objective"]) \
+                and r["taxonomy_objective"] not in [c.split()[0].lower() for c in (r["taxonomy_activity"] or "").split(" — ")[0].split(" / ")]
+            sets = ", ".join((f"{k} = :{k}" if (k == "taxonomy_objective" and fix_objective) else f"{k} = COALESCE({k}, :{k})") for k in f)
             s.execute(text(f"UPDATE ext_banking SET {sets} WHERE entity_id = CAST(:e AS uuid)"), {**f, "e": r["entity_id"]})
             n += 1
         s.commit()

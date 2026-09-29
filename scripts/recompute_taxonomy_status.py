@@ -15,7 +15,10 @@ e6f7a8b9c0d1 migration) when an asset has one on file, so
 reasoning.minimum_safeguards_verified reflects real supplied evidence
 instead of always reading "not currently supplied".
 
-Run:  .venv/bin/python scripts/recompute_taxonomy_status.py
+Demo books only (organisations of type 'bank' named '… (demo)'): a real client's Taxonomy status is the one its loan
+tape states, and is never replaced by the classifier's NACE-based reading (error log E30).
+
+Run:  venv/bin/python -m scripts.recompute_taxonomy_status
 """
 import json
 
@@ -33,7 +36,8 @@ def main():
             SELECT e.entity_id AS asset_id, e.nace_code, e.minimum_safeguards_status, x.resilience_rating
             FROM portfolio_entities e
             JOIN ext_banking x ON x.entity_id = e.entity_id
-            WHERE e.vertical = 'banking'
+            JOIN organizations o ON o.org_id = e.org_id
+            WHERE e.vertical = 'banking' AND o.type = 'bank' AND o.name LIKE '%(demo)'
         """)).mappings().all()
 
         headline_by_asset = {}
@@ -49,7 +53,7 @@ def main():
                 headline_by_asset[r["asset_id"]] = r
 
         updates = []
-        counts = {"eligible": 0, "not_eligible": 0, "not_assessed": 0}
+        counts = {"eligible": 0, "not_eligible": 0, "not_determined": 0, "not_assessed": 0}
         for a in assets:
             headline = headline_by_asset.get(a["asset_id"])
             tax = classify_taxonomy(
@@ -69,8 +73,7 @@ def main():
         s.execute(text("""
             UPDATE ext_banking
             SET taxonomy_status = :status,
-                taxonomy_activity = COALESCE(:activity,
-                    (SELECT sector FROM portfolio_entities WHERE entity_id = :asset_id)),
+                taxonomy_activity = :activity,          -- a Taxonomy activity reference, or none (never a sector name)
                 dnsh_assessment = CAST(:reasoning AS jsonb)
             WHERE entity_id = :asset_id
         """), updates)

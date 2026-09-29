@@ -1,0 +1,4388 @@
+{
+ "about": "The economic activities of the EU Taxonomy as in force: Delegated Regulation (EU) 2021/2139 (Annex I climate change mitigation, Annex II adaptation) with the sections Delegated Regulation (EU) 2022/1214 inserted and the additions and amendments of Delegated Regulation (EU) 2023/2485, and Delegated Regulation (EU) 2023/2486 (Annexes I-IV: water and marine resources, circular economy, pollution prevention and control, biodiversity). Each activity: its printed code (objective abbreviation + section, the Code rule of Annex II to 2021/2178 as replaced by 2023/2486), title, sector, the NACE codes the act itself associates with it (verbatim sentence; indicative — 'could be associated with'), and its category (transitional / enabling) with the verbatim sentence. Captured from the Official Journal texts and independently second-passed; every quote verbatim.",
+ "acts": {
+  "32021R2139": {
+   "short": "Climate Delegated Act (EU) 2021/2139",
+   "applies_from": "2022-01-01",
+   "quote": "It shall apply from 1 January 2022."
+  },
+  "32022R1214": {
+   "short": "Complementary Climate Delegated Act (EU) 2022/1214",
+   "applies_from": "2023-01-01",
+   "quote": "It shall apply from 1 January 2023."
+  },
+  "32023R2485": {
+   "short": "Delegated Regulation (EU) 2023/2485 amending 2021/2139",
+   "applies_from": "2024-01-01",
+   "quote": "It shall apply from 1 January 2024."
+  },
+  "32023R2486": {
+   "short": "Environmental Delegated Act (EU) 2023/2486",
+   "applies_from": "2024-01-01",
+   "quote": "It shall apply from 1 January 2024."
+  }
+ },
+ "code_rule": "The Code constitutes the abbreviation of the relevant objective to which the economic activity is eligible to make a substantial contribution, as well as the section number of the activity in the relevant Annex covering the objective, i.e.: Climate Change Mitigation: CCM; Climate Change Adaptation: CCA; Water and Marine Resources: WTR; Circular Economy: CE; Pollution Prevention and Control: PPC; Biodiversity and ecosystems: BIO.",
+ "activities": [
+  {
+   "section": "1.1",
+   "title": "Afforestation",
+   "sector": "1. Forestry",
+   "objective": "ccm",
+   "code": "CCM 1.1",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "note": "nace lists division 'A2' plus the NACE II classes to which the activity is limited, as printed.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.2",
+   "title": "Rehabilitation and restoration of forests, including reforestation and natural forest regeneration after an extreme event",
+   "sector": "1. Forestry",
+   "objective": "ccm",
+   "code": "CCM 1.2",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "note": "nace lists division 'A2' plus the NACE II classes to which the activity is limited, as printed.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.3",
+   "title": "Forest management",
+   "sector": "1. Forestry",
+   "objective": "ccm",
+   "code": "CCM 1.3",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "note": "nace lists division 'A2' plus the NACE II classes to which the activity is limited, as printed.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.4",
+   "title": "Conservation forestry",
+   "sector": "1. Forestry",
+   "objective": "ccm",
+   "code": "CCM 1.4",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products, and 02.40, i.e. support services to forestry.",
+   "note": "nace lists division 'A2' plus the NACE II classes to which the activity is limited, as printed.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Restoration of wetlands",
+   "sector": "2. Environmental protection and restoration activities",
+   "objective": "ccm",
+   "code": "CCM 2.1",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006, but relate to class 6 of the statistical classification of environmental protection activities (CEPA) established by Regulation (EU) No 691/2011 of the European Parliament and of the Council (68).",
+   "note": "No dedicated NACE code; text relates the activity to class 6 of CEPA (Regulation (EU) No 691/2011).",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.1",
+   "title": "Manufacture of renewable energy technologies",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.1",
+   "nace": [
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C25, C27, C28 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.2",
+   "title": "Manufacture of equipment for the production and use of hydrogen",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.2",
+   "nace": [
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C25, C27, C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.3",
+   "title": "Manufacture of low carbon technologies for transport",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.3",
+   "nace": [
+    "C29.1",
+    "C30.1",
+    "C30.2",
+    "C30.9",
+    "C33.15",
+    "C33.17"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C29.1, C30.1, C30.2, C30.9, C33.15, C33.17 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 3.3., subsection ‘Technical screening criteria’ is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "3.4",
+   "title": "Manufacture of batteries",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.4",
+   "nace": [
+    "C27.2",
+    "E38.32"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C27.2 and E38.32 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.5",
+   "title": "Manufacture of energy efficiency equipment for buildings",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.5",
+   "nace": [
+    "C16.23",
+    "C23.11",
+    "C23.20",
+    "C23.31",
+    "C23.32",
+    "C23.43",
+    "C.23.61",
+    "C25.11",
+    "C25.12",
+    "C25.21",
+    "C25.29",
+    "C25.93",
+    "C27.31",
+    "C27.32",
+    "C27.33",
+    "C27.40",
+    "C27.51",
+    "C28.11",
+    "C28.12",
+    "C28.13",
+    "C28.14"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C16.23, C23.11, C23.20, C23.31, C23.32, C23.43, C.23.61, C25.11, C25.12, C25.21, C25.29, C25.93, C27.31, C27.32, C27.33, C27.40, C27.51, C28.11, C28.12, C28.13, C28.14, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: C.23.61.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.6",
+   "title": "Manufacture of other low carbon technologies",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.6",
+   "nace": [
+    "C22",
+    "C25",
+    "C26",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular from C22, C25, C26, C27 and C28 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.7",
+   "title": "Manufacture of cement",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.7",
+   "nace": [
+    "C23.51"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C23.51 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.8",
+   "title": "Manufacture of aluminium",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.8",
+   "nace": [
+    "C24.42",
+    "C24.53"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C24.42, C24.53 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.9",
+   "title": "Manufacture of iron and steel",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.9",
+   "nace": [
+    "C24.10",
+    "C24.20",
+    "C24.31",
+    "C24.32",
+    "C24.33",
+    "C24.34",
+    "C24.51",
+    "C24.52"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C24.10, C24.20, C24.31, C24.32, C24.33, C24.34, C24.51 and C24.52 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.10",
+   "title": "Manufacture of hydrogen",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.10",
+   "nace": [
+    "C20.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.11",
+   "title": "Manufacture of carbon black",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.11",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.12",
+   "title": "Manufacture of soda ash",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.12",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.13",
+   "title": "Manufacture of chlorine",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.13",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.14",
+   "title": "Manufacture of organic basic chemicals",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.14",
+   "nace": [
+    "C20.14"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.14 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.15",
+   "title": "Manufacture of anhydrous ammonia",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.15",
+   "nace": [
+    "C20.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.16",
+   "title": "Manufacture of nitric acid",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.16",
+   "nace": [
+    "C20.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.17",
+   "title": "Manufacture of plastics in primary form",
+   "sector": "3. Manufacturing",
+   "objective": "ccm",
+   "code": "CCM 3.17",
+   "nace": [
+    "C20.16"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.16 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.18",
+   "title": "Manufacture of automotive and mobility components",
+   "sector": "3. MANUFACTURING",
+   "objective": "ccm",
+   "code": "CCM 3.18",
+   "nace": [
+    "C22.2",
+    "C26.1",
+    "C26.2",
+    "26.3",
+    "26.4",
+    "C28.14",
+    "C28.15",
+    "C29.2",
+    "C29.3",
+    "C33.17"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C22.2, C26.1, C26.2, 26.3, 26.4, C28.14, C28.15, C29.2, C29.3, and C33.17 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "nace_note": "NACE printed oddity kept as printed: '26.3' and '26.4' lack the section letter (presumably C26.3, C26.4).",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "3.19",
+   "title": "Manufacture of rail rolling stock constituents",
+   "sector": "3. MANUFACTURING",
+   "objective": "ccm",
+   "code": "CCM 3.19",
+   "nace": [
+    "C30.2",
+    "C27.1",
+    "C27.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular, C30.2 C27.1, C27.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "nace_note": "NACE printed oddity kept as printed: no comma between 'C30.2' and 'C27.1' in the source sentence.",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "3.20",
+   "title": "Manufacture, installation, and servicing of high, medium and low voltage electrical equipment for electrical transmission and distribution that result in or enable a substantial contribution to climate change mitigation",
+   "sector": "3. MANUFACTURING",
+   "objective": "ccm",
+   "code": "CCM 3.20",
+   "nace": [
+    "C26.51",
+    "C27.1",
+    "C27.3",
+    "C27.9",
+    "C33.13",
+    "C33.14",
+    "C33.2"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C26.51, C27.1, C27.3, C27.9, C33.13, C33.14 and C33.2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "3.21",
+   "title": "Manufacturing of aircraft",
+   "sector": "3. MANUFACTURING",
+   "objective": "ccm",
+   "code": "CCM 3.21",
+   "nace": [
+    "C30.3",
+    "C33.16"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with a NACE code, in particular C30.3 and C33.16, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "category_conditional": true,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "4.1",
+   "title": "Electricity generation using solar photovoltaic technology",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.1",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.2",
+   "title": "Electricity generation using concentrated solar power (CSP) technology",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.2",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.3",
+   "title": "Electricity generation from wind power",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.3",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.4",
+   "title": "Electricity generation from ocean energy technologies",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.4",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.4., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm’ (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.5",
+   "title": "Electricity generation from hydropower",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.5",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.6",
+   "title": "Electricity generation from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.6",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.7",
+   "title": "Electricity generation from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.7",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.8",
+   "title": "Electricity generation from bioenergy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.8",
+   "nace": [
+    "D35.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.9",
+   "title": "Transmission and distribution of electricity",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.9",
+   "nace": [
+    "D35.12",
+    "D35.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.12 and D35.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.9., subsection ‘Technical screening criteria’, point 2, point (c) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.10",
+   "title": "Storage of electricity",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.10",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.11",
+   "title": "Storage of thermal energy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.11",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.12",
+   "title": "Storage of hydrogen",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.12",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.13",
+   "title": "Manufacture of biogas and biofuels for use in transport and of bioliquids",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.13",
+   "nace": [
+    "D35.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.14",
+   "title": "Transmission and distribution networks for renewable and low-carbon gases",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.14",
+   "nace": [
+    "D35.22",
+    "F42.21",
+    "H49.50"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.22, F42.21 and H49.50 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.15",
+   "title": "District heating/cooling distribution",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.15",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.16",
+   "title": "Installation and operation of electric heat pumps",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.16",
+   "nace": [
+    "D35.30",
+    "F43.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.30 and F43.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.17",
+   "title": "Cogeneration of heat/cool and power from solar energy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.17",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.18",
+   "title": "Cogeneration of heat/cool and power from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.18",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.19",
+   "title": "Cogeneration of heat/cool and power from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.19",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.20",
+   "title": "Cogeneration of heat/cool and power from bioenergy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.20",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.21",
+   "title": "Production of heat/cool from solar thermal heating",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.21",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.22",
+   "title": "Production of heat/cool from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.22",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.23",
+   "title": "Production of heat/cool from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.23",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.24",
+   "title": "Production of heat/cool from bioenergy",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.24",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.25",
+   "title": "Production of heat/cool using waste heat",
+   "sector": "4. Energy",
+   "objective": "ccm",
+   "code": "CCM 4.25",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.26",
+   "title": "Pre-commercial stages of advanced technologies to produce energy from nuclear processes with minimal waste from the fuel cycle",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.26",
+   "nace": [
+    "M72",
+    "M72.1"
+   ],
+   "nace_quote": "The activity is classified under NACE code M72 and M72.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is an activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with all the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.26., subsection ‘Technical screening criteria’, subsection ‘Additional criteria pertaining to Do no significant harm (“DNSH”)’, point (3) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.27",
+   "title": "Construction and safe operation of new nuclear power plants, for the generation of electricity or heat, including for hydrogen production, using best-available technologies",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.27",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The activity is classified under NACE codes D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is an activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with all the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.27., subsection ‘Technical screening criteria’, subsection ‘Additional criteria pertaining to Do no significant harm (“DNSH”)’, point (3) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.28",
+   "title": "Electricity generation from nuclear energy in existing installations",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.28",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The activity is classified under NACE codes D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is an activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with all the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.28., subsection ‘Technical screening criteria’, subsection ‘Additional criteria pertaining to Do no significant harm (“DNSH”)’, point (3) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.29",
+   "title": "Electricity generation from fossil gaseous fuels",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.29",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category may be associated with several NACE codes, notably D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.30",
+   "title": "High-efficiency co-generation of heat/cool and power from fossil gaseous fuels",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.30",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category may be associated with NACE codes D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.31",
+   "title": "Production of heat/cool from fossil gaseous fuels in an efficient district heating and cooling system",
+   "sector": "4. ENERGY",
+   "objective": "ccm",
+   "code": "CCM 4.31",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The activity is classified under NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "5.1",
+   "title": "Construction, extension and operation of water collection, treatment and supply systems",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.1",
+   "nace": [
+    "E36.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.2",
+   "title": "Renewal of water collection, treatment and supply systems",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.2",
+   "nace": [
+    "E36.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.3",
+   "title": "Construction, extension and operation of waste water collection and treatment",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.3",
+   "nace": [
+    "E37.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.4",
+   "title": "Renewal of waste water collection and treatment",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.4",
+   "nace": [
+    "E37.00"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE codes E37.00 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.5",
+   "title": "Collection and transport of non-hazardous waste in source segregated fractions",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.5",
+   "nace": [
+    "E38.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E38.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.6",
+   "title": "Anaerobic digestion of sewage sludge",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.6",
+   "nace": [
+    "E37.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.7",
+   "title": "Anaerobic digestion of bio-waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.7",
+   "nace": [
+    "E38.21",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.21 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.8",
+   "title": "Composting of bio-waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.8",
+   "nace": [
+    "E38.21",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.21 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.9",
+   "title": "Material recovery from non-hazardous waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.9",
+   "nace": [
+    "E38.32",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.32 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.10",
+   "title": "Landfill gas capture and utilisation",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.10",
+   "nace": [
+    "E38.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E38.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.11",
+   "title": "Transport of CO2",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.11",
+   "nace": [
+    "F42.21",
+    "H49.50"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.21 and H49.50 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.12",
+   "title": "Underground permanent geological storage of CO2",
+   "sector": "5. Water supply, sewerage, waste management and remediation",
+   "objective": "ccm",
+   "code": "CCM 5.12",
+   "nace": [
+    "E39.00"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E39.00 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.1",
+   "title": "Passenger interurban rail transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.1",
+   "nace": [
+    "H49.10",
+    "N77.39"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.10, N77.39 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, that activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.2",
+   "title": "Freight rail transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.2",
+   "nace": [
+    "H49.20",
+    "N77.39"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.20 and N77.39 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, that activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.3",
+   "title": "Urban and suburban transport, road passenger transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.3",
+   "nace": [
+    "H49.31",
+    "H49.3.9",
+    "N77.39",
+    "N77.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.31, H49.3.9, N77.39 and N77.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: H49.3.9.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.3., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "6.4",
+   "title": "Operation of personal mobility devices, cycle logistics",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.4",
+   "nace": [
+    "N77.11",
+    "N77.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular N77.11 and N77.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.5",
+   "title": "Transport by motorbikes, passenger cars and light commercial vehicles",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.5",
+   "nace": [
+    "H49.32",
+    "H49.39",
+    "N77.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.32, H49.39 and N77.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a)(ii) and (b) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.5., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "6.6",
+   "title": "Freight transport services by road",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.6",
+   "nace": [
+    "H49.4.1",
+    "H53.10",
+    "H53.20",
+    "N77.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.4.1, H53.10, H53.20 and N77.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (1)(a), (1)( b) or (1)(c)(i) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: H49.4.1.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.6., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "6.7",
+   "title": "Inland passenger water transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.7",
+   "nace": [
+    "H50.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code H50.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.7. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.8",
+   "title": "Inland freight water transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.8",
+   "nace": [
+    "H50.4"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE code H50.4 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.8. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.9",
+   "title": "Retrofitting of inland water passenger and freight transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.9",
+   "nace": [
+    "H50.4",
+    "H50.30",
+    "C33.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated several NACE codes, in particular H50.4, H50.30 and C33.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.9. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.10",
+   "title": "Sea and coastal freight water transport, vessels for port operations and auxiliary activities",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.10",
+   "nace": [
+    "H50.2",
+    "H52.22",
+    "N77.34"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.2, H52.22 and N77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point 1 (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.10. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.11",
+   "title": "Sea and coastal passenger water transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.11",
+   "nace": [
+    "H50.10",
+    "N77.21",
+    "N77.34"
+   ],
+   "nace_quote": "The activity could be associated with several NACE codes, in particular H50.10, N77.21 and N77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.11. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.12",
+   "title": "Retrofitting of sea and coastal freight and passenger water transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.12",
+   "nace": [
+    "H50.10",
+    "H50.2",
+    "H52.22",
+    "C33.15",
+    "N77.21",
+    "N.77.34"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE codes H50.10, H50.2, H52.22, C33.15, N77.21 and N.77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: N.77.34.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.12. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.13",
+   "title": "Infrastructure for personal mobility, cycle logistics",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.13",
+   "nace": [
+    "F42.11",
+    "F42.12",
+    "F42.13",
+    "F43.21",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.11, F42.12, F42.13, F43.21, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F71.1, F71.20.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.13., subsection ‘Description of the activity’, the second paragraph is replaced by the following",
+     "nace_before": [
+      "F42.11",
+      "F42.12",
+      "F43.21",
+      "F71.1",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.14",
+   "title": "Infrastructure for rail transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.14",
+   "nace": [
+    "C25.99",
+    "C27.9",
+    "C30.20",
+    "F42.12",
+    "F42.13",
+    "M71.12",
+    "M71.20",
+    "F43.21",
+    "H52.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C25.99, C27.9, C30.20, F42.12, F42.13, M71.12, M71.20, F43.21, and H52.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.14. is amended as follows",
+     "nace_before": [
+      "F42.12",
+      "F42.13",
+      "M71.12",
+      "M71.20",
+      "F43.21",
+      "H52.21"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.15",
+   "title": "Infrastructure enabling low-carbon road transport and public transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.15",
+   "nace": [
+    "F42.11",
+    "F42.13",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.11, F42.13, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F71.1, F71.20.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.15., subsection ‘Description of the activity’, the second paragraph is replaced by the following",
+     "nace_before": [
+      "F42.11",
+      "F42.13",
+      "F71.1",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.16",
+   "title": "Infrastructure enabling low carbon water transport",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.16",
+   "nace": [
+    "F42.91",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.91, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F71.1, F71.20.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.16. is amended as follows",
+     "nace_before": [
+      "F42.91",
+      "F71.1",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.17",
+   "title": "Low carbon airport infrastructure",
+   "sector": "6. Transport",
+   "objective": "ccm",
+   "code": "CCM 6.17",
+   "nace": [
+    "F41.20",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41.20 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity is an enabling activity as referred to in Article 10(1) point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.17. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.18",
+   "title": "Leasing of aircraft",
+   "sector": "6. TRANSPORT",
+   "objective": "ccm",
+   "code": "CCM 6.18",
+   "nace": [
+    "N77.35"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with a NACE code, in particular N77.35, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this Section.",
+   "category_conditional": true,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "6.19",
+   "title": "Passenger and freight air transport",
+   "sector": "6. TRANSPORT",
+   "objective": "ccm",
+   "code": "CCM 6.19",
+   "nace": [
+    "H51.1",
+    "H51.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H51.1 and H51.21, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "Where an economic activity in this category does not fulfil the substantial contribution criterion specified in point (a) of this Section, the activity is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852, provided it complies with the remaining technical screening criteria set out in this section.",
+   "category_conditional": true,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "6.20",
+   "title": "Air transport ground handling operations",
+   "sector": "6. TRANSPORT",
+   "objective": "ccm",
+   "code": "CCM 6.20",
+   "nace": [
+    "H52.23",
+    "H52.24",
+    "H52.29"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H52.23, H52.24, H52.29 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "7.1",
+   "title": "Construction of new buildings",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.1",
+   "nace": [
+    "F41.1",
+    "F41.2",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41.1 and F41.2, including also activities under F43, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.1., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.2",
+   "title": "Renovation of existing buildings",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.2",
+   "nace": [
+    "F41",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41 and F43 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.2., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.3",
+   "title": "Installation, maintenance and repair of energy efficiency equipment",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.3",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28",
+    "S95.21",
+    "S95.22",
+    "C33.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27, C28, S95.21, S95.22, C33.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "7.4",
+   "title": "Installation, maintenance and repair of charging stations for electric vehicles in buildings (and parking spaces attached to buildings)",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.4",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27 or C28 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "7.5",
+   "title": "Installation, maintenance and repair of instruments and devices for measuring, regulation and controlling energy performance of buildings",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.5",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, and C16, C17, C22, C23, C25, C27, C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "7.6",
+   "title": "Installation, maintenance and repair of renewable energy technologies",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.6",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27 or C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "7.7",
+   "title": "Acquisition and ownership of buildings",
+   "sector": "7. Construction and real estate activities",
+   "objective": "ccm",
+   "code": "CCM 7.7",
+   "nace": [
+    "L68"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code L68 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.1",
+   "title": "Data processing, hosting and related activities",
+   "sector": "8. Information and communication",
+   "objective": "ccm",
+   "code": "CCM 8.1",
+   "nace": [
+    "J63.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code J63.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "transitional",
+   "category_quote": "An economic activity in this category is a transitional activity as referred to in Article 10(2) of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.2",
+   "title": "Data-driven solutions for GHG emissions reductions",
+   "sector": "8. Information and communication",
+   "objective": "ccm",
+   "code": "CCM 8.2",
+   "nace": [
+    "J61",
+    "J62",
+    "J63.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular J61, J62 and J63.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "9.1",
+   "title": "Close to market research, development and innovation",
+   "sector": "9. Professional, scientific and technical activities",
+   "objective": "ccm",
+   "code": "CCM 9.1",
+   "nace": [
+    "M71.1.2",
+    "M72.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular M71.1.2 and M72.1, or for research that is an integral part of those economic activities for which technical screening criteria are specified in this Annex, the NACE codes set out in other Sections of this Annex in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: M71.1.2. Section also contains conditional statements on research dedicated to enabling (Article 10(1)(i)) and transitional (Article 10(2)) target activities; these qualify the research criteria, not the category of 9.1, which is stated as enabling.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "9.2",
+   "title": "Research, development and innovation for direct air capture of CO2",
+   "sector": "9. Professional, scientific and technical activities",
+   "objective": "ccm",
+   "code": "CCM 9.2",
+   "nace": [
+    "M71.1.2",
+    "M72.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular M71.1.2 and M72.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: M71.1.2.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "9.3",
+   "title": "Professional services related to energy performance of buildings",
+   "sector": "9. Professional, scientific and technical activities",
+   "objective": "ccm",
+   "code": "CCM 9.3",
+   "nace": [
+    "M71"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code M71 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 10(1), point (i), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.1",
+   "title": "Afforestation",
+   "sector": "1. Forestry",
+   "objective": "cca",
+   "code": "CCA 1.1",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. Activities are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this section.",
+   "note": "Printed as 'NACE code A2' and then 'limited to NACE II 02.10, 02.20, 02.30 and 02.40'; all recorded as printed.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.2",
+   "title": "Rehabilitation and restoration of forests, including reforestation and natural forest regeneration after an extreme event",
+   "sector": "1. Forestry",
+   "objective": "cca",
+   "code": "CCA 1.2",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "note": "Printed as 'NACE code A2' and then 'limited to NACE II 02.10, 02.20, 02.30 and 02.40'; all recorded as printed.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.3",
+   "title": "Forest management",
+   "sector": "1. Forestry",
+   "objective": "cca",
+   "code": "CCA 1.3",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "note": "Printed as 'NACE code A2' and then 'limited to NACE II 02.10, 02.20, 02.30 and 02.40'; all recorded as printed.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "1.4",
+   "title": "Conservation forestry",
+   "sector": "1. Forestry",
+   "objective": "cca",
+   "code": "CCA 1.4",
+   "nace": [
+    "A2",
+    "02.10",
+    "02.20",
+    "02.30",
+    "02.40"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code A2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006. The economic activities in this category are limited to NACE II 02.10, i.e. silviculture and other forestry activities, 02.20, i.e. logging, 02.30, i.e. gathering of wild growing non-wood products and 02.40, i.e. support services to forestry.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "note": "Printed as 'NACE code A2' and then 'limited to NACE II 02.10, 02.20, 02.30 and 02.40'; all recorded as printed.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Restoration of wetlands",
+   "sector": "2. Environmental protection and restoration activities",
+   "objective": "cca",
+   "code": "CCA 2.1",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006, but relate to class 6 of the statistical classification of environmental protection activities (CEPA) established by Regulation (EU) No 691/2011.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.1",
+   "title": "Manufacture of renewable energy technologies",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.1",
+   "nace": [
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C25, C27, C28 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.2",
+   "title": "Manufacture of equipment for the production and use of hydrogen",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.2",
+   "nace": [
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C25, C27, C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.3",
+   "title": "Manufacture of low carbon technologies for transport",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.3",
+   "nace": [
+    "C29.1",
+    "C30.1",
+    "C30.2",
+    "C30.9",
+    "C33.15",
+    "C33.17"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C29.1, C30.1, C30.2, C30.9, C33.15, C33.17 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.4",
+   "title": "Manufacture of batteries",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.4",
+   "nace": [
+    "C27.2",
+    "E38.3.2"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE C27.2 and E38.3.2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: E38.3.2.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.5",
+   "title": "Manufacture of energy efficiency equipment for buildings",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.5",
+   "nace": [
+    "C16.23",
+    "C23.11",
+    "C23.20",
+    "C23.31",
+    "C23.32",
+    "C23.43",
+    "C.23.61",
+    "C25.11",
+    "C25.12",
+    "C25.21",
+    "C25.29",
+    "C25.93",
+    "C27.31",
+    "C27.32",
+    "C27.33",
+    "C27.40",
+    "C27.51",
+    "C28.11",
+    "C28.12",
+    "C28.13",
+    "C28.14"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C16.23, C23.11, C23.20, C23.31, C23.32, C23.43, C.23.61, C25.11, C25.12, C25.21, C25.29, C25.93, C27.31, C27.32, C27.33, C27.40, C27.51, C28.11, C28.12, C28.13, C28.14, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: C.23.61.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.6",
+   "title": "Manufacture of other low carbon technologies",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.6",
+   "nace": [
+    "C22",
+    "C25",
+    "C26",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C22, C25, C26, C27 and C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.7",
+   "title": "Manufacture of cement",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.7",
+   "nace": [
+    "C23.51"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C23.51 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.8",
+   "title": "Manufacture of aluminium",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.8",
+   "nace": [
+    "C24.42",
+    "C24.53"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C24.42, C24.53 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.9",
+   "title": "Manufacture of iron and steel",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.9",
+   "nace": [
+    "C24.10",
+    "C24.20",
+    "C24.31",
+    "C24.32",
+    "C24.33",
+    "C24.34",
+    "C24.51",
+    "C24.52"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C24.10, C24.20, C24.31, C24.32, C24.33, C24.34, C24.51 and C24.52 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.10",
+   "title": "Manufacture of hydrogen",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.10",
+   "nace": [
+    "C20.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.11",
+   "title": "Manufacture of carbon black",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.11",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.12",
+   "title": "Manufacture of soda ash",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.12",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.13",
+   "title": "Manufacture of chlorine",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.13",
+   "nace": [
+    "C20.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 3.13., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (6) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "3.14",
+   "title": "Manufacture of organic basic chemicals",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.14",
+   "nace": [
+    "C20.14"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.14 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.15",
+   "title": "Manufacture of anhydrous ammonia",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.15",
+   "nace": [
+    "C20.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.16",
+   "title": "Manufacture of nitric acid",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.16",
+   "nace": [
+    "C20.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "3.17",
+   "title": "Manufacture of plastics in primary form",
+   "sector": "3. Manufacturing",
+   "objective": "cca",
+   "code": "CCA 3.17",
+   "nace": [
+    "C20.16"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C20.16 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.1",
+   "title": "Electricity generation using solar photovoltaic technology",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.1",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.2",
+   "title": "Electricity generation using concentrated solar power (CSP) technology",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.2",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.3",
+   "title": "Electricity generation from wind power",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.3",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.4",
+   "title": "Electricity generation from ocean energy technologies",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.4",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.5",
+   "title": "Electricity generation from hydropower",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.5",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.6",
+   "title": "Electricity generation from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.6",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.7",
+   "title": "Electricity generation from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.7",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.8",
+   "title": "Electricity generation from bioenergy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.8",
+   "nace": [
+    "D35.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.9",
+   "title": "Transmission and distribution of electricity",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.9",
+   "nace": [
+    "D35.12",
+    "D35.13"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.12 and D35.13 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.10",
+   "title": "Storage of electricity",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.10",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.11",
+   "title": "Storage of thermal energy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.11",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.12",
+   "title": "Storage of hydrogen",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.12",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.13",
+   "title": "Manufacture of biogas and biofuels for use in transport and of bioliquids",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.13",
+   "nace": [
+    "D35.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.14",
+   "title": "Transmission and distribution networks for renewable and low-carbon gases",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.14",
+   "nace": [
+    "D35.22",
+    "F42.21",
+    "H49.50"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.22, F42.21 and H49.50 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 4.14., subsection ‘Description of the activity’, the third paragraph is replaced by the following",
+     "nace_before": [
+      "D35.21",
+      "F42.21",
+      "H49.50"
+     ]
+    },
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "In Section 4.14., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (1) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "4.15",
+   "title": "District heating/cooling distribution",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.15",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.16",
+   "title": "Installation and operation of electric heat pumps",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.16",
+   "nace": [
+    "D35.30",
+    "F43.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.30, F43.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.17",
+   "title": "Cogeneration of heat/cool and power from solar energy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.17",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.18",
+   "title": "Cogeneration of heat/cool and power from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.18",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.19",
+   "title": "Cogeneration of heat/cool and power from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.19",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.20",
+   "title": "Cogeneration of heat/cool and power from bioenergy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.20",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.21",
+   "title": "Production of heat/cool from solar thermal heating",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.21",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.22",
+   "title": "Production of heat/cool from geothermal energy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.22",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.23",
+   "title": "Production of heat/cool from renewable non-fossil gaseous and liquid fuels",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.23",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.24",
+   "title": "Production of heat/cool from bioenergy",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.24",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.25",
+   "title": "Production of heat/cool using waste heat",
+   "sector": "4. Energy",
+   "objective": "cca",
+   "code": "CCA 4.25",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "4.26",
+   "title": "Pre-commercial stages of advanced technologies to produce energy from nuclear processes with minimal waste from the fuel cycle",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.26",
+   "nace": [
+    "M72",
+    "M72.1"
+   ],
+   "nace_quote": "The activity is classified under NACE code M72 and M72.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.27",
+   "title": "Construction and safe operation of new nuclear power plants, for the generation of electricity and/or heat, including for hydrogen production, using best-available technologies",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.27",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The activity is classified under NACE codes D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.28",
+   "title": "Electricity generation from nuclear energy in existing installations",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.28",
+   "nace": [
+    "D35.11",
+    "F42.2"
+   ],
+   "nace_quote": "The activity is classified under NACE codes D35.11 and F42.2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.29",
+   "title": "Electricity generation from fossil gaseous fuels",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.29",
+   "nace": [
+    "D35.11",
+    "F42.22"
+   ],
+   "nace_quote": "The economic activities in this category may be associated with several NACE codes, notably D35.11 and F42.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.30",
+   "title": "High-efficiency co- generation of heat/cool and power from fossil gaseous fuels",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.30",
+   "nace": [
+    "D35.11",
+    "D35.30"
+   ],
+   "nace_quote": "The economic activities in this category may be associated with NACE codes D35.11 and D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "4.31",
+   "title": "Production of heat/cool from fossil gaseous fuels in an efficient district heating and cooling system",
+   "sector": "4. ENERGY",
+   "objective": "cca",
+   "code": "CCA 4.31",
+   "nace": [
+    "D35.30"
+   ],
+   "nace_quote": "The activity is classified under NACE code D35.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32022R1214",
+   "amended_by": []
+  },
+  {
+   "section": "5.1",
+   "title": "Construction, extension and operation of water collection, treatment and supply systems",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.1",
+   "nace": [
+    "E36.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.2",
+   "title": "Renewal of water collection, treatment and supply systems",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.2",
+   "nace": [
+    "E36.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.3",
+   "title": "Construction, extension and operation of waste water collection and treatment",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.3",
+   "nace": [
+    "E37.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.4",
+   "title": "Renewal of waste water collection and treatment",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.4",
+   "nace": [
+    "E37.00"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E37.00 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.5",
+   "title": "Collection and transport of non-hazardous waste in source segregated fractions",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.5",
+   "nace": [
+    "E38.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E38.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.6",
+   "title": "Anaerobic digestion of sewage sludge",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.6",
+   "nace": [
+    "E37.00",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F42.00 (Annex I 5.6 prints 'F42.99' here).",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 5.6., subsection ‘Description of the activity’, the second paragraph is replaced by the following",
+     "nace_before": [
+      "E37.00",
+      "F42.00"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "5.7",
+   "title": "Anaerobic digestion of bio-waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.7",
+   "nace": [
+    "E38.21",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.21 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.8",
+   "title": "Composting of bio-waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.8",
+   "nace": [
+    "E38.21",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.21 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.9",
+   "title": "Material recovery from non-hazardous waste",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.9",
+   "nace": [
+    "E38.32",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.32 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.10",
+   "title": "Landfill gas capture and utilisation",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.10",
+   "nace": [
+    "E38.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E38.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.11",
+   "title": "Transport of CO2",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.11",
+   "nace": [
+    "F42.21",
+    "H49.50"
+   ],
+   "nace_quote": "The activity could be associated with several NACE codes, in particular F42.21 and H49.50 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.12",
+   "title": "Underground permanent geological storage of CO2",
+   "sector": "5. Water supply, sewerage, waste management and remediation activities",
+   "objective": "cca",
+   "code": "CCA 5.12",
+   "nace": [
+    "E39.00"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code E39.00 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "5.13",
+   "title": "Desalination",
+   "sector": "5. WATER SUPPLY, SEWERAGE, WASTE MANAGEMENT AND REMEDIATION ACTIVITIES",
+   "objective": "cca",
+   "code": "CCA 5.13",
+   "nace": [
+    "E36.00",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.9, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "category_conditional": true,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "6.1",
+   "title": "Passenger interurban rail transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.1",
+   "nace": [
+    "H49.10",
+    "N77.39"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.10, N77.39 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.2",
+   "title": "Freight rail transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.2",
+   "nace": [
+    "H49.20",
+    "N77.39"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.20 and N77.39 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.3",
+   "title": "Urban and suburban transport, road passenger transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.3",
+   "nace": [
+    "H49.31",
+    "H49.3.9",
+    "N77.39",
+    "N77.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.31, H49.3.9, N77.39 and N77.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: H49.3.9.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.3., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "6.4",
+   "title": "Operation of personal mobility devices, cycle logistics",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.4",
+   "nace": [
+    "N77.11",
+    "N77.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular N77.11 and N77.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.5",
+   "title": "Transport by motorbikes, passenger cars and light commercial vehicles",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.5",
+   "nace": [
+    "H49.32",
+    "H49.39",
+    "N77.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.32, H49.39 and N77.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "title of Section 6.5. is replaced by the following",
+     "title_before": "Transport by motorbikes, passenger cars and commercial vehicles"
+    },
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.5. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.6",
+   "title": "Freight transport services by road",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.6",
+   "nace": [
+    "H49.4.1",
+    "H53.10",
+    "H53.20",
+    "N77.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H49.4.1, H53.10, H53.20 and N77.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: H49.4.1.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.6., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "6.7",
+   "title": "Inland passenger water transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.7",
+   "nace": [
+    "H50.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.8",
+   "title": "Inland freight water transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.8",
+   "nace": [
+    "H50.4"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.4 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.9",
+   "title": "Retrofitting of inland water passenger and freight transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.9",
+   "nace": [
+    "H50.4",
+    "H50.30",
+    "C33.15"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.4, H50.30 and C33.15 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.10",
+   "title": "Sea and coastal freight water transport, vessels for port operations and auxiliary activities",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.10",
+   "nace": [
+    "H50.2",
+    "H52.22",
+    "N77.34"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.2, H52.22 and N77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.11",
+   "title": "Sea and coastal passenger water transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.11",
+   "nace": [
+    "H50.10",
+    "N77.21",
+    "N77.34"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular H50.10, N77.21 and N77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.12",
+   "title": "Retrofitting of sea and coastal freight and passenger water transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.12",
+   "nace": [
+    "H50.10",
+    "H50.2",
+    "H52.22",
+    "C33.15",
+    "N77.21",
+    "N.77.34"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE codes H50.10, H50.2, H52.22, C33.15, N77.21 and N.77.34 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: N.77.34.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "Section 6.12. is amended as follows"
+    }
+   ]
+  },
+  {
+   "section": "6.13",
+   "title": "Infrastructure for personal mobility, cycle logistics",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.13",
+   "nace": [
+    "F42.11",
+    "F42.12",
+    "F42.13",
+    "F43.21",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.11, F42.12, F42.13, F43.21, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F711, F71.20 (Annex I 6.13 prints 'F42.11, F42.12, F43.21, F71.1 and F71.20').",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.13., subsection ‘Description of the activity’, the second paragraph is replaced by the following",
+     "nace_before": [
+      "F42.11",
+      "F42.12",
+      "F42.13",
+      "F43.21",
+      "F711",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.14",
+   "title": "Infrastructure for rail transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.14",
+   "nace": [
+    "F42.12",
+    "F42.13",
+    "M71.12",
+    "M71.20",
+    "F43.21",
+    "H52.21"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.12, F42.13, M71.12, M71.20, F43.21, and H52.21 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "6.15",
+   "title": "Infrastructure enabling road transport and public transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.15",
+   "nace": [
+    "F42.11",
+    "F42.13",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be classified under several NACE codes, in particular F42.11, F42.13, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F71.1, F71.20.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.15., subsection ‘Description of the activity’, the second paragraph is replaced by the following",
+     "nace_before": [
+      "F42.11",
+      "F42.13",
+      "F71.1",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.16",
+   "title": "Infrastructure for water transport",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.16",
+   "nace": [
+    "F42.91",
+    "M71.12",
+    "M71.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42.91, M71.12 and M71.20 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: F71.1, F71.20.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 6.16., subsection ‘Description of the activity’, the third paragraph is replaced by the following",
+     "nace_before": [
+      "F42.91",
+      "F71.1",
+      "F71.20"
+     ]
+    }
+   ]
+  },
+  {
+   "section": "6.17",
+   "title": "Airport infrastructure",
+   "sector": "6. Transport",
+   "objective": "cca",
+   "code": "CCA 6.17",
+   "nace": [
+    "F41.20",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be classified under several NACE codes, in particular F41.20 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "7.1",
+   "title": "Construction of new buildings",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.1",
+   "nace": [
+    "F41.1",
+    "F41.2",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41.1 and F41.2, including also activities under F43, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.1., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.2",
+   "title": "Renovation of existing buildings",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.2",
+   "nace": [
+    "F41",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41 and F43 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.2., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (5) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.3",
+   "title": "Installation, maintenance and repair of energy efficiency equipment",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.3",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28",
+    "S95.21",
+    "S95.22",
+    "C33.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27, C28, S95.21, S95.22, C33.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.3., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (2) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.4",
+   "title": "Installation, maintenance and repair of charging stations for electric vehicles in buildings (and parking spaces attached to buildings)",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.4",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27 or C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.4., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (2) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.5",
+   "title": "Installation, maintenance and repair of instruments and devices for measuring, regulation and controlling energy performance of buildings",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.5",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, and C16, C17, C22, C23, C25, C27, C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.5., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (2) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.6",
+   "title": "Installation, maintenance and repair of renewable energy technologies",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.6",
+   "nace": [
+    "F42",
+    "F43",
+    "M71",
+    "C16",
+    "C17",
+    "C22",
+    "C23",
+    "C25",
+    "C27",
+    "C28"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F42, F43, M71, C16, C17, C22, C23, C25, C27 or C28, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": [
+    {
+     "celex": "32023R2485",
+     "change": "amended",
+     "instruction_quote": "in Section 7.6., subsection ‘Technical screening criteria’, subsection ‘Do no significant harm (“DNSH”)’, point (2) is replaced by the following"
+    }
+   ]
+  },
+  {
+   "section": "7.7",
+   "title": "Acquisition and ownership of buildings",
+   "sector": "7. Construction and real estate",
+   "objective": "cca",
+   "code": "CCA 7.7",
+   "nace": [
+    "L68"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code L68 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.1",
+   "title": "Data processing, hosting and related activities",
+   "sector": "8. Information and communication",
+   "objective": "cca",
+   "code": "CCA 8.1",
+   "nace": [
+    "J63.1.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code J63.1.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "NACE codes kept exactly as printed, including apparent typos: J63.1.1.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.2",
+   "title": "Computer programming, consultancy and related activities",
+   "sector": "8. Information and communication",
+   "objective": "cca",
+   "code": "CCA 8.2",
+   "nace": [
+    "J62"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code J62 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.3",
+   "title": "Programming and broadcasting activities",
+   "sector": "8. Information and communication",
+   "objective": "cca",
+   "code": "CCA 8.3",
+   "nace": [
+    "J60"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code J60 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "8.4",
+   "title": "Software enabling physical climate risk management and adaptation",
+   "sector": "8. INFORMATION AND COMMUNICATION",
+   "objective": "cca",
+   "code": "CCA 8.4",
+   "nace": [
+    "J62.01"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with the NACE code J62.01 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 11(1), point (b), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "9.1",
+   "title": "Engineering activities and related technical consultancy dedicated to adaptation to climate change",
+   "sector": "9. Professional, scientific and technical activities",
+   "objective": "cca",
+   "code": "CCA 9.1",
+   "nace": [
+    "M71.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code M71.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/20061.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852 where it meets the technical screening criteria specified this section",
+   "note": "Source text prints '1893/20061.' (footnote marker '1' fused to the year) — kept verbatim.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "9.2",
+   "title": "Close to market research, development and innovation",
+   "sector": "9. Professional, scientific and technical activities",
+   "objective": "cca",
+   "code": "CCA 9.2",
+   "nace": [
+    "M72"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code M72 or for research that is an integral part of those economic activities for which technical screening criteria are specified in this Annex the NACE codes set out in other Sections of this Annex in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852 where it meets the technical screening criteria set out in this Section.",
+   "note": "Also covers research integral to other activities in this Annex under the NACE codes of those other Sections (not enumerated).",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "9.3",
+   "title": "Consultancy for physical climate risk management and adaptation",
+   "sector": "9. PROFESSIONAL, SCIENTIFIC AND TECHNICAL ACTIVITIES",
+   "objective": "cca",
+   "code": "CCA 9.3",
+   "nace": [
+    "M74.90"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with the NACE code M74.90 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 11(1), point (b), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "10.1",
+   "title": "Non-life insurance: underwriting of climate-related perils",
+   "sector": "10. Financial and insurance activities",
+   "objective": "cca",
+   "code": "CCA 10.1",
+   "nace": [
+    "K65.12"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code K65.12 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852 where it meets the technical screening criteria set out in this section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "10.2",
+   "title": "Reinsurance",
+   "sector": "10. Financial and insurance activities",
+   "objective": "cca",
+   "code": "CCA 10.2",
+   "nace": [
+    "K65.20"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code K65.20 in accordance with to the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity as referred to in Article 11(1) point (b) of Regulation (EU) 2020/852 where it meets the technical screening criteria set out this section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "11",
+   "title": "Education",
+   "sector": "11. Education",
+   "objective": "cca",
+   "code": "CCA 11",
+   "nace": [
+    "P85"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code P85 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this section.",
+   "note": "Sector 11 has no numbered sub-section; the activity is printed directly under the heading '11. EDUCATION' (TOC: '11. Education').",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "12.1",
+   "title": "Residential care activities",
+   "sector": "12. Human health and social work activities",
+   "objective": "cca",
+   "code": "CCA 12.1",
+   "nace": [
+    "Q87"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code Q87 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "13.1",
+   "title": "Creative, arts and entertainment activities",
+   "sector": "13. Arts, entertainment and recreation",
+   "objective": "cca",
+   "code": "CCA 13.1",
+   "nace": [
+    "R90"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code R90 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "13.2",
+   "title": "Libraries, archives, museums and cultural activities",
+   "sector": "13. Arts, entertainment and recreation",
+   "objective": "cca",
+   "code": "CCA 13.2",
+   "nace": [
+    "R91"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code R91 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "13.3",
+   "title": "Motion picture, video and television programme production, sound recording and music publishing activities",
+   "sector": "13. Arts, entertainment and recreation",
+   "objective": "cca",
+   "code": "CCA 13.3",
+   "nace": [
+    "J59"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code J59 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "introduced_by": "32021R2139",
+   "amended_by": []
+  },
+  {
+   "section": "14.1",
+   "title": "Emergency Services",
+   "sector": "14. DISASTER RISK MANAGEMENT",
+   "objective": "cca",
+   "code": "CCA 14.1",
+   "nace": [
+    "A2.40",
+    "B9.10",
+    "E39.00",
+    "H52.23",
+    "N80.20",
+    "Q84",
+    "O84.25",
+    "Q86.10",
+    "Q86.90",
+    "Q88.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular A2.40, B9.10, E39.00, H52.23, N80.20, Q84, O84.25, Q86.10, Q86.90 and Q88.99, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "category_conditional": true,
+   "nace_note": "NACE printed oddities kept as printed: 'A2.40' and 'B9.10' lack the leading zero (NACE A02.40, B09.10); 'Q84' is printed although division 84 sits in section O.",
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "14.2",
+   "title": "Flood risk prevention and protection infrastructure",
+   "sector": "14. DISASTER RISK MANAGEMENT",
+   "objective": "cca",
+   "code": "CCA 14.2",
+   "nace": [
+    "F42.91"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with the NACE code F42.91 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "Where an economic activity in this category complies with the substantial contribution criterion specified in point 5, the activity is an enabling activity as referred to in Article 11(1), point (b), of Regulation (EU) 2020/852, provided that it meets the technical screening criteria set out in this Section.",
+   "category_conditional": true,
+   "introduced_by": "32023R2485",
+   "amended_by": []
+  },
+  {
+   "section": "1.1",
+   "title": "Manufacture, installation and associated services for leakage control technologies enabling leakage reduction and prevention in water supply systems",
+   "sector": "1. Manufacturing",
+   "objective": "wtr",
+   "code": "WTR 1.1",
+   "nace": [
+    "E36",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36 and F42.99, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 12(1), point (e), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Water supply",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "wtr",
+   "code": "WTR 2.1",
+   "nace": [
+    "E36.00",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00 and F42.9, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.2",
+   "title": "Urban waste water treatment",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "wtr",
+   "code": "WTR 2.2",
+   "nace": [
+    "E37.00",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.9, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.3",
+   "title": "Sustainable urban drainage systems (SUDS)",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "wtr",
+   "code": "WTR 2.3",
+   "nace": [
+    "E36.00",
+    "E37.00",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36.00, E37.00 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.1",
+   "title": "Nature-based solutions for flood and drought risk prevention and protection",
+   "sector": "3. Disaster risk management",
+   "objective": "wtr",
+   "code": "WTR 3.1",
+   "nace": [
+    "F42.91"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code F42.91 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "4.1",
+   "title": "Provision of IT/OT data-driven solutions for leakage reduction",
+   "sector": "4. Information and communication",
+   "objective": "wtr",
+   "code": "WTR 4.1",
+   "nace": [
+    "E36",
+    "F42.99",
+    "J62"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E36, F42.99 and J62 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 12(1), point (e), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "1.1",
+   "title": "Manufacture of plastic packaging goods",
+   "sector": "1. Manufacturing",
+   "objective": "ce",
+   "code": "CE 1.1",
+   "nace": [
+    "C22.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C22.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "1.2",
+   "title": "Manufacture of electrical and electronic equipment",
+   "sector": "1. Manufacturing",
+   "objective": "ce",
+   "code": "CE 1.2",
+   "nace": [
+    "C26",
+    "C27"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C26 and C27 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Phosphorus recovery from waste water",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.1",
+   "nace": [
+    "E37.00",
+    "E38.32",
+    "F42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00, E38.32 and F42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.2",
+   "title": "Production of alternative water resources for purposes other than human consumption",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.2",
+   "nace": [
+    "E37.00",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E37.00 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.3",
+   "title": "Collection and transport of non-hazardous and hazardous waste",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.3",
+   "nace": [
+    "E38.11",
+    "E38.12",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.11, E38.12 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.4",
+   "title": "Treatment of hazardous waste",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.4",
+   "nace": [
+    "E38.22",
+    "E38.32",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.22, E38.32, F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.5",
+   "title": "Recovery of bio-waste by anaerobic digestion or composting",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.5",
+   "nace": [
+    "E38.21",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.21 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.6",
+   "title": "Depollution and dismantling of end-of-life products",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.6",
+   "nace": [
+    "E38.31",
+    "E38.32",
+    "E42.99"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.31, E38.32 and E42.99 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "nace_note": "kept as printed: 'E42.99' (NACE 42.99 is in section F; presumably F42.99)",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.7",
+   "title": "Sorting and material recovery of non-hazardous waste",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ce",
+   "code": "CE 2.7",
+   "nace": [
+    "E38.32",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.32 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.1",
+   "title": "Construction of new buildings",
+   "sector": "3. Construction and real estate activities",
+   "objective": "ce",
+   "code": "CE 3.1",
+   "nace": [
+    "F41.1",
+    "F41.2",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41.1, F41.2 and F43, in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.2",
+   "title": "Renovation of existing buildings",
+   "sector": "3. Construction and real estate activities",
+   "objective": "ce",
+   "code": "CE 3.2",
+   "nace": [
+    "F41",
+    "F43"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular F41 and F43 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.3",
+   "title": "Demolition and wrecking of buildings and other structures",
+   "sector": "3. Construction and real estate activities",
+   "objective": "ce",
+   "code": "CE 3.3",
+   "nace": [
+    "F43.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code F43.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.4",
+   "title": "Maintenance of roads and motorways",
+   "sector": "3. Construction and real estate activities",
+   "objective": "ce",
+   "code": "CE 3.4",
+   "nace": [
+    "F42.11"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code F42.11 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "3.5",
+   "title": "Use of concrete in civil engineering",
+   "sector": "3. Construction and real estate activities",
+   "objective": "ce",
+   "code": "CE 3.5",
+   "nace": [
+    "F42.12",
+    "F42.13",
+    "F42.2",
+    "F42.9"
+   ],
+   "nace_quote": "An economic activity in this category could be associated with several NACE codes, in particular F42.12, F42.13, F42.2, F42.9, in accordance with the statistical classification for economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "4.1",
+   "title": "Provision of IT/OT data-driven solutions",
+   "sector": "4. Information and communication",
+   "objective": "ce",
+   "code": "CE 4.1",
+   "nace": [
+    "C26",
+    "C27",
+    "J58.29",
+    "J61",
+    "J62",
+    "J63.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular C26, C27, J58.29, J61, J62 and J63.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 13(1), point (l), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.1",
+   "title": "Repair, refurbishment and remanufacturing",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.1",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE codes as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "product_scope_nace": [
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C22",
+    "C23.3",
+    "C23.4",
+    "C25.1",
+    "C25.2",
+    "C25.7",
+    "C25.9",
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C28.25",
+    "C28.93",
+    "C28.94",
+    "C28.95",
+    "C28.96",
+    "C31",
+    "C32"
+   ],
+   "product_scope_nace_quote": "The economic activity relates to products that are manufactured by economic activities classified under the NACE codes C13 Manufacture of textiles, C14 Manufacture of wearing apparel, C15 Manufacture of leather and related products, C16 Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials, C22 Manufacture of rubber and plastic products, C23.3 Manufacture of clay building materials, C23.4 Manufacture of other porcelain and ceramic products, C25.1 Manufacture of structural metal products, C25.2 Manufacture of tanks, reservoirs and containers of metal, C25.7 Manufacture of cutlery, tools and general hardware, C25.9 Manufacture of other fabricated metal products, C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools, C28.25 Manufacture of non-domestic cooling and ventilation equipment, C28.93 Manufacture of machinery for food, beverage and tobacco processing, excluding machinery for tobacco processing, C28.94 Manufacture of machinery for textile, apparel and leather production, C28.95 Manufacture of machinery for paper and paperboard production, C28.96 Manufacture of plastic and rubber machinery, C31 Manufacture of furniture and C32 Other manufacturing.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.2",
+   "title": "Sale of spare parts",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.2",
+   "nace": [
+    "G46",
+    "G47"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular G46 and G47 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "product_scope_nace": [
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C31"
+   ],
+   "product_scope_nace_quote": "The economic activity relates to spare parts that are used in products manufactured by economic activities classified under the NACE codes C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools and C31 Manufacture of furniture.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.3",
+   "title": "Preparation for re-use of end-of-life products and product components",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.3",
+   "nace": [],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "product_scope_nace": [
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C18",
+    "C22",
+    "C23.3",
+    "C23.4",
+    "C25.1",
+    "C25.2",
+    "C25.7",
+    "C25.9",
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C28.25",
+    "C28.93",
+    "C28.94",
+    "C28.95",
+    "C28.96",
+    "C29",
+    "C30.1",
+    "C30.2",
+    "C30.3",
+    "C30.9",
+    "C31",
+    "C32"
+   ],
+   "product_scope_nace_quote": "The economic activity relates to products and their components manufactured by economic activities classified under the NACE codes C13 Manufacture of textiles, C14 Manufacture of wearing apparel, C15 Manufacture of leather and related products, C16 Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials, C18 Printing and reproduction of recorded media, C22 Manufacture of rubber and plastic products, C23.3 Manufacture of clay building materials, C23.4 Manufacture of other porcelain and ceramic products, C25.1 Manufacture of structural metal products, C25.2 Manufacture of tanks, reservoirs and containers of metal, C25.7 Manufacture of cutlery, tools and general hardware, C25.9 Manufacture of other fabricated metal products, C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools, C28.25 Manufacture of non-domestic cooling and ventilation equipment, C28.93 Manufacture of machinery for food, beverage and tobacco processing, excluding machinery for tobacco processing, C28.94 Manufacture of machinery for textile, apparel and leather production, C28.95 Manufacture of machinery for paper and paperboard production, C28.96 Manufacture of plastic and rubber machinery, C29 Manufacture of motor vehicles, trailers and semi-trailers, C30.1 Building of ships and boats, C30.2 Manufacture of railway locomotives and rolling stock, C30.3 Manufacture of air and spacecraft and related machinery, C30.9 Manufacture of transport equipment n.e.c., C31 Manufacture of furniture and C32 Other manufacturing.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.4",
+   "title": "Sale of second-hand goods",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.4",
+   "nace": [
+    "G46",
+    "G47"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular G46 and G47 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "product_scope_nace": [
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C18",
+    "C22",
+    "C23.3",
+    "C23.4",
+    "C25.1",
+    "C25.2",
+    "C25.7",
+    "C25.9",
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C28.25",
+    "C28.93",
+    "C28.94",
+    "C28.95",
+    "C28.96",
+    "C29",
+    "C31",
+    "C32"
+   ],
+   "product_scope_nace_quote": "The economic activity relates to products manufactured by economic activities classified under the NACE codes C13 Manufacture of textiles, C14 Manufacture of wearing apparel, C15 Manufacture of leather and related products, C16 Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials, C18 Printing and reproduction of recorded media, C22 Manufacture of rubber and plastic products, C23.3 Manufacture of clay building materials, C23.4 Manufacture of other porcelain and ceramic products, C25.1 Manufacture of structural metal products, C25.2 Manufacture of tanks, reservoirs and containers of metal, C25.7 Manufacture of cutlery, tools and general hardware, C25.9 Manufacture of other fabricated metal products, C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools, C28.25 Manufacture of non-domestic cooling and ventilation equipment, C28.93 Manufacture of machinery for food, beverage and tobacco processing, excluding machinery for tobacco processing, C28.94 Manufacture of machinery for textile, apparel and leather production, C28.95 Manufacture of machinery for paper and paperboard production, C28.96 Manufacture of plastic and rubber machinery, C29 Manufacture of motor vehicles, trailers and semi-trailers, C31 Manufacture of furniture, C32 Other manufacturing.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.5",
+   "title": "Product-as-a-service and other circular use- and result-oriented service models",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.5",
+   "nace": [
+    "G46",
+    "G47",
+    "N.77"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular G46, G47, and N.77 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "nace_note": "kept as printed: 'N.77' (dot after section letter; NACE division N77)",
+   "product_scope_nace": [
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C22",
+    "C23.3",
+    "C23.4",
+    "C25.1",
+    "C25.2",
+    "C25.7",
+    "C25.9",
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C28.25",
+    "C28.93",
+    "C28.94",
+    "C28.95",
+    "C28.96",
+    "C31",
+    "C32"
+   ],
+   "product_scope_nace_quote": "The economic activity covers products that are manufactured by economic activities classified under the NACE codes C13 Manufacture of textiles, C14 Manufacture of wearing apparel, C15 Manufacture of leather and related products, C16 Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials, C22 Manufacture of rubber and plastic products, C23.3 Manufacture of clay building materials, C23.4 Manufacture of other porcelain and ceramic products, C25.1 Manufacture of structural metal products, C25.2 Manufacture of tanks, reservoirs and containers of metal, C25.7 Manufacture of cutlery, tools and general hardware, C25.9 Manufacture of other fabricated metal products, C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools, C28.25 Manufacture of non-domestic cooling and ventilation equipment, C28.93 Manufacture of machinery for food, beverage and tobacco processing, excluding machinery for tobacco processing, C28.94 Manufacture of machinery for textile, apparel and leather production, C28.95 Manufacture of machinery for paper and paperboard production, C28.96 Manufacture of plastic and rubber machinery, C31 Manufacture of furniture and C32 Other manufacturing.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "5.6",
+   "title": "Marketplace for the trade of second-hand goods for reuse",
+   "sector": "5. Services",
+   "objective": "ce",
+   "code": "CE 5.6",
+   "nace": [
+    "J58.29",
+    "J61",
+    "J62",
+    "J63.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular J58.29, J61, J62 and J63.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": "enabling",
+   "category_quote": "An economic activity in this category is an enabling activity in accordance with Article 13(1), point (l), of Regulation (EU) 2020/852 where it complies with the technical screening criteria set out in this Section.",
+   "product_scope_nace": [
+    "C10",
+    "C11",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C22",
+    "C23.3",
+    "C23.4",
+    "C24",
+    "C25.1",
+    "C25.2",
+    "C25.7",
+    "C25.9",
+    "C26",
+    "C27",
+    "C28.22",
+    "C28.23",
+    "C28.24",
+    "C28.25",
+    "C28.93",
+    "C28.94",
+    "C28.95",
+    "C28.96",
+    "C31",
+    "C32"
+   ],
+   "product_scope_nace_quote": "The economic activity relates to products that are manufactured by economic activities classified under the NACE codes C10 Manufacture of food products, C11 Manufacture of beverages, C13 Manufacture of textiles, C14 Manufacture of wearing apparel, C15 Manufacture of leather and related products, C16 Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials, C17 Manufacture of paper and paper products, C18 Printing and reproduction of recorded media, C22 Manufacture of rubber and plastic products, C23.3 Manufacture of clay building materials, C23.4 Manufacture of other porcelain and ceramic products, C24 Manufacture of basic metals, C25.1 Manufacture of structural metal products, C25.2 Manufacture of tanks, reservoirs and containers of metal, C25.7 Manufacture of cutlery, tools and general hardware, C25.9 Manufacture of other fabricated metal products, C26 Manufacture of computer, electronic and optical products, C27 Manufacture of electrical equipment, C28.22 Manufacture of lifting and handling equipment, C28.23 Manufacture of office machinery and equipment (except computers and peripheral equipment), C28.24 Manufacture of power-driven hand tools, C28.25 Manufacture of non-domestic cooling and ventilation equipment, C28.93 Manufacture of machinery for food, beverage and tobacco processing, excluding machinery for tobacco processing, C28.94 Manufacture of machinery for textile, apparel and leather production, C28.95 Manufacture of machinery for paper and paperboard production, C28.96 Manufacture of plastic and rubber machinery, C31 Manufacture of furniture and C32 Other manufacturing.",
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "1.1",
+   "title": "Manufacture of active pharmaceutical ingredients (API) or active substances",
+   "sector": "1. Manufacturing",
+   "objective": "ppc",
+   "code": "PPC 1.1",
+   "nace": [
+    "C21.1"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C21.1 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "1.2",
+   "title": "Manufacture of medicinal products",
+   "sector": "1. Manufacturing",
+   "objective": "ppc",
+   "code": "PPC 1.2",
+   "nace": [
+    "C21.2"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with NACE code C21.2 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Collection and transport of hazardous waste",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ppc",
+   "code": "PPC 2.1",
+   "nace": [
+    "E38.12",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.12 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.2",
+   "title": "Treatment of hazardous waste",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ppc",
+   "code": "PPC 2.2",
+   "nace": [
+    "E38.22"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E38.22 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.3",
+   "title": "Remediation of legally non-conforming landfills and abandoned or illegal waste dumps",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ppc",
+   "code": "PPC 2.3",
+   "nace": [
+    "E39",
+    "E38.2",
+    "E38.32",
+    "F42.9"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular E39, E38.2, E38.32 and F42.9 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.4",
+   "title": "Remediation of contaminated sites and areas",
+   "sector": "2. Water supply, sewerage, waste management and remediation activities",
+   "objective": "ppc",
+   "code": "PPC 2.4",
+   "nace": [
+    "39",
+    "33.20",
+    "43.11",
+    "43.12",
+    "71.12",
+    "71.20",
+    "74.90",
+    "81.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular 39, 33.20, 43.11, 43.12, 71.12, 71.20, 74.90, 81.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "nace_note": "kept as printed: codes lack section letters (presumably E39, C33.20, F43.11, F43.12, M71.12, M71.20, M74.90, N81.30)",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "1.1",
+   "title": "Conservation, including restoration, of habitats, ecosystems and species",
+   "sector": "1. Environmental protection and restoration activities",
+   "objective": "bio",
+   "code": "BIO 1.1",
+   "nace": [
+    "R91.04"
+   ],
+   "nace_quote": "The economic activities in this category have no dedicated NACE code but are partially covered under NACE code R91.04 as referred to in the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "note": "footnote markers (1), (2) removed from 'title'; title_printed is the extracted text across source lines 5431-5433 (the space before the comma is a line-break artefact)",
+   "nace_note": "source says no dedicated NACE code, only 'partially covered' under R91.04",
+   "title_printed": "Conservation, including restoration, of habitats (1) , ecosystems (2) and species",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  },
+  {
+   "section": "2.1",
+   "title": "Hotels, holiday, camping grounds and similar accommodation",
+   "sector": "2. Accommodation activities",
+   "objective": "bio",
+   "code": "BIO 2.1",
+   "nace": [
+    "I55.10",
+    "I55.20",
+    "I55.30"
+   ],
+   "nace_quote": "The economic activities in this category could be associated with several NACE codes, in particular I55.10, I55.20 and I55.30 in accordance with the statistical classification of economic activities established by Regulation (EC) No 1893/2006.",
+   "category": null,
+   "introduced_by": "32023R2486",
+   "amended_by": []
+  }
+ ]
+}
