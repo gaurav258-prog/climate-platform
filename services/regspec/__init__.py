@@ -38,6 +38,11 @@ def _iso(v) -> str | None:
         return "invalid"
 
 
+# the parts of a phase-in's eligibility_only the engines apply (services.reference.taxonomy_activities.eligibility_only
+# for activities, the objectives also by taxonomy_gar): a spec may carry only these
+PHASE_IN_READ = frozenset({"objectives", "activities"})
+
+
 def validate(doc: dict) -> list[str]:
     """Every reason this document cannot be used as a spec (empty = valid)."""
     errs: list[str] = []
@@ -68,6 +73,9 @@ def validate(doc: dict) -> list[str]:
         if not (ph.get("ref") and ph.get("quote") and ph.get("eligibility_only")) or any(
                 _iso((ph.get("disclosures") or {}).get(k)) in (None, "invalid") for k in ("from", "until")):
             errs.append("each phase_in needs ref, quote, eligibility_only and disclosures from / until dates")
+        elif set(ph["eligibility_only"]) - PHASE_IN_READ:
+            # every part of a phase-in must have a reader (E32): an unread part would be quoted but not applied
+            errs.append(f"phase_in.eligibility_only has parts no engine reads: {sorted(set(ph['eligibility_only']) - PHASE_IN_READ)}")
     ids = [t.get("id") for t in doc["templates"]]
     if len(ids) != len(set(ids)) or not all(ids):
         errs.append("template ids must be present and unique")
@@ -155,6 +163,15 @@ def governing(framework: str, *, period_end: date | str, disclosure_date: date |
                 return load(framework, opt["then_governed_by"])
             return s
     return None
+
+
+
+def phase_in(spec: dict, disclosure_date: date | str) -> dict | None:
+    """The phase-in of this spec that covers a disclosure made on this date (its eligibility_only part says what is
+    disclosed for eligibility only), or None."""
+    on = _iso(disclosure_date)
+    return next((ph for ph in spec.get("phase_in") or []
+                 if ph["disclosures"]["from"] <= on <= ph["disclosures"]["until"]), None)
 
 
 _USAGE = Path(__file__).resolve().parents[2] / "data" / "reference" / "regspec_usage.json"

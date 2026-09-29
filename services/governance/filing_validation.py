@@ -166,8 +166,8 @@ def _validate_reit_taxonomy(payload: dict) -> list[dict]:
                   else f"{n_scored}/{n_total} scored ({cov}%) — the rest are excluded from the KPI"))
 
     # the EU Taxonomy Art. 8 figures come from the property book (services.governance.taxonomy_nonfin)
-    from services.governance.taxonomy_nonfin import summary
-    sm = summary(payload.get("properties") or [])
+    from services.governance.taxonomy_nonfin import summary_of
+    sm = summary_of(payload)
     if sm["n_unknown"]:
         why = "; ".join(f"{r} ({n})" for r, n in sm["unknown_reasons"])
         out.append(_f("alignment_determined", "completeness", "warning", False,

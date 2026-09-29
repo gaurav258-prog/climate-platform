@@ -86,3 +86,19 @@ def test_previous_year_is_blank_without_a_previous_filing():
     _, out = _build("da_2021_2178_as_amended_2026_73")
     r = out["T1"]["all"]["r1"]
     assert r["15"] is None and r["16"] is None                                     # never 0 for 'not known'
+
+
+def test_the_phase_in_leaves_a_new_activity_undecided():
+    """Art. 10(6): for disclosures made in 2024 an activity 2023/2485 added (CCA 14.2) is reported for eligibility only
+    — eligible, in neither A.1 nor A.2, with the reason; the 7.7 buildings are unaffected."""
+    flood = {"taxonomy_status": "eligible", "annual_gross_rental_revenue_eur": 10,
+             "taxonomy_activity_ref": "CCA 14.2 — Flood risk prevention and protection infrastructure"}
+    spec = R.load("nonfin_taxonomy", "da_2021_2178_as_amended_2023_2486")
+    out = N.build(spec, BOOK + [flood], date(2023, 12, 31), disclosure_date=date(2024, 4, 30))
+    c = out["counts"]
+    assert c["phase_in"]["ref"].startswith("Article 10(6)")
+    assert (c["eligible"], c["alignment_unknown_turnover"]) == (230, 40)             # 30 (P3) + 10 (phased)
+    assert (c["phased"], c["phased_turnover"]) == (1, 10)
+    assert not any(r.startswith("eligibility only") for r, _ in c["unknown_reasons"])   # not a missing fact
+    later = N.build(spec, BOOK + [flood], date(2024, 12, 31), disclosure_date=date(2025, 4, 30))
+    assert later["counts"]["phase_in"] is None

@@ -270,14 +270,15 @@ def _sf_natcat_sections(sf: dict | None, e) -> list[dict]:
 def _reit_taxonomy_form(payload: dict) -> list[dict]:
     """The EU Taxonomy Art. 8 turnover split of the property book (Del. Reg. 2021/2178 Annex I / II) — the same figures
     as the official Annex II templates (services.governance.taxonomy_nonfin)."""
-    from services.governance.taxonomy_nonfin import summary
-    sm = summary(payload.get("properties") or [])
+    from services.governance.taxonomy_nonfin import summary_of
+    sm = summary_of(payload)
     e = lambda v: money(v, presentation_of(payload), compact=False)  # noqa: E731
     rows = [{"label": lbl, "value": e(sm[k]) if k != "turnover" else e(sm["turnover"]),
              "pct": _fmt_pct(sm["pct"].get(k)) if k != "turnover" else "100%"} for k, lbl in (
         ("turnover", "Turnover"), ("eligible", "Taxonomy-eligible (A)"), ("aligned", "of which aligned (A.1)"),
         ("not_aligned", "of which not aligned (A.2)"), ("unknown", "of which alignment not determined"),
-        ("non_eligible", "Taxonomy-non-eligible (B)"))]
+        ("phased", "of which eligibility only (phase-in, Art. 10(6))"),
+        ("non_eligible", "Taxonomy-non-eligible (B)")) if k != "phased" or sm["n_phased"]]
     note = (f"{sm['n_unknown']} buildings lack facts to decide alignment: "
             + "; ".join(f"{r} ({n})" for r, n in sm["unknown_reasons"]) + ".") if sm["n_unknown"] else None
     return [{"section": "Turnover KPI (Del. Reg. (EU) 2021/2178, Art. 8)", "note": note, "rows": rows},

@@ -20,14 +20,15 @@ _KPI = {"turnover": "turnover", "capex": "CapEx", "opex": "OpEx"}
 
 
 def sections(payload: dict, report_type: str = "reit_taxonomy") -> list[dict]:
-    from services.governance.filing_annex import _period_end, _supplied
+    from services.governance.filing_annex import _disclosed_on, _period_end, _supplied
     props = payload.get("properties") or []
     if not props:
         return []
     rec = (payload.get("_specs") or {}).get(FAMILY) or {}
     spec = R.load(FAMILY, rec.get("version") or BEFORE_SPECS)
     prev = payload.get("_previous_period") or {}
-    out = N.build(spec, props, _period_end(payload), previous_properties=prev.get("assets"))
+    out = N.build(spec, props, _period_end(payload), previous_properties=prev.get("assets"),
+                  disclosure_date=_disclosed_on(payload, FAMILY, _period_end(payload)))
     supplied = _supplied(payload)
     notes = _notes(spec, out["counts"], rec, prev, _period_end(payload))
     result = []
@@ -54,9 +55,16 @@ def _notes(spec: dict, c: dict, rec: dict, prev: dict, pe: date) -> list[str]:
         notes.append(f"{c['noi_proxy']:,} buildings have no gross rental revenue on file: their net operating income "
                      f"({c['noi_proxy_turnover']:,.0f}) stands in for turnover, which understates it (Annex I §1.1.1: turnover "
                      "is revenue before operating expenses).")
-    if c["alignment_unknown"]:
+    if c.get("phase_in"):
+        ph = c["phase_in"]
+        notes.append(f"{ph['ref']}: “{ph['quote']}” {ph.get('note') or ''}".strip())
+        if c.get("phased"):
+            notes.append(f"{c['phased']:,} buildings ({c['phased_turnover']:,.0f} of turnover) carry an activity disclosed for "
+                         "eligibility only in this disclosure: eligible, in neither A.1 nor A.2.")
+    missing, missing_x = c["alignment_unknown"] - c.get("phased", 0), c["alignment_unknown_turnover"] - c.get("phased_turnover", 0)
+    if missing:
         why = "; ".join(f"{r} ({n})" for r, n in c["unknown_reasons"])
-        notes.append(f"{c['alignment_unknown']:,} eligible buildings ({c['alignment_unknown_turnover']:,.0f} of turnover) have "
+        notes.append(f"{missing:,} eligible buildings ({missing_x:,.0f} of turnover) have "
                      f"facts missing to decide alignment and sit in neither A.1 nor A.2 — {why}.")
     crit = json.loads((Path(__file__).resolve().parents[2] / "data/reference/taxonomy/criteria/ccm_7_7.json").read_text())
     notes += [f"Declared reading ({i['declared_by']}): {i['reading']}" for i in crit.get("interpretations") or []]

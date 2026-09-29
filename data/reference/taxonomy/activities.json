@@ -4,7 +4,19 @@
   "32021R2139": {
    "short": "Climate Delegated Act (EU) 2021/2139",
    "applies_from": "2022-01-01",
-   "quote": "It shall apply from 1 January 2022."
+   "quote": "It shall apply from 1 January 2022.",
+   "annexes": {
+    "Annex I": {
+     "objective": "ccm",
+     "ref": "Article 1 of Delegated Regulation (EU) 2021/2139",
+     "quote": "The technical screening criteria for determining the conditions under which an economic activity qualifies as contributing substantially to climate change mitigation and for determining whether that economic activity causes no significant harm to any of the other environmental objectives laid down in Article 9 of Regulation (EU) 2020/852 are set out in Annex I to this Regulation."
+    },
+    "Annex II": {
+     "objective": "cca",
+     "ref": "Article 2 of Delegated Regulation (EU) 2021/2139",
+     "quote": "The technical screening criteria for determining the conditions under which an economic activity qualifies as contributing substantially to climate change adaptation and for determining whether that economic activity causes no significant harm to any of the other environmental objectives laid down in Article 9 of Regulation (EU) 2020/852 are set out in Annex II to this Regulation."
+    }
+   }
   },
   "32022R1214": {
    "short": "Complementary Climate Delegated Act (EU) 2022/1214",
@@ -4383,6 +4395,14 @@
    "category": null,
    "introduced_by": "32023R2486",
    "amended_by": []
+  }
+ ],
+ "unmatched_citations": [
+  {
+   "cited": "Section 7.8 of Annex II to Delegated Regulation (EU) 2021/2139",
+   "by": "Article 10(6) and 10(7) of Delegated Regulation (EU) 2021/2178, added by Article 5(2) of Delegated Regulation (EU) 2023/2486",
+   "finding": "Annex II to 2021/2139 has no Section 7.8: the original act ends Section 7 at 7.7 'Acquisition and ownership of buildings', and Delegated Regulation (EU) 2023/2485 inserts Sections 5.13, 8.4, 9.3, 14.1 and 14.2 into Annex II but no 7.8 (checked against both OJ texts, 2026-09-29).",
+   "reading": "Declared reading (Tellumen): the citation matches no activity, so it narrows nothing; every other cited section is applied as printed. Revisit if a corrigendum or a later amendment adds the section."
   }
  ]
 }

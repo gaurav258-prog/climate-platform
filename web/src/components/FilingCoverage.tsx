@@ -8,7 +8,8 @@ import { Card, SectionHead } from './ui'
 
 // Eligibility & coverage — the step between "which regulation" and "the final form": what of your book
 // actually qualifies for this disclosure, and what does not. Reads the current-basis disclosure (the golden
-// source) and shows the EU-Taxonomy eligible / not-eligible split by value and position count. This is the
+// source) and shows the EU-Taxonomy eligible / not-eligible split by value and position count (the aligned share is
+// decided on the filing form, per sector engine). This is the
 // honest coverage picture before a filing is prepared — nothing invented, "—" where a figure is absent.
 
 interface TaxBlock { count: number; value_eur: number }
@@ -56,8 +57,9 @@ export default function FilingCoverage() {
             </div>
           )}
           <p className="mono text-[10.5px] text-[var(--color-faint)] leading-relaxed">
-            Eligibility only — a full <span className="text-[var(--color-mute)]">aligned %</span> additionally needs DNSH, minimum-safeguards and financial tagging from your books. Positions with no
-            usable data are excluded from both sides rather than assumed. Load or refresh the book from{' '}
+            Eligibility by book value. The <span className="text-[var(--color-mute)]">aligned</span> share is worked out on the filing's official form from the facts your book states,
+            and where a fact is missing the figure is left blank and counted there, never assumed. Positions with no usable data are excluded
+            from both sides here. Load or refresh the book from{' '}
             <Link to="/portfolio" className="inline-flex items-center gap-0.5 text-[var(--color-sky)] hover:underline">Portfolio <ArrowUpRight size={11} /></Link>.
           </p>
         </div>

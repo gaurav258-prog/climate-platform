@@ -1399,6 +1399,44 @@
    ]
   }
  ],
+ "phase_in": [
+  {
+   "ref": "Article 10(6) of Delegated Regulation (EU) 2021/2178, added by Delegated Regulation (EU) 2023/2486",
+   "quote": "From 1 January 2024 until 31 December 2024, non-financial undertakings shall only disclose the proportion of Taxonomy-eligible and Taxonomy non-eligible economic activities",
+   "disclosures": {
+    "from": "2024-01-01",
+    "until": "2024-12-31"
+   },
+   "eligibility_only": {
+    "objectives": [
+     "wtr",
+     "ce",
+     "ppc",
+     "bio"
+    ],
+    "activities": {
+     "Delegated Regulation (EU) 2021/2139 Annex I": [
+      "3.18",
+      "3.19",
+      "3.20",
+      "3.21",
+      "6.18",
+      "6.19",
+      "6.20"
+     ],
+     "Delegated Regulation (EU) 2021/2139 Annex II": [
+      "5.13",
+      "7.8",
+      "8.4",
+      "9.3",
+      "14.1",
+      "14.2"
+     ]
+    }
+   },
+   "note": "For these disclosures only eligibility is reported for the activities Delegated Regulation 2023/2486 added — every activity of the four new objectives, and the listed sections of the climate Delegated Act; 'The key performance indicators of non-financial undertakings shall cover' them from 1 January 2025."
+  }
+ ],
  "interpretations": [],
  "capture": {
   "method": "drafted from the official text by an agent; every quote machine-checked verbatim against the extracted source",
@@ -1412,6 +1450,12 @@
     "T1/T2/T3 instructions: added Art 10(6) phase-in quote (KPIs cover 2023/2486 activities from 1.1.2025; FY2024 eligibility-only for those activities)"
    ]
   },
-  "note": "Annex II templates captured from the OJ HTML tables of 2023/2486 (text layer; labels machine-verified). The three per-objective breakdown tables (T1a/T2a/T3a) are images embedded in footnotes (3), (11), (19) (32023R2486_img/img001-003.jpg): their header labels are not in the text layer (expected verify MISS). Application: 2023/2486 Art 6 'It shall apply from 1 January 2024.'; Art 10(6) of 2021/2178 (added by Art 5(2) of 2023/2486): for FY2024 the new-objective activities and the listed new CCM/CCA sections are eligibility-only, 'The key performance indicators of non-financial undertakings shall cover the economic activities set out in Delegated Regulation (EU) 2023/2486 ... from 1 January 2025.' Until 2025-12-31: superseded by 2026/73 from 1.1.2026 (with Art 4 option to keep these rules for FY starting in 2025). Annex XII templates (XII_T1..XII_T5) copied from specs/_annex_xii_templates.json (captured from 32022R1214.txt). Second pass: T1/T2/T3 each have 15 rows (4 section headers A./A.1./A.2./B. + 3 illustrative A.1 activity rows + 3 A.1 subtotal rows + 1 A.2 activity row + A.2 subtotal + total A. + B. row + TOTAL) x 20 columns; the '16 rows' reading counts the printed unit row (Text/Currency/%/...) which is a format row, not a data row. Annex XII (Templates 1-5) is included: added by 2022/1214 (applies from 1.1.2023), not touched by 2023/2486, deleted only by 2026/73 Art 1(20) from 1.1.2026. until=2025-12-31 is the default; under 2026/73 Art 4 an undertaking may keep this version (incl. Annex XII) for the financial year starting in 2025."
+  "note": "Annex II templates captured from the OJ HTML tables of 2023/2486 (text layer; labels machine-verified). The three per-objective breakdown tables (T1a/T2a/T3a) are images embedded in footnotes (3), (11), (19) (32023R2486_img/img001-003.jpg): their header labels are not in the text layer (expected verify MISS). Application: 2023/2486 Art 6 'It shall apply from 1 January 2024.'; Art 10(6) of 2021/2178 (added by Art 5(2) of 2023/2486): for FY2024 the new-objective activities and the listed new CCM/CCA sections are eligibility-only, 'The key performance indicators of non-financial undertakings shall cover the economic activities set out in Delegated Regulation (EU) 2023/2486 ... from 1 January 2025.' Until 2025-12-31: superseded by 2026/73 from 1.1.2026 (with Art 4 option to keep these rules for FY starting in 2025). Annex XII templates (XII_T1..XII_T5) copied from specs/_annex_xii_templates.json (captured from 32022R1214.txt). Second pass: T1/T2/T3 each have 15 rows (4 section headers A./A.1./A.2./B. + 3 illustrative A.1 activity rows + 3 A.1 subtotal rows + 1 A.2 activity row + A.2 subtotal + total A. + B. row + TOTAL) x 20 columns; the '16 rows' reading counts the printed unit row (Text/Currency/%/...) which is a format row, not a data row. Annex XII (Templates 1-5) is included: added by 2022/1214 (applies from 1.1.2023), not touched by 2023/2486, deleted only by 2026/73 Art 1(20) from 1.1.2026. until=2025-12-31 is the default; under 2026/73 Art 4 an undertaking may keep this version (incl. Annex XII) for the financial year starting in 2025.",
+  "amendments": [
+   {
+    "on": "2026-09-29",
+    "change": "phase_in added: Article 10(6) as structured data (the same eligibility_only activities as the bank spec's Article 10(7), quoted in this spec's instructions and capture note); quote machine-checked verbatim against 32023R2486.txt"
+   }
+  ]
  }
 }

@@ -80,3 +80,63 @@ def activity_for(nace_code: str | None) -> dict:
         return {"status": "determined", "activities": cands, "section": a["section"], "title": a["title"],
                 "codes": [c["code"] for c in cands]}
     return {"status": "not_determined", "activities": cands}
+
+
+
+def codes_of(ref: str | None) -> list[str]:
+    """The activity codes of a stated activity reference ('CCM 7.7 / CCA 7.7 — Acquisition and ownership of buildings'
+    → ['CCM 7.7', 'CCA 7.7']); none when the reference names no printed code."""
+    head = (ref or "").split(" — ")[0]
+    return [c for c in (" ".join(p.split()).upper() for p in head.split(" / ")) if c in _by_code()]
+
+
+def _cited(phase: dict | None) -> list[tuple[str, str, str]]:
+    """(act number, annex, section) for every section a phase-in cites: 'Delegated Regulation (EU) 2021/2139 Annex II'
+    with '5.13' → ('2021/2139', 'Annex II', '5.13')."""
+    out = []
+    for where, sections in (((phase or {}).get("eligibility_only") or {}).get("activities") or {}).items():
+        act, annex = where.rsplit(" Annex ", 1)
+        out += [(act.split()[-1], f"Annex {annex}", s) for s in sections]
+    return out
+
+
+def _annex_objective(act_no: str, annex: str) -> str:
+    for act in reference()["acts"].values():
+        if act["short"].split("(EU) ")[-1].split()[0] == act_no and annex in (act.get("annexes") or {}):
+            return act["annexes"][annex]["objective"]
+    raise ValueError(f"a phase-in cites {annex} of {act_no}, which the activity reference does not map to an objective")
+
+
+def eligibility_only(phase: dict | None) -> frozenset[str]:
+    """The activity codes a spec's phase-in says are disclosed for eligibility only: every activity of the objectives
+    it lists, and the sections it cites of an act's annexes (the act's own Articles say which objective an annex
+    covers: acts[...].annexes). A cited section that matches no activity narrows nothing (see unmatched)."""
+    return _eligibility_only(json.dumps((phase or {}).get("eligibility_only") or {}, sort_keys=True))
+
+
+@lru_cache(maxsize=16)
+def _eligibility_only(only_json: str) -> frozenset[str]:
+    only = json.loads(only_json)
+    objs = only.get("objectives")
+    out = {a["code"] for a in activities() if objs == "all" or a["objective"] in (objs or [])}
+    for act_no, annex, section in _cited({"eligibility_only": only}):
+        code = f"{_annex_objective(act_no, annex).upper()} {section}"
+        if code in _by_code():
+            out.add(code)
+    return frozenset(out)
+
+
+def unmatched(phase: dict | None) -> list[dict]:
+    """Sections a phase-in cites that match no activity, each with the reference's declared finding (a cited section
+    with no finding on file raises: it is either a capture error or a new finding to declare)."""
+    notes = {u["cited"]: u for u in reference().get("unmatched_citations") or []}
+    out = []
+    for act_no, annex, section in _cited(phase):
+        if f"{_annex_objective(act_no, annex).upper()} {section}" in _by_code():
+            continue
+        key = next((k for k in notes if k.startswith(f"Section {section} of {annex} to ") and k.endswith(act_no)), None)
+        if key is None:
+            raise ValueError(f"a phase-in cites Section {section} of {annex} to {act_no}, which matches no activity "
+                             "and has no declared finding in the activity reference")
+        out.append(notes[key])
+    return out

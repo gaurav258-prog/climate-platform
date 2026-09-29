@@ -560,6 +560,14 @@ def _quote(spec: dict, tid: str, ref_starts: str) -> str | None:
     return f"“{i['quote']}” ({i['ref'].split(',')[0]})" if i else None
 
 
+def _disclosed_on(payload: dict, family: str, period_end):
+    """The date a filing's disclosure is made, for a spec family: frozen with the filing (_specs[family].disclosed_on),
+    else the day after its period end."""
+    from datetime import date, timedelta
+    on = ((payload or {}).get("_specs") or {}).get(family, {}).get("disclosed_on")
+    return date.fromisoformat(on) if on else period_end + timedelta(days=1)
+
+
 def _period_end(payload: dict):
     from datetime import date
     pe = ((payload or {}).get("_regulation") or {}).get("period_end")

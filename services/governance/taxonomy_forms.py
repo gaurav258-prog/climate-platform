@@ -9,7 +9,7 @@ from the values frozen into this filing.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import services.regspec as R
 from services.governance import taxonomy_gar as G
@@ -35,7 +35,8 @@ def sections(payload: dict, report_type: str = "bank_tcfd") -> list[dict]:
     rec = (payload.get("_specs") or {}).get(FAMILY) or {}
     spec = R.load(FAMILY, rec.get("version") or BEFORE_SPECS)
     pe = _period_end(payload)
-    disclosed = date.fromisoformat(rec["disclosed_on"]) if rec.get("disclosed_on") else pe + timedelta(days=1)
+    from services.governance.filing_annex import _disclosed_on
+    disclosed = _disclosed_on(payload, FAMILY, pe)
     prev = payload.get("_previous_period") or {}
     out = G.build(spec, assets, pe, previous_assets=prev.get("assets"),
                   previous_period_end=date.fromisoformat(prev["period_end"]) if prev.get("period_end") else None,
@@ -62,6 +63,11 @@ def _common_notes(spec: dict, counts: dict, rec: dict, prev: dict, pe: date) -> 
     if counts.get("phase_in"):
         ph = counts["phase_in"]
         notes.append(f"Not yet disclosed where marked — {ph['ref']}: “{ph['quote']}” {ph.get('note') or ''}".strip())
+        if counts.get("phased"):
+            notes.append(f"{counts['phased']:,} specific-purpose exposures ({counts['phased_gross']:,.0f} gross) finance an "
+                         "activity disclosed for eligibility only in this period: counted as eligible, left out of every "
+                         "aligned figure.")
+        notes += [f"{u['cited']}: {u['finding']} {u['reading']}" for u in ph.get("unmatched") or []]
     if counts["general_purpose_without_kpi"]:
         notes.append(f"{counts['general_purpose_without_kpi']:,} general-purpose exposures to undertakings in the numerator "
                      "have no counterparty KPIs on file: their eligible and aligned amounts are blank, not zero "

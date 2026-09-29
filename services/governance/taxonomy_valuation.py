@@ -23,6 +23,7 @@ from pathlib import Path
 
 from services.governance.pillar3_grids import collateral, counterparty
 from services.reference.eu_membership import is_member as eu_member
+from services.reference.taxonomy_activities import codes_of
 
 _DECL = Path(__file__).resolve().parents[2] / "data" / "reference" / "declarations"
 INSTRUMENT_DEFAULT = json.loads((_DECL / "instrument_type_default.json").read_text())["default"]
@@ -50,7 +51,8 @@ def facts(a: dict, period: tuple[date, date] | None = None) -> dict:
             "new": bool(period and orig and period[0].isoformat() <= orig <= period[1].isoformat()),
             "ep": a.get("ep_score_kwh_m2"), "ep_estimated": a.get("ep_score_estimated"),
             "epc": (str(a.get("epc_label") or "").strip().upper() or None),
-            "kpi": a.get("counterparty_taxonomy_kpi") or {}, "nace": a.get("nace_code")}
+            "kpi": a.get("counterparty_taxonomy_kpi") or {}, "nace": a.get("nace_code"),
+            "activities": frozenset(codes_of(a.get("taxonomy_activity")))}
 
 
 def general_purpose(f: dict) -> bool:

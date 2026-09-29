@@ -9,7 +9,8 @@ family nonfin_taxonomy). This module fills it from the book:
     'Acquisition and ownership of buildings'), see ml/regulatory/eu_taxonomy_classifier.py
   * alignment — per building, from the activity's criteria and the building's stated facts
     (services.governance.taxonomy_buildings for 7.7): aligned (A.1), not aligned (A.2), or not known — a building whose
-    alignment is not known sits in neither A.1 nor A.2 and is counted on the form
+    alignment is not known sits in neither A.1 nor A.2 and is counted on the form; while a phase-in says an activity
+    is disclosed for eligibility only (Art. 10(6)), its alignment is not decided and it is counted the same way
   * CapEx and OpEx — the undertaking's own ledger by activity: entered by it (input cells)
 The previous year (N-1) comes from the previous period's frozen filing. A cell no building states the fact for is blank.
 """
@@ -19,6 +20,9 @@ from datetime import date
 
 from services.governance import taxonomy_buildings as B
 from services.governance import taxonomy_vocabulary as V
+from services.reference.taxonomy_activities import eligibility_only
+
+_PHASED = "eligibility only in this disclosure (phase-in, Article 10(6))"
 
 FAMILY = "nonfin_taxonomy"
 _CODES_FOOTNOTE = "y – yes, taxonomy-eligible and taxonomy-aligned activity"
@@ -47,12 +51,17 @@ def _turnover(p: dict) -> tuple[float, bool]:
     return (float(g), False) if g is not None else (float(p.get("annual_noi_eur") or 0), True)
 
 
-def _book(props: list[dict] | None) -> list[dict]:
+def _book(props: list[dict] | None, phased: frozenset[str] = frozenset()) -> list[dict]:
     out = []
     for p in props or []:
         x, proxy = _turnover(p)
         act = _activity(p)
-        ev = B.evaluate(p) if act and act["section"] == "7.7" else {"aligned": None, "reasons": ["activity criteria not evaluated"]}
+        if act and phased & set(act["codes"]):
+            ev = {"aligned": None, "reasons": [_PHASED]}
+        elif act and act["section"] == "7.7":
+            ev = B.evaluate(p)
+        else:
+            ev = {"aligned": None, "reasons": ["activity criteria not evaluated"]}
         out.append({"x": x, "proxy": proxy, "act": act, "aligned": ev["aligned"] if act else False, "ev": ev})
     return out
 
@@ -67,10 +76,13 @@ def _group(b: dict) -> str | None:
     return {True: "aligned", False: "eligible_not_aligned"}.get(b["aligned"])      # None: alignment not known
 
 
-def build(spec: dict, properties: list[dict], period_end: date, *, previous_properties: list[dict] | None = None) -> dict:
+def build(spec: dict, properties: list[dict], period_end: date, *, previous_properties: list[dict] | None = None,
+          disclosure_date: date | None = None) -> dict:
     """{template_id: {kpi: grid}, 'counts', 'inputs', 'activities'}; grid rows keyed by row id, activity rows as
     '<slot row id>:<n>' (the undertaking's activities fill a flexible template's illustrative rows)."""
-    cur, prev = _book(properties), _book(previous_properties)
+    import services.regspec as R
+    ph = R.phase_in(spec, disclosure_date or date.today())
+    cur, prev = _book(properties, eligibility_only(ph)), _book(previous_properties, eligibility_only(ph))
     tot = sum(b["x"] for b in cur)
     ptot = sum(b["x"] for b in prev)
     acts: dict[str, dict] = {}
@@ -116,14 +128,18 @@ def build(spec: dict, properties: list[dict], period_end: date, *, previous_prop
                      "noi_proxy_turnover": sum(b["x"] for b in cur if b["proxy"]),
                      "eligible": sum(b["x"] for b in cur if b["act"]),
                      "alignment_unknown": len(unknown), "alignment_unknown_turnover": sum(b["x"] for b in unknown),
-                     "unknown_reasons": _top_reasons(unknown), "previous_period": bool(prev)}
+                     "unknown_reasons": _top_reasons(unknown), "previous_period": bool(prev),
+                     "phase_in": ph and {"ref": ph["ref"], "quote": ph["quote"], "note": ph.get("note")},
+                     "phased": sum(1 for b in cur if _PHASED in b["ev"]["reasons"]),
+                     "phased_turnover": sum(b["x"] for b in cur if _PHASED in b["ev"]["reasons"])}
     return out
 
 
 def _top_reasons(unknown: list[dict]) -> list[tuple[str, int]]:
     from collections import Counter
     # 'built 2010: EPC B; top-15 % … not stated' → the reason itself (the year only says which test applied)
-    c = Counter(r.split(": ", 1)[1] if r.startswith("built") and ": " in r else r for b in unknown for r in b["ev"]["reasons"])
+    c = Counter(r.split(": ", 1)[1] if r.startswith("built") and ": " in r else r for b in unknown for r in b["ev"]["reasons"]
+                if r != _PHASED)                    # a phase-in is counted on its own (counts['phased']), not as missing facts
     return c.most_common(4)
 
 
@@ -263,19 +279,32 @@ def binding(spec: dict) -> dict:
     return out
 
 
-def summary(properties: list[dict]) -> dict:
+def summary_of(payload: dict) -> dict:
+    """summary() of a filing's frozen property book, under the spec and disclosure date the filing was frozen with."""
+    import services.regspec as R
+    from services.governance.filing_annex import _disclosed_on, _period_end
+    rec = (payload.get("_specs") or {}).get(FAMILY) or {}
+    spec = R.load(FAMILY, rec["version"]) if rec.get("version") else None
+    ph = spec and R.phase_in(spec, _disclosed_on(payload, FAMILY, _period_end(payload)))
+    return summary(payload.get("properties") or [], eligibility_only(ph) if ph else frozenset())
+
+
+def summary(properties: list[dict], phased: frozenset[str] = frozenset()) -> dict:
     """The turnover split every surface shows (form data tab, pre-filing checks, export): total, eligible, aligned
-    (A.1), eligible but not aligned (A.2), alignment not known, non-eligible — and each building's verdict."""
-    bk = _book(properties)
+    (A.1), eligible but not aligned (A.2), alignment not known (facts missing), eligibility only (a phase-in),
+    non-eligible — and each building's verdict."""
+    bk = _book(properties, phased)
     tot = sum(b["x"] for b in bk)
     parts = {"eligible": sum(b["x"] for b in bk if b["act"]),
              "aligned": sum(b["x"] for b in bk if _group(b) == "aligned"),
              "not_aligned": sum(b["x"] for b in bk if _group(b) == "eligible_not_aligned"),
-             "unknown": sum(b["x"] for b in bk if b["act"] and b["aligned"] is None),
+             "unknown": sum(b["x"] for b in bk if b["act"] and b["aligned"] is None and _PHASED not in b["ev"]["reasons"]),
+             "phased": sum(b["x"] for b in bk if _PHASED in b["ev"]["reasons"]),
              "non_eligible": sum(b["x"] for b in bk if not b["act"])}
     return {"turnover": tot, **parts, "pct": {k: _pct(v, tot) for k, v in parts.items()},
             "noi_proxy": sum(1 for b in bk if b["proxy"]), "noi_proxy_turnover": sum(b["x"] for b in bk if b["proxy"]),
-            "n": len(bk), "n_unknown": sum(1 for b in bk if b["act"] and b["aligned"] is None),
+            "n": len(bk), "n_unknown": sum(1 for b in bk if b["act"] and b["aligned"] is None and _PHASED not in b["ev"]["reasons"]),
+            "n_phased": sum(1 for b in bk if _PHASED in b["ev"]["reasons"]),
             "unknown_reasons": _top_reasons([b for b in bk if b["act"] and b["aligned"] is None]),
             "buildings": [{"name": p.get("property_name") or p.get("entity_name"), "turnover": b["x"], "noi_proxy": b["proxy"],
                            "activity": " / ".join(b["act"]["codes"]) if b["act"] else None,

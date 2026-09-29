@@ -164,3 +164,21 @@ def test_t_minus_1_is_blank_without_a_previous_filing():
     prev_cols = [cid for cid, f in res["columns"].items() if f.get("period") == "previous"]
     assert prev_cols and all(out["T1"]["turnover"][r][c] is None for r in out["T1"]["turnover"] for c in prev_cols
                              if isinstance(out["T1"]["turnover"][r], dict) and c in out["T1"]["turnover"][r])
+
+
+def test_the_phase_in_leaves_new_activities_to_eligibility():
+    """Art. 10(7): a specific-purpose loan to an activity 2023/2485 added (CCM 3.18) is eligible but left out of every
+    aligned figure for disclosures in 2024-2025; from 2026 its alignment counts."""
+    loan = {**NFC, "instrument_type": "loans_and_advances", "outstanding_loan_balance_eur": 25, "nace_code": "29.32",
+            "specialised_lending": True, "taxonomy_status": "aligned", "taxonomy_objective": "ccm",
+            "taxonomy_contribution": "none", "taxonomy_activity": "CCM 3.18 — Manufacture of automotive and mobility components"}
+    spec = R.load("bank_taxonomy", V2023)
+    nfc = _row(spec, "T1", "Non-financial undertakings")
+    aligned, eligible = _col(spec, "T1", objective="ccm", measure="aligned"), _col(spec, "T1", objective="ccm", measure="eligible")
+    during = G.build(spec, BOOK + [loan], date(2024, 12, 31), disclosure_date=date(2025, 4, 30))
+    after = G.build(spec, BOOK + [loan], date(2025, 12, 31), disclosure_date=date(2026, 1, 15))
+    t_during, t_after = during["T1"]["turnover"][nfc], after["T1"]["turnover"][nfc]
+    assert t_during[eligible] == pytest.approx(t_after[eligible])                 # eligible in both
+    assert t_after[aligned] - t_during[aligned] == pytest.approx(25)              # aligned only once the phase-in ends
+    assert (during["counts"]["phased"], during["counts"]["phased_gross"]) == (1, 25)
+    assert after["counts"]["phased"] == 0

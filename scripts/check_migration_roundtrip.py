@@ -30,7 +30,10 @@ from alembic.script import ScriptDirectory
 from sqlalchemy.engine import make_url
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-SCRATCH = os.environ.get("MIGCHECK_DB", "climate_migcheck")
+# one scratch database per run (E33): sessions sharing a machine each run the gate, and a shared name let one run's
+# DROP ... WITH (FORCE) destroy another's check midway. MIGCHECK_DB names the prefix; the process id makes it unique.
+PREFIX = os.environ.get("MIGCHECK_DB", "climate_migcheck")
+SCRATCH = f"{PREFIX}_{os.getpid()}"
 
 _SNAPSHOT_SQL = {
     "column": """SELECT table_name || '.' || column_name || ' ' || data_type || COALESCE('(' || character_maximum_length || ')', '')
@@ -70,8 +73,23 @@ def _diff(want: frozenset[str], got: frozenset[str]) -> list[str]:
     return [f"  missing  {x[:220]}" for x in sorted(want - got)] + [f"  extra    {x[:220]}" for x in sorted(got - want)]
 
 
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def _fresh_database(admin: str, owner: str) -> None:
     with psycopg.connect(admin, autocommit=True) as a:
+        # scratch databases a killed run left behind (its process is gone) — never one a live run is using
+        for (name,) in a.execute("SELECT datname FROM pg_database WHERE datname LIKE %s", (f"{PREFIX}\\_%",)).fetchall():
+            tail = name[len(PREFIX) + 1:]
+            if tail.isdigit() and not _alive(int(tail)):
+                a.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
         a.execute(f"DROP DATABASE IF EXISTS {SCRATCH} WITH (FORCE)")
         a.execute(f'CREATE DATABASE {SCRATCH} OWNER "{owner}"')
 

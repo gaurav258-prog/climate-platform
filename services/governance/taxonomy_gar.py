@@ -30,6 +30,7 @@ from services.governance.taxonomy_valuation import UNDERTAKINGS as _UNDERTAKINGS
 from services.governance.taxonomy_valuation import facts
 from services.governance.taxonomy_valuation import general_purpose as _general_purpose
 from services.governance.taxonomy_valuation import value as _value
+from services.reference.taxonomy_activities import eligibility_only, unmatched
 from services.reference.taxonomy_objectives import codes as objective_codes
 
 _GAR_INSTRUMENTS = ("loans_and_advances", "debt_securities", "equity_instruments")
@@ -129,16 +130,16 @@ def amount(pop: list, measure: str, objective: str, basis: str, rules: dict, ph:
     objs = _objectives(objective, measure, ph)
     if not objs:
         return None
-    parts = [_value(f, x, measure, objs, basis) for f, x in pop]
+    phased = eligibility_only(ph) if ph and measure != "eligible" else frozenset()
+    parts = [0.0 if _phased(f, phased) else _value(f, x, measure, objs, basis) for f, x in pop]
     known = [p for p in parts if p is not None]
     return sum(known) if known else None
 
 
-def _phase(spec: dict, disclosure: date) -> dict | None:
-    for ph in spec.get("phase_in") or []:
-        if ph["disclosures"]["from"] <= disclosure.isoformat() <= ph["disclosures"]["until"]:
-            return ph
-    return None
+def _phased(f: dict, phased: frozenset[str]) -> bool:
+    """A specific-purpose exposure to an activity a phase-in discloses for eligibility only (Art. 10(7)): eligible, but
+    left out of every aligned figure. A general-purpose exposure is valued by the counterparty's own KPIs instead."""
+    return bool(phased) and not _general_purpose(f) and bool(f["activities"] & phased)
 
 
 def _not_required(ph: dict | None, measure: str | None, objective: str | None) -> bool:
@@ -163,7 +164,7 @@ def build(spec: dict, assets: list[dict], period_end: date, *, previous_assets: 
     has the single key 'all'."""
     rules = V.vocabulary().get("basis_rules", {})
     regime = _regime(spec)
-    ph = _phase(spec, disclosure_date or date.today())
+    ph = R.phase_in(spec, disclosure_date or date.today())
     t1 = V.resolve(spec, "T1")
     leaves = _leaves(t1, {r["id"]: r["label"] for r in R.template(spec, "T1")["rows"]})
 
@@ -248,6 +249,7 @@ def build(spec: dict, assets: list[dict], period_end: date, *, previous_assets: 
                                 row[c["id"]] = _pct(amount(pop, m or "gross", o, b, rules, ph), denom)
                     grid[r["id"]] = row
             out[tid][basis] = grid
+    phased_codes = eligibility_only(ph) if ph else frozenset()
     out["counts"] = {
         "exposures": len(cur),
         "unclassified": sum(1 for _, _, sc in cur if sc is None),
@@ -255,7 +257,9 @@ def build(spec: dict, assets: list[dict], period_end: date, *, previous_assets: 
         "subject_unstated": sum(1 for f, _, sc in cur if f["cp"] in _UNDERTAKINGS and f[regime] is None),
         "general_purpose_without_kpi": sum(1 for f, _, sc in cur if sc == "numerator" and _general_purpose(f) and not f["kpi"]),
         "previous_period": bool(prev), "regime": regime,
-        "phase_in": ph and {"ref": ph["ref"], "quote": ph["quote"], "note": ph.get("note")},
+        "phase_in": ph and {"ref": ph["ref"], "quote": ph["quote"], "note": ph.get("note"), "unmatched": unmatched(ph)},
+        "phased": sum(1 for f, _, sc in cur if sc == "numerator" and _phased(f, phased_codes)),
+        "phased_gross": sum(x for f, x, sc in cur if sc == "numerator" and _phased(f, phased_codes)),
         "covered": totals["current"]["covered"], "total": totals["current"]["total"]}
     return out
 

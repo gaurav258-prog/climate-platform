@@ -152,8 +152,8 @@ def _xlsx(framework: str, payload: dict) -> io.BytesIO:
         return build_disclosure_workbook(_cur(headers, payload), rows, "Holdings physical risk", _summary_blocks(framework, payload))
     if framework == "reit_taxonomy":
         # the property book with each building's EU Taxonomy verdict, then the Annex II templates as blocks
-        from services.governance.taxonomy_nonfin import summary
-        sm = summary(payload.get("properties") or [])
+        from services.governance.taxonomy_nonfin import summary_of
+        sm = summary_of(payload)
         headers = ["property_name", "turnover_eur", "noi_proxy", "activity", "aligned", "why"]
         rows = [[b["name"], b["turnover"], b["noi_proxy"], b["activity"],
                  {True: "aligned", False: "not aligned", None: "not determined"}[b["aligned"]] if b["activity"] else "not eligible",
