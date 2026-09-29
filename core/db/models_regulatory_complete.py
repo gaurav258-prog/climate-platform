@@ -1,15 +1,12 @@
 """
 SQLAlchemy ORM Models - REGULATORY & CRCS COMPLETE
 
-All 30+ model classes for:
+Model classes for:
 - Multi-tenancy (Organization, User)
 - Assets & Climate Exposure
-- Regulatory Frameworks & Versioning
-- Change Detection (CRCS)
 - Climate Scenarios & Financial Modeling
 - GHG Emissions & Metrics
 - Risk Scoring
-- Filings & Compliance
 - Subscriptions
 - Archive & Retention
 - Audit & Governance
@@ -70,10 +67,7 @@ class Organization(Base):
     users = relationship('User', back_populates='organization', cascade='all, delete-orphan')
     assets = relationship('BankAsset', back_populates='organization', cascade='all, delete-orphan')
     emissions = relationship('GHGEmissionsInventory', back_populates='organization', cascade='all, delete-orphan')
-    filings = relationship('RegulatoryFiling', back_populates='organization', cascade='all, delete-orphan')
-    crcs_subscription = relationship('OrgCRCSSubscription', back_populates='organization', uselist=False)
     module_subscriptions = relationship('OrgModuleSubscription', back_populates='organization', cascade='all, delete-orphan')
-    preference = relationship('OrgRegulationVersionPreference', back_populates='organization', uselist=False)
 
 
 class User(Base):
@@ -186,74 +180,10 @@ class ClimateHazardExposure(Base):
     asset = relationship('BankAsset', back_populates='hazard_exposures')
 
 
-# ============================================================================
-# REGULATORY FRAMEWORKS & VERSIONING
-# ============================================================================
-
-# ── Legacy CRCS schema (retired 2026-09-28, migration crcs_legacy_retire_20260928) ──────────────────────────────
-# RegulatoryFramework, RegulationVersion, OrgRegulationVersionPreference, RegulatoryChange, RegulatoryDocumentSnapshot,
-# RegulatoryChangeDetail, RegulatoryFiling, FilingAmendment, RegulatoryAlert, DashboardNotification and
-# OrgCrcsSubscription describe tables of a first CRCS design that no code path used; the tables are dropped at head.
-# The classes remain only so the historic bank-vertical migration (d9e3f4a5b6c7) replays unchanged. The live CRCS:
-# services/regulatory_monitoring/eurlex_detector.py and services/governance/reg_*.py.
-class RegulatoryFramework(Base):
-    __tablename__ = 'regulatory_frameworks'
-
-    framework_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    framework_name = Column(String(100), nullable=False, unique=True)
-    framework_region = Column(String(50))
-    mandatory_effective_date = Column(Date)
-    enforcing_body = Column(String(100))
-    penalty_mechanism = Column(String(255))
-    reporting_format = Column(String(100))
-    reporting_frequency = Column(String(50))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    versions = relationship('RegulationVersion', back_populates='framework', cascade='all, delete-orphan')
-    changes = relationship('RegulatoryChange', back_populates='framework', cascade='all, delete-orphan')
-    filings = relationship('RegulatoryFiling', back_populates='framework')
-
-
-class RegulationVersion(Base):
-    __tablename__ = 'regulation_versions'
-
-    version_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
-    version_number = Column(String(50), nullable=False)
-    version_label = Column(String(100))
-    published_date = Column(Date)
-    effective_date = Column(Date)
-    end_of_life_date = Column(Date)
-    support_status = Column(String(50))  # 'Current', 'Legacy', 'End of Life'
-    is_current = Column(Boolean, default=False)
-    schema_snapshot = Column(JSONB)
-    processing_logic_version = Column(String(50))
-    output_format_version = Column(String(50))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (UniqueConstraint('framework_id', 'version_number'),)
-
-    framework = relationship('RegulatoryFramework', back_populates='versions')
-    org_preferences = relationship('OrgRegulationVersionPreference', back_populates='version', foreign_keys='OrgRegulationVersionPreference.active_version_id')
-
-
-class OrgRegulationVersionPreference(Base):
-    __tablename__ = 'org_regulation_version_preference'
-
-    preference_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id'), nullable=False)
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
-    active_version_id = Column(UUID(as_uuid=True), ForeignKey('regulation_versions.version_id'))
-    previous_version_id = Column(UUID(as_uuid=True), ForeignKey('regulation_versions.version_id'))
-    immutability_rule = Column(String(50))  # 'immutable', 'mutable'
-    version_switched_date = Column(DateTime(timezone=True))
-    end_of_support_date = Column(Date)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (UniqueConstraint('org_id', 'framework_id'),)
-
-    organization = relationship('Organization', back_populates='preference')
-    version = relationship('RegulationVersion', back_populates='org_preferences', foreign_keys=[active_version_id])
+# The legacy CRCS schema (regulatory_frameworks, regulation_versions, regulatory_changes, regulatory_filings, …)
+# was dropped by migration crcs_legacy_retire_20260928 and its ORM classes removed; historic migrations replay from
+# frozen DDL in migrations/versions/sql/. The live CRCS: services/regulatory_monitoring/eurlex_detector.py and
+# services/governance/reg_*.py.
 
 
 class AnalyticsSavedView(Base):
@@ -422,109 +352,6 @@ class CommodityPriceIndex(Base):
 
 
 # ============================================================================
-# REGULATORY CHANGE DETECTION (CRCS)
-# ============================================================================
-
-class RegulatoryChange(Base):
-    __tablename__ = 'regulatory_changes'
-
-    change_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
-    old_version = Column(String(50))
-    new_version = Column(String(50))
-    change_source = Column(String(100))
-    source_document_url = Column(Text)
-    source_document_text = Column(JSONB)
-    detection_method = Column(String(50))
-    detected_date = Column(DateTime(timezone=True))
-    detected_by_system = Column(Boolean, default=True)
-    confirmed_date = Column(DateTime(timezone=True))
-    confirmed_by = Column(String(255))
-    publication_date = Column(Date)
-    official_effective_date = Column(Date)
-    implementation_deadline = Column(Date)
-    change_type = Column(String(50))
-    change_classification = Column(String(50))  # 'Change' or 'Module'
-    affected_tables = Column(JSONB)
-    affected_processing_modules = Column(JSONB)
-    affected_outputs = Column(JSONB)
-    breaking_change = Column(Boolean)
-    backward_compatible = Column(Boolean)
-    data_migration_required = Column(Boolean)
-    estimated_dev_hours = Column(Integer)
-    estimated_test_hours = Column(Integer)
-    estimated_total_hours = Column(Integer)
-    estimated_release_date = Column(Date)
-    customer_deadline = Column(Date)
-    urgency_flag = Column(Boolean)
-    status = Column(String(50))  # 'Detected', 'Confirmed', 'In Development', etc.
-    status_updated_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_new_module = Column(Boolean)
-    module_name = Column(String(255))
-    module_pricing_tier = Column(String(50))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (
-        UniqueConstraint('framework_id', 'old_version', 'new_version'),
-        Index('idx_regulatory_changes_status', 'status'),
-        Index('idx_regulatory_changes_deadline', 'implementation_deadline'),
-    )
-
-    framework = relationship('RegulatoryFramework', back_populates='changes')
-    details = relationship('RegulatoryChangeDetail', back_populates='change', cascade='all, delete-orphan')
-
-
-class RegulatoryDocumentSnapshot(Base):
-    """Last-seen scraped document per (framework, source) — the baseline change detection diffs against.
-
-    The change detector scrapes each framework's authoritative source (EUR-Lex, SEC, FCA) on a schedule.
-    To tell a genuine change from a re-fetch of the same document, it needs the PREVIOUS observation to
-    compare with: this table holds it. On first sight of a (framework, source) a snapshot is recorded and
-    NO change is raised (we just started watching); on a later run whose content hash differs, the stored
-    text is diffed against the new text and the snapshot is advanced. Never fabricated — a snapshot exists
-    only where a real document was actually fetched."""
-    __tablename__ = 'regulatory_document_snapshots'
-
-    snapshot_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id', ondelete='CASCADE'), nullable=False)
-    source_name = Column(String(60), nullable=False)   # 'EUR-Lex', 'SEC', 'FCA', …
-    title = Column(String(500))
-    url = Column(String(1000))
-    published_date = Column(String(60))                # as reported by the source (free-form)
-    content = Column(Text)                              # the scraped text we diff against
-    content_hash = Column(String(64), nullable=False)  # sha256(title + content) — the change signal
-    scraped_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (UniqueConstraint('framework_id', 'source_name'),)
-
-
-class RegulatoryChangeDetail(Base):
-    __tablename__ = 'regulatory_change_details'
-
-    detail_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    change_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_changes.change_id', ondelete='CASCADE'), nullable=False)
-    article_or_section = Column(String(255))
-    old_requirement = Column(Text)
-    new_requirement = Column(Text)
-    requirement_changed = Column(Text)
-    affects_data_model = Column(Boolean)
-    data_field_name = Column(String(255))
-    field_type_change = Column(String(100))
-    affects_processing_logic = Column(Boolean)
-    processing_change_description = Column(Text)
-    calculation_methodology_changed = Column(Boolean)
-    affects_output_format = Column(Boolean)
-    output_change_description = Column(Text)
-    mitigation_strategy = Column(Text)
-    breaking_change_mitigation = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    change = relationship('RegulatoryChange', back_populates='details')
-
-
-# ============================================================================
 # CLIMATE SCENARIOS & FINANCIAL MODELING
 # ============================================================================
 
@@ -661,83 +488,8 @@ class ClimateRiskScore(Base):
 
 
 # ============================================================================
-# REGULATORY FILINGS & OUTPUTS
-# ============================================================================
-
-class RegulatoryFiling(Base):
-    __tablename__ = 'regulatory_filings'
-
-    filing_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
-    version_id = Column(UUID(as_uuid=True), ForeignKey('regulation_versions.version_id'))
-    filing_type = Column(String(100))
-    reporting_period_start = Column(Date)
-    reporting_period_end = Column(Date)
-    filing_version = Column(Integer, default=1)
-    is_amended = Column(Boolean, default=False)
-    amended_from_filing_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_filings.filing_id'))
-    amendment_reason = Column(Text)
-    is_immutable = Column(Boolean)
-    status = Column(String(50))  # 'Draft', 'Submitted', 'Accepted', 'Amended'
-    submission_date = Column(DateTime(timezone=True))
-    filing_content = Column(JSONB)
-    narrative_summary = Column(Text)
-    certification_date = Column(DateTime(timezone=True))
-    certified_by = Column(String(255))
-    archive_status = Column(String(50))  # 'Live', 'Legacy Support', 'Archived'
-    archive_date = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (
-        UniqueConstraint('org_id', 'framework_id', 'reporting_period_end'),
-        Index('idx_filings_org_status', 'org_id', 'status'),
-        Index('idx_filings_org_date', 'org_id', 'submission_date'),
-    )
-
-    organization = relationship('Organization', back_populates='filings')
-    framework = relationship('RegulatoryFramework', back_populates='filings')
-    amendments = relationship('FilingAmendment', back_populates='filing', cascade='all, delete-orphan')
-
-
-class FilingAmendment(Base):
-    __tablename__ = 'filing_amendments'
-
-    amendment_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    filing_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_filings.filing_id'), nullable=False)
-    amendment_version = Column(Integer)
-    amendment_date = Column(DateTime(timezone=True))
-    amendment_reason = Column(Text)
-    old_values = Column(JSONB)
-    new_values = Column(JSONB)
-    amended_by = Column(String(255))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    filing = relationship('RegulatoryFiling', back_populates='amendments')
-
-
-# ============================================================================
 # SUBSCRIPTIONS & MODULES
 # ============================================================================
-
-class OrgCRCSSubscription(Base):
-    __tablename__ = 'org_crcs_subscription'
-
-    subscription_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False, unique=True)
-    subscription_tier = Column(String(50), default='Continuous Regulatory Compliance Service')
-    coverage_description = Column(Text)
-    annual_crcs_cost_eur = Column(DECIMAL(15, 2))
-    billing_start_date = Column(Date)
-    billing_end_date = Column(Date)
-    max_frameworks_covered = Column(Integer)
-    change_coverage_included = Column(String(255))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    organization = relationship('Organization', back_populates='crcs_subscription')
-
 
 class OrgModuleSubscription(Base):
     __tablename__ = 'org_module_subscriptions'
@@ -828,87 +580,3 @@ class KPISummary(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (UniqueConstraint('org_id', 'reporting_year'),)
-
-
-# ============================================================================
-# ALERTS & REAL-TIME NOTIFICATIONS (PHASE 2)
-# ============================================================================
-
-class RegulatoryAlert(Base):
-    __tablename__ = 'regulatory_alerts'
-
-    alert_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
-    change_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_changes.change_id', ondelete='CASCADE'))
-    framework_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_frameworks.framework_id'), nullable=False)
-
-    # Org-specific impact
-    affected_asset_count = Column(Integer, default=0)
-    total_assets = Column(Integer)
-    portfolio_value_affected_eur = Column(DECIMAL(18, 2))
-    total_portfolio_value_eur = Column(DECIMAL(18, 2))
-
-    # Technical impact
-    affected_tables = Column(JSONB)
-    affected_modules = Column(JSONB)
-    estimated_dev_hours = Column(Integer)
-    estimated_test_hours = Column(Integer)
-
-    # Timeline
-    regulatory_deadline = Column(Date)
-    org_implementation_deadline = Column(Date)
-    urgency_level = Column(String(20))  # 'low', 'medium', 'high', 'critical'
-
-    # Status tracking
-    alert_status = Column(String(50), default='new')  # 'new', 'viewed', 'acknowledged', 'in_progress', 'complete'
-    email_sent_at = Column(DateTime(timezone=True))
-    dashboard_viewed_at = Column(DateTime(timezone=True))
-    acknowledged_at = Column(DateTime(timezone=True))
-
-    # Benchmarking
-    peer_count_affected = Column(Integer)
-    peer_response_avg_weeks = Column(Integer)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (
-        UniqueConstraint('org_id', 'change_id'),
-        Index('idx_alerts_org_status', 'org_id', 'alert_status'),
-        Index('idx_alerts_urgency', 'org_id', 'urgency_level'),
-        Index('idx_alerts_deadline', 'org_implementation_deadline'),
-    )
-
-    organization = relationship('Organization')
-    change = relationship('RegulatoryChange')
-    framework = relationship('RegulatoryFramework')
-
-
-class DashboardNotification(Base):
-    __tablename__ = 'dashboard_notifications'
-
-    notification_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    org_id = Column(UUID(as_uuid=True), ForeignKey('organizations.org_id', ondelete='CASCADE'), nullable=False)
-    alert_id = Column(UUID(as_uuid=True), ForeignKey('regulatory_alerts.alert_id', ondelete='CASCADE'))
-
-    title = Column(String(255), nullable=False)
-    message = Column(Text)
-    notification_type = Column(String(50))  # 'regulatory_change', 'deadline_warning', 'task_update'
-    severity = Column(String(20))  # 'critical', 'high', 'medium', 'low'
-
-    is_read = Column(Boolean, default=False)
-    read_at = Column(DateTime(timezone=True))
-
-    action_url = Column(Text)
-    action_data = Column(JSONB)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True))
-
-    __table_args__ = (
-        Index('idx_notifications_org_unread', 'org_id', 'is_read'),
-        Index('idx_notifications_type', 'notification_type'),
-    )
-
-    organization = relationship('Organization')
-    alert = relationship('RegulatoryAlert')
